@@ -19,12 +19,13 @@ package org.apache.ignite.raft.jraft.storage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
-public class BaseStorageTest {
+public class BaseStorageTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     protected Path path;
 

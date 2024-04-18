@@ -16,11 +16,10 @@
  */
 package org.apache.ignite.raft.jraft;
 
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -153,14 +152,6 @@ public class RaftGroupService {
         this.started = true;
         LOG.info("Start the RaftGroupService successfully {}", this.node.getNodeId());
         return this.node;
-    }
-
-    /**
-     * Gets a future which complete when all committed update are applied to the node's state machine on start.
-     * @return Future completes when this node committed revision would be equal to the applied one.
-     */
-    public CompletableFuture<Long> getApplyCommittedFuture() {
-        return node.getApplyCommittedFuture();
     }
 
     public synchronized void shutdown() {

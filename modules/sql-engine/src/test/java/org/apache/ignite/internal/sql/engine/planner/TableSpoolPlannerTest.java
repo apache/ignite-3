@@ -19,13 +19,13 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.function.UnaryOperator;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableSpool;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -42,27 +42,9 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void tableSpoolDistributed() throws Exception {
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteTypeFactory f = Commons.typeFactory();
-
-        createTable(publicSchema,
-                "T0",
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("JID", f.createJavaType(Integer.class))
-                        .add("VAL", f.createJavaType(String.class))
-                        .build(),
-                someAffinity()
-        );
-
-        createTable(publicSchema,
-                "T1",
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("JID", f.createJavaType(Integer.class))
-                        .add("VAL", f.createJavaType(String.class))
-                        .build(),
-                someAffinity()
+        IgniteSchema publicSchema = createSchemaFrom(
+                createTestTable("T0"),
+                createTestTable("T1")
         );
 
         String sql = "select * "
@@ -79,5 +61,14 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
         assertNotNull(tblSpool, "Invalid plan:\n" + RelOptUtil.toString(phys));
 
         checkSplitAndSerialization(phys, publicSchema);
+    }
+
+    private static UnaryOperator<TableBuilder> createTestTable(String tableName) {
+        return tableBuilder -> tableBuilder
+                .name(tableName)
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("JID", NativeTypes.INT32)
+                .addColumn("VAL", NativeTypes.STRING)
+                .distribution(someAffinity());
     }
 }

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -29,25 +28,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
-import org.apache.ignite.internal.schema.configuration.ColumnChange;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultChange;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.util.IgniteNameUtils;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.function.Executable;
 
@@ -86,7 +77,8 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
                         + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "    }\n"
                         + "  },\n"
-                        + "  clientConnector: { port:10901 }\n"
+                        + "  clientConnector: { port:10901 },\n"
+                        + "  rest.port: 10300\n"
                         + "}"
         );
 
@@ -99,7 +91,8 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
                         + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "    }\n"
                         + "  },\n"
-                        + "  clientConnector: { port:10902 }\n"
+                        + "  clientConnector: { port:10902 },\n"
+                        + "  rest.port: 10301\n"
                         + "}"
         );
 
@@ -112,7 +105,8 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
                         + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "    }\n"
                         + "  },\n"
-                        + "  clientConnector: { port:10903 }\n"
+                        + "  clientConnector: { port:10903 },\n"
+                        + "  rest.port: 10302\n"
                         + "}"
         );
     }
@@ -130,56 +124,12 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
     }
 
     /**
-     * Check unsupported column type change.
-     */
-    @Test
-    public void testChangeColumnType() throws Exception {
-        List<Ignite> grid = startGrid();
-
-        createTable(grid);
-
-        assertColumnChangeFailed(grid, "valStr", c -> c.changeType(t -> t.changeType("UNKNOWN_TYPE")));
-
-        assertColumnChangeFailed(grid, "valInt",
-                colChanger -> colChanger.changeType(t -> t.changeType(ColumnType.blob().typeSpec().name())));
-
-        assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeType(t -> t.changePrecision(10)));
-        assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeType(t -> t.changeScale(10)));
-        assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeType(t -> t.changeLength(1)));
-
-        assertColumnChangeFailed(grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changePrecision(-1)));
-        assertColumnChangeFailed(grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changePrecision(10)));
-        assertColumnChangeFailed(grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changeScale(2)));
-        assertColumnChangeFailed(grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changeLength(10)));
-
-        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(-1)));
-        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(0)));
-        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeScale(-2)));
-        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(10)));
-        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeScale(2)));
-        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeLength(10)));
-    }
-
-    /**
-     * Check unsupported nullability change.
-     */
-    @Test
-    public void testChangeColumnsNullability() throws Exception {
-        List<Ignite> grid = startGrid();
-
-        createTable(grid);
-
-        assertColumnChangeFailed(grid, "valStr", colChanger -> colChanger.changeNullable(true));
-        assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeNullable(false));
-    }
-
-    /**
      * Returns grid nodes.
      */
     protected List<Ignite> startGrid() {
-        List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
+        CompletableFuture<Ignite>[] futures = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
-                .collect(toList());
+                .toArray(CompletableFuture[]::new);
 
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
@@ -191,11 +141,7 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
 
         TestIgnitionManager.init(initParameters);
 
-        await(CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])));
-
-        return futures.stream()
-                .map(CompletableFuture::join)
-                .collect(toUnmodifiableList());
+        return await(CompletableFutures.allOf(futures));
     }
 
     /**
@@ -204,10 +150,8 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
      * @param nodes Cluster nodes.
      */
     protected static void createTable(List<Ignite> nodes) {
-        try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null, "CREATE TABLE tbl1(key BIGINT PRIMARY KEY, valint INT, valblob BINARY,"
-                    + "valdecimal DECIMAL, valbigint BIGINT, valstr VARCHAR NOT NULL DEFAULT 'default')");
-        }
+        nodes.get(0).sql().execute(null, "CREATE TABLE tbl1(key BIGINT PRIMARY KEY, valint INT, valblob BINARY,"
+                + "valdecimal DECIMAL, valbigint BIGINT, valstr VARCHAR NOT NULL DEFAULT 'default')");
     }
 
     /**
@@ -217,9 +161,7 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
      * @param columnToAdd Column to add.
      */
     protected static void addColumn(List<Ignite> nodes, String columnToAdd) {
-        try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null, "ALTER TABLE " + TABLE + " ADD COLUMN " + columnToAdd);
-        }
+        nodes.get(0).sql().execute(null, "ALTER TABLE " + TABLE + " ADD COLUMN " + columnToAdd);
     }
 
     /**
@@ -229,9 +171,7 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
      * @param colName Name of column to drop.
      */
     protected static void dropColumn(List<Ignite> nodes, String colName) {
-        try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null, "ALTER TABLE " + TABLE + " DROP COLUMN " + colName + "");
-        }
+        nodes.get(0).sql().execute(null, "ALTER TABLE " + TABLE + " DROP COLUMN " + colName + "");
     }
 
     /**
@@ -241,14 +181,9 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
      * @param oldName Old column name.
      * @param newName New column name.
      */
+    // TODO: IGNITE-20315 syntax may change
     protected static void renameColumn(List<Ignite> nodes, String oldName, String newName) {
-        await(((TableManager) nodes.get(0).tables()).alterTableAsync(TABLE,
-                tblChanger -> {
-                    tblChanger.changeColumns(
-                            colListChanger -> colListChanger
-                                .rename(IgniteNameUtils.parseSimpleName(oldName), IgniteNameUtils.parseSimpleName(newName)));
-                    return true;
-            }));
+        nodes.get(0).sql().execute(null, String.format("ALTER TABLE %s RENAME COLUMN %s TO %s", TABLE, oldName, newName));
     }
 
     /**
@@ -256,37 +191,10 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
      *
      * @param nodes Cluster nodes.
      * @param colName Column name.
-     * @param defSup Default value supplier.
+     * @param def Default value.
      */
-    protected static void changeDefault(List<Ignite> nodes, String colName, Supplier<Object> defSup) {
-        await(((TableManager) nodes.get(0).tables()).alterTableAsync(TABLE, tblChanger -> {
-            tblChanger.changeColumns(
-                    colListChanger -> colListChanger
-                            .update(
-                                    IgniteNameUtils.parseSimpleName(colName),
-                                    colChanger -> colChanger.changeDefaultValueProvider(colDefChange -> colDefChange.convert(
-                                            ConstantValueDefaultChange.class).changeDefaultValue(defSup.get().toString()))
-                            ));
-            return true;
-        }));
-    }
-
-    /**
-     * Ensure configuration validation failed.
-     *
-     * @param grid Grid.
-     * @param colName Column to change.
-     * @param colChanger Column configuration changer.
-     */
-    private static void assertColumnChangeFailed(List<Ignite> grid, String colName, Consumer<ColumnChange> colChanger) {
-        assertThrows(IgniteException.class, () ->
-                await(((TableManager) grid.get(0).tables()).alterTableAsync(TABLE, tblChanger -> {
-                    tblChanger.changeColumns(
-                            listChanger ->
-                                    listChanger.update(IgniteNameUtils.parseSimpleName(colName), colChanger));
-                    return true;
-                }))
-        );
+    protected static void changeDefault(List<Ignite> nodes, String colName, String def) {
+        nodes.get(0).sql().execute(null, String.format("ALTER TABLE %s ALTER COLUMN %s SET DEFAULT '%s'", TABLE, colName, def));
     }
 
     protected static <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {

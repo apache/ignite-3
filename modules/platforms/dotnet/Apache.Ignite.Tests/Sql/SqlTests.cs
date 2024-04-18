@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Sql;
@@ -28,6 +29,8 @@ namespace Apache.Ignite.Tests.Sql
     /// <summary>
     /// Tests for SQL API: <see cref="ISql"/>.
     /// </summary>
+    [SuppressMessage("ReSharper", "NotDisposedResource", Justification = "Tests")]
+    [SuppressMessage("ReSharper", "NotDisposedResourceIsReturned", Justification = "Tests")]
     public class SqlTests : IgniteTestsBase
     {
         [OneTimeSetUp]
@@ -51,6 +54,7 @@ namespace Apache.Ignite.Tests.Sql
         {
             await Client.Sql.ExecuteAsync(null, "DROP TABLE TEST");
             await Client.Sql.ExecuteAsync(null, "DROP TABLE IF EXISTS TestDdlDml");
+            await Client.Sql.ExecuteAsync(null, "DROP TABLE IF EXISTS TestExecuteScript");
         }
 
         [Test]
@@ -116,9 +120,9 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestGetAllMultiplePages()
+        public async Task TestGetAllMultiplePages([Values(1, 2, 3, 4, 5, 6)] int pageSize)
         {
-            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: pageSize);
             await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
             var rows = await resultSet.ToListAsync();
 
@@ -237,7 +241,6 @@ namespace Apache.Ignite.Tests.Sql
             Assert.ThrowsAsync<ObjectDisposedException>(async () => await resultSet.ToListAsync());
 
             var enumerator = resultSet2.GetAsyncEnumerator();
-            await enumerator.MoveNextAsync(); // Skip first element.
             Assert.ThrowsAsync<ObjectDisposedException>(async () => await enumerator.MoveNextAsync());
         }
 
@@ -276,7 +279,7 @@ namespace Apache.Ignite.Tests.Sql
             // Insert data.
             for (var i = 0; i < 10; i++)
             {
-                var insertRes = await Client.Sql.ExecuteAsync(null, "INSERT INTO TestDdlDml VALUES (?, ?)", i, "hello " + i);
+                await using var insertRes = await Client.Sql.ExecuteAsync(null, "INSERT INTO TestDdlDml VALUES (?, ?)", i, "hello " + i);
 
                 Assert.IsFalse(insertRes.HasRowSet);
                 Assert.IsFalse(insertRes.WasApplied);
@@ -285,7 +288,7 @@ namespace Apache.Ignite.Tests.Sql
             }
 
             // Query data.
-            var selectRes = await Client.Sql.ExecuteAsync(null, "SELECT VAL as MYVALUE, ID, ID + 1 FROM TestDdlDml ORDER BY ID");
+            await using var selectRes = await Client.Sql.ExecuteAsync(null, "SELECT VAL as MYVALUE, ID, ID + 1 FROM TestDdlDml ORDER BY ID");
 
             Assert.IsTrue(selectRes.HasRowSet);
             Assert.IsFalse(selectRes.WasApplied);
@@ -311,12 +314,11 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual(0, columns[1].Scale);
             Assert.AreEqual(10, columns[1].Precision);
 
-            // TODO: Uncomment after https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken
-            // Assert.AreEqual("ID + 1", columns[2].Name);
+            Assert.AreEqual("ID + 1", columns[2].Name);
             Assert.IsNull(columns[2].Origin);
 
             // Update data.
-            var updateRes = await Client.Sql.ExecuteAsync(null, "UPDATE TESTDDLDML SET VAL='upd' WHERE ID < 5");
+            await using var updateRes = await Client.Sql.ExecuteAsync(null, "UPDATE TESTDDLDML SET VAL='upd' WHERE ID < 5");
 
             Assert.IsFalse(updateRes.WasApplied);
             Assert.IsFalse(updateRes.HasRowSet);
@@ -324,7 +326,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual(5, updateRes.AffectedRows);
 
             // Drop table.
-            var deleteRes = await Client.Sql.ExecuteAsync(null, "DROP TABLE TESTDDLDML");
+            await using var deleteRes = await Client.Sql.ExecuteAsync(null, "DROP TABLE TESTDDLDML");
 
             Assert.IsFalse(deleteRes.HasRowSet);
             Assert.IsNull(deleteRes.Metadata);
@@ -332,46 +334,54 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
+        public void TestInvalidTableNameInSqlThrowsException()
+        {
+            var ex = Assert.ThrowsAsync<SqlException>(async () => await Client.Sql.ExecuteAsync(null, "select x from bad"));
+
+            StringAssert.Contains("From line 1, column 15 to line 1, column 17: Object 'BAD' not found", ex!.Message);
+        }
+
+        [Test]
         public void TestInvalidSqlThrowsException()
         {
-            var ex = Assert.ThrowsAsync<IgniteException>(async () => await Client.Sql.ExecuteAsync(null, "select x from bad"));
-            StringAssert.Contains("From line 1, column 15 to line 1, column 17: Object 'BAD' not found", ex!.Message);
+            var ex = Assert.ThrowsAsync<SqlException>(async () => await Client.Sql.ExecuteAsync(null, "foo bar baz"));
+            var inner = (SqlException)ex!.InnerException!;
+
+            Assert.AreEqual(
+                "Invalid query, check inner exceptions for details: SqlStatement { " +
+                "Query = foo bar baz, Timeout = 00:00:00, Schema = PUBLIC, PageSize = 1024, Properties = { } }",
+                ex.Message);
+
+            Assert.AreEqual(
+                "Failed to parse query: Non-query expression encountered in illegal context. At line 1, column 1",
+                inner.Message);
         }
 
         [Test]
         public void TestCreateTableExistsThrowsException()
         {
-            var ex = Assert.ThrowsAsync<TableAlreadyExistsException>(
+            var ex = Assert.ThrowsAsync<SqlException>(
                 async () => await Client.Sql.ExecuteAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY)"));
 
-            Assert.AreEqual("Table already exists [name=\"PUBLIC\".\"TEST\"]", ex!.Message);
-            Assert.AreEqual("IGN-TBL-1", ex.CodeAsString);
-            Assert.AreEqual("TBL", ex.GroupName);
-            Assert.AreEqual(ErrorGroups.Table.TableAlreadyExists, ex.Code);
+            StringAssert.Contains("Table with name 'PUBLIC.TEST' already exists", ex!.Message);
         }
 
         [Test]
         public void TestAlterTableNotFoundThrowsException()
         {
-            var ex = Assert.ThrowsAsync<TableNotFoundException>(
+            var ex = Assert.ThrowsAsync<SqlException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"));
 
-            Assert.AreEqual("The table does not exist [name=\"PUBLIC\".\"NOT_EXISTS_TABLE\"]", ex!.Message);
-            Assert.AreEqual("IGN-TBL-2", ex.CodeAsString);
-            Assert.AreEqual("TBL", ex.GroupName);
-            Assert.AreEqual(ErrorGroups.Table.TableNotFound, ex.Code);
+            StringAssert.Contains("Table with name 'PUBLIC.NOT_EXISTS_TABLE' not found", ex!.Message);
         }
 
         [Test]
         public void TestAlterTableColumnExistsThrowsException()
         {
-            var ex = Assert.ThrowsAsync<ColumnAlreadyExistsException>(
+            var ex = Assert.ThrowsAsync<SqlException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE TEST ADD COLUMN ID INT"));
 
-            Assert.AreEqual("Column already exists [name=\"ID\"]", ex!.Message);
-            Assert.AreEqual("IGN-TBL-3", ex.CodeAsString);
-            Assert.AreEqual("TBL", ex.GroupName);
-            Assert.AreEqual(ErrorGroups.Table.ColumnAlreadyExists, ex.Code);
+            StringAssert.Contains("Failed to validate query. Column with name 'ID' already exists", ex!.Message);
         }
 
         [Test]
@@ -387,7 +397,7 @@ namespace Apache.Ignite.Tests.Sql
                 pageSize: 987,
                 properties: new Dictionary<string, object?> { { "prop1", 10 }, { "prop-2", "xyz" } });
 
-            var res = await client.Sql.ExecuteAsync(null, sqlStatement);
+            await using var res = await client.Sql.ExecuteAsync(null, sqlStatement);
             var rows = await res.ToListAsync();
             var props = rows.ToDictionary(x => (string)x["NAME"]!, x => (string)x["VAL"]!);
 
@@ -413,6 +423,97 @@ namespace Apache.Ignite.Tests.Sql
                 "ColumnMetadata { Name = NUM, Type = Int32, Precision = 10, Scale = 0, Nullable = False, Origin =  }, " +
                 "ColumnMetadata { Name = STR, Type = String, Precision = 5, Scale = -2147483648, Nullable = False, Origin =  } ] } }",
                 resultSet.ToString());
+        }
+
+        [Test]
+        public async Task TestSelectNull()
+        {
+            await using IResultSet<IIgniteTuple> resultSet = await Client.Sql.ExecuteAsync(null, "select null");
+
+            var rows = await resultSet.ToListAsync();
+
+            Assert.AreEqual(1, rows.Count);
+            Assert.IsNull(rows[0][0]);
+
+            Assert.AreEqual(
+                "ResultSet`1[IIgniteTuple] { HasRowSet = True, AffectedRows = -1, WasApplied = False, " +
+                "Metadata = ResultSetMetadata { Columns = [ " +
+                "ColumnMetadata { Name = NULL, Type = Null, Precision = -1, Scale = -2147483648, Nullable = True, Origin =  } ] } }",
+                resultSet.ToString());
+        }
+
+        [Test]
+        public async Task TestExecuteScript()
+        {
+            var id = Random.Shared.Next(100);
+
+            await Client.Sql.ExecuteScriptAsync(
+                "CREATE TABLE TestExecuteScript(ID INT PRIMARY KEY, VAL VARCHAR); " +
+                "DELETE FROM TestExecuteScript;" +
+                "INSERT INTO TestExecuteScript VALUES (?, ?); " +
+                "INSERT INTO TestExecuteScript VALUES (?, ?);",
+                id,
+                "a",
+                id + 1,
+                "b");
+
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "SELECT * FROM TESTEXECUTESCRIPT ORDER BY ID");
+            var rows = await resultSet.ToListAsync();
+
+            Assert.AreEqual(2, rows.Count);
+            Assert.AreEqual($"IgniteTuple {{ ID = {id}, VAL = a }}", rows[0].ToString());
+            Assert.AreEqual($"IgniteTuple {{ ID = {id + 1}, VAL = b }}", rows[1].ToString());
+        }
+
+        [Test]
+        public async Task TestScriptProperties()
+        {
+            using var server = new FakeServer();
+            using var client = await server.ConnectClientAsync();
+
+            var sqlStatement = new SqlStatement(
+                query: "SELECT PROPS",
+                timeout: TimeSpan.FromSeconds(123),
+                schema: "schema-1",
+                pageSize: 987,
+                properties: new Dictionary<string, object?> { { "prop1", 10 }, { "prop-2", "xyz" } });
+
+            await client.Sql.ExecuteScriptAsync(sqlStatement);
+            var resProps = server.LastSqlScriptProps;
+
+            Assert.AreEqual("schema-1", resProps["schema"]);
+            Assert.AreEqual(987, resProps["pageSize"]);
+            Assert.AreEqual(123000, resProps["timeoutMs"]);
+            Assert.AreEqual("SELECT PROPS", resProps["sql"]);
+            Assert.AreEqual(10, resProps["prop1"]);
+            Assert.AreEqual("xyz", resProps["prop-2"]);
+        }
+
+        [Test]
+        public void TestInvalidScriptThrowsSqlException()
+        {
+            var ex = Assert.ThrowsAsync<SqlException>(async () => await Client.Sql.ExecuteScriptAsync("CREATE SOMETHING"));
+            var inner = (SqlException)ex!.InnerException!;
+
+            Assert.AreEqual(
+                "Invalid query, check inner exceptions for details: SqlStatement { " +
+                "Query = CREATE SOMETHING, " +
+                "Timeout = 00:00:00, " +
+                "Schema = PUBLIC, " +
+                "PageSize = 1024, " +
+                "Properties = { } }",
+                ex.Message);
+
+            Assert.AreEqual("Failed to parse query: Encountered \"SOMETHING\" at line 1, column 8", inner.Message);
+        }
+
+        [Test]
+        public async Task TestCustomDecimalScale()
+        {
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "select (cast(10 as decimal(20, 10)) / ?)", 3m);
+            IIgniteTuple res = await resultSet.SingleAsync();
+
+            Assert.AreEqual(3.333333333333333m, res[0]);
         }
     }
 }

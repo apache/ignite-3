@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.trait;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -34,5 +35,5 @@ public interface Destination<RowT> {
     /**
      * Get all target nodes.
      */
-    List<String> targets();
+    Collection<String> targets();
 }

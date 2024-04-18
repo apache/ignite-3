@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Page store manager.

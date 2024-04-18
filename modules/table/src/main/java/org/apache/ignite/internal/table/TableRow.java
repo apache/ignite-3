@@ -21,7 +21,6 @@ import java.util.Objects;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Row to Tuple adapter.
@@ -77,19 +76,19 @@ public class TableRow extends MutableRowTupleAdapter {
          *
          * @param row Row
          */
-        KeyRowChunk(@NotNull Row row) {
+        KeyRowChunk(Row row) {
             super(row);
         }
 
         /** {@inheritDoc} */
         @Override
         public int columnCount() {
-            return tuple != null ? tuple.columnCount() : schema().keyColumns().length();
+            return tuple != null ? tuple.columnCount() : schema().keyColumns().size();
         }
 
         /** {@inheritDoc} */
         @Override
-        public int columnIndex(@NotNull String columnName) {
+        public int columnIndex(String columnName) {
             if (tuple != null) {
                 return tuple.columnIndex(columnName);
             }
@@ -98,15 +97,15 @@ public class TableRow extends MutableRowTupleAdapter {
 
             var col = schema().column(columnName);
 
-            return col == null || !schema().isKeyColumn(col.schemaIndex()) ? -1 : col.schemaIndex();
+            return col == null ? -1 : col.positionInKey();
         }
 
         /** {@inheritDoc} */
         @Override
-        protected Column rowColumnByName(@NotNull String columnName) {
+        protected Column rowColumnByName(String columnName) {
             final Column col = super.rowColumnByName(columnName);
 
-            if (!schema().isKeyColumn(col.schemaIndex())) {
+            if (col.positionInKey() == -1) {
                 throw new IllegalArgumentException("Invalid column name: columnName=" + columnName);
             }
 
@@ -116,9 +115,9 @@ public class TableRow extends MutableRowTupleAdapter {
         /** {@inheritDoc} */
         @Override
         protected Column rowColumnByIndex(int columnIndex) {
-            Objects.checkIndex(columnIndex, schema().keyColumns().length());
+            Objects.checkIndex(columnIndex, schema().keyColumns().size());
 
-            return schema().column(columnIndex);
+            return schema().keyColumns().get(columnIndex);
         }
     }
 
@@ -131,19 +130,19 @@ public class TableRow extends MutableRowTupleAdapter {
          *
          * @param row Row.
          */
-        ValueRowChunk(@NotNull Row row) {
+        ValueRowChunk(Row row) {
             super(row);
         }
 
         /** {@inheritDoc} */
         @Override
         public int columnCount() {
-            return tuple != null ? tuple.columnCount() : schema().valueColumns().length();
+            return tuple != null ? tuple.columnCount() : schema().valueColumns().size();
         }
 
         /** {@inheritDoc} */
         @Override
-        public int columnIndex(@NotNull String columnName) {
+        public int columnIndex(String columnName) {
             if (tuple != null) {
                 return tuple.columnIndex(columnName);
             }
@@ -152,16 +151,15 @@ public class TableRow extends MutableRowTupleAdapter {
 
             var col = schema().column(columnName);
 
-            return col == null || schema().isKeyColumn(col.schemaIndex()) ? -1 :
-                    col.schemaIndex() - schema().keyColumns().length();
+            return col == null ? -1 : col.positionInValue();
         }
 
         /** {@inheritDoc} */
         @Override
-        protected Column rowColumnByName(@NotNull String columnName) {
+        protected Column rowColumnByName(String columnName) {
             final Column col = super.rowColumnByName(columnName);
 
-            if (schema().isKeyColumn(col.schemaIndex())) {
+            if (col.positionInKey() >= 0) {
                 throw new IllegalArgumentException("Invalid column name: columnName=" + columnName);
             }
 
@@ -171,9 +169,9 @@ public class TableRow extends MutableRowTupleAdapter {
         /** {@inheritDoc} */
         @Override
         protected Column rowColumnByIndex(int columnIndex) {
-            Objects.checkIndex(columnIndex, schema().valueColumns().length());
+            Objects.checkIndex(columnIndex, schema().valueColumns().size());
 
-            return schema().column(columnIndex + schema().keyColumns().length());
+            return schema().valueColumns().get(columnIndex);
         }
     }
 }

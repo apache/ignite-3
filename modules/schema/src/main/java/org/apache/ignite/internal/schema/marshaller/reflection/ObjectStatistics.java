@@ -19,11 +19,13 @@ package org.apache.ignite.internal.schema.marshaller.reflection;
 
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
-import org.apache.ignite.internal.schema.Columns;
-import org.apache.ignite.internal.schema.NativeType;
+import java.util.List;
+import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.type.NativeType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Object statistic.
@@ -40,29 +42,30 @@ class ObjectStatistics {
         this.estimatedValueSize = estimatedValueSize;
     }
 
-    int getEstimatedValueSize() {
+    private int getEstimatedValueSize() {
         return estimatedValueSize;
     }
 
     /**
      * Reads object fields and gather statistic.
-     *
-     * @throws MarshallerException If failed to read object content.
      */
-    private static ObjectStatistics collectObjectStats(Columns cols, Marshaller marsh, Object obj) throws MarshallerException {
+    private static ObjectStatistics collectObjectStats(List<Column> cols, Marshaller marsh, @Nullable Object obj) {
         if (obj == null) {
             return ZERO_STATISTICS;
         }
 
         int estimatedValueSize = 0;
 
-        for (int i = 0; i < cols.length(); i++) {
+        for (int i = 0; i < cols.size(); i++) {
             Object val = marsh.value(obj, i);
-            NativeType colType = cols.column(i).type();
+            Column col = cols.get(i);
+            NativeType colType = col.type();
 
             if (val == null) {
                 continue;
             }
+
+            col.validate(val);
 
             if (colType.spec().fixedLength()) {
                 estimatedValueSize += colType.sizeInBytes();
@@ -74,17 +77,16 @@ class ObjectStatistics {
         return new ObjectStatistics(estimatedValueSize);
     }
 
-    static RowAssembler createAssembler(SchemaDescriptor schema, Marshaller keyMarsh, Object key)
-            throws MarshallerException {
+    static RowAssembler createAssembler(SchemaDescriptor schema, Marshaller keyMarsh, Object key) {
         ObjectStatistics keyStat = collectObjectStats(schema.keyColumns(), keyMarsh, key);
 
         int totalValueSize = keyStat.getEstimatedValueSize();
 
-        return new RowAssembler(schema.keyColumns(), null, schema.version(), totalValueSize);
+        return new RowAssembler(schema.version(), schema.keyColumns(), totalValueSize);
     }
 
-    static RowAssembler createAssembler(SchemaDescriptor schema, Marshaller keyMarsh, Marshaller valMarsh, Object key, Object val)
-            throws MarshallerException {
+    static RowAssembler createAssembler(
+            SchemaDescriptor schema, Marshaller keyMarsh, Marshaller valMarsh, Object key, @Nullable Object val) {
         ObjectStatistics keyStat = collectObjectStats(schema.keyColumns(), keyMarsh, key);
         ObjectStatistics valStat = collectObjectStats(schema.valueColumns(), valMarsh, val);
 

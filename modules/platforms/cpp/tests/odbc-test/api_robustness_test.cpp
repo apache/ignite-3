@@ -203,29 +203,28 @@ TEST_F(api_robustness_test, sql_exec_direct) {
 }
 
 TEST_F(api_robustness_test, sql_tables) {
-    // There are no checks because we do not really care what is the result of these
+    // There are no checks because we do not really care about the result of these
     // calls as long as they do not cause segmentation fault.
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR catalogName[] = "";
-    SQLCHAR schemaName[] = "";
-    SQLCHAR tableName[] = "";
-    SQLCHAR tableType[] = "";
+    SQLCHAR catalog_name[] = "";
+    SQLCHAR schema_name[] = "";
+    SQLCHAR table_name[] = "";
+    SQLCHAR table_type[] = "";
 
     // Everything is ok.
-    SQLRETURN ret = SQLTables(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
-        sizeof(tableName), tableType, sizeof(tableType));
+    SQLRETURN ret = SQLTables(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name),
+        table_name, sizeof(table_name), table_type, sizeof(table_type));
 
     UNUSED_VALUE ret;
-    // TODO IGNITE-19214: Uncomment once table metadata is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     // Sizes are nulls.
-    SQLTables(m_conn, catalogName, 0, schemaName, 0, tableName, 0, tableType, 0);
+    SQLTables(m_conn, catalog_name, 0, schema_name, 0, table_name, 0, table_type, 0);
 
     // Values are nulls.
-    SQLTables(m_conn, 0, sizeof(catalogName), 0, sizeof(schemaName), 0, sizeof(tableName), 0, sizeof(tableType));
+    SQLTables(m_conn, 0, sizeof(catalog_name), 0, sizeof(schema_name), 0, sizeof(table_name), 0, sizeof(table_type));
 
     // All nulls.
     SQLTables(m_conn, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -237,24 +236,22 @@ TEST_F(api_robustness_test, sql_columns) {
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR catalogName[] = "";
-    SQLCHAR schemaName[] = "";
-    SQLCHAR tableName[] = "";
+    SQLCHAR catalog_name[] = "";
+    SQLCHAR schema_name[] = "";
+    SQLCHAR table_name[] = "";
     SQLCHAR columnName[] = "";
 
     // Everything is ok.
-    SQLRETURN ret = SQLColumns(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
-        sizeof(tableName), columnName, sizeof(columnName));
+    SQLRETURN ret = SQLColumns(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name),
+        table_name, sizeof(table_name), columnName, sizeof(columnName));
 
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     // Sizes are nulls.
-    SQLColumns(m_conn, catalogName, 0, schemaName, 0, tableName, 0, columnName, 0);
+    SQLColumns(m_conn, catalog_name, 0, schema_name, 0, table_name, 0, columnName, 0);
 
     // Values are nulls.
-    SQLColumns(m_conn, 0, sizeof(catalogName), 0, sizeof(schemaName), 0, sizeof(tableName), 0, sizeof(columnName));
+    SQLColumns(m_conn, 0, sizeof(catalog_name), 0, sizeof(schema_name), 0, sizeof(table_name), 0, sizeof(columnName));
 
     // All nulls.
     SQLColumns(m_conn, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -398,17 +395,11 @@ TEST_F(api_robustness_test, sql_col_attribute) {
 
     // Everything is ok. Character attribute.
     ret = SQLColAttribute(m_statement, 1, SQL_COLUMN_TABLE_NAME, buffer, sizeof(buffer), &resLen, &numericAttr);
-
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     // Everything is ok. Numeric attribute.
     ret = SQLColAttribute(m_statement, 1, SQL_DESC_COUNT, buffer, sizeof(buffer), &resLen, &numericAttr);
-
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLColAttribute(m_statement, 1, SQL_COLUMN_TABLE_NAME, buffer, sizeof(buffer), &resLen, 0);
     SQLColAttribute(m_statement, 1, SQL_COLUMN_TABLE_NAME, buffer, sizeof(buffer), 0, &numericAttr);
@@ -445,9 +436,7 @@ TEST_F(api_robustness_test, sql_describe_col) {
     ret = SQLDescribeCol(m_statement, 1, columnName, sizeof(columnName), &columnNameLen, &dataType, &columnSize,
         &decimalDigits, &nullable);
 
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19214: Uncomment once column metadata is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLDescribeCol(
         m_statement, 1, 0, sizeof(columnName), &columnNameLen, &dataType, &columnSize, &decimalDigits, &nullable);
@@ -491,78 +480,80 @@ TEST_F(api_robustness_test, sql_foreign_keys) {
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR catalogName[] = "";
-    SQLCHAR schemaName[] = "cache";
-    SQLCHAR tableName[] = "TestType";
+    SQLCHAR catalog_name[] = "";
+    SQLCHAR schema_name[] = "cache";
+    SQLCHAR table_name[] = "TestType";
 
     // Everything is ok.
-    SQLRETURN ret = SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName),
-        tableName, sizeof(tableName), catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
-        sizeof(tableName));
+    SQLRETURN ret = SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name),
+        table_name, sizeof(table_name), catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name),
+        table_name, sizeof(table_name));
 
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19217: Uncomment once foreign keys query is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, 0, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName),
-        catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName));
+    SQLForeignKeys(m_statement, 0, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
+        sizeof(table_name), catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
+        sizeof(table_name));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, 0, schemaName, sizeof(schemaName), tableName, sizeof(tableName),
-        catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName));
+    SQLForeignKeys(m_statement, catalog_name, 0, schema_name, sizeof(schema_name), table_name, sizeof(table_name),
+        catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name, sizeof(table_name));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), 0, sizeof(schemaName), tableName, sizeof(tableName),
-        catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName));
+    SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), 0, sizeof(schema_name), table_name,
+        sizeof(table_name), catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
+        sizeof(table_name));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, 0, tableName, sizeof(tableName),
-        catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName));
+    SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, 0, table_name, sizeof(table_name),
+        catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name, sizeof(table_name));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), 0, sizeof(tableName),
-        catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName));
+    SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), 0,
+        sizeof(table_name), catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
+        sizeof(table_name));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, 0,
-        catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName));
+    SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name, 0,
+        catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name, sizeof(table_name));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
-        sizeof(tableName), 0, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName));
+    SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
+        sizeof(table_name), 0, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name, sizeof(table_name));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
-        sizeof(tableName), catalogName, 0, schemaName, sizeof(schemaName), tableName, sizeof(tableName));
+    SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
+        sizeof(table_name), catalog_name, 0, schema_name, sizeof(schema_name), table_name, sizeof(table_name));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
-        sizeof(tableName), catalogName, sizeof(catalogName), 0, sizeof(schemaName), tableName, sizeof(tableName));
+    SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
+        sizeof(table_name), catalog_name, sizeof(catalog_name), 0, sizeof(schema_name), table_name, sizeof(table_name));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
-        sizeof(tableName), catalogName, sizeof(catalogName), schemaName, 0, tableName, sizeof(tableName));
+    SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
+        sizeof(table_name), catalog_name, sizeof(catalog_name), schema_name, 0, table_name, sizeof(table_name));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
-        sizeof(tableName), catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), 0, sizeof(tableName));
+    SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
+        sizeof(table_name), catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), 0,
+        sizeof(table_name));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
-        sizeof(tableName), catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, 0);
+    SQLForeignKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name,
+        sizeof(table_name), catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name, 0);
 
     SQLCloseCursor(m_statement);
 
@@ -616,24 +607,25 @@ TEST_F(api_robustness_test, sql_primary_keys) {
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR catalogName[] = "";
-    SQLCHAR schemaName[] = "cache";
-    SQLCHAR tableName[] = "TestType";
+    SQLCHAR catalog_name[] = "";
+    SQLCHAR schema_name[] = "cache";
+    SQLCHAR table_name[] = "TestType";
 
     // Everything is ok.
-    SQLRETURN ret = SQLPrimaryKeys(
-        m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName));
+    SQLRETURN ret = SQLPrimaryKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name),
+        table_name, sizeof(table_name));
 
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19219: Uncomment once primary keys query execution is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    SQLPrimaryKeys(m_statement, 0, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName));
-    SQLPrimaryKeys(m_statement, catalogName, 0, schemaName, sizeof(schemaName), tableName, sizeof(tableName));
-    SQLPrimaryKeys(m_statement, catalogName, sizeof(catalogName), 0, sizeof(schemaName), tableName, sizeof(tableName));
-    SQLPrimaryKeys(m_statement, catalogName, sizeof(catalogName), schemaName, 0, tableName, sizeof(tableName));
-    SQLPrimaryKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), 0, sizeof(tableName));
-    SQLPrimaryKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, 0);
+    SQLPrimaryKeys(
+        m_statement, 0, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name, sizeof(table_name));
+    SQLPrimaryKeys(m_statement, catalog_name, 0, schema_name, sizeof(schema_name), table_name, sizeof(table_name));
+    SQLPrimaryKeys(
+        m_statement, catalog_name, sizeof(catalog_name), 0, sizeof(schema_name), table_name, sizeof(table_name));
+    SQLPrimaryKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, 0, table_name, sizeof(table_name));
+    SQLPrimaryKeys(
+        m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), 0, sizeof(table_name));
+    SQLPrimaryKeys(m_statement, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name), table_name, 0);
     SQLPrimaryKeys(m_statement, 0, 0, 0, 0, 0, 0);
 }
 
@@ -655,9 +647,7 @@ TEST_F(api_robustness_test, sql_num_params) {
     // Everything is ok.
     ret = SQLNumParams(m_statement, &params);
 
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19219: Uncomment once query execution is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLNumParams(m_statement, 0);
 }
@@ -680,9 +670,7 @@ TEST_F(api_robustness_test, sql_num_params_escaped) {
     // Everything is ok.
     ret = SQLNumParams(m_statement, &params);
 
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19219: Uncomment once query execution is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLNumParams(m_statement, 0);
 }
@@ -772,47 +760,45 @@ TEST_F(api_robustness_test, sql_special_columns) {
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR catalogName[] = "";
-    SQLCHAR schemaName[] = "cache";
-    SQLCHAR tableName[] = "TestType";
+    SQLCHAR catalog_name[] = "";
+    SQLCHAR schema_name[] = "cache";
+    SQLCHAR table_name[] = "TestType";
 
     // Everything is ok.
-    SQLRETURN ret = SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalogName, sizeof(catalogName), schemaName,
-        sizeof(schemaName), tableName, sizeof(tableName), SQL_SCOPE_CURROW, SQL_NO_NULLS);
+    SQLRETURN ret = SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalog_name, sizeof(catalog_name), schema_name,
+        sizeof(schema_name), table_name, sizeof(table_name), SQL_SCOPE_CURROW, SQL_NO_NULLS);
 
-    UNUSED_VALUE ret;
-    // TODO IGNITE-19218: Uncomment once special columns query execution is implemented.
-    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCloseCursor(m_statement);
 
-    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, 0, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
-        sizeof(tableName), SQL_SCOPE_CURROW, SQL_NO_NULLS);
+    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, 0, sizeof(catalog_name), schema_name, sizeof(schema_name),
+        table_name, sizeof(table_name), SQL_SCOPE_CURROW, SQL_NO_NULLS);
 
     SQLCloseCursor(m_statement);
 
-    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalogName, 0, schemaName, sizeof(schemaName), tableName,
-        sizeof(tableName), SQL_SCOPE_CURROW, SQL_NO_NULLS);
+    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalog_name, 0, schema_name, sizeof(schema_name), table_name,
+        sizeof(table_name), SQL_SCOPE_CURROW, SQL_NO_NULLS);
 
     SQLCloseCursor(m_statement);
 
-    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalogName, sizeof(catalogName), 0, sizeof(schemaName), tableName,
-        sizeof(tableName), SQL_SCOPE_CURROW, SQL_NO_NULLS);
+    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalog_name, sizeof(catalog_name), 0, sizeof(schema_name),
+        table_name, sizeof(table_name), SQL_SCOPE_CURROW, SQL_NO_NULLS);
 
     SQLCloseCursor(m_statement);
 
-    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalogName, sizeof(catalogName), schemaName, 0, tableName,
-        sizeof(tableName), SQL_SCOPE_CURROW, SQL_NO_NULLS);
+    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalog_name, sizeof(catalog_name), schema_name, 0, table_name,
+        sizeof(table_name), SQL_SCOPE_CURROW, SQL_NO_NULLS);
 
     SQLCloseCursor(m_statement);
 
-    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), 0,
-        sizeof(tableName), SQL_SCOPE_CURROW, SQL_NO_NULLS);
+    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name),
+        0, sizeof(table_name), SQL_SCOPE_CURROW, SQL_NO_NULLS);
 
     SQLCloseCursor(m_statement);
 
-    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName),
-        tableName, 0, SQL_SCOPE_CURROW, SQL_NO_NULLS);
+    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalog_name, sizeof(catalog_name), schema_name, sizeof(schema_name),
+        table_name, 0, SQL_SCOPE_CURROW, SQL_NO_NULLS);
 
     SQLCloseCursor(m_statement);
 

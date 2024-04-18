@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
 import java.io.IOException;
@@ -25,8 +26,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -34,7 +37,6 @@ import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Platform;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -76,17 +78,17 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
      *
      * @param spillOutPath Path at which to put spill-out data.
      */
-    public VolatileLogStorageFactoryCreator(Path spillOutPath) {
+    public VolatileLogStorageFactoryCreator(String nodeName, Path spillOutPath) {
         this.spillOutPath = Objects.requireNonNull(spillOutPath);
 
         executorService = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors() * 2,
-                new NamedThreadFactory("raft-volatile-log-rocksdb-spillout-pool", LOG)
+                NamedThreadFactory.create(nodeName, "raft-volatile-log-rocksdb-spillout-pool", LOG)
         );
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         try {
             Files.createDirectories(spillOutPath);
         } catch (IOException e) {
@@ -120,6 +122,8 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+
+        return nullCompletedFuture();
     }
 
     private void wipeOutDb() {

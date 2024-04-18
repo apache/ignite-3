@@ -39,12 +39,49 @@ dependencies {
     implementation libs.micronaut.security
     implementation libs.micronaut.security.annotations
 
+    testAnnotationProcessor libs.micronaut.inject.annotation.processor
+
+    testImplementation testFixtures(project(':ignite-core'))
     testImplementation libs.junit5.api
-    testImplementation libs.mockito.core
     testImplementation libs.junit5.params
+    testImplementation libs.mockito.core
+    testImplementation libs.micronaut.junit5
+    testImplementation libs.micronaut.http.client
+    testImplementation libs.micronaut.http.server.netty
+    testImplementation libs.hamcrest.core
+    testImplementation libs.hamcrest.optional
+}
+
+ext {
+    openapiFile = layout.buildDirectory.file("openapi/openapi.yaml").get().asFile
+
+    openapiProps = [
+            'micronaut.openapi.property.naming.strategy' : 'LOWER_CAMEL_CASE',
+            'micronaut.openapi.target.file' : openapiFile.path,
+            'micronaut.openapi.field.visibility.level' : 'PRIVATE'
+    ]
 }
 
 compileJava {
     options.fork = true
-    options.forkOptions.jvmArgs += '-Dmicronaut.openapi.config.file=openapi/openapi.properties'
+
+    openapiProps.each { key, val ->
+        options.forkOptions.jvmArgs += "-D$key=$val".toString()
+    }
+
+    // Force to rebuild each time (without caching) because we need to regenerate openapi spec.
+    outputs.upToDateWhen { false }
+}
+
+configurations {
+    openapiSpec {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+artifacts {
+    openapiSpec(openapiFile) {
+        builtBy(compileJava)
+    }
 }

@@ -17,37 +17,45 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.init;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import java.io.File;
 import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
-import org.junit.jupiter.api.Disabled;
+import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * Tests for {@link ClusterInitCommand}.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-19365")
 public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBase {
+    private static TestInfo TEST_INFO;
+
+    @BeforeAll
+    static void captureTestInfo(TestInfo testInfo) {
+        TEST_INFO = testInfo;
+    }
 
     @Test
     @DisplayName("Init cluster with basic authentication")
-    void initClusterWithBasicAuthentication() {
+    void initClusterWithBasicAuthentication() throws InterruptedException {
 
         // when
-        execute("connect", "http://localhost:10301");
+        connect(NODE_URL);
 
         resetOutput();
 
-        String clusterConfigurationFile = ItClusterInitTest.class.getClassLoader()
-                .getResource("cluster-configuration-with-enabled-auth.conf")
-                .getPath();
+        File clusterConfigurationFile = TestConfigManagerHelper.readClusterConfigurationWithEnabledAuthFile();
 
         execute(
                 "cluster", "init",
-                "--meta-storage-node", CLUSTER_NODE_NAMES.get(0),
+                "--meta-storage-node", testNodeName(TEST_INFO, 0),
                 "--cluster-name", "cluster",
-                "--cluster-config-file", clusterConfigurationFile
+                "--cluster-config-file", clusterConfigurationFile.getAbsolutePath()
         );
 
         assertAll(
@@ -67,6 +75,10 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
 
         // REST is available
         assertRestIsAvailable();
+    }
+
+    private void awaitClusterInitialized() throws InterruptedException {
+        waitForCondition(() -> CLUSTER.runningNodes().count() == initialNodes(), 30_000);
     }
 
     private void assertRestIsUnavailable() {

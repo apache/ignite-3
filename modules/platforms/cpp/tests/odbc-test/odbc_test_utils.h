@@ -35,6 +35,10 @@
  if (!SQL_SUCCEEDED(ret))                                                                                              \
  FAIL() << get_odbc_error_message(type, handle)
 
+#define ODBC_FAIL_ON_ERROR_OR_NE(ret, expected, type, handle)                                                          \
+ if (!SQL_SUCCEEDED(ret) && (ret) != (expected))                                                                       \
+ FAIL() << get_odbc_error_message(type, handle)
+
 #define ODBC_THROW_ON_ERROR(ret, type, handle)                                                                         \
  if (!SQL_SUCCEEDED(ret))                                                                                              \
   throw odbc_exception {                                                                                               \
@@ -119,7 +123,9 @@ constexpr size_t ODBC_BUFFER_SIZE = 1024;
  * @return SQLCHAR vector.
  */
 [[nodiscard]] inline std::vector<SQLCHAR> to_sqlchar(std::string_view str) {
-    return {str.begin(), str.end()};
+    std::vector<SQLCHAR> res{str.begin(), str.end()};
+    res.push_back(0);
+    return res;
 }
 
 /**
@@ -165,7 +171,7 @@ inline void odbc_connect(std::string_view connect_str, SQLHENV &env, SQLHDBC &co
         out_str, sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
 
     if (!SQL_SUCCEEDED(ret)) {
-        FAIL() << get_odbc_error_message(SQL_HANDLE_DBC, conn);
+        throw ignite_error(get_odbc_error_message(SQL_HANDLE_DBC, conn));
     }
 
     // Allocate a statement handle

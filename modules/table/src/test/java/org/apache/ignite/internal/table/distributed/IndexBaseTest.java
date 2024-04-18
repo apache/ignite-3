@@ -19,13 +19,11 @@ package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.toList;
-import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -33,8 +31,8 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.ColumnsExtractor;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
@@ -47,35 +45,41 @@ import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
+import org.apache.ignite.internal.table.distributed.replicator.TimedBinaryRow;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Base test for indexes. Sets up a table with (int, string) key and (int, string) value and
- * three indexes: primary key, hash index over value columns and sorted index over value columns.
+ * Base test for indexes. Sets up a table with (int, string) key and (int, string) value and three indexes: primary key, hash index over
+ * value columns and sorted index over value columns.
  */
-@ExtendWith(ConfigurationExtension.class)
 public abstract class IndexBaseTest extends BaseMvStoragesTest {
     protected static final int PARTITION_ID = 0;
 
-    private static final BinaryTupleSchema TUPLE_SCHEMA = BinaryTupleSchema.createRowSchema(schemaDescriptor);
+    private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
 
-    private static final BinaryTupleSchema PK_INDEX_SCHEMA = BinaryTupleSchema.createKeySchema(schemaDescriptor);
+    private static final BinaryTupleSchema TUPLE_SCHEMA = BinaryTupleSchema.createRowSchema(SCHEMA_DESCRIPTOR);
 
-    private static final BinaryRowConverter PK_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, PK_INDEX_SCHEMA);
+    private static final BinaryTupleSchema PK_INDEX_SCHEMA = BinaryTupleSchema.createKeySchema(SCHEMA_DESCRIPTOR);
+
+    private static final ColumnsExtractor PK_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, PK_INDEX_SCHEMA);
 
     private static final int[] USER_INDEX_COLS = {
-            schemaDescriptor.column("INTVAL").schemaIndex(),
-            schemaDescriptor.column("STRVAL").schemaIndex()
+            SCHEMA_DESCRIPTOR.column("INTVAL").positionInRow(),
+            SCHEMA_DESCRIPTOR.column("STRVAL").positionInRow()
     };
 
-    private static final BinaryTupleSchema USER_INDEX_SCHEMA = BinaryTupleSchema.createSchema(schemaDescriptor, USER_INDEX_COLS);
+    @InjectConfiguration
+    private StorageUpdateConfiguration storageUpdateConfiguration;
 
-    private static final BinaryRowConverter USER_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, USER_INDEX_SCHEMA);
+    private static final BinaryTupleSchema USER_INDEX_SCHEMA = BinaryTupleSchema.createSchema(SCHEMA_DESCRIPTOR, USER_INDEX_COLS);
+
+    private static final ColumnsExtractor USER_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, USER_INDEX_SCHEMA);
 
     private static final UUID TX_ID = UUID.randomUUID();
 
@@ -87,40 +91,69 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     GcUpdateHandler gcUpdateHandler;
 
-    @BeforeEach
-    void setUp(@InjectConfiguration GcConfiguration gcConfig) {
-        int pkIndexId = 1;
-        int sortedIndexId = 2;
-        int hashIndexId = 3;
+    public static UUID getTxId() {
+        return TX_ID;
+    }
 
-        pkInnerStorage = new TestHashIndexStorage(PARTITION_ID, null);
+    @BeforeEach
+    void setUp() {
+        int tableId = 1;
+        int pkIndexId = 2;
+        int sortedIndexId = 3;
+        int hashIndexId = 4;
+
+        pkInnerStorage = new TestHashIndexStorage(
+                PARTITION_ID,
+                new StorageHashIndexDescriptor(
+                        pkIndexId,
+                        List.of(
+                                new StorageHashIndexColumnDescriptor("INTKEY", NativeTypes.INT32, false),
+                                new StorageHashIndexColumnDescriptor("STRKEY", NativeTypes.STRING, false)
+                        ),
+                        true
+                )
+        );
 
         TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
                 pkIndexId,
                 pkInnerStorage,
-                PK_INDEX_BINARY_TUPLE_CONVERTER::toTuple
+                PK_INDEX_BINARY_TUPLE_CONVERTER
         );
 
-        sortedInnerStorage = new TestSortedIndexStorage(PARTITION_ID, new StorageSortedIndexDescriptor(sortedIndexId, List.of(
-                new StorageSortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true),
-                new StorageSortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true)
-        )));
+        sortedInnerStorage = new TestSortedIndexStorage(
+                PARTITION_ID,
+                new StorageSortedIndexDescriptor(
+                        sortedIndexId,
+                        List.of(
+                                new StorageSortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true),
+                                new StorageSortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true)
+                        ),
+                        false
+                )
+        );
 
         TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 sortedIndexId,
                 sortedInnerStorage,
-                USER_INDEX_BINARY_TUPLE_CONVERTER::toTuple
+                USER_INDEX_BINARY_TUPLE_CONVERTER
         );
 
-        hashInnerStorage = new TestHashIndexStorage(PARTITION_ID, new StorageHashIndexDescriptor(hashIndexId, List.of(
-                new StorageHashIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false),
-                new StorageHashIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false)
-        )));
+        hashInnerStorage = new TestHashIndexStorage(
+                PARTITION_ID,
+                new StorageHashIndexDescriptor(
+                        hashIndexId,
+                        List.of(
+                                new StorageHashIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false),
+                                new StorageHashIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false)
+                        ),
+                        false
+                )
+        );
 
         TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
                 hashIndexId,
                 hashInnerStorage,
-                USER_INDEX_BINARY_TUPLE_CONVERTER::toTuple
+                USER_INDEX_BINARY_TUPLE_CONVERTER
         );
 
         storage = new TestMvPartitionStorage(PARTITION_ID);
@@ -131,7 +164,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 hashIndexId, hashIndexStorage
         );
 
-        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(storage);
+        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PARTITION_ID, storage);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(indexes));
 
@@ -144,10 +177,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         storageUpdateHandler = new StorageUpdateHandler(
                 PARTITION_ID,
                 partitionDataStorage,
-                gcConfig,
-                mock(LowWatermark.class),
                 indexUpdateHandler,
-                gcUpdateHandler
+                storageUpdateConfiguration
         );
     }
 
@@ -158,15 +189,13 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     }
 
     static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row) {
+        addWrite(handler, rowUuid, row, null);
+    }
+
+    static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row, @Nullable HybridTimestamp lastCommitTime) {
         TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
 
-        handler.handleUpdate(
-                TX_ID,
-                rowUuid,
-                partitionId,
-                row == null ? null : row.byteBuffer(),
-                (unused) -> {}
-        );
+        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, false, null, null, lastCommitTime, null);
     }
 
     static BinaryRow defaultRow() {
@@ -185,8 +214,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     }
 
     boolean inIndexes(BinaryRow row, boolean mustBeInPk, boolean mustBeInUser) {
-        BinaryTuple pkIndexValue = PK_INDEX_BINARY_TUPLE_CONVERTER.toTuple(row);
-        BinaryTuple userIndexValue = USER_INDEX_BINARY_TUPLE_CONVERTER.toTuple(row);
+        BinaryTuple pkIndexValue = PK_INDEX_BINARY_TUPLE_CONVERTER.extractColumns(row);
+        BinaryTuple userIndexValue = USER_INDEX_BINARY_TUPLE_CONVERTER.extractColumns(row);
 
         assert pkIndexValue != null;
         assert userIndexValue != null;
@@ -226,24 +255,29 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         USE_UPDATE {
             @Override
             void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
-                handler.handleUpdate(
-                        TX_ID,
-                        rowUuid,
-                        partitionId,
-                        row == null ? null : row.byteBuffer(),
-                        (unused) -> {}
-                );
+                // TODO: perhaps need to pass last commit time as a param
+                handler.handleUpdate(TX_ID, rowUuid, partitionId, row, true, null, null, null, null);
             }
         },
         /** Uses updateAll api. */
         USE_UPDATE_ALL {
             @Override
             void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
+                BinaryRowMessage rowMessage = row == null
+                        ? null
+                        : MSG_FACTORY.binaryRowMessage()
+                                .binaryTuple(row.tupleSlice())
+                                .schemaVersion(row.schemaVersion())
+                                .build();
+
                 handler.handleUpdateAll(
                         TX_ID,
-                        singletonMap(rowUuid, row == null ? null : row.byteBuffer()),
+                        singletonMap(rowUuid, new TimedBinaryRow(rowMessage == null ? null : rowMessage.asBinaryRow(), null)),
                         partitionId,
-                        (unused) -> {}
+                        true,
+                        null,
+                        null,
+                        null
                 );
             }
         };

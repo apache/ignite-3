@@ -28,7 +28,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     /// Works for tuples and user objects, any differences are handled by the underlying <see cref="IRecordSerializerHandler{T}"/>.
     /// </summary>
     /// <typeparam name="T">Record type.</typeparam>
-    internal class RecordSerializer<T>
+    internal sealed class RecordSerializer<T>
     {
         /** Table. */
         private readonly Table _table;

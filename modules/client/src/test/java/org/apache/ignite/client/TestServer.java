@@ -36,24 +36,37 @@ import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
+import org.apache.ignite.client.handler.DummyAuthenticationManager;
+import org.apache.ignite.client.handler.FakeCatalogService;
+import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
-import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
+import org.apache.ignite.internal.client.ClientClusterNode;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.mockito.Mockito;
@@ -74,7 +87,13 @@ public class TestServer implements AutoCloseable {
 
     private final ClientHandlerMetricSource metrics;
 
+    private final AuthenticationManager authenticationManager;
+
     private final Ignite ignite;
+
+    private final FakePlacementDriver placementDriver = new FakePlacementDriver(FakeInternalTable.PARTITIONS);
+
+    private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     /**
      * Constructor.
@@ -94,6 +113,33 @@ public class TestServer implements AutoCloseable {
                 null,
                 UUID.randomUUID(),
                 null,
+                null,
+                null
+        );
+    }
+
+    /**
+     * Constructor.
+     */
+    public TestServer(
+            long idleTimeout,
+            Ignite ignite,
+            @Nullable Function<Integer, Boolean> shouldDropConnection,
+            @Nullable Function<Integer, Integer> responseDelay,
+            @Nullable String nodeName,
+            UUID clusterId,
+            @Nullable SecurityConfiguration securityConfiguration,
+            @Nullable Integer port
+    ) {
+        this(
+                idleTimeout,
+                ignite,
+                shouldDropConnection,
+                responseDelay,
+                nodeName,
+                clusterId,
+                securityConfiguration,
+                port,
                 null
         );
     }
@@ -111,8 +157,9 @@ public class TestServer implements AutoCloseable {
             @Nullable Function<Integer, Integer> responseDelay,
             @Nullable String nodeName,
             UUID clusterId,
-            @Nullable AuthenticationConfiguration authenticationConfiguration,
-            @Nullable Integer port
+            @Nullable SecurityConfiguration securityConfiguration,
+            @Nullable Integer port,
+            @Nullable HybridClock clock
     ) {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
@@ -148,43 +195,63 @@ public class TestServer implements AutoCloseable {
         Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
                 i -> getClusterNode(i.getArgument(0, String.class)));
 
-        IgniteCompute compute = new FakeCompute(nodeName);
+        IgniteComputeInternal compute = new FakeCompute(nodeName);
 
         metrics = new ClientHandlerMetricSource();
         metrics.enable();
 
-        AuthenticationConfiguration authenticationConfigToApply = authenticationConfiguration == null
-                ? mock(AuthenticationConfiguration.class)
-                : authenticationConfiguration;
+        if (clock == null) {
+            clock = new HybridClockImpl();
+        }
+
+        if (securityConfiguration == null) {
+            authenticationManager = new DummyAuthenticationManager();
+        } else {
+            authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
+            authenticationManager.start();
+        }
+
+        ClusterTag tag = msgFactory.clusterTag()
+                .clusterName("Test Server")
+                .clusterId(clusterId)
+                .build();
+
+        ClientConnectorConfiguration clientConnectorConfiguration = cfg.getConfiguration(ClientConnectorConfiguration.KEY);
+
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
-                        ignite,
-                        cfg,
-                        bootstrapFactory,
-                        shouldDropConnection,
-                        responseDelay,
-                        clusterService,
-                        compute,
-                        clusterId,
-                        metrics,
-                        authenticationConfigToApply)
+                ignite,
+                bootstrapFactory,
+                shouldDropConnection,
+                responseDelay,
+                clusterService,
+                compute,
+                tag,
+                metrics,
+                authenticationManager,
+                clock,
+                placementDriver,
+                clientConnectorConfiguration)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
-                        ignite.transactions(),
-                        cfg,
+                        (IgniteTransactionsImpl) ignite.transactions(),
                         compute,
                         clusterService,
                         bootstrapFactory,
-                        ignite.sql(),
-                        () -> CompletableFuture.completedFuture(clusterId),
+                        () -> CompletableFuture.completedFuture(tag),
                         mock(MetricManager.class),
                         metrics,
-                        authenticationManager(authenticationConfigToApply),
-                        authenticationConfigToApply
-                        );
+                        authenticationManager,
+                        new TestClockService(clock),
+                        new AlwaysSyncedSchemaSyncService(),
+                        new FakeCatalogService(FakeInternalTable.PARTITIONS),
+                        placementDriver,
+                        clientConnectorConfiguration,
+                        new TestLowWatermark()
+                );
 
-        module.start();
+        module.start().join();
     }
 
     /**
@@ -236,17 +303,27 @@ public class TestServer implements AutoCloseable {
         return metrics;
     }
 
+    /**
+     * Gets the placement driver.
+     *
+     * @return Placement driver.
+     */
+    public FakePlacementDriver placementDriver() {
+        return placementDriver;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
         module.stop();
+        authenticationManager.stop();
         bootstrapFactory.stop();
         cfg.stop();
         generator.close();
     }
 
     private ClusterNode getClusterNode(String name) {
-        return new ClusterNode(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
+        return new ClientClusterNode(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
     }
 
     private static String getNodeId(String name) {
@@ -259,11 +336,5 @@ public class TestServer implements AutoCloseable {
         } catch (IOException e) {
             throw new IOError(e);
         }
-    }
-
-    private AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) {
-        AuthenticationManagerImpl authenticationManager = new AuthenticationManagerImpl();
-        authenticationConfiguration.listen(authenticationManager);
-        return authenticationManager;
     }
 }

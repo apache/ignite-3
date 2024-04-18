@@ -27,14 +27,26 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.avatica.util.TimeUnit;
+import org.apache.calcite.config.CalciteConnectionConfig;
+import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.plan.RelOptTable.ToRelContext;
+import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.rel.type.RelDataTypeImpl;
+import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.calcite.schema.Schema;
+import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlNode;
@@ -45,15 +57,24 @@ import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlValidator;
+import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.sql.engine.framework.TestStatistic;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
+import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -70,7 +91,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
 
     private static final RelDataType VARCHAR = TYPE_FACTORY.createSqlType(SqlTypeName.VARCHAR, 20);
 
-    private static final List<RelDataType> NUMERIC_TYPES =  SqlTypeName.NUMERIC_TYPES.stream().map(t -> {
+    private static final List<RelDataType> NUMERIC_TYPES = SqlTypeName.NUMERIC_TYPES.stream().map(t -> {
         if (t == SqlTypeName.DECIMAL) {
             return TYPE_FACTORY.createSqlType(t, 10, 2);
         } else {
@@ -90,8 +111,8 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         RelDataType booleanType = TYPE_FACTORY.createSqlType(SqlTypeName.BOOLEAN);
 
         for (RelDataType type : NUMERIC_TYPES) {
-            numericRules.add(typeCoercionRule(type, booleanType, new ToSpecificType(type)));
-            numericRules.add(typeCoercionRule(booleanType, type, new ToSpecificType(type)));
+            numericRules.add(typeCoercionIsNotSupported(type, booleanType));
+            numericRules.add(typeCoercionIsNotSupported(booleanType, type));
         }
 
         return numericRules.stream();
@@ -171,26 +192,6 @@ public class TypeCoercionTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("numericToDate")
     public void testNumericToDate(TypeCoercionRule rule) {
-        RelDataType lhs = rule.lhs;
-        RelDataType rhs = rule.rhs;
-        List<SqlTypeName> types = Arrays.asList(lhs.getSqlTypeName(), rhs.getSqlTypeName());
-
-        boolean tinyIntDate = types.contains(SqlTypeName.TINYINT);
-        boolean smallIntDate = types.contains(SqlTypeName.SMALLINT);
-        boolean intDate = types.contains(SqlTypeName.INTEGER);
-        boolean bigIntDate = types.contains(SqlTypeName.BIGINT);
-        boolean decimalDateLhsIsDecimal = types.contains(SqlTypeName.DECIMAL);
-
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-18557
-        // Use assumptions otherwise we got an AssertionError:
-        /*
-        at org.apache.calcite.sql.validate.implicit.AbstractTypeCoercion.needToCast(AbstractTypeCoercion.java:274)
-        // Should keep sync with rules in SqlTypeCoercionRule.
-        assert SqlTypeUtil.canCastFrom(toType, fromType, true);
-         */
-        Assumptions.assumeFalse(tinyIntDate || smallIntDate || bigIntDate || intDate);
-        Assumptions.assumeFalse(decimalDateLhsIsDecimal);
-
         var tester = new BinaryOpTypeCoercionTester(rule);
         tester.execute();
     }
@@ -355,9 +356,8 @@ public class TypeCoercionTest extends AbstractPlannerTest {
             }
 
             runBinaryOpTypeCoercionTest(rule, (planner, node) -> {
-                String error = String.format("Cannot apply '%s' to arguments of type '<%s> %s <%s>",
-                        rule.operator.getName(), rule.lhs, rule.operator.getName(), rule.rhs
-                );
+                String error = String.format("Values passed to %s operator must have compatible types", rule.operator.getName());
+
                 CalciteContextException e = assertThrows(CalciteContextException.class, () -> planner.validate(node));
                 assertThat(e.getMessage(), containsString(error));
             });
@@ -370,24 +370,18 @@ public class TypeCoercionTest extends AbstractPlannerTest {
                 .add("C2", rule.rhs)
                 .build();
 
+        TestTable testTable = new TestTable("A", tableType, IgniteDistributions.single());
+
         String dummyQuery = String.format("SELECT c1 %s c2 FROM A", rule.operator.getName());
-        runTest(dummyQuery, testCase, tableType);
+        runTest(dummyQuery, testCase, createSchema(testTable));
     }
 
     private void runTest(String query, BiConsumer<IgnitePlanner, SqlNode> testCase) {
-        runTest(query, testCase, null);
+        runTest(query, testCase, createSchema());
     }
 
-    private void runTest(String query, BiConsumer<IgnitePlanner, SqlNode> testCase, @Nullable RelDataType tableType) {
-        IgniteSchema igniteSchema;
-        if (tableType != null) {
-            TestTable testTable = createTable("A", tableType, DEFAULT_TBL_SIZE, IgniteDistributions.single());
-            igniteSchema = createSchema(testTable);
-        } else {
-            igniteSchema = createSchema();
-        }
-
-        PlanningContext planningCtx = plannerCtx(query, igniteSchema);
+    private void runTest(String query, BiConsumer<IgnitePlanner, SqlNode> testCase, IgniteSchema schema) {
+        PlanningContext planningCtx = plannerCtx(query, schema);
 
         try (IgnitePlanner planner = planningCtx.planner()) {
             SqlNode node;
@@ -568,5 +562,139 @@ public class TypeCoercionTest extends AbstractPlannerTest {
 
     private static RelDataType nullable(RelDataType relDataType) {
         return TYPE_FACTORY.createTypeWithNullability(relDataType, true);
+    }
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-15200 Replace with TestTable from test framework.
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373: Remove when INTERVAL type will be supported natively,
+    // or this issue is resolved.
+
+    /** Test table. */
+    @Deprecated
+    private static class TestTable implements IgniteTable {
+        private final String name;
+
+        private final RelProtoDataType protoType;
+
+        private final int id = nextTableId();
+        private final IgniteDistribution distribution;
+
+        /** Constructor. */
+        private TestTable(String name, RelDataType type, IgniteDistribution distribution) {
+            protoType = RelDataTypeImpl.proto(type);
+            this.name = name;
+            this.distribution = distribution;
+        }
+
+        @Override
+        public int id() {
+            return id;
+        }
+
+        @Override
+        public int version() {
+            return 0;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet bitSet) {
+            RelDataType rowType = protoType.apply(typeFactory);
+
+            if (bitSet != null) {
+                RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(typeFactory);
+                for (int i = bitSet.nextSetBit(0); i != -1; i = bitSet.nextSetBit(i + 1)) {
+                    b.add(rowType.getFieldList().get(i));
+                }
+                rowType = b.build();
+            }
+
+            return rowType;
+        }
+
+        @Override
+        public TableScan toRel(ToRelContext context, RelOptTable relOptTable) {
+            RelOptCluster cluster = context.getCluster();
+            List<RelHint> hints = context.getTableHints();
+
+            return IgniteLogicalTableScan.create(cluster, cluster.traitSet(), hints, relOptTable, null, null, null);
+        }
+
+        @Override
+        public Statistic getStatistic() {
+            return new TestStatistic(100.0);
+        }
+
+        @Override
+        public Schema.TableType getJdbcTableType() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public boolean isRolledUp(String col) {
+            return false;
+        }
+
+        @Override
+        public boolean rolledUpColumnValidInsideAgg(String column, SqlCall call, SqlNode parent, CalciteConnectionConfig config) {
+            throw new AssertionError();
+        }
+
+        @Override
+        public IgniteDistribution distribution() {
+            return distribution;
+        }
+
+        @Override
+        public TableDescriptor descriptor() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public Supplier<PartitionCalculator> partitionCalculator() {
+            return null;
+        }
+
+        @Override
+        public Map<String, IgniteIndex> indexes() {
+            return Map.of();
+        }
+
+        @Override
+        public int partitions() {
+            return 1;
+        }
+
+        @Override
+        public String name() {
+            return name;
+        }
+
+        @Override
+        public <C> @Nullable C unwrap(Class<C> cls) {
+            if (cls.isInstance(this)) {
+                return cls.cast(this);
+            }
+            return null;
+        }
+
+        @Override
+        public boolean isUpdateAllowed(int colIdx) {
+            return false;
+        }
+
+        @Override
+        public ImmutableIntList keyColumns() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public RelDataType rowTypeForInsert(IgniteTypeFactory factory) {
+            throw new AssertionError();
+        }
+
+        @Override
+        public RelDataType rowTypeForDelete(IgniteTypeFactory factory) {
+            throw new AssertionError();
+        }
     }
 }

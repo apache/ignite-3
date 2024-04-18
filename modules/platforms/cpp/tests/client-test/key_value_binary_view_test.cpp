@@ -21,6 +21,7 @@
 #include "ignite/client/ignite_client.h"
 #include "ignite/client/ignite_client_configuration.h"
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -133,6 +134,23 @@ TEST_F(key_value_binary_view_test, put_empty_value_throws) {
                 kv_view.put(nullptr, get_tuple(1), {});
             } catch (const ignite_error &e) {
                 EXPECT_STREQ("Value tuple can not be empty", e.what());
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_F(key_value_binary_view_test, put_extra_collumn_value_throws) {
+    auto key_tuple = get_tuple(1);
+    auto val_tuple = get_tuple("foo");
+    val_tuple.set("extra", std::string("extra"));
+    EXPECT_THROW(
+        {
+            try {
+                kv_view.put(nullptr, key_tuple, val_tuple);
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(),
+                    testing::MatchesRegex("Tuple doesn't match schema: schemaVersion=.+, extraColumns=extra"));
                 throw;
             }
         },
@@ -842,12 +860,11 @@ TEST_F(key_value_binary_view_test, remove_all_nonexisting_keys_return_all) {
 
     EXPECT_EQ(res.size(), 2);
 
-    // TODO: Key order should be preserved by the server (IGNITE-16004).
     EXPECT_EQ(1, res[0].column_count());
-    EXPECT_EQ(2, res[0].get<int64_t>("key"));
+    EXPECT_EQ(1, res[0].get<int64_t>("key"));
 
     EXPECT_EQ(1, res[1].column_count());
-    EXPECT_EQ(1, res[1].get<int64_t>("key"));
+    EXPECT_EQ(2, res[1].get<int64_t>("key"));
 }
 
 TEST_F(key_value_binary_view_test, remove_all_only_existing) {
@@ -878,12 +895,11 @@ TEST_F(key_value_binary_view_test, remove_all_overlapped) {
 
     EXPECT_EQ(res.size(), 2);
 
-    // TODO: Key order should be preserved by the server (IGNITE-16004).
     EXPECT_EQ(1, res[0].column_count());
-    EXPECT_EQ(12, res[0].get<int64_t>("key"));
+    EXPECT_EQ(11, res[0].get<int64_t>("key"));
 
     EXPECT_EQ(1, res[1].column_count());
-    EXPECT_EQ(11, res[1].get<int64_t>("key"));
+    EXPECT_EQ(12, res[1].get<int64_t>("key"));
 }
 
 TEST_F(key_value_binary_view_test, remove_all_empty) {
@@ -894,8 +910,15 @@ TEST_F(key_value_binary_view_test, remove_all_empty) {
 TEST_F(key_value_binary_view_test, remove_all_exact_nonexisting) {
     auto res = kv_view.remove_all(nullptr, {{get_tuple(1), get_tuple("foo")}, {get_tuple(2), get_tuple("bar")}});
 
-    // TODO: Key order should be preserved by the server (IGNITE-16004).
     ASSERT_EQ(2, res.size());
+
+    EXPECT_EQ(2, res[0].column_count());
+    EXPECT_EQ(1, res[0].get<int64_t>("key"));
+    EXPECT_EQ("foo", res[0].get<std::string>("val"));
+
+    EXPECT_EQ(2, res[1].column_count());
+    EXPECT_EQ(2, res[1].get<int64_t>("key"));
+    EXPECT_EQ("bar", res[1].get<std::string>("val"));
 }
 
 TEST_F(key_value_binary_view_test, remove_all_exact_overlapped) {
@@ -959,6 +982,7 @@ TEST_F(key_value_binary_view_test, types_test) {
         {"timestamp2", ignite_timestamp(3875238472, 248760634)},
         {"blob", std::vector<std::byte>{std::byte(1), std::byte(2), std::byte(42)}},
         {"decimal", big_decimal(123456789098765)},
+        {"boolean", true},
     };
 
     kv_view.put(nullptr, get_tuple(42), inserted);

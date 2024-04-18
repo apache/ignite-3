@@ -88,9 +88,11 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
     /** {@inheritDoc} */
     @Override
     protected void describeMismatchSafely(CompletableFuture<? extends T> item, Description mismatchDescription) {
-        Object valueDescription = item.isDone() ? item.join() : item;
-
-        mismatchDescription.appendText("was ").appendValue(valueDescription);
+        if (item.isDone()) {
+            matcher.describeMismatch(item.join(), mismatchDescription);
+        } else {
+            mismatchDescription.appendText("was ").appendValue(item);
+        }
     }
 
     /**

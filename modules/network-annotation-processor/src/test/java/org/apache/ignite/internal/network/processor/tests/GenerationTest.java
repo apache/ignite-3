@@ -28,13 +28,14 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.util.List;
 import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class GenerationTest {
+class GenerationTest extends BaseIgniteAbstractTest {
     @Mock
     private UserObjectMarshaller marshaller;
 

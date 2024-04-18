@@ -19,6 +19,8 @@ package org.apache.ignite;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.catalog.IgniteCatalog;
+import org.apache.ignite.catalog.Options;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.network.ClusterNode;
@@ -82,4 +84,23 @@ public interface Ignite extends AutoCloseable {
      * @return Collection of cluster nodes.
      */
     CompletableFuture<Collection<ClusterNode>> clusterNodesAsync();
+
+    /**
+     * Returns {@link IgniteCatalog}, which can be used to create and execute SQL DDL queries from annotated classes or from fluent-style
+     * builders.
+     *
+     * @param options Query options.
+     * @return Catalog object.
+     */
+    IgniteCatalog catalog(Options options);
+
+    /**
+     * Returns {@link IgniteCatalog} with default options, which can be used to create and execute SQL DDL queries from annotated classes or
+     * from fluent-style builders.
+     *
+     * @return Catalog object.
+     */
+    default IgniteCatalog catalog() {
+        return catalog(Options.DEFAULT);
+    }
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.impl;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.TransactionIds;
+import org.apache.ignite.internal.tx.TxPriority;
 
 /**
  * Generates transaction IDs.
@@ -43,6 +44,17 @@ public class TransactionIdGenerator {
      * @return Transaction ID.
      */
     public UUID transactionIdFor(HybridTimestamp beginTimestamp) {
-        return TransactionIds.transactionId(beginTimestamp, nodeIdSupplier.nodeId());
+        return transactionIdFor(beginTimestamp, TxPriority.NORMAL);
+    }
+
+    /**
+     * Creates a transaction ID with the given begin timestamp.
+     *
+     * @param beginTimestamp Transaction begin timestamp.
+     * @param priority Transaction priority.
+     * @return Transaction ID.
+     */
+    public UUID transactionIdFor(HybridTimestamp beginTimestamp, TxPriority priority) {
+        return TransactionIds.transactionId(beginTimestamp, nodeIdSupplier.nodeId(), priority);
     }
 }

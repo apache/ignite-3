@@ -26,14 +26,26 @@ internal record Column(
     string Name,
     ColumnType Type,
     bool IsNullable,
-    bool IsKey,
+    int KeyIndex,
     int ColocationIndex,
     int SchemaIndex,
     int Scale,
     int Precision)
 {
     /// <summary>
-    /// Gets a value indicating whether this column participates in colocation.
+    /// Gets a value indicating whether this column is a part of the key.
+    /// </summary>
+    public bool IsKey => KeyIndex >= 0;
+
+    /// <summary>
+    /// Gets a value indicating whether this column is a part of the colocation key.
     /// </summary>
     public bool IsColocation => ColocationIndex >= 0;
+
+    /// <summary>
+    /// Gets the column index within a binary tuple.
+    /// </summary>
+    /// <param name="keyOnly">Whether a key-only binary tuple is used.</param>
+    /// <returns>Index within a binary tuple.</returns>
+    public int GetBinaryTupleIndex(bool keyOnly) => keyOnly ? KeyIndex : SchemaIndex;
 }

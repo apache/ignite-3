@@ -20,9 +20,9 @@ package org.apache.ignite.internal.cluster.management;
 import java.io.Serializable;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -64,8 +64,8 @@ public interface ClusterState extends NetworkMessage, Serializable {
     }
 
     /**
-     * Returns a cluster configuration that should be applied.
+     * Returns initial cluster configuration.
      */
     @Nullable
-    String clusterConfigurationToApply();
+    String initialClusterConfiguration();
 }

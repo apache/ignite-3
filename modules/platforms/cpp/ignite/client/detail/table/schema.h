@@ -19,10 +19,11 @@
 
 #include "ignite/common/ignite_error.h"
 #include "ignite/common/ignite_type.h"
-#include "ignite/protocol/utils.h"
+#include "ignite/protocol/reader.h"
 
 #include <msgpack.h>
 
+#include <algorithm>
 #include <array>
 #include <memory>
 #include <string>
@@ -34,11 +35,19 @@ namespace ignite::detail {
  */
 struct column {
     std::string name;
-    ignite_type type{};
+    ignite_type type{ignite_type::UNDEFINED};
     bool nullable{false};
-    bool is_key{false};
-    std::int32_t schema_index{0};
+    std::int32_t colocation_index{-1};
+    std::int32_t key_index{-1};
     std::int32_t scale{0};
+    std::int32_t precision{0};
+
+    /**
+     * Check if the column is the part of the key.
+     *
+     * @return @c true, if the column is the part of the key.
+     */
+    [[nodiscard]] bool is_key() const { return key_index >= 0; }
 
     /**
      * Unpack column from MsgPack object.
@@ -46,21 +55,21 @@ struct column {
      * @param object MsgPack object.
      * @return Column value.
      */
-    [[nodiscard]] static column unpack(const msgpack_object &object) {
-        if (object.type != MSGPACK_OBJECT_ARRAY)
-            throw ignite_error("Schema column expected to be serialized as array");
+    [[nodiscard]] static column read(protocol::reader &reader) {
+        auto constexpr minimum_expected_columns = 7;
 
-        const msgpack_object_array &arr = object.via.array;
-
-        constexpr std::uint32_t expectedCount = 6;
-        assert(arr.size >= expectedCount);
+        auto fields_num = reader.read_int32();
+        assert(fields_num >= minimum_expected_columns);
 
         column res{};
-        res.name = protocol::unpack_object<std::string>(arr.ptr[0]);
-        res.type = static_cast<ignite_type>(protocol::unpack_object<std::int32_t>(arr.ptr[1]));
-        res.is_key = protocol::unpack_object<bool>(arr.ptr[2]);
-        res.nullable = protocol::unpack_object<bool>(arr.ptr[3]);
-        res.scale = protocol::unpack_object<std::int32_t>(arr.ptr[5]);
+        res.name = reader.read_string();
+        res.type = static_cast<ignite_type>(reader.read_int32());
+        res.key_index = reader.read_int32();
+        res.nullable = reader.read_bool();
+        res.colocation_index = reader.read_int32();
+        res.scale = reader.read_int32();
+        res.precision = reader.read_int32();
+        reader.skip(fields_num - minimum_expected_columns);
 
         return res;
     }
@@ -70,9 +79,10 @@ struct column {
  * Schema.
  */
 struct schema {
-    std::int32_t version{-1};
-    std::int32_t key_column_count{0};
-    std::vector<column> columns;
+    const std::int32_t version{-1};
+    const std::vector<column> columns;
+    const std::vector<const column *> key_columns;
+    const std::vector<const column *> val_columns;
 
     // Default
     schema() = default;
@@ -81,13 +91,62 @@ struct schema {
      * Constructor.
      *
      * @param version Version.
-     * @param key_column_count Key column count.
      * @param columns Columns.
+     * @param key_columns Key Columns.
+     * @param val_columns Value Columns.
      */
-    schema(std::int32_t version, std::int32_t key_column_count, std::vector<column> &&columns)
+    schema(std::int32_t version, std::vector<column> &&columns, std::vector<const column *> &&key_columns,
+        std::vector<const column *> &&val_columns)
         : version(version)
-        , key_column_count(key_column_count)
-        , columns(std::move(columns)) {}
+        , columns(std::move(columns))
+        , key_columns(std::move(key_columns))
+        , val_columns(std::move(val_columns)) {}
+
+    /**
+     * Get column by index.
+     *
+     * @param key_only Key only flag.
+     * @param index Column index.
+     * @return Column reference.
+     */
+    [[nodiscard]] const column &get_column(bool key_only, std::int32_t index) const {
+        assert(index >= 0);
+        return key_only ? *key_columns[index] : columns[index];
+    }
+
+    /**
+     * Create schema instance.
+     *
+     * @param version Version.
+     * @param cols Columns.
+     * @return A new schema instance.
+     */
+    static std::shared_ptr<schema> create_instance(std::int32_t version, std::vector<column> &&cols) {
+        std::int32_t key_columns_cnt = 0;
+        for (const auto &column : cols) {
+            if (column.is_key())
+                ++key_columns_cnt;
+        }
+        std::int32_t val_columns_cnt = std::int32_t(cols.size()) - key_columns_cnt;
+
+        std::vector<const column *> key_columns(key_columns_cnt, nullptr);
+
+        std::vector<const column *> val_columns;
+        val_columns.reserve(val_columns_cnt);
+
+        for (const auto &column : cols) {
+            if (column.is_key()) {
+                assert(column.key_index >= 0 && std::size_t(column.key_index) < key_columns.size());
+                assert(key_columns[column.key_index] == nullptr);
+
+                key_columns[column.key_index] = &column;
+            } else {
+                val_columns.push_back(&column);
+            }
+        }
+
+        return std::make_shared<schema>(version, std::move(cols), std::move(key_columns), std::move(val_columns));
+    }
 
     /**
      * Read schema using reader.
@@ -95,21 +154,20 @@ struct schema {
      * @param reader Reader to use.
      * @return Schema instance.
      */
-    static std::shared_ptr<schema> read(const msgpack_object_kv &object) {
-        auto schema_version = protocol::unpack_object<std::int32_t>(object.key);
-        std::int32_t key_column_count = 0;
+    static std::shared_ptr<schema> read(protocol::reader &reader) {
+        auto schema_version = reader.read_int32();
 
-        std::vector<column> columns;
-        columns.reserve(protocol::unpack_array_size(object.val));
+        auto columns_count = reader.read_int32();
+        std::vector<column> cols;
+        cols.reserve(columns_count);
 
-        protocol::unpack_array_raw(object.val, [&columns, &key_column_count](const msgpack_object &object) {
-            auto val = column::unpack(object);
-            if (val.is_key)
-                ++key_column_count;
-            columns.emplace_back(std::move(val));
-        });
+        for (std::int32_t column_idx = 0; column_idx < columns_count; ++column_idx) {
+            auto val = column::read(reader);
 
-        return std::make_shared<schema>(schema_version, key_column_count, std::move(columns));
+            cols.emplace_back(std::move(val));
+        }
+
+        return create_instance(schema_version, std::move(cols));
     }
 };
 

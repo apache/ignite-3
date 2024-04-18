@@ -20,11 +20,11 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.canFullyInline;
 
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**

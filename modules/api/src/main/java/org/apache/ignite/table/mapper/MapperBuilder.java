@@ -19,13 +19,14 @@ package org.apache.ignite.table.mapper;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
-import org.apache.ignite.internal.util.IgniteNameUtils;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.catalog.annotations.Column;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 
 /**
  * Mapper builder provides methods for mapping object fields to columns.
@@ -42,14 +43,15 @@ import org.jetbrains.annotations.NotNull;
  * @param <T> Type of objects the mapper handles.
  */
 public final class MapperBuilder<T> {
+
     /** Target type. */
-    private Class<T> targetType;
+    private final Class<T> targetType;
 
     /** Column-to-field name mapping. */
-    private Map<String, String> columnToFields;
+    private final Map<String, String> columnToFields;
 
     /** Column converters. */
-    private Map<String, TypeConverter<?, ?>> columnConverters = new HashMap<>();
+    private final Map<String, TypeConverter<?, ?>> columnConverters = new HashMap<>();
 
     /** Column name for one-column mapping. */
     private final String mappedToColumn;
@@ -65,7 +67,7 @@ public final class MapperBuilder<T> {
      *
      * @param targetType Target type.
      */
-    MapperBuilder(@NotNull Class<T> targetType) {
+    MapperBuilder(Class<T> targetType) {
         this.targetType = ensureValidPojo(targetType);
 
         mappedToColumn = null;
@@ -80,7 +82,7 @@ public final class MapperBuilder<T> {
      *                     "myColumn" - column named "MYCOLUMN",
      *                     "\"MyColumn\"" - "MyColumn", etc.
      */
-    MapperBuilder(@NotNull Class<T> targetType, String mappedColumn) {
+    MapperBuilder(Class<T> targetType, String mappedColumn) {
         this.targetType = Mapper.ensureNativelySupported(targetType);
 
         mappedToColumn = mappedColumn;
@@ -94,7 +96,7 @@ public final class MapperBuilder<T> {
      * @return {@code type} if it is a valid POJO.
      * @throws IllegalArgumentException If {@code type} cannot be used as POJO for mapping and/or is of invalid kind.
      */
-    public <O> Class<O> ensureValidPojo(@NotNull Class<O> type) {
+    public <O> Class<O> ensureValidPojo(Class<O> type) {
         if (Mapper.nativelySupported(type)) {
             throw new IllegalArgumentException("Unsupported class. Can't map fields of natively supported type: " + type.getName());
         } else if (type.isAnonymousClass() || type.isLocalClass() || type.isSynthetic()
@@ -165,7 +167,7 @@ public final class MapperBuilder<T> {
      *                                  mapped to another field.
      * @throws IllegalStateException    if an attempt is made to reuse the builder after a mapping has been built.
      */
-    public MapperBuilder<T> map(@NotNull String fieldName, @NotNull String columnName, String... fieldColumnPairs) {
+    public MapperBuilder<T> map(String fieldName, String columnName, String... fieldColumnPairs) {
         ensureNotStale();
 
         String colName0 = IgniteNameUtils.parseSimpleName(columnName);
@@ -203,9 +205,9 @@ public final class MapperBuilder<T> {
      * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
      */
     public <ObjectT, ColumnT> MapperBuilder<T> map(
-            @NotNull String fieldName,
-            @NotNull String columnName,
-            @NotNull TypeConverter<ObjectT, ColumnT> converter
+            String fieldName,
+            String columnName,
+            TypeConverter<ObjectT, ColumnT> converter
     ) {
         map(fieldName, columnName);
         convert(columnName, converter);
@@ -224,7 +226,7 @@ public final class MapperBuilder<T> {
      *                   "\"MyColumn\"" - "MyColumn", etc.
      * @param converter  Converter for objects of {@link ColumnT} and {@link ObjectT}.
      */
-    public <ObjectT, ColumnT> MapperBuilder<T> convert(@NotNull String columnName, @NotNull TypeConverter<ObjectT, ColumnT> converter) {
+    public <ObjectT, ColumnT> MapperBuilder<T> convert(String columnName, TypeConverter<ObjectT, ColumnT> converter) {
         ensureNotStale();
 
         if (columnConverters.put(IgniteNameUtils.parseSimpleName(columnName), converter) != null) {
@@ -273,12 +275,24 @@ public final class MapperBuilder<T> {
 
         if (automapFlag) {
             Arrays.stream(targetType.getDeclaredFields())
-                    .map(Field::getName)
-                    .filter(fldName -> !fields.contains(fldName))
+                    .filter(fld -> !Modifier.isStatic(fld.getModifiers()) && !Modifier.isTransient(fld.getModifiers()))
+                    .map(MapperBuilder::getColumnToFieldMapping)
+                    .filter(entry -> !fields.contains(entry.getValue()))
                     // Ignore manually mapped fields/columns.
-                    .forEach(fldName -> mapping.putIfAbsent(fldName.toUpperCase(), fldName));
+                    .forEach(entry -> mapping.putIfAbsent(entry.getKey().toUpperCase(), entry.getValue()));
         }
 
         return new PojoMapperImpl<>(targetType, mapping, columnConverters);
+    }
+
+    private static SimpleEntry<String, String> getColumnToFieldMapping(Field fld) {
+        String fldName = fld.getName();
+        var column = fld.getAnnotation(Column.class);
+        if (column == null) {
+            return new SimpleEntry<>(fldName, fldName);
+        } else {
+            var columnName = column.value().isEmpty() ? fldName : column.value();
+            return new SimpleEntry<>(columnName, fldName);
+        }
     }
 }

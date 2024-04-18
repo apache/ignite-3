@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -52,6 +53,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -61,7 +63,6 @@ import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -1346,7 +1347,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertEquals(2, storage.updateCounter());
 
         boolean branch = invokeOnMs(
-                new TombstoneCondition(key1),
+                new TombstoneCondition(TombstoneCondition.Type.TOMBSTONE, key1),
                 List.of(put(new ByteArray(key2), val2)),
                 List.of(put(new ByteArray(key3), val3))
         );
@@ -1398,7 +1399,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertEquals(1, storage.updateCounter());
 
         boolean branch = invokeOnMs(
-                new TombstoneCondition(key1),
+                new TombstoneCondition(TombstoneCondition.Type.TOMBSTONE, key1),
                 List.of(put(new ByteArray(key2), val2)),
                 List.of(put(new ByteArray(key3), val3))
         );
@@ -1422,6 +1423,111 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertFalse(e3.tombstone());
         assertEquals(2, e3.revision());
         assertEquals(2, e3.updateCounter());
+        assertArrayEquals(val3, e3.value());
+
+        // "Success" branch isn't applied.
+        Entry e2 = storage.get(key2);
+
+        assertTrue(e2.empty());
+    }
+
+    @Test
+    public void invokeWithNotTombstoneCondition_successBranch() {
+        byte[] key1 = key(1);
+        byte[] val11 = keyValue(1, 11);
+
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
+
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
+
+        assertEquals(0, storage.revision());
+        assertEquals(0, storage.updateCounter());
+
+        putToMs(key1, val11);
+
+        assertEquals(1, storage.revision());
+        assertEquals(1, storage.updateCounter());
+
+        boolean branch = invokeOnMs(
+                new TombstoneCondition(TombstoneCondition.Type.NOT_TOMBSTONE, key1),
+                List.of(put(new ByteArray(key2), val2)),
+                List.of(put(new ByteArray(key3), val3))
+        );
+
+        // "Success" branch is applied.
+        assertTrue(branch);
+        assertEquals(2, storage.revision());
+        assertEquals(2, storage.updateCounter());
+
+        Entry e1 = storage.get(key1);
+
+        assertFalse(e1.empty());
+        assertFalse(e1.tombstone());
+        assertEquals(1, e1.revision());
+        assertEquals(1, e1.updateCounter());
+        assertArrayEquals(val11, e1.value());
+
+        Entry e2 = storage.get(key2);
+
+        assertFalse(e2.empty());
+        assertFalse(e2.tombstone());
+        assertEquals(2, e2.revision());
+        assertEquals(2, e2.updateCounter());
+        assertArrayEquals(val2, e2.value());
+
+        // "Failure" branch isn't applied.
+        Entry e3 = storage.get(key3);
+
+        assertTrue(e3.empty());
+    }
+
+    @Test
+    public void invokeWithNotTombstoneCondition_failureBranch() {
+        byte[] key1 = key(1);
+        byte[] val11 = keyValue(1, 11);
+
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
+
+        byte[] key3 = key(3);
+        byte[] val3 = keyValue(3, 3);
+
+        assertEquals(0, storage.revision());
+        assertEquals(0, storage.updateCounter());
+
+        putToMs(key1, val11);
+        removeFromMs(key1); // Should be tombstone after remove.
+
+        assertEquals(2, storage.revision());
+        assertEquals(2, storage.updateCounter());
+
+        boolean branch = invokeOnMs(
+                new TombstoneCondition(TombstoneCondition.Type.NOT_TOMBSTONE, key1),
+                List.of(put(new ByteArray(key2), val2)),
+                List.of(put(new ByteArray(key3), val3))
+        );
+
+        // "Failure" branch is applied.
+        assertFalse(branch);
+        assertEquals(3, storage.revision());
+        assertEquals(3, storage.updateCounter());
+
+        Entry e1 = storage.get(key1);
+
+        assertFalse(e1.empty());
+        assertTrue(e1.tombstone());
+        assertEquals(2, e1.revision());
+        assertEquals(2, e1.updateCounter());
+        assertNull(e1.value());
+
+        Entry e3 = storage.get(key3);
+
+        assertFalse(e3.empty());
+        assertFalse(e3.tombstone());
+        assertEquals(3, e3.revision());
+        assertEquals(3, e3.updateCounter());
         assertArrayEquals(val3, e3.value());
 
         // "Success" branch isn't applied.
@@ -1969,7 +2075,17 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         long appliedRevision = storage.revision();
 
-        storage.startWatches(1, (event, ts) -> completedFuture(null));
+        storage.startWatches(1, new OnRevisionAppliedCallback() {
+            @Override
+            public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
+                // No-op.
+            }
+
+            @Override
+            public void onRevisionApplied(long revision) {
+                // No-op.
+            }
+        });
 
         CompletableFuture<byte[]> fut = new CompletableFuture<>();
 
@@ -1978,7 +2094,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
                 fut.complete(event.entryEvent().newEntry().value());
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -2292,11 +2408,11 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         WatchListener mockListener2 = mock(WatchListener.class);
         WatchListener mockListener3 = mock(WatchListener.class);
 
-        when(mockListener1.onUpdate(any())).thenReturn(completedFuture(null));
+        when(mockListener1.onUpdate(any())).thenReturn(nullCompletedFuture());
 
-        when(mockListener2.onUpdate(any())).thenReturn(completedFuture(null));
+        when(mockListener2.onUpdate(any())).thenReturn(nullCompletedFuture());
 
-        when(mockListener3.onUpdate(any())).thenReturn(completedFuture(null));
+        when(mockListener3.onUpdate(any())).thenReturn(nullCompletedFuture());
 
         var exception = new IllegalStateException();
 
@@ -2308,8 +2424,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         OnRevisionAppliedCallback mockCallback = mock(OnRevisionAppliedCallback.class);
 
-        when(mockCallback.onRevisionApplied(any(), any())).thenReturn(completedFuture(null));
-
         storage.startWatches(1, mockCallback);
 
         putToMs(key, value);
@@ -2320,7 +2434,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         verify(mockListener3, timeout(10_000)).onUpdate(any());
 
-        verify(mockCallback, never()).onRevisionApplied(any(), any());
+        verify(mockCallback, never()).onRevisionApplied(anyLong());
     }
 
     @Test
@@ -2491,12 +2605,12 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                         resultFuture.complete(null);
                     }
 
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 } catch (Exception e) {
                     resultFuture.completeExceptionally(e);
                 }
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -2505,7 +2619,17 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             }
         });
 
-        storage.startWatches(1, (event, ts) -> completedFuture(null));
+        storage.startWatches(1, new OnRevisionAppliedCallback() {
+            @Override
+            public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
+                // No-op.
+            }
+
+            @Override
+            public void onRevisionApplied(long revision) {
+                // No-op.
+            }
+        });
 
         return resultFuture;
     }

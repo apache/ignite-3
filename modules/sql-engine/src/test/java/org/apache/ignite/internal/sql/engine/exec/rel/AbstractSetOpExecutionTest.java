@@ -31,17 +31,23 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.junit.jupiter.api.Test;
 
 /**
  * Abstract test for set operator (MINUS, INTERSECT) execution.
  */
-public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
+public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest<Object[]> {
+
+    private static final int COLUMN_NUN = 2;
+
     @Test
     public void testSingle() {
         checkSetOp(true, false);
@@ -95,7 +101,7 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
 
         List<Node<Object[]>> inputs = Arrays.asList(scan1, scan2, scan3, node4);
 
-        AbstractSetOpNode<Object[]> setOpNode = setOpNodeFactory(ctx, SINGLE, false, inputs.size());
+        AbstractSetOpNode<Object[]> setOpNode = setOpNodeFactory(ctx, SINGLE, COLUMN_NUN, false, inputs.size());
         setOpNode.register(inputs);
 
         RootNode<Object[]> root = new RootNode<>(ctx);
@@ -115,7 +121,6 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
      */
     protected void checkSetOp(boolean single, boolean all, List<List<Object[]>> dataSets, List<Object[]> expectedResult) {
         ExecutionContext<Object[]> ctx = executionContext();
-        IgniteTypeFactory tf = ctx.getTypeFactory();
 
         List<Node<Object[]>> inputs = dataSets.stream().map(ds -> new ScanNode<>(ctx, ds))
                 .collect(Collectors.toList());
@@ -123,22 +128,23 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
         AbstractSetOpNode<Object[]> setOpNode;
 
         if (single) {
-            setOpNode = setOpNodeFactory(ctx, SINGLE, all, inputs.size());
+            setOpNode = setOpNodeFactory(ctx, SINGLE, COLUMN_NUN, all, inputs.size());
         } else {
-            setOpNode = setOpNodeFactory(ctx, MAP, all, inputs.size());
+            setOpNode = setOpNodeFactory(ctx, MAP, COLUMN_NUN, all, inputs.size());
         }
 
         setOpNode.register(inputs);
 
         if (!single) {
-            AbstractSetOpNode<Object[]> reduceNode = setOpNodeFactory(ctx, REDUCE, all, 1);
+            AbstractSetOpNode<Object[]> reduceNode = setOpNodeFactory(ctx, REDUCE, COLUMN_NUN, all, inputs.size());
 
             reduceNode.register(Collections.singletonList(setOpNode));
 
             setOpNode = reduceNode;
         }
 
-        Comparator<Object[]> cmp = ctx.expressionFactory().comparator(RelCollations.of(ImmutableIntList.of(0, 1)));
+        RelCollation collation = RelCollations.of(ImmutableIntList.of(IntStream.range(0, COLUMN_NUN).toArray()));
+        Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
 
         // Create sort node on the top to check sorted results.
         SortNode<Object[]> sortNode = new SortNode<>(ctx, cmp);
@@ -157,5 +163,10 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
     }
 
     protected abstract AbstractSetOpNode<Object[]> setOpNodeFactory(ExecutionContext<Object[]> ctx,
-            AggregateType type, boolean all, int inputsCnt);
+            AggregateType type, int columnCount, boolean all, int inputsCnt);
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
 }

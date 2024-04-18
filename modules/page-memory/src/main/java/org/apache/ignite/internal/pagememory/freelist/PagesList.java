@@ -20,6 +20,8 @@ package org.apache.ignite.internal.pagememory.freelist;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.util.concurrent.atomic.AtomicIntegerFieldUpdater.newUpdater;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getInteger;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo.T_PAGE_LIST_NODE;
@@ -32,10 +34,8 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.ArrayUtils.remove;
-import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
-import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
-import static org.apache.ignite.lang.IgniteSystemProperties.getInteger;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.Arrays;
@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -61,7 +62,6 @@ import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -2133,4 +2133,3 @@ public abstract class PagesList extends DataStructure {
         }
     }
 }
-

@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
-import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -89,8 +89,8 @@ public class GroupPageStoresMap<T extends PageStore> {
     /**
      * Returns a view of all page stores of all groups.
      */
-    public Collection<GroupPartitionPageStore<T>> getAll() {
-        return CollectionUtils.viewReadOnly(groupPartitionIdPageStore.entrySet(), GroupPartitionPageStore::new);
+    public Stream<GroupPartitionPageStore<T>> getAll() {
+        return groupPartitionIdPageStore.entrySet().stream().map(GroupPartitionPageStore::new);
     }
 
     /**
@@ -98,6 +98,17 @@ public class GroupPageStoresMap<T extends PageStore> {
      */
     public void clear() {
         groupPartitionIdPageStore.clear();
+    }
+
+    /**
+     * Attempts to compute a mapping for the group partition and its current mapped value (or {@code null} if there is no current mapping).
+     * The entire method invocation is performed atomically.
+     *
+     * @param groupPartitionId Pair of group ID with partition ID.
+     * @param remappingFunction Function to compute a value.
+     */
+    public T compute(GroupPartitionId groupPartitionId, Function<? super T, ? extends T> remappingFunction) {
+        return groupPartitionIdPageStore.compute(groupPartitionId, (groupPartitionId1, t) -> remappingFunction.apply(t));
     }
 
     /**

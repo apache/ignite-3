@@ -78,11 +78,8 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestUpsertEmptyTupleThrowsException()
         {
-            var ex = Assert.ThrowsAsync<IgniteException>(async () => await TupleView.UpsertAsync(null, new IgniteTuple()));
-
-            StringAssert.Contains(
-                "Missed key column: KEY",
-                ex!.Message);
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () => await TupleView.UpsertAsync(null, new IgniteTuple()));
+            StringAssert.Contains("Matching fields not found.", ex!.Message);
         }
 
         [Test]
@@ -109,7 +106,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public async Task TestGetAndDeleteNonExistentRecordReturnsNull()
         {
-            Option<IIgniteTuple> res = await TupleView.GetAndDeleteAsync(null, GetTuple(2, "2"));
+            Option<IIgniteTuple> res = await TupleView.GetAndDeleteAsync(null, GetTuple(2));
 
             Assert.IsFalse(res.HasValue);
             Assert.IsFalse((await TupleView.GetAsync(null, GetTuple(2))).HasValue);
@@ -486,7 +483,7 @@ namespace Apache.Ignite.Tests.Table
         public void TestGetAllThrowsArgumentExceptionOnNullCollectionElement()
         {
             var ex = Assert.ThrowsAsync<ArgumentException>(
-                async () => await TupleView.GetAllAsync(null, new[] { GetTuple(1, "1"), null! }));
+                async () => await TupleView.GetAllAsync(null, new[] { GetTuple(1), null! }));
 
             Assert.AreEqual("Record collection can't contain null elements.", ex!.Message);
         }
@@ -495,7 +492,7 @@ namespace Apache.Ignite.Tests.Table
         public void TestDeleteAllThrowsArgumentExceptionOnNullCollectionElement()
         {
             var ex = Assert.ThrowsAsync<ArgumentException>(
-                async () => await TupleView.DeleteAllAsync(null, new[] { GetTuple(1, "1"), null! }));
+                async () => await TupleView.DeleteAllAsync(null, new[] { GetTuple(1), null! }));
 
             Assert.AreEqual("Record collection can't contain null elements.", ex!.Message);
         }
@@ -546,6 +543,7 @@ namespace Apache.Ignite.Tests.Table
             var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
             var tupleView = table!.RecordBinaryView;
 
+            var keyTuple = new IgniteTuple { ["Key"] = 123L };
             var dt = LocalDateTime.FromDateTime(DateTime.UtcNow);
             var tuple = new IgniteTuple
             {
@@ -564,12 +562,13 @@ namespace Apache.Ignite.Tests.Table
                 ["DateTime"] = dt,
                 ["Timestamp"] = Instant.FromDateTimeUtc(DateTime.UtcNow),
                 ["Blob"] = new byte[] { 1, 2, 3 },
-                ["Decimal"] = 123.456m
+                ["Decimal"] = 123.456m,
+                ["Boolean"] = true
             };
 
             await tupleView.UpsertAsync(null, tuple);
 
-            var res = (await tupleView.GetAsync(null, tuple)).Value;
+            var res = (await tupleView.GetAsync(null, keyTuple)).Value;
 
             Assert.AreEqual(tuple["Blob"], res["Blob"]);
             Assert.AreEqual(tuple["Date"], res["Date"]);
@@ -586,6 +585,7 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(tuple["Timestamp"], res["Timestamp"]);
             Assert.AreEqual(tuple["Time"], res["Time"]);
             Assert.AreEqual(tuple["DateTime"], res["DateTime"]);
+            Assert.AreEqual(tuple["Boolean"], res["Boolean"]);
         }
 
         [Test]
@@ -597,7 +597,6 @@ namespace Apache.Ignite.Tests.Table
             await TupleView.UpsertAsync(null, tuple);
 
             Assert.IsTrue(await TupleView.ContainsKeyAsync(null, keyTuple));
-            Assert.IsTrue(await TupleView.ContainsKeyAsync(null, tuple));
             Assert.IsFalse(await TupleView.ContainsKeyAsync(null, GetTuple(-128)));
         }
 

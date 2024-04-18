@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.vault;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -45,13 +46,13 @@ public class VaultManager implements IgniteComponent {
         this.vaultSvc = vaultSvc;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         vaultSvc.start();
+
+        return nullCompletedFuture();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() {
         // TODO: IGNITE-15161 Implement component's stop.
@@ -62,9 +63,9 @@ public class VaultManager implements IgniteComponent {
      * See {@link VaultService#get}.
      *
      * @param key Key. Cannot be {@code null}.
-     * @return Future that resolves into an entry for the given key, or {@code null} if no such mapping exists.
+     * @return Entry for the given key, or {@code null} if no such mapping exists.
      */
-    public CompletableFuture<VaultEntry> get(ByteArray key) {
+    public @Nullable VaultEntry get(ByteArray key) {
         return vaultSvc.get(key);
     }
 
@@ -73,20 +74,18 @@ public class VaultManager implements IgniteComponent {
      *
      * @param key Vault key. Cannot be {@code null}.
      * @param val Value. If value is equal to {@code null}, then previous value with key will be deleted if there was any mapping.
-     * @return Future representing pending completion of the operation. Cannot be {@code null}.
      */
-    public CompletableFuture<Void> put(ByteArray key, byte @Nullable [] val) {
-        return vaultSvc.put(key, val);
+    public void put(ByteArray key, byte @Nullable [] val) {
+        vaultSvc.put(key, val);
     }
 
     /**
      * See {@link VaultService#remove}.
      *
      * @param key Vault key. Cannot be {@code null}.
-     * @return Future representing pending completion of the operation. Cannot be {@code null}.
      */
-    public CompletableFuture<Void> remove(ByteArray key) {
-        return vaultSvc.remove(key);
+    public void remove(ByteArray key) {
+        vaultSvc.remove(key);
     }
 
     /**
@@ -105,30 +104,30 @@ public class VaultManager implements IgniteComponent {
      * value with key will be deleted if there was any mapping.
      *
      * @param vals The map of keys and corresponding values. Cannot be {@code null} or empty.
-     * @return Future representing pending completion of the operation. Cannot be {@code null}.
      */
-    public CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals) {
-        return vaultSvc.putAll(vals);
+    public void putAll(Map<ByteArray, byte[]> vals) {
+        vaultSvc.putAll(vals);
     }
 
     /**
      * Persist node name to the vault.
      *
      * @param name node name to persist. Cannot be null.
-     * @return Future representing pending completion of the operation.
      */
-    public CompletableFuture<Void> putName(String name) {
+    public void putName(String name) {
         if (name.isBlank()) {
             throw new IllegalArgumentException("Name must not be empty");
         }
 
-        return put(NODE_NAME, name.getBytes(UTF_8));
+        put(NODE_NAME, name.getBytes(UTF_8));
     }
 
     /**
-     * Returns {@code CompletableFuture} which, when complete, returns the node name, if was stored earlier, or {@code null} otherwise.
+     * Returns the node name, if was stored earlier, or {@code null} otherwise.
      */
-    public CompletableFuture<String> name() {
-        return vaultSvc.get(NODE_NAME).thenApply(name -> name == null ? null : new String(name.value(), UTF_8));
+    public @Nullable String name() {
+        VaultEntry nameEntry = vaultSvc.get(NODE_NAME);
+
+        return nameEntry == null ? null : new String(nameEntry.value(), UTF_8);
     }
 }

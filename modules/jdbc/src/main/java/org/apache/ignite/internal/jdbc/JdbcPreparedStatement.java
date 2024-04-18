@@ -113,7 +113,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public ResultSet executeQuery() throws SQLException {
-        executeWithArguments(JdbcStatementType.SELECT_STATEMENT_TYPE);
+        executeWithArguments(JdbcStatementType.SELECT_STATEMENT_TYPE, false);
 
         ResultSet rs = getResultSet();
 
@@ -170,7 +170,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public int executeUpdate() throws SQLException {
-        executeWithArguments(JdbcStatementType.UPDATE_STATEMENT_TYPE);
+        executeWithArguments(JdbcStatementType.UPDATE_STATEMENT_TYPE, false);
 
         int res = getUpdateCount();
 
@@ -212,7 +212,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public boolean execute() throws SQLException {
-        executeWithArguments(JdbcStatementType.ANY_STATEMENT_TYPE);
+        executeWithArguments(JdbcStatementType.ANY_STATEMENT_TYPE, true);
 
         return isQuery();
     }
@@ -758,11 +758,11 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
      * @param statementType Expected statement type.
      * @throws SQLException If failed.
      */
-    private void executeWithArguments(JdbcStatementType statementType) throws SQLException {
+    private void executeWithArguments(JdbcStatementType statementType, boolean multiStatement) throws SQLException {
         Object[] args = currentArgs == null ? ArrayUtils.OBJECT_EMPTY_ARRAY :
                 currentArgs.stream().map(this::convertJdbcTypeToInternal).toArray();
 
-        execute0(statementType, sql, args);
+        execute0(statementType, sql, multiStatement, args);
     }
 
     private static void checkType(int sqlType) throws SQLException {

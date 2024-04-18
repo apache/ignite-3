@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql2rel.InitializerExpressionFactory;
 import org.apache.calcite.util.ImmutableBitSet;
@@ -29,39 +28,9 @@ import org.jetbrains.annotations.Nullable;
  * TableDescriptor interface.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public interface TableDescriptor extends InitializerExpressionFactory {
+public interface TableDescriptor extends InitializerExpressionFactory, Iterable<ColumnDescriptor> {
     /** Returns distribution of the table. */
     IgniteDistribution distribution();
-
-    /**
-     * Returns row type excluding effectively virtual fields.
-     *
-     * @param factory Type factory.
-     * @return Row type for INSERT operation.
-     */
-    default RelDataType insertRowType(IgniteTypeFactory factory) {
-        return rowType(factory, null);
-    }
-
-    /**
-     * Returns row type containing only key fields.
-     *
-     * @param factory Type factory.
-     * @return Row type for DELETE operation.
-     */
-    default RelDataType deleteRowType(IgniteTypeFactory factory) {
-        return rowType(factory, null);
-    }
-
-    /**
-     * Returns row type including effectively virtual fields.
-     *
-     * @param factory Type factory.
-     * @return Row type for SELECT operation.
-     */
-    default RelDataType selectForUpdateRowType(IgniteTypeFactory factory) {
-        return rowType(factory, null);
-    }
 
     /**
      * Returns row type.
@@ -71,15 +40,6 @@ public interface TableDescriptor extends InitializerExpressionFactory {
      * @return Row type.
      */
     RelDataType rowType(IgniteTypeFactory factory, @Nullable ImmutableBitSet usedColumns);
-
-    /**
-     * Checks whether is possible to update a column with a given index.
-     *
-     * @param tbl    Parent table.
-     * @param colIdx Column index.
-     * @return {@code True} if update operation is allowed for a column with a given index.
-     */
-    boolean isUpdateAllowed(RelOptTable tbl, int colIdx);
 
     /**
      * Returns column descriptor for given field name.

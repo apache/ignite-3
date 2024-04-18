@@ -38,31 +38,35 @@ import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.control.TryCatch;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import java.io.StringWriter;
+import java.lang.reflect.InvocationTargetException;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.processing.Generated;
 import jdk.jfr.Experimental;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.marshaller.BinaryMode;
+import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.marshaller.MarshallerColumn;
+import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.Columns;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.BinaryMode;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
-import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
 import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.ObjectFactory;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.mapper.PojoMapper;
 
 /**
- * {@link org.apache.ignite.internal.schema.marshaller.reflection.Marshaller} code generator.
+ * {@link Marshaller} code generator.
  */
 @Experimental
 public class AsmMarshallerGenerator implements MarshallerFactory {
@@ -89,7 +93,7 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
             // Generate Marshaller code.
             long generation = System.nanoTime();
 
-            final ClassDefinition classDef = generateMarshallerClass(className, schema, keyClass, valClass);
+            final ClassDefinition classDef = generateMarshallerClass(className, schema, keyMapper, valueMapper);
             long compilationTime = System.nanoTime();
             generation = compilationTime - generation;
 
@@ -125,7 +129,7 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
                             MarshallerUtil.factoryForClass(keyClass),
                             MarshallerUtil.factoryForClass(valClass));
 
-        } catch (Exception | LinkageError e) {
+        } catch (LinkageError | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new IllegalArgumentException("Failed to create marshaller for key-value pair: schemaVer=" + schema.version()
                     + ", keyClass=" + keyClass.getSimpleName() + ", valueClass=" + valClass.getSimpleName(), e);
         }
@@ -142,18 +146,18 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
      *
      * @param className Marshaller class name.
      * @param schema    Schema descriptor.
-     * @param keyClass  Key class.
-     * @param valClass  Value class.
+     * @param keyMapper Key mapper.
+     * @param valMapper Value mapper.
      * @return Generated java class definition.
      */
     private ClassDefinition generateMarshallerClass(
             String className,
             SchemaDescriptor schema,
-            Class<?> keyClass,
-            Class<?> valClass
+            Mapper<?> keyMapper,
+            Mapper<?> valMapper
     ) {
-        MarshallerCodeGenerator keyMarsh = createMarshaller(keyClass, schema.keyColumns(), 0);
-        MarshallerCodeGenerator valMarsh = createMarshaller(valClass, schema.valueColumns(), schema.keyColumns().length());
+        MarshallerCodeGenerator keyMarsh = createMarshaller(keyMapper, schema.keyColumns(), 0);
+        MarshallerCodeGenerator valMarsh = createMarshaller(valMapper, schema.valueColumns(), schema.keyColumns().size());
 
         final ClassDefinition classDef = new ClassDefinition(
                 EnumSet.of(Access.PUBLIC),
@@ -199,20 +203,22 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
     /**
      * Creates marshaller code generator for given class.
      *
-     * @param cls         Target class.
+     * @param mapper      Mapper.
      * @param columns     Columns that cls mapped to.
      * @param firstColIdx First column absolute index in schema.
      * @return Marshaller code generator.
      */
     private static MarshallerCodeGenerator createMarshaller(
-            Class<?> cls,
-            Columns columns,
+            Mapper<?> mapper,
+            List<Column> columns,
             int firstColIdx
     ) {
-        final BinaryMode mode = MarshallerUtil.mode(cls);
+        BinaryMode mode = BinaryMode.forClass(mapper.targetType());
 
         if (mode == BinaryMode.POJO) {
-            return new ObjectMarshallerCodeGenerator(columns, cls, firstColIdx);
+            MarshallerColumn[] marshallerColumns = MarshallerUtil.toMarshallerColumns(columns);
+
+            return new ObjectMarshallerCodeGenerator(marshallerColumns, (PojoMapper<?>) mapper, firstColIdx);
         } else {
             return new IdentityMarshallerCodeGenerator(ColumnAccessCodeGenerator.createAccessor(mode, null, firstColIdx));
         }
@@ -273,15 +279,17 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
 
         BytecodeExpression schemaField = methodDef.getThis().getField("schema", SchemaDescriptor.class);
 
-        Variable keyCols = scope.declareVariable("keyCols", body, schemaField.invoke("keyColumns", Columns.class));
-        Variable valCols = scope.declareVariable("valCols", body, schemaField.invoke("valueColumns", Columns.class));
+        Variable keyCols = scope.declareVariable("keyCols", body,
+                schemaField.invoke("keyColumns", ParameterizedType.type(List.class, Column.class), List.of()));
+        Variable valCols = scope.declareVariable("valCols", body,
+                schemaField.invoke("valueColumns", ParameterizedType.type(List.class, Column.class), List.of()));
 
-        Columns columns = schema.keyColumns();
+        List<Column> columns = schema.keyColumns();
         Variable value = scope.createTempVariable(Object.class);
 
-        for (int i = 0; i < columns.length(); i++) {
+        for (int i = 0; i < columns.size(); i++) {
             body.append(keyMarsh.getValue(classDef.getType(), scope.getVariable("key"), i)).putVariable(value);
-            NativeType type = columns.column(i).type();
+            NativeType type = columns.get(i).type();
             BytecodeExpression valueSize = type.spec().fixedLength()
                     ? constantInt(type.sizeInBytes())
                     : getValueSize(value, getColumnType(keyCols, i));
@@ -290,9 +298,9 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
 
         columns = schema.valueColumns();
 
-        for (int i = 0; i < columns.length(); i++) {
+        for (int i = 0; i < columns.size(); i++) {
             body.append(valMarsh.getValue(classDef.getType(), scope.getVariable("val"), i)).putVariable(value);
-            NativeType type = columns.column(i).type();
+            NativeType type = columns.get(i).type();
             BytecodeExpression valueSize = type.spec().fixedLength()
                     ? constantInt(type.sizeInBytes())
                     : getValueSize(value, getColumnType(valCols, i));
@@ -309,7 +317,9 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
     }
 
     private static BytecodeExpression getColumnType(Variable columns, int i) {
-        return columns.invoke("column", Column.class, constantInt(i)).invoke("type", NativeType.class);
+        return columns.invoke("get", Object.class, constantInt(i))
+                .cast(Column.class)
+                .invoke("type", NativeType.class);
     }
 
     private static BytecodeExpression plusEquals(Variable var, BytecodeExpression expression) {
@@ -366,7 +376,10 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
                                 methodDef.getScope().getVariable("val"))
                 )
                 .append(
-                        newInstance(Row.class,
+                        invokeStatic(
+                                Row.class,
+                                "wrapBinaryRow",
+                                Row.class,
                                 methodDef.getThis().getField("schema", SchemaDescriptor.class),
                                 asm.invoke("build", BinaryRow.class))
                 )

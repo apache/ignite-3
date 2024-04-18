@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 
 import java.nio.ByteBuffer;
 import java.util.UUID;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
@@ -43,7 +44,6 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns
 import org.apache.ignite.internal.storage.pagememory.index.freelist.ReadIndexColumnsValue;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRowKey;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Interface for {@link SortedIndexRow} B+Tree-related IO.
@@ -56,7 +56,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  */
 public interface SortedIndexTreeIo {
     /** Item size without index columns in bytes. */
-    int ITEM_SIZE_WITHOUT_COLUMNS = Short.SIZE // Inlined index columns size.
+    int ITEM_SIZE_WITHOUT_COLUMNS = Short.BYTES // Inlined index columns size.
             + PARTITIONLESS_LINK_SIZE_BYTES // Index columns link.
             + 2 * Long.BYTES; // Row ID.
 

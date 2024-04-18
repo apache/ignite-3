@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.binarytuple;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Common binary tuple constants and utils.
@@ -49,12 +49,6 @@ public class BinaryTupleCommon {
      * <p>This flag is used by some index implementations for internal optimizations.
      */
     public static final int EQUALITY_FLAG = 1 << 4;
-
-    /**
-     * Flag used when a Binary Tuple represents a Table Row. If it is set, then this Row contains both a Primary Key columns and Value
-     * columns.
-     */
-    public static final int ROW_HAS_VALUE_FLAG = 1 << 5;
 
     /**
      * Calculates flags for a given size of variable-length area.

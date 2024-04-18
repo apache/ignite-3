@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.tostring;
 
 import static java.util.Objects.nonNull;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_COLLECTION_LIMIT;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_TO_STRING_IGNORE_RUNTIME_EXCEPTION;
-import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
-import static org.apache.ignite.lang.IgniteSystemProperties.getInteger;
-import static org.apache.ignite.lang.IgniteSystemProperties.getString;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_TO_STRING_COLLECTION_LIMIT;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_TO_STRING_IGNORE_RUNTIME_EXCEPTION;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getInteger;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getString;
 
 import java.io.Externalizable;
 import java.io.InputStream;
@@ -51,10 +51,10 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringBuilder;
-import org.apache.ignite.lang.IgniteSystemProperties;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.lang.IgniteTriConsumer;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -1452,6 +1452,53 @@ public class IgniteToStringBuilder {
     }
 
     /**
+     * Produces a string representation of a list with customized string representation of elements.
+     *
+     * @param list List.
+     * @param elementToString Element to string transformer, accepts the string builder, element of list and its index.
+     * @param <T> Type of list elements.
+     * @return String.
+     */
+    public static <T> String toString(List<T> list, IgniteTriConsumer<IgniteStringBuilder, T, Integer> elementToString) {
+        int listSize = list.size();
+
+        IgniteStringBuilder buf = new IgniteStringBuilder();
+
+        buf.app(" [");
+
+        int cnt = 0;
+        boolean needHandleOverflow = true;
+
+        try {
+            for (int i = 0; i < list.size(); i++) {
+                if (i > 0) {
+                    buf.app(',');
+                }
+
+                T el = list.get(i);
+
+                elementToString.accept(buf, el, i);
+
+                if (++cnt == COLLECTION_LIMIT || cnt == listSize) {
+                    break;
+                }
+            }
+        } catch (ConcurrentModificationException e) {
+            handleConcurrentModification(buf, cnt, listSize);
+
+            needHandleOverflow = false;
+        }
+
+        if (needHandleOverflow) {
+            handleOverflow(buf, listSize);
+        }
+
+        buf.app(']');
+
+        return buf.toString();
+    }
+
+    /**
      * Writes array to buffer.
      *
      * @param buf     String builder buffer.
@@ -1584,7 +1631,7 @@ public class IgniteToStringBuilder {
      * @param buf  String builder buffer.
      * @param size Size to compare with limit.
      */
-    private static void handleOverflow(StringBuilderLimitedLength buf, int size) {
+    private static void handleOverflow(IgniteStringBuilder buf, int size) {
         int overflow = size - COLLECTION_LIMIT;
 
         if (overflow > 0) {
@@ -1599,7 +1646,7 @@ public class IgniteToStringBuilder {
      * @param writtenElements Number of elements successfully written to output.
      * @param size            Overall size of collection.
      */
-    private static void handleConcurrentModification(StringBuilderLimitedLength buf, int writtenElements, int size) {
+    private static void handleConcurrentModification(IgniteStringBuilder buf, int writtenElements, int size) {
         buf.app("... concurrent modification was detected, ").app(writtenElements).app(" out of ").app(size)
                 .app(" were written");
     }
@@ -2103,7 +2150,7 @@ public class IgniteToStringBuilder {
     private static boolean handleRecursion(
             StringBuilderLimitedLength buf,
             Object obj,
-            @NotNull Class<?> cls,
+            Class<?> cls,
             IdentityHashMap<Object, EntryReference> svdObjs
     ) {
         EntryReference ref = svdObjs.get(obj);

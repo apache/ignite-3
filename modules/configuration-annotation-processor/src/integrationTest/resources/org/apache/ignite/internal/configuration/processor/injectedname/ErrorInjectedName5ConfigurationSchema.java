@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.configuration.processor.injectedname;
 
 import org.apache.ignite.configuration.annotation.InjectedName;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
 /**
- * Schema with {@link InternalConfiguration} cannot have a field with {@link InjectedName}.
+ * Schema with {@link ConfigurationExtension} cannot have a field with {@link InjectedName}.
  */
 @PolymorphicConfigInstance("error")
 public class ErrorInjectedName5ConfigurationSchema extends PolyConfigurationSchema {

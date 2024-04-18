@@ -25,10 +25,13 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -40,9 +43,8 @@ import org.apache.ignite.internal.deployunit.metastore.status.ClusterStatusKey;
 import org.apache.ignite.internal.deployunit.metastore.status.NodeStatusKey;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.dsl.Operations;
-import org.apache.ignite.lang.ByteArray;
 
 /**
  * Implementation of {@link DeploymentUnitStore} based on {@link MetaStorageManager}.
@@ -141,8 +143,8 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     @Override
     public CompletableFuture<UnitClusterStatus> createClusterStatus(String id, Version version, Set<String> nodes) {
         ByteArray key = ClusterStatusKey.builder().id(id).version(version).build().toByteArray();
-        long revision = metaStorage.appliedRevision();
-        UnitClusterStatus clusterStatus = new UnitClusterStatus(id, version, UPLOADING, revision, nodes);
+        UUID operationId = UUID.randomUUID();
+        UnitClusterStatus clusterStatus = new UnitClusterStatus(id, version, UPLOADING, operationId, nodes);
         byte[] value = UnitClusterStatus.serialize(clusterStatus);
 
         return metaStorage.invoke(notExists(key), put(key, value), noop())
@@ -154,7 +156,7 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
             String nodeId,
             String id,
             Version version,
-            long opId,
+            UUID opId,
             DeploymentStatus status
     ) {
         ByteArray key = NodeStatusKey.builder().id(id).version(version).nodeId(nodeId).build().toByteArray();
@@ -207,17 +209,31 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     }
 
     @Override
-    public CompletableFuture<Boolean> removeClusterStatus(String id, Version version) {
+    public CompletableFuture<Boolean> removeClusterStatus(String id, Version version, UUID opId) {
         ByteArray key = ClusterStatusKey.builder().id(id).version(version).build().toByteArray();
 
-        return metaStorage.invoke(exists(key), Operations.remove(key), noop());
+        return metaStorage.get(key).thenCompose(e -> {
+            UnitClusterStatus prev = UnitClusterStatus.deserialize(e.value());
+            if (!Objects.equals(prev.opId(), opId)) {
+                return falseCompletedFuture();
+            }
+
+            return metaStorage.invoke(revision(key).eq(e.revision()), remove(key), noop());
+        });
     }
 
     @Override
-    public CompletableFuture<Boolean> removeNodeStatus(String nodeId, String id, Version version) {
+    public CompletableFuture<Boolean> removeNodeStatus(String nodeId, String id, Version version, UUID opId) {
         ByteArray key = NodeStatusKey.builder().id(id).version(version).nodeId(nodeId).build().toByteArray();
 
-        return metaStorage.invoke(exists(key), Operations.remove(key), noop());
+        return metaStorage.get(key).thenCompose(e -> {
+            UnitNodeStatus prev = UnitNodeStatus.deserialize(e.value());
+            if (!Objects.equals(prev.opId(), opId)) {
+                return falseCompletedFuture();
+            }
+
+            return metaStorage.invoke(revision(key).eq(e.revision()), remove(key), noop());
+        });
     }
 
     /**
@@ -233,17 +249,17 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
                 .thenCompose(e -> {
                     byte[] value = e.value();
                     if (value == null) {
-                        return completedFuture(false);
+                        return falseCompletedFuture();
                     }
                     byte[] newValue = mapper.apply(value);
 
 
                     if (newValue == null) {
-                        return completedFuture(false);
+                        return falseCompletedFuture();
                     }
 
                     return metaStorage.invoke(
-                                    force ? exists(key) : revision(key).le(e.revision()),
+                                    force ? exists(key) : revision(key).eq(e.revision()),
                                     put(key, newValue),
                                     noop())
                             .thenCompose(finished -> {

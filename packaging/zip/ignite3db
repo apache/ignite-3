@@ -16,6 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+set -o errexit # Exit on error
+set -o nounset # Exit on unset variables
 
 SCRIPT_DIR=$(dirname "$0")
 
@@ -34,14 +36,26 @@ cd ${IGNITE_HOME} || exit
 start() {
   echo "Starting Ignite 3..."
 
+  STARTUP_LOG_FILE="${LOG_DIR}/ignite3db-startup.log"
+
   CMD="${JAVA_CMD_WITH_ARGS} ${APPLICATION_ARGS}"
-  $CMD >>/dev/null 2>&1 </dev/null & echo $! >${IGNITE_HOME}/pid
+  $CMD >>"${STARTUP_LOG_FILE}" 2>&1 </dev/null & echo $! >${IGNITE_HOME}/pid
 
   rest_address_file=${WORK_DIR}/rest-address
-  while [ ! -f "$rest_address_file" ]; do sleep 0.5; done
-    rest_address=$(cat "$rest_address_file")
+  max_attempts=30
+  count=0
+  while [ ! -f "$rest_address_file" ] && [ "$count" -lt "$max_attempts" ]; do
+    sleep 1
+    count=$((count + 1))
+  done
 
-  echo "Node named ${NODE_NAME} started successfully. REST addresses are [$rest_address]"
+ if [ ! -f "$rest_address_file" ]; then
+     echo "Failure: Application did not start within the expected time frame. Check out ${STARTUP_LOG_FILE}" >&2
+     exit 1
+ else
+     rest_address=$(cat "$rest_address_file")
+     echo "Node named ${NODE_NAME} started successfully. REST addresses are [$rest_address]"
+ fi
 }
 
 stop() {

@@ -24,6 +24,8 @@ import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.MA
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
@@ -33,8 +35,6 @@ import org.apache.ignite.internal.storage.pagememory.index.InlineUtils;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRowKey;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * {@link BplusLeafIo} implementation for {@link SortedIndexTree}.

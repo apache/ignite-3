@@ -21,10 +21,10 @@ import java.util.List;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.function.Function;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.command.response.BatchResponse;
 import org.apache.ignite.internal.raft.ReadCommand;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
 /**

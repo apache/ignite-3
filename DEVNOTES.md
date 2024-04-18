@@ -75,27 +75,29 @@ Run code style checks only:
 Code style check results are generated at:
 * `<mudule-dir>/build/reports/checkstyle/`
 
-### Legacy API
-The project is checked for legacy APIs with [Modernizer Gradle Plugin](https://plugins.gradle.org/plugin/com.github.andygoossens.gradle-modernizer-plugin).
-* [Modernizer rules](check-rules/modernizer-rules.xml)
+### Spotbugs
+The project is checked for bugs with [Spotbugs Gradle Plugin](https://github.com/spotbugs/spotbugs-gradle-plugin).
+* [Spotbugs exclusion rules](check-rules/spotbugs-excludes.xml)
 
 Plugin is enabled by default and is bound to `build` task.
 
-Build project without legacy API check:
+Note that currently only main sources are validated with Spotbugs.
+
+Build project without spotbugs checks:
 ```shell
-./gradlew clean build -x modernizer
+./gradlew clean build -x spotbugsMain
 ```
 
-Run legacy API checks only:
+Run spotbugs checks only:
 ```shell
-./gradlew modernizer
+./gradlew spotbugsMain
 ```
 
 ### PMD
 Static code analyzer is run with [Apache Gradle PMD Plugin](https://docs.gradle.org/current/userguide/pmd_plugin.html).
 * [PMD rules](check-rules/pmd-rules.xml)
 ```shell
-./gradlew pmdMain
+./gradlew pmdMain pmdTest
 ```
 PMD check result (only if there are any violations) is generated at `<module-name>/build/reports/pmd/`.
 ***
@@ -164,27 +166,29 @@ High-level modules structure and detailed modules description can be found in th
 
 ## Packaging
 
+> Change the `<version>` placeholder into the version you'd like to use.
+
 ### Zip packaging
 ```shell
-./gradlew clean allDistZip -x check
+./gradlew clean allDistZip
 ```
 Uber zip package will be located in `packaging/build/distributions`.
 
 If you wand to build CLI, you can do it with:
 ```shell
-./gradlew clean packaging-cli:distZip -x check
+./gradlew clean packaging-cli:distZip 
 ```
 Zip package will be located in `packaging/cli/build/distributions`.
 
-For ignite-runner:
+For Ignite node:
 ```shell
-./gradlew clean packaging-db:distZip -x check
+./gradlew clean packaging-db:distZip
 ```
 Zip package will be located in `packaging/db/build/distributions`.
 
 You can build zip and run CLI with the following commands:
 ```shell
-./gradlew clean packaging-cli:distZip -x test -x check
+./gradlew clean packaging-cli:distZip 
 cd packaging/cli/build/distributions
 unzip ignite3-cli-<version>
 cd ignite3-cli-<version>
@@ -193,7 +197,7 @@ cd ignite3-cli-<version>
 
 To build a zip file with ignite-runner and run it:
 ```shell
-./gradlew clean packaging-db:distZip -x test -x check
+./gradlew clean packaging-db:distZip
 cd packaging/db/build/distributions
 unzip ignite3-db-<version>
 cd ignite3-db-<version>
@@ -262,7 +266,7 @@ Gradle build also provides the task that can build docker image. To run this tas
 
 Run docker container with ignite node:
 ```shell
-docker run -it --rm -p 10300:10300 apacheignite/ignite3
+docker run -it --rm -p 10300:10300 -p 10800:10800 apacheignite/ignite3
 ```
 
 There's a sample docker compose file which allows to run 3 nodes in a cluster in the `packaging/docker` directory. You can also use CLI from
@@ -273,6 +277,140 @@ docker run -it --rm --net ignite3_default apacheignite/ignite3 cli
 > connect http://node1:10300
 > cluster init --cluster-name cluster --meta-storage-node node1 --meta-storage-node node2 --meta-storage-node node3
 ```
+
+### How to launch multiple nodes on the same machine
+
+The easiest way to start as many nodes as you want is to use the docker-compose file located in the `packaging/docker` directory.
+If instead you want to start nodes manually, you can use the following commands:
+
+
+```shell
+./gradlew clean allDistZip
+mkdir ignite-3-cluster
+cd ignite-3-cluster
+unzip ../packaging/build/distributions/ignite3-<version>.zip
+```
+This is what you've already done when you've launched single-node Ignite cluster. Now you need to copy node directory as many times as you 
+want to start nodes. Then you need to change the name of the node in the `etc/ignite-config.conf` file in each node directory. 
+
+Let's first rename current node directory to `node1` and copy it to `node2` and `node3`:
+```shell
+mv ignite3-db-<version> node1
+cp -r node1 node2
+cp -r node1 node3
+```
+
+After that you have to change the name of the node in `etc/vars.env` file in each node directory:
+
+Linux:
+```shell
+sed -i 's/NODE_NAME=defaultNode/NODE_NAME=node1/' node1/etc/vars.env
+sed -i 's/NODE_NAME=defaultNode/NODE_NAME=node2/' node2/etc/vars.env
+sed -i 's/NODE_NAME=defaultNode/NODE_NAME=node3/' node3/etc/vars.env
+```
+
+MacOS: 
+```shell
+sed -i '' 's/NODE_NAME=defaultNode/NODE_NAME=node1/' node1/etc/vars.env
+sed -i '' 's/NODE_NAME=defaultNode/NODE_NAME=node2/' node2/etc/vars.env
+sed -i '' 's/NODE_NAME=defaultNode/NODE_NAME=node3/' node3/etc/vars.env
+```
+
+Each node binds to its set of ports: HTTP, HTTPS(if configured), internal TCP for communication between nodes, and client TCP.
+By default the following configuration is used:
+```
+clientConnector.port = 10800,
+network.port = 3344,
+rest: { port = 10300, ssl.port = 10400 }
+```
+If you want to start nodes on the same machine, you have to change the ports in the `etc/ignite-config.conf` file in each node directory.
+
+You can do it manually or use the following commands:
+
+Linux:
+```shell
+sed -i 's/port=10300/port=10301/' node1/etc/ignite-config.conf
+sed -i 's/port=10300/port=10302/' node2/etc/ignite-config.conf
+sed -i 's/port=10300/port=10303/' node3/etc/ignite-config.conf
+
+sed -i 's/port=3344/port=3301/' node1/etc/ignite-config.conf
+sed -i 's/port=3344/port=3302/' node2/etc/ignite-config.conf
+sed -i 's/port=3344/port=3303/' node3/etc/ignite-config.conf
+
+sed -i 's/port=10800/port=10801/' node1/etc/ignite-config.conf
+sed -i 's/port=10800/port=10802/' node2/etc/ignite-config.conf
+sed -i 's/port=10800/port=10803/' node3/etc/ignite-config.conf
+
+sed -i '/netClusterNodes=\[/,/\]/s/"localhost:3344"/"localhost:3301", "localhost:3302", "localhost:3303"/' node1/etc/ignite-config.conf
+sed -i '/netClusterNodes=\[/,/\]/s/"localhost:3344"/"localhost:3301", "localhost:3302", "localhost:3303"/' node2/etc/ignite-config.conf
+sed -i '/netClusterNodes=\[/,/\]/s/"localhost:3344"/"localhost:3301", "localhost:3302", "localhost:3303"/' node3/etc/ignite-config.conf
+```
+
+MacOS:
+```shell
+sed -i '' 's/port=10300/port=10301/' node1/etc/ignite-config.conf
+sed -i '' 's/port=10300/port=10302/' node2/etc/ignite-config.conf
+sed -i '' 's/port=10300/port=10303/' node3/etc/ignite-config.conf
+
+sed -i '' 's/port=3344/port=3301/' node1/etc/ignite-config.conf
+sed -i '' 's/port=3344/port=3302/' node2/etc/ignite-config.conf
+sed -i '' 's/port=3344/port=3303/' node3/etc/ignite-config.conf
+
+sed -i '' 's/port=10800/port=10801/' node1/etc/ignite-config.conf
+sed -i '' 's/port=10800/port=10802/' node2/etc/ignite-config.conf
+sed -i '' 's/port=10800/port=10803/' node3/etc/ignite-config.conf
+
+sed -i '' '/netClusterNodes=\[/,/\]/s/"localhost:3344"/"localhost:3301", "localhost:3302", "localhost:3303"/' node1/etc/ignite-config.conf
+sed -i '' '/netClusterNodes=\[/,/\]/s/"localhost:3344"/"localhost:3301", "localhost:3302", "localhost:3303"/' node2/etc/ignite-config.conf
+sed -i '' '/netClusterNodes=\[/,/\]/s/"localhost:3344"/"localhost:3301", "localhost:3302", "localhost:3303"/' node3/etc/ignite-config.conf
+```
+
+Now all the nodes are set up and you can start them with the following commands:
+
+```shell
+./node1/bin/ignite3db start
+./node2/bin/ignite3db start
+./node3/bin/ignite3db start
+```
+
+After that connect to any node with CLI:
+```shell
+./ignite3-cli-<version>/bin/ignite3 connect http://localhost:10301
+```
+
+Then you can check that all nodes see each other:
+
+```shell
+cluster topology physical
+```
+
+To initialize a cluster run the following command inside Ignite CLI:
+
+```shell
+cluster init 
+  --cluster-name myClusterOfThreeNodes 
+  --cmg-node node1 --cmg-node node2 --cmg-node node3 
+  --meta-storage-node node1 --meta-storage-node node2 --meta-storage-node node3
+```
+
+To stop all nodes:
+
+```shell
+./node1/bin/ignite3db stop
+./node2/bin/ignite3db stop
+./node3/bin/ignite3db stop
+```
+
+
+### Run Swagger UI with docker-compose
+
+To run Swagger UI in docker, run the following command:
+```shell
+  cd modules/rest-api/openapi
+  docker-compose up
+```
+
+Swagger UI will be available at http://localhost:8082
 
 ## Release candidate verification
 1. Build all packages (this will also run unit tests and all checks)

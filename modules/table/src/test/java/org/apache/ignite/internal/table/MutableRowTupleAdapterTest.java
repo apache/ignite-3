@@ -18,19 +18,19 @@
 package org.apache.ignite.internal.table;
 
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
-import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
-import static org.apache.ignite.internal.schema.NativeTypes.DATE;
-import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
-import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
-import static org.apache.ignite.internal.schema.NativeTypes.INT16;
-import static org.apache.ignite.internal.schema.NativeTypes.INT32;
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
-import static org.apache.ignite.internal.schema.NativeTypes.INT8;
-import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.NativeTypes.datetime;
-import static org.apache.ignite.internal.schema.NativeTypes.time;
-import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.type.NativeTypes.BYTES;
+import static org.apache.ignite.internal.type.NativeTypes.DATE;
+import static org.apache.ignite.internal.type.NativeTypes.DOUBLE;
+import static org.apache.ignite.internal.type.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.type.NativeTypes.INT16;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.INT64;
+import static org.apache.ignite.internal.type.NativeTypes.INT8;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
+import static org.apache.ignite.internal.type.NativeTypes.datetime;
+import static org.apache.ignite.internal.type.NativeTypes.time;
+import static org.apache.ignite.internal.type.NativeTypes.timestamp;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -51,11 +51,11 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.Temporal;
 import java.util.BitSet;
+import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
@@ -63,11 +63,9 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -77,18 +75,19 @@ import org.junit.jupiter.api.Test;
  */
 public class MutableRowTupleAdapterTest {
     private static final int NANOS_IN_SECOND = 9;
+    private static final int TIMESTAMP_PRECISION = 6;
+    private static final int TIME_PRECISION = 0;
 
     /** Schema descriptor. */
     private final SchemaDescriptor schema = new SchemaDescriptor(
             42,
-            new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-            new Column[]{new Column("name".toUpperCase(), NativeTypes.STRING, false)}
+            new Column[]{new Column("id".toUpperCase(), INT64, false)},
+            new Column[]{new Column("name".toUpperCase(), STRING, false)}
     );
 
     /** Schema descriptor. */
     private final SchemaDescriptor fullSchema = new SchemaDescriptor(42,
-            new Column[]{new Column("keyUuidCol".toUpperCase(), NativeTypes.UUID, false)},
-            new Column[]{
+            List.of(
                     new Column("valByteCol".toUpperCase(), INT8, true),
                     new Column("valShortCol".toUpperCase(), INT16, true),
                     new Column("valIntCol".toUpperCase(), INT32, true),
@@ -96,15 +95,18 @@ public class MutableRowTupleAdapterTest {
                     new Column("valFloatCol".toUpperCase(), FLOAT, true),
                     new Column("valDoubleCol".toUpperCase(), DOUBLE, true),
                     new Column("valDateCol".toUpperCase(), DATE, true),
-                    new Column("valTimeCol".toUpperCase(), time(), true),
-                    new Column("valDateTimeCol".toUpperCase(), datetime(), true),
-                    new Column("valTimeStampCol".toUpperCase(), timestamp(), true),
+                    new Column("keyUuidCol".toUpperCase(), NativeTypes.UUID, false),
+                    new Column("valTimeCol".toUpperCase(), time(TIME_PRECISION), true),
+                    new Column("valDateTimeCol".toUpperCase(), datetime(TIMESTAMP_PRECISION), true),
+                    new Column("valTimeStampCol".toUpperCase(), timestamp(TIMESTAMP_PRECISION), true),
                     new Column("valBitmask1Col".toUpperCase(), NativeTypes.bitmaskOf(22), true),
                     new Column("valBytesCol".toUpperCase(), BYTES, false),
                     new Column("valStringCol".toUpperCase(), STRING, false),
                     new Column("valNumberCol".toUpperCase(), NativeTypes.numberOf(20), false),
-                    new Column("valDecimalCol".toUpperCase(), NativeTypes.decimalOf(25, 5), false),
-            }
+                    new Column("valDecimalCol".toUpperCase(), NativeTypes.decimalOf(25, 5), false)
+            ),
+            List.of("keyUuidCol".toUpperCase()),
+            null
     );
 
     @Test
@@ -207,36 +209,43 @@ public class MutableRowTupleAdapterTest {
     public void testKeyValueChunks() throws TupleMarshallerException {
         SchemaDescriptor schema = new SchemaDescriptor(
                 42,
-                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-                new Column[]{
-                        new Column("name".toUpperCase(), NativeTypes.STRING, true),
-                        new Column("price".toUpperCase(), NativeTypes.DOUBLE, true)
-                }
+                List.of(
+                        new Column("ID2", INT64, false),
+                        new Column("NAME", STRING, true),
+                        new Column("PRICE", DOUBLE, true),
+                        new Column("ID1", INT64, false)
+                ),
+                List.of("ID1", "ID2"),
+                null
         );
 
         Tuple original = Tuple.create()
-                .set("id", 3L)
+                .set("id1", 3L)
                 .set("name", "Shirt")
-                .set("price", 5.99d);
+                .set("price", 5.99d)
+                .set("id2", 33L);
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Row row = marshaller.marshal(original);
 
         Tuple key = TableRow.keyTuple(row);
         Tuple val = TableRow.valueTuple(row);
 
-        assertEquals(3L, (Long) key.value("id"));
+        assertEquals(3L, (Long) key.value("id1"));
         assertEquals(3L, (Long) key.value(0));
 
+        assertEquals(33L, (Long) key.value("id2"));
+        assertEquals(33L, (Long) key.value(1));
+
         assertEquals("Shirt", val.value("name"));
-        assertEquals("Shirt", val.value(1));
+        assertEquals("Shirt", val.value(0));
 
         assertEquals(5.99d, val.value("price"));
-        assertEquals(5.99d, val.value(0));
+        assertEquals(5.99d, val.value(1));
 
         // Wrong columns.
-        assertThrows(IndexOutOfBoundsException.class, () -> key.value(1));
+        assertThrows(IndexOutOfBoundsException.class, () -> key.value(2));
         assertThrows(IllegalArgumentException.class, () -> key.value("price"));
 
         assertThrows(IndexOutOfBoundsException.class, () -> val.value(2));
@@ -245,7 +254,7 @@ public class MutableRowTupleAdapterTest {
 
     @Test
     public void testRowTupleMutability() throws TupleMarshallerException {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("name", "Shirt"));
 
@@ -272,7 +281,7 @@ public class MutableRowTupleAdapterTest {
 
     @Test
     public void testKeyValueTupleMutability() throws TupleMarshallerException {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("name", "Shirt"));
 
@@ -301,7 +310,7 @@ public class MutableRowTupleAdapterTest {
 
     @Test
     public void testRowTupleSchemaAwareness() throws TupleMarshallerException {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("name", "Shirt"));
 
@@ -324,7 +333,7 @@ public class MutableRowTupleAdapterTest {
 
     @Test
     public void testKeyValueTupleSchemaAwareness() throws TupleMarshallerException {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("name", "Shirt"));
 
@@ -351,7 +360,7 @@ public class MutableRowTupleAdapterTest {
     public void testVariousColumnTypes() throws TupleMarshallerException {
         Random rnd = new Random();
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(fullSchema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
 
         Tuple tuple = Tuple.create()
                 .set("valByteCol", (byte) 1)
@@ -403,7 +412,7 @@ public class MutableRowTupleAdapterTest {
                 .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
                 .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(fullSchema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
 
         Row row = marshaller.marshal(tup1);
 
@@ -421,7 +430,6 @@ public class MutableRowTupleAdapterTest {
         return truncateToDefaultPrecision(LocalTime.now());
     }
 
-    @NotNull
     private LocalDateTime truncatedLocalDateTimeNow() {
         return truncateToDefaultPrecision(LocalDateTime.now());
     }
@@ -451,7 +459,7 @@ public class MutableRowTupleAdapterTest {
         Tuple tuple = Tuple.create(valTuple).set(keyTuple.columnName(0), keyTuple.value(0));
 
         // Check tuples backed with Row.
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(fullSchema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
 
         Row row = marshaller.marshal(keyTuple, valTuple);
 
@@ -534,7 +542,7 @@ public class MutableRowTupleAdapterTest {
                 .set("valNumberCol", BigInteger.valueOf(rnd.nextLong()))
                 .set("valDecimalCol", BigDecimal.valueOf(rnd.nextLong(), 5));
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(fullSchema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(fullSchema);
 
         Row row = marshaller.marshal(key1, val1);
 
@@ -548,11 +556,11 @@ public class MutableRowTupleAdapterTest {
     @Test
     void testTemporalValuesPrecisionConstraint() throws Exception {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
-                new Column[]{new Column("key", NativeTypes.INT32, false)},
+                new Column[]{new Column("key", INT32, false)},
                 new Column[]{
-                        new Column("time", NativeTypes.time(2), true),
-                        new Column("datetime", NativeTypes.datetime(2), true),
-                        new Column("timestamp", NativeTypes.timestamp(2), true)
+                        new Column("time", time(2), true),
+                        new Column("datetime", datetime(2), true),
+                        new Column("timestamp", timestamp(2), true)
                 }
         );
 
@@ -565,7 +573,7 @@ public class MutableRowTupleAdapterTest {
                 .set("datetime", LocalDateTime.of(2022, 1, 2, 3, 4, 5, 670_000_000))
                 .set("timestamp", Instant.ofEpochSecond(123, 450_000_000));
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schemaDescriptor);
 
         Row row = marshaller.marshal(tuple);
 
@@ -577,14 +585,14 @@ public class MutableRowTupleAdapterTest {
     @Test
     void testVarlenValuesLengthConstraints() throws Exception {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
-                new Column[]{new Column("key", NativeTypes.INT32, false)},
+                new Column[]{new Column("key", INT32, false)},
                 new Column[]{
                         new Column("string", NativeTypes.stringOf(5), true),
                         new Column("bytes", NativeTypes.blobOf(5), true),
                 }
         );
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schemaDescriptor);
 
         Tuple tuple1 = Tuple.create().set("key", 1)
                 .set("string", "abcef")
@@ -614,7 +622,7 @@ public class MutableRowTupleAdapterTest {
                 }
         );
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schemaDescriptor);
 
         Tuple tuple1 = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123456.7"));
 
@@ -631,7 +639,7 @@ public class MutableRowTupleAdapterTest {
                 }
         );
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schemaDescriptor));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schemaDescriptor);
 
         Tuple tuple = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123.458"));
         Tuple expected = Tuple.create().set("key", 1).set("decimal", new BigDecimal("123.46")); // Rounded.
@@ -642,8 +650,8 @@ public class MutableRowTupleAdapterTest {
     }
 
     private <T extends Temporal> T truncateToDefaultPrecision(T temporal) {
-        int precision = temporal instanceof Instant ? ColumnType.TemporalColumnType.DEFAULT_TIMESTAMP_PRECISION
-                : ColumnType.TemporalColumnType.DEFAULT_TIME_PRECISION;
+        int precision = temporal instanceof Instant ? TIMESTAMP_PRECISION
+                : TIME_PRECISION;
 
         return (T) temporal.with(NANO_OF_SECOND,
                 truncatePrecision(temporal.get(NANO_OF_SECOND), tailFactor(precision)));
@@ -697,7 +705,7 @@ public class MutableRowTupleAdapterTest {
                     .set("id", 3L)
                     .set("name", "Shirt");
 
-            TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+            TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
             return TableRow.tuple(marshaller.marshal(original));
         } catch (TupleMarshallerException e) {

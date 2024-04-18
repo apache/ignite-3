@@ -24,12 +24,12 @@ import java.util.Set;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,7 +52,7 @@ public class LozaTest extends IgniteAbstractTest {
     private RaftConfiguration raftConfiguration;
 
     /**
-     * Checks that the all API methods throw the exception ({@link org.apache.ignite.lang.NodeStoppingException})
+     * Checks that the all API methods throw the exception ({@link NodeStoppingException})
      * when Loza is closed.
      *
      * @throws Exception If fail.

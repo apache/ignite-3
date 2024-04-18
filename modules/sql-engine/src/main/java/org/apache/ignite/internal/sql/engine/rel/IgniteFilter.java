@@ -42,6 +42,8 @@ import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
  * false.</p>
  */
 public class IgniteFilter extends Filter implements TraitsAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "Filter";
+
     /**
      * Creates a filter.
      *
@@ -104,5 +106,10 @@ public class IgniteFilter extends Filter implements TraitsAwareIgniteRel {
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteFilter(cluster, getTraitSet(), sole(inputs), getCondition());
+    }
+
+    /** {@inheritDoc} */
+    @Override public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

@@ -17,9 +17,8 @@
 
 package org.apache.ignite.sql;
 
+import java.time.ZoneId;
 import java.util.concurrent.TimeUnit;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Object represents an SQL statement.
@@ -36,7 +35,7 @@ public interface Statement extends AutoCloseable {
      *
      * @return SQL statement string.
      */
-    @NotNull String query();
+    String query();
 
     /**
      * Returns a query timeout.
@@ -44,7 +43,7 @@ public interface Statement extends AutoCloseable {
      * @param timeUnit Timeunit to convert timeout to.
      * @return Query timeout in the given timeunit.
      */
-    long queryTimeout(@NotNull TimeUnit timeUnit);
+    long queryTimeout(TimeUnit timeUnit);
 
     /**
      * Returns a statement's default schema.
@@ -61,12 +60,11 @@ public interface Statement extends AutoCloseable {
     int pageSize();
 
     /**
-     * Returns statement property value that overrides the session property value or {@code null} if session property value should be used.
+     * Returns time zone used for this statement.
      *
-     * @param name Property name.
-     * @return Property value or {@code null} if not set.
+     * @return Time zone used for this statement.
      */
-    @Nullable Object property(@NotNull String name);
+    ZoneId timeZoneId();
 
     /**
      * Creates a statement builder from the current statement.
@@ -85,7 +83,7 @@ public interface Statement extends AutoCloseable {
          *
          * @return SQL statement string.
          */
-        @NotNull String query();
+        String query();
 
         /**
          * Sets an SQL statement string.
@@ -101,7 +99,7 @@ public interface Statement extends AutoCloseable {
          * @param timeUnit Timeunit to convert timeout to.
          * @return Query timeout in the given timeunit.
          */
-        long queryTimeout(@NotNull TimeUnit timeUnit);
+        long queryTimeout(TimeUnit timeUnit);
 
         /**
          * Sets a query timeout.
@@ -110,7 +108,7 @@ public interface Statement extends AutoCloseable {
          * @param timeUnit Timeunit.
          * @return {@code this} for chaining.
          */
-        StatementBuilder queryTimeout(long timeout, @NotNull TimeUnit timeUnit);
+        StatementBuilder queryTimeout(long timeout, TimeUnit timeUnit);
 
         /**
          * Returns a statement default schema.
@@ -125,7 +123,7 @@ public interface Statement extends AutoCloseable {
          * @param schema Default schema.
          * @return {@code this} for chaining.
          */
-        StatementBuilder defaultSchema(@NotNull String schema);
+        StatementBuilder defaultSchema(String schema);
 
         /**
          * Returns a page size - the maximum number of result rows that can be fetched at a time.
@@ -142,24 +140,16 @@ public interface Statement extends AutoCloseable {
          */
         StatementBuilder pageSize(int pageSize);
 
-        /**
-         * Returns a statement property value that overrides the session property value; returns {@code null} if the session
-         * property value should be used.
-         *
-         * @param name Property name.
-         * @return Property value or {@code null} if not set.
-         */
-        @Nullable Object property(@NotNull String name);
+        /** Returns a statement time zone. */
+        ZoneId timeZoneId();
 
         /**
-         * Sets a statement property value that overrides the session property value.
-         * If {@code null} is passed, the session property value is used.
+         * Sets a time zone for this statement.
          *
-         * @param name Property name.
-         * @param value Property value or {@code null} to use the value defined for the session.
+         * @param timeZoneId Time zone ID.
          * @return {@code this} for chaining.
          */
-        StatementBuilder property(@NotNull String name, @Nullable Object value);
+        StatementBuilder timeZoneId(ZoneId timeZoneId);
 
         /**
          * Creates an SQL statement abject.

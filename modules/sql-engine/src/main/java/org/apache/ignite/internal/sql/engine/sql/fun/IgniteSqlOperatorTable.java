@@ -17,17 +17,30 @@
 
 package org.apache.ignite.internal.sql.engine.sql.fun;
 
+import com.google.common.collect.ImmutableList;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.sql.SqlBasicFunction;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlOperatorBinding;
+import org.apache.calcite.sql.fun.SqlInternalOperators;
 import org.apache.calcite.sql.fun.SqlLibraryOperators;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.fun.SqlSubstringFunction;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
+import org.apache.calcite.sql.type.SqlReturnTypeInference;
+import org.apache.calcite.sql.type.SqlSingleOperandTypeChecker;
+import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeTransforms;
 import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Operator table that contains only Ignite-specific functions and operators.
@@ -51,21 +64,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     ReturnTypes.VARCHAR_2000,
                     null,
                     OperandTypes.ANY,
-                    SqlFunctionCategory.SYSTEM);
-
-    /**
-     * Replacement for NULL values in search bounds. Required to distinguish searchable NULL values
-     * (for example, 'a IS NULL' condition) and not searchable NULL values (for example, 'a = NULL' condition).
-     *
-     * <p>Note: System function, cannot be used by user.
-     */
-    public static final SqlFunction NULL_BOUND =
-            new SqlFunction(
-                    "$NULL_BOUND",
-                    SqlKind.OTHER_FUNCTION,
-                    ReturnTypes.explicit(SqlTypeName.ANY),
-                    null,
-                    OperandTypes.NILADIC,
                     SqlFunctionCategory.SYSTEM);
 
     /**
@@ -99,11 +97,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     SqlFunctionCategory.SYSTEM);
 
     /**
-     * Substring function.
-     */
-    public static final SqlFunction SUBSTRING = new SqlSubstringFunction();
-
-    /**
      * Generic {@code SUBSTR(string, position [, length]} function.
      * This function works exactly the same as {@link SqlSubstringFunction SUSBSTRING(string, position [, length])}.
      */
@@ -114,6 +107,23 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     ReturnTypes.ARG0_NULLABLE_VARYING,
                     null,
                     OperandTypes.STRING_INTEGER_OPTIONAL_INTEGER,
+                    SqlFunctionCategory.STRING);
+
+    private static final SqlSingleOperandTypeChecker STRING_NUMERIC_OPTIONAL_NUMERIC =
+            OperandTypes.family(
+                    ImmutableList.of(SqlTypeFamily.STRING, SqlTypeFamily.NUMERIC,
+                            SqlTypeFamily.NUMERIC), i -> i == 2);
+
+    public static final SqlFunction SUBSTRING =
+            new SqlFunction(
+                    "SUBSTRING",
+                    SqlKind.OTHER_FUNCTION,
+                    ReturnTypes.ARG0_NULLABLE_VARYING,
+                    null,
+                    OperandTypes.STRING_INTEGER_OPTIONAL_INTEGER
+                            .or(STRING_NUMERIC_OPTIONAL_NUMERIC)
+                            .or(OperandTypes.STRING_INTEGER)
+                            .or(OperandTypes.STRING_NUMERIC),
                     SqlFunctionCategory.STRING);
 
     /**
@@ -163,6 +173,49 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                 }
             };
 
+    /** The {@code ROUND(numeric [, numeric])} function. */
+    public static final SqlFunction ROUND = SqlBasicFunction.create("ROUND",
+            new SetScaleToZeroIfSingleArgument(),
+            OperandTypes.NUMERIC_OPTIONAL_INTEGER,
+            SqlFunctionCategory.NUMERIC);
+
+    /** The {@code TRUNCATE(numeric [, numeric])} function. */
+    public static final SqlFunction TRUNCATE = SqlBasicFunction.create("TRUNCATE",
+            new SetScaleToZeroIfSingleArgument(),
+            OperandTypes.NUMERIC_OPTIONAL_INTEGER,
+            SqlFunctionCategory.NUMERIC);
+
+    /** The {@code OCTET_LENGTH(string|binary)} function. */
+    public static final SqlFunction OCTET_LENGTH = SqlBasicFunction.create("OCTET_LENGTH",
+            ReturnTypes.INTEGER_NULLABLE,
+            OperandTypes.CHARACTER.or(OperandTypes.BINARY),
+            SqlFunctionCategory.NUMERIC);
+
+    /**
+     * Division operator used by REDUCE phase of AVG aggregate.
+     * Uses provided values of {@code scale} and {@code precision} to return inferred type.
+     */
+    public static final SqlFunction DECIMAL_DIVIDE = SqlBasicFunction.create("DECIMAL_DIVIDE",
+            new SqlReturnTypeInference() {
+                @Override
+                public @Nullable RelDataType inferReturnType(SqlOperatorBinding opBinding) {
+                    RelDataType arg0 = opBinding.getOperandType(0);
+                    Integer precision = opBinding.getOperandLiteralValue(2, Integer.class);
+                    Integer scale = opBinding.getOperandLiteralValue(3, Integer.class);
+
+                    assert precision != null : "precision is not specified: " + opBinding.getOperator();
+                    assert scale != null : "scale is not specified: " + opBinding.getOperator();
+
+                    boolean nullable = arg0.isNullable();
+                    RelDataTypeFactory typeFactory = opBinding.getTypeFactory();
+
+                    RelDataType returnType = typeFactory.createSqlType(SqlTypeName.DECIMAL, precision, scale);
+                    return typeFactory.createTypeWithNullability(returnType, nullable);
+                }
+            },
+            OperandTypes.DIVISION_OPERATOR,
+            SqlFunctionCategory.NUMERIC);
+
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
 
@@ -208,6 +261,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.SUM);
         register(SqlStdOperatorTable.SUM0);
         register(SqlStdOperatorTable.AVG);
+        register(DECIMAL_DIVIDE);
         register(SqlStdOperatorTable.MIN);
         register(SqlStdOperatorTable.MAX);
         register(SqlStdOperatorTable.ANY_VALUE);
@@ -293,13 +347,13 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.COT); // Cotangent.
         register(SqlStdOperatorTable.DEGREES); // Radians to degrees.
         register(SqlStdOperatorTable.RADIANS); // Degrees to radians.
-        register(SqlStdOperatorTable.ROUND);
+        register(ROUND); // Fixes return type scale.
         register(SqlStdOperatorTable.SIGN);
         register(SqlStdOperatorTable.SIN); // Sine.
         register(SqlLibraryOperators.SINH); // Hyperbolic sine.
         register(SqlStdOperatorTable.TAN); // Tangent.
         register(SqlLibraryOperators.TANH); // Hyperbolic tangent.
-        register(SqlStdOperatorTable.TRUNCATE);
+        register(TRUNCATE); // Fixes return type scale.
         register(SqlStdOperatorTable.PI);
 
         // Date and time.
@@ -349,27 +403,27 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.IS_NOT_EMPTY);
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-19332
-        //register(SqlStdOperatorTable.MAP_QUERY);
-        //register(SqlStdOperatorTable.ARRAY_QUERY);
+        // register(SqlStdOperatorTable.MAP_QUERY);
+        // register(SqlStdOperatorTable.ARRAY_QUERY);
 
         // Multiset.
         // TODO https://issues.apache.org/jira/browse/IGNITE-15551
-        //register(SqlStdOperatorTable.MULTISET_VALUE);
-        //register(SqlStdOperatorTable.MULTISET_QUERY);
-        //register(SqlStdOperatorTable.SLICE);
-        //register(SqlStdOperatorTable.ELEMENT);
-        //register(SqlStdOperatorTable.STRUCT_ACCESS);
-        //register(SqlStdOperatorTable.MEMBER_OF);
-        //register(SqlStdOperatorTable.IS_A_SET);
-        //register(SqlStdOperatorTable.IS_NOT_A_SET);
-        //register(SqlStdOperatorTable.MULTISET_INTERSECT_DISTINCT);
-        //register(SqlStdOperatorTable.MULTISET_INTERSECT);
-        //register(SqlStdOperatorTable.MULTISET_EXCEPT_DISTINCT);
-        //register(SqlStdOperatorTable.MULTISET_EXCEPT);
-        //register(SqlStdOperatorTable.MULTISET_UNION_DISTINCT);
-        //register(SqlStdOperatorTable.MULTISET_UNION);
-        //register(SqlStdOperatorTable.SUBMULTISET_OF);
-        //register(SqlStdOperatorTable.NOT_SUBMULTISET_OF);
+        // register(SqlStdOperatorTable.MULTISET_VALUE);
+        // register(SqlStdOperatorTable.MULTISET_QUERY);
+        // register(SqlStdOperatorTable.SLICE);
+        // register(SqlStdOperatorTable.ELEMENT);
+        // register(SqlStdOperatorTable.STRUCT_ACCESS);
+        // register(SqlStdOperatorTable.MEMBER_OF);
+        // register(SqlStdOperatorTable.IS_A_SET);
+        // register(SqlStdOperatorTable.IS_NOT_A_SET);
+        // register(SqlStdOperatorTable.MULTISET_INTERSECT_DISTINCT);
+        // register(SqlStdOperatorTable.MULTISET_INTERSECT);
+        // register(SqlStdOperatorTable.MULTISET_EXCEPT_DISTINCT);
+        // register(SqlStdOperatorTable.MULTISET_EXCEPT);
+        // register(SqlStdOperatorTable.MULTISET_UNION_DISTINCT);
+        // register(SqlStdOperatorTable.MULTISET_UNION);
+        // register(SqlStdOperatorTable.SUBMULTISET_OF);
+        // register(SqlStdOperatorTable.NOT_SUBMULTISET_OF);
 
         // Other functions and operators.
         register(SqlStdOperatorTable.ROW);
@@ -383,7 +437,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlLibraryOperators.LEAST);
         register(SqlLibraryOperators.GREATEST);
         register(SqlLibraryOperators.COMPRESS);
-        register(SqlStdOperatorTable.OCTET_LENGTH);
+        register(OCTET_LENGTH);
         register(SqlStdOperatorTable.DEFAULT);
         register(SqlStdOperatorTable.REINTERPRET);
 
@@ -394,6 +448,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlLibraryOperators.EXISTS_NODE);
 
         // JSON Operators
+        register(SqlStdOperatorTable.JSON_TYPE_OPERATOR);
         register(SqlStdOperatorTable.JSON_VALUE_EXPRESSION);
         register(SqlStdOperatorTable.JSON_VALUE);
         register(SqlStdOperatorTable.JSON_QUERY);
@@ -416,6 +471,9 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.IS_NOT_JSON_ARRAY);
         register(SqlStdOperatorTable.IS_NOT_JSON_SCALAR);
 
+        // Aggregate functions.
+        register(SqlInternalOperators.LITERAL_AGG);
+
         // Current time functions.
         register(SqlStdOperatorTable.CURRENT_TIME);
         register(SqlStdOperatorTable.CURRENT_TIMESTAMP);
@@ -429,8 +487,29 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(TYPEOF);
         register(LEAST2);
         register(GREATEST2);
-        register(NULL_BOUND);
         register(RAND_UUID);
         register(GEN_RANDOM_UUID);
+    }
+
+    /** Sets scale to {@code 0} for single argument variants of ROUND/TRUNCATE operators. */
+    private static class SetScaleToZeroIfSingleArgument implements SqlReturnTypeInference {
+        @Override
+        public @Nullable RelDataType inferReturnType(SqlOperatorBinding opBinding) {
+            RelDataType operandType = opBinding.getOperandType(0);
+
+            // If there is only one argument and it supports precision and scale, set scale 0.
+            if (opBinding.getOperandCount() == 1 && operandType.getSqlTypeName().allowsPrecScale(true, true)) {
+                int precision = operandType.getPrecision();
+                IgniteTypeFactory typeFactory = Commons.typeFactory();
+
+                RelDataType returnType = typeFactory.createSqlType(operandType.getSqlTypeName(), precision, 0);
+                // Preserve nullability
+                boolean nullable = operandType.isNullable();
+
+                return typeFactory.createTypeWithNullability(returnType, nullable);
+            } else {
+                return operandType;
+            }
+        }
     }
 }

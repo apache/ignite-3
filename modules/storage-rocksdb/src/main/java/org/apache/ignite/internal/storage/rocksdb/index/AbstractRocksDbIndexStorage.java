@@ -17,10 +17,16 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.INDEX_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.PARTITION_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.TABLE_ID_SIZE;
+import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnIndexStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToTerminalState;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
@@ -28,6 +34,7 @@ import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.storage.RowId;
@@ -40,7 +47,6 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
@@ -52,10 +58,17 @@ import org.rocksdb.WriteBatchWithIndex;
 /**
  * Abstract index storage base on RocksDB.
  */
-abstract class AbstractRocksDbIndexStorage implements IndexStorage {
+public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
+    /** Common prefix for keys in all index storages, containing IDs of different entities. */
+    public static final int PREFIX_WITH_IDS_LENGTH = TABLE_ID_SIZE + INDEX_ID_SIZE + PARTITION_ID_SIZE;
+
+    private final int tableId;
+
     protected final int indexId;
 
-    protected final PartitionDataHelper helper;
+    protected final int partitionId;
+
+    private final boolean pk;
 
     private final RocksDbMetaStorage indexMetaStorage;
 
@@ -66,37 +79,37 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     protected final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /** Row ID for which the index needs to be built, {@code null} means that the index building has completed. */
-    private volatile @Nullable RowId nextRowIdToBuilt;
+    private volatile @Nullable RowId nextRowIdToBuild;
 
-    AbstractRocksDbIndexStorage(int indexId, PartitionDataHelper helper, RocksDbMetaStorage indexMetaStorage) {
+    AbstractRocksDbIndexStorage(int tableId, int indexId, int partitionId, RocksDbMetaStorage indexMetaStorage, boolean pk) {
+        this.tableId = tableId;
         this.indexId = indexId;
-        this.helper = helper;
         this.indexMetaStorage = indexMetaStorage;
+        this.partitionId = partitionId;
+        this.pk = pk;
 
-        int partitionId = helper.partitionId();
-
-        nextRowIdToBuilt = indexMetaStorage.getNextRowIdToBuilt(indexId, partitionId, RowId.lowestRowId(partitionId));
+        nextRowIdToBuild = indexMetaStorage.getNextRowIdToBuild(tableId, indexId, partitionId, pk);
     }
 
     @Override
     public @Nullable RowId getNextRowIdToBuild() {
-        return busy(() -> {
+        return busyNonDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            return nextRowIdToBuilt;
+            return nextRowIdToBuild;
         });
     }
 
     @Override
     public void setNextRowIdToBuild(@Nullable RowId rowId) {
-        busy(() -> {
+        busyNonDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
-            indexMetaStorage.putNextRowIdToBuilt(writeBatch, indexId, helper.partitionId(), rowId);
+            indexMetaStorage.putNextRowIdToBuild(writeBatch, tableId, indexId, partitionId, rowId);
 
-            nextRowIdToBuilt = rowId;
+            nextRowIdToBuild = rowId;
 
             return null;
         });
@@ -106,11 +119,18 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      * Closes the hash index storage.
      */
     public void close() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
-            StorageState state = this.state.get();
+        if (!transitionToTerminalState(StorageState.CLOSED, state)) {
+            return;
+        }
 
-            assert state == StorageState.CLOSED : state;
+        busyLock.block();
+    }
 
+    /**
+     * Transitions the storage to the {@link StorageState#DESTROYED} state and blocks the busy lock.
+     */
+    public void transitionToDestroyedState() {
+        if (!transitionToTerminalState(StorageState.DESTROYED, state)) {
             return;
         }
 
@@ -144,7 +164,7 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      *
      * @throws StorageRebalanceException If there was an error when aborting the rebalance.
      */
-    public void abortReblance(WriteBatch writeBatch) {
+    public void abortRebalance(WriteBatch writeBatch) {
         if (!state.compareAndSet(StorageState.REBALANCE, StorageState.RUNNABLE)) {
             throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
@@ -192,9 +212,29 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         }
     }
 
-    <V> V busy(Supplier<V> supplier) {
+    /**
+     * Invoke a supplier that performs an operation that is not a data read.
+     *
+     * @param supplier Operation closure.
+     * @return Whatever the supplier returns.
+     */
+    <V> V busyNonDataRead(Supplier<V> supplier) {
+        return busy(supplier, false);
+    }
+
+    /**
+     * Invoke a supplier that performs an operation that is a data read.
+     *
+     * @param supplier Operation closure.
+     * @return Whatever the supplier returns.
+     */
+    <V> V busyDataRead(Supplier<V> supplier) {
+        return busy(supplier, true);
+    }
+
+    private <V> V busy(Supplier<V> supplier, boolean read) {
         if (!busyLock.enterBusy()) {
-            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+            throwExceptionDependingOnIndexStorageState(state.get(), read, createStorageInfo());
         }
 
         try {
@@ -205,7 +245,7 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     }
 
     String createStorageInfo() {
-        return IgniteStringFormatter.format("indexId={}, partitionId={}", indexId, helper.partitionId());
+        return IgniteStringFormatter.format("indexId={}, partitionId={}", indexId, partitionId);
     }
 
     /**
@@ -213,7 +253,16 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      *
      * @throws RocksDBException If failed to delete data.
      */
-    abstract void destroyData(WriteBatch writeBatch) throws RocksDBException;
+    public final void destroyData(WriteBatch writeBatch) throws RocksDBException {
+        clearIndex(writeBatch);
+
+        indexMetaStorage.removeNextRowIdToBuild(writeBatch, tableId, indexId, partitionId);
+
+        nextRowIdToBuild = pk ? null : initialRowIdToBuild(partitionId);
+    }
+
+    /** Method that needs to be overridden by the inheritors to remove all implementation specific data for this index. */
+    abstract void clearIndex(WriteBatch writeBatch) throws RocksDBException;
 
     /**
      * Cursor that always returns up-to-date next element.
@@ -262,12 +311,12 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
         @Override
         public boolean hasNext() {
-            return busy(this::advanceIfNeededBusy);
+            return busyDataRead(this::advanceIfNeededBusy);
         }
 
         @Override
         public T next() {
-            return busy(() -> {
+            return busyDataRead(() -> {
                 if (!advanceIfNeededBusy()) {
                     throw new NoSuchElementException();
                 }
@@ -280,7 +329,7 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
         @Override
         public @Nullable T peek() {
-            return busy(() -> {
+            return busyDataRead(() -> {
                 throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractRocksDbIndexStorage.this::createStorageInfo);
 
                 byte[] res = peekBusy();

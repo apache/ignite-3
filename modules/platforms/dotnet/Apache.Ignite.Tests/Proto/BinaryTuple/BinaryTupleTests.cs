@@ -91,6 +91,20 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
         }
 
         [Test]
+        public void TestBool([Values(true, false)] bool value)
+        {
+            var res = Build((ref BinaryTupleBuilder b) => b.AppendBool(value));
+
+            Assert.AreEqual(1, res[1]);
+            Assert.AreEqual(3, res.Length);
+
+            var reader = new BinaryTupleReader(res, 1);
+            Assert.AreEqual(value, reader.GetBool(0));
+            Assert.AreEqual(value, reader.GetBoolNullable(0)!.Value);
+            Assert.AreEqual(value ? 1 : 0, reader.GetInt(0));
+        }
+
+        [Test]
         public void TestShort()
         {
             short[] values = {sbyte.MinValue, -1, 0, 1, sbyte.MaxValue};
@@ -458,7 +472,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             const int scale = 100;
 
             var ex = Assert.Throws<OverflowException>(
-                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendDecimal(12.34m, scale)).GetDecimal(0, scale));
+                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(new byte[] { 64, 64, 64 })).GetDecimal(0, scale));
 
             Assert.AreEqual("Value was either too large or too small for a Decimal.", ex!.Message);
         }
@@ -650,6 +664,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             Assert.IsNull(reader.GetTimeNullable(0));
             Assert.IsNull(reader.GetDateNullable(0));
             Assert.IsNull(reader.GetDateTimeNullable(0));
+            Assert.IsNull(reader.GetBoolNullable(0));
         }
 
         [Test]

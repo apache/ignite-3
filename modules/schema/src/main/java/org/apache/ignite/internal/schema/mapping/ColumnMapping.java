@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema.mapping;
 
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Column mapping helper.
@@ -87,7 +86,7 @@ public class ColumnMapping {
     private static class IdentityMapper implements ColumnMapper {
         /** {@inheritDoc} */
         @Override
-        public ColumnMapper add(@NotNull Column col) {
+        public ColumnMapper add(Column col) {
             throw new IllegalStateException("Immutable identity column mapper.");
         }
 

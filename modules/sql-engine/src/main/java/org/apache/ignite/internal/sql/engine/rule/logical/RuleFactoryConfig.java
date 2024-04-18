@@ -29,6 +29,7 @@ public interface RuleFactoryConfig<T extends RelRule.Config> extends RelRule.Con
 
     T withRuleFactory(Function<T, RelOptRule> factory);
 
+    @Override
     default RelOptRule toRule() {
         return ruleFactory().apply((T) this);
     }

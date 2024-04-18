@@ -19,17 +19,10 @@ package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Comparator;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
-import org.apache.ignite.internal.client.table.ClientTable;
-import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.table.Table;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -69,34 +62,5 @@ public class ClientTablesTest extends AbstractClientTest {
         Table table = client.tables().table("non-existent-table");
 
         assertNull(table);
-    }
-
-    @Test
-    @Disabled("IGNITE-15179")
-    public void testCreateTable() {
-        var clientTable = ((FakeIgniteTables) server.tables()).createTable("t1");
-        assertEquals("t1", clientTable.name());
-
-        var serverTables = server.tables().tables();
-        assertEquals(1, serverTables.size());
-
-        var serverTable = serverTables.get(0);
-        assertEquals("t1", serverTable.name());
-        assertEquals(((TableImpl) serverTable).tableId(), ((ClientTable) clientTable).tableId());
-    }
-
-    @Test
-    @Disabled("IGNITE-15179")
-    public void testCreateTableWhenExists() {
-        ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
-
-        var ex = assertThrows(CompletionException.class,
-                () -> ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE));
-
-        assertTrue(ex.getMessage().endsWith(FakeIgniteTables.TABLE_EXISTS));
-        assertEquals(TableAlreadyExistsException.class, ex.getCause().getClass());
-
-        var serverTables = server.tables().tables();
-        assertEquals(1, serverTables.size());
     }
 }

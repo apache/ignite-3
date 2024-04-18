@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.network.recovery;
 
 import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.switchEventLoopIfNeeded;
 import static org.apache.ignite.internal.network.recovery.HandshakeTieBreaker.shouldCloseChannel;
 
 import io.netty.channel.Channel;
@@ -26,12 +28,23 @@ import io.netty.channel.ChannelHandlerContext;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.function.BooleanSupplier;
+import java.util.function.Function;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureType;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
+import org.apache.ignite.internal.network.netty.ChannelEventLoopsSource;
+import org.apache.ignite.internal.network.netty.ChannelKey;
 import org.apache.ignite.internal.network.netty.HandshakeHandler;
 import org.apache.ignite.internal.network.netty.MessageHandler;
 import org.apache.ignite.internal.network.netty.NettySender;
@@ -39,12 +52,11 @@ import org.apache.ignite.internal.network.netty.NettyUtils;
 import org.apache.ignite.internal.network.netty.PipelineUtils;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
+import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.OutNetworkObject;
-import org.jetbrains.annotations.TestOnly;
+import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Recovery protocol handshake manager for a server.
@@ -52,11 +64,9 @@ import org.jetbrains.annotations.TestOnly;
 public class RecoveryServerHandshakeManager implements HandshakeManager {
     private static final IgniteLogger LOG = Loggers.forClass(RecoveryServerHandshakeManager.class);
 
-    /** Launch id. */
-    private final UUID launchId;
+    private static final int MAX_CLINCH_TERMINATION_AWAIT_ATTEMPTS = 1000;
 
-    /** Consistent id. */
-    private final String consistentId;
+    private final ClusterNode localNode;
 
     /** Message factory. */
     private final NetworkMessagesFactory messageFactory;
@@ -64,11 +74,8 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /** Handshake completion future. */
     private final CompletableFuture<NettySender> handshakeCompleteFuture = new CompletableFuture<>();
 
-    /** Remote node's launch id. */
-    private UUID remoteLaunchId;
-
-    /** Remote node's consistent id. */
-    private String remoteConsistentId;
+    /** Remote node. */
+    private ClusterNode remoteNode;
 
     private short remoteChannelId;
 
@@ -87,35 +94,43 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /** Recovery descriptor provider. */
     private final RecoveryDescriptorProvider recoveryDescriptorProvider;
 
+    private final ChannelEventLoopsSource channelEventLoopsSource;
+
     /** Used to detect that a peer uses a stale ID. */
     private final StaleIdDetector staleIdDetector;
+
+    private final BooleanSupplier stopping;
 
     /** Recovery descriptor. */
     private RecoveryDescriptor recoveryDescriptor;
 
-    private final FailureHandler failureHandler = new FailureHandler();
+    private final FailureProcessor failureProcessor;
 
     /**
      * Constructor.
      *
-     * @param launchId Launch id.
-     * @param consistentId Consistent id.
+     * @param localNode {@link ClusterNode} representing this node.
      * @param messageFactory Message factory.
      * @param recoveryDescriptorProvider Recovery descriptor provider.
+     * @param stopping Defines whether the corresponding connection manager is stopping.
      */
     public RecoveryServerHandshakeManager(
-            UUID launchId,
-            String consistentId,
+            ClusterNode localNode,
             NetworkMessagesFactory messageFactory,
             RecoveryDescriptorProvider recoveryDescriptorProvider,
+            ChannelEventLoopsSource channelEventLoopsSource,
             StaleIdDetector staleIdDetector,
-            ChannelCreationListener channelCreationListener
+            ChannelCreationListener channelCreationListener,
+            BooleanSupplier stopping,
+            FailureProcessor failureProcessor
     ) {
-        this.launchId = launchId;
-        this.consistentId = consistentId;
+        this.localNode = localNode;
         this.messageFactory = messageFactory;
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
+        this.channelEventLoopsSource = channelEventLoopsSource;
         this.staleIdDetector = staleIdDetector;
+        this.stopping = stopping;
+        this.failureProcessor = failureProcessor;
 
         this.handshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -150,8 +165,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     @Override
     public void onConnectionOpen() {
         HandshakeStartMessage handshakeStartMessage = messageFactory.handshakeStartMessage()
-                .launchId(launchId)
-                .consistentId(consistentId)
+                .serverNode(HandshakeManagerUtils.clusterNodeToMessage(localNode))
                 .build();
 
         ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(handshakeStartMessage, emptyList(), false));
@@ -168,26 +182,29 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /** {@inheritDoc} */
     @Override
     public void onMessage(NetworkMessage message) {
+        if (message instanceof ProbeMessage) {
+            // No action required, just ignore it.
+            return;
+        }
+
+        if (message instanceof HandshakeRejectedMessage) {
+            onHandshakeRejectedMessage((HandshakeRejectedMessage) message);
+
+            return;
+        }
+
         if (message instanceof HandshakeStartResponseMessage) {
             onHandshakeStartResponseMessage((HandshakeStartResponseMessage) message);
 
             return;
         }
 
-        if (message instanceof HandshakeRejectedMessage) {
-            HandshakeRejectedMessage msg = (HandshakeRejectedMessage) message;
+        // If we are here it means that we acquired the descriptor, we already handled a HandshakeStartresponseMessage and now we are
+        // getting unacked messages from another side and acks for our unacked messages that we sent there (if any).
 
-            LOG.warn("Handshake rejected by client: {}", msg.reason());
-
-            handshakeCompleteFuture.completeExceptionally(new HandshakeException(msg.reason()));
-
-            // TODO: IGNITE-16899 Perhaps we need to fail the node by FailureHandler
-            failureHandler.handleFailure(new IgniteException("Handshake rejected by client: " + msg.reason()));
-
-            return;
-        }
-
-        assert recoveryDescriptor != null : "Wrong server handshake flow";
+        assert recoveryDescriptor != null : "Wrong server handshake flow, message is " + message;
+        assert recoveryDescriptor.holderChannel() == channel : "Expected " + channel + " but was " + recoveryDescriptor.holderChannel()
+                + ", message is " + message;
 
         if (recoveryDescriptor.unacknowledgedCount() == 0) {
             finishHandshake();
@@ -197,46 +214,125 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     }
 
     private void onHandshakeStartResponseMessage(HandshakeStartResponseMessage message) {
-        UUID remoteLaunchId = message.launchId();
-        String remoteConsistentId = message.consistentId();
-        long remoteReceivedCount = message.receivedCount();
-        short remoteChannelId = message.connectionId();
-
-        if (staleIdDetector.isIdStale(remoteLaunchId.toString())) {
-            handleStaleClientId(message);
-
+        if (possiblyRejectHandshakeStartResponse(message)) {
             return;
         }
 
-        this.remoteLaunchId = remoteLaunchId;
-        this.remoteConsistentId = remoteConsistentId;
-        this.receivedCount = remoteReceivedCount;
-        this.remoteChannelId = remoteChannelId;
+        this.remoteNode = message.clientNode().asClusterNode();
+        this.receivedCount = message.receivedCount();
+        this.remoteChannelId = message.connectionId();
+
+        ChannelKey channelKey = new ChannelKey(remoteNode.name(), UUID.fromString(remoteNode.id()), remoteChannelId);
+        switchEventLoopIfNeeded(channel, channelKey, channelEventLoopsSource, () -> tryAcquireDescriptorAndFinishHandshake(message));
+    }
+
+    private boolean possiblyRejectHandshakeStartResponse(HandshakeStartResponseMessage message) {
+        if (staleIdDetector.isIdStale(message.clientNode().id())) {
+            handleStaleClientId(message);
+
+            return true;
+        }
+
+        if (stopping.getAsBoolean()) {
+            handleRefusalToEstablishConnectionDueToStopping(message);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private void handleStaleClientId(HandshakeStartResponseMessage msg) {
+        String message = msg.clientNode().name() + ":" + msg.clientNode().id()
+                + " is stale, client should be restarted to be allowed to connect";
+
+        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STALE_LAUNCH_ID, HandshakeException::new);
+    }
+
+    private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartResponseMessage msg) {
+        String message = msg.clientNode().name() + ":" + msg.clientNode().id() + " tried to establish a connection with " + localNode.name()
+                + ", but it's stopping";
+
+        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STOPPING, m -> new NodeStoppingException());
+    }
+
+    private void sendRejectionMessageAndFailHandshake(
+            String message,
+            HandshakeRejectionReason rejectionReason,
+            Function<String, Exception> exceptionFactory
+    ) {
+        HandshakeManagerUtils.sendRejectionMessageAndFailHandshake(
+                message,
+                rejectionReason,
+                channel,
+                handshakeCompleteFuture,
+                exceptionFactory
+        );
+    }
+
+    private void tryAcquireDescriptorAndFinishHandshake(HandshakeStartResponseMessage message) {
+        tryAcquireDescriptorAndFinishHandshake(message, 0);
+    }
+
+    private void tryAcquireDescriptorAndFinishHandshake(HandshakeStartResponseMessage handshakeStartResponse, int attempt) {
+        if (attempt > MAX_CLINCH_TERMINATION_AWAIT_ATTEMPTS) {
+            throw new IllegalStateException("Too many attempts during handshake from " + remoteNode.name() + "(" + remoteNode.id()
+                    + ":" + remoteChannelId + ") via " + ctx.channel());
+        }
 
         RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
-                this.remoteConsistentId,
-                this.remoteLaunchId,
+                remoteNode.name(),
+                UUID.fromString(remoteNode.id()),
                 this.remoteChannelId
         );
 
-        while (!descriptor.acquire(ctx)) {
-            if (shouldCloseChannel(launchId, remoteLaunchId)) {
-                Channel holderChannel = descriptor.holderChannel();
+        while (!descriptor.tryAcquire(ctx, handshakeCompleteFuture)) {
+            if (shouldCloseChannel(UUID.fromString(localNode.id()), UUID.fromString(remoteNode.id()))) {
+                // A competitor is holding the descriptor and we win the clinch; so we need to wait on the 'clinch resolved' future till
+                // the competitor realises it should terminate (this realization will happen on the other side of the channel), send
+                // the corresponding message to this node, terminate its handshake and complete the 'clinch resolved' future.
+                DescriptorAcquiry competitorAcquiry = descriptor.holder();
 
-                if (holderChannel == null) {
+                if (competitorAcquiry == null) {
                     continue;
                 }
 
-                holderChannel.close().awaitUninterruptibly();
+                // Ok, there is a competitor. This might be a genuine competitor doing a handshake from the other side, or it might be
+                // a core component that is doing maintenance: cleanup after the other side has left the topology or because our node
+                // is stopping. If the latter is true, it's no use to wait (they will never release the descriptor), but this only
+                // happens if the other side's ID is stale or stopping is true, so let's check it.
+                if (possiblyRejectHandshakeStartResponse(handshakeStartResponse)) {
+                    return;
+                }
+
+                competitorAcquiry.clinchResolved().whenComplete((res, ex) -> {
+                    // The competitor has finished terminating its handshake, it must've already released the descriptor,
+                    // so let's try again.
+                    if (ctx.executor().inEventLoop()) {
+                        tryAcquireDescriptorAndFinishHandshake(handshakeStartResponse, attempt + 1);
+                    } else {
+                        ctx.executor().execute(() -> tryAcquireDescriptorAndFinishHandshake(handshakeStartResponse, attempt + 1));
+                    }
+                });
+
+                return;
             } else {
-                String err = "Failed to acquire recovery descriptor during handshake, it is held by: " + descriptor.holderDescription();
-
-                LOG.info(err);
-
-                handshakeCompleteFuture.completeExceptionally(new HandshakeException(err));
+                // A competitor is holding the descriptor and we lose the clinch; so we need to send the correspnding message
+                // to the other side, where the code handling the message will terminate our handshake and complete the 'clinch resolved'
+                // future, making it possible for the competitor to proceed and finish the handshake.
+                rejectHandshakeDueToLosingClinch(descriptor);
 
                 return;
             }
+        }
+
+        // Now that we hold the descriptor, let's check again if the other side has left the topology or we are already stopping.
+        // This allows to avoid a race between MessagingService/ConnectionManager handling node leave/local node stop and
+        // a concurrent handshake. If one of these happened, we are releasing the descriptor to allow the common machinery
+        // to acquire it and clean it up.
+        if (possiblyRejectHandshakeStartResponse(handshakeStartResponse)) {
+            descriptor.release(ctx);
+            return;
         }
 
         this.recoveryDescriptor = descriptor;
@@ -244,23 +340,38 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         handshake(descriptor);
     }
 
-    private void handleStaleClientId(HandshakeStartResponseMessage msg) {
-        String reason = msg.consistentId() + ":" + msg.launchId() + " is stale, client should be restarted to be allowed to connect";
-        HandshakeRejectedMessage rejectionMessage = messageFactory.handshakeRejectedMessage()
-                .reason(reason)
-                .build();
+    private void onHandshakeRejectedMessage(HandshakeRejectedMessage msg) {
+        boolean ignorable = stopping.getAsBoolean() || !msg.reason().critical();
 
-        ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(rejectionMessage, emptyList(), false));
+        if (ignorable) {
+            LOG.debug("Handshake rejected by client: {}", msg.message());
+        } else {
+            LOG.warn("Handshake rejected by client: {}", msg.message());
+        }
 
-        NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
-            if (throwable != null) {
-                handshakeCompleteFuture.completeExceptionally(
-                        new HandshakeException("Failed to send handshake rejected message: " + throwable.getMessage(), throwable)
-                );
-            } else {
-                handshakeCompleteFuture.completeExceptionally(new HandshakeException(reason));
-            }
-        });
+        HandshakeException err = new HandshakeException(msg.message());
+
+        handshakeCompleteFuture.completeExceptionally(err);
+
+        if (!ignorable) {
+            failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
+        }
+    }
+
+    private void rejectHandshakeDueToLosingClinch(RecoveryDescriptor descriptor) {
+        String localErrorMessage = "Failed to acquire recovery descriptor during handshake, it is held by: "
+                + descriptor.holderDescription();
+
+        LOG.debug(localErrorMessage);
+
+        HandshakeManagerUtils.sendRejectionMessageAndFailHandshake(
+                localErrorMessage,
+                "Handshake clinch detected, this handshake will be terminated, winning channel is " + descriptor.holderDescription(),
+                HandshakeRejectionReason.CLINCH,
+                channel,
+                handshakeCompleteFuture,
+                HandshakeException::new
+        );
     }
 
     private void handshake(RecoveryDescriptor descriptor) {
@@ -283,6 +394,9 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
             futs[0] = sendFuture;
 
             List<OutNetworkObject> networkMessages = descriptor.unacknowledgedMessages();
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Resending on handshake: {}", networkMessages.stream().map(OutNetworkObject::networkMessage).collect(toList()));
+            }
 
             for (int i = 0; i < networkMessages.size(); i++) {
                 OutNetworkObject networkMessage = networkMessages.get(i);
@@ -313,12 +427,17 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
      * @return New message handler.
      */
     private MessageHandler createMessageHandler() {
-        return handler.createMessageHandler(remoteConsistentId);
+        return handler.createMessageHandler(remoteNode, remoteChannelId);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<NettySender> handshakeFuture() {
+    public CompletableFuture<NettySender> localHandshakeFuture() {
+        return handshakeCompleteFuture;
+    }
+
+    @Override
+    public CompletionStage<NettySender> finalHandshakeFuture() {
         return handshakeCompleteFuture;
     }
 
@@ -329,11 +448,8 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         // Removes handshake handler from the pipeline as the handshake is finished
         this.ctx.pipeline().remove(this.handler);
 
-        handshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, remoteChannelId));
-    }
-
-    @TestOnly
-    public RecoveryDescriptor recoveryDescriptor() {
-        return recoveryDescriptor;
+        handshakeCompleteFuture.complete(
+                new NettySender(channel, remoteNode.id(), remoteNode.name(), remoteChannelId, recoveryDescriptor)
+        );
     }
 }

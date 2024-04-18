@@ -17,13 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -40,17 +38,10 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
 
     protected final int inBufSize = Commons.IN_BUFFER_SIZE;
 
+    private final ExecutionContext<RowT> ctx;
+
     /** For debug purpose. */
     private volatile Thread thread;
-
-    /**
-     * Execution context.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * {@link Inbox} node may not have proper context at creation time in case it creates on first message received from a remote source.
-     * This case the context sets in scope of {@link Inbox#init(ExecutionContext, Collection, Comparator)} method call.
-     */
-    private ExecutionContext<RowT> ctx;
 
     private Downstream<RowT> downstream;
 
@@ -72,10 +63,6 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
     @Override
     public ExecutionContext<RowT> context() {
         return ctx;
-    }
-
-    protected void context(ExecutionContext<RowT> ctx) {
-        this.ctx = ctx;
     }
 
     /** {@inheritDoc} */
@@ -150,13 +137,13 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
     /**
      * Get closed flag: {@code true} if the subtree is canceled.
      */
-    protected boolean isClosed() {
+    public boolean isClosed() {
         return closed;
     }
 
     protected void checkState() throws Exception {
         if (context().isCancelled() || Thread.interrupted()) {
-            throw new ExecutionCancelledException();
+            throw new QueryCancelledException();
         }
         if (!IgniteUtils.assertionsEnabled()) {
             return;

@@ -30,7 +30,6 @@ import java.util.function.Supplier;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
 import org.apache.ignite.internal.util.FilteringIterator;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -134,7 +133,6 @@ public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
         }
 
         /** {@inheritDoc} */
-        @NotNull
         @Override
         public Iterator<RowT> iterator() {
             GroupKey key = key(searchRow.get());

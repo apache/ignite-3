@@ -22,15 +22,15 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import org.apache.ignite.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 
 /**
- * Class or field annotated with IgniteToStringInclude claims the element <b>should</b> be included in {@code toString()} output. This
- * annotation is used to override the default exclusion policy.
+ * Class, field or method annotated with IgniteToStringInclude claims the element <b>should</b> be included in {@code toString()} output.
+ * This annotation is used to override the default exclusion policy.
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.FIELD, ElementType.TYPE})
+@Target({ElementType.FIELD, ElementType.TYPE, ElementType.METHOD})
 public @interface IgniteToStringInclude {
     /**
      * A flag indicating if sensitive information stored in the field or fields of the class. Such information will be included to {@code

@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.client;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -34,12 +34,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests repeated commit/rollback operations.
  */
-public class RepeatedFinishClientTransactionTest {
+public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest {
     @Test
     public void testRepeatedCommitRollbackAfterCommit() throws Exception {
         CountDownLatch txFinishStartedLatch = new CountDownLatch(1);
@@ -179,7 +180,8 @@ public class RepeatedFinishClientTransactionTest {
         }
 
         @Override
-        public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadWriter payloadWriter, PayloadReader<T> payloadReader) {
+        public <T> CompletableFuture<T> serviceAsync(
+                int opCode, PayloadWriter payloadWriter, PayloadReader<T> payloadReader, boolean expectNotifications) {
             txFinishStartedLatch.countDown();
 
             try {
@@ -188,7 +190,7 @@ public class RepeatedFinishClientTransactionTest {
                 throw new RuntimeException(e);
             }
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         @Override
@@ -202,13 +204,18 @@ public class RepeatedFinishClientTransactionTest {
         }
 
         @Override
-        public void addTopologyAssignmentChangeListener(Consumer<ClientChannel> listener) {
-
+        public void addPartitionAssignmentChangeListener(Consumer<Long> listener) {
+            // No-op.
         }
 
         @Override
-        public void close() throws Exception {
+        public void addObservableTimestampListener(Consumer<Long> listener) {
+            // No-op.
+        }
 
+        @Override
+        public void close() {
+            // No-op.
         }
     }
 }

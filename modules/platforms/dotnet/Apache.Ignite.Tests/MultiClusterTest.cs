@@ -21,7 +21,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Log;
 using NUnit.Framework;
 
 /// <summary>
@@ -29,16 +28,19 @@ using NUnit.Framework;
 /// </summary>
 public class MultiClusterTest
 {
+    [TearDown]
+    public void TearDown() => TestUtils.CheckByteArrayPoolLeak();
+
     [Test]
     public async Task TestClientDropsConnectionOnClusterIdMismatch()
     {
         using var server1 = new FakeServer(nodeName: "s1") { ClusterId = new Guid(1, 0, 0, new byte[8]) };
         using var server2 = new FakeServer(nodeName: "s2") { ClusterId = new Guid(2, 0, 0, new byte[8]) };
 
-        var log = new ListLogger(new ConsoleLogger());
+        var log = new ListLoggerFactory();
         var cfg = new IgniteClientConfiguration(server1.Endpoint, server2.Endpoint)
         {
-            Logger = log
+            LoggerFactory = log
         };
 
         using var client = await IgniteClient.StartAsync(cfg);

@@ -117,7 +117,7 @@ class DefaultUserObjectMarshallerCommonTest {
                 throw new RuntimeException(e);
             }
 
-            stream.defaultReadObject();;
+            stream.defaultReadObject();
         }
     }
 }

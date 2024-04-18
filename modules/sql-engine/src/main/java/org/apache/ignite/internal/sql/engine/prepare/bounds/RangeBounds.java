@@ -44,7 +44,7 @@ public class RangeBounds extends SearchBounds {
      * @param condition Condition.
      * @param lowerBound Range lower bound.
      * @param upperBound Range upper bound.
-     * @param lowerInclude Inclisive lower bound flag.
+     * @param lowerInclude Inclusive lower bound flag.
      * @param upperInclude Inclusive upper bound flag.
      */
     public RangeBounds(

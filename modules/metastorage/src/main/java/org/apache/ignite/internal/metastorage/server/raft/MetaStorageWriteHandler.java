@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -56,7 +57,6 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Class containing some common logic for Meta Storage Raft group listeners.
@@ -83,18 +83,18 @@ public class MetaStorageWriteHandler {
             if (command instanceof MetaStorageWriteCommand) {
                 var cmdWithTime = (MetaStorageWriteCommand) command;
 
-                HybridTimestamp safeTime = cmdWithTime.safeTime();
+                if (command instanceof SyncTimeCommand) {
+                    var syncTimeCommand = (SyncTimeCommand) command;
 
-                handleWriteWithTime(clo, cmdWithTime, safeTime);
-            } else if (command instanceof SyncTimeCommand) {
-                var syncTimeCommand = (SyncTimeCommand) command;
+                    // Ignore the command if it has been sent by a stale leader.
+                    if (clo.term() != syncTimeCommand.initiatorTerm()) {
+                        clo.result(null);
 
-                // Ignore the command if it has been sent by a stale leader.
-                if (clo.term() == syncTimeCommand.initiatorTerm()) {
-                    clusterTime.updateSafeTime(syncTimeCommand.safeTime());
+                        return;
+                    }
                 }
 
-                clo.result(null);
+                handleWriteWithTime(clo, cmdWithTime);
             } else {
                 assert false : "Command was not found [cmd=" + command + ']';
             }
@@ -118,9 +118,10 @@ public class MetaStorageWriteHandler {
      *
      * @param clo Command closure.
      * @param command Command.
-     * @param opTime Command's time.
      */
-    private void handleWriteWithTime(CommandClosure<WriteCommand> clo, MetaStorageWriteCommand command, HybridTimestamp opTime) {
+    private void handleWriteWithTime(CommandClosure<WriteCommand> clo, MetaStorageWriteCommand command) {
+        HybridTimestamp opTime = command.safeTime();
+
         if (command instanceof PutCommand) {
             PutCommand putCmd = (PutCommand) command;
 
@@ -177,6 +178,10 @@ public class MetaStorageWriteHandler {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
             clo.result(storage.invoke(toIf(cmd.iif()), opTime));
+        } else if (command instanceof SyncTimeCommand) {
+            storage.advanceSafeTime(command.safeTime());
+
+            clo.result(null);
         }
     }
 
@@ -222,7 +227,10 @@ public class MetaStorageWriteHandler {
                     return new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, simpleCondition.key());
 
                 case TOMBSTONE:
-                    return new TombstoneCondition(simpleCondition.key());
+                    return new TombstoneCondition(TombstoneCondition.Type.TOMBSTONE, simpleCondition.key());
+
+                case NOT_TOMBSTONE:
+                    return new TombstoneCondition(TombstoneCondition.Type.NOT_TOMBSTONE, simpleCondition.key());
 
                 default:
                     throw new IllegalArgumentException("Unexpected simple condition type " + simpleCondition.type());
@@ -286,7 +294,7 @@ public class MetaStorageWriteHandler {
         }
     }
 
-    void beforeApply(Command command) {
+    boolean beforeApply(Command command) {
         if (command instanceof MetaStorageWriteCommand) {
             // Initiator sends us a timestamp to adjust to.
             // Alter command by setting safe time based on the adjusted clock.
@@ -295,6 +303,10 @@ public class MetaStorageWriteHandler {
             clusterTime.adjust(writeCommand.initiatorTime());
 
             writeCommand.safeTimeLong(clusterTime.nowLong());
+
+            return true;
         }
+
+        return false;
     }
 }

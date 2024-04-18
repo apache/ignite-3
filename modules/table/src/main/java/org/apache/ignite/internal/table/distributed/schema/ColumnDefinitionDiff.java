@@ -17,21 +17,64 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
+import java.util.Objects;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 
 /**
  * Captures a difference between 'old' and 'new' versions of the same column definition.
  */
 public class ColumnDefinitionDiff {
-    @SuppressWarnings("PMD.UnusedPrivateField")
     private final CatalogTableColumnDescriptor oldColumn;
-    @SuppressWarnings("PMD.UnusedPrivateField")
     private final CatalogTableColumnDescriptor newColumn;
-
-    // TODO: IGNITE-19229 - extend
 
     public ColumnDefinitionDiff(CatalogTableColumnDescriptor oldColumn, CatalogTableColumnDescriptor newColumn) {
         this.oldColumn = oldColumn;
         this.newColumn = newColumn;
+    }
+
+    /**
+     * Returns whether nullability has been changed on the column.
+     */
+    public boolean nullabilityChanged() {
+        return oldColumn.nullable() != newColumn.nullable();
+    }
+
+    /**
+     * Returns whether NOT NULL constraint has been dropped from the column.
+     */
+    public boolean notNullDropped() {
+        return !oldColumn.nullable() && newColumn.nullable();
+    }
+
+    /**
+     * Returns whether NOT NULL constraint has been added to the column.
+     */
+    public boolean notNullAdded() {
+        return oldColumn.nullable() && !newColumn.nullable();
+    }
+
+    /**
+     * Returns whether column type (including precision, scale, length) has been changed.
+     */
+    public boolean typeChanged() {
+        return oldColumn.type() != newColumn.type()
+                || oldColumn.precision() != newColumn.precision()
+                || oldColumn.scale() != newColumn.scale()
+                || oldColumn.length() != newColumn.length();
+    }
+
+    /**
+     * Returns whether type change is supported.
+     */
+    public boolean typeChangeIsSupported() {
+        return CatalogUtils.isColumnTypeChangeSupported(oldColumn, newColumn);
+    }
+
+    /**
+     * Returns whether the default value has been changed.
+     */
+    public boolean defaultChanged() {
+        return !Objects.equals(oldColumn.defaultValue(), newColumn.defaultValue());
     }
 }

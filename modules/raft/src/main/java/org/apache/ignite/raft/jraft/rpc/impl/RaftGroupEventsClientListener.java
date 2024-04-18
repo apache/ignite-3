@@ -17,10 +17,10 @@
 
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
@@ -42,15 +42,7 @@ public class RaftGroupEventsClientListener {
      * @param listener Listener.
     */
     public void addLeaderElectionListener(ReplicationGroupId groupId, LeaderElectionListener listener) {
-        leaderElectionListeners.compute(groupId, (k, listeners) -> {
-            if (listeners == null) {
-                listeners = new ArrayList<>();
-            }
-
-            listeners.add(listener);
-
-            return listeners;
-        });
+        leaderElectionListeners.computeIfAbsent(groupId, k -> new CopyOnWriteArrayList<>()).add(listener);
     }
 
     /**
@@ -60,13 +52,9 @@ public class RaftGroupEventsClientListener {
      * @param listener Listener.
     */
     public void removeLeaderElectionListener(ReplicationGroupId groupId, LeaderElectionListener listener) {
-        leaderElectionListeners.compute(groupId, (k, listeners) -> {
-            if (listeners == null) {
-                return null;
-            }
-
+        leaderElectionListeners.computeIfPresent(groupId, (k, listeners) -> {
             listeners.remove(listener);
-
+            
             return listeners;
         });
     }

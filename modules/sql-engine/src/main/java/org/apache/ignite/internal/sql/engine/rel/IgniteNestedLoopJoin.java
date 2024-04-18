@@ -42,6 +42,8 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * join condition.
  */
 public class IgniteNestedLoopJoin extends AbstractIgniteJoin {
+    private static final String REL_TYPE_NAME = "NestedLoopJoin";
+
     /**
      * Creates a Join.
      *
@@ -116,5 +118,11 @@ public class IgniteNestedLoopJoin extends AbstractIgniteJoin {
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteNestedLoopJoin(cluster, getTraitSet(), inputs.get(0), inputs.get(1), getCondition(),
                 getVariablesSet(), getJoinType());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

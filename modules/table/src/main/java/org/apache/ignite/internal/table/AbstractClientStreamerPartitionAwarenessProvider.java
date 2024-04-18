@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -29,8 +31,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * @param <T> Item type.
  */
 abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements StreamerPartitionAwarenessProvider<T, Integer> {
-    private static final CompletableFuture<Void> COMPLETED_FUTURE = CompletableFuture.completedFuture(null);
-
     private final SchemaRegistry schemaReg;
 
     private final int partitions;
@@ -43,7 +43,7 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
 
     @Override
     public Integer partition(T item) {
-        var colocationHash = colocationHash(schemaReg.schema(), item);
+        var colocationHash = colocationHash(schemaReg.lastKnownSchema(), item);
         return IgniteUtils.safeAbs(colocationHash) % partitions;
     }
 
@@ -51,6 +51,6 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
 
     @Override
     public CompletableFuture<Void> refreshAsync() {
-        return COMPLETED_FUTURE;
+        return nullCompletedFuture();
     }
 }

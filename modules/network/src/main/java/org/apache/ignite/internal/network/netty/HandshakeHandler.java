@@ -19,13 +19,15 @@ package org.apache.ignite.internal.network.netty;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.handler.codec.DecoderException;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Netty handler of the handshake operation.
@@ -75,15 +77,27 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
             throw e;
         }
 
-        manager.handshakeFuture().whenComplete((unused, throwable) -> {
+        manager.localHandshakeFuture().whenComplete((unused, throwable) -> {
             if (throwable != null) {
-                LOG.debug("Error when performing handshake", throwable);
+                if (unexpectedException(throwable)) {
+                    LOG.error("Error when performing handshake", throwable);
+                } else {
+                    LOG.debug("Error when performing handshake", throwable);
+                }
 
                 ctx.close();
             }
         });
 
         ctx.fireChannelActive();
+    }
+
+    private static boolean unexpectedException(Throwable ex) {
+        return ex instanceof Error
+                || ex instanceof DecoderException
+                || ex instanceof NullPointerException
+                || ex instanceof IllegalArgumentException
+                || ex instanceof IllegalStateException;
     }
 
     /** {@inheritDoc} */
@@ -97,7 +111,7 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
     public void channelInactive(ChannelHandlerContext ctx) {
         // If this method is called that means channel has been closed before handshake has finished or handshake
         // has failed.
-        manager.handshakeFuture().completeExceptionally(
+        manager.localHandshakeFuture().completeExceptionally(
                 new HandshakeException("Channel has been closed before handshake has finished or handshake has failed")
         );
 
@@ -107,16 +121,17 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        manager.handshakeFuture().completeExceptionally(cause);
+        manager.localHandshakeFuture().completeExceptionally(cause);
     }
 
     /**
      * Creates a {@link MessageHandler} for the current pipeline.
      *
-     * @param remoteConsistentId Remote node's consistent id.
+     * @param remoteNode Remote node.
+     * @param connectionIndex Index of the connection (corresponds to the channel ID).
      * @return Message handler.
      */
-    public MessageHandler createMessageHandler(String remoteConsistentId) {
-        return new MessageHandler(messageListener, remoteConsistentId, serializationService);
+    public MessageHandler createMessageHandler(ClusterNode remoteNode, short connectionIndex) {
+        return new MessageHandler(messageListener, remoteNode, connectionIndex, serializationService);
     }
 }

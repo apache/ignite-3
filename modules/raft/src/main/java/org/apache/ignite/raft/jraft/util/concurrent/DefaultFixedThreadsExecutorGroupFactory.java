@@ -27,7 +27,7 @@ import org.apache.ignite.raft.jraft.util.Utils;
 /**
  * TODO asch switch default executor to threadpoolexecutor + mpsc blocking queue IGNITE-14832
  */
-public final class DefaultFixedThreadsExecutorGroupFactory implements FixedThreadsExecutorGroupFactory {
+public class DefaultFixedThreadsExecutorGroupFactory implements FixedThreadsExecutorGroupFactory {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultFixedThreadsExecutorGroupFactory.class);
 
     public static final DefaultFixedThreadsExecutorGroupFactory INSTANCE = new DefaultFixedThreadsExecutorGroupFactory();
@@ -44,7 +44,7 @@ public final class DefaultFixedThreadsExecutorGroupFactory implements FixedThrea
         Requires.requireTrue(nThreads > 0, "nThreads must > 0");
         final boolean mpsc = useMpscQueue && Utils.USE_MPSC_SINGLE_THREAD_EXECUTOR;
         final SingleThreadExecutor[] children = new SingleThreadExecutor[nThreads];
-        final ThreadFactory threadFactory = mpsc ? new NamedThreadFactory(poolName, true, LOG) : null;
+        final ThreadFactory threadFactory = mpsc ? newDaemonThreadFactory(poolName) : null;
         for (int i = 0; i < nThreads; i++) {
             if (mpsc) {
                 children[i] = new MpscSingleThreadExecutor(maxPendingTasksPerThread, threadFactory);
@@ -54,6 +54,10 @@ public final class DefaultFixedThreadsExecutorGroupFactory implements FixedThrea
             }
         }
         return new DefaultFixedThreadsExecutorGroup(children);
+    }
+
+    protected ThreadFactory newDaemonThreadFactory(String poolName) {
+        return new NamedThreadFactory(poolName, true, LOG);
     }
 
     @Override
@@ -76,8 +80,5 @@ public final class DefaultFixedThreadsExecutorGroupFactory implements FixedThrea
     public FixedThreadsExecutorGroup newExecutorGroup(final ExecutorService[] children,
         final ExecutorChooserFactory.ExecutorChooser chooser) {
         return new DefaultFixedThreadsExecutorGroup(children, chooser);
-    }
-
-    private DefaultFixedThreadsExecutorGroupFactory() {
     }
 }

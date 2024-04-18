@@ -17,25 +17,20 @@
 
 package org.apache.ignite.internal.network.recovery;
 
-import java.util.UUID;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Factory producing {@link RecoveryClientHandshakeManager} instances.
  */
+@FunctionalInterface
 public interface RecoveryClientHandshakeManagerFactory {
     /**
      * Produces a {@link RecoveryClientHandshakeManager} instance.
      *
-     * @param launchId                   ID of the launch.
-     * @param consistentId               Consistent ID of the node.
-     * @param connectionId               ID of the connection.
+     * @param localNode This node.
+     * @param connectionId ID of the connection.
      * @param recoveryDescriptorProvider Provider of recovery descriptors to be used.
      * @return Created manager.
      */
-    RecoveryClientHandshakeManager create(
-            UUID launchId,
-            String consistentId,
-            short connectionId,
-            RecoveryDescriptorProvider recoveryDescriptorProvider
-    );
+    RecoveryClientHandshakeManager create(ClusterNode localNode, short connectionId, RecoveryDescriptorProvider recoveryDescriptorProvider);
 }

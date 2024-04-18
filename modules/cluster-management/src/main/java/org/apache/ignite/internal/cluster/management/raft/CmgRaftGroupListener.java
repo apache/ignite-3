@@ -44,13 +44,13 @@ import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopol
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -192,7 +192,12 @@ public class CmgRaftGroupListener implements RaftGroupListener {
             }
         }
 
-        LogicalNode logicalNode = new LogicalNode(node, command.node().nodeAttributes());
+        LogicalNode logicalNode = new LogicalNode(
+                node,
+                command.node().userAttributes(),
+                command.node().systemAttributes(),
+                command.node().storageProfiles()
+        );
 
         return validationManager.validateNode(storage.getClusterState(), logicalNode, command.igniteVersion(), command.clusterTag());
     }
@@ -201,7 +206,12 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     private Serializable completeValidation(JoinReadyCommand command) {
         ClusterNode node = command.node().asClusterNode();
 
-        LogicalNode logicalNode = new LogicalNode(node, command.node().nodeAttributes());
+        LogicalNode logicalNode = new LogicalNode(
+                node,
+                command.node().userAttributes(),
+                command.node().systemAttributes(),
+                command.node().storageProfiles()
+        );
 
         if (validationManager.isNodeValidated(logicalNode)) {
             validationManager.completeValidation(logicalNode);
@@ -218,7 +228,9 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         Set<ClusterNode> nodes = command.nodes().stream().map(ClusterNodeMessage::asClusterNode).collect(Collectors.toSet());
 
         // Nodes will be removed from a topology, so it is safe to set nodeAttributes to the default value
-        Set<LogicalNode> logicalNodes = nodes.stream().map(n -> new LogicalNode(n, Collections.emptyMap())).collect(Collectors.toSet());
+        Set<LogicalNode> logicalNodes = nodes.stream()
+                .map(n -> new LogicalNode(n, Collections.emptyMap(), Collections.emptyMap(), Collections.emptyList()))
+                .collect(Collectors.toSet());
 
         logicalTopology.removeNodes(logicalNodes);
         validationManager.removeValidatedNodes(logicalNodes);

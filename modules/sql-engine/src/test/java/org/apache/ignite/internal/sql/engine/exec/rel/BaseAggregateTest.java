@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.math.BigDecimal;
@@ -43,27 +45,27 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /**
- * BaseAggregateTest.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * A test class that defines basic test scenarios to verify the execution of each type of aggregate.
  */
-public abstract class BaseAggregateTest extends AbstractExecutionTest {
-    /**
-     * Count.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
+@SuppressWarnings("resource")
+public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> {
     @ParameterizedTest
     @EnumSource
     public void count(TestAggregateType testAgg) {
         ExecutionContext<Object[]> ctx = executionContext(true);
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, 200),
                 row(1, 300),
@@ -76,6 +78,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 false,
                 false,
                 false,
+                ImmutableList.of(),
                 ImmutableIntList.of(),
                 -1,
                 null,
@@ -85,7 +88,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -109,16 +112,12 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         assertFalse(root.hasNext());
     }
 
-    /**
-     * Min.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
     @ParameterizedTest
     @EnumSource
     public void min(TestAggregateType testAgg) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, 200),
                 row(1, 300),
@@ -131,15 +130,17 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 false,
                 false,
                 false,
+                List.of(),
                 ImmutableIntList.of(1),
                 -1,
+                 null,
                 RelCollations.EMPTY,
                 tf.createJavaType(int.class),
                 null);
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -163,16 +164,12 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         assertFalse(root.hasNext());
     }
 
-    /**
-     * Max.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
     @ParameterizedTest
     @EnumSource
     public void max(TestAggregateType testAgg) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, 200),
                 row(1, 300),
@@ -185,15 +182,17 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 false,
                 false,
                 false,
+                List.of(),
                 ImmutableIntList.of(1),
                 -1,
+                null,
                 RelCollations.EMPTY,
                 tf.createJavaType(int.class),
                 null);
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -217,16 +216,15 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         assertFalse(root.hasNext());
     }
 
-    /**
-     * Avg.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
     @ParameterizedTest
     @EnumSource
     public void avg(TestAggregateType testAgg) {
+        Assumptions.assumeFalse(testAgg == TestAggregateType.MAP_REDUCE,
+                "AVG should be implemented as multiple aggregates");
+
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, 200),
                 row(1, 300),
@@ -239,15 +237,17 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 false,
                 false,
                 false,
+                List.of(),
                 ImmutableIntList.of(1),
                 -1,
+                null,
                 RelCollations.EMPTY,
                 tf.createJavaType(int.class),
                 null);
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -271,10 +271,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         assertFalse(root.hasNext());
     }
 
-    /**
-     * Single.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
     @ParameterizedTest
     @EnumSource
     public void single(TestAggregateType testAgg) {
@@ -331,7 +327,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     ) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, scanInput);
 
         AggregateCall call = AggregateCall.create(
@@ -339,15 +335,17 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 false,
                 false,
                 false,
+                List.of(),
                 ImmutableIntList.of(1),
                 -1,
+                null,
                 RelCollations.EMPTY,
                 tf.createJavaType(Integer.class),
                 null);
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -373,22 +371,20 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         };
 
         if (mustFail) {
-            assertThrowsWithCause(r::run, IllegalArgumentException.class);
+            assertThrowsSqlException(Sql.RUNTIME_ERR, "Subquery returned more than 1 value", r::run);
         } else {
             r.run();
         }
     }
 
-    /**
-     * Distinct sum.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
     @ParameterizedTest
     @EnumSource
     public void distinctSum(TestAggregateType testAgg) {
+        Assumptions.assumeTrue(testAgg == TestAggregateType.COLOCATED);
+
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, 200),
                 row(1, 200),
@@ -406,15 +402,17 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 true,
                 false,
                 false,
+                List.of(),
                 ImmutableIntList.of(1),
                 -1,
+                null,
                 RelCollations.EMPTY,
                 tf.createJavaType(int.class),
                 null);
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -438,10 +436,6 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         assertFalse(root.hasNext());
     }
 
-    /**
-     * SumOnDifferentRowsCount.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
     @ParameterizedTest
     @EnumSource
     public void sumOnDifferentRowsCount(TestAggregateType testAgg) {
@@ -456,7 +450,8 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
                 ExecutionContext<Object[]> ctx = executionContext();
                 IgniteTypeFactory tf = ctx.getTypeFactory();
-                RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+                RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                        NativeTypes.INT32, NativeTypes.INT32));
 
                 ScanNode<Object[]> scan = new ScanNode<>(
                         ctx,
@@ -473,15 +468,17 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                         false,
                         false,
                         false,
+                        List.of(),
                         ImmutableIntList.of(1),
                         -1,
+                        null,
                         RelCollations.EMPTY,
                         tf.createJavaType(int.class),
                         null);
 
                 List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-                RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+                RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
                 SingleNode<Object[]> aggChain = createAggregateNodesChain(
                         testAgg,
@@ -517,7 +514,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     public void sumIntegerOverflow(TestAggregateType testAgg) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, Integer.MAX_VALUE / 2),
                 row(0, Integer.MAX_VALUE / 2 + 11)
@@ -528,6 +525,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 false,
                 false,
                 false,
+                ImmutableList.of(),
                 ImmutableIntList.of(1),
                 -1,
                 null,
@@ -537,7 +535,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -565,7 +563,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     public void sumLongOverflow(TestAggregateType testAgg) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, long.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT64));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Arrays.asList(
                 row(0, Long.MAX_VALUE / 2),
                 row(0, Long.MAX_VALUE / 2 + 11)
@@ -576,15 +574,17 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 false,
                 false,
                 false,
+                List.of(),
                 ImmutableIntList.of(1),
                 -1,
+                null,
                 RelCollations.EMPTY,
                 tf.createJavaType(BigDecimal.class),
                 null);
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -615,7 +615,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     public void countOfEmptyWithRewind(TestAggregateType testAgg) {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.INT32));
         ScanNode<Object[]> scan = new ScanNode<>(ctx, Collections.emptyList());
 
         AggregateCall call = AggregateCall.create(
@@ -623,6 +623,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 false,
                 false,
                 false,
+                ImmutableList.of(),
                 ImmutableIntList.of(),
                 -1,
                 null,
@@ -633,7 +634,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
-        RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
+        RelDataType aggRowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32));
 
         SingleNode<Object[]> aggChain = createAggregateNodesChain(
                 testAgg,
@@ -660,7 +661,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
             assertArrayEquals(row(0), root.next());
             assertFalse(root.hasNext());
 
-            aggChain.rewind();
+            await(ctx.submit(aggChain::rewind, root::onError));
         }
     }
 
@@ -720,5 +721,10 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         COLOCATED,
 
         MAP_REDUCE
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }

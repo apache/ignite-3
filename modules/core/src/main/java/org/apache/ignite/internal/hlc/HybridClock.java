@@ -36,10 +36,12 @@ public interface HybridClock {
     HybridTimestamp now();
 
     /**
-     * Creates a timestamp for a received event.
+     * Advances the clock in accordance with the request time. If the request time is ahead of the clock,
+     * the clock is advanced to the tick that is next to the request time; otherwise, it's advanced to the tick
+     * that is next to the local time.
      *
      * @param requestTime Timestamp from request.
-     * @return The hybrid timestamp.
+     * @return New local hybrid timestamp that is on the clock (it is ahead of both the old clock time and the request time).
      */
     HybridTimestamp update(HybridTimestamp requestTime);
 

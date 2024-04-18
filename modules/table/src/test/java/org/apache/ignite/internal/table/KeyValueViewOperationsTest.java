@@ -17,25 +17,38 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.schema.NativeTypes.BOOLEAN;
-import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
-import static org.apache.ignite.internal.schema.NativeTypes.DATE;
-import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
-import static org.apache.ignite.internal.schema.NativeTypes.FLOAT;
-import static org.apache.ignite.internal.schema.NativeTypes.INT16;
-import static org.apache.ignite.internal.schema.NativeTypes.INT32;
-import static org.apache.ignite.internal.schema.NativeTypes.INT64;
-import static org.apache.ignite.internal.schema.NativeTypes.INT8;
-import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.NativeTypes.datetime;
-import static org.apache.ignite.internal.schema.NativeTypes.time;
-import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
+import static org.apache.ignite.internal.type.NativeTypes.BYTES;
+import static org.apache.ignite.internal.type.NativeTypes.DATE;
+import static org.apache.ignite.internal.type.NativeTypes.DOUBLE;
+import static org.apache.ignite.internal.type.NativeTypes.FLOAT;
+import static org.apache.ignite.internal.type.NativeTypes.INT16;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.INT64;
+import static org.apache.ignite.internal.type.NativeTypes.INT8;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
+import static org.apache.ignite.internal.type.NativeTypes.datetime;
+import static org.apache.ignite.internal.type.NativeTypes.time;
+import static org.apache.ignite.internal.type.NativeTypes.timestamp;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,27 +58,80 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
+import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
+import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
+import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.MarshallerException;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 /**
  * Basic table operations test.
  */
-public class KeyValueViewOperationsTest {
+public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
     private final Random rnd = new Random();
+
+    private final Column[] valCols = {
+            new Column("primitiveBooleanCol".toUpperCase(), BOOLEAN, false),
+            new Column("primitiveByteCol".toUpperCase(), INT8, false),
+            new Column("primitiveShortCol".toUpperCase(), INT16, false),
+            new Column("primitiveIntCol".toUpperCase(), INT32, false),
+            new Column("primitiveLongCol".toUpperCase(), INT64, false),
+            new Column("primitiveFloatCol".toUpperCase(), FLOAT, false),
+            new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
+
+            new Column("booleanCol".toUpperCase(), BOOLEAN, true),
+            new Column("byteCol".toUpperCase(), INT8, true),
+            new Column("shortCol".toUpperCase(), INT16, true),
+            new Column("intCol".toUpperCase(), INT32, true),
+            new Column("longCol".toUpperCase(), INT64, true),
+            new Column("nullLongCol".toUpperCase(), INT64, true),
+            new Column("floatCol".toUpperCase(), FLOAT, true),
+            new Column("doubleCol".toUpperCase(), DOUBLE, true),
+
+            new Column("dateCol".toUpperCase(), DATE, true),
+            new Column("timeCol".toUpperCase(), time(0), true),
+            new Column("dateTimeCol".toUpperCase(), datetime(6), true),
+            new Column("timestampCol".toUpperCase(), timestamp(6), true),
+
+            new Column("uuidCol".toUpperCase(), NativeTypes.UUID, true),
+            new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
+            new Column("stringCol".toUpperCase(), STRING, true),
+            new Column("nullBytesCol".toUpperCase(), BYTES, true),
+            new Column("bytesCol".toUpperCase(), BYTES, true),
+            new Column("numberCol".toUpperCase(), NativeTypes.numberOf(12), true),
+            new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), true),
+    };
+
+    private final SchemaDescriptor schema = new SchemaDescriptor(
+            SCHEMA_VERSION,
+            new Column[]{new Column("id".toUpperCase(), INT64, false)},
+            valCols
+    );
+
+    private final Mapper<TestKeyObject> keyMapper = Mapper.of(TestKeyObject.class);
+    private final Mapper<TestObjectWithAllTypes> valMapper = Mapper.of(TestObjectWithAllTypes.class);
+
+    private DummyInternalTableImpl internalTable;
+
+    @BeforeEach
+    void createInternalTable() {
+        internalTable = spy(createInternalTable(schema));
+    }
 
     @Test
     public void put() {
@@ -472,7 +538,6 @@ public class KeyValueViewOperationsTest {
     @Test
     public void getNullableAndReplace() {
         final TestKeyObject key = TestKeyObject.randomObject(rnd);
-        final TestKeyObject key2 = TestKeyObject.randomObject(rnd);
         final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
         final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
         final TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
@@ -561,9 +626,8 @@ public class KeyValueViewOperationsTest {
     public void nullKeyValidation() {
         KeyValueViewImpl<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
-        final TestKeyObject key = TestKeyObject.randomObject(rnd);
-        final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes val2 = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes val2 = TestObjectWithAllTypes.randomObject(rnd);
 
         // Null key.
         assertThrows(NullPointerException.class, () -> tbl.contains(null, null));
@@ -617,58 +681,37 @@ public class KeyValueViewOperationsTest {
         assertThrows(MarshallerException.class, () -> tbl.putAll(null, Collections.singletonMap(key, null)));
     }
 
+    @Test
+    void retriesOnInternalSchemaVersionMismatchException() throws Exception {
+        KeyValueViewImpl<TestKeyObject, TestObjectWithAllTypes> view = kvView();
+
+        TestKeyObject key = new TestKeyObject(1);
+        TestObjectWithAllTypes expectedValue = TestObjectWithAllTypes.randomObject(rnd);
+        MarshallersProvider marshallers = new ReflectionMarshallersProvider();
+
+        BinaryRow resultRow = new KvMarshallerImpl<>(schema, marshallers, keyMapper, valMapper)
+                .marshal(key, expectedValue);
+
+        doReturn(failedFuture(new InternalSchemaVersionMismatchException()))
+                .doReturn(completedFuture(resultRow))
+                .when(internalTable).get(any(), any());
+
+        TestObjectWithAllTypes result = view.get(null, new TestKeyObject(1L));
+
+        assertThat(result, is(equalTo(expectedValue)));
+
+        verify(internalTable, times(2)).get(any(), isNull());
+    }
+
     /**
      * Creates key-value view.
      */
     private KeyValueViewImpl<TestKeyObject, TestObjectWithAllTypes> kvView() {
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address())
+        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        when(clusterService.topologyService().localMember().address())
                 .thenReturn(DummyInternalTableImpl.ADDR);
 
-        Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
-
-        Mapper<TestKeyObject> keyMapper = Mapper.of(TestKeyObject.class);
-        Mapper<TestObjectWithAllTypes> valMapper = Mapper.of(TestObjectWithAllTypes.class);
-
-        Column[] valCols = {
-                new Column("primitiveBooleanCol".toUpperCase(), BOOLEAN, false),
-                new Column("primitiveByteCol".toUpperCase(), INT8, false),
-                new Column("primitiveShortCol".toUpperCase(), INT16, false),
-                new Column("primitiveIntCol".toUpperCase(), INT32, false),
-                new Column("primitiveLongCol".toUpperCase(), INT64, false),
-                new Column("primitiveFloatCol".toUpperCase(), FLOAT, false),
-                new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
-
-                new Column("booleanCol".toUpperCase(), BOOLEAN, true),
-                new Column("byteCol".toUpperCase(), INT8, true),
-                new Column("shortCol".toUpperCase(), INT16, true),
-                new Column("intCol".toUpperCase(), INT32, true),
-                new Column("longCol".toUpperCase(), INT64, true),
-                new Column("nullLongCol".toUpperCase(), INT64, true),
-                new Column("floatCol".toUpperCase(), FLOAT, true),
-                new Column("doubleCol".toUpperCase(), DOUBLE, true),
-
-                new Column("dateCol".toUpperCase(), DATE, true),
-                new Column("timeCol".toUpperCase(), time(), true),
-                new Column("dateTimeCol".toUpperCase(), datetime(), true),
-                new Column("timestampCol".toUpperCase(), timestamp(), true),
-
-                new Column("uuidCol".toUpperCase(), NativeTypes.UUID, true),
-                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
-                new Column("stringCol".toUpperCase(), STRING, true),
-                new Column("nullBytesCol".toUpperCase(), BYTES, true),
-                new Column("bytesCol".toUpperCase(), BYTES, true),
-                new Column("numberCol".toUpperCase(), NativeTypes.numberOf(12), true),
-                new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), true),
-        };
-
-        SchemaDescriptor schema = new SchemaDescriptor(
-                1,
-                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-                valCols
-        );
-
-        DummyInternalTableImpl table = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema);
+        when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
         // Validate all types are tested.
         Set<NativeTypeSpec> testedTypes = Arrays.stream(valCols).map(c -> c.type().spec())
@@ -678,9 +721,13 @@ public class KeyValueViewOperationsTest {
 
         assertEquals(Collections.emptySet(), missedTypes);
 
+        ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
         return new KeyValueViewImpl<>(
-                table,
+                internalTable,
                 new DummySchemaManagerImpl(schema),
+                schemaVersions,
+                mock(IgniteSql.class),
+                marshallers,
                 keyMapper,
                 valMapper
         );

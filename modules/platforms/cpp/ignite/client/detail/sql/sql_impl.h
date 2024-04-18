@@ -62,6 +62,16 @@ public:
     void execute_async(transaction *tx, const sql_statement &statement, std::vector<primitive> &&args,
         ignite_callback<result_set> &&callback);
 
+    /**
+     * Executes a multi-statement SQL query asynchronously.
+     *
+     * @param statement statement to execute.
+     * @param args Arguments for the template (can be empty).
+     * @param callback A callback called on operation completion with SQL result set.
+     */
+    void execute_script_async(
+        const sql_statement &statement, std::vector<primitive> &&args, ignite_callback<void> &&callback);
+
 private:
     /** Cluster connection. */
     std::shared_ptr<cluster_connection> m_connection;

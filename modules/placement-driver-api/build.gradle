@@ -18,6 +18,7 @@
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
     annotationProcessor project(":ignite-network-annotation-processor")
@@ -25,6 +26,10 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-network-api')
     implementation libs.jetbrains.annotations
+
+    testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-network-api')
+    testFixturesImplementation libs.jetbrains.annotations
 }
 
 description = 'ignite-placement-driver-api'

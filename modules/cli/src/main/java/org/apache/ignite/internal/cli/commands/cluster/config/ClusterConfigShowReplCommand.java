@@ -23,8 +23,11 @@ import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallIn
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.apache.ignite.internal.cli.decorators.JsonDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
@@ -52,6 +55,9 @@ public class ClusterConfigShowReplCommand extends BaseCommand implements Runnabl
     @Inject
     private ConnectToClusterQuestion question;
 
+    @Inject
+    private ConfigManagerProvider configManagerProvider;
+
     @Override
     public void run() {
         question.askQuestionIfNotConnected(clusterUrl.getClusterUrl())
@@ -59,11 +65,15 @@ public class ClusterConfigShowReplCommand extends BaseCommand implements Runnabl
                 .then(Flows.fromCall(call))
                 .exceptionHandler(new ClusterNotInitializedExceptionHandler("Cannot show cluster config", "cluster init"))
                 .verbose(verbose)
-                .print()
+                .print(new JsonDecorator(isHighlightEnabled()))
                 .start();
     }
 
     private ClusterConfigShowCallInput configShowCallInput(String clusterUrl) {
         return ClusterConfigShowCallInput.builder().selector(selector).clusterUrl(clusterUrl).build();
+    }
+
+    private boolean isHighlightEnabled() {
+        return Boolean.parseBoolean(configManagerProvider.get().getCurrentProperty(CliConfigKeys.SYNTAX_HIGHLIGHTING.value()));
     }
 }

@@ -21,16 +21,19 @@ import jakarta.inject.Singleton;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.internal.cli.core.JdbcUrlFactory;
+import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.repl.PeriodicSessionTask;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.rest.client.api.NodeConfigurationApi;
+import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
+import org.apache.ignite.rest.client.model.ClusterNode;
+import org.apache.ignite.rest.client.model.NodeInfo;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link JdbcUrlRegistry}. */
@@ -39,7 +42,7 @@ public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, PeriodicSessionTask
 
     private static final IgniteLogger LOG = CliLoggers.forClass(JdbcUrlRegistryImpl.class);
 
-    private final NodeNameRegistry nodeNameRegistry;
+    private final PhysicalTopologyCall physicalTopologyCall;
 
     private final ApiClientFactory clientFactory;
 
@@ -48,15 +51,15 @@ public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, PeriodicSessionTask
     private volatile Set<String> jdbcUrls = Set.of();
 
     /** Constructor. */
-    public JdbcUrlRegistryImpl(NodeNameRegistry nodeNameRegistry, ApiClientFactory clientFactory, JdbcUrlFactory jdbcUrlFactory) {
-        this.nodeNameRegistry = nodeNameRegistry;
+    public JdbcUrlRegistryImpl(PhysicalTopologyCall physicalTopologyCall, ApiClientFactory clientFactory, JdbcUrlFactory jdbcUrlFactory) {
+        this.physicalTopologyCall = physicalTopologyCall;
         this.clientFactory = clientFactory;
         this.jdbcUrlFactory = jdbcUrlFactory;
     }
 
     @Override
     public void update(SessionInfo sessionInfo) {
-        jdbcUrls = nodeNameRegistry.urls()
+        jdbcUrls = physicalTopologyCall.execute(new UrlCallInput(sessionInfo.nodeUrl())).body()
                 .stream()
                 .map(this::fetchJdbcUrl)
                 .filter(Objects::nonNull)
@@ -75,16 +78,16 @@ public class JdbcUrlRegistryImpl implements JdbcUrlRegistry, PeriodicSessionTask
     }
 
     @Nullable
-    private String fetchJdbcUrl(String nodeUrl) {
+    private String fetchJdbcUrl(ClusterNode node) {
         try {
-            return jdbcUrlFactory.constructJdbcUrl(fetchNodeConfiguration(nodeUrl), nodeUrl);
+            String nodeUrl = NodeNameRegistryImpl.urlFromClusterNode(node.getMetadata());
+            if (nodeUrl != null) {
+                NodeInfo nodeInfo = new NodeManagementApi(clientFactory.getClient(nodeUrl)).nodeInfo();
+                return jdbcUrlFactory.constructJdbcUrl(nodeUrl, nodeInfo.getJdbcPort());
+            }
         } catch (ApiException e) {
-            LOG.warn("Couldn't fetch jdbc url of " + nodeUrl + " node: ", e);
-            return null;
+            LOG.warn("Couldn't fetch jdbc url of node {}", e, node.getName());
         }
-    }
-
-    private String fetchNodeConfiguration(String nodeUrl) throws ApiException {
-        return new NodeConfigurationApi(clientFactory.getClient(nodeUrl)).getNodeConfiguration();
+        return null;
     }
 }

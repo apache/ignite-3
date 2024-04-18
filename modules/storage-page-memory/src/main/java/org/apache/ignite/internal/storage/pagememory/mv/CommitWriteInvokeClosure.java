@@ -21,13 +21,14 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -43,6 +44,10 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
     private final HybridTimestamp timestamp;
 
     private final AbstractPageMemoryMvPartitionStorage storage;
+
+    private final RowVersionFreeList rowVersionFreeList;
+
+    private final GcQueue gcQueue;
 
     private OperationType operationType;
 
@@ -64,6 +69,11 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
         this.rowId = rowId;
         this.timestamp = timestamp;
         this.storage = storage;
+
+        RenewablePartitionStorageState localState = storage.renewableState;
+
+        this.rowVersionFreeList = localState.rowVersionFreeList();
+        this.gcQueue = localState.gcQueue();
     }
 
     @Override
@@ -124,7 +134,7 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
         if (updateTimestampLink != NULL_LINK) {
             try {
-                storage.rowVersionFreeList.updateTimestamp(updateTimestampLink, timestamp);
+                rowVersionFreeList.updateTimestamp(updateTimestampLink, timestamp);
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException(
                         "Error while update timestamp: [link={}, timestamp={}, {}]",
@@ -145,7 +155,7 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
         }
 
         if (rowLinkForAddToGcQueue != NULL_LINK) {
-            storage.gcQueue.add(rowId, timestamp, rowLinkForAddToGcQueue);
+            gcQueue.add(rowId, timestamp, rowLinkForAddToGcQueue);
         }
     }
 }

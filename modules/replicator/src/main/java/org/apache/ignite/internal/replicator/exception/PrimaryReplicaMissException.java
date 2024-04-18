@@ -17,51 +17,63 @@
 
 package org.apache.ignite.internal.replicator.exception;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
+
 import java.util.UUID;
-import org.apache.ignite.lang.ErrorGroups.Replicator;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Unchecked exception that is thrown when a replica is not the current primary replica.
  */
-public class PrimaryReplicaMissException extends IgniteInternalException {
+public class PrimaryReplicaMissException extends IgniteInternalException implements ExpectedReplicationException {
+    private static final long serialVersionUID = 8755220779942651494L;
+
     /**
-     * The constructor.
+     * Constructor.
      *
-     * @param expectedPrimaryReplicaTerm Expected term from.
-     * @param currentPrimaryReplicaTerm Current raft term.
+     * @param txId Transaction id.
+     * @param expectedEnlistmentConsistencyToken Expected enlistment consistency token, {@code null} if absent.
      */
-    public PrimaryReplicaMissException(Long expectedPrimaryReplicaTerm, long currentPrimaryReplicaTerm) {
-        this(expectedPrimaryReplicaTerm, currentPrimaryReplicaTerm, null);
+    public PrimaryReplicaMissException(UUID txId, Long expectedEnlistmentConsistencyToken, Long currentEnlistmentConsistencyToken) {
+        super(REPLICA_MISS_ERR, format("The primary replica has changed [txId={}, expectedEnlistmentConsistencyToken={}, "
+                + "currentEnlistmentConsistencyToken={}].", txId, expectedEnlistmentConsistencyToken,
+                currentEnlistmentConsistencyToken));
     }
 
     /**
-     * The constructor.
+     * Constructor.
      *
-     * @param expectedPrimaryReplicaTerm Expected term from.
-     * @param currentPrimaryReplicaTerm Current raft term.
-     * @param cause Cause exception.
+     * @param expectedLeaseholderName Expected leaseholder name.
+     * @param currentLeaseholderName Current leaseholder name, {@code null} if absent.
+     * @param expectedLeaseholderId Expected leaseholder id.
+     * @param currentLeaseholderId Current leaseholder id, {@code null} if absent.
+     * @param expectedEnlistmentConsistencyToken Expected enlistment consistency token, {@code null} if absent.
+     * @param currentEnlistmentConsistencyToken Current enlistment consistency token, {@code null} if absent.
+     * @param cause Cause exception, {@code null} if absent.
      */
-    public PrimaryReplicaMissException(Long expectedPrimaryReplicaTerm, long currentPrimaryReplicaTerm, Throwable cause) {
-        super(Replicator.REPLICA_MISS_ERR,
-                IgniteStringFormatter.format(
-                        "The primary replica has changed because the term has been changed "
-                                + "[expectedPrimaryReplicaTerm={}, currentPrimaryReplicaTerm={}]",
-                        expectedPrimaryReplicaTerm, currentPrimaryReplicaTerm
-                ),
-                cause);
-    }
-
-    /**
-     * The constructor is used for creating an exception instance that is thrown from a remote server.
-     *
-     * @param traceId Trace id.
-     * @param code Error code.
-     * @param message Error message.
-     * @param cause Cause exception.
-     */
-    public PrimaryReplicaMissException(UUID traceId, int code, String message, Throwable cause) {
-        super(traceId, code, message, cause);
+    public PrimaryReplicaMissException(
+            String expectedLeaseholderName,
+            @Nullable String currentLeaseholderName,
+            String expectedLeaseholderId,
+            @Nullable String currentLeaseholderId,
+            @Nullable Long expectedEnlistmentConsistencyToken,
+            @Nullable Long currentEnlistmentConsistencyToken,
+            @Nullable Throwable cause
+    ) {
+        super(
+                REPLICA_MISS_ERR,
+                "The primary replica has changed "
+                        + "[expectedLeaseholderName={}, currentLeaseholderName={}, expectedLeaseholderId={}, currentLeaseholderId={},"
+                        + " expectedEnlistmentConsistencyToken={}, currentEnlistmentConsistencyToken={}]",
+                cause,
+                expectedLeaseholderName,
+                currentLeaseholderName,
+                expectedLeaseholderId,
+                currentLeaseholderId,
+                expectedEnlistmentConsistencyToken,
+                currentEnlistmentConsistencyToken
+        );
     }
 }

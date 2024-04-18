@@ -36,7 +36,7 @@ using namespace std::string_view_literals;
 /**
  * Test suite.
  */
-class ignite_runner_suite : public ::testing::Test {
+class ignite_runner_suite : public virtual ::testing::Test {
 public:
     static constexpr std::string_view TABLE_1 = "tbl1"sv;
     static constexpr std::string_view TABLE_NAME_ALL_COLUMNS = "tbl_all_columns"sv;
@@ -51,6 +51,7 @@ public:
         "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest";
 
     inline static const std::string NODE_NAME_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$NodeNameJob";
+    inline static const std::string SLEEP_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$SleepJob";
     inline static const std::string CONCAT_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$ConcatJob";
     inline static const std::string ERROR_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$IgniteExceptionJob";
     inline static const std::string ECHO_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$EchoJob";

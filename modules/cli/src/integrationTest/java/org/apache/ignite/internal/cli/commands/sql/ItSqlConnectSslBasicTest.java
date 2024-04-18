@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 
 class ItSqlConnectSslBasicTest extends CliSqlConnectCommandTestBase {
     @Override
-    protected String nodeBootstrapConfigTemplate() {
+    protected String getNodeBootstrapConfigTemplate() {
         return NodeConfig.CLIENT_CONNECTOR_SSL_BOOTSTRAP_CONFIG;
     }
 
@@ -45,11 +45,11 @@ class ItSqlConnectSslBasicTest extends CliSqlConnectCommandTestBase {
     void jdbcOkWithSslAndBasicConfiguredAfterConnect() {
         // Given SSL and basic authentication is configured in config file
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
-        configManagerProvider.configManager.setProperty(CliConfigKeys.JDBC_TRUST_STORE_PATH.value(), NodeConfig.resolvedTruststorePath);
-        configManagerProvider.configManager.setProperty(CliConfigKeys.JDBC_TRUST_STORE_PASSWORD.value(), NodeConfig.trustStorePassword);
-        configManagerProvider.configManager.setProperty(CliConfigKeys.JDBC_KEY_STORE_PATH.value(), NodeConfig.resolvedKeystorePath);
-        configManagerProvider.configManager.setProperty(CliConfigKeys.JDBC_KEY_STORE_PASSWORD.value(), NodeConfig.keyStorePassword);
-        configManagerProvider.configManager.setProperty(CliConfigKeys.JDBC_CLIENT_AUTH.value(), "require");
+        setConfigProperty(CliConfigKeys.JDBC_TRUST_STORE_PATH, NodeConfig.resolvedTruststorePath);
+        setConfigProperty(CliConfigKeys.JDBC_TRUST_STORE_PASSWORD, NodeConfig.trustStorePassword);
+        setConfigProperty(CliConfigKeys.JDBC_KEY_STORE_PATH, NodeConfig.resolvedKeystorePath);
+        setConfigProperty(CliConfigKeys.JDBC_KEY_STORE_PASSWORD, NodeConfig.keyStorePassword);
+        setConfigProperty(CliConfigKeys.JDBC_CLIENT_AUTH, "require");
 
         // Given connected state
         execute("connect");

@@ -33,8 +33,6 @@ import org.apache.calcite.plan.RelTrait;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.Mappings;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 
 /**
  * Description of the physical distribution of a relational expression.
@@ -101,12 +99,6 @@ public final class DistributionTrait implements IgniteDistribution {
     @Override
     public DistributionFunction function() {
         return function;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup target) {
-        return function.destination(hashFuncFactory, target, keys);
     }
 
     /** {@inheritDoc} */
@@ -205,7 +197,7 @@ public final class DistributionTrait implements IgniteDistribution {
     /** {@inheritDoc} */
     @Override
     public boolean isTop() {
-        return getType() == Type.ANY;
+        return getType() == ANY;
     }
 
     /** {@inheritDoc} */
@@ -213,7 +205,7 @@ public final class DistributionTrait implements IgniteDistribution {
     public int compareTo(RelMultipleTrait o) {
         final IgniteDistribution distribution = (IgniteDistribution) o;
 
-        if (getType() == distribution.getType() && getType() == Type.HASH_DISTRIBUTED) {
+        if (getType() == distribution.getType() && getType() == HASH_DISTRIBUTED) {
             int cmp = ORDERING.compare(getKeys(), distribution.getKeys());
 
             if (cmp == 0) {

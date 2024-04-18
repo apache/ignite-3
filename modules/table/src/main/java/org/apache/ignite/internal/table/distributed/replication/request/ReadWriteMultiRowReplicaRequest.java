@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import java.util.BitSet;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Read-write multi-row replica request.
@@ -28,10 +28,17 @@ import org.apache.ignite.network.annotations.Transferable;
 @Transferable(TableMessageGroup.RW_MULTI_ROW_REPLICA_REQUEST)
 public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest {
     /**
-     * Gets a commit partition id.
+     * Disable delayed ack optimization.
      *
-     * @return Table partition id.
+     * @return {@code True} to disable the delayed ack optimization.
      */
-    @Marshallable
-    TablePartitionId commitPartitionId();
+    boolean skipDelayedAck();
+
+    /**
+     * Deleted flags (one for every tuple in {@link #binaryTuples()}.
+     *
+     * @return A bit for every tuple in {@link #binaryTuples()} indicating a delete operation.
+     */
+    @Nullable
+    BitSet deleted();
 }

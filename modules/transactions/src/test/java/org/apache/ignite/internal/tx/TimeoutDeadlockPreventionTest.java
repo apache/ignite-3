@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test for NO-WAIT deadlock prevention policy, i.e. policy working in the same way as NO-WAIT but with timeout.
+ * Test for the timeout deadlock prevention policy, i.e. policy working in the same way as NO-WAIT but with timeout.
  */
 public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTest {
     @Override
@@ -85,7 +85,7 @@ public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTes
 
         assertFalse(tx2Fut.isDone());
 
-        Thread.sleep(350);
+        Thread.sleep(1000);
 
         commitTx(tx1);
 
@@ -104,7 +104,7 @@ public class TimeoutDeadlockPreventionTest extends AbstractDeadlockPreventionTes
 
         assertFalse(tx2Fut.isDone());
 
-        Thread.sleep(350);
+        Thread.sleep(1000);
 
         commitTx(tx2);
 

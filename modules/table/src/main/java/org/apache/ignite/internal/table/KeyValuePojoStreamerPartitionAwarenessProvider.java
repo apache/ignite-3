@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.table;
 
 import java.util.Map.Entry;
+import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
-import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
 
@@ -46,13 +46,13 @@ class KeyValuePojoStreamerPartitionAwarenessProvider<K, V> extends AbstractClien
 
             for (Column c : schema.colocationColumns()) {
                 // Colocation columns are always part of the key and can't be missing; serializer will check for nulls.
-                Object val = marsh.value(item.getKey(), c.schemaIndex());
+                Object val = marsh.value(item.getKey(), c.positionInRow());
                 ColocationUtils.append(hashCalc, val, c.type());
             }
 
             return hashCalc.hash();
         } catch (MarshallerException e) {
-            throw new RuntimeException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 }

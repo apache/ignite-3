@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute.util;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -50,7 +51,7 @@ public class DummyIgniteDeployment implements IgniteDeployment {
             String id,
             Version version,
             boolean force,
-            CompletableFuture<DeploymentUnit> deploymentUnit,
+            DeploymentUnit deploymentUnit,
             NodesToDeploy nodesToDeploy) {
         throw new UnsupportedOperationException("Not implemented");
     }
@@ -117,8 +118,8 @@ public class DummyIgniteDeployment implements IgniteDeployment {
     }
 
     @Override
-    public void start() {
-
+    public CompletableFuture<Void> start() {
+        return nullCompletedFuture();
     }
 
     @Override

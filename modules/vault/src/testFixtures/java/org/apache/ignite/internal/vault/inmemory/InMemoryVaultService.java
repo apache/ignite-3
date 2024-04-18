@@ -17,19 +17,17 @@
 
 package org.apache.ignite.internal.vault.inmemory;
 
-import static java.util.concurrent.CompletableFuture.runAsync;
-import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toList;
 
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
-import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultService;
-import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -47,75 +45,57 @@ public class InMemoryVaultService implements VaultService {
         // No-op.
     }
 
-    /** {@inheritDoc} */
     @Override
     public void close() {
         // No-op.
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<VaultEntry> get(ByteArray key) {
-        return supplyAsync(() -> {
-            synchronized (mux) {
-                byte[] value = storage.get(key);
+    public @Nullable VaultEntry get(ByteArray key) {
+        synchronized (mux) {
+            byte[] value = storage.get(key);
 
-                return value == null ? null : new VaultEntry(key, storage.get(key));
-            }
-        });
+            return value == null ? null : new VaultEntry(key, value);
+        }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> put(ByteArray key, byte @Nullable [] val) {
-        return runAsync(() -> {
-            synchronized (mux) {
-                storage.put(key, val);
-            }
-        });
+    public void put(ByteArray key, byte @Nullable [] val) {
+        synchronized (mux) {
+            storage.put(key, val);
+        }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> remove(ByteArray key) {
-        return runAsync(() -> {
-            synchronized (mux) {
-                storage.remove(key);
-            }
-        });
+    public void remove(ByteArray key) {
+        synchronized (mux) {
+            storage.remove(key);
+        }
     }
 
-    /** {@inheritDoc} */
     @Override
     public Cursor<VaultEntry> range(ByteArray fromKey, ByteArray toKey) {
-        Iterator<VaultEntry> it;
-
         if (fromKey.compareTo(toKey) >= 0) {
-            it = Collections.emptyIterator();
-        } else {
-            synchronized (mux) {
-                it = storage.subMap(fromKey, toKey).entrySet().stream()
-                        .map(e -> new VaultEntry(new ByteArray(e.getKey()), e.getValue()))
-                        .iterator();
-            }
+            return CursorUtils.emptyCursor();
         }
 
-        return Cursor.fromBareIterator(it);
+        synchronized (mux) {
+            return storage.subMap(fromKey, toKey).entrySet().stream()
+                    .map(e -> new VaultEntry(new ByteArray(e.getKey()), e.getValue()))
+                    .collect(collectingAndThen(toList(), Cursor::fromIterable));
+        }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals) {
-        return runAsync(() -> {
-            synchronized (mux) {
-                for (var entry : vals.entrySet()) {
-                    if (entry.getValue() == null) {
-                        storage.remove(entry.getKey());
-                    } else {
-                        storage.put(entry.getKey(), entry.getValue());
-                    }
+    public void putAll(Map<ByteArray, byte[]> vals) {
+        synchronized (mux) {
+            for (Map.Entry<ByteArray, byte[]> entry : vals.entrySet()) {
+                if (entry.getValue() == null) {
+                    storage.remove(entry.getKey());
+                } else {
+                    storage.put(entry.getKey(), entry.getValue());
                 }
             }
-        });
+        }
     }
 }

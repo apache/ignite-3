@@ -21,7 +21,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.version.Version.LATEST;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getPath;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
@@ -47,8 +49,9 @@ import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,9 +60,9 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class JobContextManagerTest {
+class JobContextManagerTest extends BaseIgniteAbstractTest {
 
-    private final Path unitsDir = Path.of(JobClassLoaderFactory.class.getClassLoader().getResource("units").getPath());
+    private final Path unitsDir = getPath(JobClassLoaderFactory.class.getClassLoader().getResource("units"));
 
     @Spy
     private IgniteDeployment deployment = new DummyIgniteDeployment(unitsDir);
@@ -71,7 +74,7 @@ class JobContextManagerTest {
 
     @BeforeEach
     void setUp() {
-        FileDeployerService deployerService = new FileDeployerService();
+        FileDeployerService deployerService = new FileDeployerService("test");
         deployerService.initUnitsFolder(unitsDir);
 
         classLoaderManager = new JobContextManager(
@@ -158,7 +161,7 @@ class JobContextManagerTest {
 
     @Test
     public void throwsExceptionOnOnDemandDeploy() {
-        doReturn(completedFuture(false))
+        doReturn(falseCompletedFuture())
                 .when(deployment).onDemandDeploy(anyString(), any());
 
         List<DeploymentUnit> units = List.of(

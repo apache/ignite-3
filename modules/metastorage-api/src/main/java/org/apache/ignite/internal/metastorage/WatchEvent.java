@@ -86,7 +86,7 @@ public class WatchEvent {
      * @return Entry event.
      */
     public EntryEvent entryEvent() {
-        assert single();
+        assert single() : entryEvts;
 
         return entryEvts.get(0);
     }

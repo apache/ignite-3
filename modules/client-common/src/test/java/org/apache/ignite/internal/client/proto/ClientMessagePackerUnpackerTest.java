@@ -125,8 +125,7 @@ public class ClientMessagePackerUnpackerTest {
             packer.packBitSet(val);
 
             var buf = packer.getBuffer();
-            //noinspection unused
-            var len = buf.readInt();
+            buf.readInt();
 
             byte[] data = new byte[buf.readableBytes()];
             buf.readBytes(data);

@@ -19,22 +19,18 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
-import org.apache.calcite.rel.RelCollations;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -51,17 +47,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
     /** {@inheritDoc} */
     @BeforeEach
     public void setup() {
-        publicSchema = new IgniteSchema("PUBLIC");
-
-        IgniteTypeFactory f = Commons.typeFactory();
-
-        RelDataType type = new RelDataTypeFactory.Builder(f)
-                .add("A", f.createSqlType(SqlTypeName.INTEGER))
-                .add("B", f.createSqlType(SqlTypeName.INTEGER))
-                .add("C", f.createSqlType(SqlTypeName.INTEGER))
-                .build();
-
-        createTable(publicSchema, "TBL", type, IgniteDistributions.single());
+        publicSchema = createSchemaFrom(createTestTable());
     }
 
     @Test
@@ -90,8 +76,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
     @Test
     public void testProjectFilterMergeSortedIndex() throws Exception {
         // Test project and filter merge into index scan.
-        TestTable tbl = ((TestTable) publicSchema.getTable("TBL"));
-        tbl.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(2), "IDX_C", tbl)));
+        publicSchema = createSchemaFrom(createTestTable().andThen(addSortIndex("C")));
 
         // Without index condition shift.
         assertPlan("SELECT a, b FROM tbl WHERE c = 0", publicSchema, isInstanceOf(IgniteIndexScan.class)
@@ -117,8 +102,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
     @Test
     public void testProjectFilterMergeHashIndex() throws Exception {
         // Test project and filter merge into index scan.
-        TestTable tbl = ((TestTable) publicSchema.getTable("TBL"));
-        tbl.addIndex(new IgniteIndex(TestHashIndex.create(List.of("c"), "IDX_C")));
+        publicSchema = createSchemaFrom(createTestTable().andThen(addHashIndex("C")));
 
         // Without index condition shift.
         assertPlan("SELECT a, b FROM tbl WHERE c = 0", publicSchema, isInstanceOf(IgniteIndexScan.class)
@@ -144,8 +128,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
     @Test
     public void testIdentityFilterMergeIndex() throws Exception {
         // Test project and filter merge into index scan.
-        TestTable tbl = ((TestTable) publicSchema.getTable("TBL"));
-        tbl.addIndex(new IgniteIndex(TestSortedIndex.create(RelCollations.of(2), "IDX_C", tbl)));
+        publicSchema = createSchemaFrom(createTestTable().andThen(addSortIndex("C")));
 
         // Without index condition shift.
         assertPlan("SELECT a, b, c FROM tbl WHERE c = 0", publicSchema, isInstanceOf(IgniteIndexScan.class)
@@ -169,8 +152,7 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
     @Test
     public void testIdentityFilterMergeHashIndex() throws Exception {
         // Test project and filter merge into index scan.
-        TestTable tbl = ((TestTable) publicSchema.getTable("TBL"));
-        tbl.addIndex(new IgniteIndex(TestHashIndex.create(List.of("c"), "IDX_C")));
+        publicSchema = createSchemaFrom(createTestTable().andThen(addHashIndex("C")));
 
         // Without index condition shift.
         assertPlan("SELECT a, b, c FROM tbl WHERE c = 0", publicSchema, isInstanceOf(IgniteIndexScan.class)
@@ -298,5 +280,13 @@ public class ProjectFilterScanMergePlannerTest extends AbstractPlannerTest {
      */
     private static List<RexNode> searchBoundsCondition(List<SearchBounds> searchBounds) {
         return searchBounds.stream().filter(Objects::nonNull).map(SearchBounds::condition).collect(Collectors.toList());
+    }
+
+    private static UnaryOperator<TableBuilder> createTestTable() {
+        return t -> t.name("TBL")
+                .addColumn("A", NativeTypes.INT32)
+                .addColumn("B", NativeTypes.INT32)
+                .addColumn("C", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single());
     }
 }

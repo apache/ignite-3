@@ -99,8 +99,8 @@ public class DeployUnitClient {
         StringBuilder url = new StringBuilder(apiClient.getBasePath());
         url
                 .append("/management/v1/deployment/units")
-                .append("/").append(apiClient.escapeString(unitId))
-                .append("/").append(apiClient.escapeString(unitVersion));
+                .append('/').append(apiClient.escapeString(unitId))
+                .append('/').append(apiClient.escapeString(unitVersion));
 
         List<Pair> queryParams = new ArrayList<>();
 

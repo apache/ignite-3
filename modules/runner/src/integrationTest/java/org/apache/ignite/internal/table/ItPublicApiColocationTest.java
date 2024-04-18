@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
@@ -39,15 +40,16 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -66,25 +68,14 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
      */
     private static final Set<NativeTypeSpec> EXCLUDED_TYPES = Stream.of(
             NativeTypeSpec.BITMASK,
-            NativeTypeSpec.NUMBER,
-            // TODO: Remove after IGNITE-19274
-            NativeTypeSpec.TIMESTAMP)
+            NativeTypeSpec.NUMBER)
             .collect(Collectors.toSet());
 
-    /**
-     * Clear tables after each test.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
     @AfterEach
-    @Override
-    public void tearDown(TestInfo testInfo) throws Exception {
-        for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
+    public void dropTables() {
+        for (Table t : CLUSTER.aliveNode().tables().tables()) {
             sql("DROP TABLE " + t.name());
         }
-
-        super.tearDownBase(testInfo);
     }
 
     /**
@@ -103,15 +94,16 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             sql("insert into test1 values(?, ?, ?)", i, generateValueByType(i, type), 0);
         }
 
-        int parts = ((TableImpl) CLUSTER_NODES.get(0).tables().table("test0")).internalTable().partitions();
-        TableImpl tbl0 = (TableImpl) CLUSTER_NODES.get(0).tables().table("test0");
-        TableImpl tbl1 = (TableImpl) CLUSTER_NODES.get(0).tables().table("test1");
+        TableViewInternal tableViewInternal = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test0"));
+        int parts = tableViewInternal.internalTable().partitions();
+        TableViewInternal tbl0 = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test0"));
+        TableViewInternal tbl1 = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test1"));
 
         for (int i = 0; i < parts; ++i) {
-            List<Tuple> r0 = getAll(tbl0, i);
+            List<Tuple> r0 = getAllBypassingThreadAssertions(tbl0, i);
 
             Set<Object> ids0 = r0.stream().map(t -> t.value("id")).collect(Collectors.toSet());
-            List<Tuple> r1 = getAll(tbl1, i);
+            List<Tuple> r1 = getAllBypassingThreadAssertions(tbl1, i);
 
             // because the byte array is not comparable, we need to check the type separately
             if (type == NativeTypeSpec.BYTES) {
@@ -147,9 +139,9 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             sql("insert into test1 values(?, ?, ?, ?)", i, generateValueByType(i, t0), generateValueByType(i, t1), 0);
         }
 
-        int parts = ((TableImpl) CLUSTER_NODES.get(0).tables().table("test0")).internalTable().partitions();
-        TableImpl tbl0 = (TableImpl) CLUSTER_NODES.get(0).tables().table("test0");
-        TableImpl tbl1 = (TableImpl) CLUSTER_NODES.get(0).tables().table("test1");
+        int parts = ((TableViewInternal) CLUSTER.aliveNode().tables().table("test0")).internalTable().partitions();
+        TableViewInternal tbl0 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test0");
+        TableViewInternal tbl1 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test1");
 
         Function<Tuple, Tuple> tupleColocationExtract = (t) -> {
             Tuple ret = Tuple.create();
@@ -159,11 +151,11 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
         };
 
         for (int i = 0; i < parts; ++i) {
-            List<Tuple> r0 = getAll(tbl0, i);
+            List<Tuple> r0 = getAllBypassingThreadAssertions(tbl0, i);
 
             Set<Tuple> ids0 = r0.stream().map(tupleColocationExtract).collect(Collectors.toSet());
 
-            List<Tuple> r1 = getAll(tbl1, i);
+            List<Tuple> r1 = getAllBypassingThreadAssertions(tbl1, i);
 
             r1.forEach(t -> assertTrue(ids0.remove(tupleColocationExtract.apply(t))));
 
@@ -197,7 +189,21 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
         return args.stream();
     }
 
-    private static List<Tuple> getAll(TableImpl tbl, int part) throws ExecutionException, InterruptedException {
+    private static List<Tuple> getAllBypassingThreadAssertions(TableViewInternal tbl, int part) {
+        return IgniteTestUtils.bypassingThreadAssertions(() -> {
+            try {
+                return getAll(tbl, part);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+
+                throw new RuntimeException(e);
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    private static List<Tuple> getAll(TableViewInternal tbl, int part) throws ExecutionException, InterruptedException {
         List<Tuple> res = new ArrayList<>();
         CompletableFuture<Void> f = new CompletableFuture<>();
 
@@ -210,7 +216,8 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
 
             @Override
             public void onNext(BinaryRow item) {
-                res.add(TableRow.tuple(tbl.schemaView().resolve(item)));
+                SchemaRegistry registry = tbl.schemaView();
+                res.add(TableRow.tuple(registry.resolve(item, registry.lastKnownSchemaVersion())));
             }
 
             @Override

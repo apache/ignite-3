@@ -17,21 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Read-write dual row replica request.
  */
 @Transferable(TableMessageGroup.RW_DUAL_ROW_REPLICA_REQUEST)
 public interface ReadWriteSwapRowReplicaRequest extends SwapRowReplicaRequest, ReadWriteReplicaRequest {
-    /**
-     * Gets a commit partition id.
-     *
-     * @return Table partition id.
-     */
-    @Marshallable
-    TablePartitionId commitPartitionId();
+
 }

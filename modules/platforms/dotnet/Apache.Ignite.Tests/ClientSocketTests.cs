@@ -30,10 +30,12 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public class ClientSocketTests : IgniteTestsBase
     {
+        private static readonly IClientSocketEventListener Listener = new NoOpListener();
+
         [Test]
         public async Task TestConnectAndSendRequestReturnsResponse()
         {
-            using var socket = await ClientSocket.ConnectAsync(GetEndPoint(), new(), _ => {});
+            using var socket = await ClientSocket.ConnectAsync(GetEndPoint(), new(), Listener);
 
             using var requestWriter = ProtoCommon.GetMessageWriter();
             requestWriter.MessageWriter.Write("non-existent-table");
@@ -45,7 +47,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestConnectAndSendRequestWithInvalidOpCodeThrowsError()
         {
-            using var socket = await ClientSocket.ConnectAsync(GetEndPoint(), new(), _ => {});
+            using var socket = await ClientSocket.ConnectAsync(GetEndPoint(), new(), Listener);
 
             using var requestWriter = ProtoCommon.GetMessageWriter();
             requestWriter.MessageWriter.Write(123);
@@ -59,7 +61,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestDisposedSocketThrowsExceptionOnSend()
         {
-            var socket = await ClientSocket.ConnectAsync(GetEndPoint(), new(), _ => {});
+            var socket = await ClientSocket.ConnectAsync(GetEndPoint(), new(), Listener);
 
             socket.Dispose();
 
@@ -78,10 +80,23 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestConnectWithoutServerThrowsException()
         {
-            Assert.CatchAsync(async () => await ClientSocket.ConnectAsync(GetEndPoint(569), new(), _ => { }));
+            Assert.CatchAsync(async () => await ClientSocket.ConnectAsync(GetEndPoint(569), new(), Listener));
         }
 
         private static SocketEndpoint GetEndPoint(int? serverPort = null) =>
-            new(new(IPAddress.Loopback, serverPort ?? ServerPort), string.Empty);
+            new(new(IPAddress.Loopback, serverPort ?? ServerPort), string.Empty, string.Empty);
+
+        private class NoOpListener : IClientSocketEventListener
+        {
+            public void OnAssignmentChanged(long timestamp)
+            {
+                // No-op.
+            }
+
+            public void OnObservableTimestampChanged(long timestamp)
+            {
+                // No-op.
+            }
+        }
     }
 }

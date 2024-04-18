@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
 import static java.util.Collections.singletonList;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.sameInstance;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,7 +54,7 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class SnapshotAwarePartitionDataStorageTest {
+class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     private static final int PARTITION_ID = 1;
 
     @Mock
@@ -99,7 +101,7 @@ class SnapshotAwarePartitionDataStorageTest {
 
     @Test
     void delegatesFlush() {
-        CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
+        CompletableFuture<Void> future = nullCompletedFuture();
 
         when(partitionStorage.flush()).thenReturn(future);
 

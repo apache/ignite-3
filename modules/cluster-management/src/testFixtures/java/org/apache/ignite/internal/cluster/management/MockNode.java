@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.cluster.management;
 
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,16 +34,17 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NodeFinder;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NodeFinder;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -55,6 +54,8 @@ public class MockNode {
     private ClusterManagementGroupManager clusterManager;
 
     private ClusterService clusterService;
+
+    private ClusterInitializer clusterInitializer;
 
     private final TestInfo testInfo;
 
@@ -66,7 +67,7 @@ public class MockNode {
 
     private final ClusterManagementConfiguration cmgConfiguration;
 
-    private final NodeAttributesConfiguration nodeAttributes;
+    private final NodeAttributesCollector nodeAttributes;
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
@@ -82,14 +83,15 @@ public class MockNode {
             Path workDir,
             RaftConfiguration raftConfiguration,
             ClusterManagementConfiguration cmgConfiguration,
-            NodeAttributesConfiguration nodeAttributes
+            NodeAttributesConfiguration nodeAttributes,
+            StorageConfiguration storageProfilesConfiguration
     ) {
         this.testInfo = testInfo;
         this.nodeFinder = nodeFinder;
         this.workDir = workDir;
         this.raftConfiguration = raftConfiguration;
         this.cmgConfiguration = cmgConfiguration;
-        this.nodeAttributes = nodeAttributes;
+        this.nodeAttributes = new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration);
 
         try {
             init(addr.port());
@@ -101,25 +103,32 @@ public class MockNode {
     private void init(int port) throws IOException {
         Path vaultDir = workDir.resolve("vault");
 
-        var vaultManager = new VaultManager(new PersistentVaultService(testNodeName(testInfo, port), Files.createDirectories(vaultDir)));
+        var vaultManager = new VaultManager(new PersistentVaultService(Files.createDirectories(vaultDir)));
 
         this.clusterService = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
         Loza raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
 
-        var clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve("cmg"));
+        var clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve("cmg"), clusterService.nodeName());
 
         var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
+
+        this.clusterInitializer = new ClusterInitializer(
+                clusterService,
+                hocon -> hocon,
+                new TestConfigurationValidator()
+        );
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
                 clusterService,
+                clusterInitializer,
                 raftManager,
                 clusterStateStorage,
                 logicalTopologyService,
                 cmgConfiguration,
-                nodeAttributes,
-                new TestConfigurationValidator());
+                nodeAttributes
+        );
 
         components.add(vaultManager);
         components.add(clusterService);
@@ -190,6 +199,10 @@ public class MockNode {
 
     public String name() {
         return localMember().name();
+    }
+
+    public ClusterInitializer clusterInitializer() {
+        return clusterInitializer;
     }
 
     public ClusterManagementGroupManager clusterManager() {

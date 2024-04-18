@@ -19,12 +19,18 @@ package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.table.distributed.TableMessageGroup.GROUP_TYPE;
 
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
-import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
+import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
+import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesRequest;
+import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
@@ -34,16 +40,21 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyDirectMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyDirectSingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlySingleRowPkReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanCloseReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowPkReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSwapRowReplicaRequest;
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.table.distributed.replication.request.ScanCloseReplicaRequest;
 
 /**
  * Message group for the table module.
@@ -74,9 +85,9 @@ public interface TableMessageGroup {
     short RW_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST = 3;
 
     /**
-     * Message type for {@link ReadWriteScanCloseReplicaRequest}.
+     * Message type for {@link ScanCloseReplicaRequest}.
      */
-    short RW_SCAN_CLOSE_REPLICA_REQUEST = 4;
+    short SCAN_CLOSE_REPLICA_REQUEST = 4;
 
     /**
      * Message type for {@link HasDataRequest}.
@@ -89,12 +100,12 @@ public interface TableMessageGroup {
     short HAS_DATA_RESPONSE = 6;
 
     /**
-     * Message type for {@link ReadOnlySingleRowReplicaRequest}.
+     * Message type for {@link ReadOnlySingleRowPkReplicaRequest}.
      */
     short RO_SINGLE_ROW_REPLICA_REQUEST = 7;
 
     /**
-     * Message type for {@link ReadOnlyMultiRowReplicaRequest}.
+     * Message type for {@link ReadOnlyMultiRowPkReplicaRequest}.
      */
     short RO_MULTI_ROW_REPLICA_REQUEST = 8;
 
@@ -144,14 +155,49 @@ public interface TableMessageGroup {
     short BINARY_TUPLE = 17;
 
     /**
+     * Message type for {@link BinaryRowMessage}.
+     */
+    short BINARY_ROW_MESSAGE = 18;
+
+    /**
+     * Message type for {@link ReadWriteSingleRowPkReplicaRequest}.
+     */
+    short RW_SINGLE_ROW_PK_REPLICA_REQUEST = 19;
+
+    /**
+     * Message type for {@link ReadWriteMultiRowPkReplicaRequest}.
+     */
+    short RW_MULTI_ROW_PK_REPLICA_REQUEST = 20;
+
+    /** Message type for {@link BuildIndexReplicaRequest}. */
+    short BUILD_INDEX_REPLICA_REQUEST = 21;
+
+    /**
+     * Message type for {@link ReadOnlyDirectSingleRowReplicaRequest}.
+     */
+    short RO_DIRECT_SINGLE_ROW_REPLICA_REQUEST = 22;
+
+    /**
+     * Message type for {@link ReadOnlyDirectMultiRowReplicaRequest}.
+     */
+    short RO_DIRECT_MULTI_ROW_REPLICA_REQUEST = 23;
+
+    /**
+     * Message type for {@link TimedBinaryRowMessage}.
+     */
+    short TIMED_BINARY_ROW_MESSAGE = 24;
+
+    /**
      * Message types for Table module RAFT commands.
+     *
+     * <p>NOTE: Commands must be immutable because they will be stored in the replication log.</p>
      */
     interface Commands {
         /** Message type for {@link FinishTxCommand}. */
         short FINISH_TX = 40;
 
-        /** Message type for {@link TxCleanupCommand}. */
-        short TX_CLEANUP = 41;
+        /** Message type for {@link WriteIntentSwitchCommand}. */
+        short WRITE_INTENT_SWITCH = 41;
 
         /** Message type for {@link UpdateAllCommand}. */
         short UPDATE_ALL = 42;
@@ -164,5 +210,19 @@ public interface TableMessageGroup {
 
         /** Message type for {@link TablePartitionIdMessage}. */
         short TABLE_PARTITION_ID = 61;
+    }
+
+    /**
+     * Messages for {@link DisasterRecoveryManager}.
+     */
+    interface DisasterRecoveryMessages {
+        /** Message type for {@link LocalPartitionState}. */
+        short LOCAL_PARTITION_STATE = 100;
+
+        /** Message type for {@link LocalPartitionStatesRequest}. */
+        short LOCAL_PARTITION_STATE_REQUEST = 101;
+
+        /** Message type for {@link LocalPartitionStatesResponse}. */
+        short LOCAL_PARTITION_STATE_RESPONSE = 102;
     }
 }

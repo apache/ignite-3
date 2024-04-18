@@ -18,6 +18,9 @@
 namespace Apache.Ignite.Internal.Table
 {
     using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
+    using System.Linq;
     using Proto.BinaryTuple;
 
     /// <summary>
@@ -25,27 +28,101 @@ namespace Apache.Ignite.Internal.Table
     /// </summary>
     /// <param name="Version">Version.</param>
     /// <param name="TableId">Table id.</param>
-    /// <param name="KeyColumnCount">Key column count.</param>
     /// <param name="ColocationColumnCount">Colocation column count.</param>
     /// <param name="Columns">Columns in schema order.</param>
+    /// <param name="KeyColumns">Key part columns.</param>
+    /// <param name="ValColumns">Val part columns.</param>
+    /// <param name="ColumnsByName">Column name map.</param>
+    /// <param name="HashedColumnIndexProvider">Hashed column index provider.</param>
+    /// <param name="KeyOnlyHashedColumnIndexProvider">Hashed column index provider for key-only mode.</param>
+    [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Reviewed.")]
     internal sealed record Schema(
         int Version,
         int TableId,
-        int KeyColumnCount,
         int ColocationColumnCount,
-        IReadOnlyList<Column> Columns) : IHashedColumnIndexProvider
+        Column[] Columns,
+        Column[] KeyColumns,
+        Column[] ValColumns,
+        IReadOnlyDictionary<string, Column> ColumnsByName,
+        IHashedColumnIndexProvider HashedColumnIndexProvider,
+        IHashedColumnIndexProvider KeyOnlyHashedColumnIndexProvider)
     {
         /// <summary>
-        /// Gets the value column count.
+        /// Gets column by name.
         /// </summary>
-        public int ValueColumnCount => Columns.Count - KeyColumnCount;
+        /// <param name="name">Column name.</param>
+        /// <returns>Column or null.</returns>
+        public Column? GetColumn(string name) => ColumnsByName!.GetValueOrDefault(IgniteTupleCommon.ParseColumnName(name), null);
 
-        /// <inheritdoc/>
-        public int HashedColumnCount => ColocationColumnCount;
+        /// <summary>
+        /// Create schema instance.
+        /// </summary>
+        /// <param name="version">Version.</param>
+        /// <param name="tableId">Table ID.</param>
+        /// <param name="columns">Columns.</param>
+        /// <returns>Schema.</returns>
+        public static Schema CreateInstance(int version, int tableId, Column[] columns)
+        {
+            var keyColumnCount = columns.Count(static x => x.IsKey);
+            var keyColumns = new Column[keyColumnCount];
+            var valColumns = new Column[columns.Length - keyColumnCount];
+            int colocationColumnCount = 0;
+            int valIdx = 0;
 
-        /// <inheritdoc/>
-        public int HashedColumnOrder(int index) => index < KeyColumnCount
-            ? Columns[index].ColocationIndex
-            : -1;
+            foreach (var column in columns)
+            {
+                if (column.IsKey)
+                {
+                    Debug.Assert(keyColumns[column.KeyIndex] == null, "Duplicate key index: " + column);
+                    keyColumns[column.KeyIndex] = column;
+                }
+                else
+                {
+                    valColumns[valIdx++] = column;
+                }
+
+                if (column.IsColocation)
+                {
+                    colocationColumnCount++;
+                }
+            }
+
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+            Debug.Assert(keyColumns.All(x => x != null), "Some key columns are missing");
+            Debug.Assert(columns.Length == 0 || colocationColumnCount > 0, "No hashed columns");
+
+            var columnMap = new Dictionary<string, Column>(columns.Length);
+            foreach (var column in columns)
+            {
+                columnMap[IgniteTupleCommon.ParseColumnName(column.Name)] = column;
+            }
+
+            return new Schema(
+                version,
+                tableId,
+                colocationColumnCount,
+                columns,
+                keyColumns,
+                valColumns,
+                columnMap,
+                new HashedColumnIndexProvider(columns, colocationColumnCount),
+                new HashedColumnIndexProvider(keyColumns, colocationColumnCount));
+        }
+
+        /// <summary>
+        /// Gets columns.
+        /// </summary>
+        /// <param name="keyOnly">Key only flag.</param>
+        /// <returns>Columns according to the key flag.</returns>
+        public Column[] GetColumnsFor(bool keyOnly) =>
+            keyOnly ? KeyColumns : Columns;
+
+        /// <summary>
+        /// Gets the hashed column index provider for the specified key-only flag.
+        /// </summary>
+        /// <param name="keyOnly">Key only flag.</param>
+        /// <returns>Hashed column index provider.</returns>
+        public IHashedColumnIndexProvider GetHashedColumnIndexProviderFor(bool keyOnly) =>
+            keyOnly ? KeyOnlyHashedColumnIndexProvider : HashedColumnIndexProvider;
     }
 }

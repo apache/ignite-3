@@ -24,9 +24,9 @@ public class DataStreamerOptions {
     /** Default options. */
     public static final DataStreamerOptions DEFAULT = builder().build();
 
-    private final int batchSize;
+    private final int pageSize;
 
-    private final int perNodeParallelOperations;
+    private final int perPartitionParallelOperations;
 
     private final int autoFlushFrequency;
 
@@ -35,14 +35,14 @@ public class DataStreamerOptions {
     /**
      * Constructor.
      *
-     * @param batchSize Batch size.
-     * @param perNodeParallelOperations Per node parallel operations.
+     * @param pageSize Page size.
+     * @param perPartitionParallelOperations Per partition parallel operations.
      * @param autoFlushFrequency Auto flush frequency.
      * @param retryLimit Retry limit.
      */
-    private DataStreamerOptions(int batchSize, int perNodeParallelOperations, int autoFlushFrequency, int retryLimit) {
-        this.batchSize = batchSize;
-        this.perNodeParallelOperations = perNodeParallelOperations;
+    private DataStreamerOptions(int pageSize, int perPartitionParallelOperations, int autoFlushFrequency, int retryLimit) {
+        this.pageSize = pageSize;
+        this.perPartitionParallelOperations = perPartitionParallelOperations;
         this.autoFlushFrequency = autoFlushFrequency;
         this.retryLimit = retryLimit;
     }
@@ -57,21 +57,21 @@ public class DataStreamerOptions {
     }
 
     /**
-     * Gets the batch size (the number of entries that will be sent to the cluster in one network call).
+     * Gets the page size (the number of entries that will be sent to the cluster in one network call).
      *
-     * @return Batch size.
+     * @return Page size.
      */
-    public int batchSize() {
-        return batchSize;
+    public int pageSize() {
+        return pageSize;
     }
 
     /**
-     * Gets the number of parallel operations per node (how many in-flight requests can be active for a given node).
+     * Gets the number of parallel operations per partition (how many in-flight requests can be active for a given partition).
      *
      * @return Per node parallel operations.
      */
-    public int perNodeParallelOperations() {
-        return perNodeParallelOperations;
+    public int perPartitionParallelOperations() {
+        return perPartitionParallelOperations;
     }
 
     /**
@@ -85,7 +85,7 @@ public class DataStreamerOptions {
     }
 
     /**
-     * Gets the retry limit for a batch. If a batch fails to be sent to the cluster, the streamer will retry it a number of times.
+     * Gets the retry limit for a page. If a page fails to be sent to the cluster, the streamer will retry it a number of times.
      * If all retries fail, the streamer will be aborted.
      *
      * @return Retry limit.
@@ -98,42 +98,42 @@ public class DataStreamerOptions {
      * Builder.
      */
     public static class Builder {
-        private int batchSize = 1000;
+        private int pageSize = 1000;
 
-        private int perNodeParallelOperations = 4;
+        private int perPartitionParallelOperations = 1;
 
         private int autoFlushFrequency = 5000;
 
         private int retryLimit = 16;
 
         /**
-         * Sets the batch size (the number of entries that will be sent to the cluster in one network call).
+         * Sets the page size (the number of entries that will be sent to the cluster in one network call).
          *
-         * @param batchSize Batch size.
+         * @param pageSize Page size.
          * @return This builder instance.
          */
-        public Builder batchSize(int batchSize) {
-            if (batchSize <= 0) {
-                throw new IllegalArgumentException("Batch size must be positive: " + batchSize);
+        public Builder pageSize(int pageSize) {
+            if (pageSize <= 0) {
+                throw new IllegalArgumentException("Page size must be positive: " + pageSize);
             }
 
-            this.batchSize = batchSize;
+            this.pageSize = pageSize;
 
             return this;
         }
 
         /**
-         * Sets the number of parallel operations per node (how many in-flight requests can be active for a given node).
+         * Sets the number of parallel operations per partition (how many in-flight requests can be active for a given partition).
          *
-         * @param perNodeParallelOperations Per node parallel operations.
+         * @param perPartitionParallelOperations Per partition parallel operations.
          * @return This builder instance.
          */
-        public Builder perNodeParallelOperations(int perNodeParallelOperations) {
-            if (perNodeParallelOperations <= 0) {
-                throw new IllegalArgumentException("Per node parallel operations must be positive: " + perNodeParallelOperations);
+        public Builder perPartitionParallelOperations(int perPartitionParallelOperations) {
+            if (perPartitionParallelOperations <= 0) {
+                throw new IllegalArgumentException("perPartitionParallelOperations must be positive: " + perPartitionParallelOperations);
             }
 
-            this.perNodeParallelOperations = perNodeParallelOperations;
+            this.perPartitionParallelOperations = perPartitionParallelOperations;
 
             return this;
         }
@@ -152,7 +152,7 @@ public class DataStreamerOptions {
         }
 
         /**
-         * Sets the retry limit for a batch. If a batch fails to be sent to the cluster, the streamer will retry it a number of times.
+         * Sets the retry limit for a page. If a page fails to be sent to the cluster, the streamer will retry it a number of times.
          * If all retries fail, the streamer will be aborted.
          *
          * @param retryLimit Retry limit.
@@ -170,7 +170,7 @@ public class DataStreamerOptions {
          * @return Data streamer options.
          */
         public DataStreamerOptions build() {
-            return new DataStreamerOptions(batchSize, perNodeParallelOperations, autoFlushFrequency, retryLimit);
+            return new DataStreamerOptions(pageSize, perPartitionParallelOperations, autoFlushFrequency, retryLimit);
         }
     }
 }

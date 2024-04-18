@@ -26,17 +26,17 @@ dependencies {
 
     implementation project(':ignite-api')
     implementation project(':ignite-schema')
-    implementation project(':ignite-distribution-zones')
     implementation project(':ignite-configuration')
     implementation project(":ignite-core")
     implementation project(":ignite-catalog")
+    implementation project(":ignite-workers")
+    implementation project(":ignite-failure-handler")
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
 
     testAnnotationProcessor project(":ignite-configuration-annotation-processor")
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-configuration')
-    testImplementation project(':ignite-distribution-zones')
     testImplementation project(':ignite-schema')
     testImplementation(testFixtures(project(':ignite-schema')))
     testImplementation(testFixtures(project(':ignite-core')))
@@ -50,10 +50,11 @@ dependencies {
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-configuration')
-    testFixturesImplementation project(':ignite-distribution-zones')
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-catalog')
+    testFixturesImplementation project(':ignite-system-view-api')
+    testFixturesImplementation project(':ignite-failure-handler')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))
     testFixturesImplementation(testFixtures(project(':ignite-schema')))
@@ -64,6 +65,7 @@ dependencies {
     testFixturesImplementation libs.junit5.params
     testFixturesImplementation libs.auto.service.annotations
     testFixturesImplementation libs.mockito.core
+    testFixturesImplementation libs.mockito.junit
 }
 
 description = 'ignite-storage-api'

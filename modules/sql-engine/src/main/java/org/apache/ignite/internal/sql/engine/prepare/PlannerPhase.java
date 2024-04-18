@@ -33,7 +33,6 @@ import org.apache.calcite.rel.logical.LogicalSort;
 import org.apache.calcite.rel.rules.AggregateMergeRule;
 import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.rules.FilterJoinRule.FilterIntoJoinRule;
-import org.apache.calcite.rel.rules.FilterJoinRule.JoinConditionPushRule;
 import org.apache.calcite.rel.rules.FilterMergeRule;
 import org.apache.calcite.rel.rules.FilterProjectTransposeRule;
 import org.apache.calcite.rel.rules.JoinPushExpressionsRule;
@@ -47,7 +46,6 @@ import org.apache.calcite.tools.Program;
 import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.tools.RuleSets;
 import org.apache.ignite.internal.sql.engine.rule.CorrelateToNestedLoopRule;
-import org.apache.ignite.internal.sql.engine.rule.CorrelatedNestedLoopJoinRule;
 import org.apache.ignite.internal.sql.engine.rule.FilterConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.FilterSpoolMergeToHashIndexSpoolRule;
 import org.apache.ignite.internal.sql.engine.rule.FilterSpoolMergeToSortedIndexSpoolRule;
@@ -59,12 +57,16 @@ import org.apache.ignite.internal.sql.engine.rule.ProjectConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SetOpConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SortAggregateConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SortConverterRule;
+import org.apache.ignite.internal.sql.engine.rule.SortExchangeTransposeRule;
 import org.apache.ignite.internal.sql.engine.rule.TableFunctionScanConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.TableModifyConverterRule;
+import org.apache.ignite.internal.sql.engine.rule.TableModifyToKeyValuePutRule;
+import org.apache.ignite.internal.sql.engine.rule.TableScanToKeyValueGetRule;
 import org.apache.ignite.internal.sql.engine.rule.UnionConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.ValuesConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ExposeIndexRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.FilterScanMergeRule;
+import org.apache.ignite.internal.sql.engine.rule.logical.IgniteJoinConditionPushRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.LogicalOrToUnionRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ProjectScanMergeRule;
 
@@ -85,14 +87,29 @@ public enum PlannerPhase {
         }
     },
 
+    HEP_TO_SIMPLE_KEY_VALUE_OPERATION(
+            "Heuristic phase to convert relational tree to simple Key-Value operation",
+            TableScanToKeyValueGetRule.INSTANCE,
+            TableModifyToKeyValuePutRule.PROJECT,
+            TableModifyToKeyValuePutRule.VALUES
+    ) {
+        /** {@inheritDoc} */
+        @Override
+        public Program getProgram(PlanningContext ctx) {
+            return hep(getRules(ctx));
+        }
+    },
+
     HEP_FILTER_PUSH_DOWN(
             "Heuristic phase to push down filters",
             FilterScanMergeRule.TABLE_SCAN_SKIP_CORRELATED,
+            FilterScanMergeRule.SYSTEM_VIEW_SCAN_SKIP_CORRELATED,
 
             CoreRules.FILTER_MERGE,
             CoreRules.FILTER_AGGREGATE_TRANSPOSE,
             CoreRules.FILTER_SET_OP_TRANSPOSE,
-            CoreRules.JOIN_CONDITION_PUSH,
+            IgniteJoinConditionPushRule.INSTANCE,
+            CoreRules.FILTER_CORRELATE,
             CoreRules.FILTER_INTO_JOIN,
             CoreRules.FILTER_PROJECT_TRANSPOSE
     ) {
@@ -106,6 +123,7 @@ public enum PlannerPhase {
     HEP_PROJECT_PUSH_DOWN(
             "Heuristic phase to push down and merge projects",
             ProjectScanMergeRule.TABLE_SCAN_SKIP_CORRELATED,
+            ProjectScanMergeRule.SYSTEM_VIEW_SCAN_SKIP_CORRELATED,
 
             CoreRules.JOIN_PUSH_EXPRESSIONS,
             CoreRules.PROJECT_MERGE,
@@ -124,18 +142,13 @@ public enum PlannerPhase {
             FilterMergeRule.Config.DEFAULT
                     .withOperandFor(LogicalFilter.class).toRule(),
 
-            JoinPushThroughJoinRule.Config.LEFT
-                    .withOperandFor(LogicalJoin.class).toRule(),
-
             JoinPushThroughJoinRule.Config.RIGHT
                     .withOperandFor(LogicalJoin.class).toRule(),
 
             JoinPushExpressionsRule.Config.DEFAULT
                     .withOperandFor(LogicalJoin.class).toRule(),
 
-            JoinConditionPushRule.JoinConditionPushRuleConfig.DEFAULT
-                    .withOperandSupplier(b -> b.operand(LogicalJoin.class)
-                            .anyInputs()).toRule(),
+            IgniteJoinConditionPushRule.INSTANCE,
 
             FilterIntoJoinRule.FilterIntoJoinRuleConfig.DEFAULT
                     .withOperandSupplier(b0 ->
@@ -173,6 +186,8 @@ public enum PlannerPhase {
                             b.operand(LogicalSort.class)
                                     .anyInputs()).toRule(),
 
+            SortExchangeTransposeRule.INSTANCE,
+
             CoreRules.UNION_MERGE,
             CoreRules.MINUS_MERGE,
             CoreRules.INTERSECT_MERGE,
@@ -180,6 +195,9 @@ public enum PlannerPhase {
             CoreRules.JOIN_COMMUTE,
             CoreRules.AGGREGATE_REMOVE,
             CoreRules.JOIN_COMMUTE_OUTER,
+
+            PruneEmptyRules.CORRELATE_LEFT_INSTANCE,
+            PruneEmptyRules.CORRELATE_RIGHT_INSTANCE,
 
             // Useful of this rule is not clear now.
             // CoreRules.AGGREGATE_REDUCE_FUNCTIONS,
@@ -192,22 +210,28 @@ public enum PlannerPhase {
             ExposeIndexRule.INSTANCE,
             ProjectScanMergeRule.TABLE_SCAN,
             ProjectScanMergeRule.INDEX_SCAN,
+            ProjectScanMergeRule.SYSTEM_VIEW_SCAN,
             FilterSpoolMergeToSortedIndexSpoolRule.INSTANCE,
             FilterSpoolMergeToHashIndexSpoolRule.INSTANCE,
             FilterScanMergeRule.TABLE_SCAN,
             FilterScanMergeRule.INDEX_SCAN,
+            FilterScanMergeRule.SYSTEM_VIEW_SCAN,
 
             LogicalOrToUnionRule.INSTANCE,
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-16334 join rules ordering is significant here.
             MergeJoinConverterRule.INSTANCE,
-            CorrelatedNestedLoopJoinRule.INSTANCE,
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-21286
+            // CorrelatedNestedLoopJoinRule.INSTANCE,
+
             CorrelateToNestedLoopRule.INSTANCE,
             NestedLoopJoinConverterRule.INSTANCE,
 
             ValuesConverterRule.INSTANCE,
             LogicalScanConverterRule.INDEX_SCAN,
             LogicalScanConverterRule.TABLE_SCAN,
+            LogicalScanConverterRule.SYSTEM_VIEW_SCAN,
             HashAggregateConverterRule.COLOCATED,
             HashAggregateConverterRule.MAP_REDUCE,
             SortAggregateConverterRule.COLOCATED,

@@ -48,6 +48,7 @@ import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,7 +60,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for the {@link TransferableObjectProcessor} incremental compilation.
  */
 @ExtendWith(MockitoExtension.class)
-public class TransferableObjectProcessorIncrementalTest {
+public class TransferableObjectProcessorIncrementalTest extends BaseIgniteAbstractTest {
     /**
      * Package name of the test sources.
      */
@@ -245,7 +246,7 @@ public class TransferableObjectProcessorIncrementalTest {
             String line;
 
             while ((line = bufferedReader.readLine()) != null) {
-                builder.append(line).append("\n");
+                builder.append(line).append('\n');
             }
 
             return builder.toString();
@@ -255,8 +256,8 @@ public class TransferableObjectProcessorIncrementalTest {
     private JavaFileObject createTransferable(String className, int msgId) {
         @Language("JAVA") String code =
                 "package " + RESOURCE_PACKAGE_NAME + ";\n"
-                        + "import org.apache.ignite.network.NetworkMessage;\n"
-                        + "import org.apache.ignite.network.annotations.Transferable;\n"
+                        + "import org.apache.ignite.internal.network.NetworkMessage;\n"
+                        + "import org.apache.ignite.internal.network.annotations.Transferable;\n"
                         + "\n"
                         + "\n"
                         + "@Transferable(value = " + msgId + ")\n"
@@ -270,7 +271,7 @@ public class TransferableObjectProcessorIncrementalTest {
         @Language("JAVA") String code =
                 "package " + RESOURCE_PACKAGE_NAME + ";\n"
                         + "\n"
-                        + "    import org.apache.ignite.network.annotations.MessageGroup;\n"
+                        + "    import org.apache.ignite.internal.network.annotations.MessageGroup;\n"
                         + "\n"
                         + "@MessageGroup(groupType = 1, groupName = \"" + groupName + "\")\n"
                         + "public class " + className + " {\n"
@@ -281,7 +282,7 @@ public class TransferableObjectProcessorIncrementalTest {
     private JavaFileObject createNonTransferable(String className) {
         @Language("JAVA") String code =
                 "package " + RESOURCE_PACKAGE_NAME + ";\n"
-                        + "import org.apache.ignite.network.NetworkMessage;\n"
+                        + "import org.apache.ignite.internal.network.NetworkMessage;\n"
                         + "\n"
                         + "\n"
                         + "public interface " + className + " extends NetworkMessage {\n"

@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.network.message;
 
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.network.serialization.FieldDescriptor;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
 
 /** Message for the {@link FieldDescriptor}. */
 @Transferable(NetworkMessageTypes.FIELD_DESCRIPTOR_MESSAGE)
 public interface FieldDescriptorMessage extends NetworkMessage {
     int UNSHARED_MASK = 1;
     int IS_PRIMITIVE = 1 << 1;
-    int IS_RUNTIME_TYPE_KNOWN_UPFRONT = 1 << 2;
+    int IS_SERIALIZATION_TYPE_KNOWN_UPFRONT = 1 << 2;
 
     /**
      * Name of the field.

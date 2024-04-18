@@ -36,6 +36,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteColocatedHashAggregate extends IgniteColocatedAggregateBase implements IgniteHashAggregateBase {
+    private static final String REL_TYPE_NAME = "ColocatedHashAggregate";
+
     public IgniteColocatedHashAggregate(RelOptCluster cluster, RelTraitSet traitSet, RelNode input, ImmutableBitSet groupSet,
             List<ImmutableBitSet> groupSets, List<AggregateCall> aggCalls) {
         super(cluster, traitSet, input, groupSet, groupSets, aggCalls);
@@ -74,5 +76,10 @@ public class IgniteColocatedHashAggregate extends IgniteColocatedAggregateBase i
     @Override
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         return computeSelfCostHash(planner, mq);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

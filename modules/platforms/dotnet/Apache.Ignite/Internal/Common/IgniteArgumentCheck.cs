@@ -19,6 +19,8 @@
 namespace Apache.Ignite.Internal.Common
 {
     using System;
+    using System.Diagnostics.CodeAnalysis;
+    using System.Reflection;
     using System.Runtime.CompilerServices;
     using JetBrains.Annotations;
 
@@ -28,17 +30,31 @@ namespace Apache.Ignite.Internal.Common
     internal static class IgniteArgumentCheck
     {
         /// <summary>
+        /// Gets the <see cref="NotNull{T}"/> method info.
+        /// </summary>
+        internal static MethodInfo NotNullMethod { get; } = typeof(IgniteArgumentCheck).GetMethod(nameof(NotNull))!;
+
+        /// <summary>
         /// Throws an ArgumentNullException if specified arg is null.
+        /// <para />
+        /// Unlike <see cref="ArgumentNullException.ThrowIfNull"/>, this is a generic method and does not cause boxing allocations.
         /// </summary>
         /// <param name="arg">The argument.</param>
         /// <param name="argName">Name of the argument.</param>
         /// <typeparam name="T">Arg type.</typeparam>
-        public static void NotNull<T>([NoEnumeration] T arg, [CallerArgumentExpression("arg")] string? argName = null)
+        public static void NotNull<T>(
+            [NoEnumeration, System.Diagnostics.CodeAnalysis.NotNull] T arg,
+            [CallerArgumentExpression("arg")] string? argName = null)
         {
             if (arg == null)
             {
-                throw new ArgumentNullException(argName);
+                Throw();
             }
+
+            // Separate method to allow inlining of the parent method.
+            // Parent is called always to check arguments, so inlining it will improve perf.
+            [DoesNotReturn]
+            void Throw() => throw new ArgumentNullException(argName);
         }
 
         /// <summary>
@@ -49,9 +65,10 @@ namespace Apache.Ignite.Internal.Common
         /// <returns>Argument.</returns>
         public static string NotNullOrEmpty(string arg, [CallerArgumentExpression("arg")] string? argName = null)
         {
+            // The logic below matches ArgumentException.ThrowIfNullOrEmpty on .NET 8.
             if (string.IsNullOrEmpty(arg))
             {
-                throw new ArgumentException($"'{argName}' argument should not be null or empty.", argName);
+                ThrowNullOrEmptyException(arg, argName);
             }
 
             return arg;
@@ -63,12 +80,22 @@ namespace Apache.Ignite.Internal.Common
         /// <param name="condition">Condition.</param>
         /// <param name="argName">Name of the argument.</param>
         /// <param name="message">Message.</param>
-        public static void Ensure(bool condition, string argName, string? message = null)
+        public static void Ensure(bool condition, string argName, string message)
         {
             if (!condition)
             {
-                throw new ArgumentException($"'{argName}' argument is invalid: {message}", argName);
+                Throw();
             }
+
+            [DoesNotReturn]
+            void Throw() => throw new ArgumentException($"'{argName}' argument is invalid: {message}", argName);
+        }
+
+        [DoesNotReturn]
+        private static void ThrowNullOrEmptyException(string? argument, string? paramName)
+        {
+            ArgumentNullException.ThrowIfNull(argument, paramName);
+            throw new ArgumentException("The value cannot be an empty string.", paramName);
         }
     }
 }

@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static java.nio.ByteOrder.BIG_ENDIAN;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.createKey;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.getRowIdUuid;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.putRowIdUuid;
+import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 
 import java.nio.ByteBuffer;
@@ -39,44 +40,29 @@ import org.rocksdb.RocksDBException;
 public class RocksDbMetaStorage {
     /**
      * Prefix to store partition meta information, such as last applied index and term.
-     * Key format is {@code [prexif, tableId, partitionId]} in BE.
+     * Key format is {@code [prefix, tableId, partitionId]} in BE.
      */
     public static final byte[] PARTITION_META_PREFIX = {0};
 
     /**
-     * Prefix to store partition configuration. Key format is {@code [prexif, tableId, partitionId]} in BE.
+     * Prefix to store partition configuration. Key format is {@code [prefix, tableId, partitionId]} in BE.
      */
     public static final byte[] PARTITION_CONF_PREFIX = {1};
 
     /**
-     * Prefix to store index column family name. Key format is {@code [prexif, indexId]} in BE.
+     * Prefix to store next row id to build in index. Key format is {@code [prefix, tableId, indexId, partitionId]} in BE.
      */
-    public static final byte[] INDEX_CF_PREFIX = {2};
+    public static final byte[] INDEX_ROW_ID_PREFIX = {2};
 
     /**
-     * Prefix to store next row id to build in index. Key format is {@code [prexif, indexId, partitionId]} in BE.
+     * Prefix to store lease start time. Key format is {@code [prefix, tableId, partitionId]} in BE.
      */
-    public static final byte[] INDEX_ROW_ID_PREFIX = {3};
+    public static final byte[] LEASE_PREFIX = {3};
 
     private final ColumnFamily metaColumnFamily;
 
     public RocksDbMetaStorage(ColumnFamily metaColumnFamily) {
         this.metaColumnFamily = metaColumnFamily;
-    }
-
-    /**
-     * Creates a byte array, that uses the {@code prefix} as a prefix, and every other {@code int} values as a 4-bytes chunk in Big Endian.
-     */
-    public static byte[] createKey(byte[] prefix, int... values) {
-        ByteBuffer buf = ByteBuffer.allocate(prefix.length + Integer.BYTES * values.length).order(BIG_ENDIAN);
-
-        buf.put(prefix);
-
-        for (int value : values) {
-            buf.putInt(value);
-        }
-
-        return buf.array();
     }
 
     /**
@@ -91,14 +77,14 @@ public class RocksDbMetaStorage {
      *
      * @param indexId Index ID.
      * @param partitionId Partition ID.
-     * @param ifAbsent Will be returned if next the row ID for which the index needs to be built has never been saved.
+     * @param pk Primary index flag.
      */
-    public @Nullable RowId getNextRowIdToBuilt(int indexId, int partitionId, RowId ifAbsent) {
+    public @Nullable RowId getNextRowIdToBuild(int tableId, int indexId, int partitionId, boolean pk) {
         try {
-            byte[] lastBuiltRowIdBytes = metaColumnFamily.get(createKey(INDEX_ROW_ID_PREFIX, indexId, partitionId));
+            byte[] lastBuiltRowIdBytes = metaColumnFamily.get(createKey(INDEX_ROW_ID_PREFIX, tableId, indexId, partitionId));
 
             if (lastBuiltRowIdBytes == null) {
-                return ifAbsent;
+                return pk ? null : initialRowIdToBuild(partitionId);
             }
 
             if (lastBuiltRowIdBytes.length == 0) {
@@ -108,7 +94,7 @@ public class RocksDbMetaStorage {
             return new RowId(partitionId, getRowIdUuid(ByteBuffer.wrap(lastBuiltRowIdBytes), 0));
         } catch (RocksDBException e) {
             throw new StorageException(
-                    "Failed to read next row ID to built: [partitionId={}, indexId={}]",
+                    "Failed to read next row ID to build: [partitionId={}, indexId={}]",
                     e,
                     partitionId, indexId
             );
@@ -123,14 +109,31 @@ public class RocksDbMetaStorage {
      * @param indexId Index ID.
      * @param rowId Row ID.
      */
-    public void putNextRowIdToBuilt(AbstractWriteBatch writeBatch, int indexId, int partitionId, @Nullable RowId rowId) {
+    public void putNextRowIdToBuild(AbstractWriteBatch writeBatch, int tableId, int indexId, int partitionId, @Nullable RowId rowId) {
         try {
-            writeBatch.put(metaColumnFamily.handle(), createKey(INDEX_ROW_ID_PREFIX, indexId, partitionId), indexLastBuildRowId(rowId));
+            byte[] key = createKey(INDEX_ROW_ID_PREFIX, tableId, indexId, partitionId);
+
+            writeBatch.put(metaColumnFamily.handle(), key, indexLastBuildRowId(rowId));
         } catch (RocksDBException e) {
             throw new StorageException(
-                    "Failed to save next row ID to built: [partitionId={}, indexId={}, rowId={}]",
+                    "Failed to save next row ID to build: [partitionId={}, indexId={}, rowId={}]",
                     e,
                     partitionId, indexId, rowId
+            );
+        }
+    }
+
+    /**
+     * Removes the "next row ID to build" information for the given partition's index.
+     */
+    public void removeNextRowIdToBuild(AbstractWriteBatch writeBatch, int tableId, int indexId, int partitionId) {
+        try {
+            writeBatch.delete(metaColumnFamily.handle(), createKey(INDEX_ROW_ID_PREFIX, tableId, indexId, partitionId));
+        } catch (RocksDBException e) {
+            throw new StorageException(
+                    "Failed to remove next row ID to build: [partitionId={}, indexId={}]",
+                    e,
+                    partitionId, indexId
             );
         }
     }

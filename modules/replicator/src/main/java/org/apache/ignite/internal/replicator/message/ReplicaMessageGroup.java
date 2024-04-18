@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.replicator.message;
 
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
-import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
  * Message group for the replication process.
  */
-@MessageGroup(groupType = 8, groupName = "ReplicaMessages")
+@MessageGroup(groupType = ReplicaMessageGroup.GROUP_TYPE, groupName = "ReplicaMessages")
 public interface ReplicaMessageGroup {
+    /** Table message group type. */
+    short GROUP_TYPE = 8;
+
     /** Message type for {@link ErrorReplicaResponse}. */
     short ERROR_REPLICA_RESPONSE = 1;
 
@@ -48,4 +51,7 @@ public interface ReplicaMessageGroup {
 
     /** Message type for {@link SafeTimeSyncCommand}. */
     short SAFE_TIME_SYNC_COMMAND = 40;
+
+    /** Message type for {@link PrimaryReplicaChangeCommand}. */
+    short PRIMARY_REPLICA_CHANGE_COMMAND = 41;
 }

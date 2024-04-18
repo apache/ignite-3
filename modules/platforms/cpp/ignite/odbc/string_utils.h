@@ -62,6 +62,7 @@ inline std::string_view trim(std::string_view str) {
 /**
  * Split string once by delimiter.
  * If string has no delimiter, the second returned string is empty.
+ *
  * @param delimiter Delimiter.
  * @return Pair of values split by the first encountered delimiter. Delimiter itself is not included.
  */
@@ -78,6 +79,7 @@ inline std::pair<std::string_view, std::string_view> split_once(std::string_view
 
 /**
  * Call action for every substring separated by delimiter.
+ *
  * @param str String.
  * @param delimiter Delimiter.
  * @param action Action to perform.
@@ -89,6 +91,18 @@ inline void for_every_delimited(
         action(res.first);
         str = res.second;
     }
+}
+
+/**
+ * Split string by delimiter.
+ *
+ * @param delimiter Delimiter.
+ * @return Vector with resulting string parts.
+ */
+inline std::vector<std::string_view> split(std::string_view str, char delimiter) {
+    std::vector<std::string_view> res;
+    for_every_delimited(str, delimiter, [&res](auto part) { res.push_back(part); });
+    return res;
 }
 
 /**
@@ -128,6 +142,17 @@ T1 lexical_cast(const T2 &val) {
  */
 [[nodiscard]] inline std::string to_lower(std::string value) {
     std::transform(value.begin(), value.end(), value.begin(), ::tolower);
+    return value;
+}
+
+/**
+ * Convert to upper.
+ *
+ * @param value Value.
+ * @return Upper value.
+ */
+[[nodiscard]] inline std::string to_upper(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), ::toupper);
     return value;
 }
 

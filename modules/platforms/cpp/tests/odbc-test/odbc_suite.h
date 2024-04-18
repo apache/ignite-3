@@ -26,6 +26,8 @@
 #include "odbc_test_utils.h"
 #include "test_utils.h"
 
+#include "tests/test-common/basic_auth_test_suite.h"
+
 #include <gtest/gtest.h>
 
 #include <memory>
@@ -39,7 +41,7 @@ namespace ignite {
 /**
  * Test suite.
  */
-class odbc_suite : public ::testing::Test, public odbc_connection {
+class odbc_suite : public virtual ::testing::Test, public odbc_connection {
 public:
     static inline const std::string TABLE_1 = "tbl1";
     static inline const std::string TABLE_NAME_ALL_COLUMNS = "tbl_all_columns";

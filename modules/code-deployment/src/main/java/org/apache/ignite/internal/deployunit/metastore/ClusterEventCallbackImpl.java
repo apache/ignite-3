@@ -20,12 +20,14 @@ package org.apache.ignite.internal.deployunit.metastore;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.deployunit.FileDeployerService;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 
 /** Listener of deployment unit cluster status changes. */
 public class ClusterEventCallbackImpl extends ClusterEventCallback {
@@ -64,35 +66,36 @@ public class ClusterEventCallbackImpl extends ClusterEventCallback {
         // Now the deployment unit can be removed from each target node and, after it, remove corresponding status records.
         deploymentUnitStore.getNodeStatus(nodeName, id, version).thenAccept(nodeStatus -> {
             if (nodeStatus != null && nodeStatus.status() == REMOVING) {
-                undeploy(id, version);
+                undeploy(id, version, nodeStatus.opId());
             }
         });
     }
 
-    private void undeploy(String id, Version version) {
+    private void undeploy(String id, Version version, UUID opId) {
         deployerService.undeploy(id, version).thenAccept(success -> {
             if (success) {
-                deploymentUnitStore.removeNodeStatus(nodeName, id, version).thenAccept(successRemove -> {
+                deploymentUnitStore.removeNodeStatus(nodeName, id, version, opId).thenAccept(successRemove -> {
                     if (successRemove) {
-                        removeClusterStatus(id, version);
+                        removeClusterStatus(id, version, opId);
                     }
                 });
             }
         });
     }
 
-    private void removeClusterStatus(String id, Version version) {
+    private void removeClusterStatus(String id, Version version, UUID opId) {
         cmgManager.logicalTopology().thenAccept(logicalTopology -> {
             Set<String> logicalNodes = logicalTopology.nodes().stream()
                     .map(LogicalNode::name)
                     .collect(Collectors.toSet());
-            deploymentUnitStore.getAllNodes(id, version).thenAccept(nodes -> {
-                boolean emptyTopology = nodes.stream()
+            deploymentUnitStore.getAllNodeStatuses(id, version).thenAccept(statuses -> {
+                boolean emptyTopology = statuses.stream()
+                        .map(UnitNodeStatus::nodeId)
                         .filter(logicalNodes::contains)
                         .findAny()
                         .isEmpty();
                 if (emptyTopology) {
-                    deploymentUnitStore.removeClusterStatus(id, version);
+                    deploymentUnitStore.removeClusterStatus(id, version, opId);
                 }
             });
         });

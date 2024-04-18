@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
 
@@ -69,13 +70,18 @@ public class CompoundModule implements ConfigurationModule {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Class<?>> internalSchemaExtensions() {
-        return unionFromModulesExtractedWith(ConfigurationModule::internalSchemaExtensions);
+    public Collection<Class<?>> schemaExtensions() {
+        return unionFromModulesExtractedWith(ConfigurationModule::schemaExtensions);
     }
 
     /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return unionFromModulesExtractedWith(ConfigurationModule::polymorphicSchemaExtensions);
+    }
+
+    @Override
+    public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
+        modules.forEach(module -> module.patchConfigurationWithDynamicDefaults(rootChange));
     }
 }

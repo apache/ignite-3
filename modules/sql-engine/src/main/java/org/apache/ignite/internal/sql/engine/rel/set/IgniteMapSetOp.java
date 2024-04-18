@@ -21,9 +21,10 @@ import java.util.List;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -52,16 +53,29 @@ public interface IgniteMapSetOp extends IgniteSetOp {
         );
     }
 
-    /** Build RowType for MAP node. */
-    default RelDataType buildRowType() {
-        RelDataTypeFactory typeFactory = Commons.typeFactory(getCluster());
-
-        assert typeFactory instanceof IgniteTypeFactory;
-
+    /**
+     * Creates a row type produced by MAP phase of INTERSECT/EXCEPT operator.
+     *
+     * <p>For input row (a:type1, b:type2) and {@code inputsNum} = {@code 3} it produces the following row type:
+     * <pre>
+     *     f0: type1
+     *     f1: type2
+     *     _count_0: int
+     *     _count_1: int
+     *     _count_2: int
+     * </pre>
+     */
+    public static RelDataType buildRowType(IgniteTypeFactory typeFactory, RelDataType inputRowType, int inputsNum) {
         RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
 
-        builder.add("GROUP_KEY", typeFactory.createJavaType(GroupKey.class));
-        builder.add("COUNTERS", typeFactory.createJavaType(int[].class));
+        for (int i = 0; i < inputRowType.getFieldCount(); i++) {
+            RelDataTypeField field = inputRowType.getFieldList().get(i);
+            builder.add("f" + i, field.getType());
+        }
+
+        for (int i = 0; i < inputsNum; i++) {
+            builder.add("_COUNT_" + i, typeFactory.createSqlType(SqlTypeName.INTEGER));
+        }
 
         return builder.build();
     }

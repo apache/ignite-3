@@ -39,8 +39,7 @@ linux_async_client::linux_async_client(int fd, end_point addr, tcp_range range)
     , m_range(std::move(range))
     , m_send_packets()
     , m_send_mutex()
-    , m_recv_packet(BUFFER_SIZE)
-    , m_close_err() {
+    , m_recv_packet(BUFFER_SIZE) {
 }
 
 linux_async_client::~linux_async_client() {
@@ -54,7 +53,7 @@ bool linux_async_client::shutdown(std::optional<ignite_error> err) {
     if (m_state != state::CONNECTED)
         return false;
 
-    m_close_err = err ? std::move(*err) : ignite_error("Connection closed by application");
+    m_close_err = std::move(err);
     ::shutdown(m_fd, SHUT_RDWR);
     m_state = state::SHUTDOWN;
 

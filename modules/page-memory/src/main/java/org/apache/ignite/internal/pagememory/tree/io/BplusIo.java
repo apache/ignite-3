@@ -29,12 +29,12 @@ import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.read
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 
 import java.util.function.Consumer;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteStringBuilder;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -245,11 +245,11 @@ public abstract class BplusIo<L> extends PageIo {
      * @return Stored row bytes.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public final @Nullable byte[] store(
+    public final byte @Nullable [] store(
             long pageAddr,
             int idx,
-            L row,
-            @Nullable byte[] rowBytes,
+            @Nullable L row,
+            byte @Nullable [] rowBytes,
             boolean needRowBytes
     ) throws IgniteInternalCheckedException {
         assertPageType(pageAddr);
@@ -349,11 +349,11 @@ public abstract class BplusIo<L> extends PageIo {
      * @return Row bytes.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public @Nullable byte[] insert(
+    public byte @Nullable [] insert(
             long pageAddr,
             int idx,
-            L row,
-            @Nullable byte[] rowBytes,
+            @Nullable L row,
+            byte @Nullable [] rowBytes,
             long rightId,
             boolean needRowBytes
     ) throws IgniteInternalCheckedException {

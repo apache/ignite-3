@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -52,7 +53,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
@@ -60,7 +62,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link IncrementalVersionedValue}.
  */
-public class IncrementalVersionedValueTest {
+public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
     /** Test value. */
     private static final int TEST_VALUE = 1;
 
@@ -101,7 +103,7 @@ public class IncrementalVersionedValueTest {
 
         assertEquals(TEST_VALUE + incrementCount, fut.get());
 
-        assertThrows(AssertionError.class, () -> versionedValue.update(1L, (i, t) -> completedFuture(null)));
+        assertThrows(AssertionError.class, () -> versionedValue.update(1L, (i, t) -> nullCompletedFuture()));
     }
 
     /**
@@ -379,7 +381,7 @@ public class IncrementalVersionedValueTest {
         //noinspection unchecked
         BiFunction<Integer, Throwable, CompletableFuture<Integer>> closure = mock(BiFunction.class);
 
-        when(closure.apply(any(), any())).thenReturn(completedFuture(null));
+        when(closure.apply(any(), any())).thenReturn(nullCompletedFuture());
 
         int token = 0;
 

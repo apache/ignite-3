@@ -68,7 +68,7 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     [Test]
     public async Task TestSelectOneColumnAsPrimitiveType()
     {
-        var resultSet = await Client.Sql.ExecuteAsync<int>(null, "select INT32 from TBL_ALL_COLUMNS_SQL where INT32 is not null order by 1");
+        await using var resultSet = await Client.Sql.ExecuteAsync<int>(null, "select INT32 from TBL_ALL_COLUMNS_SQL where INT32 is not null order by 1");
         var rows = await resultSet.ToListAsync();
 
         Assert.AreEqual(Count, rows.Count);
@@ -127,7 +127,7 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     [Test]
     public async Task TestSelectNullIntoNonNullablePrimitiveTypeThrows()
     {
-        var resultSet = await Client.Sql.ExecuteAsync<int>(null, "select INT32 from TBL_ALL_COLUMNS_SQL");
+        await using var resultSet = await Client.Sql.ExecuteAsync<int>(null, "select INT32 from TBL_ALL_COLUMNS_SQL");
 
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await resultSet.ToListAsync());
 
@@ -139,7 +139,7 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     [Test]
     public async Task TestSelectNullIntoNonNullablePrimitiveTypeFieldThrows()
     {
-        var resultSet = await Client.Sql.ExecuteAsync<IntRec>(null, "select INT32 from TBL_ALL_COLUMNS_SQL");
+        await using var resultSet = await Client.Sql.ExecuteAsync<IntRec>(null, "select INT32 from TBL_ALL_COLUMNS_SQL");
 
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await resultSet.ToListAsync());
 
@@ -222,7 +222,7 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     [Test]
     public void TestDuplicateColumnNameMappingThrowsException()
     {
-        var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
+        var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
             await Client.Sql.ExecuteAsync<DuplicateColumnRec>(null, "select * from TBL_ALL_COLUMNS_SQL where key = 3"));
 
         var expected = "Column 'KEY' maps to more than one field of type " +

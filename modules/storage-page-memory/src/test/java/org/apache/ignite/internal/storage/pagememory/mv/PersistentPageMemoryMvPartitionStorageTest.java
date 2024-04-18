@@ -17,26 +17,29 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -47,20 +50,19 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
-@ExtendWith(ConfigurationExtension.class)
 class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPartitionStorageTest {
     @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
     private PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
+    @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
+    private StorageConfiguration storageConfiguration;
+
     @WorkDirectory
     private Path workDir;
 
-    @InjectConfiguration("mock.tables.foo = {}")
-    private TablesConfiguration tablesConfig;
-
     private PersistentPageMemoryStorageEngine engine;
 
-    private PersistentPageMemoryTableStorage table;
+    private MvTableStorage table;
 
     @BeforeEach
     void setUp() {
@@ -68,16 +70,23 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
+        engine = new PersistentPageMemoryStorageEngine(
+                "test",
+                engineConfig,
+                storageConfiguration,
+                ioRegistry,
+                workDir,
+                null,
+                mock(FailureProcessor.class),
+                mock(LogSyncer.class)
+        );
 
         engine.start();
 
         table = engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(tablesConfig)
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
+                mock(StorageIndexDescriptorSupplier.class)
         );
-
-        table.start();
 
         initialize(table);
     }
@@ -104,7 +113,7 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
 
         restartStorage();
 
-        assertRowMatches(binaryRow, read(rowId, HybridTimestamp.MAX_VALUE));
+        assertThat(read(rowId, HybridTimestamp.MAX_VALUE), is(equalToRow(binaryRow)));
     }
 
     private void restartStorage() throws Exception {

@@ -533,8 +533,8 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         }
         this.manageLock.lock();
 
-        LogEntry entry = getEntry(nextLogIndex);
         try {
+            LogEntry entry = getEntry(nextLogIndex);
             db.deleteRange(dataHandle, groupStartPrefix, groupEndPrefix);
             db.deleteRange(confHandle, groupStartPrefix, groupEndPrefix);
 

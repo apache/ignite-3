@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
@@ -44,9 +45,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -96,7 +97,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         addWrite(rowId, binaryRow, txId);
 
         // Read with timestamp returns write-intent.
-        assertRowMatches(read(rowId, clock.now()), binaryRow);
+        assertThat(read(rowId, clock.now()), is(equalToRow(binaryRow)));
 
         // Remove write.
         addWrite(rowId, null, txId);
@@ -142,8 +143,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNull(read(rowId, tsBefore));
 
         // Row is valid at the time during and after writing.
-        assertRowMatches(read(rowId, tsExact), binaryRow);
-        assertRowMatches(read(rowId, tsAfter), binaryRow);
+        assertThat(read(rowId, tsExact), is(equalToRow(binaryRow)));
+        assertThat(read(rowId, tsAfter), is(equalToRow(binaryRow)));
 
         TestValue newValue = new TestValue(30, "duh");
 
@@ -155,22 +156,22 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         // Same checks, but now there are two different versions.
         assertNull(read(rowId, tsBefore));
 
-        assertRowMatches(read(rowId, HybridTimestamp.MAX_VALUE), newRow);
+        assertThat(read(rowId, HybridTimestamp.MAX_VALUE), is(equalToRow(newRow)));
 
-        assertRowMatches(read(rowId, tsExact), binaryRow);
-        assertRowMatches(read(rowId, tsAfter), newRow);
-        assertRowMatches(read(rowId, clock.now()), newRow);
+        assertThat(read(rowId, tsExact), is(equalToRow(binaryRow)));
+        assertThat(read(rowId, tsAfter), is(equalToRow(newRow)));
+        assertThat(read(rowId, clock.now()), is(equalToRow(newRow)));
 
         // Only latest time behavior changes after commit.
         HybridTimestamp newRowCommitTs = clock.now();
         commitWrite(rowId, newRowCommitTs);
 
-        assertRowMatches(read(rowId, HybridTimestamp.MAX_VALUE), newRow);
+        assertThat(read(rowId, HybridTimestamp.MAX_VALUE), is(equalToRow(newRow)));
 
-        assertRowMatches(read(rowId, tsExact), binaryRow);
-        assertRowMatches(read(rowId, tsAfter), binaryRow);
+        assertThat(read(rowId, tsExact), is(equalToRow(binaryRow)));
+        assertThat(read(rowId, tsAfter), is(equalToRow(binaryRow)));
 
-        assertRowMatches(read(rowId, clock.now()), newRow);
+        assertThat(read(rowId, clock.now()), is(equalToRow(newRow)));
 
         // Remove.
         UUID removeTxId = newTransactionId();
@@ -181,9 +182,9 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         assertNull(read(rowId, HybridTimestamp.MAX_VALUE));
 
-        assertRowMatches(read(rowId, tsExact), binaryRow);
-        assertRowMatches(read(rowId, tsAfter), binaryRow);
-        assertRowMatches(read(rowId, newRowCommitTs), newRow);
+        assertThat(read(rowId, tsExact), is(equalToRow(binaryRow)));
+        assertThat(read(rowId, tsAfter), is(equalToRow(binaryRow)));
+        assertThat(read(rowId, newRowCommitTs), is(equalToRow(newRow)));
 
         assertNull(read(rowId, clock.now()));
 
@@ -197,8 +198,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNull(read(rowId, removeTs));
         assertNull(read(rowId, clock.now()));
 
-        assertRowMatches(read(rowId, tsExact), binaryRow);
-        assertRowMatches(read(rowId, tsAfter), binaryRow);
+        assertThat(read(rowId, tsExact), is(equalToRow(binaryRow)));
+        assertThat(read(rowId, tsAfter), is(equalToRow(binaryRow)));
     }
 
     /**
@@ -269,7 +270,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
             assertFalse(cursor.hasNext());
             assertFalse(cursor.hasNext());
 
-            assertThrows(NoSuchElementException.class, () -> cursor.next());
+            assertThrows(NoSuchElementException.class, cursor::next);
 
             assertThat(res, containsInAnyOrder(value1, value2));
         }
@@ -336,18 +337,18 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
                     commitTs = commitTs2;
                 }
 
-                assertRowMatches(res.binaryRow(), expectedRow2);
+                assertThat(res.binaryRow(), is(equalToRow(expectedRow2)));
 
                 BinaryRow previousRow = cursor.committed(commitTs);
 
                 assertNotNull(previousRow);
-                assertRowMatches(previousRow, expectedRow1);
+                assertThat(previousRow, is(equalToRow(expectedRow1)));
             }
 
             assertFalse(cursor.hasNext());
             assertFalse(cursor.hasNext());
 
-            assertThrows(NoSuchElementException.class, () -> cursor.next());
+            assertThrows(NoSuchElementException.class, cursor::next);
 
             assertThrows(IllegalStateException.class, () -> cursor.committed(commitTs1));
         }
@@ -369,7 +370,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         ReadResult foundResult = storage.read(rowId, HybridTimestamp.MAX_VALUE);
 
         assertThat(foundResult.rowId(), is(rowId));
-        assertRowMatches(foundResult.binaryRow(), binaryRow);
+        assertThat(foundResult.binaryRow(), is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -380,7 +381,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         ReadResult foundResult = storage.read(rowId, HybridTimestamp.MAX_VALUE);
 
         assertThat(foundResult.rowId(), is(rowId));
-        assertRowMatches(foundResult.binaryRow(), binaryRow);
+        assertThat(foundResult.binaryRow(), is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -393,7 +394,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         ReadResult foundResult = storage.read(rowId2, HybridTimestamp.MAX_VALUE);
 
         assertThat(foundResult.rowId(), is(rowId2));
-        assertRowMatches(foundResult.binaryRow(), binaryRow2);
+        assertThat(foundResult.binaryRow(), is(equalToRow(binaryRow2)));
     }
 
     @Test
@@ -407,7 +408,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         ReadResult foundResult = storage.read(rowId2, HybridTimestamp.MAX_VALUE);
 
         assertThat(foundResult.rowId(), is(rowId2));
-        assertRowMatches(foundResult.binaryRow(), binaryRow2);
+        assertThat(foundResult.binaryRow(), is(equalToRow(binaryRow2)));
     }
 
     @Test
@@ -418,7 +419,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         BinaryRow foundRow = read(rowId, commitTimestamp);
 
-        assertRowMatches(foundRow, binaryRow);
+        assertThat(foundRow, is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -430,7 +431,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         HybridTimestamp afterCommit = clock.now();
         BinaryRow foundRow = read(rowId, afterCommit);
 
-        assertRowMatches(foundRow, binaryRow);
+        assertThat(foundRow, is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -458,7 +459,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         BinaryRow foundRow = read(rowId, secondVersionTs);
 
-        assertRowMatches(foundRow, binaryRow2);
+        assertThat(foundRow, is(equalToRow(binaryRow2)));
     }
 
     @Test
@@ -472,7 +473,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         BinaryRow foundRow = read(rowId, firstVersionTs);
 
-        assertRowMatches(foundRow, binaryRow);
+        assertThat(foundRow, is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -488,7 +489,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         BinaryRow foundRow = read(rowId, tsInBetween);
 
-        assertRowMatches(foundRow, binaryRow);
+        assertThat(foundRow, is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -500,7 +501,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         HybridTimestamp latestTs = clock.now();
         BinaryRow foundRow = read(rowId, latestTs);
 
-        assertRowMatches(foundRow, binaryRow);
+        assertThat(foundRow, is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -513,7 +514,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         HybridTimestamp latestTs = clock.now();
         BinaryRow foundRow = read(rowId, latestTs);
 
-        assertRowMatches(foundRow, binaryRow2);
+        assertThat(foundRow, is(equalToRow(binaryRow2)));
     }
 
     @Test
@@ -531,7 +532,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         BinaryRow foundRow = read(rowId, HybridTimestamp.MAX_VALUE);
 
-        assertRowMatches(foundRow, binaryRow2);
+        assertThat(foundRow, is(equalToRow(binaryRow2)));
     }
 
     @Test
@@ -540,7 +541,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         BinaryRow returnedRow = addWrite(rowId, binaryRow2, txId);
 
-        assertRowMatches(returnedRow, binaryRow);
+        assertThat(returnedRow, is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -556,7 +557,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     @Test
     void addWriteCommittedTombstone() {
         addWriteCommitted(ROW_ID, binaryRow, clock.now());
-        assertRowMatches(read(ROW_ID, HybridTimestamp.MAX_VALUE), binaryRow);
+        assertThat(read(ROW_ID, HybridTimestamp.MAX_VALUE), is(equalToRow(binaryRow)));
 
         addWriteCommitted(ROW_ID, null, clock.now());
         assertNull(read(ROW_ID, HybridTimestamp.MAX_VALUE));
@@ -607,7 +608,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         BinaryRow foundRow = read(rowId, firstTimestamp);
 
-        assertRowMatches(foundRow, binaryRow);
+        assertThat(foundRow, is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -616,7 +617,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         BinaryRow rowFromRemoval = addWrite(rowId, null, txId);
 
-        assertRowMatches(rowFromRemoval, binaryRow);
+        assertThat(rowFromRemoval, is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -647,7 +648,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         BinaryRow foundRow = read(rowId, clock.now());
 
-        assertRowMatches(foundRow, binaryRow);
+        assertThat(foundRow, is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -657,11 +658,11 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         abortWrite(rowId);
 
-        assertRowMatches(read(rowId, HybridTimestamp.MAX_VALUE), binaryRow);
+        assertThat(read(rowId, HybridTimestamp.MAX_VALUE), is(equalToRow(binaryRow)));
 
         commitWrite(rowId, clock.now());
 
-        assertRowMatches(read(rowId, HybridTimestamp.MAX_VALUE), binaryRow);
+        assertThat(read(rowId, HybridTimestamp.MAX_VALUE), is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -675,7 +676,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         BinaryRow foundRow = read(rowId, HybridTimestamp.MAX_VALUE);
 
-        assertRowMatches(foundRow, binaryRow);
+        assertThat(foundRow, is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -704,7 +705,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         BinaryRow returnedRow = abortWrite(rowId);
 
-        assertRowMatches(returnedRow, binaryRow);
+        assertThat(returnedRow, is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -715,7 +716,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         // We see the uncommitted row.
         assertThat(foundResult.rowId(), is(rowId));
-        assertRowMatches(foundResult.binaryRow(), binaryRow3);
+        assertThat(foundResult.binaryRow(), is(equalToRow(binaryRow3)));
     }
 
     @Test
@@ -747,7 +748,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNull(res.transactionId());
         assertNull(res.commitTableId());
         assertEquals(ReadResult.UNDEFINED_COMMIT_PARTITION_ID, res.commitPartitionId());
-        assertRowMatches(res.binaryRow(), binaryRow);
+        assertThat(res.binaryRow(), is(equalToRow(binaryRow)));
 
         res = storage.read(rowId, clock.now());
 
@@ -756,7 +757,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertEquals(txId2, res.transactionId());
         assertEquals(COMMIT_TABLE_ID, res.commitTableId());
         assertEquals(PARTITION_ID, res.commitPartitionId());
-        assertRowMatches(res.binaryRow(), binaryRow2);
+        assertThat(res.binaryRow(), is(equalToRow(binaryRow2)));
     }
 
     private RowId commitAbortAndAddUncommitted() {
@@ -786,7 +787,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
             ReadResult result = cursor.next();
 
             assertThat(result.rowId(), is(rowId));
-            assertRowMatches(result.binaryRow(), binaryRow3);
+            assertThat(result.binaryRow(), is(equalToRow(binaryRow3)));
 
             assertFalse(cursor.hasNext());
         }
@@ -798,7 +799,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         BinaryRow foundRow = read(rowId, clock.now());
 
-        assertRowMatches(foundRow, binaryRow);
+        assertThat(foundRow, is(equalToRow(binaryRow)));
     }
 
     /**
@@ -866,21 +867,21 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         assertNotNull(res);
         assertNull(res.newestCommitTimestamp());
-        assertRowMatches(res.binaryRow(), binaryRow);
+        assertThat(res.binaryRow(), is(equalToRow(binaryRow)));
 
         // Read between two commits.
         res = storage.read(rowId, betweenCommits);
 
         assertNotNull(res);
         assertNull(res.newestCommitTimestamp());
-        assertRowMatches(res.binaryRow(), binaryRow);
+        assertThat(res.binaryRow(), is(equalToRow(binaryRow)));
 
         // Read at exact time of second commit.
         res = storage.read(rowId, second);
 
         assertNotNull(res);
         assertNull(res.newestCommitTimestamp());
-        assertRowMatches(res.binaryRow(), binaryRow2);
+        assertThat(res.binaryRow(), is(equalToRow(binaryRow2)));
 
         // Read after second commit (write intent).
         res = storage.read(rowId, after);
@@ -888,7 +889,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertNotNull(res);
         assertNotNull(res.newestCommitTimestamp());
         assertEquals(second, res.newestCommitTimestamp());
-        assertRowMatches(res.binaryRow(), binaryRow3);
+        assertThat(res.binaryRow(), is(equalToRow(binaryRow3)));
     }
 
     @Test
@@ -939,7 +940,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
             return null;
         });
 
-        assertRowMatches(read(higherRowId, clock.now()), binaryRow);
+        assertThat(read(higherRowId, clock.now()), is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -954,7 +955,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
             return null;
         });
 
-        assertRowMatches(read(lowerRowId, clock.now()), binaryRow);
+        assertThat(read(lowerRowId, clock.now()), is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -1071,11 +1072,11 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
             assertTrue(next.isWriteIntent());
 
             assertThat(next.rowId(), is(rowIdAndCommitTs.get1()));
-            assertRowMatches(next.binaryRow(), binaryRow2);
+            assertThat(next.binaryRow(), is(equalToRow(binaryRow2)));
 
             BinaryRow committedRow = cursor.committed(rowIdAndCommitTs.get2());
 
-            assertRowMatches(committedRow, binaryRow);
+            assertThat(committedRow, is(equalToRow(binaryRow)));
         }
     }
 
@@ -1160,7 +1161,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         addWriteCommitted(rowId, binaryRow, clock.now());
 
         // Read with timestamp returns write-intent.
-        assertRowMatches(storage.read(rowId, clock.now()).binaryRow(), binaryRow);
+        assertThat(storage.read(rowId, clock.now()).binaryRow(), is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -1172,8 +1173,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         addWriteCommitted(rowId, binaryRow, ts1);
         addWriteCommitted(rowId, binaryRow2, clock.now());
 
-        assertRowMatches(storage.read(rowId, clock.now()).binaryRow(), binaryRow2);
-        assertRowMatches(storage.read(rowId, ts1).binaryRow(), binaryRow);
+        assertThat(storage.read(rowId, clock.now()).binaryRow(), is(equalToRow(binaryRow2)));
+        assertThat(storage.read(rowId, ts1).binaryRow(), is(equalToRow(binaryRow)));
     }
 
     @Test
@@ -1301,7 +1302,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
             cursor.committed(commitTs1);
 
             ReadResult result2 = cursor.next();
-            assertRowMatches(result2.binaryRow(), binaryRow2);
+            assertThat(result2.binaryRow(), is(equalToRow(binaryRow2)));
 
             assertFalse(cursor.hasNext());
         }
@@ -1350,6 +1351,29 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         assertThat(returnedConfig, is(notNullValue()));
         assertThat(returnedConfig, is(equalTo(secondConfig)));
+    }
+
+    @Test
+    public void testLease() {
+        storage.runConsistently(locker -> {
+            long lst0 = 1000;
+
+            long lst1 = 2000;
+
+            storage.updateLease(lst0);
+
+            assertEquals(lst0, storage.leaseStartTime());
+
+            storage.updateLease(lst1);
+
+            assertEquals(lst1, storage.leaseStartTime());
+
+            storage.updateLease(0);
+
+            assertEquals(lst1, storage.leaseStartTime());
+
+            return null;
+        });
     }
 
     /**

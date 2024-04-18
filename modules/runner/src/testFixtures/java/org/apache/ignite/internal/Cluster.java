@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal;
 
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -39,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -47,18 +51,23 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.RaftGroupService;
+import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.core.NodeImpl;
+import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
@@ -73,9 +82,11 @@ public class Cluster {
     /** Base port number. */
     private static final int BASE_PORT = 3344;
 
-    private static final int BASE_CLIENT_PORT = 10800;
+    public static final int BASE_CLIENT_PORT = 10800;
 
-    private static final String CONNECT_NODE_ADDR = "\"localhost:" + BASE_PORT + '\"';
+    public static final int BASE_HTTP_PORT = 10300;
+
+    private static final int BASE_HTTPS_PORT = 10400;
 
     /** Timeout for SQL queries (in milliseconds). */
     private static final int QUERY_TIMEOUT_MS = 10_000;
@@ -89,6 +100,10 @@ public class Cluster {
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} }\n"
+            + "  rest: {\n"
+            + "    port: {},\n"
+            + "    ssl.port: {}\n"
+            + "  }\n"
             + "}";
 
     private final TestInfo testInfo;
@@ -103,6 +118,9 @@ public class Cluster {
     private volatile boolean started = false;
 
     private volatile boolean stopped = false;
+
+    /** Number of nodes in the cluster on first startAndInit() [if it was invoked]. */
+    private volatile int initialClusterSize;
 
     /** Indices of nodes that have been knocked out. */
     private final Set<Integer> knockedOutNodesIndices = new ConcurrentHashSet<>();
@@ -135,6 +153,16 @@ public class Cluster {
      */
     public void startAndInit(int nodeCount, int[] cmgNodes) {
         startAndInit(nodeCount, cmgNodes, builder -> {});
+    }
+
+    /**
+     * Starts the cluster with the given number of nodes and initializes it.
+     *
+     * @param nodeCount Number of nodes in the cluster.
+     * @param initParametersConfigurator Configure {@link InitParameters} before initializing the cluster.
+     */
+    public void startAndInit(int nodeCount, Consumer<InitParametersBuilder> initParametersConfigurator) {
+        startAndInit(nodeCount, new int[]{0}, initParametersConfigurator);
     }
 
     /**
@@ -183,6 +211,8 @@ public class Cluster {
             throw new IllegalStateException("The cluster is already started");
         }
 
+        initialClusterSize = nodeCount;
+
         List<CompletableFuture<IgniteImpl>> futures = IntStream.range(0, nodeCount)
                 .mapToObj(nodeIndex -> startNodeAsync(nodeIndex, nodeBootstrapConfigTemplate))
                 .collect(toList());
@@ -228,8 +258,11 @@ public class Cluster {
         String config = IgniteStringFormatter.format(
                 nodeBootstrapConfigTemplate,
                 BASE_PORT + nodeIndex,
-                CONNECT_NODE_ADDR,
-                BASE_CLIENT_PORT + nodeIndex);
+                seedAddressesString(),
+                BASE_CLIENT_PORT + nodeIndex,
+                BASE_HTTP_PORT + nodeIndex,
+                BASE_HTTPS_PORT + nodeIndex
+        );
 
         return TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
                 .thenApply(IgniteImpl.class::cast)
@@ -254,6 +287,16 @@ public class Cluster {
 
                     return ignite;
                 });
+    }
+
+    private String seedAddressesString() {
+        // We do this maxing because in some scenarios startAndInit() is not invoked, instead startNode() is used directly.
+        int seedsCount = Math.max(Math.max(initialClusterSize, nodes.size()), 1);
+
+        return IntStream.range(0, seedsCount)
+                .map(index -> BASE_PORT + index)
+                .mapToObj(port -> "\"localhost:" + port + '\"')
+                .collect(joining(", "));
     }
 
     /**
@@ -336,6 +379,31 @@ public class Cluster {
     }
 
     /**
+     * Stops a node by name.
+     *
+     * @param name Name of the node in the cluster.
+     */
+    public void stopNode(String name) {
+        stopNode(nodeIndex(name));
+    }
+
+    /**
+     * Returns index of the node.
+     *
+     * @param name Node name.
+     * @return Node index.
+     */
+    public int nodeIndex(String name) {
+        for (int i = 0; i < nodes.size(); i++) {
+            if (nodes.get(i) != null && nodes.get(i).name().equals(name)) {
+                return i;
+            }
+        }
+
+        throw new IllegalArgumentException("Node is not found: " + name);
+    }
+
+    /**
      * Restarts a node by index.
      *
      * @param index Node index in the cluster.
@@ -350,22 +418,22 @@ public class Cluster {
     /**
      * Returns {@link RaftGroupService} that is the leader for the given table partition.
      *
-     * @param tablePartitionId Table partition ID for which a leader is to be found.
+     * @param groupId Group ID for which a leader is to be found.
      * @return {@link RaftGroupService} that is the leader for the given table partition.
      * @throws InterruptedException Thrown if interrupted while waiting for the leader to be found.
      */
-    public RaftGroupService leaderServiceFor(TablePartitionId tablePartitionId) throws InterruptedException {
+    public RaftGroupService leaderServiceFor(ReplicationGroupId groupId) throws InterruptedException {
         AtomicReference<RaftGroupService> serviceRef = new AtomicReference<>();
 
         assertTrue(
                 waitForCondition(() -> {
-                    RaftGroupService service = currentLeaderServiceFor(tablePartitionId);
+                    RaftGroupService service = currentLeaderServiceFor(groupId);
 
                     serviceRef.set(service);
 
                     return service != null;
                 }, 10_000),
-                "Did not find a leader for " + tablePartitionId + " in time"
+                "Did not find a leader for " + groupId + " in time"
         );
 
         RaftGroupService result = serviceRef.get();
@@ -376,14 +444,14 @@ public class Cluster {
     }
 
     @Nullable
-    private RaftGroupService currentLeaderServiceFor(TablePartitionId tablePartitionId) {
+    private RaftGroupService currentLeaderServiceFor(ReplicationGroupId groupId) {
         return runningNodes()
                 .map(IgniteImpl.class::cast)
                 .flatMap(ignite -> {
                     JraftServerImpl server = (JraftServerImpl) ignite.raftManager().server();
 
                     Optional<RaftNodeId> maybeRaftNodeId = server.localNodes().stream()
-                            .filter(nodeId -> nodeId.groupId().equals(tablePartitionId))
+                            .filter(nodeId -> nodeId.groupId().equals(groupId))
                             .findAny();
 
                     return maybeRaftNodeId.map(server::raftGroupService).stream();
@@ -401,20 +469,6 @@ public class Cluster {
     }
 
     /**
-     * Opens a {@link Session} (that can be used to execute SQL queries) through a node with the given index.
-     *
-     * @param nodeIndex Index of the node on which to open a session.
-     * @return A session.
-     */
-    public Session openSession(int nodeIndex) {
-        return node(nodeIndex).sql()
-                .sessionBuilder()
-                .defaultSchema("PUBLIC")
-                .defaultQueryTimeout(QUERY_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                .build();
-    }
-
-    /**
      * Shuts down the  cluster by stopping all its nodes.
      */
     public void shutdown() {
@@ -426,32 +480,28 @@ public class Cluster {
             nodesToStop = runningNodes().collect(toList());
         }
 
-        nodesToStop.forEach(node -> IgnitionManager.stop(node.name()));
+        nodesToStop.parallelStream().forEach(node -> IgnitionManager.stop(node.name()));
     }
 
     /**
-     * Executes an action with a {@link Session} opened via a node with the given index.
+     * Executes an action with a {@link IgniteSql} of a node with the given index.
      *
      * @param nodeIndex Index of node on which to execute the action.
      * @param action Action to execute.
      */
-    public void doInSession(int nodeIndex, Consumer<Session> action) {
-        try (Session session = openSession(nodeIndex)) {
-            action.accept(session);
-        }
+    public void doInSession(int nodeIndex, Consumer<IgniteSql> action) {
+        action.accept(node(nodeIndex).sql());
     }
 
     /**
-     * Returns result of executing an action with a {@link Session} opened via a node with the given index.
+     * Returns result of executing an action with a {@link IgniteSql} of a node with the given index.
      *
      * @param nodeIndex Index of node on which to execute the action.
      * @param action Action to execute.
      * @return Action result.
      */
-    public <T> T doInSession(int nodeIndex, Function<Session, T> action) {
-        try (Session session = openSession(nodeIndex)) {
-            return action.apply(session);
-        }
+    public <T> T doInSession(int nodeIndex, Function<IgniteSql, T> action) {
+        return action.apply(node(nodeIndex).sql());
     }
 
     /**
@@ -521,6 +571,74 @@ public class Cluster {
         knockedOutNodesIndices.remove(nodeIndex);
 
         LOG.info("Reanimated node " + nodeIndex + " by removing an artificial network partition");
+    }
+
+    /**
+     * Transfers leadsership over a replication group to a node identified by the given index.
+     *
+     * @param nodeIndex Node index of the new leader.
+     * @param groupId ID of the replication group.
+     * @throws InterruptedException If interrupted while waiting.
+     */
+    public void transferLeadershipTo(int nodeIndex, ReplicationGroupId groupId) throws InterruptedException {
+        String nodeConsistentId = node(nodeIndex).node().name();
+
+        int maxAttempts = 3;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            boolean transferred = tryTransferLeadershipTo(nodeConsistentId, groupId);
+
+            if (transferred) {
+                break;
+            }
+
+            if (attempt < maxAttempts) {
+                LOG.info("Did not transfer leadership after {} attempts, going to retry...", attempt);
+            } else {
+                fail("Did not transfer leadership in time after " + maxAttempts + " attempts");
+            }
+        }
+    }
+
+    private boolean tryTransferLeadershipTo(String targetLeaderConsistentId, ReplicationGroupId groupId) throws InterruptedException {
+        NodeImpl leaderBeforeTransfer = (NodeImpl) leaderServiceFor(groupId).getRaftNode();
+
+        initiateLeadershipTransferTo(targetLeaderConsistentId, leaderBeforeTransfer);
+
+        BooleanSupplier leaderTransferred = () -> {
+            PeerId leaderId = leaderBeforeTransfer.getLeaderId();
+            return leaderId != null && leaderId.getConsistentId().equals(targetLeaderConsistentId);
+        };
+
+        return waitForCondition(leaderTransferred, 10_000);
+    }
+
+    private static void initiateLeadershipTransferTo(String targetLeaderConsistentId, NodeImpl leaderBeforeTransfer) {
+        long startedMillis = System.currentTimeMillis();
+
+        while (true) {
+            Status status = leaderBeforeTransfer.transferLeadershipTo(new PeerId(targetLeaderConsistentId));
+
+            if (status.getRaftError() != RaftError.EBUSY) {
+                break;
+            }
+
+            if (System.currentTimeMillis() - startedMillis > 10_000) {
+                throw new IllegalStateException("Could not initiate leadership transfer to " + targetLeaderConsistentId + " in time");
+            }
+        }
+    }
+
+    /**
+     * Returns the ID of the sole table partition that exists in the cluster or throws if there are less than one
+     * or more than one partitions.
+     */
+    public TablePartitionId solePartitionId() {
+        List<TablePartitionId> tablePartitionIds = ReplicationGroupsUtils.tablePartitionIds(aliveNode());
+
+        assertThat(tablePartitionIds.size(), is(1));
+
+        return tablePartitionIds.get(0);
     }
 
     private static class AddCensorshipByRecipientConsistentId implements BiPredicate<String, NetworkMessage> {

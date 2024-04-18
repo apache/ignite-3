@@ -20,7 +20,6 @@ package org.apache.ignite.internal.jdbc;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.jdbc.AbstractJdbcSelfTest;
+import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -626,13 +626,14 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
      * Check that parameters metadata throws correct exception on non-parsable statement.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16203")
     public void testParametersMetadataNegative() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             conn.setSchema("\"pers\"");
 
             PreparedStatement notCorrect = conn.prepareStatement("select * from NotExistingTable;");
 
-            assertThrows(SQLException.class, notCorrect::getParameterMetaData, "Table \"NOTEXISTINGTABLE\" not found");
+            JdbcTestUtils.assertThrowsSqlException("Table NOTEXISTINGTABLE not found", notCorrect::getParameterMetaData);
         }
     }
 

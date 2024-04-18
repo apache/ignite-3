@@ -109,7 +109,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
         ClientMessageUtils.writeStringNullable(packer, schemaName);
 
         packer.packString(query);
-        packer.packArrayHeader(args.size());
+        packer.packInt(args.size());
 
         for (Object[] arg : args) {
             packer.packObjectArrayAsBinaryTuple(arg);
@@ -124,7 +124,7 @@ public class JdbcBatchPreparedStmntRequest implements ClientMessage {
 
         query = unpacker.unpackString();
 
-        int n = unpacker.unpackArrayHeader();
+        int n = unpacker.unpackInt();
 
         args = new ArrayList<>(n);
 

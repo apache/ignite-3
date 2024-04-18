@@ -70,7 +70,7 @@ class IgniteUnsafeDataInputOutputByteOrderTest {
 
         out.writeShort(val);
 
-        assertEquals(val, IgniteTestIoUtils.getShortByByteLittleEndian(out.internalArray()));
+        assertEquals(val, getShortByByteLittleEndian(out.internalArray()));
         assertEquals(val, in.readShort());
     }
 
@@ -99,7 +99,7 @@ class IgniteUnsafeDataInputOutputByteOrderTest {
 
         out.writeChar(val);
 
-        assertEquals(val, IgniteTestIoUtils.getCharByByteLittleEndian(out.internalArray()));
+        assertEquals(val, getCharByByteLittleEndian(out.internalArray()));
         assertEquals(val, in.readChar());
     }
 
@@ -128,7 +128,7 @@ class IgniteUnsafeDataInputOutputByteOrderTest {
 
         out.writeInt(val);
 
-        assertEquals(val, IgniteTestIoUtils.getIntByByteLittleEndian(out.internalArray()));
+        assertEquals(val, getIntByByteLittleEndian(out.internalArray()));
         assertEquals(val, in.readInt());
     }
 
@@ -157,7 +157,7 @@ class IgniteUnsafeDataInputOutputByteOrderTest {
 
         out.writeLong(val);
 
-        assertEquals(val, IgniteTestIoUtils.getLongByByteLittleEndian(out.internalArray()));
+        assertEquals(val, getLongByByteLittleEndian(out.internalArray()));
         assertEquals(val, in.readLong());
     }
 
@@ -186,7 +186,7 @@ class IgniteUnsafeDataInputOutputByteOrderTest {
 
         out.writeFloat(val);
 
-        assertEquals(val, IgniteTestIoUtils.getFloatByByteLittleEndian(out.internalArray()), 0);
+        assertEquals(val, getFloatByByteLittleEndian(out.internalArray()), 0);
         assertEquals(val, in.readFloat(), 0);
     }
 
@@ -215,7 +215,7 @@ class IgniteUnsafeDataInputOutputByteOrderTest {
 
         out.writeDouble(val);
 
-        assertEquals(val, IgniteTestIoUtils.getDoubleByByteLittleEndian(out.internalArray()), 0);
+        assertEquals(val, getDoubleByByteLittleEndian(out.internalArray()), 0);
         assertEquals(val, in.readDouble(), 0);
     }
 

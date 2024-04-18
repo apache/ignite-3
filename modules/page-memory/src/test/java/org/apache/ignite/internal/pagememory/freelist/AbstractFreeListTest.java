@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.freelist;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
@@ -39,16 +40,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileChange;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -65,8 +69,8 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
 
     private static final int BATCH_SIZE = 100;
 
-    @InjectConfiguration
-    private VolatilePageMemoryDataRegionConfiguration dataRegionCfg;
+    @InjectConfiguration(polymorphicExtensions = VolatilePageMemoryProfileConfigurationSchema.class, value = "mock.engine = aimem")
+    private StorageProfileConfiguration storageProfileCfg;
 
     @Nullable
     private PageMemory pageMemory;
@@ -162,7 +166,11 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
     }
 
     private PageMemory createPageMemory(int pageSize) throws Exception {
-        dataRegionCfg.change(c -> c.changeInitSize(MAX_SIZE).changeMaxSize(MAX_SIZE)).get(1, TimeUnit.SECONDS);
+        storageProfileCfg
+                .change(c -> ((VolatilePageMemoryProfileChange) c)
+                        .changeInitSize(MAX_SIZE)
+                        .changeMaxSize(MAX_SIZE))
+                .get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 
@@ -171,7 +179,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
         ioRegistry.load(TestDataPageIo.VERSIONS);
 
         return new VolatilePageMemory(
-                dataRegionCfg,
+                (VolatilePageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),
                 ioRegistry,
                 pageSize
         );

@@ -17,25 +17,13 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Command that initiates idle safe time synchronization.
  */
 @Transferable(MetastorageCommandsMessageGroup.SYNC_TIME)
-public interface SyncTimeCommand extends WriteCommand {
-    /** New safe time. */
-    long safeTimeLong();
-
+public interface SyncTimeCommand extends MetaStorageWriteCommand {
     /** Term of the initiator. */
     long initiatorTerm();
-
-    /** New safe time. */
-    default HybridTimestamp safeTime() {
-        return hybridTimestamp(safeTimeLong());
-    }
 }

@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Interface which allows writing dirty page.

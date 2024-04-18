@@ -161,6 +161,39 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends a bool.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendBool(bool value)
+        {
+            var v = BinaryTupleCommon.BoolToByte(value);
+
+            if (GetHashOrder() is { } hashOrder)
+            {
+                PutHash(hashOrder, HashUtils.Hash32(v));
+            }
+
+            PutByte(v);
+            OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a bool.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendBoolNullable(bool? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendBool(value.Value);
+            }
+        }
+
+        /// <summary>
         /// Appends a short.
         /// </summary>
         /// <param name="value">Value.</param>
@@ -518,8 +551,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="value">Value.</param>
         /// <param name="scale">Decimal scale from schema.</param>
-        public void AppendDecimal(decimal value, int scale) =>
-            AppendNumber(BinaryTupleCommon.DecimalToUnscaledBigInteger(value, scale));
+        public void AppendDecimal(decimal value, int scale)
+        {
+            var (unscaled, actualScale) = BinaryTupleCommon.DecimalToUnscaledBigInteger(value, scale);
+
+            PutShort(actualScale);
+            AppendNumber(unscaled);
+        }
 
         /// <summary>
         /// Appends a decimal.
@@ -851,6 +889,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                 case ColumnType.Timestamp:
                     AppendTimestamp((Instant)value, precision);
+                    break;
+
+                case ColumnType.Boolean:
+                    AppendBool((bool)value);
                     break;
 
                 default:

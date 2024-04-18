@@ -18,6 +18,29 @@
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
 //CHECKSTYLE:OFF
+
+import static java.util.Objects.requireNonNull;
+import static org.apache.calcite.sql.fun.SqlLibraryOperators.TRANSLATE3;
+import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CASE;
+import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CHAR_LENGTH;
+import static org.apache.calcite.sql.fun.SqlStdOperatorTable.OCTET_LENGTH;
+import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SEARCH;
+import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUBSTRING;
+import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UPPER;
+
+import com.google.common.base.CaseFormat;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Type;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.adapter.enumerable.PhysType;
@@ -58,7 +81,6 @@ import org.apache.calcite.runtime.SpatialTypeFunctions;
 import org.apache.calcite.schema.FunctionContext;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlOperator;
-import org.apache.calcite.sql.SqlWindowTableFunction;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -67,37 +89,10 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
-import org.apache.calcite.util.Util;
-
-import com.google.common.base.CaseFormat;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.locationtech.jts.geom.Geometry;
-
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.lang.reflect.Type;
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import static org.apache.calcite.sql.fun.SqlLibraryOperators.TRANSLATE3;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CASE;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CHAR_LENGTH;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.OCTET_LENGTH;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.PREV;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SEARCH;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUBSTRING;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UPPER;
-
-import static java.util.Objects.requireNonNull;
 
 /**
  * Translates {@link org.apache.calcite.rex.RexNode REX expressions} to
@@ -109,7 +104,8 @@ import static java.util.Objects.requireNonNull;
  * 4. RexToLixTranslator#translateCast() case INTERVAL_SECOND -> case CHARACTER special case converters.
  * 5. RexToLixTranslator#translateCast() case TIMESTAMP -> case CHAR  special case converters.
  * 6. RexToLixTranslator#translateLiteral() case DECIMAL special case converters.
- * 7. EnumUtils.convert -> ConverterUtils.convert
+ * 7. RexToLixTranslator#translateCast() ANY branch
+ * 8. EnumUtils.convert -> ConverterUtils.convert
  */
 public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result> {
     public static final Map<Method, SqlOperator> JAVA_TO_SQL_METHOD_MAP =
@@ -287,6 +283,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
             RelDataType sourceType,
             RelDataType targetType,
             Expression operand) {
+        final Supplier<Expression> defaultExpression = () ->
+                EnumUtils.convert(operand, typeFactory.getJavaClass(targetType));
+
         Expression convert = null;
         switch (targetType.getSqlTypeName()) {
             case ANY:
@@ -301,12 +300,11 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 switch (sourceType.getSqlTypeName()) {
                     case CHAR:
                     case VARCHAR:
-                        convert = Expressions.call(BuiltInMethod.ST_GEOM_FROM_EWKT.method, operand);
-                        break;
+                        return Expressions.call(BuiltInMethod.ST_GEOM_FROM_EWKT.method, operand);
+
                     default:
-                        break;
+                        return defaultExpression.get();
                 }
-                break;
             case DATE:
                 convert = translateCastToDate(sourceType, operand);
                 break;
@@ -401,10 +399,11 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 switch (sourceType.getSqlTypeName()) {
                     case CHAR:
                     case VARCHAR:
+                        // By default Calcite for this type requires that the time zone be explicitly specified.
+                        // Since this type implies a local timezone, its explicit indication seems redundant,
+                        // so we prohibit the user from explicitly setting a timezone.
                         convert =
-                                Expressions.call(
-                                        BuiltInMethod.STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
-                                        operand);
+                                Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand);
                         break;
                     case DATE:
                         convert =
@@ -451,8 +450,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                                         BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
                                         RexImpTable.optimize2(operand,
                                                 Expressions.call(
-                                                        BuiltInMethod.UNIX_TIMESTAMP_TO_STRING.method,
-                                                        operand)),
+                                                        IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(),
+                                                        operand,
+                                                        Expressions.constant(targetType.getPrecision()))),
                                         Expressions.call(BuiltInMethod.TIME_ZONE.method, root));
                         break;
                     default:
@@ -484,8 +484,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                     case TIME:
                         convert =
                                 RexImpTable.optimize2(operand,
-                                        Expressions.call(BuiltInMethod.UNIX_TIME_TO_STRING.method,
-                                                operand));
+                                        Expressions.call(IgniteMethod.UNIX_TIME_TO_STRING_PRECISION_AWARE.method(),
+                                                operand,
+                                                Expressions.constant(sourceType.getPrecision())));
                         break;
                     case TIME_WITH_LOCAL_TIME_ZONE:
                         convert =
@@ -498,8 +499,10 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                     case TIMESTAMP:
                         convert =
                                 RexImpTable.optimize2(operand,
-                                        Expressions.call(BuiltInMethod.UNIX_TIMESTAMP_TO_STRING.method,
-                                                operand));
+                                        Expressions.call(
+                                                IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(),
+                                                operand,
+                                                Expressions.constant(sourceType.getPrecision())));
                         break;
                     case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                         convert =
@@ -847,6 +850,15 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                         Expressions.constant(type.getPrecision()),
                         Expressions.constant(type.getScale())
                 );
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                Object val = literal.getValueAs(Long.class);
+
+                // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
+                return Expressions.call(
+                        IgniteMethod.SUBTRACT_TIMEZONE_OFFSET.method(),
+                        Expressions.constant(val, long.class),
+                        Expressions.call(BuiltInMethod.TIME_ZONE.method, DataContext.ROOT)
+                );
             case DATE:
             case TIME:
             case TIME_WITH_LOCAL_TIME_ZONE:
@@ -857,7 +869,6 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 javaClass = int.class;
                 break;
             case TIMESTAMP:
-            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
             case INTERVAL_DAY:
             case INTERVAL_DAY_HOUR:
             case INTERVAL_DAY_MINUTE:

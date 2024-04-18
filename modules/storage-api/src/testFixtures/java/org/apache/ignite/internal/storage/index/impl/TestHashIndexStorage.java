@@ -46,7 +46,7 @@ public class TestHashIndexStorage extends AbstractTestIndexStorage implements Ha
      * Constructor.
      */
     public TestHashIndexStorage(int partitionId, StorageHashIndexDescriptor descriptor) {
-        super(partitionId);
+        super(partitionId, descriptor.isPk());
 
         this.descriptor = descriptor;
     }
@@ -63,7 +63,7 @@ public class TestHashIndexStorage extends AbstractTestIndexStorage implements Ha
 
     @Override
     public void put(IndexRow row) {
-        checkStorageClosed();
+        checkStorageClosed(false);
 
         index.compute(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v == null) {
@@ -78,7 +78,7 @@ public class TestHashIndexStorage extends AbstractTestIndexStorage implements Ha
 
     @Override
     public void remove(IndexRow row) {
-        checkStorageClosedOrInProcessOfRebalance();
+        checkStorageClosedOrInProcessOfRebalance(false);
 
         index.computeIfPresent(row.indexColumns().byteBuffer(), (k, v) -> {
             if (v.remove(row.rowId()) && v.isEmpty()) {

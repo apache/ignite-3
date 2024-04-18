@@ -19,7 +19,7 @@ package org.apache.ignite.internal.util;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Object factory.

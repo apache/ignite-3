@@ -26,19 +26,19 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Handler;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.jul.NoOpHandler;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -79,14 +79,17 @@ class ItStartTest extends IgniteIntegrationTest {
                 new Expectation("startComplete", "org.apache.ignite.internal.app.LifecycleManager", "Start complete")
         );
 
+        Map<String, LogInspector> inspectors = new HashMap<>();
+
         List<LoggingProbe> probes = expectations.stream()
-                .map(ItStartTest::installProbe)
+                .map(expectation -> installProbe(expectation, inspectors))
                 .collect(toList());
 
         try {
             cluster.startAndInit(1);
         } finally {
             probes.forEach(LoggingProbe::cleanup);
+            inspectors.values().forEach(LogInspector::stop);
         }
 
         assertAll(
@@ -104,23 +107,18 @@ class ItStartTest extends IgniteIntegrationTest {
         return "%" + IgniteTestUtils.testNodeName(testInfo, 0) + "%start-";
     }
 
-    private static LoggingProbe installProbe(Expectation expectation) {
-        Logger logger = Logger.getLogger(expectation.loggerClassName);
+    private static LoggingProbe installProbe(Expectation expectation, Map<String, LogInspector> inspectors) {
+        LogInspector inspector = inspectors.computeIfAbsent(
+                expectation.loggerClassName,
+                loggerClassName -> LogInspector.create(loggerClassName, true));
 
         AtomicReference<String> threadNameRef = new AtomicReference<>();
 
-        var handler = new NoOpHandler() {
-            @Override
-            public void publish(LogRecord record) {
-                if (record.getMessage().matches(expectation.messageRegexp)) {
-                    threadNameRef.set(Thread.currentThread().getName());
-                }
-            }
-        };
+        Handler handler = inspector.addHandler(
+                evt -> evt.getMessage().getFormattedMessage().matches(expectation.messageRegexp),
+                () -> threadNameRef.set(Thread.currentThread().getName()));
 
-        logger.addHandler(handler);
-
-        return new LoggingProbe(expectation, logger, handler, threadNameRef);
+        return new LoggingProbe(expectation, inspector, handler, threadNameRef);
     }
 
     @Test
@@ -170,19 +168,19 @@ class ItStartTest extends IgniteIntegrationTest {
 
     private static class LoggingProbe {
         private final Expectation expectation;
-        private final Logger logger;
+        private final LogInspector inspector;
         private final Handler handler;
         private final AtomicReference<String> threadNameRef;
 
-        private LoggingProbe(Expectation expectation, Logger logger, Handler handler, AtomicReference<String> threadNameRef) {
+        private LoggingProbe(Expectation expectation, LogInspector inspector, Handler handler, AtomicReference<String> threadNameRef) {
             this.expectation = expectation;
-            this.logger = logger;
+            this.inspector = inspector;
             this.handler = handler;
             this.threadNameRef = threadNameRef;
         }
 
         void cleanup() {
-            logger.removeHandler(handler);
+            inspector.removeHandler(handler);
         }
     }
 }

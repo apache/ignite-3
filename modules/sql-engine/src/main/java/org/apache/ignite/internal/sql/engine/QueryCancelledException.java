@@ -35,4 +35,13 @@ public class QueryCancelledException extends IgniteException {
     public QueryCancelledException() {
         super(EXECUTION_CANCELLED_ERR, ERR_MSG);
     }
+
+    /**
+     * Constructor.
+     *
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public QueryCancelledException(Throwable cause) {
+        super(EXECUTION_CANCELLED_ERR, ERR_MSG, cause);
+    }
 }

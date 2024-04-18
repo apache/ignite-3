@@ -23,6 +23,23 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 description = 'ignite-runner'
 
+sourceSets {
+    defaultsGenerator {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+configurations {
+    defaultsGeneratorImplementation.extendsFrom implementation
+    defaultsGenerator {
+        canBeConsumed = true
+        canBeResolved = false
+        // this configuration will share the same dependencies as the main one
+        extendsFrom implementation, runtimeOnly
+    }
+}
+
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.picocli.annotation.processor
@@ -38,7 +55,6 @@ dependencies {
     implementation project(':ignite-raft-api')
     implementation project(':ignite-raft')
     implementation project(':ignite-metastorage')
-    implementation project(':ignite-baseline')
     implementation project(':ignite-affinity')
     implementation project(':ignite-table')
     implementation project(':ignite-index')
@@ -58,15 +74,22 @@ dependencies {
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-placement-driver')
     implementation project(':ignite-code-deployment')
+    implementation project(':ignite-security-api')
     implementation project(':ignite-security')
     implementation project(':ignite-catalog')
+    implementation project(':ignite-system-view-api')
+    implementation project(':ignite-system-view')
+    implementation project(':ignite-workers')
+    implementation project(':ignite-failure-handler')
+    implementation project(':ignite-catalog-dsl')
+    implementation project(':ignite-eventlog')
+    implementation project(':ignite-low-watermark')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
     implementation libs.micronaut.runtime
     implementation libs.micronaut.picocli
     implementation libs.picocli.core
-    implementation libs.slf4j.jdk14
     implementation libs.typesafe.config
     implementation libs.auto.service.annotations
     implementation libs.disruptor
@@ -84,6 +107,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-vault'))
     testImplementation testFixtures(project(':ignite-metastorage'))
+    testImplementation testFixtures(project(':ignite-jdbc'))
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
     testImplementation libs.hamcrest.path
@@ -97,17 +121,15 @@ dependencies {
     testImplementation libs.auto.service.annotations
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
-    integrationTestAnnotationProcessor libs.auto.service
     integrationTestAnnotationProcessor libs.jmh.annotation.processor
-    integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-affinity')
     integrationTestImplementation project(':ignite-jdbc')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-raft-api')
-    integrationTestImplementation project(':ignite-baseline')
     integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation project(':ignite-client-handler')
+    integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-storage-page-memory')
     integrationTestImplementation project(':ignite-storage-rocksdb')
@@ -130,6 +152,11 @@ dependencies {
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-placement-driver')
     integrationTestImplementation project(':ignite-distribution-zones')
+    integrationTestImplementation project(':ignite-system-view')
+    integrationTestImplementation project(':ignite-system-view-api')
+    integrationTestImplementation project(':ignite-workers')
+    integrationTestImplementation project(':ignite-failure-handler')
+    integrationTestImplementation project(':ignite-low-watermark')
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
@@ -144,21 +171,20 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
     integrationTestImplementation testFixtures(project(':ignite-transactions'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-placement-driver-api'))
+    integrationTestImplementation testFixtures(project(':ignite-jdbc'))
+    integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.rocksdb.jni
     integrationTestImplementation libs.disruptor
     integrationTestImplementation libs.jackson.databind
     integrationTestImplementation libs.jmh.core
-    integrationTestImplementation(libs.jsonpath.assert) {
-        //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
-        //So, exclude asm-core transitive dependency to protect of jar-hell.
-        exclude group: 'org.ow2.asm', module: 'asm'
-    }
     integrationTestImplementation libs.typesafe.config
-    integrationTestImplementation libs.auto.service.annotations
     integrationTestImplementation libs.netty.common
     integrationTestImplementation libs.netty.handler
+
+    testFixturesAnnotationProcessor libs.auto.service
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-api')
@@ -167,15 +193,30 @@ dependencies {
     testFixturesImplementation project(':ignite-sql-engine')
     testFixturesImplementation project(':ignite-table')
     testFixturesImplementation project(':ignite-schema')
+    testFixturesImplementation project(':ignite-metastorage')
+    testFixturesImplementation project(':ignite-transactions')
+    testFixturesImplementation project(':ignite-system-view-api')
+    testFixturesImplementation project(':ignite-system-view')
+    testFixturesImplementation project(':ignite-storage-api')
+    testFixturesImplementation project(':ignite-cluster-management')
+    testFixturesImplementation project(':ignite-configuration')
+    testFixturesImplementation project(':ignite-vault')
+    testFixturesImplementation project(':ignite-placement-driver-api')
     testFixturesImplementation testFixtures(project(':ignite-api'))
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
+    testFixturesImplementation testFixtures(project(':ignite-catalog'))
+    testFixturesImplementation testFixtures(project(':ignite-table'))
+    testFixturesImplementation testFixtures(project(':ignite-storage-api'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
+    testFixturesImplementation libs.auto.service.annotations
 }
 
 tasks.register("runnerPlatformTest", JavaExec) {
     mainClass = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner"
+
+    jvmArgs += defaultJvmArgs
 
     classpath = sourceSets.integrationTest.runtimeClasspath
 
@@ -185,25 +226,28 @@ tasks.register("runnerPlatformTest", JavaExec) {
 tasks.register("runnerPlatformBenchmark", JavaExec) {
     mainClass = "org.apache.ignite.internal.runner.app.PlatformBenchmarkNodeRunner"
 
+    jvmArgs += defaultJvmArgs
+
     classpath = sourceSets.integrationTest.runtimeClasspath
 
     enableAssertions = true
 }
 
-integrationTest {
-    useJUnitPlatform {
-        if (System.getProperty("sqlTest") != null) {
-            it.includeTags "sqllogic"
-        } else {
-            it.excludeTags "sqllogic"
-        }
-    }
-}
-
 jar {
     manifest {
         attributes(
-            'Main-Class': 'org.apache.ignite.app.IgniteRunner'
+            'Main-Class': 'org.apache.ignite.internal.app.IgniteRunner'
         )
     }
+}
+
+
+tasks.register('defaultsJar', Jar) {
+    from sourceSets.defaultsGenerator.output
+    archiveAppendix = "generator"
+}
+
+artifacts {
+    // declare both jars to provide enough dependencies to the caller
+    defaultsGenerator defaultsJar, jar
 }

@@ -95,6 +95,7 @@ class FlowTest {
     }
 
     @BeforeEach
+    @SuppressWarnings("PMD.AvoidFileStream")
     public void setup() throws IOException {
         input = Files.createTempFile("input", "");
         input.toFile().deleteOnExit();

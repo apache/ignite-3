@@ -17,26 +17,23 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import java.io.IOException;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
- * Describes deletion of an index.
+ * Describes drop of an index (it's not the final removal of an index from the Catalog, but it's just a switch to
+ * the {@link CatalogIndexStatus#STOPPING} state.
  */
-public class DropIndexEntry implements UpdateEntry, Fireable {
-    private static final long serialVersionUID = -604729846502020728L;
-
-    private final int indexId;
+public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fireable {
+    public static final DropIndexEntrySerializer SERIALIZER = new DropIndexEntrySerializer();
 
     private final int tableId;
 
@@ -47,7 +44,8 @@ public class DropIndexEntry implements UpdateEntry, Fireable {
      * @param tableId Table ID for which the index was removed.
      */
     public DropIndexEntry(int indexId, int tableId) {
-        this.indexId = indexId;
+        super(indexId, CatalogIndexStatus.STOPPING);
+
         this.tableId = tableId;
     }
 
@@ -62,35 +60,41 @@ public class DropIndexEntry implements UpdateEntry, Fireable {
     }
 
     @Override
+    public int typeId() {
+        return MarshallableEntryType.DROP_INDEX.id();
+    }
+
+    @Override
     public CatalogEvent eventType() {
-        return CatalogEvent.INDEX_DROP;
+        return CatalogEvent.INDEX_STOPPING;
     }
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new DropIndexEventParameters(causalityToken, catalogVersion, indexId, tableId);
-    }
-
-    @Override
-    public Catalog applyUpdate(Catalog catalog) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
-
-        return new Catalog(
-                catalog.version(),
-                catalog.time(),
-                catalog.objectIdGenState(),
-                catalog.zones(),
-                List.of(new CatalogSchemaDescriptor(
-                        schema.id(),
-                        schema.name(),
-                        schema.tables(),
-                        Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(CatalogIndexDescriptor[]::new)
-                ))
-        );
+        return new StoppingIndexEventParameters(causalityToken, catalogVersion, indexId, tableId);
     }
 
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Serializer for {@link DropIndexEntry}.
+     */
+    private static class DropIndexEntrySerializer implements CatalogObjectSerializer<DropIndexEntry> {
+        @Override
+        public DropIndexEntry readFrom(IgniteDataInput input) throws IOException {
+            int indexId = input.readInt();
+            int tableId = input.readInt();
+
+            return new DropIndexEntry(indexId, tableId);
+        }
+
+        @Override
+        public void writeTo(DropIndexEntry entry, IgniteDataOutput out) throws IOException {
+            out.writeInt(entry.indexId());
+            out.writeInt(entry.tableId());
+        }
     }
 }

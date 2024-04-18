@@ -77,8 +77,9 @@ namespace Apache.Ignite.Internal.Sql
 
             if (HasRowSet)
             {
-                _buffer = buf.Slice(reader.Consumed);
-                HasRows = reader.ReadArrayHeader() > 0;
+                buf.Position += reader.Consumed;
+                _buffer = buf;
+                HasRows = reader.ReadInt32() > 0;
             }
             else
             {
@@ -132,8 +133,8 @@ namespace Apache.Ignite.Internal.Sql
             IEqualityComparer<TK>? comparer)
             where TK : notnull
         {
-            IgniteArgumentCheck.NotNull(keySelector, nameof(keySelector));
-            IgniteArgumentCheck.NotNull(valSelector, nameof(valSelector));
+            IgniteArgumentCheck.NotNull(keySelector);
+            IgniteArgumentCheck.NotNull(valSelector);
 
             return await CollectAsync(
                     constructor: capacity => new Dictionary<TK, TV>(capacity, comparer),
@@ -144,8 +145,8 @@ namespace Apache.Ignite.Internal.Sql
         /// <inheritdoc/>
         public async ValueTask<TResult> CollectAsync<TResult>(Func<int, TResult> constructor, Action<TResult, T> accumulator)
         {
-            IgniteArgumentCheck.NotNull(constructor, nameof(constructor));
-            IgniteArgumentCheck.NotNull(accumulator, nameof(accumulator));
+            IgniteArgumentCheck.NotNull(constructor);
+            IgniteArgumentCheck.NotNull(accumulator);
 
             ValidateAndSetIteratorState();
 
@@ -154,7 +155,7 @@ namespace Apache.Ignite.Internal.Sql
             var hasMore = _hasMorePages;
             TResult? res = default;
 
-            ReadPage(_buffer!.Value);
+            ReadPage(_buffer!);
             ReleaseBuffer();
 
             while (hasMore)
@@ -170,7 +171,7 @@ namespace Apache.Ignite.Internal.Sql
             void ReadPage(PooledBuffer buf)
             {
                 var reader = buf.GetReader();
-                var pageSize = reader.ReadArrayHeader();
+                var pageSize = reader.ReadInt32();
 
                 var capacity = hasMore ? pageSize * 2 : pageSize;
                 res ??= constructor(capacity);
@@ -208,7 +209,7 @@ namespace Apache.Ignite.Internal.Sql
                     using var writer = ProtoCommon.GetMessageWriter();
                     WriteId(writer.MessageWriter);
 
-                    await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
+                    using var buffer = await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
                 }
                 catch (Exception)
                 {
@@ -247,7 +248,7 @@ namespace Apache.Ignite.Internal.Sql
         {
             ValidateAndSetIteratorState();
 
-            yield return _buffer!.Value;
+            yield return _buffer!;
 
             ReleaseBuffer();
 
@@ -271,7 +272,8 @@ namespace Apache.Ignite.Internal.Sql
             static bool HasMore(PooledBuffer buf)
             {
                 var reader = buf.GetReader();
-                reader.Skip();
+                var rowCount = reader.ReadInt32();
+                reader.Skip(rowCount);
 
                 return !reader.End && reader.ReadBoolean();
             }
@@ -279,13 +281,13 @@ namespace Apache.Ignite.Internal.Sql
 
         private static ResultSetMetadata ReadMeta(ref MsgPackReader reader)
         {
-            var size = reader.ReadArrayHeader();
+            var size = reader.ReadInt32();
 
             var columns = new List<IColumnMetadata>(size);
 
             for (int i = 0; i < size; i++)
             {
-                var propertyCount = reader.ReadArrayHeader();
+                var propertyCount = reader.ReadInt32();
                 const int minCount = 6;
 
                 Debug.Assert(propertyCount >= minCount, "propertyCount >= " + minCount);
@@ -323,7 +325,7 @@ namespace Apache.Ignite.Internal.Sql
             var offset = 0;
 
             // First page.
-            foreach (var row in EnumeratePage(_buffer!.Value))
+            foreach (var row in EnumeratePage(_buffer!))
             {
                 yield return row;
             }
@@ -348,7 +350,7 @@ namespace Apache.Ignite.Internal.Sql
             {
                 // ReSharper disable AccessToModifiedClosure
                 var reader = buf.GetReader(offset);
-                var pageSize = reader.ReadArrayHeader();
+                var pageSize = reader.ReadInt32();
                 offset += reader.Consumed;
 
                 for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
@@ -401,7 +403,9 @@ namespace Apache.Ignite.Internal.Sql
 
             if (_iterated)
             {
-                throw new IgniteClientException(ErrorGroups.Sql.CursorClosed, "Query result set can not be iterated more than once.");
+                throw new IgniteClientException(
+                    ErrorGroups.Common.CursorAlreadyClosed,
+                    "Query result set can not be iterated more than once.");
             }
 
             _iterated = true;

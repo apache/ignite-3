@@ -18,7 +18,7 @@
 package org.apache.ignite.security;
 
 import java.util.Arrays;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 
 /** Authentication types. */
 public enum AuthenticationType {
@@ -27,15 +27,14 @@ public enum AuthenticationType {
     /**
      * Parses {@link AuthenticationType} from the given string.
      *
-     * @param type string
-     * @return parsed {@link AuthenticationType} or null
-     * @throws UnknownAuthenticationTypeException in case of unknown type
+     * @param type String representation of the type.
+     * @return parsed {@link AuthenticationType}.
+     * @throws UnsupportedAuthenticationTypeException in case of unknown type.
      */
-    @Nullable
     public static AuthenticationType parse(String type) {
         return Arrays.stream(values())
                 .filter(it -> type.equalsIgnoreCase(it.name()))
                 .findFirst()
-                .orElseThrow(() -> new UnknownAuthenticationTypeException("Unknown authentication type: " + type));
+                .orElseThrow(() -> new UnsupportedAuthenticationTypeException("Unknown authentication type: " + type));
     }
 }

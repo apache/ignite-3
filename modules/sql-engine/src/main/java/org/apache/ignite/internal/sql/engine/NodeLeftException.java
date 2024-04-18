@@ -19,7 +19,9 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_LEFT_ERR;
 
+import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The exception is thrown when SQL engine can not process an operation because a node has a left cluster.
@@ -31,5 +33,14 @@ public class NodeLeftException extends IgniteException {
     /** Constructor. */
     public NodeLeftException(String nodeName) {
         super(NODE_LEFT_ERR, "Node left the cluster. Node: " + nodeName);
+    }
+
+    /**
+     * Constructor is used to copy the original exception with an extended error description.
+     */
+    public NodeLeftException(UUID traceId, int code, String message, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
+
+        assert code == NODE_LEFT_ERR;
     }
 }

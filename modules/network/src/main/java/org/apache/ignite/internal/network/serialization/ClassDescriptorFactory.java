@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.serialization;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.network.serialization.Classes.hasWriteReplace;
 
 import java.io.Externalizable;
 import java.io.ObjectInputStream;
@@ -243,10 +244,6 @@ public class ClassDescriptorFactory {
         return getReadResolve(clazz) != null;
     }
 
-    private boolean hasWriteReplace(Class<? extends Serializable> clazz) {
-        return getWriteReplace(clazz) != null;
-    }
-
     private boolean hasReadObject(Class<? extends Serializable> clazz) {
         return getReadObject(clazz) != null;
     }
@@ -354,22 +351,6 @@ public class ClassDescriptorFactory {
                 })
                 .map(field -> FieldDescriptor.local(field, registry.getId(field.getType())))
                 .collect(toList());
-    }
-
-    /**
-     * Gets a method with the signature
-     * {@code ANY-ACCESS-MODIFIER Object writeReplace() throws ObjectStreamException}.
-     *
-     * @param clazz Class.
-     * @return Method.
-     */
-    @Nullable
-    private static Method getWriteReplace(Class<? extends Serializable> clazz) {
-        try {
-            return clazz.getDeclaredMethod("writeReplace");
-        } catch (NoSuchMethodException e) {
-            return null;
-        }
     }
 
     /**

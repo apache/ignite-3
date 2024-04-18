@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.security.authentication;
 
+import static org.apache.ignite.internal.security.authentication.AuthenticationUtils.findBasicProviderName;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -25,62 +29,179 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.configuration.AuthenticationProviderView;
-import org.apache.ignite.internal.configuration.AuthenticationView;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.eventlog.api.EventLog;
+import org.apache.ignite.internal.eventlog.api.IgniteEvents;
+import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.security.AuthenticationException;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfiguration;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationView;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationEvent;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationEventParameters;
+import org.apache.ignite.internal.security.authentication.event.AuthenticationProviderEventFactory;
+import org.apache.ignite.internal.security.authentication.event.SecurityEnabledDisabledEventFactory;
+import org.apache.ignite.internal.security.authentication.event.UserEventFactory;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityView;
+import org.apache.ignite.security.exception.InvalidCredentialsException;
+import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
- * Implementation of {@link AuthenticationManager}.
+ * Implementation of {@link Authenticator}.
  */
-public class AuthenticationManagerImpl implements AuthenticationManager {
-
+public class AuthenticationManagerImpl
+        extends AbstractEventProducer<AuthenticationEvent, AuthenticationEventParameters>
+        implements AuthenticationManager {
     private static final IgniteLogger LOG = Loggers.forClass(AuthenticationManagerImpl.class);
 
+    /**
+     * Security configuration.
+     */
+    private final SecurityConfiguration securityConfiguration;
+
+    /**
+     * Security configuration listener. Refreshes the list of authenticators when the configuration changes.
+     */
+    private final ConfigurationListener<SecurityView> securityConfigurationListener;
+
+    /**
+     * Security enabled/disabled event factory. Fires events when security is enabled/disabled.
+     */
+    private final SecurityEnabledDisabledEventFactory securityEnabledDisabledEventFactory;
+
+    /**
+     * User event factory. Fires events when a basic user is created/updated/deleted.
+     */
+    private final UserEventFactory userEventFactory;
+
+    /**
+     * Authentication provider event factory. Fires events when an authentication provider is created/updated/deleted.
+     */
+    private final AuthenticationProviderEventFactory providerEventFactory;
+
+    /**
+     * Read-write lock for the list of authenticators and the authentication enabled flag.
+     */
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
-    private final List<Authenticator> authenticators = new ArrayList<>();
+    /**
+     * List of authenticators.
+     */
+    private List<Authenticator> authenticators = new ArrayList<>();
 
+    /**
+     * Authentication enabled flag.
+     */
     private boolean authEnabled = false;
 
+    private final EventLog eventLog;
+
+    /**
+     * Constructor.
+     *
+     * @param securityConfiguration Security configuration.
+     * @param eventLog Event log.
+     */
+    public AuthenticationManagerImpl(SecurityConfiguration securityConfiguration, EventLog eventLog) {
+        this.securityConfiguration = securityConfiguration;
+        this.eventLog = eventLog;
+
+        securityConfigurationListener = ctx -> {
+            refreshProviders(ctx.newValue());
+            return nullCompletedFuture();
+        };
+
+        securityEnabledDisabledEventFactory = new SecurityEnabledDisabledEventFactory(this::fireEvent);
+
+        userEventFactory = new UserEventFactory(this::fireEvent);
+
+        providerEventFactory = new AuthenticationProviderEventFactory(
+                securityConfiguration,
+                userEventFactory,
+                this::fireEvent
+        );
+    }
+
+    @Override
+    public CompletableFuture<Void> start() {
+        securityConfiguration.listen(securityConfigurationListener);
+        securityConfiguration.enabled().listen(securityEnabledDisabledEventFactory);
+        securityConfiguration.authentication().providers().listenElements(providerEventFactory);
+
+        String basicAuthenticationProviderName = findBasicProviderName(securityConfiguration.authentication().providers().value());
+        BasicAuthenticationProviderConfiguration basicAuthenticationProviderConfiguration = (BasicAuthenticationProviderConfiguration)
+                securityConfiguration.authentication().providers().get(basicAuthenticationProviderName);
+        basicAuthenticationProviderConfiguration.users().listenElements(userEventFactory);
+
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public void stop() throws Exception {
+        securityConfiguration.stopListen(securityConfigurationListener);
+        securityConfiguration.enabled().stopListen(securityEnabledDisabledEventFactory);
+        securityConfiguration.authentication().providers().stopListenElements(providerEventFactory);
+
+        String basicAuthenticationProviderName = findBasicProviderName(securityConfiguration.authentication().providers().value());
+        BasicAuthenticationProviderConfiguration basicAuthenticationProviderConfiguration = (BasicAuthenticationProviderConfiguration)
+                securityConfiguration.authentication().providers().get(basicAuthenticationProviderName);
+        basicAuthenticationProviderConfiguration.users().stopListenElements(userEventFactory);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public UserDetails authenticate(AuthenticationRequest<?, ?> authenticationRequest) {
         rwLock.readLock().lock();
         try {
             if (authEnabled) {
                 return authenticators.stream()
-                        .map(authenticator -> authenticator.authenticate(authenticationRequest))
+                        .map(authenticator -> authenticate(authenticator, authenticationRequest))
                         .filter(Objects::nonNull)
                         .findFirst()
-                        .orElseThrow(() -> new AuthenticationException("Authentication failed"));
+                        .map(userDetails ->  {
+                            eventLog.log(() ->
+                                    IgniteEvents.USER_AUTHENTICATED.create(EventUser.of(
+                                            userDetails.username(), userDetails.providerName()
+                                    )));
+
+                            return userDetails;
+                        })
+                        .orElseThrow(() -> new InvalidCredentialsException("Authentication failed"));
             } else {
-                return new UserDetails("Unknown");
+                return UserDetails.UNKNOWN;
             }
         } finally {
             rwLock.readLock().unlock();
         }
     }
 
-    @Override
-    public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<AuthenticationView> ctx) {
-        return CompletableFuture.runAsync(() -> refreshProviders(ctx.newValue()));
+    @Nullable
+    private static UserDetails authenticate(Authenticator authenticator, AuthenticationRequest<?, ?> authenticationRequest) {
+        try {
+            return authenticator.authenticate(authenticationRequest);
+        } catch (InvalidCredentialsException | UnsupportedAuthenticationTypeException exception) {
+            return null;
+        } catch (Exception e) {
+            LOG.error("Unexpected exception during authentication", e);
+            return null;
+        }
     }
 
-    private void refreshProviders(@Nullable AuthenticationView view) {
+    private void refreshProviders(@Nullable SecurityView view) {
         rwLock.writeLock().lock();
         try {
             if (view == null || !view.enabled()) {
                 authEnabled = false;
-                authenticators.clear();
-            } else if (view.enabled() && view.providers().size() != 0) {
-                authenticators.clear();
-                authenticators.addAll(providersFromAuthView(view));
-                authEnabled = true;
             } else {
-                LOG.error("Invalid configuration: authentication is enabled, but no providers. Leaving the old settings");
+                authenticators = providersFromAuthView(view.authentication());
+                authEnabled = true;
             }
         } catch (Exception exception) {
             LOG.error("Couldn't refresh authentication providers. Leaving the old settings", exception);
@@ -93,7 +214,28 @@ public class AuthenticationManagerImpl implements AuthenticationManager {
         NamedListView<? extends AuthenticationProviderView> providers = view.providers();
 
         return providers.stream()
+                .sorted(Comparator.comparing((AuthenticationProviderView o) -> o.name()))
                 .map(AuthenticatorFactory::create)
                 .collect(Collectors.toList());
+    }
+
+    private CompletableFuture<Void> fireEvent(AuthenticationEventParameters parameters) {
+        return fireEvent(parameters.type(), parameters);
+    }
+
+
+    @Override
+    public boolean authenticationEnabled() {
+        return authEnabled;
+    }
+
+    @TestOnly
+    public void authEnabled(boolean authEnabled) {
+        this.authEnabled = authEnabled;
+    }
+
+    @TestOnly
+    public void authenticators(List<Authenticator> authenticators) {
+        this.authenticators = authenticators;
     }
 }

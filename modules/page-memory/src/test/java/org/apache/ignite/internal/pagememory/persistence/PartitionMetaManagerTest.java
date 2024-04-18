@@ -34,11 +34,13 @@ import java.nio.file.Path;
 import java.util.UUID;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreIo;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterAll;
@@ -50,7 +52,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * For {@link PartitionMetaManager} testing.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class PartitionMetaManagerTest {
+public class PartitionMetaManagerTest extends BaseIgniteAbstractTest {
     private static final int PAGE_SIZE = 1024;
 
     private static PageIoRegistry ioRegistry;
@@ -97,7 +99,7 @@ public class PartitionMetaManagerTest {
         try {
             // Check for an empty file.
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
-                PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
+                PartitionMeta meta = readOrCreateMeta(manager, partId, filePageStore);
 
                 assertEquals(0, meta.lastAppliedIndex());
                 assertEquals(0, meta.lastAppliedTerm());
@@ -105,6 +107,7 @@ public class PartitionMetaManagerTest {
                 assertEquals(0, meta.versionChainTreeRootPageId());
                 assertEquals(0, meta.rowVersionFreeListRootPageId());
                 assertEquals(1, meta.pageCount());
+                assertEquals(HybridTimestamp.MIN_VALUE.longValue(), meta.leaseStartTime());
 
                 // Change the meta and write it to the file.
                 meta.lastApplied(null, 50, 10);
@@ -112,6 +115,7 @@ public class PartitionMetaManagerTest {
                 meta.versionChainTreeRootPageId(null, 300);
                 meta.rowVersionFreeListRootPageId(null, 900);
                 meta.incrementPageCount(null);
+                meta.updateLease(null, 500);
 
                 manager.writeMetaToBuffer(partId, meta.metaSnapshot(UUID.randomUUID()), buffer);
 
@@ -124,7 +128,7 @@ public class PartitionMetaManagerTest {
 
             // Check not empty file.
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
-                PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
+                PartitionMeta meta = readOrCreateMeta(manager, partId, filePageStore);
 
                 assertEquals(50, meta.lastAppliedIndex());
                 assertEquals(10, meta.lastAppliedTerm());
@@ -132,13 +136,14 @@ public class PartitionMetaManagerTest {
                 assertEquals(300, meta.versionChainTreeRootPageId());
                 assertEquals(900, meta.rowVersionFreeListRootPageId());
                 assertEquals(2, meta.pageCount());
+                assertEquals(500, meta.leaseStartTime());
             }
 
             // Check with delta file.
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
                 manager.writeMetaToBuffer(
                         partId,
-                        new PartitionMeta(UUID.randomUUID(), 100, 10, 34, 900, 500, 300, 200, 400, 4).metaSnapshot(null),
+                        new PartitionMeta(UUID.randomUUID(), 100, 10, 34, 900, 500, 300, 200, 400, 4, 1000).metaSnapshot(null),
                         buffer.rewind()
                 );
 
@@ -151,7 +156,7 @@ public class PartitionMetaManagerTest {
 
                 deltaFilePageStoreIo.sync();
 
-                PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
+                PartitionMeta meta = readOrCreateMeta(manager, partId, filePageStore);
 
                 assertEquals(100, meta.lastAppliedIndex());
                 assertEquals(10, meta.lastAppliedTerm());
@@ -162,6 +167,7 @@ public class PartitionMetaManagerTest {
                 assertEquals(200, meta.indexTreeMetaPageId());
                 assertEquals(400, meta.gcQueueMetaPageId());
                 assertEquals(4, meta.pageCount());
+                assertEquals(1000, meta.leaseStartTime());
             }
 
             // Let's check the broken CRC.
@@ -173,7 +179,7 @@ public class PartitionMetaManagerTest {
 
                 fileIo.writeFully(buffer.rewind(), filePageStore.headerSize());
 
-                PartitionMeta meta = manager.readOrCreateMeta(null, partId, filePageStore);
+                PartitionMeta meta = readOrCreateMeta(manager, partId, filePageStore);
 
                 assertEquals(0, meta.lastAppliedIndex());
                 assertEquals(0, meta.lastAppliedTerm());
@@ -214,5 +220,19 @@ public class PartitionMetaManagerTest {
         filePageStore.ensure();
 
         return filePageStore;
+    }
+
+    private static PartitionMeta readOrCreateMeta(
+            PartitionMetaManager manager,
+            GroupPartitionId partId,
+            FilePageStore filePageStore
+    ) throws Exception {
+        ByteBuffer buffer = allocateBuffer(PAGE_SIZE);
+
+        try {
+            return manager.readOrCreateMeta(null, partId, filePageStore, buffer);
+        } finally {
+            freeBuffer(buffer);
+        }
     }
 }

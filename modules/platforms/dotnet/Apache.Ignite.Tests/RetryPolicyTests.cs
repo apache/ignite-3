@@ -212,7 +212,7 @@ namespace Apache.Ignite.Tests
             {
                 var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
 
-                await table!.RecordBinaryView.UpsertAsync(null, new IgniteTuple());
+                await table!.RecordBinaryView.UpsertAsync(null, new IgniteTuple { ["ID"] = 1 });
             }
         }
 
@@ -230,7 +230,8 @@ namespace Apache.Ignite.Tests
 
             var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
 
-            var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await table!.RecordBinaryView.UpsertAsync(tx, new IgniteTuple()));
+            var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
+                async () => await table!.RecordBinaryView.UpsertAsync(tx, new IgniteTuple { ["ID"] = 1 }));
             StringAssert.StartsWith("Socket is closed due to an error", ex!.Message);
         }
 
@@ -264,7 +265,8 @@ namespace Apache.Ignite.Tests
             using var client = await server.ConnectClientAsync(cfg);
 
             var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
-            Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await table!.RecordBinaryView.UpsertAsync(null, new IgniteTuple()));
+            Assert.ThrowsAsync<IgniteClientConnectionException>(
+                async () => await table!.RecordBinaryView.UpsertAsync(null, new IgniteTuple { ["ID"] = 1 }));
         }
 
         [Test]

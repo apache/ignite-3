@@ -22,28 +22,30 @@ import java.util.Objects;
 /** Api client settings. */
 public class ApiClientSettings {
 
-    private String basePath;
+    private final String basePath;
 
-    private String keyStorePath;
+    private final String keyStorePath;
 
-    private String keyStorePassword;
+    private final String keyStorePassword;
 
-    private String trustStorePath;
+    private final String trustStorePath;
 
-    private String trustStorePassword;
+    private final String trustStorePassword;
 
-    private String basicAuthenticationUsername;
+    private final String ciphers;
 
-    private String basicAuthenticationPassword;
+    private final String basicAuthenticationUsername;
 
-    ApiClientSettings(String basePath, String keyStorePath, String keyStorePassword, String trustStorePath,
-            String trustStorePassword,
-            String basicAuthenticationUsername, String basicAuthenticationPassword) {
+    private final String basicAuthenticationPassword;
+
+    ApiClientSettings(String basePath, String keyStorePath, String keyStorePassword, String trustStorePath, String trustStorePassword,
+            String ciphers, String basicAuthenticationUsername, String basicAuthenticationPassword) {
         this.basePath = basePath;
         this.keyStorePath = keyStorePath;
         this.keyStorePassword = keyStorePassword;
         this.trustStorePath = trustStorePath;
         this.trustStorePassword = trustStorePassword;
+        this.ciphers = ciphers;
         this.basicAuthenticationUsername = basicAuthenticationUsername;
         this.basicAuthenticationPassword = basicAuthenticationPassword;
     }
@@ -72,6 +74,10 @@ public class ApiClientSettings {
         return trustStorePassword;
     }
 
+    public String ciphers() {
+        return ciphers;
+    }
+
     public String basicAuthenticationUsername() {
         return basicAuthenticationUsername;
     }
@@ -92,6 +98,7 @@ public class ApiClientSettings {
         return Objects.equals(basePath, that.basePath) && Objects.equals(keyStorePath, that.keyStorePath)
                 && Objects.equals(keyStorePassword, that.keyStorePassword) && Objects.equals(trustStorePath, that.trustStorePath)
                 && Objects.equals(trustStorePassword, that.trustStorePassword)
+                && Objects.equals(ciphers, that.ciphers)
                 && Objects.equals(basicAuthenticationUsername, that.basicAuthenticationUsername)
                 && Objects.equals(basicAuthenticationPassword, that.basicAuthenticationPassword);
     }
@@ -99,6 +106,6 @@ public class ApiClientSettings {
     @Override
     public int hashCode() {
         return Objects.hash(basePath, keyStorePath, keyStorePassword, trustStorePath, trustStorePassword,
-                basicAuthenticationUsername, basicAuthenticationPassword);
+                ciphers, basicAuthenticationUsername, basicAuthenticationPassword);
     }
 }

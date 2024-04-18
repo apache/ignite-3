@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
-import java.util.function.Function;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
@@ -33,9 +31,9 @@ abstract class IndexWrapper {
     final InternalTable tbl;
     final LockManager lockManager;
     final int indexId;
-    final Function<BinaryRow, BinaryTuple> indexRowResolver;
+    final ColumnsExtractor indexRowResolver;
 
-    private IndexWrapper(InternalTable tbl, LockManager lockManager, int indexId, Function<BinaryRow, BinaryTuple> indexRowResolver) {
+    private IndexWrapper(InternalTable tbl, LockManager lockManager, int indexId, ColumnsExtractor indexRowResolver) {
         this.tbl = tbl;
         this.lockManager = lockManager;
         this.indexId = indexId;
@@ -58,7 +56,7 @@ abstract class IndexWrapper {
 
     /** {@link IndexWrapper} for sorted indexes. */
     static class SortedIndexWrapper extends IndexWrapper {
-        SortedIndexWrapper(InternalTable tbl, LockManager lockManager, int indexId, Function<BinaryRow, BinaryTuple> indexRowResolver) {
+        SortedIndexWrapper(InternalTable tbl, LockManager lockManager, int indexId, ColumnsExtractor indexRowResolver) {
             super(tbl, lockManager, indexId, indexRowResolver);
         }
 
@@ -95,7 +93,7 @@ abstract class IndexWrapper {
     static class HashIndexWrapper extends IndexWrapper {
         private final boolean unique;
 
-        HashIndexWrapper(InternalTable tbl, LockManager lockManager, int indexId, Function<BinaryRow, BinaryTuple> indexRowResolver,
+        HashIndexWrapper(InternalTable tbl, LockManager lockManager, int indexId, ColumnsExtractor indexRowResolver,
                 boolean unique) {
             super(tbl, lockManager, indexId, indexRowResolver);
             this.unique = unique;
@@ -105,7 +103,7 @@ abstract class IndexWrapper {
         TableSchemaAwareIndexStorage getStorage(int partitionId) {
             IndexStorage index = tbl.storage().getIndex(partitionId, indexId);
 
-            assert index != null : tbl.name() + " part " + partitionId;
+            assert index != null : "tableId=" + tbl.tableId() + ", indexId=" + indexId + ", partitionId=" + partitionId;
 
             return new TableSchemaAwareIndexStorage(
                     indexId,

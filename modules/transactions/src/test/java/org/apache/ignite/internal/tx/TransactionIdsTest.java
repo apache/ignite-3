@@ -22,18 +22,23 @@ import static org.hamcrest.Matchers.is;
 
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 class TransactionIdsTest {
-    @Test
-    void transactionIdIsBuiltCorrectly() {
+    @ParameterizedTest
+    @EnumSource(TxPriority.class)
+    void transactionIdIsBuiltCorrectly(TxPriority priority) {
         HybridTimestamp beginTs = new HybridTimestamp(123L, 456);
 
-        UUID txId = TransactionIds.transactionId(beginTs, 0xdeadbeef);
+        UUID txId = TransactionIds.transactionId(beginTs, 1, priority);
 
         HybridTimestamp extractedTs = TransactionIds.beginTimestamp(txId);
+        int extractedNodeId = TransactionIds.nodeId(txId);
+        TxPriority extractedPriority = TransactionIds.priority(txId);
 
         assertThat(extractedTs, is(beginTs));
-        assertThat((int) txId.getLeastSignificantBits(), is(0xdeadbeef));
+        assertThat(extractedNodeId, is(1));
+        assertThat(extractedPriority, is(priority));
     }
 }

@@ -104,18 +104,16 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
     private AliasDictionary Aliases => _modelVisitor.Aliases;
 
     /** <inheritdoc /> */
-    public override Expression Visit(Expression expression)
+    public override Expression? Visit(Expression? expression)
     {
-        var paramExpr = expression as ParameterExpression;
-
-        if (paramExpr != null)
+        if (expression is ParameterExpression paramExpr)
         {
             // This happens only with compiled queries, where parameters come from enclosing lambda.
             AppendParameter(paramExpr);
             return expression;
         }
 
-        return base.Visit(expression)!;
+        return base.Visit(expression);
     }
 
     /// <summary>
@@ -480,6 +478,11 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             {
                 // Special case for string concatenation.
                 ResultBuilder.Append(" as varchar)");
+            }
+            else if ((Nullable.GetUnderlyingType(expression.Type) ?? expression.Type) == typeof(decimal))
+            {
+                // TODO IGNITE-21743 Cast to decimal loses precision: we should specify precision and scale here.
+                ResultBuilder.Append(" as decimal)");
             }
             else
             {

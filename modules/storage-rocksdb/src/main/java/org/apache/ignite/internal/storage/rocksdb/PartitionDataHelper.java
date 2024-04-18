@@ -36,7 +36,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
-import org.apache.ignite.internal.schema.ByteBufferRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.RowId;
@@ -76,8 +76,6 @@ public final class PartitionDataHelper implements ManuallyCloseable {
 
     /** Value offset (if transaction state is present). */
     static final int VALUE_OFFSET = VALUE_HEADER_SIZE;
-
-    static final ByteOrder TABLE_ROW_BYTE_ORDER = ByteBufferRow.ORDER;
 
     /** Thread-local direct buffer instance to read keys from RocksDB. */
     static final ThreadLocal<ByteBuffer> MV_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(KEY_BYTE_ORDER));
@@ -121,7 +119,7 @@ public final class PartitionDataHelper implements ManuallyCloseable {
 
         this.upperBound = new Slice(partitionEndPrefix);
         this.upperBoundReadOpts = new ReadOptions().setIterateUpperBound(upperBound);
-        this.scanReadOpts = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
+        this.scanReadOpts = new ReadOptions().setIterateUpperBound(upperBound).setAutoPrefixMode(true);
     }
 
     public int partitionId() {
@@ -260,13 +258,13 @@ public final class PartitionDataHelper implements ManuallyCloseable {
         assert buffer.order() == ByteOrder.BIG_ENDIAN;
 
         int schemaVersion = Short.toUnsignedInt(buffer.getShort());
-        ByteBuffer binaryTupleSlice = buffer.slice().order(TABLE_ROW_BYTE_ORDER);
+        ByteBuffer binaryTupleSlice = buffer.slice().order(BinaryTuple.ORDER);
 
         return new BinaryRowImpl(schemaVersion, binaryTupleSlice);
     }
 
     @Override
     public void close() {
-        RocksUtils.closeAll(upperBoundReadOpts, upperBound);
+        RocksUtils.closeAll(scanReadOpts, upperBoundReadOpts, upperBound);
     }
 }

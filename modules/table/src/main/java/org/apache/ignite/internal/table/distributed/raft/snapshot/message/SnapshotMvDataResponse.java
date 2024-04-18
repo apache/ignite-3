@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.message;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.table.TableRow;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -48,7 +48,7 @@ public interface SnapshotMvDataResponse extends NetworkMessage {
         UUID rowId();
 
         /** List of {@link TableRow}s for a given {@link #rowId()}. */
-        List<ByteBuffer> rowVersions();
+        List<BinaryRowMessage> rowVersions();
 
         /**
          * List of commit timestamps for all committed versions. Might be smaller than {@link #rowVersions()} if there's a write-intent

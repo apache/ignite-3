@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,7 +31,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -48,18 +49,20 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -69,7 +72,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class ItDistributedConfigurationStorageTest {
+public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
@@ -78,6 +81,9 @@ public class ItDistributedConfigurationStorageTest {
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
+
+    @InjectConfiguration
+    private static StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
@@ -107,7 +113,7 @@ public class ItDistributedConfigurationStorageTest {
         Node(TestInfo testInfo, Path workDir) {
             var addr = new NetworkAddress("localhost", 10000);
 
-            vaultManager = new VaultManager(new PersistentVaultService(testNodeName(testInfo, addr.port()), workDir.resolve("vault")));
+            vaultManager = new VaultManager(new PersistentVaultService(workDir.resolve("vault")));
 
             clusterService = ClusterServiceTestUtils.clusterService(
                     testInfo,
@@ -124,15 +130,22 @@ public class ItDistributedConfigurationStorageTest {
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+            var clusterInitializer = new ClusterInitializer(
+                    clusterService,
+                    hocon -> hocon,
+                    new TestConfigurationValidator()
+            );
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
+                    clusterInitializer,
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    nodeAttributes,
-                    new TestConfigurationValidator());
+                    new NodeAttributesCollector(nodeAttributes, storageConfiguration)
+            );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
@@ -144,7 +157,6 @@ public class ItDistributedConfigurationStorageTest {
             );
 
             metaStorageManager = new MetaStorageManagerImpl(
-                    vaultManager,
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
@@ -157,7 +169,7 @@ public class ItDistributedConfigurationStorageTest {
 
             deployWatchesFut = metaStorageManager.deployWatches();
 
-            cfgStorage = new DistributedConfigurationStorage(metaStorageManager);
+            cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
         }
 
         /**
@@ -170,7 +182,7 @@ public class ItDistributedConfigurationStorageTest {
                     .forEach(IgniteComponent::start);
 
             // this is needed to avoid assertion errors
-            cfgStorage.registerConfigurationListener(changedEntries -> completedFuture(null));
+            cfgStorage.registerConfigurationListener(changedEntries -> nullCompletedFuture());
         }
 
         /**

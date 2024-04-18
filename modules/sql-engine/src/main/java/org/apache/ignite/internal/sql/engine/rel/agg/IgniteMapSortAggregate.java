@@ -31,20 +31,22 @@ import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 
 /**
  * IgniteMapSortAggregate.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements IgniteSortAggregateBase {
+    private static final String REL_TYPE_NAME = "MapSortAggregate";
+
     /** Collation. */
     private final RelCollation collation;
 
@@ -90,7 +92,7 @@ public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements Ig
             List<ImmutableBitSet> groupSets,
             List<AggregateCall> aggCalls) {
         return new IgniteMapSortAggregate(
-                getCluster(), traitSet, input, groupSet, groupSets, aggCalls, TraitUtils.collation(traitSet));
+                getCluster(), traitSet, input, groupSet, groupSets, aggCalls, this.collation);
     }
 
     /** {@inheritDoc} */
@@ -122,21 +124,9 @@ public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements Ig
     /** {@inheritDoc} */
     @Override
     protected RelDataType deriveRowType() {
-        RelDataTypeFactory typeFactory = Commons.typeFactory(getCluster());
+        IgniteTypeFactory typeFactory = Commons.typeFactory(getCluster());
 
-        RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-
-        groupSet.forEach(fieldIdx -> {
-            RelDataTypeField fld = input.getRowType().getFieldList().get(fieldIdx);
-
-            builder.add(fld);
-        });
-
-        if (!aggCalls.isEmpty()) {
-            builder.add("AGG_DATA", typeFactory.createArrayType(typeFactory.createJavaType(Object.class/*Accumulator.class*/), -1));
-        }
-
-        return builder.build();
+        return PlanUtils.createSortAggRowType(groupSet, typeFactory, input.getRowType(), aggCalls);
     }
 
     /** {@inheritDoc} */
@@ -149,5 +139,10 @@ public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements Ig
     @Override
     public RelCollation collation() {
         return collation;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

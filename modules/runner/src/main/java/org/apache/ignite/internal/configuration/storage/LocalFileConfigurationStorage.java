@@ -21,13 +21,16 @@ import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.fillFromPrefixMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.toPrefixMap;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigException;
+import com.typesafe.config.ConfigException.Parse;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigParseOptions;
 import com.typesafe.config.ConfigRenderOptions;
+import com.typesafe.config.ConfigSyntax;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.impl.ConfigImpl;
 import java.io.IOException;
@@ -47,7 +50,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.internal.configuration.ConfigurationDynamicDefaultsPatcherImpl;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigCreateException;
 import org.apache.ignite.internal.configuration.NodeConfigParseException;
@@ -60,6 +67,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of {@link ConfigurationStorage} based on local file configuration storage.
@@ -82,13 +91,14 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     /** Configuration tree generator. */
     private final ConfigurationTreeGenerator generator;
 
+    /** Configuration module, which provide configuration patches. **/
+    private final ConfigurationModule module;
+
     /** Configuration changes listener. */
     private final AtomicReference<ConfigurationStorageListener> lsnrRef = new AtomicReference<>();
 
     /** Thread pool for configuration updates notifications. */
-    private final ExecutorService notificationsThreadPool = Executors.newFixedThreadPool(
-            2, new NamedThreadFactory("cfg-file", LOG)
-    );
+    private final ExecutorService notificationsThreadPool;
 
     /** Tracks all running futures. */
     private final InFlightFutures futureTracker = new InFlightFutures();
@@ -101,13 +111,52 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
      *
      * @param configPath Path to node bootstrap configuration file.
      * @param generator Configuration tree generator.
+     * @param module Configuration module, which provides configuration patches.
      */
-    public LocalFileConfigurationStorage(Path configPath, ConfigurationTreeGenerator generator) {
+    @TestOnly
+    public LocalFileConfigurationStorage(Path configPath, ConfigurationTreeGenerator generator, @Nullable ConfigurationModule module) {
+        this("test", configPath, generator, module);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param configPath Path to node bootstrap configuration file.
+     * @param generator Configuration tree generator.
+     * @param module Configuration module, which provides configuration patches.
+     */
+    public LocalFileConfigurationStorage(
+            String nodeName, Path configPath, ConfigurationTreeGenerator generator, @Nullable ConfigurationModule module) {
         this.configPath = configPath;
         this.generator = generator;
         this.tempConfigPath = configPath.resolveSibling(configPath.getFileName() + ".tmp");
+        this.module = module;
+
+        notificationsThreadPool = Executors.newFixedThreadPool(
+                2, NamedThreadFactory.create(nodeName, "cfg-file", LOG)
+        );
 
         checkAndRestoreConfigFile();
+    }
+
+    /**
+     * Patch the local configs with defaults from provided {@link ConfigurationModule}.
+     *
+     * @param hocon Config string in Hocon format.
+     * @param module Configuration module, which provides configuration patches.
+     * @return Patched config string in Hocon format.
+     */
+    private String patch(String hocon, ConfigurationModule module) {
+        if (module == null) {
+            return hocon;
+        }
+
+        ConfigurationDynamicDefaultsPatcher localCfgDynamicDefaultsPatcher = new ConfigurationDynamicDefaultsPatcherImpl(
+                module,
+                generator
+        );
+
+        return localCfgDynamicDefaultsPatcher.patchWithDynamicDefaults(hocon);
     }
 
     @Override
@@ -137,8 +186,12 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         checkAndRestoreConfigFile();
 
         try {
-            return ConfigFactory.parseFile(configPath.toFile(), ConfigParseOptions.defaults().setAllowMissing(false));
-        } catch (ConfigException.Parse e) {
+            String confString = Files.readString(configPath.toAbsolutePath());
+
+            ConfigParseOptions parseOptions = ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF).setAllowMissing(false);
+
+            return ConfigFactory.parseString(patch(confString, module), parseOptions);
+        } catch (Parse | ConfigurationValidationException | IOException e) {
             throw new NodeConfigParseException("Failed to parse config content from file " + configPath, e);
         }
     }
@@ -173,14 +226,14 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         lock.writeLock().lock();
         try {
             if (ver != lastRevision) {
-                return CompletableFuture.completedFuture(false);
+                return falseCompletedFuture();
             }
 
             mergeAndSave(newValues);
 
             sendNotificationAsync(new Data(newValues, lastRevision));
 
-            return CompletableFuture.completedFuture(true);
+            return trueCompletedFuture();
         } finally {
             lock.writeLock().unlock();
         }
@@ -217,6 +270,11 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
     @Override
     public CompletableFuture<Long> lastRevision() {
         return CompletableFuture.completedFuture(lastRevision);
+    }
+
+    @Override
+    public CompletableFuture<Long> localRevision() {
+        return lastRevision();
     }
 
     @Override

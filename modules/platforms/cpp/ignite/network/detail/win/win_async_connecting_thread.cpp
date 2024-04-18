@@ -172,20 +172,20 @@ SOCKET win_async_connecting_thread::try_connect(const end_point &addr) {
     int res = getaddrinfo(addr.host.c_str(), strPort.c_str(), &hints, &result);
 
     if (res != 0)
-        throw ignite_error(status_code::NETWORK, "Can not resolve host: " + addr.host + ":" + strPort);
+        throw ignite_error(error::code::CONNECTION, "Can not resolve host: " + addr.host + ":" + strPort);
 
-    std::string lastErrorMsg = "Failed to resolve host";
+    std::string last_error_msg = "Failed to resolve host";
 
     SOCKET socket = INVALID_SOCKET; // NOLINT(modernize-use-auto)
 
     // Attempt to connect to an address until one succeeds
     for (addrinfo *it = result; it != NULL; it = it->ai_next) {
-        lastErrorMsg = "Failed to establish connection with the host";
+        last_error_msg = "Failed to establish connection with the host";
 
         socket = WSASocket(it->ai_family, it->ai_socktype, it->ai_protocol, NULL, 0, WSA_FLAG_OVERLAPPED);
 
         if (socket == INVALID_SOCKET)
-            throw ignite_error(status_code::NETWORK, "Socket creation failed: " + get_last_socket_error_message());
+            throw ignite_error(error::code::CONNECTION, "Socket creation failed: " + get_last_socket_error_message());
 
         try_set_socket_options(socket, BUFFER_SIZE, TRUE, TRUE, TRUE);
 
@@ -195,10 +195,10 @@ SOCKET win_async_connecting_thread::try_connect(const end_point &addr) {
             closesocket(socket);
             socket = INVALID_SOCKET;
 
-            int lastError = WSAGetLastError();
+            int last_error = WSAGetLastError();
 
-            if (lastError != WSAEWOULDBLOCK) {
-                lastErrorMsg.append(": ").append(get_socket_error_message(lastError));
+            if (last_error != WSAEWOULDBLOCK) {
+                last_error_msg.append(": ").append(get_socket_error_message(last_error));
 
                 continue;
             }
@@ -210,7 +210,7 @@ SOCKET win_async_connecting_thread::try_connect(const end_point &addr) {
     freeaddrinfo(result);
 
     if (socket == INVALID_SOCKET)
-        throw ignite_error(status_code::NETWORK, std::move(lastErrorMsg));
+        throw ignite_error(error::code::CONNECTION, std::move(last_error_msg));
 
     return socket;
 }

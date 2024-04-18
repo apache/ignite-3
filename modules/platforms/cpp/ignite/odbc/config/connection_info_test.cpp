@@ -219,3 +219,39 @@ TEST_F(connection_info_test, supported_info) {
     EXPECT_EQ(result, sql_result::AI_SUCCESS);
 #endif // SQL_QUOTED_IDENTIFIER_CASE
 }
+
+TEST_F(connection_info_test, default_username) {
+    char buffer[4096];
+    short res_len = 0;
+
+    configuration cfg;
+    connection_info info(cfg);
+
+    sql_result result;
+
+#ifdef SQL_USER_NAME
+    result = info.get_info(SQL_USER_NAME, buffer, sizeof(buffer), &res_len);
+    EXPECT_EQ(result, sql_result::AI_SUCCESS);
+    EXPECT_EQ(res_len, 0);
+#endif // SQL_USER_NAME
+}
+
+TEST_F(connection_info_test, username) {
+    char buffer[4096];
+    short res_len = 0;
+
+    std::string identity = "username-1";
+    std::string secret = "secret-1";
+
+    configuration cfg(identity, secret);
+    connection_info info(cfg);
+
+    sql_result result;
+
+#ifdef SQL_USER_NAME
+    result = info.get_info(SQL_USER_NAME, buffer, sizeof(buffer), &res_len);
+    EXPECT_EQ(result, sql_result::AI_SUCCESS);
+    EXPECT_EQ(res_len, identity.size());
+    EXPECT_EQ(std::string(buffer), identity);
+#endif // SQL_USER_NAME
+}

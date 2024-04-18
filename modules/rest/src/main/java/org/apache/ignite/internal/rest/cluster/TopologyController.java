@@ -30,7 +30,6 @@ import org.apache.ignite.internal.rest.api.cluster.ClusterNode;
 import org.apache.ignite.internal.rest.api.cluster.NetworkAddress;
 import org.apache.ignite.internal.rest.api.cluster.NodeMetadata;
 import org.apache.ignite.internal.rest.api.cluster.TopologyApi;
-import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
 import org.apache.ignite.network.TopologyService;
 
 /**
@@ -59,13 +58,7 @@ public class TopologyController implements TopologyApi {
         // TODO: IGNITE-18277 - return an object containing both nodes and topology version.
 
         return cmgManager.clusterState()
-                .thenCompose(state -> {
-                    if (state == null) {
-                        throw new ClusterNotInitializedException();
-                    }
-
-                    return cmgManager.logicalTopology();
-                })
+                .thenCompose(state -> cmgManager.logicalTopology())
                 .thenApply(LogicalTopologySnapshot::nodes)
                 .thenApply(TopologyController::toClusterNodeDtosFromLogicalNodes);
     }

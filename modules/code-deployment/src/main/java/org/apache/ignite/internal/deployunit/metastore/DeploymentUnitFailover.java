@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 
 import java.util.Objects;
+import java.util.UUID;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
@@ -92,7 +93,7 @@ public class DeploymentUnitFailover {
         Version version = unitNodeStatus.version();
 
         if (unitClusterStatus == null) {
-            undeploy(id, version);
+            undeploy(id, version, unitNodeStatus.opId());
             return;
         }
 
@@ -126,11 +127,11 @@ public class DeploymentUnitFailover {
         }
     }
 
-    private void undeploy(String id, Version version) {
+    private void undeploy(String id, Version version, UUID opId) {
         deployer.undeploy(id, version)
                 .thenAccept(success -> {
                     if (success) {
-                        deploymentUnitStore.removeNodeStatus(nodeName, id, version);
+                        deploymentUnitStore.removeNodeStatus(nodeName, id, version, opId);
                     }
                 });
     }
@@ -138,11 +139,12 @@ public class DeploymentUnitFailover {
     private boolean checkAbaProblem(UnitClusterStatus clusterStatus, UnitNodeStatus nodeStatus) {
         String id = nodeStatus.id();
         Version version = nodeStatus.version();
-        if (clusterStatus.opId() != nodeStatus.opId()) {
+        UUID opId = nodeStatus.opId();
+        if (!Objects.equals(clusterStatus.opId(), opId)) {
             if (nodeStatus.status() == DEPLOYED) {
-                undeploy(id, version);
+                undeploy(id, version, opId);
             } else {
-                deploymentUnitStore.removeNodeStatus(nodeName, id, version);
+                deploymentUnitStore.removeNodeStatus(nodeName, id, version, opId);
             }
             return true;
         }

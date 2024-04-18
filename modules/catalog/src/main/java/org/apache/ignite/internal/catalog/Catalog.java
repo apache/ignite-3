@@ -17,10 +17,18 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.unmodifiable;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Comparator.comparingInt;
+
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
@@ -34,6 +42,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Catalog descriptor represents database schema snapshot.
@@ -55,11 +64,20 @@ public class Catalog {
     private final long activationTimestamp;
     private final Map<String, CatalogSchemaDescriptor> schemasByName;
     private final Map<String, CatalogZoneDescriptor> zonesByName;
+    private final CatalogZoneDescriptor defaultZone;
+
+    @IgniteToStringExclude
+    private final Int2ObjectMap<CatalogSchemaDescriptor> schemasById;
 
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogTableDescriptor> tablesById;
+
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogIndexDescriptor> indexesById;
+
+    @IgniteToStringExclude
+    private final Int2ObjectMap<List<CatalogIndexDescriptor>> indexesByTableId;
+
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogZoneDescriptor> zonesById;
 
@@ -72,13 +90,15 @@ public class Catalog {
      *         next version of the catalog.
      * @param zones Distribution zones descriptors.
      * @param schemas Enumeration of schemas available in the current version of catalog.
+     * @param defaultZoneId ID of the default distribution zone.
      */
     public Catalog(
             int version,
             long activationTimestamp,
             int objectIdGen,
             Collection<CatalogZoneDescriptor> zones,
-            Collection<CatalogSchemaDescriptor> schemas
+            Collection<CatalogSchemaDescriptor> schemas,
+            int defaultZoneId
     ) {
         this.version = version;
         this.activationTimestamp = activationTimestamp;
@@ -87,12 +107,19 @@ public class Catalog {
         Objects.requireNonNull(schemas, "schemas");
         Objects.requireNonNull(zones, "zones");
 
-        this.schemasByName = schemas.stream().collect(toMapByName());
-        this.zonesByName = zones.stream().collect(toMapByName());
+        schemasByName = schemas.stream().collect(toMapByName());
+        zonesByName = zones.stream().collect(toMapByName());
 
+        schemasById = schemas.stream().collect(toMapById());
         tablesById = schemas.stream().flatMap(s -> Arrays.stream(s.tables())).collect(toMapById());
         indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes())).collect(toMapById());
+        indexesByTableId = unmodifiable(toIndexesByTableId(schemas));
         zonesById = zones.stream().collect(toMapById());
+        defaultZone = zonesById.get(defaultZoneId);
+
+        if (defaultZone == null) {
+            throw new IllegalStateException("The default zone was not found among the provided zones [id=" + defaultZoneId + ']');
+        }
     }
 
     public int version() {
@@ -107,27 +134,43 @@ public class Catalog {
         return objectIdGen;
     }
 
-    public CatalogSchemaDescriptor schema(String name) {
+    public @Nullable CatalogSchemaDescriptor schema(String name) {
         return schemasByName.get(name);
+    }
+
+    public @Nullable CatalogSchemaDescriptor schema(int schemaId) {
+        return schemasById.get(schemaId);
     }
 
     public Collection<CatalogSchemaDescriptor> schemas() {
         return schemasByName.values();
     }
 
-    public CatalogTableDescriptor table(int tableId) {
+    public @Nullable CatalogTableDescriptor table(int tableId) {
         return tablesById.get(tableId);
     }
 
-    public CatalogIndexDescriptor index(int indexId) {
+    public Collection<CatalogTableDescriptor> tables() {
+        return tablesById.values();
+    }
+
+    public @Nullable CatalogIndexDescriptor index(int indexId) {
         return indexesById.get(indexId);
     }
 
-    public CatalogZoneDescriptor zone(String name) {
+    public Collection<CatalogIndexDescriptor> indexes() {
+        return indexesById.values();
+    }
+
+    public List<CatalogIndexDescriptor> indexes(int tableId) {
+        return indexesByTableId.getOrDefault(tableId, List.of());
+    }
+
+    public @Nullable CatalogZoneDescriptor zone(String name) {
         return zonesByName.get(name);
     }
 
-    public CatalogZoneDescriptor zone(int zoneId) {
+    public @Nullable CatalogZoneDescriptor zone(int zoneId) {
         return zonesById.get(zoneId);
     }
 
@@ -135,9 +178,32 @@ public class Catalog {
         return zonesByName.values();
     }
 
-    /** {@inheritDoc} */
+    public CatalogZoneDescriptor defaultZone() {
+        return defaultZone;
+    }
+
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    private static Int2ObjectMap<List<CatalogIndexDescriptor>> toIndexesByTableId(Collection<CatalogSchemaDescriptor> schemas) {
+        Int2ObjectMap<List<CatalogIndexDescriptor>> indexesByTableId = new Int2ObjectOpenHashMap<>();
+
+        for (CatalogSchemaDescriptor schema : schemas) {
+            for (CatalogIndexDescriptor index : schema.indexes()) {
+                indexesByTableId.computeIfAbsent(index.tableId(), indexes -> new ArrayList<>()).add(index);
+            }
+        }
+
+        for (List<CatalogIndexDescriptor> indexes : indexesByTableId.values()) {
+            indexes.sort(comparingInt(CatalogIndexDescriptor::id));
+        }
+
+        for (Entry<List<CatalogIndexDescriptor>> entry : indexesByTableId.int2ObjectEntrySet()) {
+            entry.setValue(unmodifiableList(entry.getValue()));
+        }
+
+        return indexesByTableId;
     }
 }

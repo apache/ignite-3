@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
@@ -32,7 +33,16 @@ import org.apache.ignite.configuration.validation.Range;
 public class SchemaSynchronizationConfigurationSchema {
     /** Delay Duration (ms), see the spec for details. */
     @Value(hasDefault = true)
-    @Range(min = 0)
-    // TODO: IGNITE-19792 - make @Immutable when it gets being handled property for distributed config.
+    @Range(min = 1)
+    @Immutable
     public long delayDuration = TimeUnit.SECONDS.toMillis(1);
+
+    /**
+     * Max physical clock skew (ms) that is tolerated by the cluster. If difference between physical clocks of 2 nodes of a cluster
+     * exceeds this value, the cluster might demonstrate abnormal behavior.
+     */
+    @Value(hasDefault = true)
+    @Range(min = 1)
+    @Immutable
+    public long maxClockSkew = 500;
 }

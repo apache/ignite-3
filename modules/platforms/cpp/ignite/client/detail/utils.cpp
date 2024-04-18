@@ -17,6 +17,8 @@
 
 #include "utils.h"
 
+#include <ignite/client/detail/client_error_flags.h>
+
 #include <ignite/common/bits.h>
 #include <ignite/common/uuid.h>
 #include <ignite/protocol/utils.h>
@@ -35,6 +37,9 @@ namespace ignite::detail {
  */
 void claim_column(binary_tuple_builder &builder, ignite_type typ, const primitive &value, std::int32_t scale) {
     switch (typ) {
+        case ignite_type::BOOLEAN:
+            builder.claim_bool(value.get<bool>());
+            break;
         case ignite_type::INT8:
             builder.claim_int8(value.get<std::int8_t>());
             break;
@@ -107,6 +112,9 @@ void claim_column(binary_tuple_builder &builder, ignite_type typ, const primitiv
  */
 void append_column(binary_tuple_builder &builder, ignite_type typ, const primitive &value, std::int32_t scale) {
     switch (typ) {
+        case ignite_type::BOOLEAN:
+            builder.append_bool(value.get<bool>());
+            break;
         case ignite_type::INT8:
             builder.append_int8(value.get<std::int8_t>());
             break;
@@ -180,14 +188,16 @@ void append_column(binary_tuple_builder &builder, ignite_type typ, const primiti
  */
 std::vector<std::byte> pack_tuple(
     const schema &sch, const ignite_tuple &tuple, bool key_only, protocol::bitset_span &no_value) {
-    auto count = std::int32_t(key_only ? sch.key_column_count : sch.columns.size());
+    auto count = std::int32_t(key_only ? sch.key_columns.size() : sch.columns.size());
     binary_tuple_builder builder{count};
 
     builder.start();
 
+    auto col_indices = reinterpret_cast<std::int32_t *>(alloca(count * sizeof(std::int32_t)));
     for (std::int32_t i = 0; i < count; ++i) {
-        const auto &col = sch.columns[i];
+        const auto &col = sch.get_column(key_only, i);
         auto col_idx = tuple.column_ordinal(col.name);
+        col_indices[i] = col_idx;
 
         if (col_idx >= 0)
             claim_column(builder, col.type, tuple.get(col_idx), col.scale);
@@ -195,17 +205,45 @@ std::vector<std::byte> pack_tuple(
             builder.claim_null();
     }
 
+    std::int32_t written = 0;
     builder.layout();
     for (std::int32_t i = 0; i < count; ++i) {
-        const auto &col = sch.columns[i];
-        auto col_idx = tuple.column_ordinal(col.name);
+        const auto &col = sch.get_column(key_only, i);
+        auto col_idx = col_indices[i];
 
-        if (col_idx >= 0)
+        if (col_idx >= 0) {
             append_column(builder, col.type, tuple.get(col_idx), col.scale);
-        else {
+            ++written;
+        } else {
             builder.append_null();
             no_value.set(std::size_t(i));
         }
+    }
+
+    if (!key_only && written < tuple.column_count()) {
+        std::vector<bool> written_ind(tuple.column_count(), false);
+        for (std::int32_t i = 0; i < count; ++i) {
+            auto col_idx = col_indices[i];
+
+            if (col_idx >= 0)
+                written_ind[col_idx] = true;
+        }
+
+        std::stringstream unmapped_columns;
+        for (std::int32_t i = 0; i < tuple.column_count(); ++i) {
+            if (written_ind[i])
+                continue;
+
+            auto &name = tuple.column_name(i);
+            unmapped_columns << name << ",";
+        }
+        auto unmapped_columns_str = unmapped_columns.str();
+        unmapped_columns_str.pop_back();
+
+        assert(!unmapped_columns_str.empty());
+        throw ignite_error("Tuple doesn't match schema: schemaVersion=" + std::to_string(sch.version)
+                + ", extraColumns=" + unmapped_columns_str,
+            std::int32_t(error_flag::UNMAPPED_COLUMNS_PRESENT));
     }
 
     return builder.build();
@@ -219,15 +257,17 @@ ignite_tuple concat(const ignite_tuple &left, const ignite_tuple &right) {
     res.m_indices.insert(left.m_indices.begin(), left.m_indices.end());
 
     for (const auto &pair : right.m_pairs) {
-        res.m_pairs.emplace_back(pair);
-        res.m_indices.emplace(ignite_tuple::parse_name(pair.first), res.m_pairs.size() - 1);
+        bool inserted = res.m_indices.emplace(ignite_tuple::parse_name(pair.first), res.m_pairs.size()).second;
+        if (inserted) {
+            res.m_pairs.emplace_back(pair);
+        }
     }
 
     return res;
 }
 
 void write_tuple(protocol::writer &writer, const schema &sch, const ignite_tuple &tuple, bool key_only) {
-    const std::size_t count = key_only ? sch.key_column_count : sch.columns.size();
+    const std::size_t count = key_only ? sch.key_columns.size() : sch.columns.size();
     const std::size_t bytes_num = bytes_for_bits(count);
 
     auto no_value_bytes = reinterpret_cast<std::byte *>(alloca(bytes_num));
@@ -243,6 +283,60 @@ void write_tuples(protocol::writer &writer, const schema &sch, const std::vector
     writer.write(std::int32_t(tuples.size()));
     for (auto &tuple : tuples)
         write_tuple(writer, sch, tuple, key_only);
+}
+
+ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, bool key_only) {
+    auto tuple_data = reader.read_binary();
+
+    auto columns_cnt = std::int32_t(key_only ? sch->key_columns.size() : sch->columns.size());
+    ignite_tuple res(columns_cnt);
+    binary_tuple_parser parser(columns_cnt, tuple_data);
+
+    for (std::int32_t i = 0; i < columns_cnt; ++i) {
+        auto &column = sch->get_column(key_only, i);
+        res.set(column.name, protocol::read_next_column(parser, column.type, column.scale));
+    }
+    return res;
+}
+
+std::optional<ignite_tuple> read_tuple_opt(protocol::reader &reader, const schema *sch) {
+    if (reader.try_read_nil())
+        return std::nullopt;
+
+    return read_tuple(reader, sch, false);
+}
+
+std::vector<ignite_tuple> read_tuples(protocol::reader &reader, const schema *sch, bool key_only) {
+    if (reader.try_read_nil())
+        return {};
+
+    auto count = reader.read_int32();
+    std::vector<ignite_tuple> res;
+    res.reserve(std::size_t(count));
+
+    for (std::int32_t i = 0; i < count; ++i)
+        res.emplace_back(read_tuple(reader, sch, key_only));
+
+    return res;
+}
+
+std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader &reader, const schema *sch, bool key_only) {
+    if (reader.try_read_nil())
+        return {};
+
+    auto count = reader.read_int32();
+    std::vector<std::optional<ignite_tuple>> res;
+    res.reserve(std::size_t(count));
+
+    for (std::int32_t i = 0; i < count; ++i) {
+        auto exists = reader.read_bool();
+        if (!exists)
+            res.emplace_back(std::nullopt);
+        else
+            res.emplace_back(read_tuple(reader, sch, key_only));
+    }
+
+    return res;
 }
 
 } // namespace ignite::detail

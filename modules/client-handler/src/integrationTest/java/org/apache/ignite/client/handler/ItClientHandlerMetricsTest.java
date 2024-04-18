@@ -23,6 +23,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.SocketException;
 import java.nio.file.Path;
+import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -35,7 +40,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Client handler metrics tests. See also {@code org.apache.ignite.client.MetricsTest}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItClientHandlerMetricsTest {
+@ExtendWith(ConfigurationExtension.class)
+public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
+    @InjectConfiguration
+    private NetworkConfiguration networkConfiguration;
+
+    @InjectConfiguration
+    private ClientConnectorConfiguration clientConnectorConfiguration;
+
     private TestServer testServer;
 
     @WorkDirectory
@@ -55,7 +67,9 @@ public class ItClientHandlerMetricsTest {
                         .keyStorePath(ItClientHandlerTestUtils.generateKeystore(workDir))
                         .keyStorePassword("changeit")
                         .build(),
-                null
+                null,
+                clientConnectorConfiguration,
+                networkConfiguration
         );
 
         var serverModule = testServer.start(testInfo);
@@ -69,7 +83,7 @@ public class ItClientHandlerMetricsTest {
 
     @Test
     void testSessionsRejected(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, null);
+        testServer = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
         var serverModule = testServer.start(testInfo);
 
         // Bad MAGIC.
@@ -90,7 +104,7 @@ public class ItClientHandlerMetricsTest {
 
     @Test
     void testSessionsRejectedTimeout(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, null);
+        testServer = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
         testServer.idleTimeout(300);
         var serverModule = testServer.start(testInfo);
 
@@ -107,7 +121,7 @@ public class ItClientHandlerMetricsTest {
 
     @Test
     void testSessionsAccepted(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, null);
+        testServer = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
         var serverModule = testServer.start(testInfo);
 
         ItClientHandlerTestUtils.connectAndHandshake(serverModule);
@@ -116,7 +130,7 @@ public class ItClientHandlerMetricsTest {
 
     @Test
     void testSessionsActive(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, null);
+        testServer = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
         var serverModule = testServer.start(testInfo);
 
         try (var ignored = ItClientHandlerTestUtils.connectAndHandshakeAndGetSocket(serverModule)) {
@@ -128,7 +142,7 @@ public class ItClientHandlerMetricsTest {
 
     @Test
     void testBytesSentReceived(TestInfo testInfo) throws Exception {
-        testServer = new TestServer(null, null);
+        testServer = new TestServer(null, null, clientConnectorConfiguration, networkConfiguration);
         var serverModule = testServer.start(testInfo);
 
         assertEquals(0, testServer.metrics().bytesSent());
@@ -137,7 +151,7 @@ public class ItClientHandlerMetricsTest {
         ItClientHandlerTestUtils.connectAndHandshake(serverModule);
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 54, 1000),
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 80, 1000),
                 () -> "bytesSent: " + testServer.metrics().bytesSent());
 
         assertTrue(
@@ -147,7 +161,7 @@ public class ItClientHandlerMetricsTest {
         ItClientHandlerTestUtils.connectAndHandshake(serverModule, false, true);
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 158, 1000),
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 185, 1000),
                 () -> "bytesSent: " + testServer.metrics().bytesSent());
 
         assertTrue(

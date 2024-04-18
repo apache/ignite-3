@@ -23,8 +23,8 @@ import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PART
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -203,12 +203,12 @@ public abstract class BplusInnerIo<L> extends BplusIo<L> {
      * @return Row bytes.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public @Nullable byte[] initNewRoot(
+    public byte @Nullable [] initNewRoot(
             long newRootPageAddr,
             long newRootId,
             long leftChildId,
             L row,
-            @Nullable byte[] rowBytes,
+            byte @Nullable [] rowBytes,
             long rightChildId,
             int pageSize,
             boolean needRowBytes

@@ -17,26 +17,27 @@
 
 package org.apache.ignite.internal.compute.message;
 
+import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Used to implement remote job execution in {@link org.apache.ignite.compute.IgniteCompute#execute(Set, Class, Object...)}.
+ * Used to implement remote job execution in {@link org.apache.ignite.compute.IgniteCompute#execute(Set, List, String, Object...)}.
  */
-@Transferable(value = ComputeMessageTypes.EXECUTE_RESPONSE)
+@Transferable(ComputeMessageTypes.EXECUTE_RESPONSE)
 public interface ExecuteResponse extends NetworkMessage {
     /**
-     * Returns job execution result ({@code null} if the execution has failed).
+     * Returns job id or {@code null} if the execution has failed.
      *
-     * @return result ({@code null} if the execution has failed)
+     * @return Job id or {@code null} if the execution has failed.
      */
     @Nullable
-    @Marshallable
-    Object result();
+    UUID jobId();
 
     /**
      * Returns a {@link Throwable} that was thrown during job execution ({@code null} if the execution was successful).

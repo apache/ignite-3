@@ -24,8 +24,6 @@ import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Patch;
 import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Produces;
-import io.micronaut.security.annotation.Secured;
-import io.micronaut.security.rules.SecurityRule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -41,7 +39,6 @@ import org.apache.ignite.internal.rest.constants.MediaType;
  * Node configuration controller.
  */
 @Controller("/management/v1/configuration/node")
-@Secured(SecurityRule.IS_AUTHENTICATED)
 @Tag(name = "nodeConfiguration")
 public interface NodeConfigurationApi {
     /**
@@ -93,6 +90,7 @@ public interface NodeConfigurationApi {
     @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.TEXT_PLAIN)
+    @Produces(MediaType.PROBLEM_JSON)
     @Patch
     CompletableFuture<Void> updateConfiguration(
             @Body @RequestBody(description = "The node configuration to update.") String updatedConfiguration

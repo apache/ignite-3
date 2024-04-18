@@ -19,9 +19,11 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Threading.Tasks;
 using Internal;
-using Log;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 using NUnit.Framework;
 
 /// <summary>
@@ -29,37 +31,77 @@ using NUnit.Framework;
 /// </summary>
 public class LoggingTests
 {
+    [TearDown]
+    public void TearDown() => TestUtils.CheckByteArrayPoolLeak(5000);
+
     [Test]
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
     public async Task TestBasicLogging()
     {
-        var logger = new ListLogger(new ConsoleLogger { MinLevel = LogLevel.Trace });
-        logger.EnabledLevels.Clear();
-        logger.EnabledLevels.AddRange(Enum.GetValues<LogLevel>());
-
-        var cfg = new IgniteClientConfiguration { Logger = logger };
+        var logger = new ListLoggerFactory(Enum.GetValues<LogLevel>());
+        var cfg = new IgniteClientConfiguration
+        {
+            LoggerFactory = logger,
+            SocketTimeout = TimeSpan.FromSeconds(1)
+        };
 
         using var servers = FakeServerGroup.Create(3);
         using (var client = await servers.ConnectClientAsync(cfg))
         {
-            TestUtils.WaitForCondition(() => client.GetConnections().Count == 3);
+            client.WaitForConnections(3);
 
             await client.Tables.GetTablesAsync();
-            await client.Sql.ExecuteAsync(null, "select 1");
+            await using var cursor = await client.Sql.ExecuteAsync(null, "select 1");
         }
 
         var log = logger.GetLogString();
 
         StringAssert.Contains(
-            $"ClientFailoverSocket [Info] Ignite.NET client version {VersionUtils.GetInformationalVersion()} is starting",
+            $"Apache.Ignite.Internal.ClientFailoverSocket [Information] " +
+            $"Ignite.NET client version {VersionUtils.InformationalVersion} is starting",
             log);
 
+        StringAssert.Contains("[Debug] Connection established", log);
+        StringAssert.Contains("[Debug] Handshake succeeded [remoteAddress=[", log);
+        StringAssert.Contains("ClientFailoverSocket [Debug] Trying to establish secondary connections - awaiting 2 tasks", log);
+        StringAssert.Contains("ClientFailoverSocket [Debug] 2 secondary connections established, 0 failed", log);
+        StringAssert.Contains("[Trace] Sending request [requestId=1, op=TablesGet, remoteAddress=", log);
+        StringAssert.Contains("[Trace] Received response [requestId=1, flags=PartitionAssignmentChanged, remoteAddress=", log);
+        StringAssert.Contains("op=SqlExec", log);
+        StringAssert.Contains("[Debug] Connection closed gracefully", log);
+    }
+
+    [Test]
+    public async Task TestMicrosoftConsoleLogger()
+    {
+        var oldWriter = Console.Out;
+        var writer = new StringWriter();
+        Console.SetOut(TextWriter.Synchronized(writer));
+
+        try
+        {
+            var cfg = new IgniteClientConfiguration
+            {
+                LoggerFactory = LoggerFactory.Create(builder =>
+                    builder.AddSimpleConsole(opt => opt.ColorBehavior = LoggerColorBehavior.Disabled)
+                        .SetMinimumLevel(LogLevel.Trace))
+            };
+
+            using var server = new FakeServer();
+            using var client = await server.ConnectClientAsync(cfg);
+            await client.Tables.GetTablesAsync();
+        }
+        finally
+        {
+            Console.SetOut(oldWriter);
+        }
+
+        // Prevent further writes before accessing the inner StringBuilder.
+        writer.Close();
+        var log = writer.ToString();
+
+        StringAssert.Contains("dbug: Apache.Ignite.Internal.ClientSocket", log);
         StringAssert.Contains("Connection established", log);
-        StringAssert.Contains("Handshake succeeded", log);
-        StringAssert.Contains("Trying to establish secondary connections - awaiting 2 tasks", log);
-        StringAssert.Contains("All secondary connections established", log);
-        StringAssert.Contains("Sending request [op=TablesGet", log);
-        StringAssert.Contains("Sending request [op=SqlExec", log);
-        StringAssert.Contains("Connection closed", log);
+        StringAssert.Contains("Handshake succeeded [remoteAddress=[", log);
     }
 }

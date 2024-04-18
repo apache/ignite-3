@@ -20,11 +20,10 @@ package org.apache.ignite.internal.tx;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -36,17 +35,15 @@ public interface InternalTransaction extends Transaction {
      *
      * @return The id.
      */
-    @NotNull UUID id();
+    UUID id();
 
     /**
      * Returns enlisted primary replica node associated with given replication group.
      *
      * @param tablePartitionId Table partition id.
-     * @return Enlisted primary replica node and raft term associated with given replication group.
+     * @return Enlisted primary replica node and consistency token associated with given replication group.
      */
-    // TODO: IGNITE-17256 IgniteBiTuple along with second parameter term will be removed after introducing leased based primary replica
-    // TODO: selection and failover engine.
-    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId);
+    IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId);
 
     /**
      * Returns a transaction state.
@@ -74,18 +71,10 @@ public interface InternalTransaction extends Transaction {
      * Enlists a partition group into a transaction.
      *
      * @param tablePartitionId Table partition id to enlist.
-     * @param nodeAndTerm Primary replica cluster node and raft term to enlist for given replication group.
+     * @param nodeAndConsistencyToken Primary replica cluster node and consistency token to enlist for given replication group.
      * @return {@code True} if a partition is enlisted into the transaction.
      */
-    IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndTerm);
-
-    /**
-     * Enlists operation future in transaction. It's used in order to wait corresponding tx operations before commit.
-     *
-     * @param resultFuture Operation result future.
-     */
-    @Deprecated
-    void enlistResultFuture(CompletableFuture<?> resultFuture);
+    IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId, IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken);
 
     /**
      * Returns read timestamp for the given transaction if it is a read-only one or {code null} otherwise.
@@ -101,4 +90,22 @@ public interface InternalTransaction extends Transaction {
      * @return Timestamp that is used to obtain the effective schema version used inside the transaction.
      */
     HybridTimestamp startTimestamp();
+
+    /**
+     * Get the transaction coordinator inconsistent ID.
+     *
+     * @return Transaction coordinator inconsistent ID.
+     */
+    String coordinatorId();
+
+    /**
+     * Finishes a read-only transaction with a specific execution timestamp.
+     *
+     * @param commit Commit flag. The flag is ignored for read-only transactions.
+     * @param executionTimestamp The timestamp is the time when a read-only transaction is applied to the remote node.
+     * @return The future.
+     */
+    default CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp) {
+        return commit ? commitAsync() : rollbackAsync();
+    }
 }

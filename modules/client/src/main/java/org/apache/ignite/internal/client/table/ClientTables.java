@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 
@@ -34,13 +35,17 @@ import org.apache.ignite.table.manager.IgniteTables;
 public class ClientTables implements IgniteTables {
     private final ReliableChannel ch;
 
+    private final MarshallersProvider marshallers;
+
     /**
      * Constructor.
      *
      * @param ch Channel.
+     * @param marshallers Marshallers provider.
      */
-    public ClientTables(ReliableChannel ch) {
+    public ClientTables(ReliableChannel ch, MarshallersProvider marshallers) {
         this.ch = ch;
+        this.marshallers = marshallers;
     }
 
     /** {@inheritDoc} */
@@ -54,11 +59,11 @@ public class ClientTables implements IgniteTables {
     public CompletableFuture<List<Table>> tablesAsync() {
         return ch.serviceAsync(ClientOp.TABLES_GET, r -> {
             var in = r.in();
-            var cnt = in.unpackMapHeader();
+            var cnt = in.unpackInt();
             var res = new ArrayList<Table>(cnt);
 
             for (int i = 0; i < cnt; i++) {
-                res.add(new ClientTable(ch, in.unpackInt(), in.unpackString()));
+                res.add(new ClientTable(ch, marshallers, in.unpackInt(), in.unpackString()));
             }
 
             return res;
@@ -77,6 +82,6 @@ public class ClientTables implements IgniteTables {
         Objects.requireNonNull(name);
 
         return ch.serviceAsync(ClientOp.TABLE_GET, w -> w.out().packString(name),
-                r -> r.in().tryUnpackNil() ? null : new ClientTable(ch, r.in().unpackInt(), name));
+                r -> r.in().tryUnpackNil() ? null : new ClientTable(ch, marshallers, r.in().unpackInt(), name));
     }
 }

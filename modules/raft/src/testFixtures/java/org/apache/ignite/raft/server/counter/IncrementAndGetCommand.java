@@ -17,15 +17,15 @@
 
 package org.apache.ignite.raft.server.counter;
 
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.raft.messages.TestMessageGroup;
 import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 
 /**
  * Increment and get command.
  */
-//TODO IGNITE-18357 Move to integration test directory when Maven build is not supported anymore.
+// TODO IGNITE-18357 Move to integration test directory when Maven build is not supported anymore.
 @Transferable(TestMessageGroup.INCREMENT_AND_GET_COMMAND)
 public interface IncrementAndGetCommand extends WriteCommand {
     /**

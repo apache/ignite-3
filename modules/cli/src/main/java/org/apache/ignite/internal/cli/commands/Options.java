@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import static java.util.stream.Collectors.toSet;
+
+import java.util.Set;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 
 /**
@@ -79,6 +83,10 @@ public enum Options {
 
     public String shortName() {
         return shortName;
+    }
+
+    public Set<String> names() {
+        return Stream.of(fullName, shortName).collect(toSet());
     }
 
     public String description() {
@@ -258,5 +266,23 @@ public enum Options {
         public static final String CLUSTER_CONFIG_FILE_OPTION_SHORT = "-cfgf";
 
         public static final String CLUSTER_CONFIG_FILE_OPTION_DESC = "Path to cluster configuration file";
+
+        public static final String PASSWORD_OPTION = "--password";
+
+        public static final String PASSWORD_OPTION_SHORT = "-p";
+
+        public static final String PASSWORD_OPTION_DESC = "Password to connect to cluster";
+
+        public static final String USERNAME_OPTION = "--username";
+
+        public static final String USERNAME_OPTION_SHORT = "-u";
+
+        public static final String USERNAME_OPTION_DESC = "Username to connect to cluster";
+
+        public static final String USERNAME_KEY = CliConfigKeys.Constants.BASIC_AUTHENTICATION_USERNAME;
+
+        public static final String PASSWORD_KEY = CliConfigKeys.Constants.BASIC_AUTHENTICATION_PASSWORD;
+
+
     }
 }

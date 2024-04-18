@@ -17,26 +17,23 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Objects;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlWriter;
-import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
@@ -56,17 +53,21 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(createZone.name().names, is(List.of("TEST_ZONE")));
         assertFalse(createZone.ifNotExists());
         assertNull(createZone.createOptionList());
+        expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\"");
 
         // Fully qualified name.
         createZone = parseCreateZone("create zone public.test_zone");
         assertThat(createZone.name().names, is(List.of("PUBLIC", "TEST_ZONE")));
+        expectUnparsed(createZone, "CREATE ZONE \"PUBLIC\".\"TEST_ZONE\"");
 
         // Quoted identifier.
         createZone = parseCreateZone("create zone \"public\".\"test_Zone\"");
         assertThat(createZone.name().names, is(List.of("public", "test_Zone")));
+        expectUnparsed(createZone, "CREATE ZONE \"public\".\"test_Zone\"");
 
         createZone = parseCreateZone("create zone \"public-test_Zone\"");
         assertThat(createZone.name().names, is(List.of("public-test_Zone")));
+        expectUnparsed(createZone, "CREATE ZONE \"public-test_Zone\"");
     }
 
     /**
@@ -78,6 +79,8 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
 
         assertTrue(createZone.ifNotExists());
         assertNull(createZone.createOptionList());
+
+        expectUnparsed(createZone, "CREATE ZONE IF NOT EXISTS \"TEST_ZONE\"");
     }
 
     /**
@@ -131,10 +134,13 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(dropZone.name().names, is(List.of("TEST_ZONE")));
         assertFalse(dropZone.ifExists());
 
+        expectUnparsed(node, "DROP ZONE \"TEST_ZONE\"");
+
         // Fully qualified name.
         dropZone = ((IgniteSqlDropZone) parse("drop zone public.test_zone"));
 
         assertThat(dropZone.name().names, is(List.of("PUBLIC", "TEST_ZONE")));
+        expectUnparsed(dropZone, "DROP ZONE \"PUBLIC\".\"TEST_ZONE\"");
     }
 
     /**
@@ -174,11 +180,63 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     /**
+     * Parsing ALTER ZONE SET DEFAULT statement.
+     */
+    @Test
+    public void alterZoneSetDefault() {
+        IgniteSqlAlterZoneSetDefault alterZone =
+                assertInstanceOf(IgniteSqlAlterZoneSetDefault.class, parse("alter zone a.test_zone set default"));
+
+        assertFalse(alterZone.ifExists());
+
+        String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET DEFAULT";
+        expectUnparsed(alterZone, expectedStmt);
+    }
+
+    /**
+     * Parsing ALTER ZONE IF EXISTS SET DEFAULT statement.
+     */
+    @Test
+    public void alterZoneIfExistsSetDefault() {
+        IgniteSqlAlterZoneSetDefault alterZone =
+                assertInstanceOf(IgniteSqlAlterZoneSetDefault.class, parse("alter zone if exists a.test_zone set default"));
+        assertTrue(alterZone.ifExists());
+
+        String expectedStmt = "ALTER ZONE IF EXISTS \"A\".\"TEST_ZONE\" SET DEFAULT";
+        expectUnparsed(alterZone, expectedStmt);
+    }
+
+    /**
+     * Ensures that we cannot change zone parameters and set this zone as default in the same request.
+     */
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void alterZoneSetDefaultWithOptionsIsIllegal() {
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query",
+                () -> parse("alter zone a.test_zone set replicas=2, default")
+        );
+
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query",
+                () -> parse("alter zone a.test_zone set default, replicas=2")
+        );
+
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query",
+                () -> parse("alter zone a.test_zone set default replicas=2")
+        );
+    }
+
+    /**
      * Parsing ALTER ZONE RENAME TO statement with invalid arguments.
      */
     @Test
     public void alterZoneRenameToWithCompoundIdIsIllegal() {
-        assertThrows(SqlException.class, () -> parse("alter zone a.test_zone rename to b.zone1"));
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR, "Failed to parse query", () -> parse("alter zone a.test_zone rename to b.zone1"));
     }
 
     /**
@@ -243,7 +301,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      */
     @Test
     public void alterZoneSetNoOptionsIsIllegal() {
-        assertThrows(SqlException.class, () -> parse("alter zone test_zone set"));
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR, "Failed to parse query", () -> parse("alter zone test_zone set"));
     }
 
     /**
@@ -274,16 +332,6 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
         SqlNode node = parse(stmt);
 
         return assertInstanceOf(IgniteSqlAlterZoneRenameTo.class, node);
-    }
-
-    /**
-     * Compares the result of calling {@link SqlNode#unparse(SqlWriter, int, int)}} on the given node with the expected string.
-     */
-    private static void expectUnparsed(SqlNode node, String expectedStmt) {
-        SqlPrettyWriter w = new SqlPrettyWriter();
-        node.unparse(w, 0, 0);
-
-        assertThat(w.toString(), equalTo(expectedStmt));
     }
 
     private void assertThatZoneOptionPresent(List<SqlNode> optionList, ZoneOptionEnum name, Object expVal) {

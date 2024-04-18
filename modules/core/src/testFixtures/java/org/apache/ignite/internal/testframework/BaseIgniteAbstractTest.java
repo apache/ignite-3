@@ -17,85 +17,72 @@
 
 package org.apache.ignite.internal.testframework;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getString;
 import static org.apache.ignite.internal.util.IgniteUtils.monotonicMs;
-import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
-import static org.apache.ignite.lang.IgniteSystemProperties.getString;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.lang.reflect.Method;
-import java.nio.file.Path;
-import java.util.logging.LogManager;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy;
-import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
 
 /**
  * Ignite base test class.
  */
 @ExtendWith(SystemPropertiesExtension.class)
+@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "true")
 public abstract class BaseIgniteAbstractTest {
     /** Logger. */
-    protected static IgniteLogger log;
+    protected final IgniteLogger log = Loggers.forClass(getClass());
 
     /** Test start time in milliseconds. */
     private long testStartMs;
 
-    //
-    // IDEA test runner didn't apply provided from Gradle scripts -Djava.util.logging.config.file
-    // So, we need to apply logging properties manually to {@link LogManager}.
-    //
-    static {
-        try (InputStream is = BaseIgniteAbstractTest.class.getClassLoader()
-                        .getResourceAsStream("java.util.logging.properties")) {
-            LogManager.getLogManager().readConfiguration(is);
-        } catch (IOException e) {
-            throw new IllegalStateException("Logger properties not found.");
-        }
+    @BeforeAll
+    static void setLoggingPolicy() {
+        S.setSensitiveDataLoggingPolicySupplier(() -> {
+            String loggingPolicy = getString(IGNITE_SENSITIVE_DATA_LOGGING, "hash");
 
-        /* Init test env. */
-        S.setSensitiveDataLoggingPolicySupplier(() ->
-                SensitiveDataLoggingPolicy.valueOf(getString(IGNITE_SENSITIVE_DATA_LOGGING, "hash").toUpperCase()));
+            return SensitiveDataLoggingPolicy.valueOf(loggingPolicy.toUpperCase());
+        });
     }
 
     /**
-     * Should be invoked before a test will start.
-     *
-     * @param testInfo Test information object.
-     * @param workDir Work directory.
+     * Prevents accidental leaks from Mockito.
      */
-    protected void setupBase(TestInfo testInfo, @Nullable Path workDir) {
-        log.info(">>> Starting test: {}#{}, displayName: {}, workDir: {}",
+    @AfterAll
+    static void clearInlineMocks() {
+        Mockito.framework().clearInlineMocks();
+    }
+
+    @BeforeEach
+    void printStartMessage(TestInfo testInfo) {
+        log.info(">>> Starting test: {}#{}, displayName: {}",
                 testInfo.getTestClass().map(Class::getSimpleName).orElse("<null>"),
                 testInfo.getTestMethod().map(Method::getName).orElse("<null>"),
-                testInfo.getDisplayName(),
-                workDir == null ? "<null>" : workDir.toAbsolutePath());
+                testInfo.getDisplayName()
+        );
 
         this.testStartMs = monotonicMs();
     }
 
-    /**
-     * Should be invoked after the test has finished.
-     *
-     * @param testInfo Test information object.
-     */
-    protected void tearDownBase(TestInfo testInfo) {
+    @AfterEach
+    void printStopMessage(TestInfo testInfo) {
         log.info(">>> Stopping test: {}#{}, displayName: {}, cost: {}ms.",
                 testInfo.getTestClass().map(Class::getSimpleName).orElse("<null>"),
                 testInfo.getTestMethod().map(Method::getName).orElse("<null>"),
-                testInfo.getDisplayName(), monotonicMs() - testStartMs);
-    }
-
-    /**
-     * Constructor.
-     */
-    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
-    protected BaseIgniteAbstractTest() {
-        log = Loggers.forClass(getClass());
+                testInfo.getDisplayName(),
+                monotonicMs() - testStartMs
+        );
     }
 
     /**
@@ -103,7 +90,7 @@ public abstract class BaseIgniteAbstractTest {
      *
      * @return Logger.
      */
-    protected static IgniteLogger logger() {
+    protected IgniteLogger logger() {
         return log;
     }
 }

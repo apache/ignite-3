@@ -49,6 +49,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -58,16 +59,23 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCloseResult;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
+import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.apache.ignite.internal.util.TransformingIterator;
+import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Jdbc result set implementation.
@@ -101,7 +109,7 @@ public class JdbcResultSet implements ResultSet {
     private Map<String, Integer> colOrder;
 
     /** Rows. */
-    private List<List<Object>> rows;
+    private List<BinaryTupleReader> rows;
 
     /** Rows iterator. */
     private Iterator<List<Object>> rowsIter;
@@ -127,9 +135,6 @@ public class JdbcResultSet implements ResultSet {
     /** Is query flag. */
     private boolean isQuery;
 
-    /** Auto close server cursors flag. */
-    private boolean autoClose;
-
     /** Update count. */
     private long updCnt;
 
@@ -142,22 +147,33 @@ public class JdbcResultSet implements ResultSet {
     /** Jdbc metadata. */
     private JdbcResultSetMetadata jdbcMeta;
 
+    /** Count of columns in resultSet row. */
+    private int columnCount;
+
+    /** Function to deserialize raw rows to list of objects. */
+    private Function<BinaryTupleReader, List<Object>> transformer;
+
+    /** If {#code true} indicates that handler still holds cursor in resources. */
+    private boolean holdsResource = true;
+
     /**
      * Creates new result set.
      *
-     * @param handler    JdbcQueryCursorHandler.
-     * @param stmt       Statement.
-     * @param cursorId   Cursor ID.
-     * @param fetchSize  Fetch size.
-     * @param finished   Finished flag.
-     * @param rows       Rows.
-     * @param isQry      Is Result ser for Select query.
-     * @param autoClose  Is automatic close of server cursors enabled.
-     * @param updCnt     Update count.
-     * @param closeStmt  Close statement on the result set close.
+     * @param handler     JdbcQueryCursorHandler.
+     * @param stmt        Statement.
+     * @param cursorId    Cursor ID.
+     * @param fetchSize   Fetch size.
+     * @param finished    Finished flag.
+     * @param rows        Rows.
+     * @param isQry       Is Result ser for Select query.
+     * @param updCnt      Update count.
+     * @param closeStmt   Close statement on the result set close.
+     * @param columnCount Count of columns in resultSet row.
+     * @param transformer Function to deserialize raw rows to list of objects.
      */
     JdbcResultSet(JdbcQueryCursorHandler handler, JdbcStatement stmt, Long cursorId, int fetchSize, boolean finished,
-            List<List<Object>> rows, boolean isQry, boolean autoClose, long updCnt, boolean closeStmt) {
+            List<BinaryTupleReader> rows, boolean isQry, long updCnt, boolean closeStmt, int columnCount,
+            Function<BinaryTupleReader, List<Object>> transformer) {
         assert stmt != null;
         assert fetchSize > 0;
 
@@ -167,13 +183,14 @@ public class JdbcResultSet implements ResultSet {
         this.fetchSize = fetchSize;
         this.finished = finished;
         this.isQuery = isQry;
-        this.autoClose = autoClose;
         this.closeStmt = closeStmt;
+        this.columnCount = columnCount;
+        this.transformer = transformer;
 
         if (isQuery) {
             this.rows = rows;
 
-            rowsIter = rows != null ? rows.iterator() : null;
+            rowsIter = rows != null ? new TransformingIterator<>(rows.iterator(), transformer) : null;
         } else {
             this.updCnt = updCnt;
         }
@@ -194,11 +211,51 @@ public class JdbcResultSet implements ResultSet {
         finished = true;
         isQuery = true;
 
-        this.rows = rows;
         this.rowsIter = rows.iterator();
         this.jdbcMeta = new JdbcResultSetMetadata(meta);
 
         initColumnOrder();
+    }
+
+    boolean holdResults() {
+        return rows != null;
+    }
+
+    @Nullable JdbcResultSet getNextResultSet() throws SQLException {
+        try {
+            JdbcFetchQueryResultsRequest req = new JdbcFetchQueryResultsRequest(cursorId, fetchSize);
+            JdbcQuerySingleResult res = cursorHandler.getMoreResultsAsync(req).get();
+
+            close0(true);
+
+            if (!res.resultAvailable()) {
+                if (res.status() == Response.STATUS_FAILED) {
+                    throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
+                }
+
+                return null;
+            }
+
+            long cursorId0 = res.cursorId();
+
+            List<ColumnType> columnTypes = res.columnTypes();
+            int[] decimalScales = res.decimalScales();
+
+            rows = List.of();
+
+            Function<BinaryTupleReader, List<Object>> transformer = createTransformer(columnTypes, decimalScales);
+
+            int colCount = columnTypes == null ? 0 : columnTypes.size();
+
+            return new JdbcResultSet(cursorHandler, stmt, cursorId0, fetchSize, res.last(), res.items(),
+                    res.isQuery(), res.updateCount(), closeStmt, colCount, transformer);
+        } catch (InterruptedException e) {
+            throw new SQLException("Thread was interrupted.", e);
+        } catch (ExecutionException e) {
+            throw new SQLException("Fetch request failed.", e);
+        } catch (CancellationException e) {
+            throw new SQLException("Fetch request canceled.", SqlStateCode.QUERY_CANCELLED);
+        }
     }
 
     /** {@inheritDoc} */
@@ -207,16 +264,20 @@ public class JdbcResultSet implements ResultSet {
         ensureNotClosed();
         if ((rowsIter == null || !rowsIter.hasNext()) && !finished) {
             try {
-                JdbcQueryFetchResult res = cursorHandler.fetchAsync(new JdbcQueryFetchRequest(cursorId, fetchSize)).get();
+                JdbcQueryFetchResult res = cursorHandler.fetchAsync(new JdbcFetchQueryResultsRequest(cursorId, fetchSize)).get();
 
                 if (!res.hasResults()) {
                     throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
                 }
 
-                rows = res.items();
+                rows = new ArrayList<>(res.items().size());
+                for (ByteBuffer item : res.items()) {
+                    rows.add(new BinaryTupleReader(columnCount, item));
+                }
+
                 finished = res.last();
 
-                rowsIter = rows.iterator();
+                rowsIter = new TransformingIterator<>(rows.iterator(), transformer);
             } catch (InterruptedException e) {
                 throw new SQLException("Thread was interrupted.", e);
             } catch (ExecutionException e) {
@@ -247,7 +308,7 @@ public class JdbcResultSet implements ResultSet {
     /** {@inheritDoc} */
     @Override
     public void close() throws SQLException {
-        close0();
+        close0(false);
 
         if (closeStmt) {
             stmt.closeIfAllResultsClosed();
@@ -257,16 +318,20 @@ public class JdbcResultSet implements ResultSet {
     /**
      * Close result set.
      *
+     * @param removeFromResources If {@code true} cursor need to be removed from client resources.
+     *
      * @throws SQLException On error.
      */
-    void close0() throws SQLException {
-        if (isClosed() || cursorId == null) {
+    void close0(boolean removeFromResources) throws SQLException {
+        if (!holdsResource && (isClosed() || cursorId == null)) {
             return;
         }
 
+        holdsResource = !removeFromResources;
+
         try {
-            if (stmt != null && (!finished || (isQuery && !autoClose))) {
-                JdbcQueryCloseResult res = cursorHandler.closeAsync(new JdbcQueryCloseRequest(cursorId)).get();
+            if (stmt != null) {
+                JdbcQueryCloseResult res = cursorHandler.closeAsync(new JdbcQueryCloseRequest(cursorId, removeFromResources)).get();
 
                 if (!res.hasResults()) {
                     throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
@@ -281,6 +346,10 @@ public class JdbcResultSet implements ResultSet {
         } finally {
             closed = true;
         }
+    }
+
+    boolean holdsResources() {
+        return holdsResource;
     }
 
     /** {@inheritDoc} */
@@ -2199,7 +2268,7 @@ public class JdbcResultSet implements ResultSet {
      * @throws SQLException On error.
      */
     private void initMeta() throws SQLException {
-        if (finished && (!isQuery || autoClose)) {
+        if (finished && !isQuery) {
             throw new SQLException("Server cursor is already closed.", SqlStateCode.INVALID_CURSOR_STATE);
         }
 
@@ -2218,5 +2287,25 @@ public class JdbcResultSet implements ResultSet {
         } catch (CancellationException e) {
             throw new SQLException("Metadata request canceled.", SqlStateCode.QUERY_CANCELLED);
         }
+    }
+
+    static Function<BinaryTupleReader, List<Object>> createTransformer(List<ColumnType> columnTypes, int[] decimalScales) {
+        return (tuple) -> {
+            int columnCount = columnTypes.size();
+            List<Object> row = new ArrayList<>(columnCount);
+            int decimalIdx = 0;
+            int currentDecimalScale = -1;
+
+            for (int colIdx = 0; colIdx < columnCount; colIdx++) {
+                ColumnType type = columnTypes.get(colIdx);
+                if (type == ColumnType.DECIMAL) {
+                    currentDecimalScale = decimalScales[decimalIdx++];
+                }
+
+                row.add(JdbcConverterUtils.deriveValueFromBinaryTuple(type, tuple, colIdx, currentDecimalScale));
+            }
+
+            return row;
+        };
     }
 }

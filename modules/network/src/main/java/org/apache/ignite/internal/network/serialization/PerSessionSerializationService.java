@@ -31,13 +31,10 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageDeserializer;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.serialization.MessageSerializer;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -50,7 +47,7 @@ public class PerSessionSerializationService {
     private static final NetworkMessagesFactory MSG_FACTORY = new NetworkMessagesFactory();
 
     /** Integer value that is sent when there is no descriptor. */
-    private static final int NO_DESCRIPTOR_ID = Integer.MIN_VALUE;
+    private static final int NO_DESCRIPTOR_ID = -1;
 
     /** Global serialization service. */
     private final SerializationService serializationService;
@@ -179,7 +176,7 @@ public class PerSessionSerializationService {
     private static byte fieldFlags(FieldDescriptor fieldDescriptor) {
         int bits = condMask(fieldDescriptor.isUnshared(), FieldDescriptorMessage.UNSHARED_MASK)
                 | condMask(fieldDescriptor.isPrimitive(), FieldDescriptorMessage.IS_PRIMITIVE)
-                | condMask(fieldDescriptor.isRuntimeTypeKnownUpfront(), FieldDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT);
+                | condMask(fieldDescriptor.isSerializationTypeKnownUpfront(), FieldDescriptorMessage.IS_SERIALIZATION_TYPE_KNOWN_UPFRONT);
         return (byte) bits;
     }
 
@@ -200,7 +197,7 @@ public class PerSessionSerializationService {
         int bits = condMask(descriptor.isPrimitive(), ClassDescriptorMessage.IS_PRIMITIVE_MASK)
                 | condMask(descriptor.isArray(), ClassDescriptorMessage.IS_ARRAY_MASK)
                 | condMask(descriptor.isRuntimeEnum(), ClassDescriptorMessage.IS_RUNTIME_ENUM_MASK)
-                | condMask(descriptor.isRuntimeTypeKnownUpfront(), ClassDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT_MASK);
+                | condMask(descriptor.isSerializationTypeKnownUpfront(), ClassDescriptorMessage.IS_SERIALIZATION_TYPE_KNOWN_UPFRONT_MASK);
         return (byte) bits;
     }
 
@@ -303,7 +300,7 @@ public class PerSessionSerializationService {
                 bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_PRIMITIVE_MASK),
                 bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_ARRAY_MASK),
                 bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_RUNTIME_ENUM_MASK),
-                bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT_MASK),
+                bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_SERIALIZATION_TYPE_KNOWN_UPFRONT_MASK),
                 remoteFields,
                 serialization,
                 localDescriptor
@@ -325,7 +322,7 @@ public class PerSessionSerializationService {
                 bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_PRIMITIVE_MASK),
                 bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_ARRAY_MASK),
                 bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_RUNTIME_ENUM_MASK),
-                bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT_MASK),
+                bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_SERIALIZATION_TYPE_KNOWN_UPFRONT_MASK),
                 remoteFields,
                 serialization
         );
@@ -372,7 +369,7 @@ public class PerSessionSerializationService {
                 typeDescriptorId,
                 bitValue(fieldMessage.flags(), FieldDescriptorMessage.UNSHARED_MASK),
                 bitValue(fieldMessage.flags(), FieldDescriptorMessage.IS_PRIMITIVE),
-                bitValue(fieldMessage.flags(), FieldDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT),
+                bitValue(fieldMessage.flags(), FieldDescriptorMessage.IS_SERIALIZATION_TYPE_KNOWN_UPFRONT),
                 declaringClass
         );
     }
@@ -385,7 +382,7 @@ public class PerSessionSerializationService {
                 typeDescriptorId,
                 bitValue(fieldMessage.flags(), FieldDescriptorMessage.UNSHARED_MASK),
                 bitValue(fieldMessage.flags(), FieldDescriptorMessage.IS_PRIMITIVE),
-                bitValue(fieldMessage.flags(), FieldDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT),
+                bitValue(fieldMessage.flags(), FieldDescriptorMessage.IS_SERIALIZATION_TYPE_KNOWN_UPFRONT),
                 declaringClassName
         );
     }

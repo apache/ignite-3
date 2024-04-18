@@ -104,7 +104,7 @@ inline std::string get_last_system_error(std::string_view description, std::stri
  * @param advice User advice.
  */
 inline void throw_last_system_error(std::string_view description, std::string_view advice = {}) {
-    throw ignite_error(status_code::OS, get_last_system_error(description, advice));
+    throw ignite_error(error::code::INTERNAL, get_last_system_error(description, advice));
 }
 
 /**

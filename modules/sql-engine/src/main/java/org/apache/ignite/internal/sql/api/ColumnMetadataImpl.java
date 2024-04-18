@@ -38,7 +38,7 @@ public class ColumnMetadataImpl implements ColumnMetadata {
             return null;
         }
 
-        String schemaName = origin.size() < 1 ? "" : origin.get(0);
+        String schemaName = origin.size() < 1 ? "" : origin.get(0); // NOPMD
         String tableName = origin.size() < 2 ? "" : origin.get(1);
         String columnName = origin.size() < 3 ? "" : origin.get(2);
 
@@ -109,7 +109,7 @@ public class ColumnMetadataImpl implements ColumnMetadata {
     /** {@inheritDoc} */
     @Override
     public Class<?> valueClass() {
-        return ColumnType.columnTypeToClass(type);
+        return type.javaClass();
     }
 
     /** {@inheritDoc} */

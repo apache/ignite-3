@@ -18,7 +18,6 @@
 package org.apache.ignite.table;
 
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Table provides the different views (key-value vs record) and approaches (mapped-object vs binary) to access the data.
@@ -36,7 +35,7 @@ public interface Table {
      *
      * @return Table name.
      */
-    @NotNull String name();
+    String name();
 
     /**
      * Creates a record view of a table for the record class mapper provided.

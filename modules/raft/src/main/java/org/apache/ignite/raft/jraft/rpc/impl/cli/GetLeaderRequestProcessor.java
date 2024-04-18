@@ -92,7 +92,7 @@ public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeader
             }
         }
         return RaftRpcFactory.DEFAULT //
-            .newResponse(msgFactory(), RaftError.EAGAIN, "Unknown leader");
+            .newResponse(msgFactory(), RaftError.UNKNOWN, "Unknown leader");
     }
 
     @Override

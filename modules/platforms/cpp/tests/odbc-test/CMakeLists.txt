@@ -23,6 +23,7 @@ find_package(ODBC REQUIRED)
 
 set(SOURCES
     api_robustness_test.cpp
+    auth_test.cpp
     connection_test.cpp
     error_test.cpp
     main.cpp

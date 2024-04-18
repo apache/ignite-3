@@ -17,7 +17,16 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.entity.SnapshotMetaBuilder;
@@ -32,14 +41,25 @@ public class SnapshotMetaUtils {
      * @param logIndex RAFT log index.
      * @param term Term corresponding to the index.
      * @param config RAFT group configuration.
+     * @param requiredCatalogVersion Catalog version that a follower/learner must have to have ability to accept this snapshot.
+     * @param nextRowIdToBuildByIndexId Row ID for which the index needs to be built per building index ID at the time the snapshot meta was
+     *      created.
      * @return SnapshotMeta corresponding to the given log index.
      */
-    public static SnapshotMeta snapshotMetaAt(long logIndex, long term, RaftGroupConfiguration config) {
+    public static SnapshotMeta snapshotMetaAt(
+            long logIndex,
+            long term,
+            RaftGroupConfiguration config,
+            int requiredCatalogVersion,
+            Map<Integer, UUID> nextRowIdToBuildByIndexId
+    ) {
         SnapshotMetaBuilder metaBuilder = new RaftMessagesFactory().snapshotMeta()
                 .lastIncludedIndex(logIndex)
                 .lastIncludedTerm(term)
                 .peersList(config.peers())
-                .learnersList(config.learners());
+                .learnersList(config.learners())
+                .requiredCatalogVersion(requiredCatalogVersion)
+                .nextRowIdToBuildByIndexId(nextRowIdToBuildByIndexId);
 
         if (!config.isStable()) {
             //noinspection ConstantConditions
@@ -49,5 +69,32 @@ public class SnapshotMetaUtils {
         }
 
         return metaBuilder.build();
+    }
+
+    /**
+     * Collects the row ID for which the index needs to be built per building index ID at the time the snapshot meta was created.
+     *
+     * @param catalogService Catalog service.
+     * @param partitionAccess Partition access.
+     * @param catalogVersion Catalog version of interest.
+     */
+    public static Map<Integer, UUID> collectNextRowIdToBuildIndexes(
+            CatalogService catalogService,
+            PartitionAccess partitionAccess,
+            int catalogVersion
+    ) {
+        var nextRowIdToBuildByIndexId = new HashMap<Integer, UUID>();
+
+        for (CatalogIndexDescriptor index : catalogService.indexes(catalogVersion, partitionAccess.partitionKey().tableId())) {
+            if (index.status() == BUILDING) {
+                RowId nextRowIdToBuild = partitionAccess.getNextRowIdToBuildIndex(index.id());
+
+                if (nextRowIdToBuild != null) {
+                    nextRowIdToBuildByIndexId.put(index.id(), nextRowIdToBuild.uuid());
+                }
+            }
+        }
+
+        return nextRowIdToBuildByIndexId;
     }
 }

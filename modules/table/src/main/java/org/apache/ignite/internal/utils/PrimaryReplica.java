@@ -22,24 +22,24 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 
 /**
- * Tuple representing primary replica node with current term.
+ * Tuple representing primary replica node with its enlistment consistency token.
  */
 public class PrimaryReplica {
     /** Primary replica node. */
     private final ClusterNode node;
 
-    /** Replica term. */
-    private final long term;
+    /** Enlistment consistency token. */
+    private final long enlistmentConsistencyToken;
 
     /**
      * Constructor.
      *
      * @param node Primary replica node.
-     * @param term Replica term.
+     * @param enlistmentConsistencyToken Enlistment consistency token.
      */
-    public PrimaryReplica(ClusterNode node, long term) {
+    public PrimaryReplica(ClusterNode node, long enlistmentConsistencyToken) {
         this.node = node;
-        this.term = term;
+        this.enlistmentConsistencyToken = enlistmentConsistencyToken;
     }
 
     /**
@@ -52,12 +52,12 @@ public class PrimaryReplica {
     }
 
     /**
-     * Gets replica term.
+     * Gets enlistment consistency token.
      *
-     * @return Replica term.
+     * @return Enlistment consistency token.
      */
-    public long term() {
-        return term;
+    public long enlistmentConsistencyToken() {
+        return enlistmentConsistencyToken;
     }
 
     /** {@inheritDoc} */
@@ -70,13 +70,13 @@ public class PrimaryReplica {
             return false;
         }
         PrimaryReplica that = (PrimaryReplica) o;
-        return term == that.term && Objects.equals(node, that.node);
+        return enlistmentConsistencyToken == that.enlistmentConsistencyToken && Objects.equals(node, that.node);
     }
 
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(node, term);
+        return Objects.hash(node, enlistmentConsistencyToken);
     }
 
     /** {@inheritDoc} */

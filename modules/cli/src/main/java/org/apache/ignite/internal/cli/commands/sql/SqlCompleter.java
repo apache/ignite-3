@@ -49,7 +49,7 @@ class SqlCompleter implements Completer {
             addCandidate(schema, candidates);
             for (String table : schemaProvider.getSchema().tables(schema)) {
                 addCandidate(table, candidates);
-                //TODO: https://issues.apache.org/jira/browse/IGNITE-16973
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-16973
             }
         }
     }

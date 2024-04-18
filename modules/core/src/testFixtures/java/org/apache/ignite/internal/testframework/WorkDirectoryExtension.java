@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.testframework;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.isWindowsOs;
 import static org.junit.jupiter.api.extension.ExtensionContext.Namespace;
 
 import java.io.IOException;
@@ -37,8 +36,9 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.util.OperatingSystem;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.extension.AfterAllCallback;
@@ -204,7 +204,7 @@ public class WorkDirectoryExtension
                 .map(Method::getName)
                 .orElse(STATIC_FOLDER_NAME);
 
-        if (isWindowsOs()) {
+        if (OperatingSystem.current() == OperatingSystem.WINDOWS) {
             testMethodName = IgniteTestUtils.shortTestMethodName(testMethodName);
 
             do {

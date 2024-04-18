@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Compound condition, which consists two other simple/compound conditions.

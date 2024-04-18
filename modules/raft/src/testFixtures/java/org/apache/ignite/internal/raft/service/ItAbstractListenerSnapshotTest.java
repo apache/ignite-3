@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,7 +44,11 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -54,11 +59,8 @@ import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -146,6 +148,13 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     }
 
     /**
+     * Returns a list of started servers.
+     */
+    protected List<JraftServerImpl> servers() {
+        return List.copyOf(servers);
+    }
+
+    /**
      * Test parameters for {@link #testSnapshot}.
      */
     private static class TestData {
@@ -209,7 +218,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
                     if (service.leader() == null) {
                         return service.refreshLeader();
                     } else {
-                        return CompletableFuture.completedFuture(null);
+                        return nullCompletedFuture();
                     }
                 });
 
@@ -407,7 +416,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         Path jraft = workDir.resolve("jraft" + idx);
 
-        JraftServerImpl server = new JraftServerImpl(service, jraft) {
+        JraftServerImpl server = new JraftServerImpl(service, jraft, raftConfiguration) {
             @Override
             public void stop() throws Exception {
                 super.stop();
@@ -426,7 +435,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
                 new RaftNodeId(raftGroupId(), initialMemberConf.peer(service.topologyService().localMember().name())),
                 initialMemberConf,
                 createListener(service, listenerPersistencePath, idx),
-                defaults()
+                defaults().commandsMarshaller(commandsMarshaller(service))
         );
 
         return server;
@@ -447,14 +456,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         return startClient(testInfo, raftGroupId(), new NetworkAddress(getLocalAddress(), PORT));
     }
 
-    /**
-     * Returns a client service.
-     *
-     * @return The client service.
-     */
-    protected ClusterService clientService() {
-        return cluster.get(initialMemberConf.peers().size());
-    }
+    protected abstract Marshaller commandsMarshaller(ClusterService clusterService);
 
     /**
      * Starts a client with a specific address.
@@ -464,8 +466,10 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     private RaftGroupService startClient(TestInfo testInfo, TestReplicationGroupId groupId, NetworkAddress addr) {
         ClusterService clientNode = clusterService(testInfo, CLIENT_PORT + clients.size(), addr);
 
+        Marshaller commandsMarshaller = commandsMarshaller(clientNode);
+
         CompletableFuture<RaftGroupService> clientFuture = RaftGroupServiceImpl
-                .start(groupId, clientNode, FACTORY, raftConfiguration, initialMemberConf, true, executor);
+                .start(groupId, clientNode, FACTORY, raftConfiguration, initialMemberConf, true, executor, commandsMarshaller);
 
         assertThat(clientFuture, willCompleteSuccessfully());
 

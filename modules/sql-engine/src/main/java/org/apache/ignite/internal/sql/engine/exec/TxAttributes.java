@@ -36,6 +36,7 @@ public class TxAttributes implements Serializable {
     private static final long serialVersionUID = 3933878724800694086L;
 
     private final UUID id;
+    private final String coordinatorId;
     private final boolean readOnly;
     private final @Nullable HybridTimestamp readTimestamp;
     private final @Nullable TablePartitionId commitPartition;
@@ -55,18 +56,20 @@ public class TxAttributes implements Serializable {
                 throw new IllegalArgumentException("Read time is not set for RO transaction");
             }
 
-            return new TxAttributes(tx.id(), readTime);
+            return new TxAttributes(tx.id(), readTime, tx.coordinatorId());
         }
 
-        return new TxAttributes(tx.id(), tx.commitPartition());
+        return new TxAttributes(tx.id(), tx.commitPartition(), tx.coordinatorId());
     }
 
     private TxAttributes(
             UUID id,
-            HybridTimestamp readTimestamp
+            HybridTimestamp readTimestamp,
+            String coordinatorId
     ) {
         this.id = Objects.requireNonNull(id, "id");
         this.readTimestamp = Objects.requireNonNull(readTimestamp, "timestamp");
+        this.coordinatorId = Objects.requireNonNull(coordinatorId, "tx coordinator id");
 
         this.readOnly = true;
         this.commitPartition = null;
@@ -74,10 +77,12 @@ public class TxAttributes implements Serializable {
 
     private TxAttributes(
             UUID id,
-            @Nullable TablePartitionId commitPartitionId
+            @Nullable TablePartitionId commitPartitionId,
+            String coordinatorId
     ) {
         this.id = Objects.requireNonNull(id, "id");
         this.commitPartition = commitPartitionId;
+        this.coordinatorId = Objects.requireNonNull(coordinatorId, "tx coordinator id");
 
         this.readOnly = false;
         this.readTimestamp = null;
@@ -109,6 +114,15 @@ public class TxAttributes implements Serializable {
      */
     public @Nullable HybridTimestamp time() {
         return readTimestamp;
+    }
+
+    /**
+     * Get the transaction coordinator inconsistent ID.
+     *
+     * @return Transaction coordinator inconsistent ID.
+     */
+    public String coordinatorId() {
+        return coordinatorId;
     }
 
     /** Returns {@code true} if this is RO transaction. */

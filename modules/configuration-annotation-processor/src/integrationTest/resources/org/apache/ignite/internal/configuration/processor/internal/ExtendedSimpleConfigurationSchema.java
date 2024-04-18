@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.configuration.processor.internal;
 
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
  * Simple internal configuration schema.
  */
-@InternalConfiguration
+@ConfigurationExtension(internal = true)
 public class ExtendedSimpleConfigurationSchema extends SimpleConfigurationSchema {
     /** String value. */
     @Value

@@ -18,13 +18,24 @@
 package org.apache.ignite.internal.testframework;
 
 import static java.lang.Thread.sleep;
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.WRITE;
+import static java.util.function.Function.identity;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,7 +43,6 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -44,17 +54,24 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.IgniteException;
 import org.hamcrest.CustomMatcher;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * Utility class for tests.
@@ -72,7 +89,7 @@ public final class IgniteTestUtils {
      * @param val       New field value.
      * @throws IgniteInternalException In case of error.
      */
-    public static void setFieldValue(Object obj, String fieldName, Object val) throws IgniteInternalException {
+    public static void setFieldValue(Object obj, String fieldName, @Nullable Object val) throws IgniteInternalException {
         assert obj != null;
         assert fieldName != null;
 
@@ -136,14 +153,6 @@ public final class IgniteTestUtils {
                 throw new IgniteInternalException("Modification of static final field through reflection.");
             }
 
-            if (isFinal) {
-                Field modifiersField = Field.class.getDeclaredField("modifiers");
-
-                modifiersField.setAccessible(true);
-
-                modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
-            }
-
             field.set(obj, val);
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new IgniteInternalException("Failed to set object field [obj=" + obj + ", field=" + fieldName + ']', e);
@@ -181,9 +190,9 @@ public final class IgniteTestUtils {
      * @param fieldName     name of the field
      * @return field value
      */
-    public static Object getFieldValue(@Nullable Object target, Class<?> declaredClass, String fieldName) {
+    public static <T> T getFieldValue(@Nullable Object target, Class<?> declaredClass, String fieldName) {
         try {
-            return getField(target, declaredClass, fieldName).get(target);
+            return (T) getField(target, declaredClass, fieldName).get(target);
         } catch (IllegalAccessException e) {
             throw new IgniteInternalException("Cannot get field value", e);
         }
@@ -239,6 +248,70 @@ public final class IgniteTestUtils {
         }
 
         return null;
+    }
+
+    /**
+     * Checks whether runnable throws exception, which is itself of a specified class.
+     *
+     * @param cls Expected exception class.
+     * @param run Runnable to check.
+     * @param errorMessageFragment Fragment of the error text in the expected exception, {@code null} if not to be checked.
+     * @return Thrown throwable.
+     */
+    public static Throwable assertThrows(
+            Class<? extends Throwable> cls,
+            Executable run,
+            @Nullable String errorMessageFragment
+    ) {
+        Throwable throwable = Assertions.assertThrows(cls, run);
+
+        if (errorMessageFragment != null) {
+            assertThat(throwable.getMessage(), containsString(errorMessageFragment));
+        }
+
+        return throwable;
+    }
+
+    /**
+     * Checks whether runnable throws the correct {@link IgniteException}, which is itself of a specified class.
+     *
+     * @param expectedClass Expected exception class.
+     * @param expectedErrorCode Expected error code of the {@link IgniteException}.
+     * @param run Runnable to check.
+     * @param errorMessageFragment Fragment of the error text in the expected exception, {@code null} if not to be checked.
+     * @return Thrown throwable.
+     */
+    public static Throwable assertThrowsWithCode(
+            Class<? extends IgniteException> expectedClass,
+            int expectedErrorCode,
+            Executable run,
+            @Nullable String errorMessageFragment
+    ) {
+        try {
+            run.execute();
+        } catch (Throwable throwable) {
+            try {
+                assertInstanceOf(expectedClass, throwable);
+            } catch (AssertionError err) {
+                // An AssertionError from assertInstanceOf has nothing but a class name of the original exception.
+                AssertionError assertionError = new AssertionError(err);
+
+                assertionError.addSuppressed(throwable);
+
+                throw assertionError;
+            }
+
+            IgniteException igniteException = (IgniteException) throwable;
+            assertEquals(expectedErrorCode, igniteException.code(), "Invalid error code: " + igniteException.codeAsString());
+
+            if (errorMessageFragment != null) {
+                assertThat(throwable.getMessage(), containsString(errorMessageFragment));
+            }
+
+            return throwable;
+        }
+
+        throw new AssertionError("Exception has not been thrown.");
     }
 
     /**
@@ -379,7 +452,7 @@ public final class IgniteTestUtils {
      * @param task Runnable.
      * @return Future with task result.
      */
-    public static CompletableFuture<?> runAsync(RunnableX task) {
+    public static CompletableFuture<Void> runAsync(RunnableX task) {
         return runAsync(task, "async-runnable-runner");
     }
 
@@ -389,7 +462,7 @@ public final class IgniteTestUtils {
      * @param task Runnable.
      * @return Future with task result.
      */
-    public static CompletableFuture<?> runAsync(RunnableX task, String threadName) {
+    public static CompletableFuture<Void> runAsync(RunnableX task, String threadName) {
         return runAsync(() -> {
             try {
                 task.run();
@@ -419,7 +492,7 @@ public final class IgniteTestUtils {
      * @return Future with task result.
      */
     public static <T> CompletableFuture<T> runAsync(Callable<T> task, String threadName) {
-        NamedThreadFactory thrFactory = new NamedThreadFactory(threadName, LOG);
+        ThreadFactory thrFactory = IgniteThreadFactory.withPrefix(threadName, LOG, ThreadOperation.values());
 
         CompletableFuture<T> fut = new CompletableFuture<T>();
 
@@ -435,6 +508,35 @@ public final class IgniteTestUtils {
         }).start();
 
         return fut;
+    }
+
+    /**
+     * Executes an asynchronous operation in a thread that is allowed to execute any thread operation.
+     *
+     * @param operation Operation to execute.
+     * @return Whatever the operation returns.
+     */
+    public static <T> CompletableFuture<T> bypassingThreadAssertionsAsync(Supplier<CompletableFuture<T>> operation) {
+        return runAsync(operation::get).thenCompose(identity());
+    }
+
+    /**
+     * Executes a synchronous operation in a thread that is allowed to execute any thread operation.
+     *
+     * @param operation Operation to execute.
+     * @return Whatever the operation returns.
+     */
+    public static <T> T bypassingThreadAssertions(Supplier<T> operation) {
+        return await(runAsync(operation::get));
+    }
+
+    /**
+     * Executes a synchronous operation in a thread that is allowed to execute any thread operation.
+     *
+     * @param operation Operation to execute.
+     */
+    public static void bypassingThreadAssertions(Runnable operation) {
+        await(runAsync(operation::run));
     }
 
     /**
@@ -553,7 +655,7 @@ public final class IgniteTestUtils {
      * @throws InterruptedException If waiting was interrupted.
      */
     public static boolean waitForCondition(BooleanSupplier cond, long timeoutMillis) throws InterruptedException {
-        return waitForCondition(cond, 50, timeoutMillis);
+        return waitForCondition(cond, 10, timeoutMillis);
     }
 
     /**
@@ -640,9 +742,6 @@ public final class IgniteTestUtils {
     /**
      * Creates a unique Ignite node name for the given test.
      *
-     * <p>If the operating system is {@link #isWindowsOs Windows}, then the name will be short
-     * due to the fact that the length of the paths must be up to 260 characters.
-     *
      * @param testInfo Test info.
      * @param idx Node index.
      *
@@ -656,21 +755,6 @@ public final class IgniteTestUtils {
                         shortTestMethodName(testClassName),
                         shortTestMethodName(testMethodName),
                         idx);
-    }
-
-    /**
-     * Runnable that could throw an exception.
-     */
-    @FunctionalInterface
-    public interface RunnableX {
-        void run() throws Throwable;
-    }
-
-    /**
-     * Returns {@code true} if the operating system is Windows.
-     */
-    public static boolean isWindowsOs() {
-        return System.getProperty("os.name").toLowerCase(Locale.US).contains("win");
     }
 
     /**
@@ -770,6 +854,10 @@ public final class IgniteTestUtils {
     public static void runRace(long timeoutMillis, RunnableX... actions) {
         int length = actions.length;
 
+        if (length == 0) {
+            return; // Nothing to run.
+        }
+
         CyclicBarrier barrier = new CyclicBarrier(length);
 
         Set<Throwable> throwables = ConcurrentHashMap.newKeySet();
@@ -823,7 +911,7 @@ public final class IgniteTestUtils {
      * @return A file system path matching the path component of the resource URL.
      */
     public static String getResourcePath(Class<?> cls, String resourceName) {
-        return getPath(cls.getClassLoader().getResource(resourceName));
+        return getPath(cls.getClassLoader().getResource(resourceName)).toString();
     }
 
     /**
@@ -844,9 +932,9 @@ public final class IgniteTestUtils {
      * @param url A resource URL.
      * @return A file system path matching the path component of the URL.
      */
-    public static String getPath(URL url) {
+    public static Path getPath(URL url) {
         try {
-            return Path.of(url.toURI()).toString();
+            return Path.of(url.toURI());
         } catch (URISyntaxException e) {
             throw new RuntimeException(e); // Shouldn't happen if the URL is obtained from the class loader.
         }
@@ -862,6 +950,23 @@ public final class IgniteTestUtils {
      */
     public static String escapeWindowsPath(String path) {
         return path.replace("\\", "\\\\");
+    }
+
+    /**
+     * Generate file with dummy content with provided size.
+     *
+     * @param file File path.
+     * @param fileSize File size in bytes.
+     * @throws IOException if an I/O error is thrown.
+     */
+    public static void fillDummyFile(Path file, long fileSize) throws IOException {
+        try (SeekableByteChannel channel = Files.newByteChannel(file, WRITE, CREATE)) {
+            channel.position(fileSize - 4);
+
+            ByteBuffer buf = ByteBuffer.allocate(4).putInt(2);
+            buf.rewind();
+            channel.write(buf);
+        }
     }
 
     /**

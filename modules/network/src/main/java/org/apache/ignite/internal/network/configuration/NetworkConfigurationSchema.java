@@ -36,10 +36,9 @@ public class NetworkConfigurationSchema {
     @Value(hasDefault = true)
     public final int port = DEFAULT_PORT;
 
-    /** Network port range. */
-    @Range(min = 0)
+    /** Address (IP or hostname) to listen on. Will listen on all interfaces if empty. */
     @Value(hasDefault = true)
-    public final int portRange = 0;
+    public String listenAddress = "";
 
     /**
      * Graceful shutdown of the Netty's EventExecutorGroup ensures that no tasks are submitted for
@@ -78,4 +77,8 @@ public class NetworkConfigurationSchema {
     @ConfigValue
     @SslConfigurationValidator
     public SslConfigurationSchema ssl;
+
+    /** File transferring configuration. */
+    @ConfigValue
+    public FileTransferConfigurationSchema fileTransfer;
 }

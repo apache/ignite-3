@@ -19,17 +19,14 @@ package org.apache.ignite.internal.tx.message;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,8 +38,8 @@ import org.jetbrains.annotations.Nullable;
  *      <li>Send cleanup requests to all enlisted primary replicas.</li>
  *  </ol>
  */
-@Transferable(value = TxMessageGroup.TX_FINISH_REQUEST)
-public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
+@Transferable(TxMessageGroup.TX_FINISH_REQUEST)
+public interface TxFinishReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
     /**
      * Returns transaction Id.
      *
@@ -75,14 +72,5 @@ public interface TxFinishReplicaRequest extends ReplicaRequest, TimestampAware {
      * @return Enlisted partition groups aggregated by expected primary replica nodes.
      */
     @Marshallable
-    Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups();
-
-    /**
-     * Gets a raft term.
-     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
-     *
-     * @return Raft term.
-     */
-    @Deprecated
-    Long term();
+    Map<ReplicationGroupId, String> groups();
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 
 import java.io.ObjectInputStream;
@@ -35,9 +36,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
+import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -53,8 +54,10 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     private volatile boolean isStarted = false;
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         isStarted = true;
+
+        return nullCompletedFuture();
     }
 
     @Override

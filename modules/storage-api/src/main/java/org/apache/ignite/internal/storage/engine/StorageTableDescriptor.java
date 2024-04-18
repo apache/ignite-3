@@ -25,19 +25,19 @@ public class StorageTableDescriptor {
 
     private final int partitions;
 
-    private final String dataRegion;
+    private final String storageProfile;
 
     /**
      * Constructor.
      *
      * @param id Table ID.
      * @param partitions Count of partitions.
-     * @param dataRegion Data region name.
+     * @param storageProfile Storage profile name.
      */
-    public StorageTableDescriptor(int id, int partitions, String dataRegion) {
+    public StorageTableDescriptor(int id, int partitions, String storageProfile) {
         this.id = id;
         this.partitions = partitions;
-        this.dataRegion = dataRegion;
+        this.storageProfile = storageProfile;
     }
 
     /**
@@ -55,9 +55,9 @@ public class StorageTableDescriptor {
     }
 
     /**
-     * Returns the data region name.
+     * Returns the storage profile name.
      */
-    public String getDataRegion() {
-        return dataRegion;
+    public String getStorageProfile() {
+        return storageProfile;
     }
 }

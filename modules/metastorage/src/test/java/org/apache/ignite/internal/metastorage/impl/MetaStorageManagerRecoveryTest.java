@@ -19,6 +19,7 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -39,22 +40,21 @@ import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Tests MetaStorage manager recovery basics. */
 @ExtendWith(ConfigurationExtension.class)
-public class MetaStorageManagerRecoveryTest {
+public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "node";
 
     private static final String LEADER_NAME = "ms-leader";
@@ -69,7 +69,6 @@ public class MetaStorageManagerRecoveryTest {
     private HybridClock clock;
 
     private void createMetaStorage(long remoteRevision) throws Exception {
-        VaultManager vault = new VaultManager(new InMemoryVaultService());
         ClusterService clusterService = clusterService();
         ClusterManagementGroupManager cmgManager = clusterManagementManager();
         LogicalTopologyService topologyService = mock(LogicalTopologyService.class);
@@ -79,7 +78,6 @@ public class MetaStorageManagerRecoveryTest {
         kvs = spy(new SimpleInMemoryKeyValueStorage(NODE_NAME));
 
         metaStorageManager = new MetaStorageManagerImpl(
-                vault,
                 clusterService,
                 cmgManager,
                 topologyService,
@@ -137,7 +135,8 @@ public class MetaStorageManagerRecoveryTest {
             }
 
             @Override
-            public void start() {
+            public CompletableFuture<Void> start() {
+                return nullCompletedFuture();
             }
         };
     }

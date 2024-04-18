@@ -23,12 +23,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Statement;
+import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -209,21 +208,17 @@ public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
         }
 
         // Check non-indexed field.
-        assertThrows(SQLException.class, () -> {
-            try (ResultSet rs = stmt.executeQuery("select * from PUBLIC.Org where name = 2")) {
-                assertFalse(rs.next());
-            }
-        });
+        JdbcTestUtils.assertThrowsSqlException(
+                "For input string: \"B\"",
+                () -> stmt.executeQuery("select * from PUBLIC.Org where name = 2"));
 
         // Check indexed field.
         try (ResultSet rs = stmt.executeQuery("select * from PUBLIC.Person where name = '2'")) {
             assertFalse(rs.next());
         }
 
-        assertThrows(SQLException.class, () -> {
-            try (ResultSet rs = stmt.executeQuery("select * from PUBLIC.Person where name = 2")) {
-                assertFalse(rs.next());
-            }
-        });
+        JdbcTestUtils.assertThrowsSqlException(
+                "For input string: \"Mike Green\"",
+                () -> stmt.executeQuery("select * from PUBLIC.Person where name = 2"));
     }
 }

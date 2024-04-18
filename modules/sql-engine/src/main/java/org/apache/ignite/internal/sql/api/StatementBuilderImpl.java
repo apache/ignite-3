@@ -17,22 +17,17 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Statement builder.
  */
 class StatementBuilderImpl implements StatementBuilder {
-    /** Properties. */
-    private final Map<String, Object> properties = new HashMap<>();
-
     /** Query. */
     private String query;
 
@@ -45,9 +40,11 @@ class StatementBuilderImpl implements StatementBuilder {
     /** Page size. */
     private Integer pageSize;
 
+    private ZoneId zoneId = ZoneOffset.UTC;
+
     /** {@inheritDoc} */
     @Override
-    public @NotNull String query() {
+    public String query() {
         return query;
     }
 
@@ -61,7 +58,7 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public long queryTimeout(@NotNull TimeUnit timeUnit) {
+    public long queryTimeout(TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
         return timeUnit.convert(queryTimeoutMs == null ? 0 : queryTimeoutMs, TimeUnit.MILLISECONDS);
@@ -69,7 +66,7 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public StatementBuilder queryTimeout(long timeout, @NotNull TimeUnit timeUnit) {
+    public StatementBuilder queryTimeout(long timeout, TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
         queryTimeoutMs = TimeUnit.MILLISECONDS.convert(timeout, timeUnit);
@@ -85,7 +82,7 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public StatementBuilder defaultSchema(@NotNull String schema) {
+    public StatementBuilder defaultSchema(String schema) {
         defaultSchema = schema;
 
         return this;
@@ -105,16 +102,17 @@ class StatementBuilderImpl implements StatementBuilder {
         return this;
     }
 
+
     /** {@inheritDoc} */
     @Override
-    public @Nullable Object property(@NotNull String name) {
-        return properties.get(name);
+    public ZoneId timeZoneId() {
+        return zoneId;
     }
 
     /** {@inheritDoc} */
     @Override
-    public StatementBuilder property(@NotNull String name, @Nullable Object value) {
-        properties.put(name, value);
+    public StatementBuilder timeZoneId(ZoneId zoneId) {
+        this.zoneId = Objects.requireNonNull(zoneId);
 
         return this;
     }

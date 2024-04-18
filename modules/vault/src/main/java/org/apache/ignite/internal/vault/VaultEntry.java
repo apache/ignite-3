@@ -19,7 +19,7 @@ package org.apache.ignite.internal.vault;
 
 import java.util.Arrays;
 import java.util.Objects;
-import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.internal.lang.ByteArray;
 
 /**
  * Represents a vault unit as entry with key and value.

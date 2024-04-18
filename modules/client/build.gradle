@@ -20,16 +20,16 @@ apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
 dependencies {
-    implementation project(':ignite-api')
+    api project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-binary-tuple')
     implementation project(':ignite-client-common')
     implementation project(':ignite-marshaller-common')
     implementation project(':ignite-metrics')
+    implementation project(':ignite-catalog-dsl')
 
     implementation libs.jetbrains.annotations
     implementation libs.msgpack.core
-    implementation libs.msgpack.jackson
     implementation libs.netty.common
     implementation libs.netty.buffer
     implementation libs.netty.codec
@@ -51,8 +51,17 @@ dependencies {
     testImplementation project(':ignite-storage-api')
     testImplementation project(':ignite-security')
     testImplementation project(':ignite-metrics')
+    testImplementation project(':ignite-catalog')
+    testImplementation project(':ignite-placement-driver-api')
+    testImplementation project(':ignite-cluster-management')
+    testImplementation project(':ignite-compute')
+    testImplementation project(':ignite-eventlog')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation(testFixtures(project(':ignite-sql-engine')))
+    testImplementation(testFixtures(project(':ignite-table')))
+    testImplementation(testFixtures(project(':ignite-client-handler')))
+    testImplementation(testFixtures(project(':ignite-low-watermark')))
     testImplementation libs.hamcrest.core
     testImplementation libs.junit5.params
     testImplementation libs.mockito.junit

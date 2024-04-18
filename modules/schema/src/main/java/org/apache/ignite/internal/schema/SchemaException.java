@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Base class for schema exceptions.
@@ -40,5 +40,15 @@ public class SchemaException extends IgniteInternalException {
      */
     public SchemaException(String msg, Throwable cause) {
         super(msg, cause);
+    }
+
+    /**
+     * Creates a new exception with the given error code and detail message.
+     *
+     * @param code Full error code.
+     * @param message Detail message.
+     */
+    public SchemaException(int code, String message) {
+        super(code, message);
     }
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.client;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_CONNECT_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_TIMEOUT;
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_PERIOD;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES;
@@ -109,6 +110,9 @@ public interface IgniteClient extends Ignite {
 
         /** Authenticator. */
         private @Nullable IgniteClientAuthenticator authenticator;
+
+        /** Operation timeout. */
+        private long operationTimeout = DFLT_OPERATION_TIMEOUT;
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
@@ -334,6 +338,24 @@ public interface IgniteClient extends Ignite {
         }
 
         /**
+         * Sets the operation timeout, in milliseconds. Default is {@code 0} (no timeout).
+         *
+         * @param operationTimeout Operation timeout, in milliseconds.
+         * @return This instance.
+         * @throws IllegalArgumentException When value is less than zero.
+         */
+        public Builder operationTimeout(long operationTimeout) {
+            if (operationTimeout < 0) {
+                throw new IllegalArgumentException("Operation timeout [" + operationTimeout + "] "
+                        + "must be a non-negative integer value.");
+            }
+
+            this.operationTimeout = operationTimeout;
+
+            return this;
+        }
+
+        /**
          * Builds the client.
          *
          * @return Ignite client.
@@ -362,7 +384,8 @@ public interface IgniteClient extends Ignite {
                     loggerFactory,
                     sslConfiguration,
                     metricsEnabled,
-                    authenticator);
+                    authenticator,
+                    operationTimeout);
 
             return TcpIgniteClient.startAsync(cfg);
         }

@@ -17,42 +17,41 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.index.ColumnCollation;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
+import org.apache.calcite.sql.type.SqlTypeUtil;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
-import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,11 +64,11 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Index bounds check tests.
  */
 public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
+    private static final IgniteLogger LOG = Loggers.forClass(IndexSearchBoundsPlannerTest.class);
+
     private static List<String> NODES = new ArrayList<>(4);
 
     private IgniteSchema publicSchema;
-
-    private TestTable tbl;
 
     @BeforeAll
     public static void init() {
@@ -78,32 +77,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
     @BeforeEach
     public void beforeEach() {
-        IgniteTypeFactory typeFactory = Commons.typeFactory();
-
-        tbl = new TestTable(
-                new RelDataTypeFactory.Builder(typeFactory)
-                        .add("C1", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER), true))
-                        .add("C2", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.VARCHAR), true))
-                        .add("C3", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER), true))
-                        .add("C4", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER), true))
-                        .add("C5", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.TINYINT), true))
-                        .build(), "TEST") {
-            @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-                return ColocationGroup.forNodes(select(NODES, 0));
-            }
-
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.single();
-            }
-        };
-
-        tbl.addIndex("C1C2C3", 0, 1, 2);
-
-        publicSchema = new IgniteSchema("PUBLIC");
-
-        publicSchema.addTable(tbl);
+        publicSchema = createSchemaFrom(tableA("TEST"));
     }
 
     /** Simple case on one field, without multi tuple SEARCH/SARG. */
@@ -121,7 +95,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
         // Redundant "IS NOT NULL condition".
         assertBounds("SELECT * FROM TEST WHERE C1 > 3 AND C1 IS NOT NULL",
-                range(3, "$NULL_BOUND()", false, false));
+                range(3, "null", false, false));
 
         // C4 field not in collation.
         assertBounds("SELECT * FROM TEST WHERE C1 > 1 AND C1 <= 3 AND C4 = 1",
@@ -159,7 +133,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                         exact(4),
                         exact(5),
                         exact(6),
-                        range(7, "$NULL_BOUND()", false, false)));
+                        range(7, "null", false, false)));
     }
 
     /** Simple SEARCH/SARG, values deduplication. */
@@ -175,7 +149,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         assertBounds("SELECT * FROM TEST WHERE (C1 > 1 AND C1 < 4) OR (C1 > 3 AND C1 < 5) OR (C1 > 7) OR (C1 > 6)",
                 multi(
                         range(1, 5, false, false),
-                        range(6, "$NULL_BOUND()", false, false)));
+                        range(6, "null", false, false)));
 
         assertBounds("SELECT * FROM TEST WHERE C1 > 1 AND C1 < 3 AND C1 <> 2",
                 multi(
@@ -187,7 +161,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 exact(1),
                 multi(
                         range("1", "33", false, false),
-                        range("4", "$NULL_BOUND()", false, false)));
+                        range("4", "null", false, false)));
 
         assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND (C2 > '1' OR C2 < '3')",
                 exact(1));
@@ -197,7 +171,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     @Test
     public void testBoundsOneFieldSearchWithNull() throws Exception {
         assertBounds("SELECT * FROM TEST WHERE C1 IN (1, 2, 3) OR C1 IS NULL",
-                multi(exact("$NULL_BOUND()"), exact(1), exact(2), exact(3)),
+                multi(exact("null"), exact(1), exact(2), exact(3)),
                 empty(),
                 empty()
         );
@@ -206,22 +180,24 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     /** Tests bounds with DESC ordering. */
     @Test
     public void testBoundsDescOrdering() throws Exception {
-        tbl.addIndex(RelCollations.of(TraitUtils.createFieldCollation(3, ColumnCollation.DESC_NULLS_LAST),
-                TraitUtils.createFieldCollation(2, ColumnCollation.ASC_NULLS_FIRST)), "C4");
-
-        tbl.addIndex(RelCollations.of(TraitUtils.createFieldCollation(3, ColumnCollation.ASC_NULLS_FIRST),
-                TraitUtils.createFieldCollation(2, ColumnCollation.ASC_NULLS_FIRST)), "C4IDX");
+        publicSchema = createSchemaFrom(tableA("TEST")
+                .andThen(t -> t.sortedIndex()
+                        .name("C4")
+                        .addColumn("C4", Collation.DESC_NULLS_LAST)
+                        .addColumn("C3", Collation.ASC_NULLS_FIRST)
+                        .end())
+        );
 
         assertBounds("SELECT * FROM TEST WHERE C4 > 1",
                 range(null, 1, true, false));
 
         assertBounds("SELECT * FROM TEST WHERE C4 < 1",
-                range(1, "$NULL_BOUND()", false, false));
+                range(1, "null", false, false));
 
-        assertBounds("SELECT * FROM TEST WHERE C4 IS NULL", exact("$NULL_BOUND()"));
+        assertBounds("SELECT * FROM TEST WHERE C4 IS NULL", exact("null"));
 
-        assertBounds("SELECT * FROM TEST WHERE C4 IS NOT NULL",
-                range(null, "$NULL_BOUND()", true, false));
+        assertBounds("SELECT /*+ FORCE_INDEX(c4) */ * FROM TEST WHERE C4 IS NOT NULL",
+                range(null, "null", true, false));
 
         assertBounds("SELECT * FROM TEST WHERE C4 IN (1, 2, 3) AND C3 > 1",
                 multi(exact(1), exact(2), exact(3)),
@@ -245,7 +221,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
         assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > 'a'",
                 exact(1),
-                range("a", "$NULL_BOUND()", false, false)
+                range("a", "null", false, false)
         );
 
         assertBounds("SELECT * FROM TEST WHERE C1 IN (1, 2, 3) AND C2 = 'a'",
@@ -267,41 +243,41 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         assertBounds("SELECT * FROM TEST WHERE C1 IN (1, 2, 3) AND C2 IN ('a', 'b') AND C3 > 4",
                 multi(exact(1), exact(2), exact(3)),
                 multi(exact("a"), exact("b")),
-                range(4, "$NULL_BOUND()", false, false)
+                range(4, "null", false, false)
         );
 
         // Cannot proceed to the next field after the range condition.
         assertBounds("SELECT * FROM TEST WHERE C1 > 1 AND C2 = 'a'",
-                range(1, "$NULL_BOUND()", false, false),
+                range(1, "null", false, false),
                 empty(),
                 empty()
         );
 
         assertBounds("SELECT * FROM TEST WHERE C1 > 1 AND C2 > 'a'",
-                range(1, "$NULL_BOUND()", false, false),
+                range(1, "null", false, false),
                 empty(),
                 empty()
         );
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-13568 Fix to exact("a")
         assertBounds("SELECT * FROM TEST WHERE C1 >= 1 AND C2 = 'a'",
-                range(1, "$NULL_BOUND()", true, false),
+                range(1, "null", true, false),
                 empty()
         );
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-13568 Fix to range("a", null, false, true)
         assertBounds("SELECT * FROM TEST WHERE C1 >= 1 AND C2 > 'a'",
-                range(1, "$NULL_BOUND()", true, false),
+                range(1, "null", true, false),
                 empty()
         );
 
         assertBounds("SELECT * FROM TEST WHERE C1 >= 1 AND C2 < 'a'",
-                range(1, "$NULL_BOUND()", true, false),
+                range(1, "null", true, false),
                 empty()
         );
 
         assertBounds("SELECT * FROM TEST WHERE C1 >= 1 AND C2 IN ('a', 'b')",
-                range(1, "$NULL_BOUND()", true, false),
+                range(1, "null", true, false),
                 empty()
         );
 
@@ -309,7 +285,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         assertBounds("SELECT * FROM TEST WHERE ((C1 > 1 AND C1 < 3) OR C1 > 5) AND C2 = 'a'",
                 multi(
                         range(1, 3, false, false),
-                        range(5, "$NULL_BOUND()", false, false)),
+                        range(5, "null", false, false)),
                 empty()
         );
     }
@@ -350,7 +326,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         // Casted to INTEGER type C2 column cannot be used as index bound.
         assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > '1'",
                 exact(1),
-                range('1', "$NULL_BOUND()", false, false)
+                range('1', "null", false, false)
         );
 
         // Casted to INTEGER type C2 column cannot be used as index bound.
@@ -375,11 +351,8 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     /** Tests bounds with dynamic parameters. */
     @Test
     public void testBoundsDynamicParams() throws Exception {
-        // Cannot optimize dynamic parameters to SEARCH/SARG, query is splitted by or-to-union rule.
-        assertPlan("SELECT * FROM TEST WHERE C1 IN (?, ?)", publicSchema, isInstanceOf(IgniteUnionAll.class)
-                .and(input(0, isIndexScan("TEST", "C1C2C3")))
-                .and(input(1, isIndexScan("TEST", "C1C2C3"))), List.of(1, 1)
-        );
+        assertBounds("SELECT * FROM TEST WHERE C1 IN (?, ?)",
+                multi(exact("?0"), exact("?1")));
 
         assertBounds("SELECT * FROM TEST WHERE C1 = ? AND C2 IN ('a', 'b')", List.of(1), publicSchema,
                 exact("?0"),
@@ -410,12 +383,20 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     /** Tests bounds merge. */
     @Test
     public void testBoundsMerge() throws Exception {
+        IgniteSchema publicSchema = createSchemaFrom(tableA("TEST")
+                .andThen(t -> t.sortedIndex()
+                        .name("C4")
+                        .addColumn("C4", Collation.DESC_NULLS_LAST)
+                        .addColumn("C3", Collation.ASC_NULLS_FIRST)
+                        .end()
+                ));
+
         assertBounds("SELECT * FROM TEST WHERE C1 > ? AND C1 >= 1", List.of(10), publicSchema,
-                range("$GREATEST2(?0, 1)", "$NULL_BOUND()", true, false)
+                range("$GREATEST2(?0, 1)", "null", true, false)
         );
 
         assertBounds("SELECT * FROM TEST WHERE C1 > ? AND C1 >= ? AND C1 > ?", List.of(10, 10, 10), publicSchema,
-                range("$GREATEST2($GREATEST2(?0, ?1), ?2)", "$NULL_BOUND()", true, false)
+                range("$GREATEST2($GREATEST2(?0, ?1), ?2)", "null", true, false)
         );
 
         assertBounds("SELECT * FROM TEST WHERE C1 > ? AND C1 >= 1 AND C1 < ? AND C1 < ?", List.of(10, 10, 10), publicSchema,
@@ -427,11 +408,8 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         );
 
         assertBounds("SELECT * FROM TEST WHERE C1 NOT IN (1, 2) AND C1 >= ?", List.of(10), publicSchema,
-                range("?0", "$NULL_BOUND()", true, false)
+                range("?0", "null", true, false)
         );
-
-        tbl.addIndex(RelCollations.of(TraitUtils.createFieldCollation(3, ColumnCollation.DESC_NULLS_LAST),
-                TraitUtils.createFieldCollation(2, ColumnCollation.ASC_NULLS_FIRST)), "C4");
 
         assertBounds("SELECT * FROM TEST WHERE C4 > ? AND C4 >= 1 AND C4 < ? AND C4 < ?", List.of(10, 10, 10), publicSchema,
                 range("$LEAST2(?1, ?2)", "$GREATEST2(?0, 1)", false, true)
@@ -447,7 +425,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
         assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > SUBSTRING(?::VARCHAR, 1, 2) || '3'", List.of("1"), publicSchema,
                 exact(1),
-                range("||(SUBSTRING(?0, 1, 2), _UTF-8'3')", "$NULL_BOUND()", false, false)
+                range("||(SUBSTRING(?0, 1, 2), _UTF-8'3')", "null", false, false)
         );
 
         assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > SUBSTRING(C3::VARCHAR, 1, 2) || '3'",
@@ -463,6 +441,31 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
         assertPlan("SELECT (SELECT C1 FROM TEST t2 WHERE t2.C1 < t1.C1 + t2.C1) FROM TEST t1", publicSchema,
                 nodeOrAnyChild(isIndexScan("TEST", "C1C2C3")).negate());
+
+        // Here we have two OR sets in CNF, second set can't be used, since it contains condition on C1 and C2 columns,
+        // so use only first OR set as bounds.
+        assertBounds("SELECT * FROM TEST WHERE C1 in (?, 1, 2) or (C1 = ? and C2 > 'asd')",
+                multi(exact("?0"), exact(1), exact(2), exact("?1"))
+        );
+
+        assertBounds("SELECT * FROM TEST WHERE C1 in (?, ? + 1, ? * 2)",
+                multi(exact("?0"), exact("+(?1, 1)"), exact("*(?2, 2)"))
+        );
+
+        // Don't support expanding OR with correlate to bounds.
+        assertPlan("SELECT (SELECT C1 FROM TEST t2 WHERE C1 in (t1.C1, 1, ?)) FROM TEST t1", publicSchema,
+                nodeOrAnyChild(isIndexScan("TEST", "C1C2C3")).negate());
+
+        // Here "BETWEEN" generates AND condition, and we have two OR sets in CNF, so we can't correctly use range
+        // with both upper and lower bounds. So, we use only first OR set as bounds.
+        assertBounds("SELECT * FROM TEST WHERE C1 in (?, 1, 2) or C1 between ? and ?",
+                multi(exact("?0"), exact(1), exact(2), range("?1", "null", true, false))
+        );
+
+        // Check equality condition priority over SEARCH/SARG.
+        assertBounds("SELECT * FROM TEST WHERE (C1 BETWEEN 1 AND 10 OR C1 IN (20, 30)) AND C1 = ?",
+                exact("?0")
+        );
     }
 
     /**
@@ -471,68 +474,183 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("boundsTypeLimits")
     public void testBoundsTypeLimits(RelDataType type, Object value, Predicate<SearchBounds> bounds) throws Exception {
-        TestTable table = createTableWithIndex("TEST2", "C2", type);
-        publicSchema.addTable(table);
+        IgniteSchema schema = createSchemaFrom(
+                tableB("TEST2", "C2", type).andThen(addSortIndex("C2")));
 
-        assertBounds("SELECT * FROM test2 WHERE C2 = " + value, List.of(), publicSchema, bounds);
+        assertBounds("SELECT * FROM test2 WHERE C2 = " + value, List.of(), schema, bounds);
+    }
+
+    @ParameterizedTest
+    @MethodSource("indexTypeAndNumericsInBounds")
+    public void testCorrectNumericIndexInBounds(
+            Type indexType,
+            RelDataType columnType,
+            String valueExpr,
+            String boundExpr,
+            RelDataType boundExprType) throws Exception {
+
+        UnaryOperator<TableBuilder> tableB = tableB("TEST2", "C2", columnType);
+
+        IgniteSchema schema;
+        if (indexType == Type.HASH) {
+            schema = createSchemaFrom(tableB.andThen(addHashIndex("C2")));
+        } else {
+            schema = createSchemaFrom(tableB.andThen(addSortIndex("C2")));
+        }
+
+        assertBounds("SELECT * FROM test2 WHERE C2 = " + valueExpr, List.of(), schema, searchBounds -> {
+            if (!(searchBounds instanceof ExactBounds)) {
+                log.info("SearchBound type does not match. Expected {} but got {}", ExactBounds.class, searchBounds);
+                return false;
+            }
+
+            ExactBounds exactBounds = (ExactBounds) searchBounds;
+            RexNode rexNode = exactBounds.bound();
+
+            if (!SqlTypeUtil.equalSansNullability(boundExprType, rexNode.getType())) {
+                log.info("Bound type does not match. Expected {} but got {}", boundExprType, rexNode.getType());
+                return false;
+            }
+
+            if (!boundExpr.equals(rexNode.toString())) {
+                log.info("Bound expr does not match. Expected {} but got {}", boundExpr, rexNode);
+                return false;
+            }
+
+            return true;
+        });
+    }
+
+    private static Stream<Arguments> indexTypeAndNumericsInBounds() {
+        Stream<Arguments> result = Stream.of();
+
+        for (Type type : Type.values()) {
+            Stream<Arguments> idx = numericsInBounds().map(a -> {
+                Object[] v = a.get();
+
+                Object[] newArgs = new Object[v.length + 1];
+                newArgs[0] = type;
+                System.arraycopy(v, 0, newArgs, 1, v.length);
+
+                return arguments(newArgs);
+            });
+            result = Stream.concat(result, idx);
+        }
+
+        return result;
+    }
+
+    private static Stream<Arguments> numericsInBounds() {
+        return Stream.of(
+            // Column type, expr to use in search condition, expected expression in search bounds as RexNode::toString, its type.
+
+            arguments(sqlType(SqlTypeName.TINYINT), "42", "42:TINYINT", sqlType(SqlTypeName.TINYINT)),
+            arguments(sqlType(SqlTypeName.TINYINT), "CAST(42 AS TINYINT)", "42:TINYINT", sqlType(SqlTypeName.TINYINT)),
+            arguments(sqlType(SqlTypeName.TINYINT), "CAST(42 AS SMALLINT)", "42:TINYINT", sqlType(SqlTypeName.TINYINT)),
+            arguments(sqlType(SqlTypeName.TINYINT), "CAST(42 AS INTEGER)", "42:TINYINT", sqlType(SqlTypeName.TINYINT)),
+            arguments(sqlType(SqlTypeName.TINYINT), "CAST(42 AS BIGINT)", "42:TINYINT", sqlType(SqlTypeName.TINYINT)),
+
+            arguments(sqlType(SqlTypeName.SMALLINT), "42", "42:SMALLINT", sqlType(SqlTypeName.SMALLINT)),
+            arguments(sqlType(SqlTypeName.SMALLINT), "CAST(42 AS TINYINT)", "42:SMALLINT", sqlType(SqlTypeName.SMALLINT)),
+            arguments(sqlType(SqlTypeName.SMALLINT), "CAST(42 AS SMALLINT)", "42:SMALLINT", sqlType(SqlTypeName.SMALLINT)),
+            arguments(sqlType(SqlTypeName.SMALLINT), "CAST(42 AS INTEGER)", "42:SMALLINT", sqlType(SqlTypeName.SMALLINT)),
+            arguments(sqlType(SqlTypeName.SMALLINT), "CAST(42 AS BIGINT)", "42:SMALLINT", sqlType(SqlTypeName.SMALLINT)),
+
+            arguments(sqlType(SqlTypeName.INTEGER), "42", "42", sqlType(SqlTypeName.INTEGER)),
+            arguments(sqlType(SqlTypeName.INTEGER), "CAST(42 AS TINYINT)", "42", sqlType(SqlTypeName.INTEGER)),
+            arguments(sqlType(SqlTypeName.INTEGER), "CAST(42 AS SMALLINT)", "42", sqlType(SqlTypeName.INTEGER)),
+            arguments(sqlType(SqlTypeName.INTEGER), "CAST(42 AS INTEGER)", "42", sqlType(SqlTypeName.INTEGER)),
+            arguments(sqlType(SqlTypeName.INTEGER), "CAST(42 AS BIGINT)", "42", sqlType(SqlTypeName.INTEGER)),
+
+            arguments(sqlType(SqlTypeName.BIGINT), "42", "42:BIGINT", sqlType(SqlTypeName.BIGINT)),
+            arguments(sqlType(SqlTypeName.BIGINT), "CAST(42 AS TINYINT)", "42:BIGINT", sqlType(SqlTypeName.BIGINT)),
+            arguments(sqlType(SqlTypeName.BIGINT), "CAST(42 AS SMALLINT)", "42:BIGINT", sqlType(SqlTypeName.BIGINT)),
+            arguments(sqlType(SqlTypeName.BIGINT), "CAST(42 AS INTEGER)", "42:BIGINT", sqlType(SqlTypeName.BIGINT)),
+            arguments(sqlType(SqlTypeName.BIGINT), "CAST(42 AS BIGINT)", "42:BIGINT", sqlType(SqlTypeName.BIGINT)),
+
+            arguments(sqlType(SqlTypeName.REAL), "42", "42:REAL", sqlType(SqlTypeName.REAL)),
+            arguments(sqlType(SqlTypeName.DOUBLE), "42", "42:DOUBLE", sqlType(SqlTypeName.DOUBLE))
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19881 uncomment after this issue is fixed
+        //  The optimizer selects TableScan instead of a IndexScan (Real/double columns)
+        // arguments(sqlType(SqlTypeName.REAL), "CAST(42 AS DOUBLE)", "42:REAL", sqlType(SqlTypeName.REAL)),
+        // arguments(sqlType(SqlTypeName.DOUBLE), "CAST(42 AS REAL)", "42:DOUBLE", sqlType(SqlTypeName.DOUBLE)),
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19882 uncomment after this issue is fixed
+        //  The optimizer selects TableScan instead of a IndexScan (Decimal columns)
+        // arguments(sqlType(SqlTypeName.DECIMAL, 5), "42", "42:DECIMAL(10, 0)", sqlType(SqlTypeName.DECIMAL, 5, 0)),
+        // arguments(sqlType(SqlTypeName.DECIMAL, 10, 2), "42", "42:DECIMAL(10, 2)", sqlType(SqlTypeName.DECIMAL, 10, 2)),
+        // arguments(sqlType(SqlTypeName.INTEGER), "CAST(42 AS DECIMAL(10))", "42", sqlType(SqlTypeName.INTEGER)),
+        );
     }
 
     private static Stream<Arguments> boundsTypeLimits() {
-        RelDataType tinyintType = TYPE_FACTORY.createSqlType(SqlTypeName.TINYINT);
+        RelDataType tinyintType = sqlType(SqlTypeName.TINYINT);
         byte[] tinyIntTypeLimits = {Byte.MIN_VALUE, Byte.MAX_VALUE};
+        List<Arguments> tinyInts = List.of(
+                arguments(tinyintType, -129, exact(tinyIntTypeLimits[0])),
+                arguments(tinyintType, -128, exact(tinyIntTypeLimits[0])),
+                arguments(tinyintType, 127, exact(tinyIntTypeLimits[1])),
+                arguments(tinyintType, 128, exact(tinyIntTypeLimits[1]))
+        );
 
-        RelDataType smallIntType = TYPE_FACTORY.createSqlType(SqlTypeName.SMALLINT);
+        RelDataType smallIntType = sqlType(SqlTypeName.SMALLINT);
         short[] smallIntLimits = {Short.MIN_VALUE, Short.MAX_VALUE};
+        List<Arguments> smallInts = List.of(
+                arguments(smallIntType, (-(int) Math.pow(2, 15) - 1), exact(smallIntLimits[0])),
+                arguments(smallIntType, (-(int) Math.pow(2, 15)), exact(smallIntLimits[0])),
+                arguments(smallIntType, ((int) Math.pow(2, 15)), exact(smallIntLimits[1])),
+                arguments(smallIntType, ((int) Math.pow(2, 15) + 1), exact(smallIntLimits[1]))
+        );
 
-        RelDataType intType = TYPE_FACTORY.createSqlType(SqlTypeName.INTEGER);
+        RelDataType intType = sqlType(SqlTypeName.INTEGER);
         int[] intLimits = {Integer.MIN_VALUE, Integer.MAX_VALUE};
+        List<Arguments> ints = List.of(
+                arguments(intType, (-(long) Math.pow(2, 31) - 1), exact(intLimits[0])),
+                arguments(intType, (-(long) Math.pow(2, 31)), exact(intLimits[0])),
+                arguments(intType, ((long) Math.pow(2, 31)), exact(intLimits[1])),
+                arguments(intType, ((long) Math.pow(2, 31) + 1), exact(intLimits[1]))
+        );
 
-        RelDataType bigIntType = TYPE_FACTORY.createSqlType(SqlTypeName.BIGINT);
+        RelDataType bigIntType = sqlType(SqlTypeName.BIGINT);
         BigDecimal[] bigIntTypeLimits = {BigDecimal.valueOf(Long.MIN_VALUE), BigDecimal.valueOf(Long.MAX_VALUE)};
+        List<Arguments> bigints = List.of(
+                arguments(bigIntType, BigInteger.TWO.pow(63).negate(), exact(bigIntTypeLimits[0]))
+        );
 
-        RelDataType decimal3Type = TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 3);
+        RelDataType decimal3Type = sqlType(SqlTypeName.DECIMAL, 3);
         BigDecimal[] decimal3TypeLimits = {BigDecimal.valueOf(-999), BigDecimal.valueOf(999)};
-        RelDataType decimal53Type = TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 5, 3);
+        List<Arguments> decimal3s = List.of(
+                arguments(decimal3Type, "(-1000)::DECIMAL(3)", exact(decimal3TypeLimits[0])),
+                arguments(decimal3Type, "(-999)::DECIMAL(3)", exact(decimal3TypeLimits[0])),
+                arguments(decimal3Type, "999::DECIMAL(3)", exact(decimal3TypeLimits[1])),
+                arguments(decimal3Type, "1000::DECIMAL(3)", exact(decimal3TypeLimits[1]))
+        );
+
+        RelDataType decimal53Type = sqlType(SqlTypeName.DECIMAL, 5, 3);
         BigDecimal[] decimal53TypeLimits = {new BigDecimal("-99.999"), new BigDecimal("99.999")};
 
-        return Stream.of(
-                Arguments.arguments(tinyintType, -129, exact(tinyIntTypeLimits[0])),
-                Arguments.arguments(tinyintType, -128, exact(tinyIntTypeLimits[0])),
-                Arguments.arguments(tinyintType, 127, exact(tinyIntTypeLimits[1])),
-                Arguments.arguments(tinyintType, 128, exact(tinyIntTypeLimits[1])),
-
-                Arguments.arguments(smallIntType, (-(int) Math.pow(2, 15) - 1), exact(smallIntLimits[0])),
-                Arguments.arguments(smallIntType, (-(int) Math.pow(2, 15)), exact(smallIntLimits[0])),
-                Arguments.arguments(smallIntType, ((int) Math.pow(2, 15)), exact(smallIntLimits[1])),
-                Arguments.arguments(smallIntType, ((int) Math.pow(2, 15) + 1), exact(smallIntLimits[1])),
-
-                Arguments.arguments(intType, (-(long) Math.pow(2, 31) - 1), exact(intLimits[0])),
-                Arguments.arguments(intType, (-(long) Math.pow(2, 31)), exact(intLimits[0])),
-                Arguments.arguments(intType, ((long) Math.pow(2, 31)), exact(intLimits[1])),
-                Arguments.arguments(intType, ((long) Math.pow(2, 31) + 1), exact(intLimits[1])),
-
-                Arguments.arguments(decimal3Type, "(-1000)::DECIMAL(3)", exact(decimal3TypeLimits[0])),
-                Arguments.arguments(decimal3Type, "(-999)::DECIMAL(3)", exact(decimal3TypeLimits[0])),
-                Arguments.arguments(decimal3Type, "999::DECIMAL(3)", exact(decimal3TypeLimits[1])),
-                Arguments.arguments(decimal3Type, "1000::DECIMAL(3)",  exact(decimal3TypeLimits[1])),
-
-                Arguments.arguments(decimal53Type, "(-100.000)::DECIMAL(5, 3)",  exact(decimal53TypeLimits[0])),
-                Arguments.arguments(decimal53Type, "(100.000)::DECIMAL(5, 3)",  exact(decimal53TypeLimits[1])),
-
-                // TODO https://issues.apache.org/jira/browse/IGNITE-19858
-                //  Cause serialization/deserialization mismatch in AbstractPlannerTest::checkSplitAndSerialization
-                //Arguments.arguments(bigIntType, BigInteger.TWO.pow(63).add(BigInteger.ONE).negate(),
-                //        exact(bigIntTypeLimits[0])),
-                //Arguments.arguments(bigIntType, BigInteger.TWO.pow(63), exact(bigIntTypeLimits[1])),
-                //Arguments.arguments(bigIntType, BigInteger.TWO.pow(63).add(BigInteger.ONE), exact(bigIntTypeLimits[1])),
-
-                //Arguments.arguments(realType, BigDecimal.valueOf(Float.MAX_VALUE).add(BigDecimal.ONE) + "::REAL",
-                //        exact(Float.MAX_VALUE)),
-
-                //Arguments.arguments(realType, BigDecimal.valueOf(Double.MAX_VALUE).add(BigDecimal.ONE),
-                //        exact(Double.MAX_VALUE)),
-                Arguments.arguments(bigIntType, BigInteger.TWO.pow(63).negate(), exact(bigIntTypeLimits[0]))
+        List<Arguments> decimal35s = List.of(
+                arguments(decimal53Type, "(-100.000)::DECIMAL(5, 3)", exact(decimal53TypeLimits[0])),
+                arguments(decimal53Type, "(100.000)::DECIMAL(5, 3)", exact(decimal53TypeLimits[1]))
         );
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19858
+        //  Cause serialization/deserialization mismatch in AbstractPlannerTest::checkSplitAndSerialization
+        //
+        //  RelDataType realType = TYPE_FACTORY.createSqlType(SqlTypeName.REAL);
+        //  List<Arguments> reals = List.of(
+        //          arguments(realType, BigDecimal.valueOf(Float.MAX_VALUE).add(BigDecimal.ONE) + "::REAL", exact(Float.MAX_VALUE)),
+        //          arguments(realType, BigDecimal.valueOf(Double.MAX_VALUE).add(BigDecimal.ONE), exact(Double.MAX_VALUE))
+        //  );
+
+        return Stream.of(
+                tinyInts,
+                smallInts,
+                ints,
+                bigints,
+                decimal3s,
+                decimal35s
+        ).flatMap(Collection::stream);
     }
 
     private static Predicate<SearchBounds> exact(Object val) {
@@ -562,9 +680,10 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 .and(scan -> matchBounds(scan.searchBounds(), predicates))), params);
     }
 
-    private static boolean  matchBounds(List<SearchBounds> searchBounds, Predicate<SearchBounds>... predicates) {
+    private static boolean matchBounds(List<SearchBounds> searchBounds, Predicate<SearchBounds>... predicates) {
         for (int i = 0; i < predicates.length; i++) {
             if (!predicates[i].test(searchBounds.get(i))) {
+                LOG.info("{} bounds do not not match: {}", searchBounds.get(i), predicates[i]);
                 return false;
             }
         }
@@ -590,12 +709,22 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         return named(range, format("{}{}, {}{}", lc, lower, upper, uc));
     }
 
+    private static RelDataType sqlType(SqlTypeName typeName) {
+        return TYPE_FACTORY.createSqlType(typeName);
+    }
+
+    private static RelDataType sqlType(SqlTypeName typeName, int precision) {
+        return TYPE_FACTORY.createSqlType(typeName, precision);
+    }
+
+    private static RelDataType sqlType(SqlTypeName typeName, int precision, int scale) {
+        return TYPE_FACTORY.createSqlType(typeName, precision, scale);
+    }
+
     private static boolean matchValue(@Nullable Object val, RexNode bound) {
         if (val == null || bound == null) {
             return val == bound;
         }
-
-        bound = RexUtil.removeCast(bound);
 
         String actual = Objects.toString(bound instanceof RexLiteral ? ((RexLiteral) bound).getValueAs(val.getClass()) : bound);
         String expected = Objects.toString(val);
@@ -616,26 +745,31 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         };
     }
 
-    private TestTable createTableWithIndex(String tableName, String column, RelDataType type) {
-        IgniteTypeFactory typeFactory = Commons.typeFactory();
+    private static UnaryOperator<TableBuilder> tableA(String tableName) {
+        return tableBuilder -> tableBuilder
+                .name(tableName)
+                .name("TEST")
+                .addColumn("C1", NativeTypes.INT32)
+                .addColumn("C2", NativeTypes.STRING)
+                .addColumn("C3", NativeTypes.INT32)
+                .addColumn("C4", NativeTypes.INT32)
+                .addColumn("C5", NativeTypes.INT8)
+                .distribution(IgniteDistributions.single())
+                .size(100)
+                .sortedIndex()
+                .name("C1C2C3")
+                .addColumn("C1", Collation.ASC_NULLS_LAST)
+                .addColumn("C2", Collation.ASC_NULLS_LAST)
+                .addColumn("C3", Collation.ASC_NULLS_LAST)
+                .end();
+    }
 
-        RelDataType rowType = new Builder(typeFactory)
-                .add("C1", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER), true))
-                .add(column, typeFactory.createTypeWithNullability(type, true))
-                .build();
-        TestTable testTable = new TestTable(tableName, rowType, 400d) {
-            @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-                return ColocationGroup.forNodes(select(NODES, 0));
-            }
-
-            @Override
-            public IgniteDistribution distribution() {
-                return IgniteDistributions.single();
-            }
-        };
-
-        testTable.addIndex(tableName + "_" + column + "_IDX", 1);
-        return testTable;
+    private static UnaryOperator<TableBuilder> tableB(String tableName, String column, RelDataType type) {
+        return tableBuilder -> tableBuilder
+                .name(tableName)
+                .addColumn("C1", NativeTypes.INT32)
+                .addColumn(column, IgniteTypeFactory.relDataTypeToNative(type))
+                .size(400)
+                .distribution(IgniteDistributions.single());
     }
 }

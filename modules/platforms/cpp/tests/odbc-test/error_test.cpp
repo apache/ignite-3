@@ -79,8 +79,7 @@ TEST_F(error_test, duplicate_key) {
     ret = SQLExecDirect(m_statement, insert_req, SQL_NTS);
 
     ASSERT_EQ(ret, SQL_ERROR);
-    // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
-    EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "HY000");
+    EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "23000");
 }
 
 TEST_F(error_test, update_key) {
@@ -98,8 +97,8 @@ TEST_F(error_test, update_key) {
     ret = SQLExecDirect(m_statement, update_req, SQL_NTS);
 
     ASSERT_EQ(ret, SQL_ERROR);
-    // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
-    EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "HY000");
+    // TODO: IGNITE-21217 Check STMT_VALIDATION error code usage
+    EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "42000");
 }
 
 TEST_F(error_test, table_not_found) {
@@ -112,11 +111,11 @@ TEST_F(error_test, table_not_found) {
     ret = SQLExecDirect(m_statement, req, SQL_NTS);
 
     ASSERT_EQ(ret, SQL_ERROR);
-    // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
-    EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "HY000");
+    // TODO: IGNITE-21217 Check STMT_VALIDATION error code usage
+    EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "42000");
 
     std::string error = get_odbc_error_message(SQL_HANDLE_STMT, m_statement);
-    EXPECT_THAT(error, testing::HasSubstr("The table does not exist [name=\"PUBLIC\".\"NONEXISTING\"]"));
+    EXPECT_THAT(error, testing::HasSubstr("Table with name 'PUBLIC.NONEXISTING' not found"));
 }
 
 TEST_F(error_test, object_not_found_message) {
@@ -143,8 +142,8 @@ TEST_F(error_test, index_not_found) {
     ret = SQLExecDirect(m_statement, req, SQL_NTS);
 
     ASSERT_EQ(ret, SQL_ERROR);
-    // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
-    EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "HY000");
+    // TODO: IGNITE-21217 Check STMT_VALIDATION error code usage
+    EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "42000");
 }
 
 TEST_F(error_test, syntax_error) {
@@ -157,6 +156,6 @@ TEST_F(error_test, syntax_error) {
     ret = SQLExecDirect(m_statement, req, SQL_NTS);
 
     ASSERT_EQ(ret, SQL_ERROR);
-    // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
-    EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "HY000");
+    // TODO: IGNITE-21217 Check STMT_VALIDATION error code usage
+    EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "42000");
 }

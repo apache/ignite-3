@@ -17,18 +17,19 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 
 /**
  * Interface describing a particular change within the {@link VersionedUpdate group}.
  */
-public interface UpdateEntry extends Serializable {
+public interface UpdateEntry extends MarshallableEntry {
     /**
      * Applies own change to the catalog.
      *
      * @param catalog Current catalog.
+     * @param causalityToken Token that is associated with the corresponding update being applied.
      * @return New catalog.
      */
-    Catalog applyUpdate(Catalog catalog);
+    Catalog applyUpdate(Catalog catalog, long causalityToken);
 }

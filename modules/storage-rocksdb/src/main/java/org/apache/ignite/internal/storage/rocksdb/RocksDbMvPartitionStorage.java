@@ -22,6 +22,7 @@ import static java.nio.ByteBuffer.allocate;
 import static java.nio.ByteBuffer.allocateDirect;
 import static java.util.Arrays.copyOf;
 import static java.util.Arrays.copyOfRange;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MAX_KEY_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MV_KEY_BUFFER;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.ROW_ID_OFFSET;
@@ -32,16 +33,19 @@ import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.VAL
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.deserializeRow;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.putTimestampDesc;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.readTimestampDesc;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.LEASE_PREFIX;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_CONF_PREFIX;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_META_PREFIX;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.createKey;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.createKey;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.normalize;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.DFLT_WRITE_OPTS;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToTerminalState;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.ByteUtils.putLongToBytes;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -67,7 +71,6 @@ import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.AbstractWriteBatch;
 import org.rocksdb.ColumnFamilyHandle;
@@ -75,7 +78,6 @@ import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
-import org.rocksdb.Slice;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteBatchWithIndex;
 
@@ -147,11 +149,17 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** Key to store group config in meta. */
     private final byte[] lastGroupConfigKey;
 
+    /** Key to store the lease start time. */
+    private final byte[] leaseKey;
+
     /** On-heap-cached last applied index value. */
     private volatile long lastAppliedIndex;
 
     /** On-heap-cached last applied term value. */
     private volatile long lastAppliedTerm;
+
+    /** On-heap-cached lease start time value. */
+    private volatile long leaseStartTime;
 
     /** On-heap-cached last committed group configuration. */
     private volatile byte @Nullable [] lastGroupConfig;
@@ -182,6 +190,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         lastAppliedIndexAndTermKey = createKey(PARTITION_META_PREFIX, tableId, partitionId);
         lastGroupConfigKey = createKey(PARTITION_CONF_PREFIX, tableId, partitionId);
+        leaseKey = createKey(LEASE_PREFIX, tableId, partitionId);
 
         try {
             byte[] indexAndTerm = db.get(meta, readOpts, lastAppliedIndexAndTermKey);
@@ -191,6 +200,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             lastAppliedTerm = buf == null ? 0 : buf.getLong();
 
             lastGroupConfig = db.get(meta, readOpts, lastGroupConfigKey);
+
+            byte[] leaseStartTimeBytes = db.get(meta, readOpts, leaseKey);
+            ByteBuffer leaseStartTimeBuf = leaseStartTimeBytes == null
+                    ? null
+                    : ByteBuffer.wrap(leaseStartTimeBytes).order(ByteOrder.LITTLE_ENDIAN);
+
+            leaseStartTime = leaseStartTimeBuf == null ? HybridTimestamp.MIN_VALUE.longValue() : leaseStartTimeBuf.getLong();
         } catch (RocksDBException e) {
             throw new StorageException(e);
         }
@@ -305,7 +321,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         ThreadLocalState state = THREAD_LOCAL_STATE.get();
 
-        //TODO Complicated code.
+        // TODO Complicated code.
         if (state != null) {
             state.pendingAppliedIndex = lastAppliedIndex;
             state.pendingAppliedTerm = lastAppliedTerm;
@@ -352,7 +368,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         ThreadLocalState state = THREAD_LOCAL_STATE.get();
 
-        //TODO Complicated code.
+        // TODO Complicated code.
         if (state != null) {
             state.pendingGroupConfig = config.clone();
         }
@@ -480,7 +496,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 byte[] previousValue = writeBatch.getFromBatchAndDB(db, helper.partCf, readOpts, keyBytes);
 
                 if (previousValue == null) {
-                    //the chain doesn't contain an uncommitted write intent
+                    // The chain doesn't contain an uncommitted write intent.
                     return null;
                 }
 
@@ -570,7 +586,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             // We only write tombstone if the previous value for the same row id was not a tombstone.
             // So there won't be consecutive tombstones for the same row id.
             if (!newAndPrevTombstones) {
-                //TODO IGNITE-16913 Add proper way to write row bytes into array without allocations.
+                // TODO IGNITE-16913 Add proper way to write row bytes into array without allocations.
                 byte[] rowBytes;
 
                 if (row == null) {
@@ -821,21 +837,17 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
+            ByteBuffer prefix = prepareDirectKeyBuf(rowId)
+                    .position(0)
+                    .limit(ROW_PREFIX_SIZE);
 
-            byte[] lowerBound = copyOf(keyBuf.array(), ROW_PREFIX_SIZE);
-
-            incrementRowId(keyBuf);
-
-            Slice upperBound = new Slice(copyOf(keyBuf.array(), ROW_PREFIX_SIZE));
-
-            var options = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
+            var options = new ReadOptions().setPrefixSameAsStart(true);
 
             RocksIterator it = db.newIterator(helper.partCf, options);
 
             it = helper.wrapIterator(it, helper.partCf);
 
-            it.seek(lowerBound);
+            it.seek(prefix);
 
             return new RocksIteratorAdapter<ReadResult>(it) {
                 @Override
@@ -853,16 +865,20 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 @Override
                 public boolean hasNext() {
-                    assert rowIsLocked(rowId);
+                    return busy(() -> {
+                        assert rowIsLocked(rowId) : "rowId=" + rowId + ", " + createStorageInfo();
 
-                    return super.hasNext();
+                        return super.hasNext();
+                    });
                 }
 
                 @Override
                 public ReadResult next() {
-                    assert rowIsLocked(rowId);
+                    return busy(() -> {
+                        assert rowIsLocked(rowId) : "rowId=" + rowId + ", " + createStorageInfo();
 
-                    return super.next();
+                        return super.next();
+                    });
                 }
 
                 @Override
@@ -871,13 +887,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                     super.close();
 
-                    RocksUtils.closeAll(options, upperBound);
+                    RocksUtils.closeAll(options);
                 }
             };
         });
     }
 
-    // TODO: IGNITE-16914 Play with prefix settings and benchmark results.
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
         Objects.requireNonNull(timestamp, "timestamp is null");
@@ -966,11 +981,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            try (
-                    var upperBound = new Slice(helper.partitionEndPrefix());
-                    var options = new ReadOptions().setIterateUpperBound(upperBound);
-                    RocksIterator it = db.newIterator(helper.partCf, options)
-            ) {
+            try (RocksIterator it = db.newIterator(helper.partCf, helper.scanReadOpts)) {
                 it.seek(helper.partitionStartPrefix());
 
                 long size = 0;
@@ -985,12 +996,43 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         });
     }
 
+    @Override
+    public void updateLease(long leaseStartTime) {
+        busy(() -> {
+            if (leaseStartTime <= this.leaseStartTime) {
+                return null;
+            }
+
+            AbstractWriteBatch writeBatch = PartitionDataHelper.requireWriteBatch();
+
+            try {
+                byte[] leaseBytes = new byte[Long.BYTES];
+
+                putLongToBytes(leaseStartTime, leaseBytes, 0);
+
+                writeBatch.put(meta, leaseKey, leaseBytes);
+
+                this.leaseStartTime = leaseStartTime;
+            } catch (RocksDBException e) {
+                throw new StorageException(e);
+            }
+
+            return null;
+        });
+    }
+
+    @Override
+    public long leaseStartTime() {
+        return busy(() -> leaseStartTime);
+    }
+
     /**
      * Deletes partition data from the storage, using write batch to perform the operation.
      */
     void destroyData(WriteBatch writeBatch) throws RocksDBException {
         writeBatch.delete(meta, lastAppliedIndexAndTermKey);
         writeBatch.delete(meta, lastGroupConfigKey);
+        writeBatch.delete(meta, leaseKey);
 
         writeBatch.deleteRange(helper.partCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
 
@@ -1024,17 +1066,25 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void close() {
-        StorageState previous = state.getAndSet(StorageState.CLOSED);
+        transitionToDestroyedOrClosedState(StorageState.CLOSED);
+    }
 
-        if (previous == StorageState.CLOSED) {
+    private void transitionToDestroyedOrClosedState(StorageState targetState) {
+        if (!transitionToTerminalState(targetState, state)) {
             return;
         }
 
         busyLock.block();
 
-        RocksUtils.closeAll(readOpts);
-
+        readOpts.close();
         helper.close();
+    }
+
+    /**
+     * Transitions this storage to the {@link StorageState#DESTROYED} state.
+     */
+    public void transitionToDestroyedState() {
+        transitionToDestroyedOrClosedState(StorageState.DESTROYED);
     }
 
     /**
@@ -1279,7 +1329,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 //          - R1 > R0, this means that we found next row and T1 is either missing (pending row) or represents the latest
                 //            version of the row. It doesn't matter in this case, because this row id will be reused to find its value
                 //            at time T0. Additional "seek" will be required to do it.
-                //TODO IGNITE-18201 Remove copying.
+                // TODO IGNITE-18201 Remove copying.
                 it.seek(copyOf(seekKeyBuf.array(), ROW_PREFIX_SIZE));
 
                 // Finish scan if nothing was found.
@@ -1377,7 +1427,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             ByteBuffer directBuffer = DIRECT_KEY_BUFFER.get();
 
             while (true) {
-                //TODO IGNITE-18201 Remove copying.
+                // TODO IGNITE-18201 Remove copying.
                 it.seek(copyOf(seekKeyBuf.array(), ROW_PREFIX_SIZE));
 
                 if (invalid(it)) {
@@ -1427,7 +1477,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * Creates a summary info of the storage in the format "table=user, partitionId=1".
      */
     String createStorageInfo() {
-        return IgniteStringFormatter.format("tableId={}, partitionId={}", tableStorage.getTableId(), partitionId);
+        return format("tableId={}, partitionId={}", tableStorage.getTableId(), partitionId);
     }
 
     /**
@@ -1440,7 +1490,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
 
-        // Changed storage states and expect all storage operations to stop soon.
+        // Change storage states and expect all storage operations to stop soon.
         busyLock.block();
 
         try {
@@ -1495,6 +1545,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         writeBatch.delete(meta, lastGroupConfigKey);
         writeBatch.deleteRange(helper.partCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
+        writeBatch.delete(meta, leaseKey);
 
         gc.deleteQueue(writeBatch);
     }

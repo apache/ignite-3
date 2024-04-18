@@ -27,7 +27,7 @@ import static org.apache.ignite.internal.util.GridUnsafe.compareAndSwapLong;
 import static org.apache.ignite.internal.util.GridUnsafe.getLongVolatile;
 import static org.apache.ignite.internal.util.GridUnsafe.putLong;
 import static org.apache.ignite.internal.util.GridUnsafe.putLongVolatile;
-import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;

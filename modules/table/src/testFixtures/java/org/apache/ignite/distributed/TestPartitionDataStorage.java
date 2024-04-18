@@ -19,8 +19,6 @@ package org.apache.ignite.distributed;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -41,14 +39,33 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of {@link PartitionDataStorage}.
  */
 public class TestPartitionDataStorage implements PartitionDataStorage {
-    private final MvPartitionStorage partitionStorage;
+    private final int tableId;
 
-    private final Lock partitionSnapshotsLock = new ReentrantLock();
+    private final int partitionId;
+
+    private final MvPartitionStorage partitionStorage;
 
     private final RaftGroupConfigurationConverter configurationConverter = new RaftGroupConfigurationConverter();
 
-    public TestPartitionDataStorage(MvPartitionStorage partitionStorage) {
+    /** Constructor. */
+    public TestPartitionDataStorage(
+            int tableId,
+            int partitionId,
+            MvPartitionStorage partitionStorage
+    ) {
+        this.tableId = tableId;
+        this.partitionId = partitionId;
         this.partitionStorage = partitionStorage;
+    }
+
+    @Override
+    public int tableId() {
+        return tableId;
+    }
+
+    @Override
+    public int partitionId() {
+        return partitionId;
     }
 
     @Override
@@ -56,15 +73,14 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
         return partitionStorage.runConsistently(closure);
     }
 
-    @SuppressWarnings("LockAcquiredButNotSafelyReleased")
     @Override
     public void acquirePartitionSnapshotsReadLock() {
-        partitionSnapshotsLock.lock();
+        // There is no 'write' side, so we don't need to take any lock.
     }
 
     @Override
     public void releasePartitionSnapshotsReadLock() {
-        partitionSnapshotsLock.unlock();
+        // There is no 'write' side, so we don't need to releasetestbala any lock.
     }
 
     @Override
@@ -96,6 +112,11 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId,
             int commitPartitionId) throws TxIdMismatchException, StorageException {
         return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+    }
+
+    @Override
+    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs) {
+        partitionStorage.addWriteCommitted(rowId, row, commitTs);
     }
 
     @Override
@@ -135,5 +156,15 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     @Override
     public @Nullable BinaryRow vacuum(GcEntry entry) {
         return partitionStorage.vacuum(entry);
+    }
+
+    @Override
+    public void updateLease(long leaseStartTime) {
+        partitionStorage.updateLease(leaseStartTime);
+    }
+
+    @Override
+    public long leaseStartTime() {
+        return partitionStorage.leaseStartTime();
     }
 }

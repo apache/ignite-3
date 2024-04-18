@@ -48,12 +48,6 @@ NonTerminal('column_list')
 ),
 Optional(
 Sequence(
-NonTerminal('ENGINE'),
-NonTerminal('engine_name')
-)
-),
-Optional(
-Sequence(
 NonTerminal('WITH'),
 OneOrMore('param_name')
 )
@@ -66,7 +60,6 @@ Parameters:
 * `table_name` - name of the table. Can be schema-qualified.
 * `table_column` - name and type of a column to be created in the new table.
 * `IF NOT EXISTS` - create the table only if a table with the same name does not exist.
-* `ENGINE` - selects the storage engine to use. Currently `aipersist`, `aimem` and `rocksdb` are available.
 * `COLOCATED BY` - colocation key. The key can be composite. Primary key must include colocation key. Was `affinity_key` in Ignite 2.x.
 * `WITH` - accepts the following additional parameters:
 
@@ -133,7 +126,7 @@ Modifies the structure of an existing table.
 //image::images/svg/alter_table_no_logging_bnf.svg[Embedded,opts=inline]
 //
 
-==== ALTER TABLE IF EXISTS table ADD COLUMN IF NOT EXISTS (column1 int, column2 int)
+==== ALTER TABLE IF EXISTS table ADD COLUMN (column1 int, column2 int)
 
 [.diagram-container]
 Diagram(
@@ -148,7 +141,6 @@ End({type:'complex'})
 [.diagram-container]
 Diagram(
   Start({type:'complex'}),
-  Optional('IF NOT EXISTS'),
   NonTerminal('column_definition_or_list')
 )
 
@@ -159,12 +151,11 @@ Parameters:
 - `qualified_table_name` - the name of the table.
 - `ADD` - adds a new column or several columns to a previously created table. Once a column is added, it can be accessed using link:sql-reference/dml[DML commands,window=_blank] and indexed with the CREATE INDEX statement.
 - `COLUMN` - name of the defined column.
-- `IF NOT EXISTS` - do not throw an error if a column with the same name already exists.
 - `column_definition_or_list` - definition of the column to add to the table.
 
 
 
-==== ALTER TABLE IF EXISTS table DROP COLUMN IF EXISTS (column1, column2 int)
+==== ALTER TABLE IF EXISTS table DROP COLUMN (column1, column2 int)
 
 [.diagram-container]
 Diagram(
@@ -179,7 +170,6 @@ End({type:'complex'})
 [.diagram-container]
 Diagram(
 Start({type:'complex'}),
-Optional('IF EXISTS'),
 NonTerminal('column_list')
 )
 
@@ -209,13 +199,6 @@ Add a column to the table:
 ALTER TABLE Person ADD COLUMN city varchar;
 ----
 
-Add a new column to the table only if a column with the same name does not exist:
-
-[source,sql]
-----
-ALTER TABLE City ADD COLUMN IF NOT EXISTS population int;
-----
-
 Add a column​ only if the table exists:
 
 [source,sql]
@@ -235,13 +218,6 @@ Drop a column from the table:
 [source,sql]
 ----
 ALTER TABLE Person DROP COLUMN city;
-----
-
-Drop a column from the table only if a column with the same name does exist:
-
-[source,sql]
-----
-ALTER TABLE Person DROP COLUMN IF EXISTS population;
 ----
 
 Drop a column only if the table exists:
@@ -320,6 +296,8 @@ Parameters:
 
 Creates a new index.
 
+NOTE: The index cannot include the same column more than once.
+
 [.diagram-container]
 Diagram(
   NonTerminal('CREATE INDEX'),
@@ -336,7 +314,7 @@ Diagram(
   Optional(
    Sequence(
     NonTerminal('USING'),
-    Choice (0,'HASH','TREE')
+    Choice (0,'HASH','SORTED')
    )
   ),
   Optional('column_definition')
@@ -349,7 +327,7 @@ Parameters:
 * `name` - name of the index.
 * `qualified_table_name` - name of the table to create the index on. Can be schema-qualified.
 * `IF NOT EXISTS` - create the index only if an index with the same name does not exist.
-* `USING` - specifies whether the command creates a sorted index or a hash index. Possible values: `HASH`, `TREE`. Default is `TREE`.
+* `USING` - specifies whether the command creates a sorted index or a hash index. Possible values: `HASH`, `SORTED`. Default is `SORTED`.
 
 
 //NOTE: Add image

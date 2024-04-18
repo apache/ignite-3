@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.placementdriver.message;
 
+import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * A base message for placement driver request to a replication group.

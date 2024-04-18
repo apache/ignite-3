@@ -20,8 +20,8 @@ package org.apache.ignite.client.handler.requests.cluster;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 
 /**
  * Cluster nodes request.
@@ -39,10 +39,10 @@ public class ClientClusterGetNodesRequest {
             ClusterService clusterService) {
         Collection<ClusterNode> nodes = clusterService.topologyService().allMembers();
 
-        out.packArrayHeader(nodes.size());
+        out.packInt(nodes.size());
 
         for (ClusterNode node : nodes) {
-            out.packArrayHeader(4);
+            out.packInt(4);
 
             out.packString(node.id());
             out.packString(node.name());

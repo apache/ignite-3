@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -34,13 +35,13 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
@@ -53,7 +54,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @SuppressWarnings("ZeroLengthArrayAllocation")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(WorkDirectoryExtension.class)
-public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
+public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
     protected static final String TABLE_NAME = "TBL1";
 
     protected static final String COLUMN_KEY = "key";
@@ -67,12 +68,10 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
     private IgniteClient client;
 
     /**
-     * Before each.
+     * Before all.
      */
     @BeforeAll
     void beforeAll(TestInfo testInfo, @WorkDirectory Path workDir) throws InterruptedException {
-        this.workDir = workDir;
-
         String node0Name = testNodeName(testInfo, 3344);
         String node1Name = testNodeName(testInfo, 3345);
 
@@ -81,7 +80,9 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
                 "{\n"
                         + "  network.port: 3344,\n"
                         + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                        + "  clientConnector.port: 10800\n"
+                        + "  clientConnector.port: 10800,\n"
+                        + "  rest.port: 10300\n"
+                        + "  compute.threadPoolSize: 1\n"
                         + "}"
         );
 
@@ -92,7 +93,9 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
                         + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "  clientConnector.sendServerExceptionStackTraceToClient: true\n"
                         + "  clientConnector.metricsEnabled: true\n"
-                        + "  clientConnector.port: 10801\n"
+                        + "  clientConnector.port: 10801,\n"
+                        + "  rest.port: 10301\n"
+                        + "  compute.threadPoolSize: 1\n"
                         + "}"
         );
 
@@ -115,11 +118,12 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
             startedNodes.add(future.join());
         }
 
-        try (Session session = startedNodes.get(0).sql().createSession()) {
-            session.execute(null, "CREATE ZONE TEST_ZONE WITH REPLICAS=1, PARTITIONS=10");
-            session.execute(null, "CREATE TABLE " + TABLE_NAME + "("
-                    + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
-        }
+        IgniteSql sql = startedNodes.get(0).sql();
+
+        sql.execute(null,  "CREATE ZONE TEST_ZONE WITH REPLICAS=1, PARTITIONS=10, STORAGE_PROFILES='"
+                + DEFAULT_STORAGE_PROFILE + "'");
+        sql.execute(null, "CREATE TABLE " + TABLE_NAME + "("
+                + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
 
         client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();
 
@@ -189,7 +193,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
      */
     protected static class TestPojo {
         public TestPojo() {
-            //No-op.
+            // No-op.
         }
 
         public TestPojo(int key) {
@@ -199,5 +203,13 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         public int key;
 
         public String val;
+
+        public int getKey() {
+            return key;
+        }
+
+        public String getVal() {
+            return val;
+        }
     }
 }

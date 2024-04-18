@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 
 /**
  * Binary scalar used for two inputs and single output.
@@ -25,5 +26,5 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 @FunctionalInterface
 public interface BiScalar extends Scalar {
     /** Two inputs and single output. */
-    void execute(ExecutionContext ctx, Object in1, Object in2, Object out);
+    void execute(ExecutionContext ctx, Object in1, Object in2, RowBuilder out);
 }

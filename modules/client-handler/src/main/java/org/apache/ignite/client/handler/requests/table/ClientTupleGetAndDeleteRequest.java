@@ -48,11 +48,11 @@ public class ClientTupleGetAndDeleteRequest {
             ClientResourceRegistry resources
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readTx(in, resources);
-            var tuple = readTuple(in, table, true);
-
-            return table.recordView().getAndDeleteAsync(tx, tuple).thenAccept(
-                    resTuple -> ClientTableCommon.writeTupleOrNil(out, resTuple, TuplePart.KEY_AND_VAL, table.schemaView()));
+            var tx = readTx(in, out, resources);
+            return readTuple(in, table, true).thenCompose(tuple -> {
+                return table.recordView().getAndDeleteAsync(tx, tuple).thenAccept(
+                        resTuple -> ClientTableCommon.writeTupleOrNil(out, resTuple, TuplePart.KEY_AND_VAL, table.schemaView()));
+            });
         });
     }
 }

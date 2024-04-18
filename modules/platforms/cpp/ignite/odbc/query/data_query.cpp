@@ -27,75 +27,6 @@
 namespace {
 using namespace ignite;
 
-/**
- * Reads result set metadata.
- *
- * @param reader Reader.
- * @return Result set meta columns.
- */
-column_meta_vector read_meta(protocol::reader &reader) {
-    auto size = reader.read_array_size();
-
-    column_meta_vector columns;
-    columns.reserve(size);
-
-    reader.read_array_raw([&columns](std::uint32_t idx, const msgpack_object &obj) {
-        if (obj.type != MSGPACK_OBJECT_ARRAY)
-            throw ignite_error("Meta column expected to be serialized as array");
-
-        const msgpack_object_array &arr = obj.via.array;
-
-        constexpr std::uint32_t min_count = 6;
-        assert(arr.size >= min_count);
-
-        auto name = protocol::unpack_object<std::string>(arr.ptr[0]);
-        auto nullable = protocol::unpack_object<bool>(arr.ptr[1]);
-        auto typ = ignite_type(protocol::unpack_object<std::int32_t>(arr.ptr[2]));
-        auto scale = protocol::unpack_object<std::int32_t>(arr.ptr[3]);
-        auto precision = protocol::unpack_object<std::int32_t>(arr.ptr[4]);
-
-        bool origin_present = protocol::unpack_object<bool>(arr.ptr[5]);
-
-        if (!origin_present) {
-            columns.emplace_back("", "", std::move(name), typ, precision, scale, nullable);
-            return;
-        }
-
-        assert(arr.size >= min_count + 3);
-        auto origin_name =
-            arr.ptr[6].type == MSGPACK_OBJECT_NIL ? name : protocol::unpack_object<std::string>(arr.ptr[6]);
-
-        auto origin_schema_id = protocol::try_unpack_object<std::int32_t>(arr.ptr[7]);
-        std::string origin_schema;
-        if (origin_schema_id) {
-            if (*origin_schema_id >= std::int32_t(columns.size())) {
-                throw ignite_error("Origin schema ID is too large: " + std::to_string(*origin_schema_id)
-                    + ", id=" + std::to_string(idx));
-            }
-            origin_schema = columns[*origin_schema_id].get_schema_name();
-        } else {
-            origin_schema = protocol::unpack_object<std::string>(arr.ptr[7]);
-        }
-
-        auto origin_table_id = protocol::try_unpack_object<std::int32_t>(arr.ptr[8]);
-        std::string origin_table;
-        if (origin_table_id) {
-            if (*origin_table_id >= std::int32_t(columns.size())) {
-                throw ignite_error("Origin table ID is too large: " + std::to_string(*origin_table_id)
-                    + ", id=" + std::to_string(idx));
-            }
-            origin_table = columns[*origin_table_id].get_table_name();
-        } else {
-            origin_table = protocol::unpack_object<std::string>(arr.ptr[8]);
-        }
-
-        columns.emplace_back(
-            std::move(origin_schema), std::move(origin_table), std::move(name), typ, precision, scale, nullable);
-    });
-
-    return columns;
-}
-
 // TODO: IGNITE-19968 Avoid storing row columns in primitives, read them directly from binary tuple.
 /**
  * Put a primitive into a buffer.
@@ -191,12 +122,20 @@ sql_result data_query::execute() {
 
 const column_meta_vector *data_query::get_meta() {
     if (!m_result_meta_available) {
-        make_request_resultset_meta();
+        update_meta();
+
         if (!m_result_meta_available)
             return nullptr;
     }
 
     return &m_result_meta;
+}
+
+const sql_parameter *data_query::get_sql_param(std::int16_t idx) {
+    if (idx > 0 && static_cast<std::size_t>(idx) <= m_params_meta.size())
+        return &m_params_meta.at(idx - 1);
+
+    return nullptr;
 }
 
 sql_result data_query::fetch_next_row(column_binding_map &column_bindings) {
@@ -312,7 +251,6 @@ sql_result data_query::next_result_set() {
 sql_result data_query::make_request_execute() {
     auto &schema = m_connection.get_schema();
 
-    network::data_buffer_owning response;
     auto success = m_diag.catch_errors([&] {
         auto tx = m_connection.get_transaction_id();
         if (!tx && !m_connection.is_auto_commit()) {
@@ -322,7 +260,11 @@ sql_result data_query::make_request_execute() {
             tx = m_connection.get_transaction_id();
             assert(tx);
         }
-        response = m_connection.sync_request(detail::client_operation::SQL_EXEC, [&](protocol::writer &writer) {
+
+        bool single = m_params.get_param_set_size() <= 1;
+        auto client_op = single ? protocol::client_operation::SQL_EXEC : protocol::client_operation::SQL_EXEC_BATCH;
+
+        auto response = m_connection.sync_request(client_op, [&](protocol::writer &writer) {
             if (tx)
                 writer.write(*tx);
             else
@@ -343,7 +285,13 @@ sql_result data_query::make_request_execute() {
 
             writer.write(m_query);
 
-            m_params.write(writer);
+            if (single) {
+                m_params.write(writer);
+            } else {
+                m_params.write(writer, 0, m_params.get_param_set_size(), true);
+            }
+
+            writer.write(m_connection.get_observable_timestamp());
         });
 
         m_connection.mark_transaction_non_empty();
@@ -354,16 +302,48 @@ sql_result data_query::make_request_execute() {
         m_has_rowset = reader->read_bool();
         m_has_more_pages = reader->read_bool();
         m_was_applied = reader->read_bool();
-        m_rows_affected = reader->read_int64();
+        if (single) {
+            m_rows_affected = reader->read_int64();
 
-        if (m_has_rowset) {
-            auto columns = read_meta(*reader);
-            set_resultset_meta(columns);
-            auto page = std::make_unique<result_page>(std::move(response), std::move(reader));
-            m_cursor = std::make_unique<cursor>(std::move(page));
+            if (m_has_rowset) {
+                auto columns = read_result_set_meta(*reader);
+                set_resultset_meta(std::move(columns));
+                auto page = std::make_unique<result_page>(std::move(response), std::move(reader));
+                m_cursor = std::make_unique<cursor>(std::move(page));
+            }
+
+            m_executed = true;
+        } else {
+            auto affected_rows = reader->read_int64_array();
+            auto status_ptr = m_params.get_params_status_ptr();
+
+            m_rows_affected = 0;
+            for (auto &ar : affected_rows) {
+                m_rows_affected += ar;
+            }
+            m_params.set_params_processed(affected_rows.size());
+
+            if (status_ptr) {
+                for (auto i = 0; i < m_params.get_param_set_size(); i++) {
+                    status_ptr[i] = (std::size_t(i) < affected_rows.size()) ? SQL_PARAM_SUCCESS : SQL_PARAM_ERROR;
+                }
+            }
+
+            // Batch query, set attribute if it's set
+            if (auto affected = m_params.get_params_processed_ptr(); affected) {
+                *affected = m_rows_affected;
+            }
+
+            m_executed = true;
+
+            // Check error if this is a batch query
+            if (auto error_code = reader->read_int16_nullable(); error_code) {
+                auto error_message = reader->read_string();
+                throw odbc_error(error_code_to_sql_state(error::code(error_code.value())), error_message);
+            } else {
+                reader->skip(); // error message
+            }
         }
-
-        m_executed = true;
     });
 
     return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
@@ -377,7 +357,7 @@ sql_result data_query::make_request_close() {
 
     auto success = m_diag.catch_errors([&] {
         UNUSED_VALUE m_connection.sync_request(
-            detail::client_operation::SQL_CURSOR_CLOSE, [&](protocol::writer &writer) { writer.write(*m_query_id); });
+            protocol::client_operation::SQL_CURSOR_CLOSE, [&](protocol::writer &writer) { writer.write(*m_query_id); });
     });
 
     return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
@@ -391,7 +371,7 @@ sql_result data_query::make_request_fetch(std::unique_ptr<result_page> &page) {
 
     network::data_buffer_owning response;
     auto success = m_diag.catch_errors([&] {
-        response = m_connection.sync_request(detail::client_operation::SQL_CURSOR_NEXT_PAGE,
+        response = m_connection.sync_request(protocol::client_operation::SQL_CURSOR_NEXT_PAGE,
             [&](protocol::writer &writer) { writer.write(*m_query_id); });
 
         auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
@@ -401,12 +381,54 @@ sql_result data_query::make_request_fetch(std::unique_ptr<result_page> &page) {
     return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
 }
 
-sql_result data_query::make_request_resultset_meta() {
-    // TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
-    m_diag.add_status_record(
-        sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Metadata for non-executed queries is not supported");
+sql_result data_query::update_meta() {
+    auto &schema = m_connection.get_schema();
 
-    return sql_result::AI_ERROR;
+    auto success = m_diag.catch_errors([&] {
+        auto tx = m_connection.get_transaction_id();
+        auto response =
+            m_connection.sync_request(protocol::client_operation::SQL_QUERY_META, [&](protocol::writer &writer) {
+                if (tx)
+                    writer.write(*tx);
+                else
+                    writer.write_nil();
+
+                writer.write(schema);
+                writer.write(m_query);
+            });
+
+        if (tx) {
+            m_connection.mark_transaction_non_empty();
+        }
+
+        auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
+        auto num = reader->read_int32();
+
+        if (num < 0) {
+            throw odbc_error(
+                sql_state::SHY000_GENERAL_ERROR, "Unexpected number of parameters: " + std::to_string(num));
+        }
+
+        std::vector<sql_parameter> params;
+        params.reserve(num);
+
+        for (std::int32_t i = 0; i < num; ++i) {
+            sql_parameter param{};
+            param.nullable = reader->read_bool();
+            param.data_type = ignite_type(reader->read_int32());
+            param.scale = reader->read_int32();
+            param.precision = reader->read_int32();
+
+            params.emplace_back(param);
+        }
+
+        set_params_meta(std::move(params));
+
+        auto columns = read_result_set_meta(*reader);
+        set_resultset_meta(std::move(columns));
+    });
+
+    return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
 }
 
 sql_result data_query::process_conversion_result(
@@ -460,16 +482,29 @@ sql_result data_query::process_conversion_result(
     return sql_result::AI_ERROR;
 }
 
-void data_query::set_resultset_meta(const column_meta_vector &value) {
-    m_result_meta.assign(value.begin(), value.end());
+void data_query::set_resultset_meta(column_meta_vector value) {
+    m_result_meta = std::move(value);
     m_result_meta_available = true;
 
     for (size_t i = 0; i < m_result_meta.size(); ++i) {
         column_meta &meta = m_result_meta.at(i);
-        LOG_MSG("\n[" << i << "] SchemaName:     " << meta.get_schema_name() << "\n[" << i << "] TypeName:       "
-                      << meta.get_table_name() << "\n[" << i << "] ColumnName:     " << meta.get_column_name() << "\n["
-                      << i << "] ColumnType:     " << static_cast<int32_t>(meta.get_data_type()));
+        LOG_MSG("[" << i << "] SchemaName: " << meta.get_schema_name());
+        LOG_MSG("[" << i << "] TableName:  " << meta.get_table_name());
+        LOG_MSG("[" << i << "] ColumnName: " << meta.get_column_name());
+        LOG_MSG("[" << i << "] ColumnType: " << static_cast<int32_t>(meta.get_data_type()));
     }
 }
 
+void data_query::set_params_meta(std::vector<sql_parameter> value) {
+    m_params_meta = std::move(value);
+    m_params_meta_available = true;
+
+    for (size_t i = 0; i < m_params_meta.size(); ++i) {
+        sql_parameter &meta = m_params_meta.at(i);
+        LOG_MSG("[" << i << "] ParamType: " << meta.data_type);
+        LOG_MSG("[" << i << "] Scale:     " << meta.scale);
+        LOG_MSG("[" << i << "] Precision: " << meta.precision);
+        LOG_MSG("[" << i << "] Nullable:  " << (meta.nullable ? "true" : "false"));
+    }
+}
 } // namespace ignite

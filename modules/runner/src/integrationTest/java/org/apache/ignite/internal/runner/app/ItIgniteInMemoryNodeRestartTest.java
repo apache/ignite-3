@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -39,17 +41,18 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -140,12 +143,9 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         return startNode(idx, nodeName, cfgString, workDir.resolve(nodeName));
     }
 
-    /**
-     * Stop the node with given index.
-     *
-     * @param idx Node index.
-     */
-    private static void stopNode(int idx) {
+    /** {@inheritDoc} */
+    @Override
+    protected void stopNode(int idx) {
         Ignite node = CLUSTER_NODES.get(idx);
 
         if (node != null) {
@@ -169,56 +169,63 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         // Create a table with replica on every node.
         createTableWithData(ignite, TABLE_NAME, 3, 1);
 
-        TableImpl table = (TableImpl) ignite.tables().table(TABLE_NAME);
+        TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
 
         // Find the leader of the table's partition group.
-        RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(0);
+        RaftGroupService raftGroupService = table.internalTable().tableRaftService().partitionRaftGroupService(0);
         LeaderWithTerm leaderWithTerm = raftGroupService.refreshAndGetLeaderWithTerm().join();
         String leaderId = leaderWithTerm.leader().consistentId();
+
+        log.info("Leader is {}", leaderId);
 
         // Find the index of any node that is not a leader of the partition group.
         int idxToStop = IntStream.range(1, 3)
                 .filter(idx -> !leaderId.equals(ignite(idx).node().name()))
                 .findFirst().getAsInt();
 
+        log.info("Stopping node {}", idxToStop);
+
         // Restart the node.
         stopNode(idxToStop);
 
         IgniteImpl restartingNode = startNode(testInfo, idxToStop);
 
+        log.info("Restarted node {}", restartingNode.name());
+
         Loza loza = restartingNode.raftManager();
 
         String restartingNodeConsistentId = restartingNode.name();
 
-        TableImpl restartingTable = (TableImpl) restartingNode.tables().table(TABLE_NAME);
+        TableViewInternal restartingTable = unwrapTableViewInternal(restartingNode.tables().table(TABLE_NAME));
         InternalTableImpl internalTable = (InternalTableImpl) restartingTable.internalTable();
 
         // Check that it restarts.
-        assertTrue(waitForCondition(
-                () -> {
-                    boolean raftNodeStarted = loza.localNodes().stream().anyMatch(nodeId -> {
-                        if (nodeId.groupId() instanceof TablePartitionId) {
-                            return ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId();
-                        }
-
-                        return false;
-                    });
-
-                    if (!raftNodeStarted) {
-                        return false;
-                    }
-
-                    Map<Integer, List<String>> assignments = internalTable.peersAndLearners();
-
-                    List<String> partitionAssignments = assignments.get(0);
-
-                    return partitionAssignments.contains(restartingNodeConsistentId);
-                },
+        waitForCondition(
+                () -> isRaftNodeStarted(table, loza) && solePartitionAssignmentsContain(restartingNodeConsistentId, internalTable),
                 TimeUnit.SECONDS.toMillis(10)
-        ));
+        );
+
+        assertTrue(isRaftNodeStarted(table, loza), "Raft node of the partition is not started on " + restartingNodeConsistentId);
+        assertTrue(
+                solePartitionAssignmentsContain(restartingNodeConsistentId, internalTable),
+                "Assignments do not contain node " + restartingNodeConsistentId
+        );
 
         // Check the data rebalanced correctly.
         checkTableWithData(restartingNode, TABLE_NAME);
+    }
+
+    private static boolean solePartitionAssignmentsContain(String restartingNodeConsistentId, InternalTableImpl internalTable) {
+        Map<Integer, List<String>> assignments = internalTable.tableRaftService().peersAndLearners();
+
+        List<String> partitionAssignments = assignments.get(0);
+
+        return partitionAssignments.contains(restartingNodeConsistentId);
+    }
+
+    private static boolean isRaftNodeStarted(TableViewInternal table, Loza loza) {
+        return loza.localNodes().stream().anyMatch(nodeId ->
+                nodeId.groupId() instanceof TablePartitionId && ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId());
     }
 
     /**
@@ -235,7 +242,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         // Create a table with replica on every node.
         createTableWithData(ignite0, TABLE_NAME, 3, 1);
 
-        TableImpl table = (TableImpl) ignite0.tables().table(TABLE_NAME);
+        TableViewInternal table = (TableViewInternal) ignite0.tables().table(TABLE_NAME);
 
         // Lose the majority.
         stopNode(1);
@@ -274,7 +281,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         // Create a table with replicas on every node.
         createTableWithData(ignite0, TABLE_NAME, 3, 1);
 
-        TableImpl table = (TableImpl) ignite0.tables().table(TABLE_NAME);
+        TableViewInternal table = unwrapTableViewInternal(ignite0.tables().table(TABLE_NAME));
 
         stopNode(0);
         stopNode(1);
@@ -328,20 +335,20 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
      * @param partitions Partitions count.
      */
     private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) throws InterruptedException {
-        try (Session session = ignite.sql().createSession()) {
-            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS ZONE_%s ENGINE aimem WITH REPLICAS=%d, PARTITIONS=%d",
-                    name, replicas, partitions));
-            session.execute(null, "CREATE TABLE " + name
-                    + " (id INT PRIMARY KEY, name VARCHAR)"
-                    + " WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
+        IgniteSql sql = ignite.sql();
 
-            for (int i = 0; i < 100; i++) {
-                session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
-                        i, VALUE_PRODUCER.apply(i));
-            }
+        sql.execute(null, String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+                name, replicas, partitions, DEFAULT_AIMEM_PROFILE_NAME));
+        sql.execute(null, "CREATE TABLE " + name
+                + " (id INT PRIMARY KEY, name VARCHAR)"
+                + " WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
+
+        for (int i = 0; i < 100; i++) {
+            sql.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
+                    i, VALUE_PRODUCER.apply(i));
         }
 
-        var table = (TableImpl) ignite.tables().table(name);
+        TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(name));
 
         assertThat(table.internalTable().storage().isVolatile(), is(true));
 
@@ -357,16 +364,18 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
     private static boolean tableHasDataOnAllIgnites(String name, int partitions) {
         return CLUSTER_NODES.stream()
-                .allMatch(igniteNode -> tableHasAnyData((TableImpl) igniteNode.tables().table(name), partitions));
+                .allMatch(igniteNode -> tableHasAnyData(unwrapTableViewInternal(igniteNode.tables().table(name)), partitions));
     }
 
-    private static boolean tableHasAnyData(TableImpl nodeTable, int partitions) {
-        return IntStream.range(0, partitions)
-                .mapToObj(partition -> new IgniteBiTuple<>(
-                        partition, nodeTable.internalTable().storage().getMvPartition(partition)
-                ))
-                .filter(pair -> pair.get2() != null)
-                .anyMatch(pair -> pair.get2().closestRowId(RowId.lowestRowId(pair.get1())) != null);
+    private static boolean tableHasAnyData(TableViewInternal nodeTable, int partitions) {
+        return IgniteTestUtils.bypassingThreadAssertions(() -> {
+            return IntStream.range(0, partitions)
+                    .mapToObj(partition -> new IgniteBiTuple<>(
+                            partition, nodeTable.internalTable().storage().getMvPartition(partition)
+                    ))
+                    .filter(pair -> pair.get2() != null)
+                    .anyMatch(pair -> pair.get2().closestRowId(RowId.lowestRowId(pair.get1())) != null);
+        });
     }
 
     private static IgniteImpl ignite(int idx) {

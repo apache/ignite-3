@@ -18,19 +18,18 @@
 package org.apache.ignite.internal.storage.pagememory.index.sorted;
 
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
-import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
@@ -42,21 +41,21 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.util.CursorUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of Sorted index storage using Page Memory.
  */
-public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage<SortedIndexRowKey, SortedIndexRow>
+public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage<SortedIndexRowKey, SortedIndexRow, SortedIndexTree>
         implements SortedIndexStorage {
-    private static final IgniteLogger LOG = Loggers.forClass(PageMemorySortedIndexStorage.class);
-
-    /** Index descriptor. */
+    /**
+     * Index descriptor.
+     *
+     * <p>Can be {@code null} only during recovery.
+     */
+    @Nullable
     private final StorageSortedIndexDescriptor descriptor;
-
-    /** Sorted index tree instance. */
-    private volatile SortedIndexTree sortedIndexTree;
 
     /**
      * Constructor.
@@ -64,35 +63,37 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
      * @param indexMeta Index meta.
      * @param descriptor Sorted index descriptor.
      * @param freeList Free list to store index columns.
-     * @param sortedIndexTree Sorted index tree instance.
+     * @param indexTree Sorted index tree instance.
      * @param indexMetaTree Index meta tree instance.
      */
     public PageMemorySortedIndexStorage(
             IndexMeta indexMeta,
-            StorageSortedIndexDescriptor descriptor,
+            @Nullable StorageSortedIndexDescriptor descriptor,
             IndexColumnsFreeList freeList,
-            SortedIndexTree sortedIndexTree,
-            IndexMetaTree indexMetaTree
+            SortedIndexTree indexTree,
+            IndexMetaTree indexMetaTree,
+            boolean isVolatile
     ) {
-        super(indexMeta, sortedIndexTree.partitionId(), freeList, indexMetaTree);
+        super(indexMeta, indexTree.partitionId(), indexTree, freeList, indexMetaTree, isVolatile);
 
         this.descriptor = descriptor;
-        this.sortedIndexTree = sortedIndexTree;
     }
 
     @Override
     public StorageSortedIndexDescriptor indexDescriptor() {
+        assert descriptor != null : "This tree must only be used during recovery";
+
         return descriptor;
     }
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        return busy(() -> {
+        return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             SortedIndexRowKey lowerBound = toSortedIndexRow(key, lowestRowId);
 
-            return new ScanCursor<RowId>(lowerBound, sortedIndexTree) {
+            return new ScanCursor<RowId>(lowerBound) {
                 @Override
                 protected RowId map(SortedIndexRow value) {
                     return value.rowId();
@@ -108,13 +109,15 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
     @Override
     public void put(IndexRow row) {
-        busy(() -> {
+        busyNonDataRead(() -> {
             try {
                 SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
 
-                var insert = new InsertSortedIndexRowInvokeClosure(sortedIndexRow, freeList, sortedIndexTree.inlineSize());
+                SortedIndexTree tree = indexTree;
 
-                sortedIndexTree.invoke(sortedIndexRow, null, insert);
+                var insert = new InsertSortedIndexRowInvokeClosure(sortedIndexRow, freeList, tree.inlineSize());
+
+                tree.invoke(sortedIndexRow, null, insert);
 
                 return null;
             } catch (IgniteInternalCheckedException e) {
@@ -125,7 +128,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
     @Override
     public void remove(IndexRow row) {
-        busy(() -> {
+        busyNonDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
@@ -133,7 +136,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
                 var remove = new RemoveSortedIndexRowInvokeClosure(sortedIndexRow, freeList);
 
-                sortedIndexTree.invoke(sortedIndexRow, null, remove);
+                indexTree.invoke(sortedIndexRow, null, remove);
 
                 // Performs actual deletion from freeList if necessary.
                 remove.afterCompletion();
@@ -147,7 +150,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
     @Override
     public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
-        return busy(() -> {
+        return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
@@ -157,7 +160,9 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
             SortedIndexRowKey upper = createBound(upperBound, includeUpper);
 
-            return new ScanCursor<IndexRow>(lower, sortedIndexTree) {
+            return new ScanCursor<IndexRow>(lower) {
+                private final BinaryTupleComparator comparator = localTree.getBinaryTupleComparator();
+
                 @Override
                 public IndexRow map(SortedIndexRow value) {
                     return toIndexRowImpl(value);
@@ -165,12 +170,33 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
                 @Override
                 protected boolean exceedsUpperBound(SortedIndexRow value) {
-                    return upper != null && 0 <= sortedIndexTree.getBinaryTupleComparator().compare(
+                    return upper != null && 0 <= comparator.compare(
                             value.indexColumns().valueBuffer(),
                             upper.indexColumns().valueBuffer()
                     );
                 }
             };
+        });
+    }
+
+    @Override
+    public Cursor<IndexRow> readOnlyScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        return busyDataRead(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
+            boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
+
+            SortedIndexRowKey lower = createBound(lowerBound, !includeLower);
+            SortedIndexRowKey upper = createBound(upperBound, includeUpper);
+
+            try {
+                Cursor<SortedIndexRow> cursor = indexTree.find(lower, upper);
+
+                return CursorUtils.map(cursor, this::toIndexRowImpl);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Couldn't get index tree cursor", e);
+            }
         });
     }
 
@@ -196,48 +222,18 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
     private @Nullable IndexRowImpl toIndexRowImpl(@Nullable SortedIndexRow sortedIndexRow) {
         return sortedIndexRow == null ? null : new IndexRowImpl(
-                new BinaryTuple(descriptor.binaryTupleSchema().elementCount(), sortedIndexRow.indexColumns().valueBuffer()),
+                new BinaryTuple(indexDescriptor().binaryTupleSchema().elementCount(), sortedIndexRow.indexColumns().valueBuffer()),
                 sortedIndexRow.rowId()
         );
     }
 
     @Override
-    public void closeStructures() {
-        sortedIndexTree.close();
-    }
-
-    /**
-     * Updates the internal data structures of the storage on rebalance or cleanup.
-     *
-     * @param freeList Free list to store index columns.
-     * @param sortedIndexTree Sorted index tree instance.
-     * @throws StorageException If failed.
-     */
-    public void updateDataStructures(IndexColumnsFreeList freeList, SortedIndexTree sortedIndexTree) {
-        throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
-
-        this.freeList = freeList;
-        this.sortedIndexTree = sortedIndexTree;
-    }
-
-    /**
-     * Starts destruction of the data stored by this index partition.
-     *
-     * @param executor {@link GradualTaskExecutor} on which to destroy.
-     * @throws StorageException If something goes wrong.
-     */
-    public void startDestructionOn(GradualTaskExecutor executor) throws StorageException {
-        try {
-            executor.execute(
-                    sortedIndexTree.startGradualDestruction(rowKey -> removeIndexColumns((SortedIndexRow) rowKey), false)
-            ).whenComplete((res, ex) -> {
-                if (ex != null) {
-                    LOG.error("Sorted index " + descriptor.id() + " destruction has failed", ex);
-                }
-            });
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot destroy sorted index " + indexDescriptor().id(), e);
-        }
+    protected GradualTask createDestructionTask(int maxWorkUnits) throws IgniteInternalCheckedException {
+        return indexTree.startGradualDestruction(
+                rowKey -> removeIndexColumns((SortedIndexRow) rowKey),
+                false,
+                maxWorkUnits
+        );
     }
 
     private void removeIndexColumns(SortedIndexRow indexRow) {

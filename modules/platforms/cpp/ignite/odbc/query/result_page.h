@@ -48,7 +48,7 @@ public:
     result_page(network::data_buffer_owning &&data, std::unique_ptr<protocol::reader> &&reader)
         : m_data(std::move(data))
         , m_reader(std::move(reader)) {
-        m_size = m_reader->read_array_size();
+        m_size = m_reader->read_int32();
     }
 
     /**
@@ -72,8 +72,7 @@ public:
     bytes_view get_row(std::uint32_t idx) {
         assert(idx < m_size);
 
-        auto elem = m_reader->get_array_element(idx);
-        return protocol::unpack_binary(elem);
+        return m_reader->read_binary();
     }
 
 private:

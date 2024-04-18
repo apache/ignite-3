@@ -17,61 +17,92 @@
 
 package org.apache.ignite.internal.placementdriver.leases;
 
-import static org.apache.ignite.internal.placementdriver.leases.Lease.fromBytes;
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
-import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for lease encoding and decoding from byte arrays.
- */
+/** Tests for lease encoding and decoding from byte arrays. */
 public class LeaseSerializationTest {
     @Test
-    public void test() {
-        Lease lease;
-
+    public void testLeaseSerialization() {
         long now = System.currentTimeMillis();
         ReplicationGroupId groupId = new TablePartitionId(1, 1);
 
-        lease = Lease.EMPTY_LEASE;
-        assertEquals(lease, fromBytes(ByteBuffer.wrap(lease.bytes()).order(ByteOrder.LITTLE_ENDIAN)));
+        checksSerialization(Lease.emptyLease(groupId));
 
-        lease = new Lease("node1", new HybridTimestamp(now, 1), new HybridTimestamp(now + 1_000_000, 100), true, true, groupId);
-        assertEquals(lease, fromBytes(ByteBuffer.wrap(lease.bytes()).order(ByteOrder.LITTLE_ENDIAN)));
+        checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), true, true, null, groupId));
 
-        lease = new Lease("node1", new HybridTimestamp(now, 1), new HybridTimestamp(now + 1_000_000, 100), false, false, groupId);
-        assertEquals(lease, fromBytes(ByteBuffer.wrap(lease.bytes()).order(ByteOrder.LITTLE_ENDIAN)));
+        checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), false, false, "node2", groupId));
 
-        lease = new Lease("node1", new HybridTimestamp(now, 1), new HybridTimestamp(now + 1_000_000, 100), false, true, groupId);
-        assertEquals(lease, fromBytes(ByteBuffer.wrap(lease.bytes()).order(ByteOrder.LITTLE_ENDIAN)));
+        checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), false, true, "node2", groupId));
 
-        lease = new Lease("node1", new HybridTimestamp(now, 1), new HybridTimestamp(now + 1_000_000, 100), true, false, groupId);
-        assertEquals(lease, fromBytes(ByteBuffer.wrap(lease.bytes()).order(ByteOrder.LITTLE_ENDIAN)));
+        checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), true, false, null, groupId));
 
-        lease = new Lease(null, new HybridTimestamp(1, 1), new HybridTimestamp(2 + 1_000_000, 100), true, true, groupId);
-        assertEquals(lease, fromBytes(ByteBuffer.wrap(lease.bytes()).order(ByteOrder.LITTLE_ENDIAN)));
+        checksSerialization(newLease(null, timestamp(1, 1), timestamp(2 + 1_000_000, 100), true, true, null, groupId));
 
-        lease = new Lease("node" + new String(new byte[1000]), new HybridTimestamp(1, 1), new HybridTimestamp(2, 100), false, false,
-                groupId);
-        assertEquals(lease, fromBytes(ByteBuffer.wrap(lease.bytes()).order(ByteOrder.LITTLE_ENDIAN)));
+        checksSerialization(newLease("node" + new String(new byte[1000]), timestamp(1, 1), timestamp(2, 100), false, false, null, groupId));
     }
 
     @Test
-    public void leaseBatchTest() {
-        List<Lease> leases = new ArrayList<>();
+    public void testLeaseBatchSerialization() {
+        var leases = new ArrayList<Lease>();
+
         ReplicationGroupId groupId = new TablePartitionId(1, 1);
 
         for (int i = 0; i < 25; i++) {
-            leases.add(new Lease("node" + i, new HybridTimestamp(1, i), new HybridTimestamp(1, i + 1), i % 2 == 0, i % 2 == 1, groupId));
+            leases.add(newLease(
+                    "node" + i,
+                    timestamp(1, i),
+                    timestamp(1, i + 1),
+                    i % 2 == 0,
+                    i % 2 == 1,
+                    i % 2 == 0 ? null : "node" + i,
+                    groupId
+            ));
         }
 
-        assertEquals(leases, LeaseBatch.fromBytes(ByteBuffer.wrap(new LeaseBatch(leases).bytes()).order(ByteOrder.LITTLE_ENDIAN)).leases());
+        byte[] leaseBatchBytes = new LeaseBatch(leases).bytes();
+
+        assertEquals(leases, LeaseBatch.fromBytes(wrap(leaseBatchBytes)).leases());
+    }
+
+    private static void checksSerialization(Lease lease) {
+        assertEquals(lease, Lease.fromBytes(wrap(lease.bytes())));
+    }
+
+    private static Lease newLease(
+            @Nullable String leaseholder,
+            HybridTimestamp startTime,
+            HybridTimestamp expirationTime,
+            boolean prolong,
+            boolean accepted,
+            @Nullable String proposedCandidate,
+            ReplicationGroupId replicationGroupId
+    ) {
+        return new Lease(
+                leaseholder,
+                leaseholder == null ? null : leaseholder + "_id",
+                startTime,
+                expirationTime,
+                prolong,
+                accepted,
+                proposedCandidate,
+                replicationGroupId
+        );
+    }
+
+    private static HybridTimestamp timestamp(long physical, int logical) {
+        return new HybridTimestamp(physical, logical);
+    }
+
+    private static ByteBuffer wrap(byte[] bytes) {
+        return ByteBuffer.wrap(bytes).order(LITTLE_ENDIAN);
     }
 }

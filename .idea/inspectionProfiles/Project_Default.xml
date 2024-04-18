@@ -731,6 +731,15 @@
     <inspection_tool class="JUnit5Converter" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="JUnit5Platform" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="JUnitDatapoint" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="JUnitMalformedDeclaration" enabled="true" level="ERROR" enabled_by_default="true">
+      <option name="ignorableAnnotations">
+        <list>
+          <option value="mockit.Mocked" />
+          <option value="org.junit.jupiter.api.io.TempDir" />
+          <option value="org.apache.ignite.internal.configuration.testframework.InjectConfiguration" />
+        </list>
+      </option>
+    </inspection_tool>
     <inspection_tool class="JUnitRule" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="Java8ArraySetAll" enabled="false" level="INFORMATION" enabled_by_default="false" />
     <inspection_tool class="Java9CollectionFactory" enabled="true" level="WARNING" enabled_by_default="true" />
@@ -840,7 +849,6 @@
     </inspection_tool>
     <inspection_tool class="NonSerializableObjectBoundToHttpSession" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="NonSerializableObjectPassedToObjectStream" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="NonSerializableWithSerialVersionUIDField" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="NonSerializableWithSerializationMethods" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="NonShortCircuitBoolean" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="NonSynchronizedMethodOverridesSynchronizedMethod" enabled="true" level="WARNING" enabled_by_default="true" />
@@ -870,6 +878,7 @@
     <inspection_tool class="OctalAndDecimalIntegersMixed" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="OneButtonGroup" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="OptionalContainsCollection" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="OptionalOfNullableMisuseMerged" />
     <inspection_tool class="OptionalUsedAsFieldOrParameterType" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="OverridableMethodCallDuringObjectConstruction" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="OverriddenMethodCallDuringObjectConstruction" enabled="true" level="WARNING" enabled_by_default="true" />
@@ -984,7 +993,6 @@
     <inspection_tool class="ScalaUselessExpression" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
     <inspection_tool class="SecondUnsafeCall" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="SerialPersistentFieldsWithWrongSignature" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="SerialVersionUIDNotStaticFinal" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="SerializableHasSerialVersionUIDField" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="SerializableHasSerializationMethods" enabled="false" level="WARNING" enabled_by_default="false">
       <option name="ignoreAnonymousInnerClasses" value="true" />
@@ -1024,7 +1032,6 @@
     <inspection_tool class="StringConstructor" enabled="false" level="WARNING" enabled_by_default="false">
       <option name="ignoreSubstringArguments" value="false" />
     </inspection_tool>
-    <inspection_tool class="StringEqualsEmptyString" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="StringOperationCanBeSimplifiedMerged" />
     <inspection_tool class="StringReplaceableByStringBuffer" enabled="true" level="WARNING" enabled_by_default="true">
       <option name="onlyWarnOnLoop" value="true" />
@@ -1041,9 +1048,6 @@
     <inspection_tool class="SuspiciousArrayCast" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="SuspiciousLiteralUnderscore" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="SuspiciousLocalesLanguages" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="SwitchStatementDensity" enabled="true" level="WARNING" enabled_by_default="true">
-      <option name="m_limit" value="20" />
-    </inspection_tool>
     <inspection_tool class="SynchronizationOnStaticField" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="SynchronizeOnLock" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="SynchronizedOnLiteralObject" enabled="true" level="WARNING" enabled_by_default="true" />
@@ -1052,9 +1056,7 @@
     <inspection_tool class="SystemGetenv" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="TestCaseInProductCode" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="TestCaseWithConstructor" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="TestCaseWithNoTestMethods" enabled="true" level="WARNING" enabled_by_default="true">
-      <option name="ignoreSupers" value="true" />
-    </inspection_tool>
+    <inspection_tool class="TestCaseWithNoTestMethods" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="TestMethodInProductCode" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="TestNGDataProvider" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="TestOnlyProblems" enabled="true" level="WARNING" enabled_by_default="true" />
@@ -1067,7 +1069,6 @@
     <inspection_tool class="ThreadStopSuspendResume" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="ThreadYield" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="ThrowableInstanceNeverThrown" enabled="false" level="WARNING" enabled_by_default="false" />
-    <inspection_tool class="ThrowablePrintStackTrace" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="ThrowableResultOfMethodCallIgnored" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="TooBroadThrows" enabled="true" level="WARNING" enabled_by_default="false">
       <scope name="Tests" level="WARNING" enabled="false" />

@@ -27,7 +27,7 @@ public class VersionTests
     [Test]
     public void TestAssemblyInformationalVersionHasGitCommitHash()
     {
-        var informationalVersion = VersionUtils.GetInformationalVersion();
+        var informationalVersion = VersionUtils.InformationalVersion;
         StringAssert.StartsWith(GetAssemblyVersion(), informationalVersion);
 
         var parts = informationalVersion.Split('+');

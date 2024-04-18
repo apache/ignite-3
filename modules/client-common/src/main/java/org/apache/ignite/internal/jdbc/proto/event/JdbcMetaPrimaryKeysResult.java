@@ -67,7 +67,7 @@ public class JdbcMetaPrimaryKeysResult extends Response {
             return;
         }
 
-        packer.packArrayHeader(meta.size());
+        packer.packInt(meta.size());
 
         for (JdbcPrimaryKeyMeta keyMeta : meta) {
             keyMeta.writeBinary(packer);
@@ -89,7 +89,7 @@ public class JdbcMetaPrimaryKeysResult extends Response {
             return;
         }
 
-        int size = unpacker.unpackArrayHeader();
+        int size = unpacker.unpackInt();
 
         meta = new ArrayList<>(size);
 

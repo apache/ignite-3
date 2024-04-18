@@ -28,61 +28,64 @@ namespace Apache.Ignite.Sql
         Justification = "Ignite-specific SQL column type names are required.")]
     public enum ColumnType
     {
+        /** Null. */
+        Null = 0,
+
         /** Boolean. */
-        Boolean = 0,
+        Boolean = 1,
 
         /** 8-bit signed integer. */
-        Int8 = 1,
+        Int8 = 2,
 
         /** 16-bit signed integer. */
-        Int16 = 2,
+        Int16 = 3,
 
         /** 32-bit signed integer. */
-        Int32 = 3,
+        Int32 = 4,
 
         /** 64-bit signed integer. */
-        Int64 = 4,
+        Int64 = 5,
 
         /** 32-bit single-precision floating-point number. */
-        Float = 5,
+        Float = 6,
 
         /** 64-bit double-precision floating-point number. */
-        Double = 6,
+        Double = 7,
 
         /** A decimal floating-point number. */
-        Decimal = 7,
+        Decimal = 8,
 
         /** Timezone-free date. */
-        Date = 8,
+        Date = 9,
 
         /** Timezone-free time with precision. */
-        Time = 9,
+        Time = 10,
 
         /** Timezone-free datetime. */
-        Datetime = 10,
+        Datetime = 11,
 
         /** Number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone). Tick unit depends on precision. */
-        Timestamp = 11,
+        Timestamp = 12,
 
         /** 128-bit UUID. */
-        Uuid = 12,
+        Uuid = 13,
 
         /** Bit mask. */
-        Bitmask = 13,
+        Bitmask = 14,
 
         /** String. */
-        String = 14,
+        String = 15,
 
         /** Binary data. */
-        ByteArray = 15,
+        ByteArray = 16,
 
         /** Date interval. */
-        Period = 16,
+        Period = 17,
 
         /** Time interval. */
-        Duration = 17,
+        Duration = 18,
 
         /** Number. */
-        Number = 18
+        Number = 19
     }
 }

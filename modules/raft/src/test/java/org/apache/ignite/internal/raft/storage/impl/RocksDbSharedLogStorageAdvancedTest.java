@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
@@ -41,7 +42,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for implementation specifics of the shared storage.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class RocksDbSharedLogStorageAdvancedTest {
+public class RocksDbSharedLogStorageAdvancedTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path path;
 

@@ -23,7 +23,6 @@ import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Client SQL row.
@@ -39,7 +38,7 @@ public class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlR
      * @param meta Meta.
      */
     ClientSqlRow(BinaryTupleReader row, ResultSetMetadata meta) {
-        super(row, 0, meta.columns().size(), null);
+        super(row, meta.columns().size(), null);
 
         assert row != null;
         assert meta != null;
@@ -61,38 +60,38 @@ public class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlR
 
     /** {@inheritDoc} */
     @Override
-    public int columnIndex(@NotNull String columnName) {
+    public int columnIndex(String columnName) {
         return metadata.indexOf(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
-    public Tuple set(@NotNull String columnName, Object value) {
+    public Tuple set(String columnName, Object value) {
         throw new UnsupportedOperationException("Operation not supported.");
     }
 
     /** {@inheritDoc} */
     @Override
-    protected String schemaColumnName(int internalIndex) {
-        return columnName(internalIndex);
+    protected String schemaColumnName(int binaryTupleIndex) {
+        return columnName(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
     @Override
-    protected int schemaColumnIndex(@NotNull String columnName) {
+    protected int binaryTupleIndex(String columnName) {
         return columnIndex(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
-    protected ColumnType schemaColumnType(int columnIndex) {
-        return metadata.columns().get(columnIndex).type();
+    protected ColumnType schemaColumnType(int binaryTupleIndex) {
+        return metadata.columns().get(binaryTupleIndex).type();
     }
 
     /** {@inheritDoc} */
     @Override
-    protected int schemaDecimalScale(int columnIndex) {
-        return metadata.columns().get(columnIndex).scale();
+    protected int schemaDecimalScale(int binaryTupleIndex) {
+        return metadata.columns().get(binaryTupleIndex).scale();
     }
 
     /** {@inheritDoc} */

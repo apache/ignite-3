@@ -24,10 +24,10 @@ import static org.apache.calcite.rel.core.JoinRelType.LEFT;
 import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
 import static org.apache.calcite.rel.core.JoinRelType.SEMI;
 import static org.apache.ignite.internal.sql.engine.util.Commons.getFieldFromBiRows;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -35,14 +35,18 @@ import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.TestDownstream;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 
 /**
  * NestedLoopJoinExecutionTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class NestedLoopJoinExecutionTest extends AbstractExecutionTest {
+public class NestedLoopJoinExecutionTest extends AbstractExecutionTest<Object[]> {
     @Test
     public void joinEmptyTables() {
         verifyJoin(EMPTY, EMPTY, INNER, EMPTY);
@@ -307,17 +311,22 @@ public class NestedLoopJoinExecutionTest extends AbstractExecutionTest {
     private void verifyJoin(Object[][] left, Object[][] right, JoinRelType joinType, Object[][] expRes) {
         ExecutionContext<Object[]> ctx = executionContext(true);
 
-        RelDataType leftType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class);
+        IgniteTypeFactory tf = ctx.getTypeFactory();
+
+        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
         ScanNode<Object[]> leftNode = new ScanNode<>(ctx, Arrays.asList(left));
 
-        RelDataType rightType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class);
+        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
         ScanNode<Object[]> rightNode = new ScanNode<>(ctx, Arrays.asList(right));
 
         RelDataType outType;
         if (setOf(SEMI, ANTI).contains(joinType)) {
-            outType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class);
+            outType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                    NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
         } else {
-            outType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, Integer.class, int.class, String.class);
+            outType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                    NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32, NativeTypes.INT32, NativeTypes.STRING));
         }
 
         RowHandler<Object[]> hnd = ctx.rowHandler();
@@ -334,16 +343,21 @@ public class NestedLoopJoinExecutionTest extends AbstractExecutionTest {
         }
         project.register(join);
 
-        RootNode<Object[]> node = new RootNode<>(ctx);
-        node.register(project);
+        // first, let's rewind just created tree -- it's how it actually being executed
+        project.rewind();
 
-        ArrayList<Object[]> rows = new ArrayList<>();
+        int times = 2;
+        do {
+            TestDownstream<Object[]> downstream = new TestDownstream<>();
+            project.onRegister(downstream);
 
-        while (node.hasNext()) {
-            rows.add(node.next());
-        }
+            ctx.execute(() -> project.request(1024), project::onError);
 
-        assertArrayEquals(expRes, rows.toArray(EMPTY));
+            assertArrayEquals(expRes, await(downstream.result()).toArray(EMPTY));
+
+            // now let's rewind and restart test to check whether all state has been correctly reset
+            project.rewind();
+        } while (times-- > 0);
     }
 
     /**
@@ -355,5 +369,10 @@ public class NestedLoopJoinExecutionTest extends AbstractExecutionTest {
     @SafeVarargs
     private static <T> Set<T> setOf(T... items) {
         return new HashSet<>(Arrays.asList(items));
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }

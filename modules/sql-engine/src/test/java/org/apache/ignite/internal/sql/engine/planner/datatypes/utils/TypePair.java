@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes.utils;
 
-import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.type.NativeType;
 
 /**
  * Utility interface that describes pair of types.

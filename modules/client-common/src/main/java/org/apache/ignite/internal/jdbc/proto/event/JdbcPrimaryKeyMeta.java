@@ -111,7 +111,7 @@ public class JdbcPrimaryKeyMeta implements ClientMessage {
             packer.packNil();
         }
 
-        packer.packArrayHeader(fields.size());
+        packer.packInt(fields.size());
 
         for (String field : fields) {
             packer.packString(field);
@@ -131,7 +131,7 @@ public class JdbcPrimaryKeyMeta implements ClientMessage {
             return;
         }
 
-        int size = unpacker.unpackArrayHeader();
+        int size = unpacker.unpackInt();
 
         fields = new ArrayList<>(size);
 

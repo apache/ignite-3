@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.List;
@@ -35,13 +35,13 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -202,7 +202,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
     private CompletableFuture<Void> addLearner(RaftGroupService raftService, ClusterNode learner) {
         return updateConfigUnderLock(() -> isPeer(raftService, learner)
-                ? completedFuture(null)
+                ? nullCompletedFuture()
                 : raftService.addLearners(List.of(new Peer(learner.name()))));
     }
 
@@ -214,13 +214,13 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
         return updateConfigUnderLock(() -> logicalTopologyService.validatedNodesOnLeader()
                 .thenCompose(validatedNodes -> updateConfigUnderLock(() -> {
                     if (isPeer(raftService, learner)) {
-                        return completedFuture(null);
+                        return nullCompletedFuture();
                     }
 
                     // Due to possible races, we can have multiple versions of the same node in the validated set. We only remove
                     // a learner if there are no such versions left.
                     if (validatedNodes.stream().anyMatch(n -> n.name().equals(learner.name()))) {
-                        return completedFuture(null);
+                        return nullCompletedFuture();
                     }
 
                     return raftService.removeLearners(List.of(new Peer(learner.name())));
@@ -248,7 +248,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
         if (!busyLock.enterBusy()) {
             LOG.info("Skipping Meta Storage configuration update because the node is stopping");
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         try {

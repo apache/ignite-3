@@ -16,6 +16,12 @@
  */
 package org.apache.ignite.raft.jraft.test;
 
+import static java.lang.Thread.sleep;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.toList;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
@@ -26,8 +32,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BooleanSupplier;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -41,12 +47,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
 import org.junit.jupiter.api.TestInfo;
 import org.mockito.ArgumentCaptor;
-
-import static java.lang.Thread.sleep;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Comparator.comparing;
-import static java.util.stream.Collectors.toList;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test helper
@@ -146,7 +146,7 @@ public class TestUtils {
      * @param timeout The timeout in millis.
      * @return {@code True} if topology size is equal to expected.
      */
-    public static boolean waitForTopology(ClusterService cluster, int expected, int timeout) {
+    public static boolean waitForTopology(ClusterService cluster, int expected, long timeout) {
         return waitForCondition(() -> cluster.topologyService().allMembers().size() >= expected, timeout);
     }
 

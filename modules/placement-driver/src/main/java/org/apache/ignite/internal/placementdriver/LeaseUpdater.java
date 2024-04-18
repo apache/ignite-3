@@ -35,37 +35,41 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
+import org.apache.ignite.internal.placementdriver.leases.Leases;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverActorMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThread;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.NetworkMessageHandler;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A processor to manger leases. The process is started when placement driver activates and stopped when it deactivates.
  */
 public class LeaseUpdater {
+    /** Negative value means that printing statistics is disabled. */
+    private static final int LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS = IgniteSystemProperties
+            .getInteger("LEASE_STATISTICS_PRINT_ONCE_PER_ITERATIONS", 10);
+
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
 
@@ -99,76 +103,65 @@ public class LeaseUpdater {
     private final LeaseTracker leaseTracker;
 
     /** Cluster clock. */
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     /** Closure to update leases. */
     private final Updater updater;
 
     /** Dedicated thread to update leases. */
-    private volatile Thread updaterTread;
+    private IgniteThread updaterThread;
 
     /** Processor to communicate with the leaseholder to negotiate the lease. */
     private LeaseNegotiator leaseNegotiator;
 
     /** Node name. */
-    private String nodeName;
+    private final String nodeName;
 
     /**
-     * The constructor.
+     * Constructor.
      *
      * @param clusterService Cluster service.
-     * @param vaultManager Vault manager.
      * @param msManager Meta storage manager.
      * @param topologyService Topology service.
-     * @param tablesConfiguration Tables configuration.
      * @param leaseTracker Lease tracker.
-     * @param clock Cluster clock.
+     * @param clockService Clock service.
      */
-    public LeaseUpdater(
+    LeaseUpdater(
+            String nodeName,
             ClusterService clusterService,
-            VaultManager vaultManager,
             MetaStorageManager msManager,
             LogicalTopologyService topologyService,
-            TablesConfiguration tablesConfiguration,
-            DistributionZonesConfiguration distributionZonesConfiguration,
             LeaseTracker leaseTracker,
-            HybridClock clock
+            ClockService clockService
     ) {
+        this.nodeName = nodeName;
         this.clusterService = clusterService;
         this.msManager = msManager;
         this.leaseTracker = leaseTracker;
-        this.clock = clock;
+        this.clockService = clockService;
 
         this.longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000);
-        this.assignmentsTracker = new AssignmentsTracker(vaultManager, msManager);
+        this.assignmentsTracker = new AssignmentsTracker(msManager);
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();
 
         clusterService.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, new PlacementDriverActorMessageHandler());
     }
 
-    /**
-     * Initializes the class.
-     */
-    public void init(String nodeName) {
-        this.nodeName = nodeName;
-
+    /** Initializes the class. */
+    public void init() {
         topologyTracker.startTrack();
         assignmentsTracker.startTrack();
     }
 
-    /**
-     * De-initializes the class.
-     */
-    public void deInit() {
+    /** De-initializes the class. */
+    void deInit() {
         topologyTracker.stopTrack();
         assignmentsTracker.stopTrack();
     }
 
-    /**
-     * Activates a lease updater to renew leases.
-     */
-    public void activate() {
+    /** Activates a lease updater to renew leases. */
+    void activate() {
         if (active()) {
             return;
         }
@@ -182,18 +175,16 @@ public class LeaseUpdater {
 
             leaseNegotiator = new LeaseNegotiator(clusterService);
 
-            updaterTread = new Thread(updater, NamedThreadFactory.threadPrefix(nodeName, "lease-updater") + '0');
+            updaterThread = new IgniteThread(nodeName, "lease-updater", updater);
 
-            updaterTread.start();
+            updaterThread.start();
         } finally {
             stateChangingLock.unblock();
         }
     }
 
-    /**
-     * Stops a dedicated thread to renew or assign leases.
-     */
-    public void deactivate() {
+    /** Stops a dedicated thread to renew or assign leases. */
+    void deactivate() {
         if (!active()) {
             return;
         }
@@ -207,11 +198,9 @@ public class LeaseUpdater {
 
             leaseNegotiator = null;
 
-            if (updaterTread != null) {
-                updaterTread.interrupt();
+            updaterThread.interrupt();
 
-                updaterTread = null;
-            }
+            this.updaterThread = null;
 
         } finally {
             stateChangingLock.unblock();
@@ -223,17 +212,20 @@ public class LeaseUpdater {
      *
      * @param grpId Replication group id.
      * @param lease Lease to deny.
+     * @param redirectProposal Consistent id of the cluster node proposed for redirection.
      * @return Future completes true when the lease will not prolong in the future, false otherwise.
      */
-    public CompletableFuture<Boolean> denyLease(ReplicationGroupId grpId, Lease lease) {
-        Lease deniedLease = lease.denyLease();
+    private CompletableFuture<Boolean> denyLease(ReplicationGroupId grpId, Lease lease, String redirectProposal) {
+        Lease deniedLease = lease.denyLease(redirectProposal);
 
         leaseNegotiator.onLeaseRemoved(grpId);
 
-        IgniteBiTuple<Map<ReplicationGroupId, Lease>, byte[]> leasesCurrent = leaseTracker.leasesCurrent();
+        Leases leasesCurrent = leaseTracker.leasesCurrent();
 
-        Collection<Lease> leases = leasesCurrent.getKey().values();
+        Collection<Lease> leases = leasesCurrent.leaseByGroupId().values();
+
         List<Lease> renewedLeases = new ArrayList<>();
+
         for (Lease ls : leases) {
             if (ls.replicationGroupId().equals(grpId)) {
                 renewedLeases.add(deniedLease);
@@ -242,10 +234,10 @@ public class LeaseUpdater {
             }
         }
 
-        var key = PLACEMENTDRIVER_LEASES_KEY;
+        ByteArray key = PLACEMENTDRIVER_LEASES_KEY;
 
         return msManager.invoke(
-                or(notExists(key), value(key).eq(leasesCurrent.getValue())),
+                or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
                 put(key, new LeaseBatch(renewedLeases).bytes()),
                 noop()
         );
@@ -258,53 +250,61 @@ public class LeaseUpdater {
      * @param proposedConsistentId Proposed consistent id, found out of a lease negotiation. The parameter might be {@code null}.
      * @return Cluster node, or {@code null} if no node in assignments can be the leaseholder.
      */
-    private ClusterNode nextLeaseHolder(Set<Assignment> assignments, @Nullable String proposedConsistentId) {
-        //TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
-        String consistentId = null;
+    private @Nullable ClusterNode nextLeaseHolder(Set<Assignment> assignments, @Nullable String proposedConsistentId) {
+        // TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
+        ClusterNode primaryCandidate = null;
 
         for (Assignment assignment : assignments) {
+            // Check whether given assignments is actually available in logical topology. It's a best effort check because it's possible
+            // for proposed primary candidate to leave the topology at any time. In that case primary candidate will be recalculated.
+            ClusterNode candidateNode = topologyTracker.nodeByConsistentId(assignment.consistentId());
+
+            if (candidateNode == null) {
+                continue;
+            }
+
             if (assignment.consistentId().equals(proposedConsistentId)) {
-                consistentId = proposedConsistentId;
+                primaryCandidate = candidateNode;
 
                 break;
-            } else if (consistentId == null || consistentId.hashCode() > assignment.consistentId().hashCode()) {
-                consistentId = assignment.consistentId();
+            } else if (primaryCandidate == null || primaryCandidate.name().hashCode() > assignment.consistentId().hashCode()) {
+                primaryCandidate = candidateNode;
             }
         }
 
-        if (consistentId != null) {
-            ClusterNode candidate = topologyTracker.nodeByConsistentId(consistentId);
-
-            if (candidate != null) {
-                return candidate;
-            }
-        }
-
-        return null;
+        return primaryCandidate;
     }
 
-    /**
-     * Whether is active.
-     *
-     * @return Whether is active.
-     */
-    public boolean active() {
+    /** Returns {@code true} if active. */
+    boolean active() {
         return active.get();
     }
 
-    /**
-     * Runnable to update lease in Meta storage.
-     */
+    /** Runnable to update lease in Meta storage. */
     private class Updater implements Runnable {
+        private LeaseStats leaseUpdateStatistics = new LeaseStats();
+
+        /** This field should be accessed only from updater thread. */
+        private int statisticsLogCounter;
+
         @Override
         public void run() {
-            while (updaterTread != null && !updaterTread.isInterrupted()) {
-                if (!active() || !stateChangingLock.enterBusy()) {
-                    return;
+            while (active() && !Thread.interrupted()) {
+                if (!stateChangingLock.enterBusy()) {
+                    continue;
                 }
 
                 try {
-                    updateLeaseBatchInternal();
+                    if (active()) {
+                        updateLeaseBatchInternal();
+                    }
+                } catch (Throwable e) {
+                    LOG.error("Error occurred when updating the leases.", e);
+
+                    if (e instanceof Error) {
+                        // TODO IGNITE-20368 The node should be halted in case of an error here.
+                        throw (Error) e;
+                    }
                 } finally {
                     stateChangingLock.leaveBusy();
                 }
@@ -317,37 +317,63 @@ public class LeaseUpdater {
             }
         }
 
-        /**
-         * Updates leases in Meta storage. This method is supposed to be used in the busy lock.
-         */
+        /** Updates leases in Meta storage. This method is supposed to be used in the busy lock. */
         private void updateLeaseBatchInternal() {
-            long outdatedLeaseThreshold = clock.now().getPhysical() + LEASE_INTERVAL / 2;
+            HybridTimestamp now = clockService.now();
 
-            IgniteBiTuple<Map<ReplicationGroupId, Lease>, byte[]> leasesCurrent = leaseTracker.leasesCurrent();
+            leaseUpdateStatistics = new LeaseStats();
+
+            long outdatedLeaseThreshold = now.getPhysical() + LEASE_INTERVAL / 2;
+
+            Leases leasesCurrent = leaseTracker.leasesCurrent();
             Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
-            Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.getKey());
+            Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId());
 
-            for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : assignmentsTracker.assignments().entrySet()) {
+            Map<ReplicationGroupId, Set<Assignment>> currentAssignments = assignmentsTracker.assignments();
+            Set<ReplicationGroupId> currentAssignmentsReplicationGroupIds = currentAssignments.keySet();
+
+            // Remove all expired leases that are no longer present in assignments.
+            renewedLeases.entrySet().removeIf(e -> clockService.before(e.getValue().getExpirationTime(), now)
+                    && !currentAssignmentsReplicationGroupIds.contains(e.getKey()));
+
+            int currentAssignmentsSize = currentAssignments.size();
+            int activeLeasesCount = 0;
+
+            for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : currentAssignments.entrySet()) {
                 ReplicationGroupId grpId = entry.getKey();
+                Set<Assignment> assignments = entry.getValue();
 
                 Lease lease = leaseTracker.getLease(grpId);
 
+                if (lease.isAccepted() && !isLeaseOutdated(lease)) {
+                    activeLeasesCount++;
+                }
+
                 if (!lease.isAccepted()) {
-                    LeaseAgreement agreement = leaseNegotiator.negotiated(grpId);
+                    LeaseAgreement agreement = leaseNegotiator.getAndRemoveIfReady(grpId);
+
+                    agreement.checkValid(grpId, topologyTracker.currentTopologySnapshot(), assignments);
 
                     if (agreement.isAccepted()) {
                         publishLease(grpId, lease, renewedLeases);
 
                         continue;
-                    } else if (agreement.ready()) {
-                        ClusterNode candidate = nextLeaseHolder(entry.getValue(), agreement.getRedirectTo());
+                    } else if (agreement.isDeclined()) {
+                        // Here we initiate negotiations for UNDEFINED_AGREEMENT and retry them on newly started active actor as well.
+                        ClusterNode candidate = nextLeaseHolder(assignments, agreement.getRedirectTo());
 
                         if (candidate == null) {
+                            leaseUpdateStatistics.onLeaseWithoutCandidate();
+
                             continue;
                         }
 
-                        // New lease is granting.
-                        writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
+                        // New lease is granted.
+                        writeNewLease(grpId, candidate, renewedLeases);
+
+                        boolean force = Objects.equals(lease.getLeaseholder(), candidate.name());
+
+                        toBeNegotiated.put(grpId, force);
 
                         continue;
                     }
@@ -355,12 +381,15 @@ public class LeaseUpdater {
 
                 // The lease is expired or close to this.
                 if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {
-                    ClusterNode candidate = nextLeaseHolder(
-                            entry.getValue(),
-                            lease.isProlongable() ? lease.getLeaseholder() : null
-                    );
+                    String proposedLeaseholder = lease.isProlongable()
+                            ? lease.getLeaseholder()
+                            : lease.proposedCandidate();
+
+                    ClusterNode candidate = nextLeaseHolder(assignments, proposedLeaseholder);
 
                     if (candidate == null) {
+                        leaseUpdateStatistics.onLeaseWithoutCandidate();
+
                         continue;
                     }
 
@@ -368,10 +397,14 @@ public class LeaseUpdater {
                     // so we must start a negotiation round from the beginning; the same we do for the groups that don't have
                     // leaseholders at all.
                     if (isLeaseOutdated(lease)) {
-                        // New lease is granting.
-                        writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
-                    } else if (lease.isProlongable() && candidate.name().equals(lease.getLeaseholder())) {
-                        // Old lease is renewing.
+                        // New lease is granted.
+                        writeNewLease(grpId, candidate, renewedLeases);
+
+                        boolean force = !lease.isProlongable() && lease.proposedCandidate() != null;
+
+                        toBeNegotiated.put(grpId, force);
+                    } else if (lease.isProlongable() && candidate.id().equals(lease.getLeaseholderId())) {
+                        // Old lease is renewed.
                         prolongLease(grpId, lease, renewedLeases);
                     }
                 }
@@ -379,20 +412,41 @@ public class LeaseUpdater {
 
             byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
 
-            var key = PLACEMENTDRIVER_LEASES_KEY;
+            ByteArray key = PLACEMENTDRIVER_LEASES_KEY;
+
+            if (shouldLogLeaseStatistics()) {
+                LOG.info(
+                        "Leases updated (printed once per {} iteration(s)): [inCurrentIteration={}, active={}, "
+                                + "currentAssignmentsSize={}].",
+                        LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS,
+                        leaseUpdateStatistics,
+                        activeLeasesCount,
+                        currentAssignmentsSize
+                );
+            }
 
             msManager.invoke(
-                    or(notExists(key), value(key).eq(leasesCurrent.getValue())),
+                    or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
                     put(key, renewedValue),
                     noop()
-            ).thenAccept(success -> {
-                if (success) {
-                    for (Map.Entry<ReplicationGroupId, Boolean> e : toBeNegotiated.entrySet()) {
-                        Lease lease = renewedLeases.get(e.getKey());
-                        boolean force = e.getValue();
+            ).whenComplete((success, e) -> {
+                if (e != null) {
+                    LOG.error("Lease update invocation failed", e);
 
-                        leaseNegotiator.negotiate(lease, force);
-                    }
+                    return;
+                }
+
+                if (!success) {
+                    LOG.debug("Lease update invocation failed");
+
+                    return;
+                }
+
+                for (Map.Entry<ReplicationGroupId, Boolean> entry : toBeNegotiated.entrySet()) {
+                    Lease lease = renewedLeases.get(entry.getKey());
+                    boolean force = entry.getValue();
+
+                    leaseNegotiator.negotiate(lease, force);
                 }
             });
         }
@@ -401,20 +455,23 @@ public class LeaseUpdater {
          * Writes a new lease.
          *
          * @param grpId Replication group id.
-         * @param lease Old lease to apply CAS in Meta storage.
          * @param candidate Lease candidate.
+         * @param renewedLeases Leases to renew.
          */
-        private void writeNewLease(ReplicationGroupId grpId, Lease lease, ClusterNode candidate,
-                Map<ReplicationGroupId, Lease> renewedLeases, Map<ReplicationGroupId, Boolean> toBeNegotiated) {
-            HybridTimestamp startTs = clock.now();
+        private void writeNewLease(
+                ReplicationGroupId grpId,
+                ClusterNode candidate,
+                Map<ReplicationGroupId, Lease> renewedLeases
+        ) {
+            HybridTimestamp startTs = clockService.now();
 
             var expirationTs = new HybridTimestamp(startTs.getPhysical() + longLeaseInterval, 0);
 
-            Lease renewedLease = new Lease(candidate.name(), startTs, expirationTs, grpId);
+            Lease renewedLease = new Lease(candidate.name(), candidate.id(), startTs, expirationTs, grpId);
 
             renewedLeases.put(grpId, renewedLease);
 
-            toBeNegotiated.put(grpId, Objects.equals(lease.getLeaseholder(), candidate.name()));
+            leaseUpdateStatistics.onLeaseCreate();
         }
 
         /**
@@ -424,11 +481,13 @@ public class LeaseUpdater {
          * @param lease Lease to prolong.
          */
         private void prolongLease(ReplicationGroupId grpId, Lease lease, Map<ReplicationGroupId, Lease> renewedLeases) {
-            var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_INTERVAL, 0);
+            var newTs = new HybridTimestamp(clockService.now().getPhysical() + LEASE_INTERVAL, 0);
 
             Lease renewedLease = lease.prolongLease(newTs);
 
             renewedLeases.put(grpId, renewedLease);
+
+            leaseUpdateStatistics.onLeaseProlong();
         }
 
         /**
@@ -439,33 +498,82 @@ public class LeaseUpdater {
          * @param lease Lease to accept.
          */
         private void publishLease(ReplicationGroupId grpId, Lease lease, Map<ReplicationGroupId, Lease> renewedLeases) {
-            var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_INTERVAL, 0);
+            var newTs = new HybridTimestamp(clockService.now().getPhysical() + LEASE_INTERVAL, 0);
 
             Lease renewedLease = lease.acceptLease(newTs);
 
             renewedLeases.put(grpId, renewedLease);
+
+            leaseUpdateStatistics.onLeasePublish();
         }
 
         /**
          * Checks that the lease is outdated.
-         * {@link Lease#EMPTY_LEASE} is always outdated.
+         * {@link Lease#emptyLease} is always outdated.
          *
          * @param lease Lease.
          * @return True when the candidate can be a leaseholder, otherwise false.
          */
         private boolean isLeaseOutdated(Lease lease) {
-            HybridTimestamp now = clock.now();
+            HybridTimestamp now = clockService.now();
 
-            return now.after(lease.getExpirationTime());
+            return clockService.after(now, lease.getExpirationTime());
+        }
+
+        private boolean shouldLogLeaseStatistics() {
+            if (LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS < 0) {
+                return false;
+            }
+
+            boolean result = ++statisticsLogCounter > LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS;
+
+            if (result) {
+                statisticsLogCounter = 0;
+            }
+
+            return result;
         }
     }
 
-    /**
-     * Message handler to process notification from replica side.
-     */
+    private static class LeaseStats {
+        @IgniteToStringInclude
+        int leasesCreated;
+
+        @IgniteToStringInclude
+        int leasesPublished;
+
+        @IgniteToStringInclude
+        int leasesProlonged;
+
+        @IgniteToStringInclude
+        int leasesWithoutCandidates;
+
+        private void onLeaseCreate() {
+            leasesCreated++;
+        }
+
+        private void onLeasePublish() {
+            leasesPublished++;
+        }
+
+        private void onLeaseProlong() {
+            leasesProlonged++;
+        }
+
+        private void onLeaseWithoutCandidate() {
+            leasesWithoutCandidates++;
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(this);
+        }
+    }
+
+    /** Message handler to process notification from replica side. */
     private class PlacementDriverActorMessageHandler implements NetworkMessageHandler {
         @Override
-        public void onReceived(NetworkMessage msg0, String sender, @Nullable Long correlationId) {
+        public void onReceived(NetworkMessage msg0, ClusterNode sender, @Nullable Long correlationId) {
             if (!(msg0 instanceof PlacementDriverActorMessage)) {
                 return;
             }
@@ -477,7 +585,7 @@ public class LeaseUpdater {
             }
 
             try {
-                processMessageInternal(sender, msg);
+                processMessageInternal(sender.name(), msg);
             } finally {
                 stateChangingLock.leaveBusy();
             }
@@ -496,7 +604,9 @@ public class LeaseUpdater {
 
             if (msg instanceof StopLeaseProlongationMessage) {
                 if (lease.isProlongable() && sender.equals(lease.getLeaseholder())) {
-                    denyLease(grpId, lease).whenComplete((res, th) -> {
+                    StopLeaseProlongationMessage stopLeaseProlongationMessage = (StopLeaseProlongationMessage) msg;
+
+                    denyLease(grpId, lease, stopLeaseProlongationMessage.redirectProposal()).whenComplete((res, th) -> {
                         if (th != null) {
                             LOG.warn("Prolongation denial failed due to exception [groupId={}]", th, grpId);
                         } else {

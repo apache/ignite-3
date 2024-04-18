@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
+import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,7 +39,7 @@ public interface RecordMarshaller<R> {
      * @return Table row with columns set from given object.
      * @throws MarshallerException If failed to marshal record.
      */
-    Row marshal(@NotNull R rec) throws MarshallerException;
+    Row marshal(R rec) throws MarshallerException;
 
     /**
      * Marshals key part of given record to a row.
@@ -48,7 +48,7 @@ public interface RecordMarshaller<R> {
      * @return Table row with key columns set from given object.
      * @throws MarshallerException If failed to marshal record.
      */
-    Row marshalKey(@NotNull R keyRec) throws MarshallerException;
+    Row marshalKey(R keyRec) throws MarshallerException;
 
     /**
      * Unmarshal given row to a record object.
@@ -57,7 +57,7 @@ public interface RecordMarshaller<R> {
      * @return Record object.
      * @throws MarshallerException If failed to unmarshal row.
      */
-    R unmarshal(@NotNull Row row) throws MarshallerException;
+    R unmarshal(Row row) throws MarshallerException;
 
     /**
      * Reads object field value.

@@ -17,8 +17,8 @@
 package org.apache.ignite.raft.jraft.core;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -45,11 +45,12 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -264,6 +265,8 @@ public class TestCluster {
 
             nodeOptions.setRpcClient(rpcClient);
 
+            nodeOptions.setCommandsMarshaller(commandsMarshaller(clusterService));
+
             ExecutorService requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
 
             var rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
@@ -300,6 +303,10 @@ public class TestCluster {
         finally {
             this.lock.unlock();
         }
+    }
+
+    public static ThreadLocalOptimizedMarshaller commandsMarshaller(ClusterService clusterService) {
+        return new ThreadLocalOptimizedMarshaller(clusterService.serializationRegistry());
     }
 
     public Node getNode(PeerId peerId) {

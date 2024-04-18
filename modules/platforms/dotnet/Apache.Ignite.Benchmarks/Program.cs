@@ -22,5 +22,6 @@ using Table;
 
 internal static class Program
 {
-    private static void Main() => BenchmarkRunner.Run<DataStreamerBenchmark>();
+    // IMPORTANT: Disable Netty leak detector when using a real Ignite server for benchmarks.
+    private static void Main() => BenchmarkRunner.Run<TupleGetBenchmarks>();
 }

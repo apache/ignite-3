@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
@@ -33,14 +35,10 @@ import org.apache.ignite.internal.sql.engine.message.QueryBatchMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchRequestMessage;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteExceptionUtils;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.sql.SqlException;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.lang.TraceableException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,19 +52,23 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     private final MailboxRegistry mailboxRegistry;
     private final MessageService messageService;
+    private final ClockService clockService;
 
     /**
      * Creates the object.
      *
      * @param mailboxRegistry A registry of mailboxes created on the node.
      * @param messageService A messaging service to exchange messages between mailboxes.
+     * @param clockService Clock service.
      */
     public ExchangeServiceImpl(
             MailboxRegistry mailboxRegistry,
-            MessageService messageService
+            MessageService messageService,
+            ClockService clockService
     ) {
         this.mailboxRegistry = mailboxRegistry;
         this.messageService = messageService;
+        this.clockService = clockService;
     }
 
     /** {@inheritDoc} */
@@ -78,8 +80,9 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> CompletableFuture<Void> sendBatch(String nodeName, UUID qryId, long fragmentId, long exchangeId, int batchId,
-            boolean last, List<RowT> rows) {
+    public CompletableFuture<Void> sendBatch(String nodeName, UUID qryId, long fragmentId, long exchangeId, int batchId,
+            boolean last, List<BinaryTupleMessage> rows) {
+
         return messageService.send(
                 nodeName,
                 FACTORY.queryBatchMessage()
@@ -88,7 +91,8 @@ public class ExchangeServiceImpl implements ExchangeService {
                         .exchangeId(exchangeId)
                         .batchId(batchId)
                         .last(last)
-                        .rows(Commons.cast(rows))
+                        .rows(rows)
+                        .timestampLong(clockService.nowLong())
                         .build()
         );
     }
@@ -112,12 +116,16 @@ public class ExchangeServiceImpl implements ExchangeService {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> sendError(String nodeName, UUID queryId, long fragmentId, Throwable error) {
-        IgniteException errorWithCode = wrapIfNecessary(error);
+        Throwable traceableErr = ExceptionUtils.unwrapCause(error);
 
-        if (!(error instanceof ExecutionCancelledException)) {
-            LOG.info(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), errorWithCode);
+        if (!(traceableErr instanceof TraceableException)) {
+            traceableErr = error = new IgniteInternalException(INTERNAL_ERR, error);
+
+            LOG.info(format("Failed to execute query fragment: traceId={}, queryId={}, fragmentId={}",
+                    ((TraceableException) traceableErr).traceId(), queryId, fragmentId), error);
         } else if (LOG.isDebugEnabled()) {
-            LOG.debug(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), errorWithCode);
+            LOG.debug(format("Failed to execute query fragment: traceId={}, queryId={}, fragmentId={}",
+                    ((TraceableException) traceableErr).traceId(), queryId, fragmentId), error);
         }
 
         return messageService.send(
@@ -125,30 +133,11 @@ public class ExchangeServiceImpl implements ExchangeService {
                 FACTORY.errorMessage()
                         .queryId(queryId)
                         .fragmentId(fragmentId)
-                        .traceId(errorWithCode.traceId())
-                        .code(errorWithCode.code())
-                        .message(errorWithCode.getMessage())
+                        .traceId(((TraceableException) traceableErr).traceId())
+                        .code(((TraceableException) traceableErr).code())
+                        .message(traceableErr.getMessage())
                         .build()
         );
-    }
-
-    // TODO https://issues.apache.org/jira/browse/IGNITE-19539
-    private static IgniteException wrapIfNecessary(@NotNull Throwable t) {
-        Throwable cause = ExceptionUtils.unwrapCause(t);
-
-        if (cause instanceof IgniteException) {
-            return cause == t ? (IgniteException) cause : IgniteExceptionUtils.wrap(t);
-        } else if (cause instanceof IgniteInternalException) {
-            IgniteInternalException iex = (IgniteInternalException) cause;
-
-            return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
-        } else if (cause instanceof IgniteInternalCheckedException) {
-            IgniteInternalCheckedException iex = (IgniteInternalCheckedException) cause;
-
-            return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
-        } else {
-            return new SqlException(INTERNAL_ERR, cause);
-        }
     }
 
     private void onMessage(String nodeName, QueryBatchRequestMessage msg) {
@@ -181,11 +170,15 @@ public class ExchangeServiceImpl implements ExchangeService {
 
         if (inbox != null) {
             try {
-                inbox.onBatchReceived(nodeName, msg.batchId(), msg.last(), Commons.cast(msg.rows()));
+                inbox.onBatchReceived(nodeName, msg.batchId(), msg.last(), msg.rows());
             } catch (Throwable e) {
                 inbox.onError(e);
 
-                throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", e);
+                if (e instanceof IgniteException) {
+                    return;
+                }
+
+                LOG.warn("Unexpected exception", e);
             }
         } else if (LOG.isDebugEnabled()) {
             LOG.debug("Stale batch message received: [nodeName={}, queryId={}, fragmentId={}, exchangeId={}, batchId={}]",

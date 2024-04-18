@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.storage;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,7 +33,7 @@ public interface DataStorageModule {
     /**
      * Returns the unique name of the data storage.
      *
-     * <p>Used to map {@link DataStorageConfigurationSchema#name} to {@link StorageEngine}.
+     * <p>Used to map {@link StorageProfileConfiguration#engine()} to {@link StorageEngine}.
      */
     String name();
 
@@ -42,12 +44,16 @@ public interface DataStorageModule {
      * @param configRegistry Configuration register.
      * @param storagePath Storage path.
      * @param longJvmPauseDetector Long JVM pause detector.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
+     * @param logSyncer Write-ahead log synchronizer.
      * @throws StorageException If there is an error when creating the storage engine.
      */
     StorageEngine createEngine(
             String igniteInstanceName,
             ConfigurationRegistry configRegistry,
             Path storagePath,
-            @Nullable LongJvmPauseDetector longJvmPauseDetector
+            @Nullable LongJvmPauseDetector longJvmPauseDetector,
+            FailureProcessor failureProcessor,
+            LogSyncer logSyncer
     ) throws StorageException;
 }

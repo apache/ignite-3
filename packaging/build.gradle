@@ -36,6 +36,7 @@ configurations {
     cliZip
     dbZip
     release
+    localDefaults
 }
 
 dependencies {
@@ -47,6 +48,7 @@ dependencies {
     release project(path: ':packaging-db', configuration: 'dbRelease')
     release project(path: ':ignite-jdbc', configuration: 'jdbcRelease')
     release project(path: ':platforms', configuration: 'platformsRelease')
+    localDefaults project(path: ':packaging-db', configuration: 'localDefaults')
 }
 
 // Task that generates start script for cli
@@ -65,7 +67,7 @@ def tokens = [
         CONF_DIR            : '${IGNITE_HOME}/etc',
         LIB_DIR             : '${IGNITE_HOME}/lib',
         APP_JAR             : "${project(':ignite-runner').name}-${project(':ignite-runner').version}.jar".toString(),
-        MAIN_CLASS          : 'org.apache.ignite.app.IgniteRunner',
+        MAIN_CLASS          : 'org.apache.ignite.internal.app.IgniteRunner',
         BOOTSTRAP_FILE_NAME : 'bootstrap-functions.sh',
         SETUP_JAVA_FILE_NAME: 'setup-java.sh'
 ]
@@ -99,7 +101,7 @@ docker {
                 from "$rootDir/assembly/README.md"
             }
             into('etc') {
-                from 'config/ignite-config.conf'
+                from configurations.localDefaults
                 from 'docker/ignite.java.util.logging.properties'
             }
             into('lib') {

@@ -17,13 +17,15 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeSchema;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.manager.IgniteTables;
 
@@ -43,29 +45,38 @@ public class ClientSchemasGetRequest {
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteTables tables
+            IgniteTables tables,
+            SchemaVersions schemaVersions
     ) {
-        return readTableAsync(in, tables).thenAccept(table -> {
+        return readTableAsync(in, tables).thenCompose(table -> {
             if (in.tryUnpackNil()) {
                 // Return the latest schema.
-                out.packMapHeader(1);
+                out.packInt(1);
 
-                var schema = table.schemaView().schema();
+                return schemaVersions.schemaVersionAtNow(table.tableId())
+                        .thenAccept(version -> {
+                            SchemaDescriptor schema = table.schemaView().schema(version);
 
-                if (schema == null) {
-                    throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, "Schema registry is not initialized.");
-                }
-
-                writeSchema(out, schema.version(), schema);
+                            writeSchema(out, schema.version(), schema);
+                        });
             } else {
-                var cnt = in.unpackArrayHeader();
-                out.packMapHeader(cnt);
+                var cnt = in.unpackInt();
+                out.packInt(cnt);
 
+                CompletableFuture<SchemaDescriptor>[] schemaFutures = new CompletableFuture[cnt];
                 for (var i = 0; i < cnt; i++) {
                     var schemaVer = in.unpackInt();
-                    var schema = table.schemaView().schema(schemaVer);
-                    writeSchema(out, schemaVer, schema);
+                    // Use schemaAsync() as the schema version is coming from outside and we have no guarantees that this version is ready.
+                    schemaFutures[i] = table.schemaView().schemaAsync(schemaVer);
                 }
+
+                return allOf(schemaFutures).thenRun(() -> {
+                    for (CompletableFuture<SchemaDescriptor> schemaFuture : schemaFutures) {
+                        // join() is safe as all futures are already completed.
+                        SchemaDescriptor schema = schemaFuture.join();
+                        writeSchema(out, schema.version(), schema);
+                    }
+                });
             }
         });
     }

@@ -15,41 +15,50 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.internal.storage.pagememory.index;
 
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnIndexStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
+import org.apache.ignite.internal.pagememory.util.GradualTask;
+import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.PeekCursor;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.index.common.IndexRowKey;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaKey;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
-import org.apache.ignite.internal.storage.pagememory.index.meta.UpdateLastRowIdUuidToBuiltInvokeClosure;
+import org.apache.ignite.internal.storage.pagememory.index.meta.UpdateLastRowIdUuidToBuildInvokeClosure;
 import org.apache.ignite.internal.storage.util.StorageState;
+import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Abstract index storage based on Page Memory.
  */
-public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V extends K> implements IndexStorage {
-    /** Index ID. */
-    private final int indexId;
+public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V extends K, TreeT extends BplusTree<K, V>>
+        implements IndexStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(AbstractPageMemoryIndexStorage.class);
 
     /** Partition id. */
     protected final int partitionId;
@@ -60,82 +69,101 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
     /** Highest possible RowId according to signed long ordering. */
     protected final RowId highestRowId;
 
-    /** Free list to store index columns. */
-    protected volatile IndexColumnsFreeList freeList;
-
-    /** Busy lock. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
     /** Current state of the storage. */
     protected final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /** Index meta tree instance. */
-    private final IndexMetaTree indexMetaTree;
+    private volatile IndexMetaTree indexMetaTree;
+
+    /** Free list to store index columns. */
+    protected volatile IndexColumnsFreeList freeList;
+
+    /** Index tree instance. */
+    protected volatile TreeT indexTree;
 
     /** Row ID for which the index needs to be built, {@code null} means that the index building has completed. */
-    private volatile @Nullable RowId nextRowIdToBuilt;
+    private volatile @Nullable RowId nextRowIdToBuild;
+
+    /** Busy lock. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    /** Index ID. */
+    private final int indexId;
+
+    private final boolean isVolatile;
 
     protected AbstractPageMemoryIndexStorage(
             IndexMeta indexMeta,
             int partitionId,
+            TreeT indexTree,
             IndexColumnsFreeList freeList,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            boolean isVolatile
     ) {
         this.indexId = indexMeta.indexId();
         this.partitionId = partitionId;
+        this.indexTree = indexTree;
         this.freeList = freeList;
         this.indexMetaTree = indexMetaTree;
+        this.isVolatile = isVolatile;
 
         lowestRowId = RowId.lowestRowId(partitionId);
 
         highestRowId = RowId.highestRowId(partitionId);
 
-        nextRowIdToBuilt = indexMeta.nextRowIdUuidToBuild() == null ? null : new RowId(partitionId, indexMeta.nextRowIdUuidToBuild());
+        nextRowIdToBuild = getNextRowIdToBuild(indexMeta);
+    }
+
+    private @Nullable RowId getNextRowIdToBuild(IndexMeta indexMeta) {
+        UUID uuid = indexMeta.nextRowIdUuidToBuild();
+
+        return uuid == null ? null : new RowId(partitionId, uuid);
     }
 
     @Override
     public @Nullable RowId getNextRowIdToBuild() {
-        return busy(() -> {
+        return busyNonDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            return nextRowIdToBuilt;
+            return nextRowIdToBuild;
         });
     }
 
     @Override
     public void setNextRowIdToBuild(@Nullable RowId rowId) {
-        busy(() -> {
+        busyNonDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             UUID rowIdUuid = rowId == null ? null : rowId.uuid();
 
             try {
-                indexMetaTree.invoke(new IndexMetaKey(indexId), null, new UpdateLastRowIdUuidToBuiltInvokeClosure(rowIdUuid));
+                indexMetaTree.invoke(new IndexMetaKey(indexId), null, new UpdateLastRowIdUuidToBuildInvokeClosure(rowIdUuid));
             } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Error updating last row ID uuid to built: [{}, rowId={}]", e, createStorageInfo(), rowId);
+                throw new StorageException("Error updating last row ID uuid to build: [{}, rowId={}]", e, createStorageInfo(), rowId);
             }
 
-            nextRowIdToBuilt = rowId;
+            nextRowIdToBuild = rowId;
 
             return null;
         });
     }
 
-    /**
-     * Closes the hash index storage.
-     */
+    /** Closes the index storage. */
     public void close() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
-            StorageState state = this.state.get();
-
-            assert state == StorageState.CLOSED : state;
-
+        if (!transitionToTerminalState(StorageState.CLOSED)) {
             return;
         }
 
         busyLock.block();
 
         closeStructures();
+    }
+
+    /**
+     * If not already in a terminal state, transitions to the supplied state and returns {@code true}, otherwise just returns {@code false}.
+     */
+    private boolean transitionToTerminalState(StorageState targetState) {
+        return StorageUtils.transitionToTerminalState(targetState, state);
     }
 
     /**
@@ -196,8 +224,120 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
         state.compareAndSet(StorageState.CLEANUP, StorageState.RUNNABLE);
     }
 
+    /**
+     * Starts destruction of the data stored by this index partition.
+     *
+     * @param executor {@link GradualTaskExecutor} on which to destroy.
+     * @return Future that gets completed when the destruction operation finishes.
+     * @throws StorageException If something goes wrong.
+     */
+    public final CompletableFuture<Void> startDestructionOn(GradualTaskExecutor executor) throws StorageException {
+        try {
+            int maxWorkUnits = isVolatile
+                    ? VolatilePageMemoryStorageEngine.MAX_DESTRUCTION_WORK_UNITS
+                    : PersistentPageMemoryStorageEngine.MAX_DESTRUCTION_WORK_UNITS;
+
+            return executor.execute(createDestructionTask(maxWorkUnits))
+                    .whenComplete((res, e) -> {
+                        if (e != null) {
+                            LOG.error("Unable to destroy index {}", e, indexId);
+                        }
+                    });
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Unable to destroy index " + indexId, e);
+        }
+    }
+
+    /**
+     * Transitions this storage to the {@link StorageState#DESTROYED} state. Blocks the busy lock, but does not
+     * close the structures (they will have to be closed by calling {@link #closeStructures()}).
+     *
+     * @return {@code true} if this call actually made the transition and, hence, the caller must call {@link #closeStructures()}.
+     */
+    public boolean transitionToDestroyedState() {
+        if (!transitionToTerminalState(StorageState.DESTROYED)) {
+            return false;
+        }
+
+        busyLock.block();
+
+        return true;
+    }
+
+    protected abstract GradualTask createDestructionTask(int maxWorkUnits) throws IgniteInternalCheckedException;
+
+    protected String createStorageInfo() {
+        return IgniteStringFormatter.format("indexId={}, partitionId={}", indexId, partitionId);
+    }
+
+    /**
+     * Closes internal structures.
+     */
+    public void closeStructures() {
+        indexTree.close();
+
+        nextRowIdToBuild = null;
+    }
+
+    /**
+     * Updates the internal data structures of the storage on rebalance or cleanup.
+     *
+     * @param freeList Free list to store index columns.
+     * @param indexTree Hash index tree instance.
+     * @throws StorageException If failed.
+     */
+    public void updateDataStructures(IndexMetaTree indexMetaTree, IndexColumnsFreeList freeList, TreeT indexTree) {
+        throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
+
+        this.indexMetaTree = indexMetaTree;
+        this.freeList = freeList;
+        this.indexTree = indexTree;
+
+        try {
+            IndexMeta indexMeta = indexMetaTree.findOne(new IndexMetaKey(indexId), null);
+
+            assert indexMeta != null : indexId;
+
+            this.nextRowIdToBuild = getNextRowIdToBuild(indexMeta);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error reading next row ID uuid to build: [{}]", e, createStorageInfo());
+        }
+    }
+
     /** Constant that represents the absence of value in {@link ScanCursor}. Not equivalent to {@code null} value. */
     private static final IndexRowKey NO_INDEX_ROW = () -> null;
+
+    /**
+     * Invoke a supplier that performs an operation that is not a data read.
+     *
+     * @param supplier Operation closure.
+     * @return Whatever the supplier returns.
+     */
+    protected <T> T busyNonDataRead(Supplier<T> supplier) {
+        return busy(supplier, false);
+    }
+
+    /**
+     * Invoke a supplier that performs an operation that is a data read.
+     *
+     * @param supplier Operation closure.
+     * @return Whatever the supplier returns.
+     */
+    protected <T> T busyDataRead(Supplier<T> supplier) {
+        return busy(supplier, true);
+    }
+
+    private <T> T busy(Supplier<T> supplier, boolean read) {
+        if (!busyLock.enterBusy()) {
+            throwExceptionDependingOnIndexStorageState(state.get(), read, createStorageInfo());
+        }
+
+        try {
+            return supplier.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
 
     /**
      * Cursor that always returns up-to-date next element.
@@ -205,15 +345,15 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
      * @param <R> Type of the returned value.
      */
     protected abstract class ScanCursor<R> implements PeekCursor<R> {
-        private final BplusTree<K, V> indexTree;
+        protected final TreeT localTree = indexTree;
 
         private final @Nullable K lower;
 
         private @Nullable Boolean hasNext;
 
         /**
-         * Last row used in mapping in the {@link #next()} call.
-         * {@code null} upon cursor creation or after {@link #hasNext()} returned {@code null}.
+         * Last row used in mapping in the {@link #next()} call. {@code null} upon cursor creation or after {@link #hasNext()} returned
+         * {@code null}.
          */
         private @Nullable V treeRow;
 
@@ -223,9 +363,8 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
          */
         private @Nullable V peekedRow = (V) NO_INDEX_ROW;
 
-        protected ScanCursor(@Nullable K lower, BplusTree<K, V> indexTree) {
+        protected ScanCursor(@Nullable K lower) {
             this.lower = lower;
-            this.indexTree = indexTree;
         }
 
         /**
@@ -245,7 +384,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
         @Override
         public boolean hasNext() {
-            return busy(() -> {
+            return busyDataRead(() -> {
                 try {
                     return advanceIfNeededBusy();
                 } catch (IgniteInternalCheckedException e) {
@@ -256,7 +395,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
         @Override
         public R next() {
-            return busy(() -> {
+            return busyDataRead(() -> {
                 try {
                     if (!advanceIfNeededBusy()) {
                         throw new NoSuchElementException();
@@ -273,7 +412,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
         @Override
         public @Nullable R peek() {
-            return busy(() -> {
+            return busyDataRead(() -> {
                 throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractPageMemoryIndexStorage.this::createStorageInfo);
 
                 try {
@@ -290,9 +429,9 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
             }
 
             if (treeRow == null) {
-                peekedRow = lower == null ? indexTree.findFirst() : indexTree.findNext(lower, true);
+                peekedRow = lower == null ? localTree.findFirst() : localTree.findNext(lower, true);
             } else {
-                peekedRow = indexTree.findNext(treeRow, false);
+                peekedRow = localTree.findNext(treeRow, false);
             }
 
             if (peekedRow != null && exceedsUpperBound(peekedRow)) {
@@ -316,25 +455,4 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
             return hasNext;
         }
     }
-
-    protected <V> V busy(Supplier<V> supplier) {
-        if (!busyLock.enterBusy()) {
-            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
-        }
-
-        try {
-            return supplier.get();
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    protected String createStorageInfo() {
-        return IgniteStringFormatter.format("indexId={}, partitionId={}", indexId, partitionId);
-    }
-
-    /**
-     * Closes internal structures.
-     */
-    protected abstract void closeStructures();
 }

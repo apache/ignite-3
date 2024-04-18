@@ -17,34 +17,43 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 /**
  * Basic table operations test.
  */
-public class KeyValueBinaryViewOperationsTest {
+public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase {
     @Test
     public void put() {
         SchemaDescriptor schema = schemaDescriptor();
@@ -439,23 +448,39 @@ public class KeyValueBinaryViewOperationsTest {
         assertThrows(NullPointerException.class, () -> tbl.putAll(null, Collections.singletonMap(key, null)));
     }
 
+    @Test
+    void retriesOnInternalSchemaVersionMismatchException() throws Exception {
+        SchemaDescriptor schema = schemaDescriptor();
+        InternalTable internalTable = spy(createInternalTable(schema));
+        ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
+
+        KeyValueView<Tuple, Tuple> view = new KeyValueBinaryViewImpl(
+                internalTable,
+                new DummySchemaManagerImpl(schema),
+                schemaVersions,
+                mock(IgniteSql.class),
+                marshallers
+        );
+
+        BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("ID", 1L).set("VAL", 2L));
+
+        doReturn(failedFuture(new InternalSchemaVersionMismatchException()))
+                .doReturn(completedFuture(resultRow))
+                .when(internalTable).get(any(), any());
+
+        Tuple result = view.get(null, Tuple.create().set("ID", 1L));
+
+        assertThat(result.longValue("VAL"), is(2L));
+
+        verify(internalTable, times(2)).get(any(), isNull());
+    }
+
     private SchemaDescriptor schemaDescriptor() {
         return new SchemaDescriptor(
-                1,
+                SCHEMA_VERSION,
                 new Column[]{new Column("ID", NativeTypes.INT64, false)},
                 new Column[]{new Column("VAL", NativeTypes.INT64, false)}
         );
-    }
-
-    private TableImpl createTable(SchemaDescriptor schema) {
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
-
-        DummyInternalTableImpl table = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema);
-
-        Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
-
-        return new TableImpl(table, new DummySchemaManagerImpl(schema), new HeapLockManager());
     }
 
     /**
@@ -466,13 +491,13 @@ public class KeyValueBinaryViewOperationsTest {
      * @param actual Actual tuple.
      */
     void assertEqualsValues(SchemaDescriptor schema, Tuple expected, Tuple actual) {
-        for (int i = 0; i < schema.valueColumns().length(); i++) {
-            final Column col = schema.valueColumns().column(i);
+        for (int i = 0; i < schema.valueColumns().size(); i++) {
+            final Column col = schema.valueColumns().get(i);
 
             final Object val1 = expected.value(col.name());
             final Object val2 = actual.value(col.name());
 
-            assertEquals(val1, val2, "Key columns equality check failed: colIdx=" + col.schemaIndex());
+            assertEquals(val1, val2, "Key columns equality check failed: colIdx=" + col.positionInRow());
         }
     }
 }

@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.vault;
 
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -54,15 +54,15 @@ public class VaultManagerTest {
      */
     @Test
     void testName() {
-        assertThat(vaultManager.name(), willBe(nullValue(String.class)));
+        assertThat(vaultManager.name(), is(nullValue(String.class)));
 
-        assertThat(vaultManager.putName("foobar"), willBe(nullValue(Void.class)));
+        vaultManager.putName("foobar");
 
-        assertThat(vaultManager.name(), willBe(equalTo("foobar")));
+        assertThat(vaultManager.name(), is(equalTo("foobar")));
 
-        assertThat(vaultManager.putName("foobarbaz"), willBe(nullValue(Void.class)));
+        vaultManager.putName("foobarbaz");
 
-        assertThat(vaultManager.name(), willBe(equalTo("foobarbaz")));
+        assertThat(vaultManager.name(), is(equalTo("foobarbaz")));
     }
 
     /**

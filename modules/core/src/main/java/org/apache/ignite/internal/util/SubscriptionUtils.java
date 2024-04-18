@@ -24,6 +24,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.util.subscription.ConcatenatedPublisher;
+import org.apache.ignite.internal.util.subscription.IterableToPublisherAdapter;
 import org.apache.ignite.internal.util.subscription.OrderedMergePublisher;
 
 /**
@@ -80,5 +81,21 @@ public class SubscriptionUtils {
     @SafeVarargs
     public static <T> Publisher<T> orderedMerge(Comparator<T> comparator, int prefetch, Publisher<? extends T>... sources) {
         return new OrderedMergePublisher<>(comparator, prefetch, sources);
+    }
+
+    /**
+     * Creates a publisher from the given iterable.
+     *
+     * <p>A new iterator will be issued for every new subscription.
+     *
+     * <p>This particular adapter will drain iterator on the same thread that requested the
+     * entries, so it's better to avoid using long or blocking operations inside provided iterable.
+     *
+     * @param iterable An iterable to create adapter for.
+     * @param <T> Type of the entries this publisher will emit.
+     * @return Publisher created from the given iterable.
+     */
+    public static <T> Publisher<T> fromIterable(Iterable<T> iterable) {
+        return new IterableToPublisherAdapter<>(iterable, Runnable::run, Integer.MAX_VALUE);
     }
 }

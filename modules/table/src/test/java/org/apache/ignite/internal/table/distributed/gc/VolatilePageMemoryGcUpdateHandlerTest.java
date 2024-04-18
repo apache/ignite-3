@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.table.distributed.gc;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryStorageEngineLocalConfigurationModule.DEFAULT_PROFILE_NAME;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.mockito.Mockito.mock;
 
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
@@ -33,9 +34,8 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.TestInfo;
 
-@ExtendWith(ConfigurationExtension.class)
 class VolatilePageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
     private VolatilePageMemoryStorageEngine engine;
 
@@ -43,25 +43,24 @@ class VolatilePageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest 
 
     @BeforeEach
     void setUp(
+            TestInfo testInfo,
             @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.tables.foo{}") TablesConfiguration tablesConfig
+            @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
+            StorageConfiguration storageConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        String nodeName = "test";
-
-        engine = new VolatilePageMemoryStorageEngine("test", engineConfig, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
+        engine = new VolatilePageMemoryStorageEngine(testNodeName(testInfo, 0), engineConfig,
+                storageConfig, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
 
         engine.start();
 
         table = engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(tablesConfig)
+                new StorageTableDescriptor(TABLE_ID, DEFAULT_PARTITION_COUNT, DEFAULT_PROFILE_NAME),
+                mock(StorageIndexDescriptorSupplier.class)
         );
-
-        table.start();
 
         initialize(table);
     }

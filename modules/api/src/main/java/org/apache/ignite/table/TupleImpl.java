@@ -30,10 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.IgniteNameUtils;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -77,7 +74,7 @@ class TupleImpl implements Tuple, Serializable {
      *
      * @param tuple Tuple.
      */
-    TupleImpl(@NotNull Tuple tuple) {
+    TupleImpl(Tuple tuple) {
         this(tuple.columnCount());
 
         for (int i = 0, len = tuple.columnCount(); i < len; i++) {
@@ -100,7 +97,7 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple set(@NotNull String columnName, @Nullable Object val) {
+    public Tuple set(String columnName, @Nullable Object val) {
         String columnName0 = IgniteNameUtils.parseSimpleName(columnName);
 
         int idx = colMapping.computeIfAbsent(Objects.requireNonNull(columnName0), name -> colMapping.size());
@@ -126,7 +123,7 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public int columnIndex(@NotNull String columnName) {
+    public int columnIndex(String columnName) {
         Objects.requireNonNull(columnName);
 
         Integer idx = colMapping.get(IgniteNameUtils.parseSimpleName(columnName));
@@ -142,7 +139,7 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public <T> T valueOrDefault(@NotNull String columnName, T def) {
+    public <T> T valueOrDefault(String columnName, T def) {
         int idx = columnIndex(columnName);
 
         return (idx == -1) ? def : (T) colValues.get(idx);
@@ -150,7 +147,7 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public <T> T value(@NotNull String columnName) {
+    public <T> T value(String columnName) {
         int idx = columnIndex(columnName);
 
         if (idx == -1) {
@@ -170,18 +167,6 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public BinaryObject binaryObjectValue(@NotNull String columnName) {
-        return value(columnName);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public BinaryObject binaryObjectValue(int columnIndex) {
-        return value(columnIndex);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public boolean booleanValue(String columnName) {
         return value(columnName);
     }
@@ -194,7 +179,7 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public byte byteValue(@NotNull String columnName) {
+    public byte byteValue(String columnName) {
         return value(columnName);
     }
 
@@ -206,7 +191,7 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public short shortValue(@NotNull String columnName) {
+    public short shortValue(String columnName) {
         return value(columnName);
     }
 
@@ -218,7 +203,7 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public int intValue(@NotNull String columnName) {
+    public int intValue(String columnName) {
         return value(columnName);
     }
 
@@ -230,7 +215,7 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public long longValue(@NotNull String columnName) {
+    public long longValue(String columnName) {
         return value(columnName);
     }
 
@@ -242,7 +227,7 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public float floatValue(@NotNull String columnName) {
+    public float floatValue(String columnName) {
         return value(columnName);
     }
 
@@ -254,7 +239,7 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public double doubleValue(@NotNull String columnName) {
+    public double doubleValue(String columnName) {
         return value(columnName);
     }
 
@@ -266,7 +251,7 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public String stringValue(@NotNull String columnName) {
+    public String stringValue(String columnName) {
         return value(columnName);
     }
 
@@ -278,7 +263,7 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public UUID uuidValue(@NotNull String columnName) {
+    public UUID uuidValue(String columnName) {
         return value(columnName);
     }
 
@@ -290,7 +275,7 @@ class TupleImpl implements Tuple, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public BitSet bitmaskValue(@NotNull String columnName) {
+    public BitSet bitmaskValue(String columnName) {
         return value(columnName);
     }
 
@@ -389,6 +374,17 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(Tuple.class.getSimpleName(), colNames, colValues);
+        StringBuilder b = new StringBuilder();
+
+        b.append(Tuple.class.getSimpleName()).append(" [");
+        for (int i = 0; i < colNames.size(); i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(colNames.get(i)).append('=').append(colValues.get(i));
+        }
+        b.append(']');
+
+        return b.toString();
     }
 }

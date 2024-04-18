@@ -37,6 +37,7 @@ dependencies {
     implementation project(':ignite-raft-api')
     implementation project(':ignite-vault')
     implementation project(':ignite-rocksdb-common')
+    implementation project(':ignite-storage-api')
     implementation project(':ignite-security')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
@@ -50,11 +51,11 @@ dependencies {
     testImplementation project(':ignite-network')
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.junit
-    testImplementation libs.slf4j.jdk14
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-raft')
     testFixturesImplementation project(':ignite-raft-api')
+    testFixturesImplementation project(':ignite-storage-api')
     testFixturesImplementation project(':ignite-vault')
     testFixturesImplementation project(':ignite-security')
     testFixturesImplementation testFixtures(project(':ignite-core'))
@@ -66,10 +67,12 @@ dependencies {
     integrationTestImplementation project(':ignite-rest')
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-raft-api')
+    integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation testFixtures(project)
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(':ignite-network'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.jetbrains.annotations
 }

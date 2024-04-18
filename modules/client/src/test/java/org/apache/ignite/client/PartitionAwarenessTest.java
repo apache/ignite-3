@@ -17,14 +17,17 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.netty.util.ResourceLeakDetector;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -33,9 +36,16 @@ import org.apache.ignite.client.AbstractClientTableTest.PersonPojo;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
+import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.streamer.SimplePublisher;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -55,6 +65,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 public class PartitionAwarenessTest extends AbstractClientTest {
     private static final String nodeKey0 = "server-2";
+
     private static final String nodeKey1 = "server-2";
 
     private static final String nodeKey2 = "server-1";
@@ -67,23 +78,21 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private static IgniteClient client2;
 
-    private @Nullable String lastOp;
+    private volatile @Nullable String lastOp;
 
-    private @Nullable String lastOpServerName;
+    private volatile @Nullable String lastOpServerName;
 
-    private final AtomicInteger nextTableId = new AtomicInteger(101);
+    private static final AtomicInteger nextTableId = new AtomicInteger(101);
 
     /**
      * Before all.
      */
     @BeforeAll
-    public static void beforeAll() {
-        AbstractClientTest.beforeAll();
-
+    public static void startServer2() {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
         server2 = new FakeIgnite("server-2");
-        testServer2 = new TestServer(0, server2, null, null, "server-2", clusterId, null, serverPort + 1);
+        testServer2 = new TestServer(0, server2, null, null, "server-2", clusterId, null, null);
 
         var clientBuilder = IgniteClient.builder()
                 .addresses("127.0.0.1:" + serverPort, "127.0.0.1:" + testServer2.port())
@@ -96,21 +105,15 @@ public class PartitionAwarenessTest extends AbstractClientTest {
      * After all.
      */
     @AfterAll
-    public static void afterAll() throws Exception {
-        AbstractClientTest.afterAll();
-
-        testServer2.close();
+    public static void stopServer2() throws Exception {
+        IgniteUtils.closeAll(client2, testServer2);
     }
 
     @BeforeEach
-    @Override
-    public void beforeEach() throws InterruptedException {
-        super.beforeEach();
-
-        dropTables(server);
+    public void initReplicas() throws InterruptedException {
         dropTables(server2);
 
-        initPartitionAssignment(null);
+        initPrimaryReplicas(null);
 
         assertTrue(IgniteTestUtils.waitForCondition(() -> client2.connections().size() == 2, 3000));
     }
@@ -158,16 +161,20 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     @Test
     public void testNonNullTxDisablesPartitionAwareness() {
         RecordView<Tuple> recordView = defaultTable().recordView();
-        var tx = client2.transactions().begin();
+        var tx = (ClientTransaction) client2.transactions().begin();
 
-        assertOpOnNode("server-1", "get", x -> recordView.get(tx, Tuple.create().set("ID", 0L)));
-        assertOpOnNode("server-1", "get", x -> recordView.get(tx, Tuple.create().set("ID", 1L)));
-        assertOpOnNode("server-1", "get", x -> recordView.get(tx, Tuple.create().set("ID", 2L)));
+        @SuppressWarnings("resource") String expectedNode = tx.channel().protocolContext().clusterNode().name();
+
+        assertOpOnNode(expectedNode, "get", x -> recordView.get(tx, Tuple.create().set("ID", 0L)));
+        assertOpOnNode(expectedNode, "get", x -> recordView.get(tx, Tuple.create().set("ID", 1L)));
+        assertOpOnNode(expectedNode, "get", x -> recordView.get(tx, Tuple.create().set("ID", 2L)));
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void testClientReceivesPartitionAssignmentUpdates(boolean useHeartbeat) throws InterruptedException {
+        ReliableChannel ch = IgniteTestUtils.getFieldValue(client2, "ch");
+
         // Check default assignment.
         RecordView<Tuple> recordView = defaultTable().recordView();
 
@@ -175,24 +182,25 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode(nodeKey2, "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
 
         // Update partition assignment.
-        var assignments = new ArrayList<String>();
-
-        assignments.add(testServer2.nodeName());
-        assignments.add(testServer.nodeName());
-
-        initPartitionAssignment(assignments);
+        var oldTs = ch.partitionAssignmentTimestamp();
+        initPrimaryReplicas(reversedReplicas());
 
         if (useHeartbeat) {
             // Wait for heartbeat message to receive change notification flag.
-            Thread.sleep(500);
+            assertTrue(IgniteTestUtils.waitForCondition(() -> ch.partitionAssignmentTimestamp() > oldTs, 3000));
         } else {
-            // Perform a request on the default channel to receive change notification flag.
-            // Use two requests because of round-robin.
-            client2.tables().tables();
-            client2.tables().tables();
+            // Perform requests to receive change notification flag.
+            int maxRequests = 50;
+            while (ch.partitionAssignmentTimestamp() <= oldTs && maxRequests-- > 0) {
+                client2.tables().tables();
+            }
+
+            assertThat("Failed to receive assignment update", maxRequests, greaterThan(0));
         }
 
         // Check new assignment.
+        assertThat(ch.partitionAssignmentTimestamp(), greaterThan(oldTs));
+
         assertOpOnNode(nodeKey2, "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
         assertOpOnNode(nodeKey1, "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
     }
@@ -201,15 +209,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testCustomColocationKey() {
         RecordView<Tuple> recordView = table(FakeIgniteTables.TABLE_COLOCATION_KEY).recordView();
 
-        // COLO-2 is nullable and not set.
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0")));
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 2).set("COLO-1", "0")));
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 3).set("COLO-1", "0")));
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 3).set("COLO-1", "4")));
-
-        // COLO-2 is set.
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 1)));
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 8)));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 4L)));
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 8L)));
     }
 
     @Test
@@ -387,15 +388,16 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         Tuple t1 = Tuple.create().set("ID", 1L);
         Tuple t2 = Tuple.create().set("ID", 2L);
+        Tuple val = Tuple.create();
 
-        assertOpOnNode(nodeKey1, "insert", x -> kvView.putIfAbsent(null, t1, t1));
-        assertOpOnNode(nodeKey2, "insert", x -> kvView.putIfAbsent(null, t2, t2));
+        assertOpOnNode(nodeKey1, "insert", x -> kvView.putIfAbsent(null, t1, val));
+        assertOpOnNode(nodeKey2, "insert", x -> kvView.putIfAbsent(null, t2, val));
 
-        assertOpOnNode(nodeKey1, "upsert", x -> kvView.put(null, t1, t1));
-        assertOpOnNode(nodeKey2, "upsert", x -> kvView.put(null, t2, t2));
+        assertOpOnNode(nodeKey1, "upsert", x -> kvView.put(null, t1, val));
+        assertOpOnNode(nodeKey2, "upsert", x -> kvView.put(null, t2, val));
 
-        assertOpOnNode(nodeKey1, "upsertAll", x -> kvView.putAll(null, Map.of(t1, t1)));
-        assertOpOnNode(nodeKey2, "upsertAll", x -> kvView.putAll(null, Map.of(t2, t2)));
+        assertOpOnNode(nodeKey1, "upsertAll", x -> kvView.putAll(null, Map.of(t1, val)));
+        assertOpOnNode(nodeKey2, "upsertAll", x -> kvView.putAll(null, Map.of(t2, val)));
 
         assertOpOnNode(nodeKey1, "get", x -> kvView.get(null, t1));
         assertOpOnNode(nodeKey2, "get", x -> kvView.get(null, t2));
@@ -406,26 +408,26 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode(nodeKey1, "getAll", x -> kvView.getAll(null, List.of(t1)));
         assertOpOnNode(nodeKey2, "getAll", x -> kvView.getAll(null, List.of(t2)));
 
-        assertOpOnNode(nodeKey1, "getAndUpsert", x -> kvView.getAndPut(null, t1, t1));
-        assertOpOnNode(nodeKey2, "getAndUpsert", x -> kvView.getAndPut(null, t2, t2));
+        assertOpOnNode(nodeKey1, "getAndUpsert", x -> kvView.getAndPut(null, t1, val));
+        assertOpOnNode(nodeKey2, "getAndUpsert", x -> kvView.getAndPut(null, t2, val));
 
-        assertOpOnNode(nodeKey1, "getAndReplace", x -> kvView.getAndReplace(null, t1, t1));
-        assertOpOnNode(nodeKey2, "getAndReplace", x -> kvView.getAndReplace(null, t2, t2));
+        assertOpOnNode(nodeKey1, "getAndReplace", x -> kvView.getAndReplace(null, t1, val));
+        assertOpOnNode(nodeKey2, "getAndReplace", x -> kvView.getAndReplace(null, t2, val));
 
         assertOpOnNode(nodeKey1, "getAndDelete", x -> kvView.getAndRemove(null, t1));
         assertOpOnNode(nodeKey2, "getAndDelete", x -> kvView.getAndRemove(null, t2));
 
-        assertOpOnNode(nodeKey1, "replace", x -> kvView.replace(null, t1, t1));
-        assertOpOnNode(nodeKey2, "replace", x -> kvView.replace(null, t2, t2));
+        assertOpOnNode(nodeKey1, "replace", x -> kvView.replace(null, t1, val));
+        assertOpOnNode(nodeKey2, "replace", x -> kvView.replace(null, t2, val));
 
-        assertOpOnNode(nodeKey1, "replace", x -> kvView.replace(null, t1, t1, t1));
-        assertOpOnNode(nodeKey2, "replace", x -> kvView.replace(null, t2, t2, t2));
+        assertOpOnNode(nodeKey1, "replace", x -> kvView.replace(null, t1, val, val));
+        assertOpOnNode(nodeKey2, "replace", x -> kvView.replace(null, t2, val, val));
 
         assertOpOnNode(nodeKey1, "delete", x -> kvView.remove(null, t1));
         assertOpOnNode(nodeKey2, "delete", x -> kvView.remove(null, t2));
 
-        assertOpOnNode(nodeKey1, "deleteExact", x -> kvView.remove(null, t1, t1));
-        assertOpOnNode(nodeKey2, "deleteExact", x -> kvView.remove(null, t2, t2));
+        assertOpOnNode(nodeKey1, "deleteExact", x -> kvView.remove(null, t1, val));
+        assertOpOnNode(nodeKey2, "deleteExact", x -> kvView.remove(null, t2, val));
 
         assertOpOnNode(nodeKey1, "deleteAll", x -> kvView.removeAll(null, List.of(t1)));
         assertOpOnNode(nodeKey2, "deleteAll", x -> kvView.removeAll(null, List.of(t2)));
@@ -438,8 +440,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Tuple t1 = Tuple.create().set("ID", 1L);
         Tuple t2 = Tuple.create().set("ID", 2L);
 
-        assertEquals(nodeKey1, compute().executeColocatedAsync(table.name(), t1, List.of(), "job").join());
-        assertEquals(nodeKey2, compute().executeColocatedAsync(table.name(), t2, List.of(), "job").join());
+        assertThat(compute().executeColocatedAsync(table.name(), t1, List.of(), "job"), willBe(nodeKey1));
+        assertThat(compute().executeColocatedAsync(table.name(), t2, List.of(), "job"), willBe(nodeKey2));
     }
 
     @Test
@@ -447,8 +449,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         var mapper = Mapper.of(Long.class);
         Table table = defaultTable();
 
-        assertEquals(nodeKey1, compute().executeColocatedAsync(table.name(), 1L, mapper, List.of(), "job").join());
-        assertEquals(nodeKey2, compute().executeColocatedAsync(table.name(), 2L, mapper, List.of(), "job").join());
+        assertThat(compute().executeColocatedAsync(table.name(), 1L, mapper, List.of(), "job"), willBe(nodeKey1));
+        assertThat(compute().executeColocatedAsync(table.name(), 2L, mapper, List.of(), "job"), willBe(nodeKey2));
     }
 
     @Test
@@ -456,17 +458,20 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         RecordView<Tuple> recordView = defaultTable().recordView();
 
         Consumer<Tuple> stream = t -> {
-            SubmissionPublisher<Tuple> publisher = new SubmissionPublisher<>();
-            var fut = recordView.streamData(publisher, null);
-            publisher.submit(t);
-            publisher.close();
+            CompletableFuture<Void> fut;
+
+            try (SimplePublisher<Tuple> publisher = new SimplePublisher<>()) {
+                fut = recordView.streamData(publisher, null);
+                publisher.submit(t);
+            }
+
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
-        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
-        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
-        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
+        assertOpOnNode(nodeKey0, "updateAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, "updateAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, "updateAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey3, "updateAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
     }
 
     @Test
@@ -474,17 +479,20 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
         Consumer<PersonPojo> stream = t -> {
-            SubmissionPublisher<PersonPojo> publisher = new SubmissionPublisher<>();
-            var fut = pojoView.streamData(publisher, null);
-            publisher.submit(t);
-            publisher.close();
+            CompletableFuture<Void> fut;
+
+            try (SimplePublisher<PersonPojo> publisher = new SimplePublisher<>()) {
+                fut = pojoView.streamData(publisher, null);
+                publisher.submit(t);
+            }
+
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(new PersonPojo(0L)));
-        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(new PersonPojo(1L)));
-        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(new PersonPojo(2L)));
-        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(new PersonPojo(3L)));
+        assertOpOnNode(nodeKey0, "updateAll", x -> stream.accept(new PersonPojo(0L)));
+        assertOpOnNode(nodeKey1, "updateAll", x -> stream.accept(new PersonPojo(1L)));
+        assertOpOnNode(nodeKey2, "updateAll", x -> stream.accept(new PersonPojo(2L)));
+        assertOpOnNode(nodeKey3, "updateAll", x -> stream.accept(new PersonPojo(3L)));
     }
 
     @Test
@@ -492,17 +500,20 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         KeyValueView<Tuple, Tuple> recordView = defaultTable().keyValueView();
 
         Consumer<Tuple> stream = t -> {
-            SubmissionPublisher<Entry<Tuple, Tuple>> publisher = new SubmissionPublisher<>();
-            var fut = recordView.streamData(publisher, null);
-            publisher.submit(Map.entry(t, t));
-            publisher.close();
+            CompletableFuture<Void> fut;
+
+            try (SimplePublisher<Entry<Tuple, Tuple>> publisher = new SimplePublisher<>()) {
+                fut = recordView.streamData(publisher, null);
+                publisher.submit(Map.entry(t, Tuple.create()));
+            }
+
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
-        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
-        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
-        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
+        assertOpOnNode(nodeKey0, "updateAll", x -> stream.accept(Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, "updateAll", x -> stream.accept(Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, "updateAll", x -> stream.accept(Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey3, "updateAll", x -> stream.accept(Tuple.create().set("ID", 3L)));
     }
 
     @Test
@@ -510,65 +521,62 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         KeyValueView<Long, String> kvView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
         Consumer<Long> stream = t -> {
-            SubmissionPublisher<Entry<Long, String>> publisher = new SubmissionPublisher<>();
-            var fut = kvView.streamData(publisher, null);
-            publisher.submit(Map.entry(t, t.toString()));
-            publisher.close();
+            CompletableFuture<Void> fut;
+
+            try (SimplePublisher<Entry<Long, String>> publisher = new SimplePublisher<>()) {
+                fut = kvView.streamData(publisher, null);
+                publisher.submit(Map.entry(t, t.toString()));
+            }
+
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "upsertAll", x -> stream.accept(0L));
-        assertOpOnNode(nodeKey1, "upsertAll", x -> stream.accept(1L));
-        assertOpOnNode(nodeKey2, "upsertAll", x -> stream.accept(2L));
-        assertOpOnNode(nodeKey3, "upsertAll", x -> stream.accept(3L));
+        assertOpOnNode(nodeKey0, "updateAll", x -> stream.accept(0L));
+        assertOpOnNode(nodeKey1, "updateAll", x -> stream.accept(1L));
+        assertOpOnNode(nodeKey2, "updateAll", x -> stream.accept(2L));
+        assertOpOnNode(nodeKey3, "updateAll", x -> stream.accept(3L));
     }
 
     @Test
-    public void testDataStreamerReceivesPartitionAssignmentUpdates() throws InterruptedException {
+    public void testDataStreamerReceivesPartitionAssignmentUpdates() {
         DataStreamerOptions options = DataStreamerOptions.builder()
-                .batchSize(1)
-                .perNodeParallelOperations(1)
+                .pageSize(1)
+                .perPartitionParallelOperations(1)
                 .autoFlushFrequency(50)
                 .build();
 
+        CompletableFuture<Void> fut;
+
         RecordView<Tuple> recordView = defaultTable().recordView();
-        SubmissionPublisher<Tuple> publisher = new SubmissionPublisher<>();
-        var fut = recordView.streamData(publisher, options);
+        try (SubmissionPublisher<DataStreamerItem<Tuple>> publisher = new SubmissionPublisher<>()) {
+            fut = recordView.streamData(publisher, options);
 
-        Consumer<Long> submit = id -> {
-            try {
-                publisher.submit(Tuple.create().set("ID", id));
-                assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+            Consumer<Long> submit = id -> {
+                try {
+                    lastOpServerName = null;
+                    publisher.submit(DataStreamerItem.of(Tuple.create().set("ID", id)));
+                    assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            };
+
+            assertOpOnNode(nodeKey1, "updateAll", x -> submit.accept(1L));
+            assertOpOnNode(nodeKey2, "updateAll", x -> submit.accept(2L));
+
+            // Update partition assignment.
+            initPrimaryReplicas(reversedReplicas());
+
+            // Send some batches so that the client receives updated assignment.
+            for (long i = 0; i < 10; i++) {
+                submit.accept(i);
             }
-        };
 
-        assertOpOnNode(nodeKey1, "upsertAll", x -> submit.accept(1L));
-        assertOpOnNode(nodeKey2, "upsertAll", x -> submit.accept(2L));
+            // Check updated assignment.
+            assertOpOnNode(nodeKey2, "updateAll", x -> submit.accept(1L));
+            assertOpOnNode(nodeKey1, "updateAll", x -> submit.accept(2L));
+        }
 
-        // Update partition assignment.
-        var assignments = new ArrayList<String>();
-
-        assignments.add(testServer2.nodeName());
-        assignments.add(testServer.nodeName());
-
-        initPartitionAssignment(assignments);
-
-        // Send some batches so that the client receives updated assignment.
-        lastOpServerName = null;
-        submit.accept(1L);
-        assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
-
-        lastOpServerName = null;
-        submit.accept(2L);
-        assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
-
-        // Check updated assignment.
-        assertOpOnNode(nodeKey2, "upsertAll", x -> submit.accept(1L));
-        assertOpOnNode(nodeKey1, "upsertAll", x -> submit.accept(2L));
-
-        publisher.close();
         fut.join();
     }
 
@@ -602,31 +610,34 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private void createTable(Ignite ignite, int id, String name) {
         FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
-        TableImpl tableImpl = tables.createTable(name, id);
+        TableViewInternal tableView = tables.createTable(name, id);
 
-        ((FakeInternalTable) tableImpl.internalTable()).setDataAccessListener((op, data) -> {
+        ((FakeInternalTable) tableView.internalTable()).setDataAccessListener((op, data) -> {
             lastOp = op;
             lastOpServerName = ignite.name();
         });
     }
 
-    private static void initPartitionAssignment(@Nullable ArrayList<String> assignments) {
-        initPartitionAssignment(server, assignments);
-        initPartitionAssignment(server2, assignments);
+    private static void initPrimaryReplicas(@Nullable List<String> replicas) {
+        long leaseStartTime = new HybridClockImpl().nowLong();
+
+        initPrimaryReplicas(testServer.placementDriver(), replicas, leaseStartTime);
+        initPrimaryReplicas(testServer2.placementDriver(), replicas, leaseStartTime);
     }
 
-    private static void initPartitionAssignment(Ignite ignite, @Nullable ArrayList<String> assignments) {
-        if (assignments == null) {
-            assignments = new ArrayList<>();
-
-            assignments.add(testServer.nodeName());
-            assignments.add(testServer2.nodeName());
-            assignments.add(testServer.nodeName());
-            assignments.add(testServer2.nodeName());
+    private static void initPrimaryReplicas(FakePlacementDriver placementDriver, @Nullable List<String> replicas, long leaseStartTime) {
+        if (replicas == null) {
+            replicas = defaultReplicas();
         }
 
-        FakeIgniteTables tables = (FakeIgniteTables) ignite.tables();
+        placementDriver.setReplicas(replicas, nextTableId.get() - 1, leaseStartTime);
+    }
 
-        tables.setPartitionAssignments(assignments);
+    private static List<String> defaultReplicas() {
+        return List.of(testServer.nodeName(), testServer2.nodeName(), testServer.nodeName(), testServer2.nodeName());
+    }
+
+    private static List<String> reversedReplicas() {
+        return List.of(testServer2.nodeName(), testServer.nodeName(), testServer2.nodeName(), testServer.nodeName());
     }
 }

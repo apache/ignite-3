@@ -32,8 +32,12 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
+import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * SortAggregateExecutionTest.
@@ -120,7 +124,6 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         // The group's fields placed on the begin of the output row (planner
         // does this by Projection node for aggregate input).
-        // Hash aggregate doesn't use groups set on reducer because send GroupKey as object.
         ImmutableIntList reduceGrpFields = ImmutableIntList.copyOf(
                 IntStream.range(0, grpSet.cardinality()).boxed().collect(Collectors.toList())
         );
@@ -133,11 +136,20 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             rdcCmp = (k1, k2) -> 0;
         }
 
+        Mapping mapping = Commons.trimmingMapping(grpSet.length(), grpSet);
+        MapReduceAgg mapReduceAgg = MapReduceAggregates.createMapReduceAggCall(
+                Commons.cluster(),
+                call,
+                mapping.getTargetCount(),
+                inRowType,
+                true
+        );
+
         SortAggregateNode<Object[]> aggRdc = new SortAggregateNode<>(
                 ctx,
                 REDUCE,
                 ImmutableBitSet.of(reduceGrpFields),
-                accFactory(ctx, call, REDUCE, aggRowType),
+                accFactory(ctx, mapReduceAgg.getReduceCall(), REDUCE, aggRowType),
                 rowFactory,
                 rdcCmp
         );

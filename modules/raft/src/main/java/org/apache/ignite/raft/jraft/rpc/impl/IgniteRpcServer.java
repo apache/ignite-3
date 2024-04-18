@@ -25,15 +25,14 @@ import java.util.concurrent.RejectedExecutionException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.impl.RaftServiceEventInterceptor;
-import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.NetworkMessageHandler;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.UnresolvableConsistentIdException;
+import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -52,9 +51,11 @@ import org.apache.ignite.raft.jraft.rpc.impl.cli.ResetLearnersRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.ResetPeerRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.SnapshotRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.TransferLeaderRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.GetFileRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.InstallSnapshotRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.core.InterceptingAppendEntriesRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.ReadIndexRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.RequestVoteRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.TimeoutNowRequestProcessor;
@@ -89,7 +90,9 @@ public class IgniteRpcServer implements RpcServer<Void> {
             RaftMessagesFactory raftMessagesFactory,
             Executor rpcExecutor,
             RaftServiceEventInterceptor serviceEventInterceptor,
-            RaftGroupEventsClientListener raftGroupEventsClientListener
+            RaftGroupEventsClientListener raftGroupEventsClientListener,
+            AppendEntriesRequestInterceptor appendEntriesRequestFilter,
+            ActionRequestInterceptor actionRequestInterceptor
     ) {
         this.service = service;
         this.nodeManager = nodeManager;
@@ -97,7 +100,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
         // raft server RPC
         AppendEntriesRequestProcessor appendEntriesRequestProcessor =
-            new AppendEntriesRequestProcessor(rpcExecutor, raftMessagesFactory);
+            new InterceptingAppendEntriesRequestProcessor(rpcExecutor, raftMessagesFactory,  appendEntriesRequestFilter);
         registerConnectionClosedEventListener(appendEntriesRequestProcessor);
         registerProcessor(appendEntriesRequestProcessor);
         registerProcessor(new GetFileRequestProcessor(rpcExecutor, raftMessagesFactory));
@@ -120,8 +123,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new RemoveLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ResetLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         // common client integration
-        var commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.serializationRegistry());
-        registerProcessor(new ActionRequestProcessor(rpcExecutor, raftMessagesFactory, commandsMarshaller));
+        registerProcessor(new InterceptingActionRequestProcessor(rpcExecutor, raftMessagesFactory, actionRequestInterceptor));
         registerProcessor(new NotifyElectProcessor(raftMessagesFactory, serviceEventInterceptor));
         registerProcessor(new RaftGroupEventsProcessor(raftGroupEventsClientListener));
 
@@ -151,25 +153,10 @@ public class IgniteRpcServer implements RpcServer<Void> {
      */
     public class RpcMessageHandler implements NetworkMessageHandler {
         /** {@inheritDoc} */
-        @Override public void onReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
+        @Override public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
             Class<? extends NetworkMessage> cls = message.getClass();
-            RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
 
-            ClusterNode sender = clusterService().topologyService().getByConsistentId(senderConsistentId);
-
-            if (sender == null) {
-                throw new UnresolvableConsistentIdException("No node by consistent ID " + senderConsistentId);
-            }
-
-            // TODO asch cache mapping https://issues.apache.org/jira/browse/IGNITE-14832
-            if (prc == null) {
-                for (Class<?> iface : cls.getInterfaces()) {
-                    prc = processors.get(iface.getName());
-
-                    if (prc != null)
-                        break;
-                }
-            }
+            RpcProcessor<NetworkMessage> prc = getProcessor(cls, cls);
 
             if (prc == null)
                 return;
@@ -194,6 +181,26 @@ public class IgniteRpcServer implements RpcServer<Void> {
                 // The rejection is ok if an executor has been stopped, otherwise it shouldn't happen.
                 LOG.warn("A request execution was rejected [sender={} req={} reason={}]", sender, S.toString(message), e.getMessage());
             }
+        }
+
+        private @Nullable RpcProcessor<NetworkMessage> getProcessor(Class<?> origin, Class<?> cls) {
+            RpcProcessor<NetworkMessage> prc = processors.get(cls.getName());
+
+            if (prc != null) {
+                return prc;
+            }
+
+            for (Class<?> iface : cls.getInterfaces()) {
+                prc = getProcessor(origin, iface);
+
+                if (prc != null) {
+                    processors.putIfAbsent(origin.getName(), prc);
+
+                    return prc;
+                }
+            }
+
+            return null;
         }
     }
 

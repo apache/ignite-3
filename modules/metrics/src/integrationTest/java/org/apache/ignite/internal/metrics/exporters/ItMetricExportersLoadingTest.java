@@ -27,6 +27,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -34,7 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Integration test for metrics' exporters loading.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class ItMetricExportersLoadingTest {
+public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
     @InjectConfiguration(
             value = "mock.exporters = {"
                     + "testPull = {exporterName = testPull},"

@@ -21,27 +21,25 @@ namespace Apache.Ignite.Tests
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
-    using Log;
+    using Microsoft.Extensions.Logging;
     using NUnit.Framework;
 
     /// <summary>
     /// Stores log entries in a list.
     /// </summary>
-    public class ListLogger : IIgniteLogger
+    public class ListLogger : ILogger
     {
-        /** */
-        private readonly List<Entry> _entries = new();
+        private readonly string _categoryName;
+        private readonly Action<Entry> _addEntry;
 
-        /** */
-        private readonly object _lock = new();
-
-        /** */
-        private readonly IIgniteLogger? _wrappedLogger;
-
-        public ListLogger(IIgniteLogger? wrappedLogger = null)
+        public ListLogger(
+            string categoryName,
+            Action<Entry> addEntry,
+            IEnumerable<LogLevel>? enabledLevels = null)
         {
-            _wrappedLogger = wrappedLogger;
-            EnabledLevels = new() { LogLevel.Debug, LogLevel.Info, LogLevel.Warn, LogLevel.Error };
+            _categoryName = categoryName;
+            _addEntry = addEntry;
+            EnabledLevels = enabledLevels?.ToList() ?? new() { LogLevel.Debug, LogLevel.Information, LogLevel.Warning, LogLevel.Error };
         }
 
         /// <summary>
@@ -49,83 +47,29 @@ namespace Apache.Ignite.Tests
         /// </summary>
         public List<LogLevel> EnabledLevels { get; }
 
-        /// <summary>
-        /// Gets the entries.
-        /// </summary>
-        public List<Entry> Entries
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
         {
-            get
-            {
-                lock (_lock)
-                {
-                    return _entries.ToList();
-                }
-            }
-        }
+            Assert.NotNull(state);
+            Assert.NotNull(formatter);
 
-        /// <summary>
-        /// Gets the log as a string.
-        /// </summary>
-        /// <returns>Log string.</returns>
-        public string GetLogString()
-        {
-            lock (_lock)
-            {
-                return string.Join(", ", _entries.Select(e => $"{e.Category} [{e.Level}] {e.Message}"));
-            }
-        }
-
-        /// <summary>
-        /// Clears the entries.
-        /// </summary>
-        public void Clear()
-        {
-            lock (_lock)
-            {
-                _entries.Clear();
-            }
-        }
-
-        /** <inheritdoc /> */
-        public void Log(
-            LogLevel level,
-            string message,
-            object?[]? args,
-            IFormatProvider? formatProvider,
-            string? category,
-            string? nativeErrorInfo,
-            Exception? ex)
-        {
-            Assert.NotNull(message);
-
-            if (!IsEnabled(level))
+            if (!IsEnabled(logLevel))
             {
                 return;
             }
 
-            _wrappedLogger?.Log(level, message, args, formatProvider, category, nativeErrorInfo, ex);
-
-            lock (_lock)
-            {
-                if (args != null)
-                {
-                    message = string.Format(formatProvider, message, args);
-                }
-
-                if (ex != null)
-                {
-                    message += Environment.NewLine + ex;
-                }
-
-                _entries.Add(new Entry(message, level, category, ex));
-            }
+            var message = formatter(state, exception);
+            _addEntry(new Entry(message, logLevel, _categoryName, exception));
         }
 
         /** <inheritdoc /> */
-        public bool IsEnabled(LogLevel level)
-        {
-            return EnabledLevels.Contains(level);
-        }
+        public bool IsEnabled(LogLevel logLevel) => EnabledLevels.Contains(logLevel);
+
+        public IDisposable BeginScope<TState>(TState state) => throw new NotImplementedException();
 
         [SuppressMessage("Microsoft.Design", "CA1034:NestedTypesShouldNotBeVisible", Justification = "Tests.")]
         public record Entry(string Message, LogLevel Level, string? Category, Exception? Exception);

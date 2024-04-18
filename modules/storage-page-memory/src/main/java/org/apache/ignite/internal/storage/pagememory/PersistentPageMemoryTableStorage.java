@@ -18,11 +18,17 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
+import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
+import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 
+import java.nio.ByteBuffer;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
@@ -44,8 +50,6 @@ import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPa
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersionFreeList;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -57,6 +61,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     /** Data region instance. */
     private final PersistentPageMemoryDataRegion dataRegion;
+
+    private final ExecutorService destructionExecutor;
 
     /**
      * Constructor.
@@ -70,12 +76,14 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier,
             PersistentPageMemoryStorageEngine engine,
-            PersistentPageMemoryDataRegion dataRegion
+            PersistentPageMemoryDataRegion dataRegion,
+            ExecutorService destructionExecutor
     ) {
         super(tableDescriptor, indexDescriptorSupplier);
 
         this.engine = engine;
         this.dataRegion = dataRegion;
+        this.destructionExecutor = destructionExecutor;
     }
 
     /**
@@ -127,44 +135,10 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     indexColumnsFreeList,
                     versionChainTree,
                     indexMetaTree,
-                    gcQueue
+                    gcQueue,
+                    destructionExecutor
             );
         });
-    }
-
-    /**
-     * Initializes the partition file page store if it hasn't already.
-     *
-     * @param groupPartitionId Pair of group ID with partition ID.
-     * @return Partition file page store.
-     * @throws StorageException If failed.
-     */
-    private FilePageStore ensurePartitionFilePageStoreExists(GroupPartitionId groupPartitionId) throws StorageException {
-        try {
-            dataRegion.filePageStoreManager().initialize(groupPartitionId);
-
-            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(groupPartitionId);
-
-            assert !filePageStore.isMarkedToDestroy() : IgniteStringFormatter.format(
-                    "Should not be marked for deletion: [tableId={}, partitionId={}]",
-                    groupPartitionId.getGroupId(),
-                    groupPartitionId.getPartitionId()
-            );
-
-            filePageStore.ensure();
-
-            if (filePageStore.deltaFileCount() > 0) {
-                dataRegion.checkpointManager().triggerCompaction();
-            }
-
-            return filePageStore;
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(
-                    "Error initializing file page store: [tableId={}, partitionId={}]",
-                    e,
-                    groupPartitionId.getGroupId(), groupPartitionId.getPartitionId()
-            );
-        }
     }
 
     /**
@@ -390,7 +364,10 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
         // It is enough for us to close the partition storage and its indexes (do not destroy). Prepare the data region, checkpointer, and
         // compactor to remove the partition, and then simply delete the partition file and its delta files.
-        mvPartitionStorage.close();
+        boolean transitioned = mvPartitionStorage.transitionToDestroyedState();
+        if (transitioned) {
+            mvPartitionStorage.closeResources();
+        }
 
         return destroyPartitionPhysically(createGroupPartitionId(mvPartitionStorage.partitionId()));
     }
@@ -458,28 +435,84 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     }
 
     /**
-     * Creates or gets partition meta from a file.
+     * Creates or receives partition meta from a file.
      *
-     * <p>Safe to use without a checkpointReadLock as we read the meta directly without using {@link PageMemory}.
+     * <p>Safe to use without a checkpointReadLock as we read the meta directly without using {@link PageMemory}.</p>
      *
      * @param groupPartitionId Partition of the group.
-     * @param filePageStore Partition file page store.
      */
-    private PartitionMeta getOrCreatePartitionMeta(GroupPartitionId groupPartitionId, FilePageStore filePageStore) {
+    private PartitionMeta getOrCreatePartitionMetaOnCreatePartition(GroupPartitionId groupPartitionId) {
+        ByteBuffer buffer = allocateBuffer(dataRegion.pageMemory().pageSize());
+
         try {
-            PartitionMeta meta = dataRegion.partitionMetaManager().readOrCreateMeta(lastCheckpointId(), groupPartitionId, filePageStore);
+            FilePageStore filePageStore = dataRegion.filePageStoreManager().getStore(groupPartitionId);
 
-            dataRegion.partitionMetaManager().addMeta(groupPartitionId, meta);
+            // TODO: IGNITE-20983 This shouldn't happen, we should read the page store and its meta again
+            if (filePageStore != null) {
+                PartitionMeta partitionMeta = dataRegion.partitionMetaManager().getMeta(groupPartitionId);
 
-            filePageStore.pages(meta.pageCount());
+                assert partitionMeta != null : groupPartitionId;
+
+                return partitionMeta;
+            }
+
+            filePageStore = readOrCreateAndInitFilePageStore(groupPartitionId, buffer);
+
+            PartitionMeta partitionMeta = readOrCreatePartitionMeta(groupPartitionId, filePageStore, buffer.rewind());
+
+            filePageStore.pages(partitionMeta.pageCount());
 
             filePageStore.setPageAllocationListener(pageIdx -> {
                 assert dataRegion.checkpointManager().checkpointTimeoutLock().checkpointLockIsHeldByThread();
 
-                meta.incrementPageCount(lastCheckpointId());
+                partitionMeta.incrementPageCount(lastCheckpointId());
             });
 
-            return meta;
+            dataRegion.filePageStoreManager().addStore(groupPartitionId, filePageStore);
+            dataRegion.partitionMetaManager().addMeta(groupPartitionId, partitionMeta);
+
+            if (filePageStore.deltaFileCount() > 0) {
+                dataRegion.checkpointManager().triggerCompaction();
+            }
+
+            return partitionMeta;
+        } finally {
+            freeBuffer(buffer);
+        }
+    }
+
+    private FilePageStore readOrCreateAndInitFilePageStore(
+            GroupPartitionId groupPartitionId,
+            ByteBuffer buffer
+    ) throws StorageException {
+        try {
+            FilePageStore filePageStore = dataRegion.filePageStoreManager().readOrCreateStore(groupPartitionId, buffer);
+
+            assert !filePageStore.isMarkedToDestroy() : IgniteStringFormatter.format(
+                    "Should not be marked for deletion: [tableId={}, partitionId={}]",
+                    groupPartitionId.getGroupId(),
+                    groupPartitionId.getPartitionId()
+            );
+
+            filePageStore.ensure();
+
+            return filePageStore;
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(
+                    "Error read and initializing file page store: [tableId={}, partitionId={}]",
+                    e,
+                    groupPartitionId.getGroupId(), groupPartitionId.getPartitionId()
+            );
+        }
+    }
+
+    private PartitionMeta readOrCreatePartitionMeta(
+            GroupPartitionId groupPartitionId,
+            FilePageStore filePageStore,
+            ByteBuffer buffer
+    ) throws StorageException {
+        try {
+            return dataRegion.partitionMetaManager().readOrCreateMeta(lastCheckpointId(), groupPartitionId, filePageStore, buffer);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException(
                     "Error reading or creating partition meta information: [tableId={}, partitionId={}]",
@@ -487,18 +520,5 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     getTableId(), groupPartitionId.getPartitionId()
             );
         }
-    }
-
-    /**
-     * Creates or receives partition meta from a file.
-     *
-     * <p>Safe to use without a checkpointReadLock as we read the meta directly without using {@link PageMemory}.
-     *
-     * @param groupPartitionId Partition of the group.
-     */
-    private PartitionMeta getOrCreatePartitionMetaOnCreatePartition(GroupPartitionId groupPartitionId) {
-        FilePageStore filePageStore = ensurePartitionFilePageStoreExists(groupPartitionId);
-
-        return getOrCreatePartitionMeta(groupPartitionId, filePageStore);
     }
 }

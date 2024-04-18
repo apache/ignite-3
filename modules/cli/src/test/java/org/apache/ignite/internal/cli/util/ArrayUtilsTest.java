@@ -48,6 +48,17 @@ class ArrayUtilsTest {
         );
     }
 
+    private static Stream<Arguments> wordsForFirstStartsWithSecond() {
+        return Stream.of(
+                Arguments.of(new String[]{}, new String[]{}, true),
+                Arguments.of(new String[]{"one", "two", "three"}, new String[]{}, true),
+                Arguments.of(new String[]{"one", "two", "three"}, new String[]{"one", "two"}, true),
+                Arguments.of(new String[]{"one", "two", "three"}, new String[]{"one", "two", "three"}, true),
+                Arguments.of(new String[]{"one", "two", "three"}, new String[]{"one", "two", "3"}, false),
+                Arguments.of(new String[]{"one", "two", "three"}, new String[]{"one", "two", "three", "four"}, false)
+        );
+    }
+
 
     @ParameterizedTest
     @MethodSource("wordsForFindLastNotEmptyWord")
@@ -67,5 +78,11 @@ class ArrayUtilsTest {
     void findLastNotEmptyWordBeforeBlankWord() {
         assertThrows(IllegalArgumentException.class,
                 () -> ArrayUtils.findLastNotEmptyWordBeforeWordFromEnd(new String[]{"one", "two"}, " "));
+    }
+
+    @ParameterizedTest
+    @MethodSource("wordsForFirstStartsWithSecond")
+    void firstStartsWithSecond(String[] first, String[] second, boolean expected) {
+        assertEquals(expected, ArrayUtils.firstStartsWithSecond(first, second));
     }
 }

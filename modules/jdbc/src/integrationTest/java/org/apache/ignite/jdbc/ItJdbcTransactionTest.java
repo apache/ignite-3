@@ -17,8 +17,8 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
@@ -30,6 +30,8 @@ import java.sql.Statement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Verifies that SQL DML statements can use an explicit transaction using the jdbc API.
@@ -118,8 +120,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
                 // Starting transaction.
                 stmt.executeUpdate("insert into TEST (ID) values (1)");
 
-                SQLException ex = assertThrows(SQLException.class, () -> stmt.executeUpdate("drop table TEST"));
-                assertTrue(ex.getMessage().contains("DDL doesn't support transactions."));
+                assertThrowsSqlException("DDL doesn't support transactions.", () -> stmt.executeUpdate("drop table TEST"));
 
                 assertEquals(1, rowsCount(conn));
                 assertEquals(0, rowsCount(ItJdbcTransactionTest.conn));
@@ -225,8 +226,7 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             conn.setAutoCommit(true);
 
-            SQLException t = assertThrows(SQLException.class, conn::commit);
-            assertEquals("Transaction cannot be committed explicitly in auto-commit mode.", t.getMessage());
+            assertThrowsSqlException("Transaction cannot be committed explicitly in auto-commit mode.", conn::commit);
         }
     }
 
@@ -238,8 +238,37 @@ public class ItJdbcTransactionTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             conn.setAutoCommit(true);
 
-            SQLException t = assertThrows(SQLException.class, conn::rollback);
-            assertEquals("Transaction cannot be rolled back explicitly in auto-commit mode.", t.getMessage());
+            assertThrowsSqlException("Transaction cannot be rolled back explicitly in auto-commit mode.", conn::rollback);
+        }
+    }
+
+    /**
+     * Ensure that explicit transaction can not be used, after it encounters an error.
+     */
+    @ParameterizedTest
+    @CsvSource({
+            // dml or not | SQL statement
+            "true,insert into TEST (ID) values (2)",
+            "false,SELECT * FROM test",
+    })
+    public void testOperationsFailsWhenTransactionEncoutersAnError(boolean dml, String sqlStmt) throws SQLException {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            conn.setAutoCommit(false);
+
+            try (Statement stmt = conn.createStatement()) {
+                assertThrowsSqlException("Division by zero", () -> stmt.executeQuery("SELECT 1/0").next());
+
+                assertThrowsSqlException("Transaction is already finished",
+                        () -> {
+                            if (dml) {
+                                stmt.executeUpdate(sqlStmt);
+                            } else {
+                                try (ResultSet rs = stmt.executeQuery(sqlStmt)) {
+                                    rs.next();
+                                }
+                            }
+                        });
+            }
         }
     }
 

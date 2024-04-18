@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
-import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 
 import java.util.Objects;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
@@ -37,19 +35,20 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of Hash index storage using Page Memory.
  */
-public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<HashIndexRowKey, HashIndexRow> implements HashIndexStorage {
-    private static final IgniteLogger LOG = Loggers.forClass(PageMemoryHashIndexStorage.class);
-
-    /** Index descriptor. */
+public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<HashIndexRowKey, HashIndexRow, HashIndexTree>
+        implements HashIndexStorage {
+    /**
+     * Index descriptor.
+     *
+     * <p>Can be {@code null} only during recovery.
+     */
+    @Nullable
     private final StorageHashIndexDescriptor descriptor;
-
-    /** Hash index tree instance. */
-    private volatile HashIndexTree hashIndexTree;
 
     /**
      * Constructor.
@@ -57,37 +56,39 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
      * @param indexMeta Index meta.
      * @param descriptor Hash index descriptor.
      * @param freeList Free list to store index columns.
-     * @param hashIndexTree Hash index tree instance.
+     * @param indexTree Hash index tree instance.
      * @param indexMetaTree Index meta tree instance.
      */
     public PageMemoryHashIndexStorage(
             IndexMeta indexMeta,
-            StorageHashIndexDescriptor descriptor,
+            @Nullable StorageHashIndexDescriptor descriptor,
             IndexColumnsFreeList freeList,
-            HashIndexTree hashIndexTree,
-            IndexMetaTree indexMetaTree
+            HashIndexTree indexTree,
+            IndexMetaTree indexMetaTree,
+            boolean isVolatile
     ) {
-        super(indexMeta, hashIndexTree.partitionId(), freeList, indexMetaTree);
+        super(indexMeta, indexTree.partitionId(), indexTree, freeList, indexMetaTree, isVolatile);
 
         this.descriptor = descriptor;
-        this.hashIndexTree = hashIndexTree;
     }
 
     @Override
     public StorageHashIndexDescriptor indexDescriptor() {
+        assert descriptor != null : "This tree must only be used during recovery";
+
         return descriptor;
     }
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        return busy(() -> {
+        return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
 
             HashIndexRow lowerBound = new HashIndexRow(indexColumns, lowestRowId);
 
-            return new ScanCursor<RowId>(lowerBound, hashIndexTree) {
+            return new ScanCursor<RowId>(lowerBound) {
                 @Override
                 protected RowId map(HashIndexRow value) {
                     return value.rowId();
@@ -103,15 +104,17 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
 
     @Override
     public void put(IndexRow row) throws StorageException {
-        busy(() -> {
+        busyNonDataRead(() -> {
             try {
                 IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
 
                 HashIndexRow hashIndexRow = new HashIndexRow(indexColumns, row.rowId());
 
-                var insert = new InsertHashIndexRowInvokeClosure(hashIndexRow, freeList, hashIndexTree.inlineSize());
+                HashIndexTree tree = indexTree;
 
-                hashIndexTree.invoke(hashIndexRow, null, insert);
+                var insert = new InsertHashIndexRowInvokeClosure(hashIndexRow, freeList, tree.inlineSize());
+
+                tree.invoke(hashIndexRow, null, insert);
 
                 return null;
             } catch (IgniteInternalCheckedException e) {
@@ -122,7 +125,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
 
     @Override
     public void remove(IndexRow row) throws StorageException {
-        busy(() -> {
+        busyNonDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
@@ -132,7 +135,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
 
                 var remove = new RemoveHashIndexRowInvokeClosure(hashIndexRow, freeList);
 
-                hashIndexTree.invoke(hashIndexRow, null, remove);
+                indexTree.invoke(hashIndexRow, null, remove);
 
                 // Performs actual deletion from freeList if necessary.
                 remove.afterCompletion();
@@ -145,29 +148,12 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
     }
 
     @Override
-    public void destroy() throws StorageException {
-        // TODO: IGNITE-17626 Remove it
-        throw new UnsupportedOperationException();
-    }
-
-    /**
-     * Starts destruction of the data stored by this index partition.
-     *
-     * @param executor {@link GradualTaskExecutor} on which to destroy.
-     * @throws StorageException If something goes wrong.
-     */
-    public void startDestructionOn(GradualTaskExecutor executor) throws StorageException {
-        try {
-            executor.execute(
-                    hashIndexTree.startGradualDestruction(rowKey -> removeIndexColumns((HashIndexRow) rowKey), false)
-            ).whenComplete((res, ex) -> {
-                if (ex != null) {
-                    LOG.error("Hash index " + descriptor.id() + " destruction has failed", ex);
-                }
-            });
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot destroy hash index " + indexDescriptor().id(), e);
-        }
+    protected GradualTask createDestructionTask(int maxWorkUnits) throws IgniteInternalCheckedException {
+        return indexTree.startGradualDestruction(
+                rowKey -> removeIndexColumns((HashIndexRow) rowKey),
+                false,
+                maxWorkUnits
+        );
     }
 
     private void removeIndexColumns(HashIndexRow indexRow) {
@@ -180,24 +166,5 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
 
             indexRow.indexColumns().link(PageIdUtils.NULL_LINK);
         }
-    }
-
-    @Override
-    public void closeStructures() {
-        hashIndexTree.close();
-    }
-
-    /**
-     * Updates the internal data structures of the storage on rebalance or cleanup.
-     *
-     * @param freeList Free list to store index columns.
-     * @param hashIndexTree Hash index tree instance.
-     * @throws StorageException If failed.
-     */
-    public void updateDataStructures(IndexColumnsFreeList freeList, HashIndexTree hashIndexTree) {
-        throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
-
-        this.freeList = freeList;
-        this.hashIndexTree = hashIndexTree;
     }
 }

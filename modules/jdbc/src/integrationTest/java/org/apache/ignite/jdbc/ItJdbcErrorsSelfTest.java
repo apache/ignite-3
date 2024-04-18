@@ -22,15 +22,13 @@ import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.INVALID_TRANSAC
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.UNSUPPORTED_OPERATION;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.sql.BatchUpdateException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -61,8 +59,6 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
      */
     @Test
     public void processMixedQueries() throws SQLException {
-        conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-
         try (Statement stmt = conn.createStatement()) {
             stmt.executeUpdate(
                     "CREATE TABLE CITIES ("
@@ -70,9 +66,7 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
                             + "NAME VARCHAR)"
             );
 
-            SQLException ex = assertThrows(SQLException.class, () -> stmt.executeUpdate("non sql stuff"));
-
-            assertTrue(ex.getMessage().contains("Failed to parse query"));
+            JdbcTestUtils.assertThrowsSqlException("Failed to parse query", () -> stmt.executeUpdate("non sql stuff"));
         }
 
         try (Statement stmt = conn.createStatement()) {
@@ -85,12 +79,11 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
                             + "    BALANCE    DOUBLE)"
             );
 
-            SQLException ex = assertThrows(
-                    SQLException.class,
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Table with name 'PUBLIC.ACCOUNTS' already exists",
                     () -> stmt.executeUpdate("CREATE TABLE ACCOUNTS (ACCOUNT_ID INT PRIMARY KEY)")
-            );
 
-            assertTrue(ex.getMessage().contains("Table already exists"));
+            );
         }
     }
 
@@ -120,25 +113,21 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
      */
     @Test
     public void testBatchUpdateException() throws SQLException {
-        try {
-            stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)");
 
-            stmt.addBatch("insert into test2 (id, val) values (1, 'val1')");
-            stmt.addBatch("insert into test2 (id, val) values (2, 'val2')");
-            stmt.addBatch("insert into test2 (id1, val1) values (3, 'val3')");
+        stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)");
 
-            stmt.executeBatch();
+        stmt.addBatch("insert into test2 (id, val) values (1, 'val1')");
+        stmt.addBatch("insert into test2 (id, val) values (2, 'val2')");
+        stmt.addBatch("insert into test2 (id1, val1) values (3, 'val3')");
 
-            fail("BatchUpdateException is expected");
-        } catch (BatchUpdateException e) {
-            assertEquals(2, e.getUpdateCounts().length);
+        BatchUpdateException batchException = JdbcTestUtils.assertThrowsSqlException(
+                BatchUpdateException.class,
+                "Unknown target column 'ID1'",
+                () -> stmt.executeBatch());
 
-            assertArrayEquals(new int[] {1, 1}, e.getUpdateCounts());
+        assertEquals(2, batchException.getUpdateCounts().length);
 
-            assertTrue(e.getMessage() != null
-                            && e.getMessage().contains("Unknown target column 'ID1'"),
-                    "Unexpected error message: " + e.getMessage());
-        }
+        assertArrayEquals(new int[]{1, 1}, batchException.getUpdateCounts());
     }
 
     /**
@@ -151,13 +140,8 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
         conn.setAutoCommit(false);
 
         try (Statement stmt = conn.createStatement()) {
-            stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)");
-
-            fail("SQLException is expected");
-        } catch (SQLException e) {
-            assertTrue(e.getMessage() != null
-                            && e.getMessage().contains("DDL doesn't support transactions."),
-                    "Unexpected error message: " + e.getMessage());
+            JdbcTestUtils.assertThrowsSqlException("DDL doesn't support transactions.",
+                    () -> stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)"));
         }
     }
 

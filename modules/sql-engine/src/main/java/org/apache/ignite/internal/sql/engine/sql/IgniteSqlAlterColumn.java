@@ -18,13 +18,14 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
+import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableNullableList;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,8 +33,32 @@ import org.jetbrains.annotations.Nullable;
  * Parse tree for {@code ALTER TABLE ... ALTER COLUMN} statement.
  */
 public class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
+
+    /** ALTER TABLE .. ALTER COLUMN operator. */
+    protected static class Operator extends IgniteDdlOperator {
+
+        private final boolean dropDefault;
+
+        private final Boolean notNull;
+
+        /** Constructor. */
+        protected Operator(boolean ifExists, boolean dropDefault, Boolean notNull) {
+            super("ALTER TABLE", SqlKind.ALTER_TABLE, ifExists);
+            this.dropDefault = dropDefault;
+            this.notNull = notNull;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos, @Nullable SqlNode... operands) {
+            return new IgniteSqlAlterColumn(pos, existFlag(), (SqlIdentifier) operands[0], (SqlIdentifier) operands[1],
+                    (SqlDataTypeSpec) operands[2], dropDefault, operands[3], notNull);
+        }
+    }
+
     private final SqlIdentifier columnName;
     private final SqlDataTypeSpec type;
+    private final boolean dropDefault;
     private final SqlNode dflt;
     private final Boolean notNull;
 
@@ -43,14 +68,16 @@ public class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
             boolean ifExists,
             SqlIdentifier tblName,
             SqlIdentifier columnName,
-            SqlDataTypeSpec type,
-            SqlNode dflt,
-            Boolean notNull
+            @Nullable SqlDataTypeSpec type,
+            boolean dropDefault,
+            @Nullable SqlNode dflt,
+            @Nullable Boolean notNull
     ) {
-        super(pos, ifExists, tblName);
+        super(new Operator(ifExists, dropDefault, notNull), pos, tblName);
 
         this.columnName = columnName;
         this.type = type;
+        this.dropDefault = dropDefault;
         this.dflt = dflt;
         this.notNull = notNull;
     }
@@ -89,12 +116,14 @@ public class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
     }
 
     /** {@inheritDoc} */
-    @Override public List<SqlNode> getOperandList() {
+    @Override
+    public List<SqlNode> getOperandList() {
         return ImmutableNullableList.of(name, columnName, type, dflt);
     }
 
     /** {@inheritDoc} */
-    @Override protected void unparseAlterTableOperation(SqlWriter writer, int leftPrec, int rightPrec) {
+    @Override
+    protected void unparseAlterTableOperation(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword("ALTER");
         writer.keyword("COLUMN");
 
@@ -127,14 +156,12 @@ public class IgniteSqlAlterColumn extends IgniteAbstractSqlAlterTable {
             writer.keyword("NOT NULL");
         }
 
-        if (dflt != null) {
-            if (dflt instanceof SqlLiteral && ((SqlLiteral) dflt).getTypeName() == SqlTypeName.NULL) {
-                writer.keyword("DROP DEFAULT");
-            } else {
-                writer.keyword("SET DEFAULT");
+        if (dropDefault) {
+            writer.keyword("DROP DEFAULT");
+        } else if (dflt != null) {
+            writer.keyword("SET DEFAULT");
 
-                dflt.unparse(writer, leftPrec, rightPrec);
-            }
+            dflt.unparse(writer, leftPrec, rightPrec);
         }
     }
 }

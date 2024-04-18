@@ -169,6 +169,7 @@ public class IgniteStripedLockSelfTest {
             }
 
             /** {@inheritDoc} */
+            @SuppressWarnings({"EqualsAndHashcode", "PMD.OverrideBothEqualsAndHashcode"})
             @Override
             public Object next() {
                 curr++;

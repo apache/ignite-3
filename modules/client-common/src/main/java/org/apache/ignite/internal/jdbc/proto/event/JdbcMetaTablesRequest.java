@@ -93,7 +93,7 @@ public class JdbcMetaTablesRequest implements ClientMessage {
             return;
         }
 
-        packer.packArrayHeader(tblTypes.length);
+        packer.packInt(tblTypes.length);
 
         for (String type : tblTypes) {
             packer.packString(type);
@@ -110,7 +110,7 @@ public class JdbcMetaTablesRequest implements ClientMessage {
             return;
         }
 
-        int size = unpacker.unpackArrayHeader();
+        int size = unpacker.unpackInt();
 
         tblTypes = new String[size];
 

@@ -23,6 +23,7 @@ description = 'ignite-binary-tuple'
 
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
+    implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation libs.jetbrains.annotations
 }

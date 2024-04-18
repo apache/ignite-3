@@ -19,20 +19,30 @@ package org.apache.ignite.internal.network.recovery.message;
 
 import static org.apache.ignite.internal.network.NetworkMessageTypes.HANDSHAKE_REJECTED;
 
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Handshake rejected message, contains the reason for a rejection.
  * This message is sent from a server to a client or wise versa.
- * After this message is received it makes no sense to retry connections with same node identity (launch ID must be changed
- * to make a retry).
  */
 @Transferable(HANDSHAKE_REJECTED)
 public interface HandshakeRejectedMessage extends InternalMessage {
     /**
-     * Returns rejection reason.
-     *
-     * @return Reason of the rejection.
+     * Returns rejection message.
      */
-    String reason();
+    String message();
+
+    /**
+     * Returns rejection reason (this is the name of a member of {@link HandshakeRejectionReason}).
+     *
+     * @see HandshakeRejectionReason
+     */
+    String reasonString();
+
+    /**
+     * Returns rejection reason.
+     */
+    default HandshakeRejectionReason reason() {
+        return HandshakeRejectionReason.valueOf(reasonString());
+    }
 }

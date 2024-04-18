@@ -34,15 +34,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.logging.Handler;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.cli.AbstractCliTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.testframework.jul.NoOpHandler;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
@@ -70,40 +67,33 @@ class ItClusterCommandTest extends AbstractCliTest {
 
     private static final String NL = System.lineSeparator();
 
-    private static final Logger topologyLogger = Logger.getLogger("org.apache.ignite.network.scalecube.ScaleCubeTopologyService");
-
     @BeforeEach
     void setup(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
         CountDownLatch allNodesAreInPhysicalTopology = new CountDownLatch(1);
 
-        Handler physicalTopologyWaiter = physicalTopologyWaiter(allNodesAreInPhysicalTopology);
-        topologyLogger.addHandler(physicalTopologyWaiter);
+        LogInspector topologyLogInspector = new LogInspector(
+                "org.apache.ignite.internal.network.scalecube.ScaleCubeTopologyService",
+                evt -> {
+                    String msg = evt.getMessage().getFormattedMessage();
+                    if (msg.startsWith(TOPOLOGY_SNAPSHOT_LOG_RECORD_PREFIX)) {
+                        var ids = msg.substring(TOPOLOGY_SNAPSHOT_LOG_RECORD_PREFIX.length(), msg.lastIndexOf(']'))
+                                .split(",");
+
+                        return ids.length == NODES.size();
+                    }
+                    return false;
+                },
+                allNodesAreInPhysicalTopology::countDown);
+
+        topologyLogInspector.start();
 
         try {
             startClusterWithoutInit(workDir, testInfo);
 
             waitTillAllNodesJoinPhysicalTopology(allNodesAreInPhysicalTopology);
         } finally {
-            topologyLogger.removeHandler(physicalTopologyWaiter);
+            topologyLogInspector.stop();
         }
-    }
-
-    private Handler physicalTopologyWaiter(CountDownLatch physicalTopologyIsFull) {
-        return new NoOpHandler() {
-            @Override
-            public void publish(LogRecord record) {
-                var msg = record.getMessage();
-
-                if (msg.startsWith(TOPOLOGY_SNAPSHOT_LOG_RECORD_PREFIX)) {
-                    var ids = msg.substring(TOPOLOGY_SNAPSHOT_LOG_RECORD_PREFIX.length(), msg.lastIndexOf(']'))
-                            .split(",");
-
-                    if (ids.length == NODES.size()) {
-                        physicalTopologyIsFull.countDown();
-                    }
-                }
-            }
-        };
     }
 
     private void startClusterWithoutInit(Path workDir, TestInfo testInfo) {

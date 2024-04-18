@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.core;
 
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_CIPHERS;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_CLIENT_AUTH;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_KEY_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_KEY_STORE_PATH;
@@ -26,7 +27,6 @@ import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_SSL_ENABL
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_TRUST_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.JDBC_TRUST_STORE_PATH;
 
-import com.google.gson.Gson;
 import jakarta.inject.Singleton;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
-import org.apache.ignite.internal.cli.core.repl.config.RootConfig;
 import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,16 +50,15 @@ public class JdbcUrlFactory {
     }
 
     /**
-     * Constructs JDBC URL from node URL, port taken from the node configuration, SSL and basic authentication properties from the config.
+     * Constructs JDBC URL from node URL and port, SSL and basic authentication properties from the config.
      *
-     * @param configuration Node configuration in HOCON format.
      * @param nodeUrl Node URL.
+     * @param port client port.
      * @return JDBC URL.
      */
     @Nullable
-    public String constructJdbcUrl(String configuration, String nodeUrl) {
+    public String constructJdbcUrl(String nodeUrl, int port) {
         try {
-            int port = new Gson().fromJson(configuration, RootConfig.class).clientConnector.port;
             String host = new URL(nodeUrl).getHost();
             return applyConfig("jdbc:ignite:thin://" + host + ":" + port);
         } catch (MalformedURLException ignored) {
@@ -75,9 +73,10 @@ public class JdbcUrlFactory {
         addIfSet(queryParams, JDBC_KEY_STORE_PATH, "keyStorePath");
         addIfSet(queryParams, JDBC_KEY_STORE_PASSWORD, "keyStorePassword");
         addIfSet(queryParams, JDBC_CLIENT_AUTH, "clientAuth");
+        addIfSet(queryParams, JDBC_CIPHERS, "ciphers");
         addSslEnabledIfNeeded(queryParams);
-        addIfSet(queryParams, BASIC_AUTHENTICATION_USERNAME, "basicAuthenticationUsername");
-        addIfSet(queryParams, BASIC_AUTHENTICATION_PASSWORD, "basicAuthenticationPassword");
+        addIfSet(queryParams, BASIC_AUTHENTICATION_USERNAME, "username");
+        addIfSet(queryParams, BASIC_AUTHENTICATION_PASSWORD, "password");
         if (!queryParams.isEmpty()) {
             String query = queryParams.stream()
                     .collect(Collectors.joining("&", "?", ""));

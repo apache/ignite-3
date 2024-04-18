@@ -26,8 +26,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
@@ -59,8 +61,9 @@ public class CheckpointTestUtils {
         return new CheckpointTimeoutLock(
                 mock(CheckpointReadWriteLock.class),
                 Long.MAX_VALUE,
-                () -> true,
-                mock(Checkpointer.class)
+                () -> CheckpointUrgency.NOT_REQUIRED,
+                mock(Checkpointer.class),
+                mock(FailureProcessor.class)
         ) {
             @Override
             public boolean checkpointLockIsHeldByThread() {

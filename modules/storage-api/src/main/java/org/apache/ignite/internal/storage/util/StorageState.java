@@ -24,12 +24,22 @@ public enum StorageState {
     /** Storage is running. */
     RUNNABLE,
 
-    /** Storage is in the process of being closed or has already closed. */
+    /** Storage is in the process of being closed or has already closed. This is a terminal state. */
     CLOSED,
 
     /** Storage is in the process of rebalancing. */
     REBALANCE,
 
     /** Storage is in the process of cleanup. */
-    CLEANUP
+    CLEANUP,
+
+    /** Storage is in the process of being destroyed or it is already destroyed. This is a terminal state. */
+    DESTROYED;
+
+    /**
+     * Returns {@code true} if this is a terminal state (that is, we cannot leave it).
+     */
+    public boolean isTerminal() {
+        return this == CLOSED || this == DESTROYED;
+    }
 }

@@ -21,7 +21,6 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
-
 dependencies {
     annotationProcessor project(":ignite-configuration-annotation-processor")
     annotationProcessor libs.auto.service
@@ -34,6 +33,8 @@ dependencies {
     implementation project(':ignite-vault')
     implementation project(':ignite-schema')
     implementation project(':ignite-affinity')
+    implementation project(':ignite-catalog')
+    implementation project(':ignite-raft-api')
 
     implementation libs.auto.service.annotations
     implementation libs.fastutil.core
@@ -51,7 +52,7 @@ dependencies {
     testImplementation project(':ignite-network-api')
     testImplementation project(':ignite-metastorage-api')
     testImplementation project(':ignite-metastorage')
-    testImplementation project(':ignite-runner')
+    testImplementation project(':ignite-system-view-api')
 
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
@@ -60,6 +61,8 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-vault')))
     testImplementation(testFixtures(project(':ignite-storage-page-memory')))
     testImplementation(testFixtures(project(':ignite-storage-api')))
+    testImplementation(testFixtures(project(':ignite-catalog')))
+    testImplementation(testFixtures(project(':ignite-table')))
 
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.mockito.core
@@ -70,8 +73,33 @@ dependencies {
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation project(':ignite-cluster-management')
     testFixturesImplementation project(':ignite-vault')
+    testFixturesImplementation project(':ignite-catalog')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-metastorage')))
+
+    integrationTestImplementation libs.awaitility
+    integrationTestImplementation libs.hamcrest.core
+    integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-configuration')
+    integrationTestImplementation project(':ignite-metastorage-api')
+    integrationTestImplementation project(':ignite-vault')
+    integrationTestImplementation project(':ignite-table')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-affinity')
+    integrationTestImplementation project(':ignite-network-api')
+    integrationTestImplementation project(':ignite-network')
+    integrationTestImplementation project(':ignite-security')
+    integrationTestImplementation project(':ignite-system-view-api')
+    integrationTestImplementation project(':ignite-failure-handler')
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-metastorage'))
+    integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
+    integrationTestImplementation testFixtures(project(':ignite-network'))
+    integrationTestImplementation testFixtures(project(':ignite-distribution-zones'))
+    integrationTestImplementation testFixtures(project(':ignite-workers'))
 }
 
 description = 'ignite-distribution-zones'

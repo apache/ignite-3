@@ -28,7 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**

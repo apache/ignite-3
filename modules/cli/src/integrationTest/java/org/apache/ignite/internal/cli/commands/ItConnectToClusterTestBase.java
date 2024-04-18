@@ -23,6 +23,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.config.TestStateConfigProvider;
 import org.apache.ignite.internal.cli.core.flow.question.JlineQuestionWriterReaderFactory;
@@ -32,13 +33,12 @@ import org.jline.terminal.Terminal;
 import org.jline.terminal.impl.DumbTerminal;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInfo;
 import picocli.CommandLine.Help.Ansi;
 
 /**
  * Base class for testing 'connect' command.
  */
-public class ItConnectToClusterTestBase extends CliCommandTestInitializedIntegrationBase {
+public class ItConnectToClusterTestBase extends CliIntegrationTest {
     @Inject
     protected TestStateConfigProvider stateConfigProvider;
     @Inject
@@ -56,11 +56,8 @@ public class ItConnectToClusterTestBase extends CliCommandTestInitializedIntegra
         return TopLevelCliReplCommand.class;
     }
 
-    @Override
     @BeforeEach
-    public void setUp(TestInfo testInfo) throws Exception {
-        super.setUp(testInfo);
-
+    public void setUpTerminal() throws Exception {
         input = Files.createTempFile(WORK_DIR, "input", "");
         terminal = new DumbTerminal(Files.newInputStream(input), new FileOutputStream(FileDescriptor.out));
         QuestionAskerFactory.setWriterReaderFactory(new JlineQuestionWriterReaderFactory(terminal));
@@ -77,7 +74,7 @@ public class ItConnectToClusterTestBase extends CliCommandTestInitializedIntegra
     }
 
     protected String nodeName() {
-        return CLUSTER_NODES.get(0).name();
+        return CLUSTER.node(0).name();
     }
 
     protected void bindAnswers(String... answers) throws IOException {

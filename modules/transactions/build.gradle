@@ -19,9 +19,13 @@ apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
     annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor project(":ignite-configuration-annotation-processor")
+    annotationProcessor libs.auto.service
+
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-network-api')
@@ -32,6 +36,10 @@ dependencies {
     implementation project(':ignite-schema')
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-placement-driver-api')
+    implementation project(':ignite-workers')
+    implementation project(':ignite-low-watermark')
+    implementation libs.auto.service.annotations
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
 
@@ -39,9 +47,15 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-storage-api')))
+    testImplementation(testFixtures(project(':ignite-placement-driver-api')))
+    testImplementation(testFixtures(project(':ignite-low-watermark')))
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core
     testImplementation libs.hamcrest.core
+
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation(testFixtures(project(':ignite-core')))
+    integrationTestImplementation(testFixtures(project(':ignite-runner')))
 
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-core')

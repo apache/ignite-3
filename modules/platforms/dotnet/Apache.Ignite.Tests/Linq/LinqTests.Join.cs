@@ -232,7 +232,7 @@ public partial class LinqTests
                 resultSelector: (a, b) => new
                 {
                     Id = a.Key,
-                    Price = b.Val
+                    Price = b.Val!.Value
                 })
             .OrderBy(x => x.Id);
 
@@ -250,7 +250,7 @@ public partial class LinqTests
         Assert.AreEqual(0, res[3].Price);
 
         StringAssert.Contains(
-            "select _T0.KEY, _T1.VAL " +
+            "select _T0.KEY, cast(_T1.VAL as smallint) as PRICE " +
             "from PUBLIC.TBL_INT32 as _T0 " +
             "left outer join (select * from PUBLIC.TBL_INT16 as _T2 ) as _T1 " +
             "on (cast(_T1.KEY as int) = _T0.KEY)",

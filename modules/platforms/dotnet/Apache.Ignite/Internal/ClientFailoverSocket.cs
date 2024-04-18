@@ -30,7 +30,7 @@ namespace Apache.Ignite.Internal
     using System.Threading.Tasks;
     using Buffers;
     using Ignite.Network;
-    using Log;
+    using Microsoft.Extensions.Logging;
     using Network;
     using Proto;
     using Transactions;
@@ -38,13 +38,15 @@ namespace Apache.Ignite.Internal
     /// <summary>
     /// Client socket wrapper with reconnect/failover functionality.
     /// </summary>
-    internal sealed class ClientFailoverSocket : IDisposable
+    internal sealed class ClientFailoverSocket : IDisposable, IClientSocketEventListener
     {
+        private const string ExceptionDataEndpoint = "Endpoint";
+
         /** Current global endpoint index for Round-robin. */
         private static long _globalEndPointIndex;
 
         /** Logger. */
-        private readonly IIgniteLogger? _logger;
+        private readonly ILogger _logger;
 
         /** Endpoints with corresponding hosts - from configuration. */
         private readonly IReadOnlyList<SocketEndpoint> _endpoints;
@@ -59,15 +61,12 @@ namespace Apache.Ignite.Internal
             Justification = "WaitHandle is not used in SemaphoreSlim, no need to dispose.")]
         private readonly SemaphoreSlim _socketLock = new(1);
 
-        /** Last connected socket. Used to track partition assignment updates. */
-        private volatile ClientSocket? _lastConnectedSocket;
-
         /** Disposed flag. */
         private volatile bool _disposed;
 
         /** Local topology assignment version. Instead of using event handlers to notify all tables about assignment change,
          * the table will compare its version with channel version to detect an update. */
-        private int _assignmentVersion;
+        private long _assignmentTimestamp;
 
         /** Cluster id from the first handshake. */
         private Guid? _clusterId;
@@ -75,11 +74,15 @@ namespace Apache.Ignite.Internal
         /** Local index for round-robin balancing within this FailoverSocket. */
         private long _endPointIndex = Interlocked.Increment(ref _globalEndPointIndex);
 
+        /** Observable timestamp. */
+        private long _observableTimestamp;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientFailoverSocket"/> class.
         /// </summary>
         /// <param name="configuration">Client configuration.</param>
-        private ClientFailoverSocket(IgniteClientConfiguration configuration)
+        /// <param name="logger">Logger.</param>
+        private ClientFailoverSocket(IgniteClientConfiguration configuration, ILogger logger)
         {
             if (configuration.Endpoints.Count == 0)
             {
@@ -88,7 +91,7 @@ namespace Apache.Ignite.Internal
                     $"Invalid {nameof(IgniteClientConfiguration)}: {nameof(IgniteClientConfiguration.Endpoints)} is empty. Nowhere to connect.");
             }
 
-            _logger = configuration.Logger.GetLogger(GetType());
+            _logger = logger;
             _endpoints = GetIpEndPoints(configuration).ToList();
 
             Configuration = new(configuration); // Defensive copy.
@@ -100,9 +103,19 @@ namespace Apache.Ignite.Internal
         public IgniteClientConfiguration Configuration { get; }
 
         /// <summary>
-        /// Gets the partition assignment version.
+        /// Gets the partition assignment timestamp.
         /// </summary>
-        public int PartitionAssignmentVersion => Interlocked.CompareExchange(ref _assignmentVersion, -1, -1);
+        public long PartitionAssignmentTimestamp => Interlocked.Read(ref _assignmentTimestamp);
+
+        /// <summary>
+        /// Gets the observable timestamp.
+        /// </summary>
+        public long ObservableTimestamp => Interlocked.Read(ref _observableTimestamp);
+
+        /// <summary>
+        /// Gets the client ID.
+        /// </summary>
+        public Guid ClientId { get; } = Guid.NewGuid();
 
         /// <summary>
         /// Connects the socket.
@@ -111,10 +124,10 @@ namespace Apache.Ignite.Internal
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         public static async Task<ClientFailoverSocket> ConnectAsync(IgniteClientConfiguration configuration)
         {
-            var socket = new ClientFailoverSocket(configuration);
+            var logger = configuration.LoggerFactory.CreateLogger<ClientFailoverSocket>();
+            logger.LogClientStartInfo(VersionUtils.InformationalVersion);
 
-            var logger = configuration.Logger.GetLogger(typeof(ClientFailoverSocket));
-            logger?.Info("Ignite.NET client version " + VersionUtils.GetInformationalVersion() + " is starting");
+            var socket = new ClientFailoverSocket(configuration, logger);
 
             await socket.GetNextSocketAsync().ConfigureAwait(false);
 
@@ -136,13 +149,22 @@ namespace Apache.Ignite.Internal
         /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
         /// <param name="preferredNode">Preferred node.</param>
+        /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
         /// <returns>Response data and socket.</returns>
         public async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             PooledArrayBuffer? request = null,
-            PreferredNode preferredNode = default)
+            PreferredNode preferredNode = default,
+            bool expectNotifications = false)
         {
-            var (buffer, _) = await DoOutInOpAndGetSocketAsync(clientOp, tx: null, request, preferredNode).ConfigureAwait(false);
+            var (buffer, _) = await DoOutInOpAndGetSocketAsync(
+                    clientOp,
+                    tx: null,
+                    request,
+                    preferredNode,
+                    retryPolicyOverride: null,
+                    expectNotifications)
+                .ConfigureAwait(false);
 
             return buffer;
         }
@@ -155,13 +177,15 @@ namespace Apache.Ignite.Internal
         /// <param name="request">Request data.</param>
         /// <param name="preferredNode">Preferred node.</param>
         /// <param name="retryPolicyOverride">Retry policy.</param>
+        /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
         /// <returns>Response data and socket.</returns>
         public async Task<(PooledBuffer Buffer, ClientSocket Socket)> DoOutInOpAndGetSocketAsync(
             ClientOp clientOp,
             Transaction? tx = null,
             PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default,
-            IRetryPolicy? retryPolicyOverride = null)
+            IRetryPolicy? retryPolicyOverride = null,
+            bool expectNotifications = false)
         {
             if (tx != null)
             {
@@ -171,7 +195,7 @@ namespace Apache.Ignite.Internal
                 }
 
                 // Use tx-specific socket without retry and failover.
-                var buffer = await tx.Socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+                var buffer = await tx.Socket.DoOutInOpAsync(clientOp, request, expectNotifications).ConfigureAwait(false);
                 return (buffer, tx.Socket);
             }
 
@@ -180,11 +204,13 @@ namespace Apache.Ignite.Internal
 
             while (true)
             {
+                ClientSocket? socket = null;
+
                 try
                 {
-                    var socket = await GetSocketAsync(preferredNode).ConfigureAwait(false);
+                    socket = await GetSocketAsync(preferredNode).ConfigureAwait(false);
 
-                    var buffer = await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+                    var buffer = await socket.DoOutInOpAsync(clientOp, request, expectNotifications).ConfigureAwait(false);
 
                     return (buffer, socket);
                 }
@@ -193,7 +219,14 @@ namespace Apache.Ignite.Internal
                     // Preferred node connection may not be available, do not use it after first failure.
                     preferredNode = default;
 
-                    if (!HandleOpError(e, clientOp, ref attempt, ref errors, retryPolicyOverride ?? Configuration.RetryPolicy))
+                    MetricsContext? metricsContext =
+                        socket?.MetricsContext
+                        ?? (e.Data[ExceptionDataEndpoint] as SocketEndpoint)?.MetricsContext
+                        ?? (e.InnerException?.Data[ExceptionDataEndpoint] as SocketEndpoint)?.MetricsContext;
+
+                    IRetryPolicy retryPolicy = retryPolicyOverride ?? Configuration.RetryPolicy;
+
+                    if (!HandleOpError(e, clientOp, ref attempt, ref errors, retryPolicy, metricsContext))
                     {
                         throw;
                     }
@@ -245,6 +278,43 @@ namespace Apache.Ignite.Internal
             return res;
         }
 
+        /// <inheritdoc/>
+        void IClientSocketEventListener.OnAssignmentChanged(long timestamp)
+        {
+            while (true)
+            {
+                var oldTimestamp = Interlocked.Read(ref _assignmentTimestamp);
+                if (oldTimestamp >= timestamp)
+                {
+                    return;
+                }
+
+                if (Interlocked.CompareExchange(ref _assignmentTimestamp, value: timestamp, comparand: oldTimestamp) == oldTimestamp)
+                {
+                    return;
+                }
+            }
+        }
+
+        /// <inheritdoc/>
+        void IClientSocketEventListener.OnObservableTimestampChanged(long timestamp)
+        {
+            // Atomically update the observable timestamp to max(newTs, curTs).
+            while (true)
+            {
+                var current = Interlocked.Read(ref _observableTimestamp);
+                if (current >= timestamp)
+                {
+                    return;
+                }
+
+                if (Interlocked.CompareExchange(ref _observableTimestamp, timestamp, current) == current)
+                {
+                    return;
+                }
+            }
+        }
+
         /// <summary>
         /// Gets a socket. Reconnects if necessary.
         /// </summary>
@@ -259,7 +329,7 @@ namespace Apache.Ignite.Internal
             ThrowIfDisposed();
 
             // 1. Preferred node connection.
-            if (preferredNode != default && _endpointsByName.TryGetValue(preferredNode.Name, out var endpoint))
+            if (preferredNode.Name != null && _endpointsByName.TryGetValue(preferredNode.Name, out var endpoint))
             {
                 try
                 {
@@ -267,7 +337,7 @@ namespace Apache.Ignite.Internal
                 }
                 catch (Exception e)
                 {
-                    _logger?.Warn(e, $"Failed to connect to preferred node [{preferredNode}]: {e.Message}");
+                    _logger.LogFailedToConnectPreferredNodeDebug(preferredNode.Name, e.Message);
                 }
             }
 
@@ -291,29 +361,49 @@ namespace Apache.Ignite.Internal
 
             while (!_disposed)
             {
-                try
-                {
-                    tasks.Clear();
+                tasks.Clear();
 
-                    foreach (var endpoint in _endpoints)
+                foreach (var endpoint in _endpoints)
+                {
+                    try
                     {
-                        if (endpoint.Socket?.IsDisposed == false)
+                        var connectTask = ConnectAsync(endpoint);
+                        if (connectTask.IsCompleted)
                         {
                             continue;
                         }
 
-                        tasks.Add(ConnectAsync(endpoint).AsTask());
+                        tasks.Add(connectTask.AsTask());
                     }
-
-                    _logger?.Debug("Trying to establish secondary connections - awaiting {0} tasks...", tasks.Count);
-
-                    await Task.WhenAll(tasks).ConfigureAwait(false);
-
-                    _logger?.Debug("All secondary connections established.");
+                    catch (Exception e)
+                    {
+                        _logger.LogErrorWhileEstablishingSecondaryConnectionsWarn(e, e.Message);
+                    }
                 }
-                catch (Exception e)
+
+                if (_logger.IsEnabled(LogLevel.Debug))
                 {
-                    _logger?.Warn(e, "Error while trying to establish secondary connections: " + e.Message);
+                    _logger.LogTryingToEstablishSecondaryConnectionsDebug(tasks.Count);
+                }
+
+                // Await every task separately instead of using WhenAll to capture exceptions and avoid extra allocations.
+                int failed = 0;
+                foreach (var task in tasks)
+                {
+                    try
+                    {
+                        await task.ConfigureAwait(false);
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.LogErrorWhileEstablishingSecondaryConnectionsWarn(e, e.Message);
+                        failed++;
+                    }
+                }
+
+                if (_logger.IsEnabled(LogLevel.Debug))
+                {
+                    _logger.LogSecondaryConnectionsEstablishedDebug(tasks.Count - failed, failed);
                 }
 
                 if (Configuration.ReconnectInterval <= TimeSpan.Zero)
@@ -364,6 +454,8 @@ namespace Apache.Ignite.Internal
                 {
                     errors ??= new List<Exception>();
 
+                    e.Data[ExceptionDataEndpoint] = endPoint;
+
                     errors.Add(e);
                 }
             }
@@ -405,14 +497,14 @@ namespace Apache.Ignite.Internal
 
             await _socketLock.WaitAsync().ConfigureAwait(false);
 
-            if (endpoint.Socket?.IsDisposed == false)
-            {
-                return endpoint.Socket;
-            }
-
             try
             {
-                var socket = await ClientSocket.ConnectAsync(endpoint, Configuration, OnAssignmentChanged).ConfigureAwait(false);
+                if (endpoint.Socket?.IsDisposed == false)
+                {
+                    return endpoint.Socket;
+                }
+
+                var socket = await ClientSocket.ConnectAsync(endpoint, Configuration, this).ConfigureAwait(false);
 
                 if (_clusterId == null)
                 {
@@ -430,7 +522,6 @@ namespace Apache.Ignite.Internal
                 endpoint.Socket = socket;
 
                 _endpointsByName[socket.ConnectionContext.ClusterNode.Name] = endpoint;
-                _lastConnectedSocket = socket;
 
                 return socket;
             }
@@ -441,26 +532,13 @@ namespace Apache.Ignite.Internal
         }
 
         /// <summary>
-        /// Called when an assignment update is detected.
-        /// </summary>
-        /// <param name="clientSocket">Socket.</param>
-        private void OnAssignmentChanged(ClientSocket clientSocket)
-        {
-            // NOTE: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
-            // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
-            // So we only react to updates from the last known good channel. When no user-initiated operations are performed on that
-            // channel, heartbeat messages will trigger updates.
-            if (clientSocket == _lastConnectedSocket)
-            {
-                Interlocked.Increment(ref _assignmentVersion);
-            }
-        }
-
-        /// <summary>
         /// Gets the endpoints: all combinations of IP addresses and ports according to configuration.
         /// </summary>
         private IEnumerable<SocketEndpoint> GetIpEndPoints(IgniteClientConfiguration cfg)
         {
+            // Metric collection tools expect numbers and strings, don't pass Guid.
+            var clientId = ClientId.ToString();
+
             foreach (var e in Endpoint.GetEndpoints(cfg))
             {
                 var host = e.Host;
@@ -468,7 +546,7 @@ namespace Apache.Ignite.Internal
 
                 foreach (var ip in GetIps(host))
                 {
-                    yield return new SocketEndpoint(new IPEndPoint(ip, e.Port), host);
+                    yield return new SocketEndpoint(new IPEndPoint(ip, e.Port), host, clientId);
                 }
             }
         }
@@ -486,7 +564,7 @@ namespace Apache.Ignite.Internal
             }
             catch (SocketException e)
             {
-                _logger?.Debug(e, "Failed to parse host: " + host);
+                _logger.LogFailedToParseHostDebug(e, host, e.Message);
 
                 if (suppressExceptions)
                 {
@@ -511,14 +589,14 @@ namespace Apache.Ignite.Internal
         {
             var e = exception;
 
-            while (e != null && !(e is SocketException))
+            while (e != null && !IsConnectionError(e))
             {
                 e = e.InnerException;
             }
 
             if (e == null)
             {
-                // Only retry socket exceptions.
+                // Only retry connection errors.
                 return false;
             }
 
@@ -538,6 +616,11 @@ namespace Apache.Ignite.Internal
             var ctx = new RetryPolicyContext(new(Configuration), publicOpType.Value, attempt, exception);
 
             return retryPolicy.ShouldRetry(ctx);
+
+            static bool IsConnectionError(Exception e) =>
+                e is SocketException
+                    or IOException
+                    or IgniteClientConnectionException { Code: ErrorGroups.Client.Connection };
         }
 
         /// <summary>
@@ -548,6 +631,7 @@ namespace Apache.Ignite.Internal
         /// <param name="attempt">Current attempt.</param>
         /// <param name="errors">Previous errors.</param>
         /// <param name="retryPolicy">Retry policy.</param>
+        /// <param name="metricsContext">Metrics context.</param>
         /// <returns>True if the error was handled, false otherwise.</returns>
         [SuppressMessage("Microsoft.Design", "CA1002:DoNotExposeGenericLists", Justification = "Private.")]
         private bool HandleOpError(
@@ -555,13 +639,14 @@ namespace Apache.Ignite.Internal
             ClientOp op,
             ref int attempt,
             ref List<Exception>? errors,
-            IRetryPolicy? retryPolicy)
+            IRetryPolicy? retryPolicy,
+            MetricsContext? metricsContext)
         {
             if (!ShouldRetry(exception, op, attempt, retryPolicy))
             {
-                if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                if (_logger.IsEnabled(LogLevel.Debug))
                 {
-                    _logger.Debug($"Not retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
+                    _logger.LogRetryingOperationDebug("Not retrying", (int)op, op, attempt, exception.Message);
                 }
 
                 if (errors == null)
@@ -578,12 +663,13 @@ namespace Apache.Ignite.Internal
                     inner);
             }
 
-            if (_logger?.IsEnabled(LogLevel.Debug) == true)
+            if (_logger.IsEnabled(LogLevel.Debug))
             {
-                _logger.Debug($"Retrying operation [opCode={(int)op}, opType={op}, attempt={attempt}, lastError={exception}]");
+                _logger.LogRetryingOperationDebug("Retrying", (int)op, op, attempt, exception.Message);
             }
 
-            Metrics.RequestsRetried.Add(1);
+            Metrics.RequestsRetried.Add(1, metricsContext?.Tags ?? Array.Empty<KeyValuePair<string, object?>>());
+            Debug.Assert(metricsContext != null, "metricsContext != null");
 
             if (errors == null)
             {

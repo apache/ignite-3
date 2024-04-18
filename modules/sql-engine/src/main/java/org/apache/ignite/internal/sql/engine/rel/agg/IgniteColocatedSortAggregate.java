@@ -40,6 +40,8 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteColocatedSortAggregate extends IgniteColocatedAggregateBase implements IgniteSortAggregateBase {
+    private static final String REL_TYPE_NAME = "ColocatedSortAggregate";
+
     /** Collation. */
     private final RelCollation collation;
 
@@ -102,8 +104,6 @@ public class IgniteColocatedSortAggregate extends IgniteColocatedAggregateBase i
     /** {@inheritDoc} */
     @Override
     public RelCollation collation() {
-        assert collation.equals(super.collation());
-
         return collation;
     }
 
@@ -111,5 +111,10 @@ public class IgniteColocatedSortAggregate extends IgniteColocatedAggregateBase i
     @Override
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         return computeSelfCostSort(planner, mq);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

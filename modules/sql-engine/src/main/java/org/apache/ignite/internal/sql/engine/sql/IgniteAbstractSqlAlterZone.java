@@ -19,9 +19,6 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlIdentifier;
-import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.SqlOperator;
-import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 
@@ -30,19 +27,12 @@ import org.apache.calcite.sql.parser.SqlParserPos;
  */
 public abstract class IgniteAbstractSqlAlterZone extends SqlDdl {
 
-    /** Alter operator. */
-    private static final SqlOperator OPERATOR =
-            new SqlSpecialOperator("ALTER ZONE", SqlKind.OTHER_DDL);
-
     protected final SqlIdentifier name;
 
-    protected final boolean ifExists;
-
     /** Constructor. */
-    public IgniteAbstractSqlAlterZone(SqlParserPos pos, SqlIdentifier name, boolean ifExists) {
-        super(OPERATOR, pos);
+    protected IgniteAbstractSqlAlterZone(IgniteDdlOperator operator, SqlParserPos pos, SqlIdentifier name) {
+        super(operator, pos);
         this.name = name;
-        this.ifExists = ifExists;
     }
 
     /** The name of a distribution zone to alter. **/
@@ -51,10 +41,17 @@ public abstract class IgniteAbstractSqlAlterZone extends SqlDdl {
     }
 
     /** {@inheritDoc} */
-    @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
+    @Override
+    public IgniteDdlOperator getOperator() {
+        return (IgniteDdlOperator) super.getOperator();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword(getOperator().getName());
 
-        if (ifExists) {
+        if (ifExists()) {
             writer.keyword("IF EXISTS");
         }
 
@@ -71,6 +68,7 @@ public abstract class IgniteAbstractSqlAlterZone extends SqlDdl {
 
     /** Returns whether IF EXISTS was specified or not. **/
     public boolean ifExists() {
-        return ifExists;
+        IgniteDdlOperator operator = (IgniteDdlOperator) getOperator();
+        return operator.existFlag();
     }
 }

@@ -1,0 +1,100 @@
+N0
+SELECT * FROM ct1_n1, ct2_n1
+---
+Fragment#3 root
+  executionNodes: [N0]
+  remoteFragments: [4]
+  exchangeSourceNodes: {4=[N1]}
+  tree:
+    Receiver(sourceFragment=4, exchange=4, distribution=single)
+
+Fragment#4
+  targetNodes: [N0]
+  executionNodes: [N1]
+  tables: [CT1_N1, CT2_N1]
+  partitions: {N1=[0:1]}
+  tree:
+    Sender(targetFragment=3, exchange=4, distribution=single)
+      NestedLoopJoin
+        TableScan(name=PUBLIC.CT1_N1, source=1, partitions=1, distribution=single)
+        TableScan(name=PUBLIC.CT2_N1, source=2, partitions=1, distribution=single)
+---
+
+N1
+SELECT * FROM ct1_n1, ct2_n1
+---
+Fragment#0 root
+  executionNodes: [N1]
+  tables: [CT1_N1, CT2_N1]
+  partitions: {N1=[0:1]}
+  tree:
+    NestedLoopJoin
+      TableScan(name=PUBLIC.CT1_N1, source=1, partitions=1, distribution=single)
+      TableScan(name=PUBLIC.CT2_N1, source=2, partitions=1, distribution=single)
+---
+
+N0
+SELECT * FROM ct1_n1, ct2_n2
+---
+Fragment#5 root
+  executionNodes: [N0]
+  remoteFragments: [6]
+  exchangeSourceNodes: {6=[N2]}
+  tree:
+    Receiver(sourceFragment=6, exchange=6, distribution=single)
+
+Fragment#4
+  targetNodes: [N2]
+  executionNodes: [N1]
+  tables: [CT1_N1]
+  partitions: {N1=[0:1]}
+  tree:
+    Sender(targetFragment=6, exchange=4, distribution=single)
+      TableScan(name=PUBLIC.CT1_N1, source=1, partitions=1, distribution=single)
+
+Fragment#6
+  targetNodes: [N0]
+  executionNodes: [N2]
+  remoteFragments: [4]
+  exchangeSourceNodes: {4=[N1]}
+  tables: [CT2_N2]
+  partitions: {N2=[0:1]}
+  tree:
+    Sender(targetFragment=5, exchange=6, distribution=single)
+      NestedLoopJoin
+        Receiver(sourceFragment=4, exchange=4, distribution=single)
+        TableScan(name=PUBLIC.CT2_N2, source=2, partitions=1, distribution=single)
+---
+
+N1
+SELECT * FROM ct1_n1, ct2_n2
+---
+Fragment#5 root
+  executionNodes: [N1]
+  remoteFragments: [6]
+  exchangeSourceNodes: {6=[N2]}
+  tree:
+    Receiver(sourceFragment=6, exchange=6, distribution=single)
+
+Fragment#4
+  targetNodes: [N2]
+  executionNodes: [N1]
+  tables: [CT1_N1]
+  partitions: {N1=[0:1]}
+  tree:
+    Sender(targetFragment=6, exchange=4, distribution=single)
+      TableScan(name=PUBLIC.CT1_N1, source=1, partitions=1, distribution=single)
+
+Fragment#6
+  targetNodes: [N1]
+  executionNodes: [N2]
+  remoteFragments: [4]
+  exchangeSourceNodes: {4=[N1]}
+  tables: [CT2_N2]
+  partitions: {N2=[0:1]}
+  tree:
+    Sender(targetFragment=5, exchange=6, distribution=single)
+      NestedLoopJoin
+        Receiver(sourceFragment=4, exchange=4, distribution=single)
+        TableScan(name=PUBLIC.CT2_N2, source=2, partitions=1, distribution=single)
+---

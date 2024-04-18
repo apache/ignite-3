@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFetchQueryResultsRequest;
 
 /**
  * Client jdbc request handler.
@@ -40,7 +40,7 @@ public class ClientJdbcFetchRequest {
             ClientMessagePacker out,
             JdbcQueryCursorHandler handler
     ) {
-        var req = new JdbcQueryFetchRequest();
+        var req = new JdbcFetchQueryResultsRequest();
 
         req.readBinary(in);
 

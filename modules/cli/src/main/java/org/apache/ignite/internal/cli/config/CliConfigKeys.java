@@ -42,6 +42,9 @@ public enum CliConfigKeys {
     /** REST key store password property name. */
     REST_KEY_STORE_PASSWORD(Constants.REST_KEY_STORE_PASSWORD),
 
+    /** REST SSL ciphers property name. */
+    REST_CIPHERS(Constants.REST_CIPHERS),
+
     /** Default JDBC URL property name. */
     JDBC_URL(Constants.JDBC_URL),
 
@@ -63,11 +66,18 @@ public enum CliConfigKeys {
     /** JDBC SSL client auth property name. */
     JDBC_CLIENT_AUTH(Constants.JDBC_CLIENT_AUTH),
 
+    /** JDBC SSL ciphers property name. */
+    JDBC_CIPHERS(Constants.JDBC_CIPHERS),
+
     /** Basic authentication username. */
     BASIC_AUTHENTICATION_USERNAME(Constants.BASIC_AUTHENTICATION_USERNAME),
 
     /** Basic authentication password. */
-    BASIC_AUTHENTICATION_PASSWORD(Constants.BASIC_AUTHENTICATION_PASSWORD);
+    BASIC_AUTHENTICATION_PASSWORD(Constants.BASIC_AUTHENTICATION_PASSWORD),
+
+    SQL_MULTILINE(Constants.SQL_MULTILINE),
+
+    SYNTAX_HIGHLIGHTING(Constants.SYNTAX_HIGHLIGHTING);
 
     private final String value;
 
@@ -112,6 +122,8 @@ public enum CliConfigKeys {
 
         public static final String REST_KEY_STORE_PASSWORD = "ignite.rest.key-store.password";
 
+        public static final String REST_CIPHERS = "ignite.rest.ciphers";
+
         public static final String JDBC_URL = "ignite.jdbc-url";
 
         public static final String JDBC_SSL_ENABLED = "ignite.jdbc.ssl-enabled";
@@ -126,9 +138,15 @@ public enum CliConfigKeys {
 
         public static final String JDBC_CLIENT_AUTH = "ignite.jdbc.client-auth";
 
+        public static final String JDBC_CIPHERS = "ignite.jdbc.ciphers";
+
         public static final String BASIC_AUTHENTICATION_USERNAME = "ignite.auth.basic.username";
 
         public static final String BASIC_AUTHENTICATION_PASSWORD = "ignite.auth.basic.password";
+
+        public static final String SQL_MULTILINE = "ignite.cli.sql.multiline";
+
+        public static final String SYNTAX_HIGHLIGHTING = "ignite.cli.syntax-highlighting";
     }
 
     CliConfigKeys(String value) {

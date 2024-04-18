@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.impl;
 
 import static java.util.Comparator.comparing;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -28,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -35,6 +37,7 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
+import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
@@ -62,18 +65,30 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile long lastAppliedTerm;
 
+    private volatile long leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
+
     private volatile byte @Nullable [] groupConfig;
 
     final int partitionId;
 
     private volatile boolean closed;
+    private volatile boolean destroyed;
 
     private volatile boolean rebalance;
 
-    final LockByRowId lockByRowId = new LockByRowId();
+    private final LockByRowId lockByRowId;
+
+    /** Amount of cursors that opened and still do not close. */
+    private final AtomicInteger pendingCursors = new AtomicInteger();
 
     public TestMvPartitionStorage(int partitionId) {
         this.partitionId = partitionId;
+        this.lockByRowId = new LockByRowId();
+    }
+
+    public TestMvPartitionStorage(int partitionId, LockByRowId lockByRowId) {
+        this.partitionId = partitionId;
+        this.lockByRowId = lockByRowId;
     }
 
     private static class VersionChain implements GcEntry {
@@ -157,7 +172,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     public CompletableFuture<Void> flush() {
         checkStorageClosed();
 
-        return CompletableFuture.completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override
@@ -252,13 +267,15 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         checkStorageClosed();
 
         map.compute(rowId, (ignored, versionChain) -> {
-            assert versionChain != null;
+            if (versionChain != null) {
+                if (!versionChain.isWriteIntent()) {
+                    return versionChain;
+                }
 
-            if (!versionChain.isWriteIntent()) {
-                return versionChain;
+                return resolveCommittedVersionChain(VersionChain.forCommitted(rowId, timestamp, versionChain));
             }
 
-            return resolveCommittedVersionChain(VersionChain.forCommitted(rowId, timestamp, versionChain));
+            return null;
         });
     }
 
@@ -436,11 +453,22 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         return new ScanVersionsCursor(rowId);
     }
 
+    /**
+     * Gets amount of pending cursors.
+     *
+     * @return Amount of pending cursors.
+     */
+    public int pendingCursors() {
+        return pendingCursors.get();
+    }
+
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) {
         checkStorageClosedOrInProcessOfRebalance();
 
         Iterator<VersionChain> iterator = map.values().iterator();
+
+        pendingCursors.incrementAndGet();
 
         return new PartitionTimestampCursor() {
             @Nullable
@@ -467,7 +495,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
             @Override
             public void close() {
-                // No-op.
+                pendingCursors.decrementAndGet();
             }
 
             @Override
@@ -594,14 +622,37 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
+    public void updateLease(long leaseStartTime) {
+        checkStorageClosed();
+
+        if (leaseStartTime <= this.leaseStartTime) {
+            return;
+        }
+
+        this.leaseStartTime = leaseStartTime;
+    }
+
+    @Override
+    public long leaseStartTime() {
+        checkStorageClosed();
+
+        return leaseStartTime;
+    }
+
+    @Override
     public void close() {
         closed = true;
 
         clear0();
     }
 
+    /**
+     * Destroys this storage.
+     */
     public void destroy() {
-        close();
+        destroyed = true;
+
+        clear0();
     }
 
     /** Removes all entries from this storage. */
@@ -619,16 +670,21 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;
         groupConfig = null;
+
+        leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
     }
 
     private void checkStorageClosed() {
         if (closed) {
             throw new StorageClosedException();
         }
+        if (destroyed) {
+            throw new StorageDestroyedException();
+        }
     }
 
     private void checkStorageClosedForRebalance() {
-        if (closed) {
+        if (closed || destroyed) {
             throw new StorageRebalanceException();
         }
     }
@@ -684,10 +740,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
         this.groupConfig = Arrays.copyOf(groupConfig, groupConfig.length);
-    }
-
-    boolean closed() {
-        return closed;
     }
 
     private class ScanVersionsCursor implements Cursor<ReadResult> {

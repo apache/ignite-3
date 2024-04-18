@@ -23,10 +23,12 @@ import static org.msgpack.core.MessagePack.Code;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * ByteBuf-based MsgPack implementation. Replaces {@link org.msgpack.core.MessagePacker} to avoid
@@ -44,6 +46,11 @@ public class ClientMessagePacker implements AutoCloseable {
      * Closed flag.
      */
     private boolean closed;
+
+    /**
+     * Metadata.
+     */
+    private @Nullable Object meta;
 
     /**
      * Constructor.
@@ -179,6 +186,29 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Reserve space for long value.
+     *
+     * @return Index of reserved space.
+     */
+    public int reserveLong() {
+        buf.writeByte(Code.INT64);
+        var index = buf.writerIndex();
+
+        buf.writeLong(0);
+        return index;
+    }
+
+    /**
+     * Set long value at reserved index (see {@link #reserveLong()}).
+     *
+     * @param index Index.
+     * @param v Value.
+     */
+    public void setLong(int index, long v) {
+        buf.setLong(index, v);
+    }
+
+    /**
      * Writes a long value.
      *
      * @param v the value to be written.
@@ -233,11 +263,37 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param v the value to be written.
      */
-    public void packLongNullable(Long v) {
+    public void packLongNullable(@Nullable Long v) {
         if (v == null) {
             packNil();
         } else {
             packLong(v);
+        }
+    }
+
+    /**
+     * Writes a byte value.
+     *
+     * @param v the value to be written.
+     */
+    public void packByteNullable(@Nullable Byte v) {
+        if (v == null) {
+            packNil();
+        } else {
+            packByte(v);
+        }
+    }
+
+    /**
+     * Writes a string value.
+     *
+     * @param v the value to be written.
+     */
+    public void packStringNullable(@Nullable String v) {
+        if (v == null) {
+            packNil();
+        } else {
+            packString(v);
         }
     }
 
@@ -270,7 +326,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param s the value to be written.
      */
-    public void packString(String s) {
+    public void packString(@Nullable String s) {
         assert !closed : "Packer is closed";
 
         if (s == null) {
@@ -286,7 +342,11 @@ public class ClientMessagePacker implements AutoCloseable {
         int headerSize = getStringHeaderSize(maxBytes);
         int headerPos = buf.writerIndex();
 
-        buf.writerIndex(headerPos + headerSize);
+        int index = headerPos + headerSize;
+        if (index > buf.capacity()) {
+            buf.capacity(buf.capacity() * 2);
+        }
+        buf.writerIndex(index);
 
         int bytesWritten = ByteBufUtil.writeUtf8(buf, s);
         int endPos = buf.writerIndex();
@@ -308,52 +368,6 @@ public class ClientMessagePacker implements AutoCloseable {
         }
 
         buf.writerIndex(endPos);
-    }
-
-    /**
-     * Writes an array header value.
-     *
-     * @param arraySize array size.
-     */
-    public void packArrayHeader(int arraySize) {
-        assert !closed : "Packer is closed";
-
-        if (arraySize < 0) {
-            throw new IllegalArgumentException("array size must be >= 0");
-        }
-
-        if (arraySize < (1 << 4)) {
-            buf.writeByte((byte) (Code.FIXARRAY_PREFIX | arraySize));
-        } else if (arraySize < (1 << 16)) {
-            buf.writeByte(Code.ARRAY16);
-            buf.writeShort(arraySize);
-        } else {
-            buf.writeByte(Code.ARRAY32);
-            buf.writeInt(arraySize);
-        }
-    }
-
-    /**
-     * Writes a map header value.
-     *
-     * @param mapSize map size.
-     */
-    public void packMapHeader(int mapSize) {
-        assert !closed : "Packer is closed";
-
-        if (mapSize < 0) {
-            throw new IllegalArgumentException("map size must be >= 0");
-        }
-
-        if (mapSize < (1 << 4)) {
-            buf.writeByte((byte) (Code.FIXMAP_PREFIX | mapSize));
-        } else if (mapSize < (1 << 16)) {
-            buf.writeByte(Code.MAP16);
-            buf.writeShort(mapSize);
-        } else {
-            buf.writeByte(Code.MAP32);
-            buf.writeInt(mapSize);
-        }
     }
 
     /**
@@ -522,6 +536,19 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Writes a bit set.
+     *
+     * @param val Bit set value.
+     */
+    public void packBitSetNullable(@Nullable BitSet val) {
+        if (val == null) {
+            packNil();
+        } else {
+            packBitSet(val);
+        }
+    }
+
+    /**
      * Writes an integer array.
      *
      * @param arr Integer array value.
@@ -535,10 +562,31 @@ public class ClientMessagePacker implements AutoCloseable {
             return;
         }
 
-        packArrayHeader(arr.length);
+        packInt(arr.length);
 
         for (int i : arr) {
             packInt(i);
+        }
+    }
+
+    /**
+     * Writes an long array.
+     *
+     * @param arr Long array value.
+     */
+    public void packLongArray(long[] arr) {
+        assert !closed : "Packer is closed";
+
+        if (arr == null) {
+            packNil();
+
+            return;
+        }
+
+        packInt(arr.length);
+
+        for (long i : arr) {
+            packLong(i);
         }
     }
 
@@ -557,6 +605,10 @@ public class ClientMessagePacker implements AutoCloseable {
         }
 
         packInt(vals.length);
+
+        if (vals.length == 0) {
+            return;
+        }
 
         // Builder with inline schema.
         // Every element in vals is represented by 3 tuple elements: type, scale, value.
@@ -626,8 +678,51 @@ public class ClientMessagePacker implements AutoCloseable {
      */
     public void packBinaryTuple(BinaryTupleBuilder builder) {
         ByteBuffer buf = builder.build();
+        packByteBuffer(buf);
+    }
+
+    /**
+     * Pack ByteBuffer.
+     *
+     * @param buf ByteBuffer object.
+     */
+    public void packByteBuffer(ByteBuffer buf) {
+        assert !closed : "Packer is closed";
+
         packBinaryHeader(buf.limit() - buf.position());
         writePayload(buf);
+    }
+
+    /**
+     * Packs an {@link Instant}.
+     *
+     * @param instant Instant object.
+     */
+    public void packInstant(@Nullable Instant instant) {
+        if (instant == null) {
+            packNil();
+        } else {
+            packLong(instant.getEpochSecond());
+            packInt(instant.getNano());
+        }
+    }
+
+    /**
+     * Gets metadata.
+     *
+     * @return Metadata.
+     */
+    public @Nullable Object meta() {
+        return meta;
+    }
+
+    /**
+     * Sets metadata.
+     *
+     * @param meta Metadata.
+     */
+    public void meta(@Nullable Object meta) {
+        this.meta = meta;
     }
 
     /**

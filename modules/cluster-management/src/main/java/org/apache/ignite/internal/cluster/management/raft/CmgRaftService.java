@@ -20,16 +20,17 @@ package org.apache.ignite.internal.cluster.management.raft;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.NodeAttributes;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.commands.ClusterNodeMessage;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
@@ -39,15 +40,15 @@ import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopol
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 
 /**
  * A wrapper around a {@link RaftGroupService} providing helpful methods for working with the CMG.
@@ -139,7 +140,7 @@ public class CmgRaftService implements ManuallyCloseable {
      *         otherwise.
      * @see ValidationManager
      */
-    public CompletableFuture<Void> startJoinCluster(ClusterTag clusterTag, Map<String, String> nodeAttributes) {
+    public CompletableFuture<Void> startJoinCluster(ClusterTag clusterTag, NodeAttributes nodeAttributes) {
         ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember(), nodeAttributes);
 
         JoinRequestCommand command = msgFactory.joinRequestCommand()
@@ -165,10 +166,10 @@ public class CmgRaftService implements ManuallyCloseable {
      *
      * @return Future that represents the state of the operation.
      */
-    public CompletableFuture<Void> completeJoinCluster(Map<String, String> nodeAttributes) {
+    public CompletableFuture<Void> completeJoinCluster(NodeAttributes attributes) {
         LOG.info("Node is ready to join the logical topology");
 
-        ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember(), nodeAttributes);
+        ClusterNodeMessage localNodeMessage = nodeMessage(clusterService.topologyService().localMember(), attributes);
 
         return raftService.run(msgFactory.joinReadyCommand().node(localNodeMessage).build())
                 .thenAccept(response -> {
@@ -262,13 +263,15 @@ public class CmgRaftService implements ManuallyCloseable {
         return completedFuture(result);
     }
 
-    private ClusterNodeMessage nodeMessage(ClusterNode node, Map<String, String> nodeAttributes) {
+    private ClusterNodeMessage nodeMessage(ClusterNode node, NodeAttributes attributes) {
         return msgFactory.clusterNodeMessage()
                 .id(node.id())
                 .name(node.name())
                 .host(node.address().host())
                 .port(node.address().port())
-                .nodeAttributes(nodeAttributes)
+                .userAttributes(attributes == null ? null : attributes.userAttributes())
+                .systemAttributes(attributes == null ? null : attributes.systemAttributes())
+                .storageProfiles(attributes == null ? null : attributes.storageProfiles())
                 .build();
     }
 
@@ -278,7 +281,6 @@ public class CmgRaftService implements ManuallyCloseable {
                 .name(node.name())
                 .host(node.address().host())
                 .port(node.address().port())
-                .nodeAttributes(null)
                 .build();
     }
 
@@ -308,14 +310,15 @@ public class CmgRaftService implements ManuallyCloseable {
                 .collect(toSet());
 
         if (currentLearnerNames.equals(newLearners)) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(currentPeers, newLearners);
 
         if (newLearners.isEmpty()) {
             // Methods for working with learners do not support empty peer lists for some reason.
-            return raftService.changePeersAsync(newConfiguration, term);
+            return raftService.changePeersAsync(newConfiguration, term)
+                    .thenRun(() -> raftService.updateConfiguration(newConfiguration));
         } else {
             return raftService.resetLearners(newConfiguration.learners());
         }

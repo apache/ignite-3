@@ -63,6 +63,11 @@ public interface LogicalTopologyService {
     CompletableFuture<LogicalTopologySnapshot> logicalTopologyOnLeader();
 
     /**
+     * Retrieves the current logical topology snapshot stored in the local storage.
+     */
+    LogicalTopologySnapshot localLogicalTopology();
+
+    /**
      * Returns a future that, when complete, resolves into a list of validated nodes (including ones present in the Logical Topology).
      *
      * @return Future that, when complete, resolves into a list of validated nodes (including ones present in the Logical Topology).

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
@@ -28,17 +28,17 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
-import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteNestedLoopJoin;
@@ -46,9 +46,12 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.NativeTypeValues;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
@@ -60,14 +63,13 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Type coercion related tests that ensure that the necessary casts are placed where it is necessary.
  */
 public class ImplicitCastsTest extends AbstractPlannerTest {
-
-    private static TestTable addTable(IgniteSchema igniteSchema, String tableName, String columnName, RelDataType columnType) {
-        RelDataType tableType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
-                .add("ID", SqlTypeName.INTEGER)
-                .add(columnName, columnType)
+    private static IgniteTable tableWithColumn(String tableName, String columnName, RelDataType columnType) {
+        return TestBuilders.table()
+                .name(tableName)
+                .addColumn("ID", NativeTypes.INT32, false)
+                .addColumn(columnName, IgniteTypeFactory.relDataTypeToNative(columnType), false)
+                .distribution(IgniteDistributions.single())
                 .build();
-
-        return createTable(igniteSchema, tableName, tableType, IgniteDistributions.single());
     }
 
     private static String castedExpr(String idx, @Nullable RelDataType type) {
@@ -149,10 +151,10 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("joinColumnTypes")
     public void testMergeSort(RelDataType lhs, RelDataType rhs, ExpectedTypes expected) throws Exception {
-        IgniteSchema igniteSchema = new IgniteSchema("PUBLIC");
-
-        addTable(igniteSchema, "A1", "COL1", lhs);
-        addTable(igniteSchema, "B1", "COL1", rhs);
+        IgniteSchema igniteSchema = createSchema(
+                tableWithColumn("A1", "COL1", lhs),
+                tableWithColumn("B1", "COL1", rhs)
+        );
 
         String query = "select A1.*, B1.* from A1 join B1 on A1.col1 = B1.col1";
         assertPlan(query, igniteSchema, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
@@ -165,10 +167,11 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("joinColumnTypes")
     public void testNestedLoop(RelDataType lhs, RelDataType rhs, ExpectedTypes expected) throws Exception {
-        IgniteSchema igniteSchema = new IgniteSchema("PUBLIC");
+        IgniteSchema igniteSchema = createSchema(
+                tableWithColumn("A1", "COL1", lhs),
+                tableWithColumn("B1", "COL1", rhs)
+        );
 
-        addTable(igniteSchema, "A1", "COL1", lhs);
-        addTable(igniteSchema, "B1", "COL1", rhs);
 
         String query = "select A1.*, B1.* from A1 join B1 on A1.col1 != B1.col1";
         assertPlan(query, igniteSchema, isInstanceOf(IgniteNestedLoopJoin.class).and(new NestedLoopWithFilter(expected)));
@@ -178,9 +181,9 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("filterTypes")
     public void testFilter(RelDataType lhs, RelDataType rhs, ExpectedTypes expected) throws Exception {
-        IgniteSchema igniteSchema = new IgniteSchema("PUBLIC");
-
-        addTable(igniteSchema, "A1", "COL1", lhs);
+        IgniteSchema igniteSchema = createSchema(
+                tableWithColumn("A1", "COL1", lhs)
+        );
 
         List<Object> params = NativeTypeValues.values(rhs, 1);
 
@@ -202,19 +205,25 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("filterTypesForIndex")
     public void testIndex(RelDataType lhs, RelDataType rhs, ExpectedTypes expected, Type indexType) throws Exception {
-        IgniteSchema igniteSchema = new IgniteSchema("PUBLIC");
+        UnaryOperator<TableBuilder> tableOp = tableBuilder -> tableBuilder
+                .name("A1")
+                .addColumn("ID", NativeTypes.INT32, false)
+                .addColumn("COL1", IgniteTypeFactory.relDataTypeToNative(lhs), false)
+                .distribution(IgniteDistributions.single());
 
-        TestTable table = addTable(igniteSchema, "A1", "COL1", lhs);
+        UnaryOperator<TableBuilder> indexOp;
         switch (indexType) {
             case SORTED:
-                table.addIndex(RelCollations.of(1), "COL1_IDX");
+                indexOp = addSortIndex("COL1");
                 break;
             case HASH:
-                table.addIndex("COL1_IDX", 1);
+                indexOp = addHashIndex("COL1");
                 break;
             default:
                 throw new IllegalArgumentException("Unexpected index type " + indexType);
         }
+
+        IgniteSchema igniteSchema = createSchemaFrom(tableOp.andThen(indexOp));
 
         List<Object> params = NativeTypeValues.values(rhs, 1);
 
@@ -287,11 +296,6 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                         .project("$t0", "10:BIGINT"),
 
                 checkStatement()
-                        .table("t1", "c1", NativeTypes.INT32)
-                        .sql("UPDATE t1 SET c1 = 'abc'")
-                        .project("$t0", "CAST(_UTF-8'abc'):INTEGER NOT NULL"),
-
-                checkStatement()
                         .table("t1", "c1", NativeTypes.INT64, "c2", NativeTypes.INT64)
                         .table("t2", "c1", NativeTypes.INT32, "c2", NativeTypes.INT32)
                         .sql("INSERT INTO t1 (c1, c2) SELECT c1, c2 FROM t2")
@@ -313,6 +317,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
 
                 // DEFAULT is not coerced
                 checkStatement()
+                        .disableRules(DISABLE_KEY_VALUE_MODIFY_RULES)
                         .table("t1", (table) -> {
                             return table.name("T1")
                                     .addColumn("INT_COL", NativeTypes.INT32)
@@ -321,7 +326,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                                     .build();
                         })
                         .sql("INSERT INTO t1 VALUES(1, DEFAULT)")
-                        .project("1", "DEFAULT()")
+                        .project("1", "_UTF-8'0000'")
         );
     }
 
@@ -331,23 +336,14 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
         return Stream.of(
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32)
-                        .sql("UPDATE t1 SET c1 = '1'")
-                        .project("$t0", "1"),
-
-                checkStatement()
-                        .table("t1", "c1", NativeTypes.INT32)
-                        .sql("UPDATE t1 SET c1 = 'abc'")
-                        .project("$t0", "CAST(_UTF-8'abc'):INTEGER NOT NULL"),
+                        .sql("UPDATE t1 SET c1 = '1'::INTEGER + 1")
+                        .project("$t0", "+(1, 1)"),
 
                 checkStatement()
                         .table("t1", "c1", NativeTypes.stringOf(4))
                         .sql("UPDATE t1 SET c1 = 1")
                         .project("$t0", "_UTF-8'1':VARCHAR(4) CHARACTER SET \"UTF-8\""),
 
-                // If int_col is accessed too early, we get:
-                // java.lang.UnsupportedOperationException:
-                //  at org.apache.calcite.util.Util.needToImplement(Util.java:1111)
-                //  at org.apache.calcite.sql.validate.SqlValidatorImpl.getValidatedNodeType(SqlValidatorImpl.java:1795)
                 checkStatement()
                         .table("t1", "id", NativeTypes.INT32, "int_col", NativeTypes.INT32, "str_col", NativeTypes.STRING)
                         .sql("UPDATE t1 SET str_col = 1, int_col = id + 1")
@@ -397,15 +393,15 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
     public Stream<DynamicTest> testInExpression() {
         return Stream.of(
                 // literals
-                sql("SELECT '1'::int IN ('a')").project("=(1, CAST(_UTF-8'a'):INTEGER NOT NULL)"),
+                sql("SELECT '1'::int IN ('1'::INTEGER)").project("true"),
                 sql("SELECT 1 IN ('1', 2)").project("true"),
                 sql("SELECT '1' IN (1, 2)").project("true"),
-                sql("SELECT 2 IN ('c', 1)").project("=(2, CAST(_UTF-8'c'):INTEGER NOT NULL)"),
+                sql("SELECT 2 IN ('2'::REAL, 1)").project("true"),
 
                 checkStatement()
                         .table("t", "int_col", NativeTypes.INT32, "str_col", NativeTypes.stringOf(4), "bigint_col", NativeTypes.INT64)
-                        .sql("SELECT int_col IN ('c', 1) FROM t")
-                        .project("OR(=($t0, CAST(_UTF-8'c'):INTEGER NOT NULL), =($t0, 1))"),
+                        .sql("SELECT int_col IN ('c'::REAL, 1) FROM t")
+                        .project("OR(=(CAST($t0):REAL, CAST(_UTF-8'c'):REAL NOT NULL), =(CAST($t0):REAL, 1))"),
 
                 checkStatement()
                         .table("t", "int_col", NativeTypes.INT32, "str_col", NativeTypes.stringOf(4), "bigint_col", NativeTypes.INT64)
@@ -480,6 +476,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
 
         return Stream.of(
                 checkStatement(setup)
+                        .disableRules(DISABLE_KEY_VALUE_MODIFY_RULES)
                         .table("t3", "str_col", NativeTypes.stringOf(36))
                         .sql("INSERT INTO t3 VALUES('1111'::UUID)")
                         .project("CAST(CAST(_UTF-8'1111'):UUID NOT NULL):VARCHAR(36) CHARACTER SET \"UTF-8\" NOT NULL"),

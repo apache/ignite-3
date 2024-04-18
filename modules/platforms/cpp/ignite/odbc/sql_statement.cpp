@@ -19,8 +19,13 @@
 
 #include "ignite/odbc/log.h"
 #include "ignite/odbc/odbc_error.h"
+#include "ignite/odbc/query/column_metadata_query.h"
 #include "ignite/odbc/query/data_query.h"
-#include "ignite/odbc/sql_connection.h"
+#include "ignite/odbc/query/foreign_keys_query.h"
+#include "ignite/odbc/query/primary_keys_query.h"
+#include "ignite/odbc/query/special_columns_query.h"
+#include "ignite/odbc/query/table_metadata_query.h"
+#include "ignite/odbc/query/type_info_query.h"
 #include "ignite/odbc/sql_statement.h"
 #include "ignite/odbc/system/odbc_constants.h"
 #include "ignite/odbc/utility.h"
@@ -240,12 +245,6 @@ sql_result sql_statement::internal_set_attribute(int attr, void *value, SQLINTEG
         case SQL_ATTR_PARAMSET_SIZE: {
             auto size = reinterpret_cast<SQLULEN>(value);
 
-            if (size > 1) {
-                add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Batching is not supported.");
-
-                return sql_result::AI_ERROR;
-            }
-
             if (size < 1) {
                 add_status_record(sql_state::S01S02_OPTION_VALUE_CHANGED, "Can not set parameter set size to zero.");
                 return sql_result::AI_SUCCESS_WITH_INFO;
@@ -452,7 +451,7 @@ void sql_statement::get_parameters_number(uint16_t &param_num) {
     IGNITE_ODBC_API_CALL(internal_get_parameters_number(param_num));
 }
 
-sql_result sql_statement::internal_get_parameters_number(uint16_t &param_num) {
+sql_result sql_statement::internal_get_parameters_number(std::uint16_t &param_num) {
     if (!m_current_query) {
         add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query is not prepared.");
 
@@ -465,14 +464,15 @@ sql_result sql_statement::internal_get_parameters_number(uint16_t &param_num) {
         return sql_result::AI_SUCCESS;
     }
 
-    if (!m_parameters.is_metadata_set()) {
-        sql_result res = update_params_meta();
+    auto qry0 = static_cast<data_query *>(m_current_query.get());
+    if (!qry0->is_param_meta_available()) {
+        sql_result res = qry0->update_meta();
 
         if (res != sql_result::AI_SUCCESS)
             return res;
     }
 
-    param_num = m_parameters.get_expected_param_num();
+    param_num = std::uint16_t(qry0->get_expected_param_num());
 
     return sql_result::AI_SUCCESS;
 }
@@ -553,16 +553,12 @@ void sql_statement::execute_get_columns_meta_query(
 
 sql_result sql_statement::internal_execute_get_columns_meta_query(
     const std::string &schema, const std::string &table, const std::string &column) {
-    UNUSED_VALUE schema;
-    UNUSED_VALUE table;
-    UNUSED_VALUE column;
 
     if (m_current_query)
         m_current_query->close();
 
-    // TODO: IGNITE-19214 Implement table column metadata fetching
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Column metadata is not supported.");
-    return sql_result::AI_ERROR;
+    m_current_query = std::make_unique<column_metadata_query>(*this, m_connection, schema, table, column);
+    return m_current_query->execute();
 }
 
 void sql_statement::execute_get_tables_meta_query(
@@ -572,17 +568,12 @@ void sql_statement::execute_get_tables_meta_query(
 
 sql_result sql_statement::internal_execute_get_tables_meta_query(
     const std::string &catalog, const std::string &schema, const std::string &table, const std::string &table_type) {
-    UNUSED_VALUE catalog;
-    UNUSED_VALUE schema;
-    UNUSED_VALUE table;
-    UNUSED_VALUE table_type;
 
     if (m_current_query)
         m_current_query->close();
 
-    // TODO: IGNITE-19214 Implement tables metadata fetching
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Tables metadata is not supported.");
-    return sql_result::AI_ERROR;
+    m_current_query = std::make_unique<table_metadata_query>(*this, m_connection, catalog, schema, table, table_type);
+    return m_current_query->execute();
 }
 
 void sql_statement::execute_get_foreign_keys_query(const std::string &primary_catalog,
@@ -595,19 +586,14 @@ void sql_statement::execute_get_foreign_keys_query(const std::string &primary_ca
 sql_result sql_statement::internal_execute_get_foreign_keys_query(const std::string &primary_catalog,
     const std::string &primary_schema, const std::string &primary_table, const std::string &foreign_catalog,
     const std::string &foreign_schema, const std::string &foreign_table) {
-    UNUSED_VALUE primary_catalog;
-    UNUSED_VALUE primary_schema;
-    UNUSED_VALUE primary_table;
-    UNUSED_VALUE foreign_catalog;
-    UNUSED_VALUE foreign_schema;
-    UNUSED_VALUE foreign_table;
 
     if (m_current_query)
         m_current_query->close();
 
-    // TODO: IGNITE-19217 Implement foreign keys query
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Foreign keys query is not supported.");
-    return sql_result::AI_ERROR;
+    m_current_query = std::make_unique<foreign_keys_query>(
+        *this, primary_catalog, primary_schema, primary_table, foreign_catalog, foreign_schema, foreign_table);
+
+    return m_current_query->execute();
 }
 
 void sql_statement::execute_get_primary_keys_query(
@@ -618,15 +604,13 @@ void sql_statement::execute_get_primary_keys_query(
 sql_result sql_statement::internal_execute_get_primary_keys_query(
     const std::string &catalog, const std::string &schema, const std::string &table) {
     UNUSED_VALUE catalog;
-    UNUSED_VALUE schema;
-    UNUSED_VALUE table;
 
     if (m_current_query)
         m_current_query->close();
 
-    // TODO: IGNITE-19219 Implement primary keys query
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Primary keys query is not supported.");
-    return sql_result::AI_ERROR;
+    m_current_query = std::make_unique<primary_keys_query>(*this, m_connection, schema, table);
+
+    return m_current_query->execute();
 }
 
 void sql_statement::execute_special_columns_query(uint16_t type, const std::string &catalog, const std::string &schema,
@@ -634,13 +618,8 @@ void sql_statement::execute_special_columns_query(uint16_t type, const std::stri
     IGNITE_ODBC_API_CALL(internal_execute_special_columns_query(type, catalog, schema, table, scope, nullable));
 }
 
-sql_result sql_statement::internal_execute_special_columns_query(uint16_t type, const std::string &catalog,
-    const std::string &schema, const std::string &table, uint16_t scope, uint16_t nullable) {
-    UNUSED_VALUE catalog;
-    UNUSED_VALUE schema;
-    UNUSED_VALUE table;
-    UNUSED_VALUE scope;
-    UNUSED_VALUE nullable;
+sql_result sql_statement::internal_execute_special_columns_query(std::uint16_t type, const std::string &catalog,
+    const std::string &schema, const std::string &table, std::uint16_t scope, std::uint16_t nullable) {
 
     if (type != SQL_BEST_ROWID && type != SQL_ROWVER) {
         add_status_record(sql_state::SHY097_COLUMN_TYPE_OUT_OF_RANGE, "An invalid IdentifierType value was specified.");
@@ -650,16 +629,16 @@ sql_result sql_statement::internal_execute_special_columns_query(uint16_t type, 
     if (m_current_query)
         m_current_query->close();
 
-    // TODO: IGNITE-19218 Implement special columns query
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Special columns query is not supported.");
-    return sql_result::AI_ERROR;
+    m_current_query = std::make_unique<special_columns_query>(*this, type, catalog, schema, table, scope, nullable);
+
+    return m_current_query->execute();
 }
 
-void sql_statement::execute_get_type_info_query(int16_t sql_type) {
+void sql_statement::execute_get_type_info_query(std::int16_t sql_type) {
     IGNITE_ODBC_API_CALL(internal_execute_get_type_info_query(sql_type));
 }
 
-sql_result sql_statement::internal_execute_get_type_info_query(int16_t sql_type) {
+sql_result sql_statement::internal_execute_get_type_info_query(std::int16_t sql_type) {
     if (sql_type != SQL_ALL_TYPES && !is_sql_type_supported(sql_type)) {
         std::stringstream builder;
         builder << "Data type is not supported. [typeId=" << sql_type << ']';
@@ -672,9 +651,8 @@ sql_result sql_statement::internal_execute_get_type_info_query(int16_t sql_type)
     if (m_current_query)
         m_current_query->close();
 
-    // TODO: IGNITE-19216 Implement type info query
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Type info query is not supported.");
-    return sql_result::AI_ERROR;
+    m_current_query = std::make_unique<type_info_query>(*this, sql_type);
+    return m_current_query->execute();
 }
 
 void sql_statement::free_resources(uint16_t option) {
@@ -701,6 +679,7 @@ sql_result sql_statement::internal_free_resources(uint16_t option) {
 
         case SQL_RESET_PARAMS: {
             m_parameters.unbind_all();
+            m_parameters.set_param_set_size(0);
 
             break;
         }
@@ -832,7 +811,7 @@ sql_result sql_statement::internal_get_column_attribute(uint16_t column_idx, uin
         return sql_result::AI_ERROR;
 
     if (column_idx > meta->size() || column_idx < 1) {
-        add_status_record(sql_state::SHY000_GENERAL_ERROR, "Column index is out of range.", 0, column_idx);
+        add_status_record(sql_state::S42S22_COLUMN_NOT_FOUND, "Column index is out of range.", 0, column_idx);
 
         return sql_result::AI_ERROR;
     }
@@ -996,44 +975,36 @@ sql_result sql_statement::internal_describe_param(
         return sql_result::AI_ERROR;
     }
 
-    auto type = m_parameters.get_param_type(std::int16_t(param_num), ignite_type::UNDEFINED);
-
-    LOG_MSG("Type: " << type);
-
-    if (type == ignite_type::UNDEFINED) {
-        sql_result res = update_params_meta();
+    auto qry0 = static_cast<data_query *>(qry);
+    if (!qry0->is_param_meta_available()) {
+        sql_result res = qry0->update_meta();
 
         if (res != sql_result::AI_SUCCESS)
             return res;
-
-        type = m_parameters.get_param_type(std::int16_t(param_num), ignite_type::UNDEFINED);
     }
 
+    auto sql_param = qry0->get_sql_param(std::int16_t(param_num));
+    if (!sql_param) {
+        add_status_record(sql_state::S07009_INVALID_DESCRIPTOR_INDEX, "Parameter index is out of range.");
+
+        return sql_result::AI_ERROR;
+    }
+
+    LOG_MSG("Type: " << (int) sql_param->data_type);
+
     if (data_type)
-        *data_type = ignite_type_to_sql_type(type);
+        *data_type = ignite_type_to_sql_type(sql_param->data_type);
 
     if (param_size)
-        *param_size = ignite_type_column_size(type);
+        *param_size = sql_param->precision;
 
     if (decimal_digits)
-        *decimal_digits = int16_t(ignite_type_decimal_digits(type));
+        *decimal_digits = (std::int16_t) sql_param->scale;
 
     if (nullable)
-        *nullable = ignite_type_nullability(type);
+        *nullable = sql_param->nullable ? SQL_NULLABLE : SQL_NO_NULLS;
 
     return sql_result::AI_SUCCESS;
-}
-
-sql_result sql_statement::update_params_meta() {
-    auto *qry0 = m_current_query.get();
-
-    assert(qry0);
-    assert(qry0->get_type() == query_type::DATA);
-
-    // TODO: IGNITE-19854: Implement params metadata fetching
-
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Parameters metadata is not supported");
-    return sql_result::AI_ERROR;
 }
 
 uint16_t sql_statement::sql_result_to_row_result(sql_result value) {

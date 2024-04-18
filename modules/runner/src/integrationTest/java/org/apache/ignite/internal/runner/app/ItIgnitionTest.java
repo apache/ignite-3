@@ -83,7 +83,8 @@ class ItIgnitionTest extends IgniteIntegrationTest {
                         + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "    }\n"
                         + "  },\n"
-                        + "  clientConnector.port: 10800\n"
+                        + "  clientConnector.port: 10800,\n"
+                        + "  rest.port: 10300\n"
                         + "}"
         );
 
@@ -96,7 +97,8 @@ class ItIgnitionTest extends IgniteIntegrationTest {
                         + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "    }\n"
                         + "  },\n"
-                        + "  clientConnector.port: 10801\n"
+                        + "  clientConnector.port: 10801,\n"
+                        + "  rest.port: 10301\n"
                         + "}"
         );
 
@@ -109,7 +111,8 @@ class ItIgnitionTest extends IgniteIntegrationTest {
                         + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                         + "    }\n"
                         + "  },\n"
-                        + "  clientConnector.port: 10802\n"
+                        + "  clientConnector.port: 10802,\n"
+                        + "  rest.port: 10302\n"
                         + "}"
         );
     }

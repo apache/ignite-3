@@ -25,8 +25,8 @@ import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.PART
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.readPartitionless;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.io.PageIo;
-import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
  * Abstract IO routines for B+Tree meta pages.
@@ -171,7 +171,7 @@ public abstract class BplusMetaIo extends PageIo {
 
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
-        //TODO https://issues.apache.org/jira/browse/IGNITE-16350
+        // TODO https://issues.apache.org/jira/browse/IGNITE-16350
         sb.app("BPlusMeta [\n\tlevelsCnt=").app(getLevelsCount(addr))
                 .app(",\n\trootLvl=").app(getRootLevel(addr))
                 .app("\n]");

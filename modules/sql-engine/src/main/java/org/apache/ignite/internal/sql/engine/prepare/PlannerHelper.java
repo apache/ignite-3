@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelHomogeneousShuttle;
@@ -94,6 +95,8 @@ public final class PlannerHelper {
             // Transformation chain
             rel = planner.transform(PlannerPhase.HEP_DECORRELATE, rel.getTraitSet(), rel);
 
+            rel = RelOptUtil.propagateRelHints(rel, false);
+
             rel = planner.replaceCorrelatesCollisions(rel);
 
             rel = planner.trimUnusedFields(root.withRel(rel)).rel;
@@ -112,6 +115,18 @@ public final class PlannerHelper {
             rel = planner.transform(PlannerPhase.HEP_FILTER_PUSH_DOWN, rel.getTraitSet(), rel);
 
             rel = planner.transform(PlannerPhase.HEP_PROJECT_PUSH_DOWN, rel.getTraitSet(), rel);
+
+            {
+                // the sole purpose of this code block is to limit scope of `simpleOperation` variable.
+                // The result of `HEP_TO_SIMPLE_KEY_VALUE_OPERATION` phase MUST NOT be passed to next stage,
+                // thus if result meets our expectation, then return the result, otherwise discard it and
+                // proceed with regular flow
+                RelNode simpleOperation = planner.transform(PlannerPhase.HEP_TO_SIMPLE_KEY_VALUE_OPERATION, rel.getTraitSet(), rel);
+
+                if (simpleOperation instanceof IgniteRel) {
+                    return (IgniteRel) simpleOperation;
+                }
+            }
 
             RelTraitSet desired = rel.getCluster().traitSet()
                     .replace(IgniteConvention.INSTANCE)

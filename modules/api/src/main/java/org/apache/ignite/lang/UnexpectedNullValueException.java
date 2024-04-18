@@ -18,6 +18,7 @@
 package org.apache.ignite.lang;
 
 import java.util.UUID;
+import org.apache.ignite.lang.ErrorGroups.Common;
 
 /**
  * This exception is thrown instead of returning a null value from a method that does not respect {@code null}-value to avoid ambiguity
@@ -30,7 +31,7 @@ public class UnexpectedNullValueException extends IgniteException {
      * @param msg Message.
      */
     public UnexpectedNullValueException(String msg) {
-        super("Got unexpected null value: " + msg);
+        super(Common.INTERNAL_ERR, msg);
     }
 
     /**

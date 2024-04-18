@@ -282,7 +282,7 @@ public class CompositeSubscriptionTest {
             );
         }
 
-        @SuppressWarnings("CallToPrintStackTrace")
+        @SuppressWarnings({"CallToPrintStackTrace", "PMD.AvoidPrintStackTrace"})
         private void handleError(Throwable err) {
             err.printStackTrace();
 

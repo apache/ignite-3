@@ -29,7 +29,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implement hash calculator.
@@ -44,7 +45,7 @@ public class HashCalculator {
      * @param scale Decimal scale.
      * @param precision Temporal precision.
      */
-    public void append(Object v, int scale, int precision) {
+    public void append(@Nullable Object v, int scale, int precision) {
         if (v == null) {
             appendNull();
             return;

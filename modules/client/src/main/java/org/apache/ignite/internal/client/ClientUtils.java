@@ -17,20 +17,68 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.IgniteExceptionUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteCheckedException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.LoggerFactory;
+import org.apache.ignite.lang.TraceableException;
 
 /**
  * Client utilities.
  */
 public class ClientUtils {
+    /**
+     * Wraps an exception in an IgniteException, extracting trace identifier and error code when the specified exception or one of its
+     * causes is an IgniteException itself.
+     *
+     * @param e Internal exception.
+     * @return Public exception.
+     */
+    public static Throwable ensurePublicException(Throwable e) {
+        Objects.requireNonNull(e);
+
+        e = ExceptionUtils.unwrapCause(e);
+
+        if (e instanceof IgniteException) {
+            return copyExceptionWithCauseIfPossible((IgniteException) e);
+        }
+
+        if (e instanceof IgniteCheckedException) {
+            return copyExceptionWithCauseIfPossible((IgniteCheckedException) e);
+        }
+
+        e = IgniteExceptionMapperUtil.mapToPublicException(e);
+
+        return new IgniteException(INTERNAL_ERR, e.getMessage(), e);
+    }
+
+    /**
+     * Try to copy exception using ExceptionUtils.copyExceptionWithCause and return new exception if it was not possible.
+     *
+     * @param e Exception.
+     * @return Properly copied exception or a new error, if exception can not be copied.
+     */
+    private static <T extends Throwable & TraceableException> Throwable copyExceptionWithCauseIfPossible(T e) {
+        Throwable copy = ExceptionUtils.copyExceptionWithCause(e.getClass(), e.traceId(), e.code(), e.getMessage(), e);
+        if (copy != null) {
+            return copy;
+        }
+
+        return new IgniteException(INTERNAL_ERR, "Public Ignite exception-derived class does not have required constructor: "
+                + e.getClass().getName(), e);
+    }
+
     /**
      * Waits for async operation completion.
      *
@@ -44,10 +92,9 @@ public class ClientUtils {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-            throw IgniteExceptionUtils.wrap(e);
+            throw ExceptionUtils.sneakyThrow(ensurePublicException(e));
         } catch (ExecutionException e) {
-            //TODO: https://issues.apache.org/jira/browse/IGNITE-19539
-            throw IgniteExceptionUtils.wrap(e);
+            throw ExceptionUtils.sneakyThrow(ensurePublicException(e));
         }
     }
 
@@ -105,7 +152,6 @@ public class ClientUtils {
 
             case ClientOp.TUPLE_GET_AND_REPLACE:
                 return ClientOperationType.TUPLE_GET_AND_REPLACE;
-
             case ClientOp.TUPLE_DELETE:
                 return ClientOperationType.TUPLE_DELETE;
 
@@ -131,6 +177,9 @@ public class ClientUtils {
                 return null;
 
             case ClientOp.JDBC_NEXT:
+                return null;
+
+            case ClientOp.JDBC_MORE_RESULTS:
                 return null;
 
             case ClientOp.JDBC_EXEC_BATCH:
@@ -166,11 +215,23 @@ public class ClientUtils {
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
                 return ClientOperationType.COMPUTE_EXECUTE;
 
+            case ClientOp.COMPUTE_GET_STATUS:
+                return ClientOperationType.COMPUTE_GET_STATUS;
+
+            case ClientOp.COMPUTE_CANCEL:
+                return ClientOperationType.COMPUTE_CANCEL;
+
+            case ClientOp.COMPUTE_CHANGE_PRIORITY:
+                return ClientOperationType.COMPUTE_CHANGE_PRIORITY;
+
             case ClientOp.CLUSTER_GET_NODES:
                 return null;
 
             case ClientOp.SQL_EXEC:
                 return ClientOperationType.SQL_EXECUTE;
+
+            case ClientOp.SQL_EXEC_SCRIPT:
+                return ClientOperationType.SQL_EXECUTE_SCRIPT;
 
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
                 return ClientOperationType.SQL_CURSOR_NEXT_PAGE;
@@ -183,6 +244,15 @@ public class ClientUtils {
 
             case ClientOp.JDBC_TX_FINISH:
                 return null;
+
+            case ClientOp.SQL_QUERY_META:
+                return null;
+
+            case ClientOp.STREAMER_BATCH_SEND:
+                return ClientOperationType.STREAMER_BATCH_SEND;
+
+            case ClientOp.SQL_EXEC_BATCH:
+                return ClientOperationType.SQL_EXECUTE_BATCH;
 
             // Do not return null from default arm intentionally, so we don't forget to update this when new ClientOp values are added.
             default:

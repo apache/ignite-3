@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.meta.io;
 
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getByte;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putByte;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 
@@ -26,6 +28,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta.IndexType;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaKey;
 
 /**
@@ -42,8 +45,11 @@ public interface IndexMetaIo {
     /** Offset of the index ID (4 bytes). */
     int INDEX_ID_OFFSET = 0;
 
+    /** Offset of the Index Type (1 byte). */
+    int INDEX_TYPE_OFFSET = INDEX_ID_OFFSET + Integer.BYTES;
+
     /** Index tree meta page id offset - long (8 bytes). */
-    int INDEX_TREE_META_PAGE_ID_OFFSET = INDEX_ID_OFFSET + Integer.BYTES;
+    int INDEX_TREE_META_PAGE_ID_OFFSET = INDEX_TYPE_OFFSET + Byte.BYTES;
 
     /**
      * Offset of the {@link UUID#getMostSignificantBits() most significant bits} of Row ID uuid for which the index needs to be built (8
@@ -58,9 +64,10 @@ public interface IndexMetaIo {
     int NEXT_ROW_ID_TO_BUILT_LSB_OFFSET = NEXT_ROW_ID_TO_BUILT_MSB_OFFSET + Long.BYTES;
 
     /** Payload size in bytes. */
-    int SIZE_IN_BYTES = Integer.BYTES /* Index ID - int (4 bytes) */
-            + Long.BYTES /* Index root page ID - long (8 bytes) */
-            + 2 * Long.BYTES /* Row ID uuid for which the index needs to be built - {@link UUID} (16 bytes) */;
+    int SIZE_IN_BYTES = Integer.BYTES // Index ID - int (4 bytes)
+            + Byte.BYTES // Index type - byte (1 byte)
+            + Long.BYTES // Index root page ID - long (8 bytes)
+            + 2 * Long.BYTES; // Row ID uuid for which the index needs to be built - {@link UUID} (16 bytes)
 
     /**
      * Returns an offset of the element inside the page.
@@ -97,6 +104,8 @@ public interface IndexMetaIo {
 
         int indexId = getInt(pageAddr, elementOffset + INDEX_ID_OFFSET);
 
+        IndexType indexType = IndexType.deserialize(getByte(pageAddr, elementOffset + INDEX_TYPE_OFFSET));
+
         long indexTreeMetaPageId = getLong(pageAddr, elementOffset + INDEX_TREE_META_PAGE_ID_OFFSET);
 
         long nextRowIdUuidToBuiltMsb = getLong(pageAddr, elementOffset + NEXT_ROW_ID_TO_BUILT_MSB_OFFSET);
@@ -106,7 +115,7 @@ public interface IndexMetaIo {
                 ? null
                 : new UUID(nextRowIdUuidToBuiltMsb, nextRowIdUuidToBuiltLsb);
 
-        return new IndexMeta(indexId, indexTreeMetaPageId, nextRowIdUuid);
+        return new IndexMeta(indexId, indexType, indexTreeMetaPageId, nextRowIdUuid);
     }
 
     /**
@@ -132,6 +141,8 @@ public interface IndexMetaIo {
         IndexMeta row = (IndexMeta) rowKey;
 
         putInt(pageAddr, off + INDEX_ID_OFFSET, row.indexId());
+
+        putByte(pageAddr, off + INDEX_TYPE_OFFSET, row.indexType().serialize());
 
         putLong(pageAddr, off + INDEX_TREE_META_PAGE_ID_OFFSET, row.metaPageId());
 

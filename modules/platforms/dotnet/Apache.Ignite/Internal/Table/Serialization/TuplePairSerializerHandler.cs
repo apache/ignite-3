@@ -18,6 +18,10 @@
 namespace Apache.Ignite.Internal.Table.Serialization;
 
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using Common;
 using Ignite.Table;
 using Proto.BinaryTuple;
 using Proto.MsgPack;
@@ -25,7 +29,7 @@ using Proto.MsgPack;
 /// <summary>
 /// Serializer handler for <see cref="IIgniteTuple"/>.
 /// </summary>
-internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgniteTuple, IIgniteTuple>>
+internal sealed class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgniteTuple, IIgniteTuple>>
 {
     /// <summary>
     /// Singleton instance.
@@ -43,21 +47,32 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
     /// <inheritdoc/>
     public KvPair<IIgniteTuple, IIgniteTuple> Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
     {
-        var columns = schema.Columns;
-        var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-        var keyTuple = new IgniteTuple(count);
-        var valTuple = keyOnly ? null! : new IgniteTuple(schema.ValueColumnCount);
-        var tupleReader = new BinaryTupleReader(reader.ReadBinary(), count);
-
-        for (var index = 0; index < count; index++)
+        if (keyOnly)
         {
-            var column = columns[index];
+            var keyTuple = new IgniteTuple(schema.KeyColumns.Length);
+            var tupleReader = new BinaryTupleReader(reader.ReadBinary(), schema.KeyColumns.Length);
 
-            var tuple = index < schema.KeyColumnCount ? keyTuple : valTuple;
-            tuple[column.Name] = tupleReader.GetObject(index, column.Type, column.Scale);
+            foreach (var column in schema.KeyColumns)
+            {
+                keyTuple[column.Name] = tupleReader.GetObject(column.KeyIndex, column.Type, column.Scale);
+            }
+
+            return new(keyTuple);
         }
+        else
+        {
+            var keyTuple = new IgniteTuple(schema.KeyColumns.Length);
+            var valTuple = new IgniteTuple(schema.ValColumns.Length);
+            var tupleReader = new BinaryTupleReader(reader.ReadBinary(), schema.Columns.Length);
 
-        return new(keyTuple, valTuple);
+            foreach (var column in schema.Columns)
+            {
+                var tuple = column.IsKey ? keyTuple : valTuple;
+                tuple[column.Name] = tupleReader.GetObject(column.SchemaIndex, column.Type, column.Scale);
+            }
+
+            return new(keyTuple, valTuple);
+        }
     }
 
     /// <inheritdoc/>
@@ -65,23 +80,96 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
         ref BinaryTupleBuilder tupleBuilder,
         KvPair<IIgniteTuple, IIgniteTuple> record,
         Schema schema,
-        int columnCount,
+        bool keyOnly,
         Span<byte> noValueSet)
     {
-        for (var index = 0; index < columnCount; index++)
+        var key = record.Key;
+        var val = record.Val;
+
+        IgniteArgumentCheck.NotNull(key);
+
+        if (!keyOnly)
         {
-            var col = schema.Columns[index];
-            var rec = index < schema.KeyColumnCount ? record.Key : record.Val;
+            IgniteArgumentCheck.NotNull(val);
+        }
+
+        int written = 0;
+        var columns = schema.GetColumnsFor(keyOnly);
+
+        foreach (var col in columns)
+        {
+            var rec = col.IsKey ? key : val;
             var colIdx = rec.GetOrdinal(col.Name);
 
             if (colIdx >= 0)
             {
                 tupleBuilder.AppendObject(rec[colIdx], col.Type, col.Scale, col.Precision);
+                written++;
             }
             else
             {
                 tupleBuilder.AppendNoValue(noValueSet);
             }
+        }
+
+        ValidateMappedCount(record, schema, columns.Length, written);
+    }
+
+    private static void ValidateMappedCount(KvPair<IIgniteTuple, IIgniteTuple> record, Schema schema, int columnCount, int written)
+    {
+        if (written == 0)
+        {
+            var columnStr = schema.Columns.Select(x => x.Type + " " + x.Name).StringJoin();
+            throw new ArgumentException($"Can't map '{record}' to columns '{columnStr}'. Matching fields not found.");
+        }
+
+        var recordFieldCount = record.Key.FieldCount;
+
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+        if (record.Val != null)
+        {
+            recordFieldCount += record.Val.FieldCount;
+        }
+
+        if (recordFieldCount > written)
+        {
+            var extraColumns = new HashSet<string>(recordFieldCount, StringComparer.OrdinalIgnoreCase);
+
+            for (int i = 0; i < record.Key.FieldCount; i++)
+            {
+                var name = record.Key.GetName(i);
+
+                if (extraColumns.Contains(name))
+                {
+                    throw new ArgumentException("Duplicate column in Key portion of KeyValue pair: " + name, nameof(record));
+                }
+
+                extraColumns.Add(name);
+            }
+
+            if (record.Val != null)
+            {
+                for (int i = 0; i < record.Val.FieldCount; i++)
+                {
+                    var name = record.Val.GetName(i);
+
+                    if (extraColumns.Contains(name))
+                    {
+                        throw new ArgumentException("Duplicate column in Value portion of KeyValue pair: " + name, nameof(record));
+                    }
+
+                    extraColumns.Add(name);
+                }
+            }
+
+            for (var i = 0; i < columnCount; i++)
+            {
+                extraColumns.Remove(schema.Columns[i].Name);
+            }
+
+            Debug.Assert(extraColumns.Count > 0, "extraColumns.Count > 0");
+
+            throw SerializerExceptionExtensions.GetUnmappedColumnsException("Tuple pair", schema, extraColumns);
         }
     }
 }

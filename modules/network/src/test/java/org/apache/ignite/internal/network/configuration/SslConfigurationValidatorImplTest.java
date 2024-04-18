@@ -24,13 +24,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.validation.TestValidationUtil;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
-class SslConfigurationValidatorImplTest {
+class SslConfigurationValidatorImplTest extends BaseIgniteAbstractTest {
 
     @Test
     public void nullKeyStorePath() {

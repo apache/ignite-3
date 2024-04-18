@@ -19,15 +19,11 @@ package org.apache.ignite.internal.rest.cluster;
 
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
-import jakarta.inject.Named;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
@@ -35,10 +31,8 @@ import org.apache.ignite.internal.rest.api.cluster.ClusterState;
 import org.apache.ignite.internal.rest.api.cluster.ClusterTag;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
 import org.apache.ignite.internal.rest.cluster.exception.InvalidArgumentClusterInitializationException;
-import org.apache.ignite.internal.rest.exception.ClusterNotInitializedException;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Cluster management controller implementation.
@@ -51,29 +45,24 @@ public class ClusterManagementController implements ClusterManagementApi {
 
     private final ClusterManagementGroupManager clusterManagementGroupManager;
 
-    private final ConfigurationValidator clusterCfgValidator;
-
     /**
      * Cluster management controller constructor.
      *
      * @param clusterInitializer cluster initializer.
      * @param clusterManagementGroupManager cluster management group manager.
-     * @param clusterCfgValidator cluster configuration validator.
      */
     public ClusterManagementController(
             ClusterInitializer clusterInitializer,
-            ClusterManagementGroupManager clusterManagementGroupManager,
-            @Named("clusterCfgValidator") ConfigurationValidator clusterCfgValidator
+            ClusterManagementGroupManager clusterManagementGroupManager
     ) {
         this.clusterInitializer = clusterInitializer;
         this.clusterManagementGroupManager = clusterManagementGroupManager;
-        this.clusterCfgValidator = clusterCfgValidator;
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ClusterState> clusterState() {
-        return clusterManagementGroupManager.clusterState().thenApply(this::mapClusterState);
+        return clusterManagementGroupManager.clusterState().thenApply(ClusterManagementController::mapClusterState);
     }
 
     /** {@inheritDoc} */
@@ -84,34 +73,17 @@ public class ClusterManagementController implements ClusterManagementApi {
                     initCommand.cmgNodes());
         }
 
-        return validateConfiguration(initCommand.clusterConfiguration())
-                .thenCompose(ignored -> clusterInitializer.initCluster(
-                        initCommand.metaStorageNodes(),
-                        initCommand.cmgNodes(),
-                        initCommand.clusterName(),
-                        initCommand.clusterConfiguration()
-                ))
-                .exceptionally(ex -> {
-                    throw mapException(ex);
-                });
+        return clusterInitializer.initCluster(
+                initCommand.metaStorageNodes(),
+                initCommand.cmgNodes(),
+                initCommand.clusterName(),
+                initCommand.clusterConfiguration()
+        ).exceptionally(ex -> {
+            throw mapException(ex);
+        });
     }
 
-    private CompletableFuture<Void> validateConfiguration(@Nullable String configuration) {
-        if (configuration != null) {
-            List<ValidationIssue> validationIssues = clusterCfgValidator.validateHocon(configuration);
-            if (!validationIssues.isEmpty()) {
-                return CompletableFuture.failedFuture(new ConfigurationValidationException(validationIssues));
-            }
-        }
-
-        return CompletableFuture.completedFuture(null);
-    }
-
-    private ClusterState mapClusterState(org.apache.ignite.internal.cluster.management.ClusterState clusterState) {
-        if (clusterState == null) {
-            throw new ClusterNotInitializedException();
-        }
-
+    private static ClusterState mapClusterState(org.apache.ignite.internal.cluster.management.ClusterState clusterState) {
         return new ClusterState(
                 clusterState.cmgNodes(),
                 clusterState.metaStorageNodes(),
@@ -121,7 +93,7 @@ public class ClusterManagementController implements ClusterManagementApi {
     }
 
     private static RuntimeException mapException(Throwable ex) {
-        var cause = unwrapExceptionCompletionException(ex.getCause());
+        var cause = ExceptionUtils.unwrapCause(ex);
         if (cause instanceof IgniteInternalException) {
             return (IgniteInternalException) cause;
         } else if (cause instanceof IllegalArgumentException || cause instanceof ConfigurationValidationException) {
@@ -130,14 +102,6 @@ public class ClusterManagementController implements ClusterManagementApi {
             return (RuntimeException) cause;
         } else {
             return new IgniteException(cause);
-        }
-    }
-
-    private static Throwable unwrapExceptionCompletionException(Throwable ex) {
-        if (ex instanceof CompletionException) {
-            return ex.getCause();
-        } else {
-            return ex;
         }
     }
 }

@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.ReadCommand;
-import org.apache.ignite.network.annotations.Transferable;
 
 /** Get command for MetaStorageCommandListener that retrieves current revision. */
 @Transferable(MetastorageCommandsMessageGroup.GET_CURRENT_REVISION)

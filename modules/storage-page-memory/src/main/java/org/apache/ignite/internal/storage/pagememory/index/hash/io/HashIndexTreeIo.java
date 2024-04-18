@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 
 import java.nio.ByteBuffer;
 import java.util.UUID;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.ReadIndexCol
 import org.apache.ignite.internal.storage.pagememory.index.hash.CompareIndexColumnsValue;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRow;
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRowKey;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Interface for {@link HashIndexRow} B+Tree-related IO.
@@ -64,7 +64,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 public interface HashIndexTreeIo {
     /** Item size without index columns in bytes. */
     int ITEM_SIZE_WITHOUT_COLUMNS = Integer.BYTES // Index columns hash.
-            + Short.SIZE // Inlined index columns size.
+            + Short.BYTES // Inlined index columns size.
             + PARTITIONLESS_LINK_SIZE_BYTES // Index columns link.
             + 2 * Long.BYTES; // Row ID.
 

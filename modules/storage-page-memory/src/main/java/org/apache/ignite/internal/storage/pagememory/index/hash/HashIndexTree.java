@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.bi
 import static org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeIo.ITEM_SIZE_WITHOUT_COLUMNS;
 
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTree
 import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeIo;
 import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeLeafIo;
 import org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeMetaIo;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,7 +46,38 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
     private final int inlineSize;
 
     /**
-     * Constructor.
+     * Constructor used to restore an existing tree.
+     *
+     * @param grpId Group ID.
+     * @param grpName Group name.
+     * @param partId Partition ID.
+     * @param pageMem Page memory.
+     * @param lockLsnr Page lock listener.
+     * @param globalRmvId Remove ID.
+     * @param metaPageId Meta page ID.
+     * @param reuseList Reuse list.
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    private HashIndexTree(
+            int grpId,
+            @Nullable String grpName,
+            int partId,
+            PageMemory pageMem,
+            PageLockListener lockLsnr,
+            AtomicLong globalRmvId,
+            long metaPageId,
+            @Nullable ReuseList reuseList
+    ) throws IgniteInternalCheckedException {
+        super("HashIndexTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
+
+        this.inlineSize = readInlineSizeFromMetaIo();
+        this.dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
+
+        init(false);
+    }
+
+    /**
+     * Constructor used to create a new tree.
      *
      * @param grpId Group ID.
      * @param grpName Group name.
@@ -57,10 +88,9 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      * @param indexDescriptor Index descriptor.
-     * @param initNew {@code True} if new tree should be created.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public HashIndexTree(
+    private HashIndexTree(
             int grpId,
             @Nullable String grpName,
             int partId,
@@ -69,28 +99,59 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
-            StorageHashIndexDescriptor indexDescriptor,
-            boolean initNew
+            StorageHashIndexDescriptor indexDescriptor
     ) throws IgniteInternalCheckedException {
         super("HashIndexTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
-        inlineSize = initNew
-                ? binaryTupleInlineSize(pageSize(), ITEM_SIZE_WITHOUT_COLUMNS, indexDescriptor)
-                : readInlineSizeFromMetaIo();
+        this.inlineSize = binaryTupleInlineSize(pageSize(), ITEM_SIZE_WITHOUT_COLUMNS, indexDescriptor);
+        this.dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
 
+        init(true);
+
+        writeInlineSizeToMetaIo(inlineSize);
+    }
+
+    private void init(boolean initNew) throws IgniteInternalCheckedException {
         setIos(
                 HashIndexTreeInnerIo.VERSIONS.get(inlineSize),
                 HashIndexTreeLeafIo.VERSIONS.get(inlineSize),
                 HashIndexTreeMetaIo.VERSIONS
         );
 
-        dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
-
         initTree(initNew);
+    }
 
-        if (initNew) {
-            writeInlineSizeToMetaIo(inlineSize);
-        }
+    /**
+     * Creates a new Hash Index tree.
+     */
+    public static HashIndexTree createNew(
+            int grpId,
+            @Nullable String grpName,
+            int partId,
+            PageMemory pageMem,
+            PageLockListener lockLsnr,
+            AtomicLong globalRmvId,
+            long metaPageId,
+            @Nullable ReuseList reuseList,
+            StorageHashIndexDescriptor indexDescriptor
+    ) throws IgniteInternalCheckedException {
+        return new HashIndexTree(grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList, indexDescriptor);
+    }
+
+    /**
+     * Restores a Hash Index tree that has already been created before.
+     */
+    public static HashIndexTree restoreExisting(
+            int grpId,
+            @Nullable String grpName,
+            int partId,
+            PageMemory pageMem,
+            PageLockListener lockLsnr,
+            AtomicLong globalRmvId,
+            long metaPageId,
+            @Nullable ReuseList reuseList
+    ) throws IgniteInternalCheckedException {
+        return new HashIndexTree(grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
     }
 
     /**

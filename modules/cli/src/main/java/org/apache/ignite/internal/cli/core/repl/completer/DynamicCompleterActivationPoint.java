@@ -30,6 +30,7 @@ import org.apache.ignite.internal.cli.core.repl.completer.metric.MetricSourceDyn
 import org.apache.ignite.internal.cli.core.repl.completer.node.NodeNameDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.path.FilePathCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.unit.UnitIdDynamicCompleterFactory;
+import org.apache.ignite.internal.cli.core.repl.completer.unit.UnitNodesCompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.unit.UnitNodesDynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.unit.UnitVersionsDynamicCompleterFactory;
 
@@ -104,12 +105,6 @@ public class DynamicCompleterActivationPoint {
         );
         registry.register(
                 CompleterConf.builder()
-                        .command("connect")
-                        .singlePositionalParameter().build(),
-                nodeNameDynamicCompleterFactory
-        );
-        registry.register(
-                CompleterConf.builder()
                         .command("cluster", "init")
                         .enableOptions(Options.META_STORAGE_NODE_NAME, Options.CMG_NODE_NAME)
                         .build(),
@@ -161,6 +156,7 @@ public class DynamicCompleterActivationPoint {
                 CompleterConf.builder()
                         .command("cluster", "unit", "deploy")
                         .enableOptions(Options.UNIT_NODES)
+                        .filter(new UnitNodesCompleterFilter())
                         .exclusiveEnableOptions().build(),
                 unitNodesDynamicCompleterFactory
         );

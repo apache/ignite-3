@@ -20,6 +20,7 @@ project(ignite-test-common)
 set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
+    basic_auth_test_suite.h
     cmd_process.h
     ignite_runner.cpp ignite_runner.h
     process.cpp

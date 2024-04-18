@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.processor;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 @MessageGroup(groupType = 1, groupName = "Test")
 public class SecondGroup {

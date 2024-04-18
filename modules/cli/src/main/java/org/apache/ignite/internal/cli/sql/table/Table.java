@@ -42,7 +42,7 @@ public class Table<T> {
      * @param content list of row content. Size should be equals n * ids.size.
      */
     public Table(List<String> ids, List<T> content) {
-        if (content.size() != 0 && ids.size() != 0 && content.size() % ids.size() != 0) {
+        if (!content.isEmpty() && !ids.isEmpty() && content.size() % ids.size() != 0) {
             throw new IllegalArgumentException("Content size should be divisible by columns count");
         }
 
@@ -57,7 +57,7 @@ public class Table<T> {
     }
 
     private static String[] parseHeader(List<String> header) {
-        if (header.size() > 0) {
+        if (!header.isEmpty()) {
             return header.toArray(new String[0]);
         } else {
             return new String[] { "EMPTY" };

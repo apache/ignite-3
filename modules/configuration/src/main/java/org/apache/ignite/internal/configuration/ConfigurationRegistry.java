@@ -17,40 +17,30 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.io.Serializable;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationChanger.ConfigurationUpdateListener;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
-import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
-import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.apache.ignite.internal.configuration.util.KeyNotFoundException;
-import org.apache.ignite.internal.configuration.util.NodeValue;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -102,26 +92,12 @@ public class ConfigurationRegistry implements IgniteComponent {
         });
     }
 
-    /**
-     * Registers default validator implementation to the validators map.
-     *
-     * @param validators     Validators map.
-     * @param annotatopnType Annotation type instance for the validator.
-     * @param validator      Validator instance.
-     * @param <A>            Annotation type.
-     */
-    private static <A extends Annotation> void addDefaultValidator(
-            Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators,
-            Class<A> annotatopnType,
-            Validator<A, ?> validator
-    ) {
-        validators.computeIfAbsent(annotatopnType, a -> new HashSet<>(1)).add(validator);
-    }
-
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         changer.start();
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */
@@ -138,12 +114,23 @@ public class ConfigurationRegistry implements IgniteComponent {
     }
 
     /**
+     * Initializes the configuration with the given source. This method should be used only for the initial setup of the configuration. The
+     * configuration is initialized with the provided source only if the storage is empty, and it is saved along with the defaults. This
+     * method must be called before {@link #start()}.
+     *
+     * @param configurationSource the configuration source to initialize with.
+     */
+    public void initializeConfigurationWith(ConfigurationSource configurationSource) {
+        changer.initializeConfigurationWith(configurationSource);
+    }
+
+    /**
      * Gets the public configuration tree.
      *
      * @param rootKey Root key.
-     * @param <V>     View type.
-     * @param <C>     Change type.
-     * @param <T>     Configuration tree type.
+     * @param <V> View type.
+     * @param <C> Change type.
+     * @param <T> Configuration tree type.
      * @return Public configuration tree.
      */
     public <V, C, T extends ConfigurationTree<V, C>> T getConfiguration(RootKey<T, V> rootKey) {
@@ -151,32 +138,12 @@ public class ConfigurationRegistry implements IgniteComponent {
     }
 
     /**
-     * Convert configuration subtree into a user-defined representation.
+     * Returns a copy of the configuration root.
      *
-     * @param path    Path to configuration subtree. Can be empty, can't be {@code null}.
-     * @param visitor Visitor that will be applied to the subtree and build the representation.
-     * @param <T>     Type of the representation.
-     * @return User-defined representation constructed by {@code visitor}.
-     * @throws IllegalArgumentException If {@code path} is not found in current configuration.
+     * @return Copy of the configuration root.
      */
-    public <T> T represent(List<String> path, ConfigurationVisitor<T> visitor) throws IllegalArgumentException {
-        SuperRoot superRoot = changer.superRoot();
-
-        NodeValue<?> node;
-        try {
-            node = ConfigurationUtil.find(path, superRoot, false);
-        } catch (KeyNotFoundException e) {
-            throw new IllegalArgumentException(e.getMessage());
-        }
-
-        Object value = node.value();
-        if (value instanceof TraversableTreeNode) {
-            return ((TraversableTreeNode) value).accept(node.field(), null, visitor);
-        }
-
-        assert value == null || value instanceof Serializable;
-
-        return visitor.visitLeafNode(node.field(), null, (Serializable) value);
+    public SuperRoot superRoot() {
+        return changer.superRoot().copy();
     }
 
     /**
@@ -203,21 +170,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
                 SuperRoot superRoot = (SuperRoot) node;
 
-                change.accept(new SuperRootChange() {
-                    @Override
-                    public <V> V viewRoot(RootKey<? extends ConfigurationTree<V, ?>, V> rootKey) {
-                        return Objects.requireNonNull(superRoot.getRoot(rootKey)).specificNode();
-                    }
-
-                    @Override
-                    public <C> C changeRoot(RootKey<? extends ConfigurationTree<?, C>, ?> rootKey) {
-                        // "construct" does a field copying, which is what we need before mutating it.
-                        superRoot.construct(rootKey.key(), ConfigurationUtil.EMPTY_CFG_SRC, true);
-
-                        // "rootView" is not re-used here because of return type incompatibility, although code is the same.
-                        return Objects.requireNonNull(superRoot.getRoot(rootKey)).specificNode();
-                    }
-                });
+                change.accept(new SuperRootChangeImpl(superRoot));
             }
         });
     }
@@ -258,7 +211,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
             private CompletableFuture<Void> combineFutures(Collection<CompletableFuture<?>> futures) {
                 if (futures.isEmpty()) {
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 }
 
                 CompletableFuture<?>[] resultFutures = futures.stream()

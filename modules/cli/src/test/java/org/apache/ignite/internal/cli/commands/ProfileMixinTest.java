@@ -19,15 +19,7 @@ package org.apache.ignite.internal.cli.commands;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-import io.micronaut.configuration.picocli.MicronautFactory;
-import io.micronaut.context.ApplicationContext;
-import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
-import jakarta.inject.Inject;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.call.cluster.ClusterInitCall;
@@ -45,20 +37,16 @@ import org.apache.ignite.internal.cli.call.configuration.NodeConfigUpdateCallInp
 import org.apache.ignite.internal.cli.call.node.status.NodeStatusCall;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallInput;
-import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.ArgumentCaptor;
-import picocli.CommandLine;
 
 /**
  * Test for --profile override for --node-url and --cluster-endpoint-url options.
  */
-@MicronautTest
-public class ProfileMixinTest {
+public class ProfileMixinTest extends CliCommandTestBase {
     /**
      * Cluster URL from default profile in integration_tests.ini.
      */
@@ -73,9 +61,6 @@ public class ProfileMixinTest {
      * Cluster URL override from command line.
      */
     private static final String URL_FROM_CMD = "http://localhost:10302";
-
-    @Inject
-    private ApplicationContext ctx;
 
     @ParameterizedTest
     @DisplayName("Should take URL from default profile")
@@ -161,7 +146,7 @@ public class ProfileMixinTest {
         assertEquals(URL_FROM_CMD, urlSupplier.apply(callInput));
     }
 
-    static Stream<Arguments> nodeCallsProvider() {
+    private static Stream<Arguments> nodeCallsProvider() {
         return Stream.of(
                 arguments(
                         "node config show",
@@ -184,7 +169,7 @@ public class ProfileMixinTest {
         );
     }
 
-    static Stream<Arguments> clusterCallsProvider() {
+    private static Stream<Arguments> clusterCallsProvider() {
         return Stream.of(
                 arguments(
                         "cluster config show",
@@ -219,25 +204,12 @@ public class ProfileMixinTest {
         );
     }
 
-    static Stream<Arguments> allCallsProvider() {
+    private static Stream<Arguments> allCallsProvider() {
         return Stream.concat(nodeCallsProvider(), clusterCallsProvider());
     }
 
-    private void execute(String cmdLine) {
-        CommandLine cmd = new CommandLine(TopLevelCliCommand.class, new MicronautFactory(ctx));
-        cmd.execute(cmdLine.split(" "));
-    }
-
-    private <IT extends CallInput, OT, T extends Call<IT, OT>> T registerMockCall(Class<T> callClass) {
-        T mock = mock(callClass);
-        ctx.registerSingleton(mock);
-        when(mock.execute(any())).thenReturn(DefaultCallOutput.empty());
-        return mock;
-    }
-
-    private <IT extends CallInput, OT, T extends Call<IT, OT>> IT verifyCallInput(T call, Class<IT> inputClass) {
-        ArgumentCaptor<IT> captor = ArgumentCaptor.forClass(inputClass);
-        verify(call).execute(captor.capture());
-        return captor.getValue();
+    @Override
+    protected Class<?> getCommandClass() {
+        return TopLevelCliCommand.class;
     }
 }

@@ -25,11 +25,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.util.GridUnsafe;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.junit.jupiter.api.Test;
 
 /**

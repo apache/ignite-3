@@ -82,7 +82,7 @@ namespace Apache.Ignite.Internal.Transactions
                 using var writer = ProtoCommon.GetMessageWriter();
                 Write(writer.MessageWriter);
 
-                await Socket.DoOutInOpAsync(ClientOp.TxCommit, writer).ConfigureAwait(false);
+                using var buffer = await Socket.DoOutInOpAsync(ClientOp.TxCommit, writer).ConfigureAwait(false);
             }
         }
 
@@ -120,7 +120,7 @@ namespace Apache.Ignite.Internal.Transactions
                 using var writer = ProtoCommon.GetMessageWriter();
                 Write(writer.MessageWriter);
 
-                await Socket.DoOutInOpAsync(ClientOp.TxRollback, writer).ConfigureAwait(false);
+                using var buffer = await Socket.DoOutInOpAsync(ClientOp.TxRollback, writer).ConfigureAwait(false);
             }
         }
 

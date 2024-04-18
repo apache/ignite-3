@@ -17,7 +17,7 @@
 
 package org.apache.ignite.raft.jraft.storage.impl;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**

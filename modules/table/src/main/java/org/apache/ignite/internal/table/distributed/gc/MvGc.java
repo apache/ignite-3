@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed.gc;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.thread.NamedThreadFactory.threadPrefix;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.concurrent.CompletableFuture;
@@ -33,15 +34,16 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermarkChangedListener;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.ErrorGroups.GarbageCollector;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -49,11 +51,8 @@ import org.jetbrains.annotations.TestOnly;
  *
  * @see GcUpdateHandler#vacuumBatch(HybridTimestamp, int, boolean)
  */
-public class MvGc implements ManuallyCloseable {
+public class MvGc implements LowWatermarkChangedListener, ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(MvGc.class);
-
-    /** GC batch size for the storage. */
-    static final int GC_BATCH_SIZE = 5;
 
     /** Node name. */
     private final String nodeName;
@@ -99,7 +98,7 @@ public class MvGc implements ManuallyCloseable {
                 30,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
-                new NamedThreadFactory(threadPrefix(nodeName, "mv-gc"), LOG)
+                IgniteThreadFactory.create(nodeName, "mv-gc", LOG, STORAGE_READ, STORAGE_WRITE)
         );
     }
 
@@ -138,12 +137,12 @@ public class MvGc implements ManuallyCloseable {
             GcStorageHandler removed = storageHandlerByPartitionId.remove(tablePartitionId);
 
             if (removed == null) {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             CompletableFuture<Void> gcInProgressFuture = removed.gcInProgressFuture.get();
 
-            return gcInProgressFuture == null ? completedFuture(null) : gcInProgressFuture;
+            return gcInProgressFuture == null ? nullCompletedFuture() : gcInProgressFuture;
         });
     }
 
@@ -155,7 +154,8 @@ public class MvGc implements ManuallyCloseable {
      * @param newLwm New low watermark.
      * @throws IgniteInternalException with {@link GarbageCollector#CLOSED_ERR} If the garbage collector is closed.
      */
-    public void updateLowWatermark(HybridTimestamp newLwm) {
+    @Override
+    public CompletableFuture<Void> onLwmChanged(HybridTimestamp newLwm) {
         inBusyLock(() -> {
             HybridTimestamp updatedLwm = lowWatermarkReference.updateAndGet(currentLwm -> {
                 if (currentLwm == null) {
@@ -173,6 +173,8 @@ public class MvGc implements ManuallyCloseable {
 
             executor.submit(() -> inBusyLock(this::initNewGcBusy));
         });
+
+        return nullCompletedFuture();
     }
 
     @Override
@@ -242,7 +244,7 @@ public class MvGc implements ManuallyCloseable {
                 // We can only start garbage collection when the partition safe time is reached.
                 gcUpdateHandler.getSafeTimeTracker()
                         .waitFor(lowWatermark)
-                        .thenApplyAsync(unused -> gcUpdateHandler.vacuumBatch(lowWatermark, GC_BATCH_SIZE, true), executor)
+                        .thenApplyAsync(unused -> gcUpdateHandler.vacuumBatch(lowWatermark, gcConfig.value().batchSize(), true), executor)
                         .whenComplete((isGarbageLeft, throwable) -> {
                             if (throwable != null) {
                                 if (throwable instanceof TrackerClosedException

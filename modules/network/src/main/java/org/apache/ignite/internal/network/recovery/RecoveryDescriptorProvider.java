@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.recovery;
 
+import java.util.Collection;
 import java.util.UUID;
 
 /**
@@ -32,4 +33,17 @@ public interface RecoveryDescriptorProvider {
      * @return Recovery descriptor.
      */
     RecoveryDescriptor getRecoveryDescriptor(String consistentId, UUID launchId, short connectionIndex);
+
+    /**
+     * Returns descriptors corresponding to the remote node with the given launch ID.
+     *
+     * @param launchId Launch ID to identify the node.
+     * @return Descriptors by launch ID.
+     */
+    Collection<RecoveryDescriptor> getRecoveryDescriptorsByLaunchId(UUID launchId);
+
+    /**
+     * Returns all descriptors.
+     */
+    Collection<RecoveryDescriptor> getAllRecoveryDescriptors();
 }

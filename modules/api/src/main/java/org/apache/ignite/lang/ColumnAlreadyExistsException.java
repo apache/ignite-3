@@ -17,8 +17,8 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.internal.util.IgniteNameUtils.quote;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
+import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
 
 import java.util.UUID;
 

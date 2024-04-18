@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataRegion.calculateCheckpointBufferSize;
 import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataRegion.calculateSegmentSizes;
 import static org.apache.ignite.internal.util.Constants.GiB;
@@ -28,8 +29,11 @@ import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -37,51 +41,60 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * For {@link PersistentPageMemoryDataRegion} testing.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class PersistentPageMemoryDataRegionTest {
-    @InjectConfiguration
-    private PersistentPageMemoryDataRegionConfiguration dataRegionConfig;
+public class PersistentPageMemoryDataRegionTest extends BaseIgniteAbstractTest {
+    @InjectConfiguration(
+            polymorphicExtensions = PersistentPageMemoryProfileConfigurationSchema.class,
+            value = "mock.engine = aipersist")
+    private StorageProfileConfiguration dataRegionConfig;
 
     @Test
     void testCalculateSegmentSizes() throws Exception {
         int concurrencyLevel = 2;
 
-        PersistentPageMemoryDataRegionView dataRegionConfigView = dataRegionConfig.value();
+        PersistentPageMemoryProfileView dataRegionConfigView = (PersistentPageMemoryProfileView) dataRegionConfig.value();
 
         assertArrayEquals(
                 fill(new long[concurrencyLevel], dataRegionConfigView.size() / concurrencyLevel),
-                calculateSegmentSizes(dataRegionConfigView, concurrencyLevel)
+                calculateSegmentSizes(dataRegionConfigView.size(), concurrencyLevel)
         );
-
-        dataRegionConfig.size().update(1024L).get(1, TimeUnit.SECONDS);
+        dataRegionConfig().size().update(1024L).get(1, TimeUnit.SECONDS);
 
         assertArrayEquals(
                 fill(new long[concurrencyLevel], MiB),
-                calculateSegmentSizes(dataRegionConfig.value(), concurrencyLevel)
+                calculateSegmentSizes(((PersistentPageMemoryProfileView) dataRegionConfig.value()).size(), concurrencyLevel)
         );
     }
 
     @Test
     void testCalculateCheckpointBufferSize() throws Exception {
-        PersistentPageMemoryDataRegionView dataRegionConfigView = dataRegionConfig.value();
+        dataRegionConfig().size().update(GiB / 4L).get(1, TimeUnit.SECONDS);
 
-        assertEquals(dataRegionConfigView.size(), calculateCheckpointBufferSize(dataRegionConfigView));
+        assertEquals(GiB / 4L, calculateCheckpointBufferSize(dataRegionConfigView().size()));
 
-        dataRegionConfig.size().update(GiB / 2L).get(1, TimeUnit.SECONDS);
+        dataRegionConfig().size().update(GiB / 2L).get(1, TimeUnit.SECONDS);
 
-        assertEquals(GiB / 4L, calculateCheckpointBufferSize(dataRegionConfig.value()));
+        assertEquals(GiB / 4L, calculateCheckpointBufferSize(dataRegionConfigView().size()));
 
-        dataRegionConfig.size().update(6L * GiB).get(1, TimeUnit.SECONDS);
+        dataRegionConfig().size().update(6L * GiB).get(1, TimeUnit.SECONDS);
 
-        assertEquals((6L * GiB) / 4L, calculateCheckpointBufferSize(dataRegionConfig.value()));
+        assertEquals((6L * GiB) / 4L, calculateCheckpointBufferSize(dataRegionConfigView().size()));
 
-        dataRegionConfig.size().update(8L * GiB).get(1, TimeUnit.SECONDS);
+        dataRegionConfig().size().update(8L * GiB).get(1, TimeUnit.SECONDS);
 
-        assertEquals(2L * GiB, calculateCheckpointBufferSize(dataRegionConfig.value()));
+        assertEquals(2L * GiB, calculateCheckpointBufferSize(dataRegionConfigView().size()));
     }
 
     private long[] fill(long[] arr, long v) {
         Arrays.fill(arr, v);
 
         return arr;
+    }
+
+    private PersistentPageMemoryProfileConfiguration dataRegionConfig() {
+        return (PersistentPageMemoryProfileConfiguration) fixConfiguration(dataRegionConfig);
+    }
+
+    private PersistentPageMemoryProfileView dataRegionConfigView() {
+        return (PersistentPageMemoryProfileView) dataRegionConfig.value();
     }
 }

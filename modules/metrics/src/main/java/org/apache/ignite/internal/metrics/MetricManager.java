@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metrics;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,6 +30,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -35,8 +38,6 @@ import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.configuration.MetricView;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.VisibleForTesting;
 
 
@@ -91,8 +92,10 @@ public class MetricManager implements IgniteComponent {
     }
 
     /** {@inheritDoc} */
-    @Override public void start() {
+    @Override public CompletableFuture<Void> start() {
         start(loadExporters());
+
+        return nullCompletedFuture();
     }
 
     /**
@@ -240,7 +243,6 @@ public class MetricManager implements IgniteComponent {
      *
      * @return Metrics snapshot.
      */
-    @NotNull
     public IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot() {
         return registry.metricSnapshot();
     }
@@ -273,7 +275,7 @@ public class MetricManager implements IgniteComponent {
         public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<ExporterView> ctx) {
             checkAndStartExporter(ctx.newValue().exporterName(), ctx.newValue());
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         @Override
@@ -284,7 +286,7 @@ public class MetricManager implements IgniteComponent {
                 removed.stop();
             }
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         @Override
@@ -295,7 +297,7 @@ public class MetricManager implements IgniteComponent {
                 exporter.reconfigure(ctx.newValue());
             }
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
     }
 }

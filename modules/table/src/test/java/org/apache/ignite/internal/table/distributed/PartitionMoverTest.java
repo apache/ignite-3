@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -34,17 +34,19 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for the {@link PartitionMover} class.
  */
-class PartitionMoverTest {
+class PartitionMoverTest extends BaseIgniteAbstractTest {
     private static final long TERM = 123;
 
     private static final PeersAndLearners PEERS_AND_LEARNERS = PeersAndLearners.fromConsistentIds(
@@ -62,7 +64,7 @@ class PartitionMoverTest {
         when(raftService.changePeersAsync(any(), anyLong()))
                 .thenReturn(failedFuture(new RuntimeException()))
                 .thenReturn(failedFuture(new IOException()))
-                .thenReturn(completedFuture(null));
+                .thenReturn(nullCompletedFuture());
 
         var partitionMover = new PartitionMover(new IgniteSpinBusyLock(), () -> raftService);
 

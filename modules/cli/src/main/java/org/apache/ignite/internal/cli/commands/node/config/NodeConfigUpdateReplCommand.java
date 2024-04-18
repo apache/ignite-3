@@ -21,12 +21,12 @@ import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigUpdateCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigUpdateCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
+import org.apache.ignite.internal.cli.commands.SpacedParameterMixin;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Parameters;
 
 /**
  * Command that updates configuration in REPL mode.
@@ -38,8 +38,8 @@ public class NodeConfigUpdateReplCommand extends BaseCommand implements Runnable
     private NodeUrlMixin nodeUrl;
 
     /** Configuration that will be updated. */
-    @Parameters(index = "0")
-    private String config;
+    @Mixin
+    private SpacedParameterMixin config;
 
     @Inject
     NodeConfigUpdateCall call;
@@ -59,6 +59,6 @@ public class NodeConfigUpdateReplCommand extends BaseCommand implements Runnable
     }
 
     private NodeConfigUpdateCallInput nodeConfigUpdateCallInput(String nodeUrl) {
-        return NodeConfigUpdateCallInput.builder().config(config).nodeUrl(nodeUrl).build();
+        return NodeConfigUpdateCallInput.builder().config(config.toString()).nodeUrl(nodeUrl).build();
     }
 }

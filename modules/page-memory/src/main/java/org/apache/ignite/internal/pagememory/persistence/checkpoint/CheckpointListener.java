@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import java.util.concurrent.Executor;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**

@@ -17,16 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.property;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHolder.Builder;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties.Builder;
 
 /**
- * Implementation of the builder interface to constructs the holder with
- * given properties.
+ * Implementation of the builder interface to constructs the properties.
  */
 class BuilderImpl implements Builder {
     private final Map<Property<?>, Object> properties = new HashMap<>();
@@ -49,7 +48,7 @@ class BuilderImpl implements Builder {
 
     /** {@inheritDoc} */
     @Override
-    public PropertiesHolder build() {
-        return new PropertiesHolderImpl(Map.copyOf(properties));
+    public SqlProperties build() {
+        return new SqlPropertiesImpl(Map.copyOf(properties));
     }
 }

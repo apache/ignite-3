@@ -17,13 +17,19 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+
+import java.io.IOException;
+import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Distribution zone descriptor base class.
  */
 public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
-    private static final long serialVersionUID = 1093607327002694066L;
+    public static final CatalogObjectSerializer<CatalogZoneDescriptor> SERIALIZER = new ZoneDescriptorSerializer();
 
     /** Amount of zone partitions. */
     private final int partitions;
@@ -43,53 +49,21 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     /** Nodes filer. */
     private final String filter;
 
-    /** Data storage descriptor. */
-    private CatalogDataStorageDescriptor dataStorage;
+    /** Storage profiles descriptor. */
+    private final CatalogStorageProfilesDescriptor storageProfiles;
 
     /**
      * Constructs a distribution zone descriptor.
      *
      * @param id Id of the distribution zone.
      * @param name Name of the zone.
-     * @param partitions Number of partitions in distributions zone.
-     * @param replicas Number of partition replicas.
+     * @param partitions Count of partitions in distributions zone.
+     * @param replicas Count of partition replicas.
      * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
      * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
      * @param filter Nodes filter.
-     */
-    public CatalogZoneDescriptor(
-            int id,
-            String name,
-            int partitions,
-            int replicas,
-            int dataNodesAutoAdjust,
-            int dataNodesAutoAdjustScaleUp,
-            int dataNodesAutoAdjustScaleDown,
-            String filter
-    ) {
-        super(id, Type.ZONE, name);
-
-        this.partitions = partitions;
-        this.replicas = replicas;
-        this.dataNodesAutoAdjust = dataNodesAutoAdjust;
-        this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
-        this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
-        this.filter = filter;
-    }
-
-    /**
-     * Constructs a distribution zone descriptor.
-     *
-     * @param id Id of the distribution zone.
-     * @param name Name of the zone.
-     * @param partitions Amount of partitions in distributions zone.
-     * @param replicas Amount of partition replicas.
-     * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
-     * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
-     * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
-     * @param filter Nodes filter.
-     * @param dataStorage Data storage descriptor.
+     * @param storageProfiles Storage profiles descriptor.
      */
     public CatalogZoneDescriptor(
             int id,
@@ -100,22 +74,57 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             int dataNodesAutoAdjustScaleUp,
             int dataNodesAutoAdjustScaleDown,
             String filter,
-            CatalogDataStorageDescriptor dataStorage
+            CatalogStorageProfilesDescriptor storageProfiles
     ) {
-        this(id, name, partitions, replicas, dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter);
-
-        this.dataStorage = dataStorage;
+        this(id, name, partitions, replicas, dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown,
+                filter, storageProfiles, INITIAL_CAUSALITY_TOKEN);
     }
 
     /**
-     * Returns amount of zone partitions.
+     * Constructs a distribution zone descriptor.
+     *
+     * @param id Id of the distribution zone.
+     * @param name Name of the zone.
+     * @param partitions Count of partitions in distributions zone.
+     * @param replicas Count of partition replicas.
+     * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
+     * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
+     * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
+     * @param filter Nodes filter.
+     * @param causalityToken Token of the update of the descriptor.
+     */
+    private CatalogZoneDescriptor(
+            int id,
+            String name,
+            int partitions,
+            int replicas,
+            int dataNodesAutoAdjust,
+            int dataNodesAutoAdjustScaleUp,
+            int dataNodesAutoAdjustScaleDown,
+            String filter,
+            CatalogStorageProfilesDescriptor storageProfiles,
+            long causalityToken
+    ) {
+        super(id, Type.ZONE, name, causalityToken);
+
+        this.partitions = partitions;
+        this.replicas = replicas;
+        this.dataNodesAutoAdjust = dataNodesAutoAdjust;
+        this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
+        this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
+        this.filter = filter;
+        this.storageProfiles = storageProfiles;
+    }
+
+    /**
+     * Returns count of zone partitions.
      */
     public int partitions() {
         return partitions;
     }
 
     /**
-     * Return amount of zone replicas.
+     * Return count of zone replicas.
      */
     public int replicas() {
         return replicas;
@@ -156,15 +165,64 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     }
 
     /**
-     * Returns the data storage descriptor.
+     * Returns the storage profiles descriptor.
      */
-    // TODO: IGNITE-19719 Must be storage engine specific
-    public CatalogDataStorageDescriptor getDataStorage() {
-        return dataStorage;
+    public CatalogStorageProfilesDescriptor storageProfiles() {
+        return storageProfiles;
     }
 
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(CatalogZoneDescriptor.class, this, super.toString());
+    }
+
+    /**
+     * Serializer for {@link CatalogZoneDescriptor}.
+     */
+    private static class ZoneDescriptorSerializer implements CatalogObjectSerializer<CatalogZoneDescriptor> {
+        @Override
+        public CatalogZoneDescriptor readFrom(IgniteDataInput input) throws IOException {
+            int id = input.readInt();
+            String name = input.readUTF();
+            long updateToken = input.readLong();
+
+            CatalogStorageProfilesDescriptor catalogStorageProfilesDescriptor = CatalogStorageProfilesDescriptor.SERIALIZER.readFrom(input);
+
+            int partitions = input.readInt();
+            int replicas = input.readInt();
+            int dataNodesAutoAdjust = input.readInt();
+            int dataNodesAutoAdjustScaleUp = input.readInt();
+            int dataNodesAutoAdjustScaleDown = input.readInt();
+            String filter = input.readUTF();
+
+            return new CatalogZoneDescriptor(
+                    id,
+                    name,
+                    partitions,
+                    replicas,
+                    dataNodesAutoAdjust,
+                    dataNodesAutoAdjustScaleUp,
+                    dataNodesAutoAdjustScaleDown,
+                    filter,
+                    catalogStorageProfilesDescriptor,
+                    updateToken
+            );
+        }
+
+        @Override
+        public void writeTo(CatalogZoneDescriptor descriptor, IgniteDataOutput output) throws IOException {
+            output.writeInt(descriptor.id());
+            output.writeUTF(descriptor.name());
+            output.writeLong(descriptor.updateToken());
+
+            CatalogStorageProfilesDescriptor.SERIALIZER.writeTo(descriptor.storageProfiles(), output);
+
+            output.writeInt(descriptor.partitions());
+            output.writeInt(descriptor.replicas());
+            output.writeInt(descriptor.dataNodesAutoAdjust());
+            output.writeInt(descriptor.dataNodesAutoAdjustScaleUp());
+            output.writeInt(descriptor.dataNodesAutoAdjustScaleDown());
+            output.writeUTF(descriptor.filter());
+        }
     }
 }

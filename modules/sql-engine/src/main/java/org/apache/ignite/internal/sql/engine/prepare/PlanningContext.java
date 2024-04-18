@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.plan.Context;
@@ -31,8 +33,6 @@ import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.util.CancelFlag;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.util.FastTimestamps;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Planning context.
@@ -50,26 +50,26 @@ public final class PlanningContext implements Context {
 
     private IgnitePlanner planner;
 
-    /** Start planning timestamp in millis. */
-    private final long startTs;
-
     /** The maximum possible planning time. If this time is exceeded, the planning will be cancelled. */
     private final long plannerTimeout;
 
     /** Flag indicated if planning has been canceled due to timeout. */
     private boolean timeouted = false;
 
+    private final Int2ObjectMap<Object> parameters;
+
     /** Private constructor, used by a builder. */
     private PlanningContext(
             Context parentCtx,
             String qry,
-            long plannerTimeout
+            long plannerTimeout,
+            Int2ObjectMap<Object> parameters
     ) {
         this.qry = qry;
         this.parentCtx = parentCtx;
 
-        startTs = FastTimestamps.coarseCurrentTimeMillis();
         this.plannerTimeout = plannerTimeout;
+        this.parameters = parameters;
     }
 
     /** Get framework config. */
@@ -83,8 +83,8 @@ public final class PlanningContext implements Context {
     }
 
     /** Get query parameters. */
-    public Object[] parameters() {
-        return unwrap(BaseQueryContext.class).parameters();
+    public Int2ObjectMap<Object> parameters() {
+        return parameters;
     }
 
     // Helper methods
@@ -97,11 +97,6 @@ public final class PlanningContext implements Context {
     /** Get sql conformance. */
     public SqlConformance conformance() {
         return config().getParserConfig().conformance();
-    }
-
-    /** Get start planning timestamp in millis. */
-    public long startTs() {
-        return startTs;
     }
 
     /** Get planning timeout in millis. */
@@ -130,7 +125,7 @@ public final class PlanningContext implements Context {
 
     /** Get type factory. */
     public IgniteTypeFactory typeFactory() {
-        return unwrap(BaseQueryContext.class).typeFactory();
+        return IgniteTypeFactory.INSTANCE;
     }
 
     /** Get new catalog reader. */
@@ -186,24 +181,36 @@ public final class PlanningContext implements Context {
      * Planner context builder.
      */
     public static class Builder {
+
         private Context parentCtx = Contexts.empty();
 
         private String qry;
 
         private long plannerTimeout;
 
-        public Builder parentContext(@NotNull Context parentCtx) {
+        private Int2ObjectMap<Object> parameters = Int2ObjectMaps.emptyMap();
+
+        /** Parent context. */
+        public Builder parentContext(Context parentCtx) {
             this.parentCtx = parentCtx;
             return this;
         }
 
-        public Builder query(@NotNull String qry) {
+        /** SQL statement. */
+        public Builder query(String qry) {
             this.qry = qry;
             return this;
         }
 
+        /** Planner timeout. */
         public Builder plannerTimeout(long plannerTimeout) {
             this.plannerTimeout = plannerTimeout;
+            return this;
+        }
+
+        /** Values of dynamic parameters to assist with type inference. */
+        public Builder parameters(Int2ObjectMap<Object> parameters) {
+            this.parameters = parameters;
             return this;
         }
 
@@ -213,7 +220,7 @@ public final class PlanningContext implements Context {
          * @return Planner context.
          */
         public PlanningContext build() {
-            return new PlanningContext(parentCtx, qry, plannerTimeout);
+            return new PlanningContext(parentCtx, qry, plannerTimeout, parameters);
         }
     }
 }

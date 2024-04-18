@@ -18,14 +18,31 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.UUID;
+import org.apache.ignite.internal.network.annotations.Transient;
+import org.apache.ignite.internal.network.annotations.WithSetter;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 
 /**
  * Partition transactional command.
  */
-public interface PartitionCommand extends SafeTimePropagatingCommand {
+public interface PartitionCommand extends SafeTimePropagatingCommand, CatalogVersionAware {
     /**
      * Returns a transaction id.
      */
     UUID txId();
+
+    /**
+     * Returns {@code true} if a command represents a full (including all keys) transaction.
+     */
+    boolean full();
+
+    @Override
+    @Transient
+    @WithSetter
+    int requiredCatalogVersion();
+
+    @Override
+    default void requiredCatalogVersion(int version) {
+        // No-op.
+    }
 }

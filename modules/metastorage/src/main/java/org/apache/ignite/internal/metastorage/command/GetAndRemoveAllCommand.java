@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.metastorage.command;
 
 import java.util.List;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Get and remove all command for MetaStorageCommandListener that removes entries for given keys and retrieves previous entries.

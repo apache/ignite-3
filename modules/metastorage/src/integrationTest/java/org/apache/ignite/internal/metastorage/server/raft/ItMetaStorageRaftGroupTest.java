@@ -19,11 +19,11 @@ package org.apache.ignite.internal.metastorage.server.raft;
 
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
-import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -54,6 +55,9 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -61,22 +65,19 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -239,7 +240,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 .findFirst()
                 .orElseThrow();
 
-        //Server that will be alive after we stop leader.
+        // Server that will be alive after we stop leader.
         RaftServer liveServer = raftServers.stream()
                 .filter(s -> !localMemberName(s.clusterService()).equals(oldLeaderId))
                 .findFirst()
@@ -294,7 +295,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                                         String.valueOf(replicatorStartedCounter.get())
                                 );
 
-                                //stop leader
+                                // stop leader
                                 oldLeaderServer.stopRaftNodes(MetastorageGroupId.INSTANCE);
                                 oldLeaderServer.stop();
                                 cluster.stream().filter(c -> localMemberName(c).equals(oldLeaderId)).findFirst().orElseThrow().stop();
@@ -347,23 +348,46 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
         assertTrue(cluster.size() > 1);
 
+        var commandsMarshaller = new ThreadLocalOptimizedMarshaller(cluster.get(0).serializationRegistry());
+
         NodeOptions opt1 = new NodeOptions();
         opt1.setReplicationStateListeners(
                 List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
+        opt1.setCommandsMarshaller(commandsMarshaller);
 
         NodeOptions opt2 = new NodeOptions();
         opt2.setReplicationStateListeners(
                 List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
+        opt2.setCommandsMarshaller(commandsMarshaller);
 
         NodeOptions opt3 = new NodeOptions();
         opt3.setReplicationStateListeners(
                 List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
+        opt3.setCommandsMarshaller(commandsMarshaller);
 
-        metaStorageRaftSrv1 = new JraftServerImpl(cluster.get(0), workDir.resolve("node1"), opt1, new RaftGroupEventsClientListener());
+        metaStorageRaftSrv1 = new JraftServerImpl(
+                cluster.get(0),
+                workDir.resolve("node1"),
+                raftConfiguration,
+                opt1,
+                new RaftGroupEventsClientListener()
+        );
 
-        metaStorageRaftSrv2 = new JraftServerImpl(cluster.get(1), workDir.resolve("node2"), opt2, new RaftGroupEventsClientListener());
+        metaStorageRaftSrv2 = new JraftServerImpl(
+                cluster.get(1),
+                workDir.resolve("node2"),
+                raftConfiguration,
+                opt2,
+                new RaftGroupEventsClientListener()
+        );
 
-        metaStorageRaftSrv3 = new JraftServerImpl(cluster.get(2), workDir.resolve("node3"), opt3, new RaftGroupEventsClientListener());
+        metaStorageRaftSrv3 = new JraftServerImpl(
+                cluster.get(2),
+                workDir.resolve("node3"),
+                raftConfiguration,
+                opt3,
+                new RaftGroupEventsClientListener()
+        );
 
         metaStorageRaftSrv1.start();
 
@@ -386,35 +410,38 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         metaStorageRaftSrv3.startRaftNode(raftNodeId3, membersConfiguration,
                 new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)), defaults());
 
-        metaStorageRaftGrpSvc1 = RaftGroupServiceImpl.start(
+        metaStorageRaftGrpSvc1 = waitForRaftGroupServiceSafely(RaftGroupServiceImpl.start(
                 MetastorageGroupId.INSTANCE,
                 cluster.get(0),
                 FACTORY,
                 raftConfiguration,
                 membersConfiguration,
                 true,
-                executor
-        ).get();
+                executor,
+                commandsMarshaller
+        ));
 
-        metaStorageRaftGrpSvc2 = RaftGroupServiceImpl.start(
+        metaStorageRaftGrpSvc2 = waitForRaftGroupServiceSafely(RaftGroupServiceImpl.start(
                 MetastorageGroupId.INSTANCE,
                 cluster.get(1),
                 FACTORY,
                 raftConfiguration,
                 membersConfiguration,
                 true,
-                executor
-        ).get();
+                executor,
+                commandsMarshaller
+        ));
 
-        metaStorageRaftGrpSvc3 = RaftGroupServiceImpl.start(
+        metaStorageRaftGrpSvc3 = waitForRaftGroupServiceSafely(RaftGroupServiceImpl.start(
                 MetastorageGroupId.INSTANCE,
                 cluster.get(2),
                 FACTORY,
                 raftConfiguration,
                 membersConfiguration,
                 true,
-                executor
-        ).get();
+                executor,
+                commandsMarshaller
+        ));
 
         assertTrue(waitForCondition(
                         () -> sameLeaders(metaStorageRaftGrpSvc1, metaStorageRaftGrpSvc2, metaStorageRaftGrpSvc3), 10_000),
@@ -428,6 +455,12 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         raftServersRaftGroups.add(new Pair<>(metaStorageRaftSrv3, metaStorageRaftGrpSvc3));
 
         return raftServersRaftGroups;
+    }
+
+    private static RaftGroupService waitForRaftGroupServiceSafely(CompletableFuture<RaftGroupService> future) {
+        assertThat(future, willCompleteSuccessfully());
+
+        return future.join();
     }
 
     /**

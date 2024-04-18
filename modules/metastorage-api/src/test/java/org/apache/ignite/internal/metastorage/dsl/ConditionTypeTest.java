@@ -57,5 +57,7 @@ class ConditionTypeTest {
         assertEquals(13, ConditionType.KEY_NOT_EXISTS.ordinal());
 
         assertEquals(14, ConditionType.TOMBSTONE.ordinal());
+
+        assertEquals(15, ConditionType.NOT_TOMBSTONE.ordinal());
     }
 }

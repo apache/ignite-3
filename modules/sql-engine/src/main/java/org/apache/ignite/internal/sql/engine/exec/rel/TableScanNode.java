@@ -18,16 +18,17 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import java.util.BitSet;
-import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
-import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
@@ -40,8 +41,8 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     /** Table that provides access to underlying data. */
     private final ScannableTable table;
 
-    /** List of pairs containing the partition number to scan with the corresponding primary replica term. */
-    private final Collection<PartitionWithTerm> partsWithTerms;
+    /** Returns partitions to be used by this scan. */
+    private final PartitionProvider<RowT> partitionProvider;
 
     private final RowFactory<RowT> rowFactory;
 
@@ -53,7 +54,8 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
      * @param ctx Execution context.
      * @param rowFactory Row factory.
      * @param table Internal table.
-     * @param partsWithTerms List of pairs containing the partition number to scan with the corresponding primary replica term.
+     * @param partitionProvider List of pairs containing the partition number to scan with the corresponding enlistment
+     *         consistency token.
      * @param filters Optional filter to filter out rows.
      * @param rowTransformer Optional projection function.
      * @param requiredColumns Optional set of column of interest.
@@ -62,17 +64,15 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
             ScannableTable table,
-            Collection<PartitionWithTerm> partsWithTerms,
+            PartitionProvider<RowT> partitionProvider,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
         super(ctx, filters, rowTransformer);
 
-        assert partsWithTerms != null && !partsWithTerms.isEmpty();
-
         this.table = table;
-        this.partsWithTerms = partsWithTerms;
+        this.partitionProvider = partitionProvider;
         this.rowFactory = rowFactory;
         this.requiredColumns = requiredColumns;
     }
@@ -80,10 +80,10 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     /** {@inheritDoc} */
     @Override
     protected Publisher<RowT> scan() {
+        List<PartitionWithConsistencyToken> partitions = partitionProvider.getPartitions(context());
+
         Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
-                partsWithTerms.iterator(), partWithTerm -> {
-            return table.scan(context(), partWithTerm, rowFactory, requiredColumns);
-        });
+                partitions.iterator(), p -> table.scan(context(), p, rowFactory, requiredColumns));
 
         return SubscriptionUtils.concat(it);
     }

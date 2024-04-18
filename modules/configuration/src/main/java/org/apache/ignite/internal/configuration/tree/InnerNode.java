@@ -21,8 +21,8 @@ import java.lang.reflect.Field;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.apache.ignite.configuration.annotation.AbstractConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.InjectedName;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.jetbrains.annotations.Nullable;
@@ -264,10 +264,9 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     }
 
     /**
-     * Returns schemas for {@link InternalConfiguration internal configuration extensions}.
+     * Returns schemas for {@link ConfigurationExtension configuration extensions}.
      */
-    @Nullable
-    public Class<?>[] internalSchemaTypes() {
+    public Class<?> @Nullable [] extensionSchemaTypes() {
         return null;
     }
 

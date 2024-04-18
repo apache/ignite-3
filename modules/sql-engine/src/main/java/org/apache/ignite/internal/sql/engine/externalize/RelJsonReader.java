@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.externalize;
 
+import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -24,6 +25,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -44,14 +46,15 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * RelJsonReader.
@@ -59,7 +62,9 @@ import org.apache.ignite.lang.IgniteInternalException;
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class RelJsonReader {
-    private static final TypeReference<LinkedHashMap<String, Object>> TYPE_REF = new TypeReference<>() {};
+    static final TypeReference<LinkedHashMap<String, Object>> TYPE_REF = new TypeReference<>() {};
+
+    private static final Map<String, Object> EMPTY_JSON_RELS = Map.of("rels", List.of());
 
     private final ObjectMapper mapper = new ObjectMapper().enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
 
@@ -79,6 +84,21 @@ public class RelJsonReader {
         RelJsonReader reader = new RelJsonReader(ctx.catalogReader());
 
         return (T) reader.read(json);
+    }
+
+    /** Creates a {@link RexNode} from the given json. */
+    public static RexNode fromExprJson(String json) {
+        try {
+            RelJsonReader reader = new RelJsonReader(null);
+
+            RelInput relInput = reader.newInput(EMPTY_JSON_RELS);
+
+            LinkedHashMap<String, Object> val = reader.mapper.readValue(json, TYPE_REF);
+
+            return reader.relJson.toRex(relInput, val);
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, "RelJson expression serialization error", e);
+        }
     }
 
     /**
@@ -117,9 +137,13 @@ public class RelJsonReader {
         String id = (String) jsonRel.get("id");
         String type = (String) jsonRel.get("relOp");
         Function<RelInput, RelNode> factory = relJson.factory(type);
-        RelNode rel = factory.apply(new RelInputImpl(jsonRel));
+        RelNode rel = factory.apply(newInput(jsonRel));
         relMap.put(id, rel);
         lastRel = rel;
+    }
+
+    private RelInput newInput(Map<String, Object> jsonRel) {
+        return new RelInputImpl(jsonRel);
     }
 
     private class RelInputImpl implements RelInputEx {
@@ -132,13 +156,13 @@ public class RelJsonReader {
         /** {@inheritDoc} */
         @Override
         public RelOptCluster getCluster() {
-            return Commons.cluster();
+            return Commons.emptyCluster();
         }
 
         /** {@inheritDoc} */
         @Override
         public RelTraitSet getTraitSet() {
-            return Commons.cluster().traitSet();
+            return Commons.emptyCluster().traitSet();
         }
 
         /** {@inheritDoc} */
@@ -245,6 +269,15 @@ public class RelJsonReader {
         @Override
         public float getFloat(String tag) {
             return ((Number) jsonRel.get(tag)).floatValue();
+        }
+
+        @Override
+        public BigDecimal getBigDecimal(String tag) {
+            return SqlFunctions.toBigDecimal(getNonNull(tag));
+        }
+
+        private Object getNonNull(String tag) {
+            return requireNonNull(get(tag), () -> "no entry for tag " + tag);
         }
 
         /** {@inheritDoc} */
@@ -360,16 +393,21 @@ public class RelJsonReader {
 
         private AggregateCall toAggCall(Map<String, Object> jsonAggCall) {
             Map<String, Object> aggMap = (Map) jsonAggCall.get("agg");
-            SqlAggFunction aggregation = (SqlAggFunction) relJson.toOp(aggMap);
+            SqlAggFunction aggregation =
+                    requireNonNull((SqlAggFunction) relJson.toOp(aggMap),
+                            () -> "relJson.toAggregation output for " + aggMap);
             Boolean distinct = (Boolean) jsonAggCall.get("distinct");
             List<Integer> operands = (List<Integer>) jsonAggCall.get("operands");
             Integer filterOperand = (Integer) jsonAggCall.get("filter");
             RelDataType type = relJson.toType(Commons.typeFactory(), jsonAggCall.get("type"));
             String name = (String) jsonAggCall.get("name");
-            return AggregateCall.create(aggregation, distinct, false, false, operands,
-                    filterOperand == null ? -1 : filterOperand,
-                    RelCollations.EMPTY,
-                    type, name);
+
+            Object rexList = jsonAggCall.get("rexList");
+            RexNode r0 = relJson.toRex(this, rexList);
+
+            return AggregateCall.create(aggregation, distinct, false, false,
+                    r0 == null ? ImmutableList.of() : List.of(r0), operands, filterOperand == null ? -1 : filterOperand,
+                    null, RelCollations.EMPTY, type, name);
         }
     }
 }

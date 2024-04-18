@@ -20,11 +20,13 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 
-import java.util.Map;
+import java.util.List;
+import java.util.UUID;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -36,7 +38,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
  */
 class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
     /** DDL SQL to command converter. */
-    DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter(Map.of(), () -> "default");
+    DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter();
 
     /**
      * Parses a given statement and returns a resulting AST.
@@ -51,11 +53,13 @@ class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
     }
 
     static PlanningContext createContext() {
-        var schemaName = "PUBLIC";
-        var schema = Frameworks.createRootSchema(false).add(schemaName, new IgniteSchema(schemaName));
+        var schemaName = CatalogService.DEFAULT_SCHEMA_NAME;
+        IgniteSchema publicSchema = new IgniteSchema(schemaName, 1, List.of());
+        var schema = Frameworks.createRootSchema(false).add(schemaName, publicSchema);
 
         return PlanningContext.builder()
                 .parentContext(BaseQueryContext.builder()
+                        .queryId(UUID.randomUUID())
                         .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(schema)
                                 .build())

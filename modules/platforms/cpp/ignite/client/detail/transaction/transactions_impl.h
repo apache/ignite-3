@@ -55,8 +55,9 @@ public:
      * @param callback Callback to be called with a new transaction or error upon completion of asynchronous operation.
      */
     IGNITE_API void begin_async(ignite_callback<transaction> callback) {
-        auto writer_func = [](protocol::writer &writer) {
+        auto writer_func = [this](protocol::writer &writer) {
             writer.write_bool(false); // readOnly.
+            writer.write(m_connection->get_observable_timestamp());
         };
 
         auto reader_func = [](protocol::reader &reader, std::shared_ptr<node_connection> conn) mutable -> transaction {
@@ -66,7 +67,7 @@ public:
         };
 
         m_connection->perform_request<transaction>(
-            client_operation::TX_BEGIN, std::move(writer_func), std::move(reader_func), std::move(callback));
+            protocol::client_operation::TX_BEGIN, std::move(writer_func), std::move(reader_func), std::move(callback));
     }
 
 private:

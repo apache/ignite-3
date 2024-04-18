@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,7 +36,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,17 +46,17 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class GradualTaskExecutorTest {
+class GradualTaskExecutorTest extends BaseIgniteAbstractTest {
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     private final GradualTaskExecutor executor = new GradualTaskExecutor(executorService);
 
-    @Mock
-    private GradualTask task;
-
     @AfterEach
-    void stopExecutor() {
-        executor.close();
+    void stopExecutor() throws Exception {
+        IgniteUtils.closeAllManually(
+                executor,
+                () -> IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS)
+        );
     }
 
     @Test
@@ -70,7 +71,7 @@ class GradualTaskExecutorTest {
     }
 
     @Test
-    void doesNotExecuteStepsWhenTaskIsCompleted() throws Exception {
+    void doesNotExecuteStepsWhenTaskIsCompleted(@Mock GradualTask task) throws Exception {
         when(task.isCompleted()).thenReturn(true);
 
         CompletableFuture<Void> future = executor.execute(task);
@@ -81,8 +82,7 @@ class GradualTaskExecutorTest {
     }
 
     @Test
-    void veryLongTaskAllowsOtherTasksToRun() {
-        GradualTask infiniteTask = mock(GradualTask.class);
+    void veryLongTaskAllowsOtherTasksToRun(@Mock GradualTask infiniteTask) {
         when(infiniteTask.isCompleted()).thenReturn(false);
 
         executor.execute(infiniteTask);
@@ -97,10 +97,8 @@ class GradualTaskExecutorTest {
     }
 
     @Test
-    void nonFinishedTasksAreCancelledWhenExecutorIsClosed() throws Exception {
+    void nonFinishedTasksAreCancelledWhenExecutorIsClosed(@Mock GradualTask infiniteTask) throws Exception {
         CountDownLatch infiniteTaskStartedExecution = new CountDownLatch(1);
-
-        GradualTask infiniteTask = mock(GradualTask.class);
 
         when(infiniteTask.isCompleted()).thenReturn(false);
         doAnswer(invocation -> {
@@ -115,7 +113,7 @@ class GradualTaskExecutorTest {
 
         assertFalse(future.isDone());
 
-        executor.close();
+        stopExecutor();
 
         Exception ex = assertThrows(Exception.class, () -> future.getNow(null));
 

@@ -29,13 +29,15 @@ import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.Values;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
-import org.apache.ignite.internal.sql.engine.prepare.Splitter;
+import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
 
 /**
  * IgniteValues.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteValues extends Values implements SourceAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "Values";
+
     private final long sourceId;
 
     /**
@@ -60,14 +62,14 @@ public class IgniteValues extends Values implements SourceAwareIgniteRel {
      * <p>Note that tuples passed in become owned by this rel (without a deep copy),
      * so caller must not modify them after this call, otherwise bad things will happen.
      *
-     * @param sourceId An identifier of a source of rows. Will be assigned by {@link Splitter}.
+     * @param sourceId An identifier of a source of rows. Will be assigned by {@link QuerySplitter}.
      * @param cluster Cluster that this relational expression belongs to.
      * @param rowType Row type for tuples produced by this rel.
      * @param tuples  2-dimensional array of tuple values to be produced; outer list contains tuples; each inner list is
      *               one tuple; all tuples must be of same length, conforming to rowType.
      * @param traits A set of particular properties this relation satisfies.
      *
-     * @see Splitter
+     * @see QuerySplitter
      */
     private IgniteValues(long sourceId, RelOptCluster cluster, RelDataType rowType, ImmutableList<ImmutableList<RexLiteral>> tuples,
             RelTraitSet traits) {
@@ -129,5 +131,11 @@ public class IgniteValues extends Values implements SourceAwareIgniteRel {
     @Override
     public long sourceId() {
         return sourceId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal
 {
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Net;
 
@@ -25,7 +26,6 @@ namespace Apache.Ignite.Internal
     /// </summary>
     internal sealed class SocketEndpoint
     {
-        /** */
         private volatile ClientSocket? _socket;
 
         /// <summary>
@@ -33,10 +33,20 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="endPoint">Endpoint.</param>
         /// <param name="host">Host name.</param>
-        public SocketEndpoint(IPEndPoint endPoint, string host)
+        /// <param name="clientId">Client id.</param>
+        public SocketEndpoint(IPEndPoint endPoint, string host, string clientId)
         {
             EndPoint = endPoint;
             Host = host;
+
+            // Cache endpoint string for metrics and logging.
+            EndPointString = endPoint.ToString();
+
+            MetricsContext = new MetricsContext(new[]
+            {
+                new KeyValuePair<string, object?>(MetricTags.ClientId, clientId),
+                new KeyValuePair<string, object?>(MetricTags.NodeAddress, EndPointString)
+            });
         }
 
         /// <summary>
@@ -66,5 +76,15 @@ namespace Apache.Ignite.Internal
         /// Gets the host.
         /// </summary>
         public string Host { get; }
+
+        /// <summary>
+        /// Gets the cached endpoint string.
+        /// </summary>
+        public string EndPointString { get; }
+
+        /// <summary>
+        /// Gets the metrics context.
+        /// </summary>
+        public MetricsContext MetricsContext { get; }
     }
 }

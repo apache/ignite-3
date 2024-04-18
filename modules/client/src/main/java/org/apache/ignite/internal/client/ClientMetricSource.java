@@ -517,7 +517,11 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
                 requestsRetried,
                 requestsFailed,
                 bytesSent,
-                bytesReceived
+                bytesReceived,
+                streamerBatchesSent,
+                streamerItemsSent,
+                streamerBatchesActive,
+                streamerItemsQueued
         );
 
         void register(MetricSetBuilder bldr) {

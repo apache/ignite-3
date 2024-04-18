@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.storage.pagememory.index;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -49,31 +52,38 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
             Path workDir,
             @InjectConfiguration
             PersistentPageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.tables.foo {}")
-            TablesConfiguration tablesConfig
+            @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
+            StorageConfiguration storageConfiguration
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new PersistentPageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
+        engine = new PersistentPageMemoryStorageEngine(
+                "test",
+                engineConfig,
+                storageConfiguration,
+                ioRegistry,
+                workDir,
+                null,
+                mock(FailureProcessor.class),
+                mock(LogSyncer.class)
+        );
 
         engine.start();
 
         tableStorage = engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(tablesConfig)
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
+                mock(StorageIndexDescriptorSupplier.class)
         );
 
-        tableStorage.start();
-
-        initialize(tableStorage, tablesConfig, engineConfig);
+        initialize(tableStorage, engineConfig.pageSize().value());
     }
 
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(
-                tableStorage == null ? null : tableStorage::stop,
+                tableStorage == null ? null : tableStorage::close,
                 engine == null ? null : engine::stop
         );
     }

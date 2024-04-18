@@ -18,6 +18,10 @@
 package org.apache.ignite.internal.deployunit;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -26,13 +30,15 @@ import static org.mockito.Mockito.doReturn;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -40,7 +46,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class DeploymentManagerImplTest {
+class DeploymentManagerImplTest extends BaseIgniteAbstractTest {
     @Mock
     ClusterService clusterService;
 
@@ -65,11 +71,11 @@ class DeploymentManagerImplTest {
     @Test
     public void detectLatestDeployedVersion() {
         List<UnitClusterStatus> unitClusterStatuses = List.of(
-                new UnitClusterStatus("unit", Version.parseVersion("1.0.0"), DeploymentStatus.DEPLOYED, 0, Set.of("node1", "node2")),
-                new UnitClusterStatus("unit", Version.parseVersion("1.0.1"), DeploymentStatus.OBSOLETE, 0, Set.of("node1", "node2")),
-                new UnitClusterStatus("unit", Version.parseVersion("1.0.2"), DeploymentStatus.DEPLOYED, 0, Set.of("node1", "node2")),
-                new UnitClusterStatus("unit", Version.parseVersion("1.0.3"), DeploymentStatus.UPLOADING, 0,  Set.of("node1", "node2")),
-                new UnitClusterStatus("unit", Version.parseVersion("1.0.4"), DeploymentStatus.REMOVING, 0, Set.of("node1", "node2"))
+                new UnitClusterStatus("unit", Version.parseVersion("1.0.0"), DEPLOYED, UUID.randomUUID(), Set.of("node1", "node2")),
+                new UnitClusterStatus("unit", Version.parseVersion("1.0.1"), OBSOLETE, UUID.randomUUID(), Set.of("node1", "node2")),
+                new UnitClusterStatus("unit", Version.parseVersion("1.0.2"), DEPLOYED, UUID.randomUUID(), Set.of("node1", "node2")),
+                new UnitClusterStatus("unit", Version.parseVersion("1.0.3"), UPLOADING, UUID.randomUUID(),  Set.of("node1", "node2")),
+                new UnitClusterStatus("unit", Version.parseVersion("1.0.4"), REMOVING, UUID.randomUUID(), Set.of("node1", "node2"))
         );
 
         doReturn(completedFuture(unitClusterStatuses)).when(deploymentUnitStore).getClusterStatuses("unit");

@@ -48,4 +48,12 @@ dependencies {
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-metastorage'))
     testImplementation testFixtures(project(':ignite-vault'))
+    testImplementation testFixtures(project(':ignite-failure-handler'))
+
+    integrationTestImplementation libs.awaitility
+    integrationTestImplementation libs.hamcrest.core
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-configuration')
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
 }

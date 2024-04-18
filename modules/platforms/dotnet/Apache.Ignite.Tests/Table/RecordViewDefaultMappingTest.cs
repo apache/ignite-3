@@ -30,7 +30,7 @@ namespace Apache.Ignite.Tests.Table
     public class RecordViewDefaultMappingTest : IgniteTestsBase
     {
         [SetUp]
-        public async Task SetUp()
+        public async Task InsertData()
         {
             await Table.RecordBinaryView.UpsertAsync(null, GetTuple(1, "2"));
         }

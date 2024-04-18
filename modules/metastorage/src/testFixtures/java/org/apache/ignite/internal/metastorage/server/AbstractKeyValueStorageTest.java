@@ -19,13 +19,14 @@ package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
  * Abstract test for {@link KeyValueStorage}.
  */
-public abstract class AbstractKeyValueStorageTest {
+public abstract class AbstractKeyValueStorageTest extends BaseIgniteAbstractTest {
     protected KeyValueStorage storage;
 
     @BeforeEach

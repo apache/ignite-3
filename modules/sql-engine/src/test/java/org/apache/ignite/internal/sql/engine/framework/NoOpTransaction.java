@@ -21,14 +21,14 @@ import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Dummy transaction that should be used as mock transaction for execution tests.
@@ -44,6 +44,10 @@ public final class NoOpTransaction implements InternalTransaction {
     private final TablePartitionId groupId = new TablePartitionId(1, 0);
 
     private final boolean readOnly;
+
+    private final CompletableFuture<Void> commitFut = new CompletableFuture<>();
+
+    private final CompletableFuture<Void> rollbackFut = new CompletableFuture<>();
 
     /** Creates a read-write transaction. */
     public static NoOpTransaction readWrite(String name) {
@@ -72,7 +76,7 @@ public final class NoOpTransaction implements InternalTransaction {
      */
     private NoOpTransaction(String name, boolean readOnly) {
         var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
-        this.tuple = new IgniteBiTuple<>(new ClusterNode(name, name, networkAddress), 1L);
+        this.tuple = new IgniteBiTuple<>(new ClusterNodeImpl(name, name, networkAddress), 1L);
         this.readOnly = readOnly;
     }
 
@@ -83,22 +87,24 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public void commit() throws TransactionException {
-
+        commitAsync().join();
     }
 
     @Override
     public CompletableFuture<Void> commitAsync() {
-        return CompletableFuture.completedFuture(null);
+        commitFut.complete(null);
+        return commitFut;
     }
 
     @Override
     public void rollback() throws TransactionException {
-
+        rollbackAsync().join();
     }
 
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        return CompletableFuture.completedFuture(null);
+        rollbackFut.complete(null);
+        return rollbackFut;
     }
 
     @Override
@@ -120,18 +126,23 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public @NotNull UUID id() {
+    public UUID id() {
         return id;
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId) {
+    public String coordinatorId() {
+        return clusterNode().id();
+    }
+
+    @Override
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
         return tuple;
     }
 
     @Override
     public TxState state() {
-        return TxState.COMMITED;
+        return TxState.COMMITTED;
     }
 
     @Override
@@ -146,12 +157,17 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId,
-            IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
-        return nodeAndTerm;
+            IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
+        return nodeAndConsistencyToken;
     }
 
-    @Override
-    public void enlistResultFuture(CompletableFuture<?> resultFuture) {
-        resultFuture.complete(null);
+    /** Returns a {@link CompletableFuture} that completes when this transaction commits. */
+    public CompletableFuture<Void> commitFuture() {
+        return commitFut;
+    }
+
+    /** Returns a {@link CompletableFuture} that completes when this transaction rollbacks. */
+    public CompletableFuture<Void> rollbackFuture() {
+        return rollbackFut;
     }
 }

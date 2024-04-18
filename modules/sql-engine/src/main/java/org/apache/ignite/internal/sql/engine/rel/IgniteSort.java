@@ -45,6 +45,8 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
  * Ignite sort operator.
  */
 public class IgniteSort extends Sort implements IgniteRel {
+    private static final String REL_TYPE_NAME = "Sort";
+
     /**
      * Constructor.
      *
@@ -166,7 +168,7 @@ public class IgniteSort extends Sort implements IgniteRel {
 
         // Distributed sorting is more preferable than sorting on the single node.
         if (TraitUtils.distributionEnabled(this) && TraitUtils.distribution(traitSet).satisfies(IgniteDistributions.single())) {
-            cost.plus(costFactory.makeTinyCost());
+            cost = cost.plus(costFactory.makeTinyCost());
         }
 
         return cost;
@@ -186,5 +188,11 @@ public class IgniteSort extends Sort implements IgniteRel {
                 : 0;
 
         return Math.min(inputRows, fetch + offset);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

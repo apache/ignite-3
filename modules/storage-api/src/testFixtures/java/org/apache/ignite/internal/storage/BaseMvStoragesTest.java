@@ -19,25 +19,23 @@ package org.apache.ignite.internal.storage;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
-import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
@@ -45,22 +43,24 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base test for MV storages, contains pojo classes, their descriptor and a marshaller instance.
  */
-public abstract class BaseMvStoragesTest {
+@ExtendWith(ConfigurationExtension.class)
+public abstract class BaseMvStoragesTest extends BaseIgniteAbstractTest {
     /** Default reflection marshaller factory. */
-    protected static final MarshallerFactory marshallerFactory = new ReflectionMarshallerFactory();
+    private static final MarshallerFactory MARSHALLER_FACTORY = new ReflectionMarshallerFactory();
 
     /** Schema descriptor for tests. */
-    protected static final SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1, new Column[]{
+    protected static final SchemaDescriptor SCHEMA_DESCRIPTOR = new SchemaDescriptor(1, new Column[]{
             new Column("INTKEY", NativeTypes.INT32, false),
             new Column("STRKEY", NativeTypes.STRING, false),
     }, new Column[]{
@@ -69,49 +69,49 @@ public abstract class BaseMvStoragesTest {
     });
 
     /** Key-value marshaller for tests. */
-    protected static final KvMarshaller<TestKey, TestValue> kvMarshaller
-            = marshallerFactory.create(schemaDescriptor, TestKey.class, TestValue.class);
+    private static final KvMarshaller<TestKey, TestValue> KV_MARSHALLER
+            = MARSHALLER_FACTORY.create(SCHEMA_DESCRIPTOR, TestKey.class, TestValue.class);
 
     /** Hybrid clock to generate timestamps. */
     protected final HybridClock clock = new HybridClockImpl();
 
     protected static BinaryRow binaryRow(TestKey key, TestValue value) {
         try {
-            return kvMarshaller.marshal(key, value);
+            return KV_MARSHALLER.marshal(key, value);
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new IllegalArgumentException(e);
         }
     }
 
     protected static IndexRow indexRow(StorageIndexDescriptor indexDescriptor, BinaryRow binaryRow, RowId rowId) {
         int[] columnIndexes = indexDescriptor.columns().stream()
                 .mapToInt(indexColumnDescriptor -> {
-                    Column column = schemaDescriptor.column(indexColumnDescriptor.name());
+                    Column column = SCHEMA_DESCRIPTOR.column(indexColumnDescriptor.name());
 
                     assertNotNull(column, column.name());
 
-                    return column.schemaIndex();
+                    return column.positionInRow();
                 })
                 .toArray();
 
-        Function<BinaryRow, BinaryTuple> converter = BinaryRowConverter.columnsExtractor(schemaDescriptor, columnIndexes);
-        return new IndexRowImpl(converter.apply(binaryRow), rowId);
+        ColumnsExtractor converter = BinaryRowConverter.columnsExtractor(SCHEMA_DESCRIPTOR, columnIndexes);
+        return new IndexRowImpl(converter.extractColumns(binaryRow), rowId);
     }
 
     protected static TestKey key(BinaryRow binaryRow) {
         try {
-            return kvMarshaller.unmarshalKey(new Row(schemaDescriptor, binaryRow));
+            return KV_MARSHALLER.unmarshalKey(Row.wrapBinaryRow(SCHEMA_DESCRIPTOR, binaryRow));
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new IllegalArgumentException(e);
         }
     }
 
     @Nullable
     protected static TestValue value(BinaryRow binaryRow) {
         try {
-            return kvMarshaller.unmarshalValue(new Row(schemaDescriptor, binaryRow));
+            return KV_MARSHALLER.unmarshalValue(Row.wrapBinaryRow(SCHEMA_DESCRIPTOR, binaryRow));
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new IllegalArgumentException(e);
         }
     }
 
@@ -141,13 +141,6 @@ public abstract class BaseMvStoragesTest {
         try (cursor) {
             return cursor.stream().map(BaseMvStoragesTest::unwrap).collect(Collectors.toList());
         }
-    }
-
-    protected final void assertRowMatches(@Nullable BinaryRow rowUnderQuestion, BinaryRow expectedRow) {
-        assertThat(rowUnderQuestion, is(notNullValue()));
-        assertThat(rowUnderQuestion.schemaVersion(), is(expectedRow.schemaVersion()));
-        assertThat(rowUnderQuestion.hasValue(), is(expectedRow.hasValue()));
-        assertThat(rowUnderQuestion.tupleSlice(), is(expectedRow.tupleSlice()));
     }
 
     /**

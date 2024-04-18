@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 import java.lang.annotation.Annotation;
 import java.util.Arrays;
@@ -35,6 +36,7 @@ import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.mockito.ArgumentCaptor;
+import org.mockito.quality.Strictness;
 
 /**
  * Useful class for testing {@link Validator}.
@@ -48,7 +50,7 @@ public class TestValidationUtil {
      * @param newValue Updated value of the configuration.
      */
     public static <VIEWT> ValidationContext<VIEWT> mockValidationContext(@Nullable VIEWT oldValue, VIEWT newValue) {
-        ValidationContext<VIEWT> mock = mock(ValidationContext.class);
+        ValidationContext<VIEWT> mock = mock(ValidationContext.class, withSettings().strictness(Strictness.LENIENT));
 
         when(mock.getOldValue()).thenReturn(oldValue);
 

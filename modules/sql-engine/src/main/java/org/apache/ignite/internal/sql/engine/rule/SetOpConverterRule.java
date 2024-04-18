@@ -38,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.rel.set.IgniteMapMinus;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteReduceIntersect;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteReduceMinus;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Set op (MINUS, INTERSECT) converter rule.
@@ -70,6 +71,8 @@ public class SetOpConverterRule {
             RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(IgniteDistributions.single());
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(IgniteDistributions.single());
             List<RelNode> inputs = Util.transform(setOp.getInputs(), rel -> convert(rel, inTrait));
+
+            inputs = Commons.castInputsToLeastRestrictiveTypeIfNeeded(inputs, cluster, inTrait);
 
             return createNode(cluster, outTrait, inputs, setOp.all);
         }
@@ -122,6 +125,8 @@ public class SetOpConverterRule {
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE);
             List<RelNode> inputs = Util.transform(setOp.getInputs(), rel -> convert(rel, inTrait));
 
+            inputs = Commons.castInputsToLeastRestrictiveTypeIfNeeded(inputs, cluster, inTrait);
+
             RelNode map = createMapNode(cluster, outTrait, inputs, setOp.all);
 
             return createReduceNode(
@@ -129,7 +134,7 @@ public class SetOpConverterRule {
                     outTrait.replace(IgniteDistributions.single()),
                     convert(map, inTrait.replace(IgniteDistributions.single())),
                     setOp.all,
-                    cluster.getTypeFactory().leastRestrictive(Util.transform(inputs, RelNode::getRowType))
+                    setOp.getRowType()
             );
         }
     }
@@ -168,8 +173,7 @@ public class SetOpConverterRule {
 
         /** {@inheritDoc} */
         @Override
-        PhysicalNode createReduceNode(RelOptCluster cluster, RelTraitSet traits, RelNode input, boolean all,
-                RelDataType rowType) {
+        PhysicalNode createReduceNode(RelOptCluster cluster, RelTraitSet traits, RelNode input, boolean all, RelDataType rowType) {
             return new IgniteReduceIntersect(cluster, traits, input, all, rowType);
         }
     }

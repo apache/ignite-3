@@ -17,37 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.metadata;
 
-import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.util.IgniteUtils.igniteClassLoader;
-
-import io.github.classgraph.ClassGraph;
-import io.github.classgraph.ScanResult;
-import java.util.List;
-import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.metadata.JaninoRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 
 /**
  * See {@link RelMetadataQuery}.
  */
 public class RelMetadataQueryEx extends RelMetadataQuery {
-    static {
-        try (ScanResult scanResult = new ClassGraph().acceptPackages("org.apache.ignite.internal.sql.engine.rel")
-                .addClassLoader(igniteClassLoader())
-                .enableClassInfo().scan()
-        ) {
-            //noinspection unchecked
-            List<Class<? extends RelNode>> types = scanResult.getClassesImplementing(IgniteRel.class.getName())
-                    .filter(classInfo -> !classInfo.isInterface())
-                    .filter(classInfo -> !classInfo.isAbstract())
-                    .stream().map(classInfo -> (Class<? extends RelNode>) classInfo.loadClass()).collect(toList());
-
-            JaninoRelMetadataProvider.DEFAULT.register(types);
-        }
-    }
-
     /**
      * Factory method.
      *

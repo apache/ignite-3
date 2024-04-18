@@ -22,8 +22,11 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.commands.CliCommandTestBase;
 import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitDeployCommand;
+import org.apache.ignite.internal.cli.commands.cluster.unit.NodesAlias;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.DisplayName;
@@ -38,8 +41,8 @@ class DeployCommandTest extends CliCommandTestBase {
     }
 
     @Test
-    @DisplayName("Deploy mode option could be the only option")
-    void singleOption(@WorkDirectory Path workDir) throws IOException {
+    @DisplayName("Aliases couldn't be used with explicit nodes list")
+    void aliasesWithExplicitNodesList(@WorkDirectory Path workDir) throws IOException {
         Path testFile = Files.createFile(workDir.resolve("test.txt"));
 
         // When executed with multiple nodes options including deploy mode
@@ -49,7 +52,28 @@ class DeployCommandTest extends CliCommandTestBase {
         assertAll(
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("There could be only one deploy mode option")
+                () -> assertErrOutputContains("Alias ALL couldn't be used with explicit nodes names list [foo]. "
+                        + "Provide either node names list or single alias.")
+        );
+    }
+
+    @Test
+    @DisplayName("Only one alias could be used")
+    void multipleAliases(@WorkDirectory Path workDir) throws IOException {
+        Path testFile = Files.createFile(workDir.resolve("test.txt"));
+
+        String aliases = Arrays.stream(NodesAlias.values())
+                .map(NodesAlias::name)
+                .collect(Collectors.joining(", "));
+        // When executed with multiple nodes options including deploy mode
+        execute("--path", testFile.toString(), "--version", "1.0.0", "--nodes", aliases, "id");
+
+        // Error is printed
+        assertAll(
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Aliases [ALL, MAJORITY] can not be specified together. "
+                        + "Provide single alias, please.")
         );
     }
 }

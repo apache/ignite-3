@@ -19,15 +19,14 @@ package org.apache.ignite.internal.raft.server;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.jetbrains.annotations.TestOnly;
 
@@ -40,6 +39,7 @@ public interface RaftServer extends IgniteComponent {
     /**
      * Returns cluster service.
      */
+    @TestOnly
     ClusterService clusterService();
 
     /**
@@ -77,12 +77,12 @@ public interface RaftServer extends IgniteComponent {
     );
 
     /**
-     * Returns a future, which complete when the raft node is ready and committed updates are applied.
+     * Check if the node is started.
      *
-     * @param groupId Raft group ID.
-     * @return A future to last applied revision on start.
+     * @param nodeId Raft node ID.
+     * @return True if the node is started.
      */
-    CompletableFuture<Long> raftNodeReadyFuture(ReplicationGroupId groupId);
+    boolean isStarted(RaftNodeId nodeId);
 
     /**
      * Stops a given local Raft node if it exists.

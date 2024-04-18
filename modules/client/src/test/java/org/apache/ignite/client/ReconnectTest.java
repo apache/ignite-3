@@ -26,6 +26,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -37,7 +38,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests thin client reconnect.
  */
-public class ReconnectTest {
+public class ReconnectTest extends BaseIgniteAbstractTest {
     /** Test server. */
     private TestServer server;
 

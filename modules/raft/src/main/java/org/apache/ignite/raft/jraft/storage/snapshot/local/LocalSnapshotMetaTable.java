@@ -32,7 +32,7 @@ import org.apache.ignite.raft.jraft.entity.LocalStorageOutter.LocalSnapshotPbMet
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.io.MessageFile;
-import org.apache.ignite.raft.jraft.util.Marshaller;
+import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 
 /**
  * Table to keep local snapshot metadata infos.
@@ -71,7 +71,7 @@ public class LocalSnapshotMetaTable {
 
         pbMetaBuilder.filesList(files);
 
-        return ByteBuffer.wrap(Marshaller.DEFAULT.marshall(pbMetaBuilder.build()));
+        return ByteBuffer.wrap(JDKMarshaller.INSTANCE.marshall(pbMetaBuilder.build()));
     }
 
     /**
@@ -83,7 +83,7 @@ public class LocalSnapshotMetaTable {
             return false;
         }
         try {
-            final LocalSnapshotPbMeta pbMeta = Marshaller.DEFAULT.unmarshall(buf);
+            final LocalSnapshotPbMeta pbMeta = JDKMarshaller.INSTANCE.unmarshall(buf);
             if (pbMeta == null) {
                 LOG.error("Fail to load meta from buffer.");
                 return false;

@@ -26,22 +26,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import io.micronaut.context.ApplicationContext;
-import io.micronaut.context.annotation.Property;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
-import io.micronaut.runtime.server.EmbeddedServer;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
-import java.util.Set;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -49,22 +44,13 @@ import org.junit.jupiter.api.Test;
  * The base test for configuration controllers.
  */
 @MicronautTest
-@Property(name = "micronaut.security.enabled", value = "false")
 public abstract class ConfigurationControllerBaseTest {
-
-    private final Set<String> secretKeys = Set.of("password");
-
-    @Inject
-    private EmbeddedServer server;
 
     @Inject
     private ConfigurationPresentation<String> cfgPresentation;
 
     @Inject
     private ConfigurationRegistry configurationRegistry;
-
-    @Inject
-    private ApplicationContext context;
 
     abstract HttpClient client();
 
@@ -171,7 +157,6 @@ public abstract class ConfigurationControllerBaseTest {
         assertEquals("Error word", invalidParam.reason());
     }
 
-    @NotNull
     private Problem getProblem(HttpClientResponseException exception) {
         return exception.getResponse().getBody(Problem.class).orElseThrow();
     }

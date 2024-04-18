@@ -39,6 +39,12 @@ static inline const std::string address{"address"};
 /** Key for address attribute. */
 static inline const std::string schema{"schema"};
 
+/** Key for authentication identity. */
+static inline const std::string identity{"identity"};
+
+/** Key for authentication secret. */
+static inline const std::string secret{"secret"};
+
 } // namespace key
 
 namespace ignite {
@@ -85,6 +91,8 @@ void configuration::from_config_map(const config_map &config_params) {
     }
 
     try_get_string_param(m_schema, config_params, key::schema);
+    try_get_string_param(m_auth_identity, config_params, key::identity);
+    try_get_string_param(m_auth_secret, config_params, key::secret);
 }
 
 } // namespace ignite

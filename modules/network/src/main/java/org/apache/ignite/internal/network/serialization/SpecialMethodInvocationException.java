@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.serialization;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**

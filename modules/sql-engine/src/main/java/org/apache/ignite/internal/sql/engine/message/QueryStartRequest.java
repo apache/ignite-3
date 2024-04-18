@@ -17,21 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 
 /**
  * QueryStartRequest interface.
  */
 @Transferable(value = SqlQueryMessageGroup.QUERY_START_REQUEST)
-public interface QueryStartRequest extends ExecutionContextAwareMessage {
-    /**
-     * Get schema name.
-     */
-    String schema();
-
+public interface QueryStartRequest extends TimestampAware, ExecutionContextAwareMessage {
     /**
      * Get fragment description.
      */
@@ -56,7 +52,12 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
     TxAttributes txAttributes();
 
     /**
-     * Return last schema version, just a stub, need to be removed after IGNITE-18733.
+     * Return last schema version, just a stub, need to be removed after IGNITE-20633.
      */
-    long schemaVersion();
+    int schemaVersion();
+
+    /**
+     * Session time zone ID.
+     */
+    String timeZoneId();
 }

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.Objects;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.type.NativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,6 +31,7 @@ public class ColumnDescriptorImpl implements ColumnDescriptor {
     private final boolean nullable;
 
     private final boolean key;
+    private final boolean hidden;
 
     private final String name;
 
@@ -40,8 +41,6 @@ public class ColumnDescriptorImpl implements ColumnDescriptor {
 
     private final int logicalIndex;
 
-    private final int physicalIndex;
-
     private final NativeType storageType;
 
     /**
@@ -49,9 +48,9 @@ public class ColumnDescriptorImpl implements ColumnDescriptor {
      *
      * @param name The name of the column.
      * @param key If {@code true}, this column will be considered as a part of PK.
+     * @param hidden If {@code true}, this column will not be expanded until explicitly mentioned.
      * @param nullable If {@code true}, this column will be considered as a nullable.
      * @param logicalIndex A 0-based index in a schema defined by a user.
-     * @param physicalIndex A 0-based index in a schema defined by a storage.
      * @param type Type of the value in the underlying storage.
      * @param defaultStrategy A strategy to follow when generating value for column not specified in the INSERT statement.
      * @param dfltVal A value generator to use when generating value for column not specified in the INSERT statement.
@@ -61,24 +60,30 @@ public class ColumnDescriptorImpl implements ColumnDescriptor {
     public ColumnDescriptorImpl(
             String name,
             boolean key,
+            boolean hidden,
             boolean nullable,
             int logicalIndex,
-            int physicalIndex,
             NativeType type,
             DefaultValueStrategy defaultStrategy,
             @Nullable Supplier<Object> dfltVal
     ) {
         this.key = key;
+        this.hidden = hidden;
         this.nullable = nullable;
         this.name = name;
         this.defaultStrategy = defaultStrategy;
         this.logicalIndex = logicalIndex;
-        this.physicalIndex = physicalIndex;
         this.storageType = type;
 
         this.dfltVal = defaultStrategy != DefaultValueStrategy.DEFAULT_NULL
                 ? Objects.requireNonNull(dfltVal, "dfltVal")
                 : NULL_SUPPLIER;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean hidden() {
+        return hidden;
     }
 
     /** {@inheritDoc} */
@@ -115,12 +120,6 @@ public class ColumnDescriptorImpl implements ColumnDescriptor {
     @Override
     public int logicalIndex() {
         return logicalIndex;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int physicalIndex() {
-        return physicalIndex;
     }
 
     /** {@inheritDoc} */

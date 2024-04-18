@@ -28,8 +28,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
@@ -57,7 +57,7 @@ public class InternalIdTest {
     }
 
     /** Internal extension for the parent configuration. */
-    @InternalConfiguration
+    @ConfigurationExtension(internal = true)
     public static class InternalIdInternalConfigurationSchema extends InternalIdParentConfigurationSchema {
         @InternalId
         public UUID id;

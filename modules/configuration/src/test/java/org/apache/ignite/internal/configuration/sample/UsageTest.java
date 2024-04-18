@@ -60,41 +60,41 @@ public class UsageTest {
         LocalConfiguration root = registry.getConfiguration(LocalConfiguration.KEY);
 
         root.change(local ->
-                local.changeBaseline(baseline ->
-                        baseline.changeNodes(nodes ->
-                                nodes.create("node1", node ->
-                                        node.changeConsistentId("test").changePort(1000)
+                local.changeTestConfigurationSchema(schema ->
+                        schema.changeTestConfigValues(values ->
+                                values.create("node1", node ->
+                                        node.changeStringValue("test").changeLongValue(1000)
                                 )
-                        ).changeAutoAdjust(autoAdjust ->
-                                autoAdjust.changeEnabled(true).changeTimeout(100_000L)
+                        ).changeTestConfigValue(value ->
+                                value.changeBooleanValue(true).changeLongValue(100_000L)
                         )
                 )
         ).get(1, SECONDS);
 
-        assertTrue(root.baseline().autoAdjust().enabled().value());
+        assertTrue(root.testConfigurationSchema().testConfigValue().booleanValue().value());
 
-        root.baseline().autoAdjust().enabled().update(false).get(1, SECONDS);
+        root.testConfigurationSchema().testConfigValue().booleanValue().update(false).get(1, SECONDS);
 
-        assertFalse(root.value().baseline().autoAdjust().enabled());
-        assertFalse(root.baseline().value().autoAdjust().enabled());
-        assertFalse(root.baseline().autoAdjust().value().enabled());
-        assertFalse(root.baseline().autoAdjust().enabled().value());
+        assertFalse(root.value().testConfigurationSchema().testConfigValue().booleanValue());
+        assertFalse(root.testConfigurationSchema().value().testConfigValue().booleanValue());
+        assertFalse(root.testConfigurationSchema().testConfigValue().value().booleanValue());
+        assertFalse(root.testConfigurationSchema().testConfigValue().booleanValue().value());
 
-        root.baseline().nodes().get("node1").autoAdjustEnabled().update(true).get(1, SECONDS);
+        root.testConfigurationSchema().testConfigValues().get("node1").booleanValue().update(true).get(1, SECONDS);
 
-        assertTrue(root.value().baseline().nodes().get("node1").autoAdjustEnabled());
-        assertTrue(root.baseline().value().nodes().get("node1").autoAdjustEnabled());
-        assertTrue(root.baseline().nodes().value().get("node1").autoAdjustEnabled());
-        assertTrue(root.baseline().nodes().get("node1").value().autoAdjustEnabled());
-        assertTrue(root.baseline().nodes().get("node1").autoAdjustEnabled().value());
+        assertTrue(root.value().testConfigurationSchema().testConfigValues().get("node1").booleanValue());
+        assertTrue(root.testConfigurationSchema().value().testConfigValues().get("node1").booleanValue());
+        assertTrue(root.testConfigurationSchema().testConfigValues().value().get("node1").booleanValue());
+        assertTrue(root.testConfigurationSchema().testConfigValues().get("node1").value().booleanValue());
+        assertTrue(root.testConfigurationSchema().testConfigValues().get("node1").booleanValue().value());
 
-        root.baseline().nodes().get("node1").change(node -> node.changeAutoAdjustEnabled(false)).get(1, SECONDS);
-        assertFalse(root.value().baseline().nodes().get("node1").autoAdjustEnabled());
+        root.testConfigurationSchema().testConfigValues().get("node1").change(node -> node.changeBooleanValue(false)).get(1, SECONDS);
+        assertFalse(root.value().testConfigurationSchema().testConfigValues().get("node1").booleanValue());
 
-        root.baseline().nodes().change(nodes -> nodes.delete("node1")).get(1, SECONDS);
+        root.testConfigurationSchema().testConfigValues().change(values -> values.delete("node1")).get(1, SECONDS);
 
-        assertNull(root.baseline().nodes().get("node1"));
-        assertNull(root.value().baseline().nodes().get("node1"));
+        assertNull(root.testConfigurationSchema().testConfigValues().get("node1"));
+        assertNull(root.value().testConfigurationSchema().testConfigValues().get("node1"));
     }
 
     /**
@@ -105,7 +105,7 @@ public class UsageTest {
         final int failureDetectionTimeout = 30_000;
         final int joinTimeout = 10_000;
 
-        long autoAdjustTimeout = 30_000L;
+        long testLongValue = 30_000L;
 
         registry = new ConfigurationRegistry(
                 List.of(NetworkConfiguration.KEY, LocalConfiguration.KEY),
@@ -117,9 +117,9 @@ public class UsageTest {
         registry.start();
 
         registry.getConfiguration(LocalConfiguration.KEY).change(local ->
-                local.changeBaseline(baseline ->
-                        baseline.changeAutoAdjust(autoAdjust ->
-                                autoAdjust.changeEnabled(true).changeTimeout(autoAdjustTimeout)
+                local.changeTestConfigurationSchema(schema ->
+                        schema.changeTestConfigValue(configValue ->
+                                configValue.changeBooleanValue(true).changeLongValue(testLongValue)
                         )
                 )
         ).get(1, SECONDS);
@@ -138,8 +138,8 @@ public class UsageTest {
         );
 
         assertEquals(
-                autoAdjustTimeout,
-                registry.getConfiguration(LocalConfiguration.KEY).baseline().autoAdjust().timeout().value()
+                testLongValue,
+                registry.getConfiguration(LocalConfiguration.KEY).testConfigurationSchema().testConfigValue().longValue().value()
         );
     }
 }

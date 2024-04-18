@@ -48,10 +48,20 @@ public class TestStorageEngine implements StorageEngine {
     }
 
     @Override
+    public boolean isVolatile() {
+        return true;
+    }
+
+    @Override
     public TestMvTableStorage createMvTable(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier
     ) throws StorageException {
         return spy(new TestMvTableStorage(tableDescriptor));
+    }
+
+    @Override
+    public void dropMvTable(int tableId) {
+        // No-op.
     }
 }

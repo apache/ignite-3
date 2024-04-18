@@ -75,46 +75,35 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
-        /// Calculates the null map size.
+        /// Converts byte to bool.
         /// </summary>
-        /// <param name="numElements">Number of tuple elements.</param>
-        /// <returns>Null map size in bytes.</returns>
-        public static int NullMapSize(int numElements)
+        /// <param name="value">Byte value.</param>
+        /// <returns>Bool value.</returns>
+        public static bool ByteToBool(sbyte value)
         {
-            return (numElements + 7) / 8;
+            Debug.Assert(value is 0 or 1, "value is 0 or 1");
+
+            return value != 0;
         }
 
         /// <summary>
-        /// Returns offset of the byte that contains null-bit of a given tuple element.
+        /// Converts bool to byte.
         /// </summary>
-        /// <param name="index">Tuple element index.</param>
-        /// <returns>Offset of the required byte relative to the tuple start.</returns>
-        public static int NullOffset(int index)
-        {
-            return HeaderSize + index / 8;
-        }
-
-        /// <summary>
-        /// Returns a null-bit mask corresponding to a given tuple element.
-        /// </summary>
-        /// <param name="index">Tuple element index.</param>
-        /// <returns>Mask to extract the required null-bit.</returns>
-        public static byte NullMask(int index)
-        {
-            return (byte)(1 << (index % 8));
-        }
+        /// <param name="value">Bool value.</param>
+        /// <returns>Byte value.</returns>
+        public static sbyte BoolToByte(bool value) => value ? (sbyte) 1 : (sbyte) 0;
 
         /// <summary>
         /// Converts decimal to unscaled BigInteger.
         /// </summary>
         /// <param name="value">Decimal value.</param>
-        /// <param name="scale">Column scale.</param>
-        /// <returns>Unscaled BigInteger according to column scale.</returns>
-        public static BigInteger DecimalToUnscaledBigInteger(decimal value, int scale)
+        /// <param name="maxScale">Maximum scale to use.</param>
+        /// <returns>Unscaled BigInteger and scale.</returns>
+        public static (BigInteger BigInt, short Scale) DecimalToUnscaledBigInteger(decimal value, int maxScale)
         {
             if (value == decimal.Zero)
             {
-                return BigInteger.Zero;
+                return (BigInteger.Zero, 0);
             }
 
             Span<int> bits = stackalloc int[4];
@@ -131,16 +120,16 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 unscaled = -unscaled;
             }
 
-            if (scale > valueScale)
+            if (valueScale > maxScale)
             {
-                unscaled *= BigInteger.Pow(new BigInteger(10), scale - valueScale);
-            }
-            else if (scale < valueScale)
-            {
-                unscaled /= BigInteger.Pow(new BigInteger(10), valueScale - scale);
+                unscaled /= BigInteger.Pow(new BigInteger(10), valueScale - maxScale);
+                valueScale = maxScale;
             }
 
-            return unscaled;
+            Debug.Assert(valueScale <= short.MaxValue, "valueScale < short.MaxValue");
+            Debug.Assert(valueScale >= short.MinValue, "valueScale > short.MinValue");
+
+            return (unscaled, (short)valueScale);
         }
     }
 }

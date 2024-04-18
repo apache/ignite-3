@@ -80,6 +80,12 @@ internal static class ILGeneratorExtensions
         var fromUnderlying = Nullable.GetUnderlyingType(from);
         var toUnderlying = Nullable.GetUnderlyingType(to);
 
+        if (toUnderlying is { IsEnum: true })
+        {
+            toUnderlying = toUnderlying.GetEnumUnderlyingType();
+            to = typeof(Nullable<>).MakeGenericType(toUnderlying);
+        }
+
         if (fromUnderlying != null && toUnderlying != null)
         {
             var emitNull = il.DefineLabel();

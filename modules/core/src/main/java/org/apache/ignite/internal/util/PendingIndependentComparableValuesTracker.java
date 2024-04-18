@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.util;
 
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.jetbrains.annotations.Nullable;
@@ -58,7 +58,7 @@ public class PendingIndependentComparableValuesTracker<T extends Comparable<T>, 
 
         valueFutures.compute(valueToWait, (k, v) -> {
             if (v == null) {
-                v = new HashSet<>();
+                v = ConcurrentHashMap.newKeySet();
             }
             v.add(future);
 

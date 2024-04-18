@@ -17,13 +17,13 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.internal.util.ExceptionUtils.getOrCreateTraceId;
 import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
-import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
-import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.errorGroupByCode;
+import static org.apache.ignite.lang.ErrorGroups.extractGroupCode;
+import static org.apache.ignite.lang.util.TraceIdUtils.getOrCreateTraceId;
 
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
@@ -169,7 +169,7 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteException(int code, String message, Throwable cause) {
+    public IgniteException(int code, String message, @Nullable Throwable cause) {
         this(getOrCreateTraceId(cause), code, message, cause);
     }
 
@@ -181,7 +181,7 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteException(UUID traceId, int code, String message, Throwable cause) {
+    public IgniteException(UUID traceId, int code, String message, @Nullable Throwable cause) {
         super(message, cause);
 
         this.traceId = traceId;

@@ -17,8 +17,13 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -26,50 +31,46 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.function.Consumer;
+import java.util.function.LongFunction;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
-import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-/**
- * Base class for {@link DistributionZoneManager} unit tests.
- */
+/** Base class for {@link DistributionZoneManager} unit tests. */
 @ExtendWith(ConfigurationExtension.class)
-public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
-    @InjectConfiguration
-    private TablesConfiguration tablesConfiguration;
+public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
+    protected static final String ZONE_NAME = "zone1";
 
-    private ConfigurationTreeGenerator generator;
+    protected static final long ZONE_MODIFICATION_AWAIT_TIMEOUT = 10_000L;
 
-    protected DistributionZonesConfiguration zonesConfiguration;
+    protected static final int COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS = 10_000;
 
     protected DistributionZoneManager distributionZoneManager;
 
-    protected SimpleInMemoryKeyValueStorage keyValueStorage;
+    SimpleInMemoryKeyValueStorage keyValueStorage;
 
     protected LogicalTopology topology;
 
@@ -77,39 +78,21 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
     protected MetaStorageManager metaStorageManager;
 
-    protected VaultManager vaultMgr;
+    private final HybridClock clock = new HybridClockImpl();
+
+    protected CatalogManager catalogManager;
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
     @BeforeEach
-    void setUp() {
-        vaultMgr = new VaultManager(new InMemoryVaultService());
+    void setUp() throws Exception {
+        String nodeName = "test";
 
-        components.add(vaultMgr);
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));
 
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
-
-        metaStorageManager = StandaloneMetaStorageManager.create(vaultMgr, keyValueStorage);
+        metaStorageManager = spy(StandaloneMetaStorageManager.create(keyValueStorage));
 
         components.add(metaStorageManager);
-
-        ConfigurationStorage cfgStorage = new DistributedConfigurationStorage(metaStorageManager);
-
-        generator = new ConfigurationTreeGenerator(
-                List.of(DistributionZonesConfiguration.KEY),
-                List.of(),
-                List.of(TestPersistStorageConfigurationSchema.class)
-        );
-        ConfigurationManager cfgMgr = new ConfigurationManager(
-                List.of(DistributionZonesConfiguration.KEY),
-                cfgStorage,
-                generator,
-                new TestConfigurationValidator()
-        );
-
-        components.add(cfgMgr);
-
-        ConfigurationRegistry registry = cfgMgr.configurationRegistry();
 
         clusterStateStorage = new TestClusterStateStorage();
 
@@ -121,19 +104,29 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(topology.getLogicalTopology()));
 
-        zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
+        Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
+                metaStorageManager.registerRevisionUpdateListener(function::apply);
+
+        catalogManager = createTestCatalogManager(nodeName, clock, metaStorageManager);
+        components.add(catalogManager);
+
+        ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
+                NamedThreadFactory.create(nodeName, "test-rebalance-scheduler", logger()));
 
         distributionZoneManager = new DistributionZoneManager(
-                zonesConfiguration,
-                tablesConfiguration,
+                nodeName,
+                revisionUpdater,
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
-                vaultMgr,
-                "test"
+                catalogManager,
+                rebalanceScheduler
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
-        components.forEach(IgniteComponent::start);
+        assertThat(
+                allOf(components.stream().map(IgniteComponent::start).collect(toList()).toArray(CompletableFuture[]::new)),
+                willCompleteSuccessfully()
+        );
     }
 
     @AfterEach
@@ -146,13 +139,69 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
         IgniteUtils.closeAll(components.stream().map(c -> c::beforeNodeStop));
         IgniteUtils.closeAll(components.stream().map(c -> c::stop));
-
-        generator.close();
     }
 
-    void startDistributionZoneManager() throws Exception {
-        deployWatchesAndUpdateMetaStorageRevision(metaStorageManager);
+    void startDistributionZoneManager() {
+        assertThat(allOf(distributionZoneManager.start()), willCompleteSuccessfully());
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+    }
 
-        distributionZoneManager.start();
+    protected void createZone(
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        DistributionZonesTestUtil.createZone(
+                catalogManager,
+                zoneName,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter
+        );
+    }
+
+    protected void createZone(
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter,
+            String storageProfiles
+    ) {
+        DistributionZonesTestUtil.createZone(
+                catalogManager,
+                zoneName,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter,
+                storageProfiles
+        );
+    }
+
+    protected void alterZone(
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        DistributionZonesTestUtil.alterZone(
+                catalogManager,
+                zoneName,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter
+        );
+    }
+
+    protected void dropZone(String zoneName) {
+        DistributionZonesTestUtil.dropZone(catalogManager, zoneName);
+    }
+
+    protected int getZoneId(String zoneName) {
+        return DistributionZonesTestUtil.getZoneIdStrict(catalogManager, zoneName, clock.nowLong());
+    }
+
+    protected CatalogZoneDescriptor getDefaultZone() {
+        return DistributionZonesTestUtil.getDefaultZone(catalogManager, clock.nowLong());
     }
 }

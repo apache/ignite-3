@@ -17,185 +17,47 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import java.util.List;
 import java.util.Map;
-import org.apache.calcite.config.CalciteConnectionConfig;
-import org.apache.calcite.plan.RelOptCluster;
-import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.core.TableScan;
-import org.apache.calcite.rel.hint.RelHint;
+import java.util.function.Supplier;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.schema.Schema;
-import org.apache.calcite.schema.Statistic;
-import org.apache.calcite.schema.TranslatableTable;
-import org.apache.calcite.schema.Wrapper;
-import org.apache.calcite.sql.SqlCall;
-import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
-import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
-import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.jetbrains.annotations.Nullable;
+import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 
 /**
  * Table representation as object in SQL schema.
  */
-public interface IgniteTable extends TranslatableTable, Wrapper {
+public interface IgniteTable extends IgniteDataSource {
     /**
-     * Returns an id of the table.
+     * Checks whether it is possible to update a column with a given index.
      *
-     * @return And id of the table.
+     * @param colIdx Column index.
+     * @return {@code True} if update operation is allowed for a column with a given index.
      */
-    int id();
+    boolean isUpdateAllowed(int colIdx);
 
     /**
-     * Returns the version of the table's schema.
+     * Returns row type excluding effectively virtual or hidden fields.
      *
-     * @return the version of the table's schema.
+     * @param factory Type factory.
+     * @return Row type for INSERT operation.
      */
-    int version();
+    RelDataType rowTypeForInsert(IgniteTypeFactory factory);
 
     /**
-     * Gets a name of the table.
+     * Returns row type containing only key fields.
      *
-     * @return Table name.
+     * @param factory Type factory.
+     * @return Row type for DELETE operation.
      */
-    String name();
+    RelDataType rowTypeForDelete(IgniteTypeFactory factory);
+
+    /** Return indexes of column representing primary key in the order they are specified in the index. */
+    ImmutableIntList keyColumns();
 
     /**
-     * Returns a descriptor of the table.
-     *
-     * @return A descriptor of the table.
+     * Return partition correspondence calculator.
      */
-    TableDescriptor descriptor();
-
-    /** {@inheritDoc} */
-    @Override
-    default RelDataType getRowType(RelDataTypeFactory typeFactory) {
-        return getRowType(typeFactory, null);
-    }
-
-    /**
-     * Returns new type according {@code requiredColumns} param.
-     *
-     * @param typeFactory     Factory.
-     * @param requiredColumns Used columns enumeration.
-     */
-    RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet requiredColumns);
-
-    /** {@inheritDoc} */
-    @Override
-    default TableScan toRel(RelOptTable.ToRelContext context, RelOptTable relOptTable) {
-        return toRel(context.getCluster(), relOptTable, context.getTableHints());
-    }
-
-    /**
-     * Converts table into relational expression.
-     *
-     * @param cluster   Custer.
-     * @param relOptTbl Table.
-     * @param hints     Hints.
-     * @return Table relational expression.
-     */
-    default IgniteLogicalTableScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, List<RelHint> hints) {
-        return toRel(cluster, relOptTbl, hints, null, null, null);
-    }
-
-    /**
-     * Converts table into relational expression.
-     *
-     * @param cluster   Custer.
-     * @param relOptTbl Table.
-     * @param idxName   Index name.
-     * @return Table relational expression.
-     */
-    default IgniteLogicalIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName) {
-        return toRel(cluster, relOptTbl, idxName, null, null, null);
-    }
-
-    /**
-     * Converts table into table scan relational expression.
-     */
-    IgniteLogicalTableScan toRel(
-            RelOptCluster cluster,
-            RelOptTable relOptTbl,
-            List<RelHint> hints,
-            @Nullable List<RexNode> proj,
-            @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColumns
-    );
-
-    /**
-     * Converts table into index scan relational expression.
-     */
-    IgniteLogicalIndexScan toRel(
-            RelOptCluster cluster,
-            RelOptTable relOptTbl,
-            String idxName,
-            List<RexNode> proj,
-            RexNode condition,
-            ImmutableBitSet requiredCols
-    );
-
-    /**
-     * Returns table distribution.
-     *
-     * @return Table distribution.
-     */
-    IgniteDistribution distribution();
-
-    /** {@inheritDoc} */
-    @Override
-    default Schema.TableType getJdbcTableType() {
-        return Schema.TableType.TABLE;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    default boolean isRolledUp(String column) {
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    default boolean rolledUpColumnValidInsideAgg(String column, SqlCall call,
-            @Nullable SqlNode parent,
-            @Nullable CalciteConnectionConfig config) {
-        return false;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    default Statistic getStatistic() {
-        return new Statistic() {
-            @Override
-            public List<RelCollation> getCollations() {
-                return List.of();
-            }
-        };
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    default <C> @Nullable C unwrap(Class<C> cls) {
-        if (cls.isInstance(this)) {
-            return cls.cast(this);
-        }
-        return null;
-    }
-
-    /**
-     * Returns nodes mapping.
-     *
-     * @param ctx Planning context.
-     * @return Nodes mapping.
-     */
-    ColocationGroup colocationGroup(MappingQueryContext ctx);
+    Supplier<PartitionCalculator> partitionCalculator();
 
     /**
      * Returns all table indexes.
@@ -205,24 +67,9 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
     Map<String, IgniteIndex> indexes();
 
     /**
-     * Adds index to table.
+     * Returns the number of partitions for this table.
      *
-     * @param idxTbl Index table.
+     * @return Number of partitions.
      */
-    void addIndex(IgniteIndex idxTbl);
-
-    /**
-     * Returns index by its name.
-     *
-     * @param idxName Index name.
-     * @return Index.
-     */
-    IgniteIndex getIndex(String idxName);
-
-    /**
-     * Returns index name.
-     *
-     * @param idxName Index name.
-     */
-    void removeIndex(String idxName);
+    int partitions();
 }

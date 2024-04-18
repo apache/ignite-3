@@ -30,9 +30,4 @@ public class RestSslConfigurationSchema extends AbstractSslConfigurationSchema {
     @Range(min = 1024, max = 0xFFFF)
     @Value(hasDefault = true)
     public final int port = 10400;
-
-    /** SSL port range. */
-    @Range(min = 0)
-    @Value(hasDefault = true)
-    public final int portRange = 100;
 }

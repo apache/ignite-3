@@ -23,9 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.RingBuffer;
 import java.util.ArrayList;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.NodeId;
@@ -40,14 +40,15 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
      * Checks the correctness of disruptor batching in a handler. This test creates only one stripe in order to the real Disruptor is shared
      * between two groups.
      *
-     * @throws Exception If fialed.
+     * @throws Exception If failed.
      */
     @Test
     public void testDisruptorBatch() throws Exception {
-        StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test-disruptor",
+        StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test", "test-disruptor",
                 16384,
                 NodeIdAwareTestObj::new,
                 1,
+                false,
                 false);
 
         var nodeId1 = new NodeId("grp1", new PeerId("foo"));
@@ -76,10 +77,10 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
 
             if (i % 10 == 0) {
                 assertTrue(IgniteTestUtils.waitForCondition(() -> handler1.applied == finalInt + 1, 10_000),
-                        IgniteStringFormatter.format("Batch was not commited [applied={}, expected={}, buffered={}]",
+                        IgniteStringFormatter.format("Batch was not committed [applied={}, expected={}, buffered={}]",
                                 handler1.applied, finalInt + 1, handler1.batch));
                 assertTrue(IgniteTestUtils.waitForCondition(() -> handler2.applied == finalInt + 1, 10_000),
-                        IgniteStringFormatter.format("Batch was not commited [applied={}, expected={}, buffered={}]",
+                        IgniteStringFormatter.format("Batch was not committed [applied={}, expected={}, buffered={}]",
                                 handler2.applied, finalInt + 1, handler2.batch));
             }
         }
@@ -90,14 +91,15 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
     /**
      * The test checks that the Striped Disruptor work same as real one in the circumstances when we have only one consumer group.
      *
-     * @throws Exception If fialed.
+     * @throws Exception If failed.
      */
     @Test
     public void testDisruptorSimple() throws Exception {
-        StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test-disruptor",
+        StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test", "test-disruptor",
                 16384,
                 NodeIdAwareTestObj::new,
                 5,
+                false,
                 false);
 
         GroupAwareTestObjHandler handler = new GroupAwareTestObjHandler();

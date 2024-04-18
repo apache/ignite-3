@@ -82,11 +82,24 @@ public class BinaryTupleBuilder {
      * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
      */
     public BinaryTupleBuilder(int numElements, int totalValueSize) {
+        this(numElements, totalValueSize, true);
+    }
+
+    /**
+     * Creates a builder.
+     *
+     * @param numElements Number of tuple elements.
+     * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
+     * @param exactEstimate Whether the total size is exact estimate or approximate. The
+     *      difference here is with exact estimate allocation will be optimal, while with
+     *      approximate estimate some excess allocation is possible.
+     */
+    public BinaryTupleBuilder(int numElements, int totalValueSize, boolean exactEstimate) {
         this.numElements = numElements;
 
         entryBase = BinaryTupleCommon.HEADER_SIZE;
 
-        if (totalValueSize < 0) {
+        if (totalValueSize < 0 || !exactEstimate) {
             entrySize = Integer.BYTES;
         } else {
             entrySize = BinaryTupleCommon.flagsToEntrySize(BinaryTupleCommon.valueSizeToFlags(totalValueSize));
@@ -302,7 +315,28 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendDecimalNotNull(BigDecimal value, int scale) {
-        putBytes(value.setScale(scale, RoundingMode.HALF_UP).unscaledValue().toByteArray());
+        if (value.scale() > scale) {
+            value = value.setScale(scale, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal noZeros = value.stripTrailingZeros();
+        if (noZeros.scale() <= Short.MAX_VALUE && noZeros.scale() >= Short.MIN_VALUE) {
+            // Use more compact representation if possible.
+            value = noZeros;
+        }
+
+        // See CatalogUtils.MAX_DECIMAL_SCALE = Short.MAX_VALUE
+        if (value.scale() > Short.MAX_VALUE) {
+            throw new BinaryTupleFormatException("Decimal scale is too large: " + value.scale() + " > " + Short.MAX_VALUE);
+        }
+
+        if (value.scale() < Short.MIN_VALUE) {
+            throw new BinaryTupleFormatException("Decimal scale is too small: " + value.scale() + " < " + Short.MIN_VALUE);
+        }
+
+        putShort((short) value.scale());
+        putBytes(value.unscaledValue().toByteArray());
+
         return proceed();
     }
 
@@ -359,7 +393,7 @@ public class BinaryTupleBuilder {
      * @param value Element value.
      * @return {@code this} for chaining.
      */
-    public BinaryTupleBuilder appendBytes(byte[] value) {
+    public BinaryTupleBuilder appendBytes(byte @Nullable [] value) {
         return value == null ? appendNull() : appendBytesNotNull(value);
     }
 
@@ -781,7 +815,7 @@ public class BinaryTupleBuilder {
 
     /** Proceed to the next tuple element. */
     private BinaryTupleBuilder proceed() {
-        assert elementIndex < numElements;
+        assert elementIndex < numElements : "Element index overflow: " + elementIndex + " >= " + numElements;
 
         int offset = buffer.position() - valueBase;
         switch (entrySize) {

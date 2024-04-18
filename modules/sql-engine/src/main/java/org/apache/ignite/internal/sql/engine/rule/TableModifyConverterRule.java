@@ -30,6 +30,7 @@ import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
+import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.calcite.rel.logical.LogicalTableModify;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
@@ -40,18 +41,19 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
- * TableModifyConverterRule.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Rule that translates logical modify to the similar one but in Ignite's convention.
  */
 public class TableModifyConverterRule extends AbstractIgniteConverterRule<LogicalTableModify> {
     public static final RelOptRule INSTANCE = new TableModifyConverterRule();
@@ -71,8 +73,19 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
         IgniteTable igniteTable = relTable.unwrap(IgniteTable.class);
         assert igniteTable != null;
 
+        IgniteDistribution distribution = igniteTable.distribution();
+
+        if (rel.getOperation() == Operation.DELETE) {
+            // To perform the delete, we need a row with key fields only.
+            // Input distribution contains the indexes of the key columns according to the schema (i.e. for the full row).
+            // Here we adjusting distribution keys so that a row containing only the key fields can be read.
+            ImmutableIntList keyColumns = igniteTable.keyColumns();
+
+            distribution = distribution.apply(Commons.projectedMapping(igniteTable.descriptor().columnsCount(), keyColumns));
+        }
+
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
-                .replace(igniteTable.distribution())
+                .replace(distribution)
                 .replace(RelCollations.EMPTY);
 
         RelNode input = convert(rel.getInput(), traits);

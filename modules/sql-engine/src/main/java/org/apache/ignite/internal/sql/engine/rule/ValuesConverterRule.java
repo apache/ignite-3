@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
-import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
+import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.broadcast;
 
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
@@ -48,7 +48,7 @@ public class ValuesConverterRule extends AbstractIgniteConverterRule<LogicalValu
     protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalValues rel) {
         RelOptCluster cluster = rel.getCluster();
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
-                .replace(single());
+                .replace(broadcast());
 
         return new IgniteValues(cluster, rel.getRowType(), rel.getTuples(), traits);
     }

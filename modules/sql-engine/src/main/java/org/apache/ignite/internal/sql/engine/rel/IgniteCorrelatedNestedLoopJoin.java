@@ -48,6 +48,8 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * The set of output rows is a subset of the cartesian product of the two inputs; precisely which subset depends on the join condition.
  */
 public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
+    private static final String REL_TYPE_NAME = "CorrelatedNestedLoopJoin";
+
     /**
      * Creates a Join.
      *
@@ -180,5 +182,11 @@ public class IgniteCorrelatedNestedLoopJoin extends AbstractIgniteJoin {
     public double estimateRowCount(RelMetadataQuery mq) {
         // condition selectivity already counted within the external filter
         return super.estimateRowCount(mq) / mq.getSelectivity(this, getCondition());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

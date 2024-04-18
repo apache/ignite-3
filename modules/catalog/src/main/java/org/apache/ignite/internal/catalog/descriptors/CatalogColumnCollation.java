@@ -20,13 +20,15 @@ package org.apache.ignite.internal.catalog.descriptors;
 /**
  * Enumeration of all supported collations.
  */
-//TODO: IGNITE-19082 drop similar classes in index and sql-engine modules.
+// TODO: IGNITE-19082 drop similar classes in index and sql-engine modules.
 public enum CatalogColumnCollation {
     ASC_NULLS_FIRST(true, true),
     ASC_NULLS_LAST(true, false),
     DESC_NULLS_FIRST(false, true),
     DESC_NULLS_LAST(false, false);
 
+    private static final int ASC_FLAG_BITMASK = 1;
+    private static final int NULLS_FIRST_FLAG_BITMASK = 1 << 1;
 
     private final boolean asc;
     private final boolean nullsFirst;
@@ -69,5 +71,18 @@ public enum CatalogColumnCollation {
     /** Returns whether null values should be in the very beginning of the range. */
     public boolean nullsFirst() {
         return nullsFirst;
+    }
+
+    /** Writes collation to byte. */
+    static byte pack(CatalogColumnCollation collation) {
+        return  (byte) ((collation.asc() ? ASC_FLAG_BITMASK : 0) | (collation.nullsFirst() ? NULLS_FIRST_FLAG_BITMASK : 0));
+    }
+
+    /** Reads collation from byte. */
+    static CatalogColumnCollation unpack(byte collationBits) {
+        boolean asc = (collationBits & ASC_FLAG_BITMASK) == ASC_FLAG_BITMASK;
+        boolean nullsFirst = (collationBits & NULLS_FIRST_FLAG_BITMASK) == NULLS_FIRST_FLAG_BITMASK;
+
+        return get(asc, nullsFirst);
     }
 }

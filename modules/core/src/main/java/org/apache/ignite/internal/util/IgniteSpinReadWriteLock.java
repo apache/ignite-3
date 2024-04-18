@@ -311,6 +311,7 @@ public class IgniteSpinReadWriteLock {
      * Acquires the write lock without sleeping between unsuccessful attempts. Instead, the spinwait eats cycles of the core it gets at full
      * speed. It is non-interruptible as its {@link #writeLock()} cousin.
      */
+    @SuppressWarnings("PMD.EmptyControlStatement")
     public void writeLockBusy() {
         if (writeLockedByCurrentThread()) {
             incrementWriteLockCount();

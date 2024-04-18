@@ -17,26 +17,32 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.Collections.emptyList;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_TIMEOUT_ERR;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
@@ -46,56 +52,129 @@ import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.tx.event.LockEvent;
+import org.apache.ignite.internal.tx.event.LockEventParameters;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * A {@link LockManager} implementation which stores lock queues in the heap.
  *
  * <p>Lock waiters are placed in the queue, ordered according to comparator provided by {@link HeapLockManager#deadlockPreventionPolicy}.
- * When a new waiter is placed in the queue, it's validated against current lock owner: if there is an owner with a higher transaction id
- * lock request is denied.
+ * When a new waiter is placed in the queue, it's validated against current lock owner: if there is an owner with a higher priority (as
+ * defined by comparator) lock request is denied.
  *
  * <p>Read lock can be upgraded to write lock (only available for the lowest read-locked entry of
  * the queue).
+ *
+ * <p>Additionally limits the lock map size.
  */
-public class HeapLockManager implements LockManager {
-    private ConcurrentHashMap<LockKey, LockState> locks = new ConcurrentHashMap<>();
+public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventParameters> implements LockManager {
+    /**
+     * Table size. TODO make it configurable IGNITE-20694
+     */
+    public static final int SLOTS = 131072;
 
+    /**
+     * Empty slots.
+     */
+    private final ConcurrentLinkedQueue<LockState> empty = new ConcurrentLinkedQueue<>();
+
+    /**
+     * Mapped slots.
+     */
+    private final ConcurrentHashMap<LockKey, LockState> locks;
+
+    /**
+     * Raw slots.
+     */
+    private final LockState[] slots;
+
+    /**
+     * The policy.
+     */
     private final DeadlockPreventionPolicy deadlockPreventionPolicy;
 
-    /** Executor that is used to fail waiters after timeout. */
+    /**
+     * Executor that is used to fail waiters after timeout.
+     */
     private final Executor delayedExecutor;
+
+    /**
+     * Enlisted transactions.
+     */
+    private final ConcurrentHashMap<UUID, ConcurrentLinkedQueue<LockState>> txMap = new ConcurrentHashMap<>(1024);
+
+    /**
+     * Parent lock manager.
+     * TODO asch Needs optimization https://issues.apache.org/jira/browse/IGNITE-20895
+     */
+    private final LockManager parentLockManager;
+
+    private final EventListener<LockEventParameters> parentLockConflictListener = this::parentLockConflictListener;
 
     /**
      * Constructor.
      */
     public HeapLockManager() {
-        this(new WaitDieDeadlockPreventionPolicy());
+        this(new WaitDieDeadlockPreventionPolicy(), SLOTS, SLOTS, new HeapUnboundedLockManager());
+    }
+
+    /**
+     * Constructor.
+     */
+    public HeapLockManager(DeadlockPreventionPolicy deadlockPreventionPolicy) {
+        this(deadlockPreventionPolicy, SLOTS, SLOTS, new HeapUnboundedLockManager());
     }
 
     /**
      * Constructor.
      *
      * @param deadlockPreventionPolicy Deadlock prevention policy.
+     * @param maxSize Raw slots size.
+     * @param mapSize Lock map size.
      */
-    public HeapLockManager(DeadlockPreventionPolicy deadlockPreventionPolicy) {
+    public HeapLockManager(DeadlockPreventionPolicy deadlockPreventionPolicy, int maxSize, int mapSize, LockManager parentLockManager) {
+        if (mapSize > maxSize) {
+            throw new IllegalArgumentException("maxSize=" + maxSize + " < mapSize=" + mapSize);
+        }
+
+        this.parentLockManager = Objects.requireNonNull(parentLockManager);
         this.deadlockPreventionPolicy = deadlockPreventionPolicy;
         this.delayedExecutor = deadlockPreventionPolicy.waitTimeout() > 0
                 ? CompletableFuture.delayedExecutor(deadlockPreventionPolicy.waitTimeout(), TimeUnit.MILLISECONDS)
                 : null;
+
+        locks = new ConcurrentHashMap<>(mapSize);
+
+        LockState[] tmp = new LockState[maxSize];
+        for (int i = 0; i < tmp.length; i++) {
+            LockState lockState = new LockState();
+            if (i < mapSize) {
+                empty.add(lockState);
+            }
+            tmp[i] = lockState;
+        }
+
+        slots = tmp; // Atomic init.
+
+        parentLockManager.listen(LockEvent.LOCK_CONFLICT, parentLockConflictListener);
     }
 
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
+        if (lockKey.contextId() == null) { // Treat this lock as a hierarchy lock.
+            return parentLockManager.acquire(txId, lockKey, lockMode);
+        }
+
         while (true) {
             LockState state = lockState(lockKey);
 
             IgniteBiTuple<CompletableFuture<Void>, LockMode> futureTuple = state.tryAcquire(txId, lockMode);
 
             if (futureTuple.get1() == null) {
-                continue; // Obsolete state.
+                continue; // State is marked for remove, need retry.
             }
 
             LockMode newLockMode = futureTuple.get2();
@@ -105,43 +184,97 @@ public class HeapLockManager implements LockManager {
     }
 
     @Override
+    @TestOnly
     public void release(Lock lock) {
         LockState state = lockState(lock.lockKey());
 
         if (state.tryRelease(lock.txId())) {
-            locks.remove(lock.lockKey(), state);
+            locks.compute(lock.lockKey(), (k, v) -> {
+                // Mapping may already change.
+                if (v != state || !v.markedForRemove) {
+                    return v;
+                }
+
+                // markedForRemove state should be cleared on entry reuse to avoid race.
+                v.key = null;
+                empty.add(v);
+                return null;
+            });
         }
     }
 
     @Override
     public void release(UUID txId, LockKey lockKey, LockMode lockMode) {
+        // TODO: Delegation to parentLockManager might change after https://issues.apache.org/jira/browse/IGNITE-20895 
+        if (lockKey.contextId() == null) { // Treat this lock as a hierarchy lock.
+            parentLockManager.release(txId, lockKey, lockMode);
+
+            return;
+        }
+
         LockState state = lockState(lockKey);
 
         if (state.tryRelease(txId, lockMode)) {
-            locks.remove(lockKey, state);
+            locks.compute(lockKey, (k, v) -> {
+                // Mapping may already change.
+                if (v != state || !v.markedForRemove) {
+                    return v;
+                }
+
+                v.key = null;
+                empty.add(v);
+                return null;
+            });
         }
     }
 
     @Override
-    public Iterator<Lock> locks(UUID txId) {
-        // TODO: IGNITE-17811 Use index or similar instead of full locks set iteration.
-        List<Lock> result = new ArrayList<>();
+    public void releaseAll(UUID txId) {
+        ConcurrentLinkedQueue<LockState> states = this.txMap.remove(txId);
 
-        for (Map.Entry<LockKey, LockState> entry : locks.entrySet()) {
-            Waiter waiter = entry.getValue().waiter(txId);
+        if (states != null) {
+            for (LockState state : states) {
+                if (state.tryRelease(txId)) {
+                    LockKey key = state.key; // State may be already invalidated.
+                    if (key != null) {
+                        locks.compute(key, (k, v) -> {
+                            // Mapping may already change.
+                            if (v != state || !v.markedForRemove) {
+                                return v;
+                            }
 
-            if (waiter != null) {
-                result.add(
-                        new Lock(
-                                entry.getKey(),
-                                waiter.lockMode(),
-                                txId
-                        )
-                );
+                            v.key = null;
+                            empty.add(v);
+                            return null;
+                        });
+                    }
+                }
             }
         }
 
-        return result.iterator();
+        parentLockManager.releaseAll(txId);
+    }
+
+    @Override
+    public Iterator<Lock> locks(UUID txId) {
+        ConcurrentLinkedQueue<LockState> lockStates = txMap.get(txId);
+
+        // TODO: Delegation to parentLockManager might change after https://issues.apache.org/jira/browse/IGNITE-20895
+        if (lockStates == null) {
+            return parentLockManager.locks(txId);
+        }
+
+        List<Lock> result = new ArrayList<>();
+
+        for (LockState lockState : lockStates) {
+            Waiter waiter = lockState.waiter(txId);
+
+            if (waiter != null) {
+                result.add(new Lock(lockState.key, waiter.lockMode(), txId));
+            }
+        }
+
+        return CollectionUtils.concat(result.iterator(), parentLockManager.locks(txId));
     }
 
     /**
@@ -149,8 +282,30 @@ public class HeapLockManager implements LockManager {
      *
      * @param key The key.
      */
-    private @NotNull LockState lockState(LockKey key) {
-        return locks.computeIfAbsent(key, k -> new LockState(deadlockPreventionPolicy, delayedExecutor));
+    private LockState lockState(LockKey key) {
+        int h = spread(key.hashCode());
+        int index = h & (slots.length - 1);
+
+        LockState[] res = new LockState[1];
+
+        locks.compute(key, (k, v) -> {
+            if (v == null) {
+                v = empty.poll();
+                if (v == null) {
+                    res[0] = slots[index];
+                } else {
+                    v.markedForRemove = false;
+                    v.key = k;
+                    res[0] = v;
+                }
+            } else {
+                res[0] = v;
+            }
+
+            return v;
+        });
+
+        return res[0];
     }
 
     /** {@inheritDoc} */
@@ -165,28 +320,40 @@ public class HeapLockManager implements LockManager {
         return lockState(key).waiter(txId);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public boolean isEmpty() {
+        for (LockState slot : slots) {
+            if (!slot.waiters.isEmpty()) {
+                return false;
+            }
+        }
+
+        return parentLockManager.isEmpty();
+    }
+
+    private CompletableFuture<Boolean> parentLockConflictListener(LockEventParameters params) {
+        return fireEvent(LockEvent.LOCK_CONFLICT, params).thenApply(v -> false);
+    }
+
     /**
      * A lock state.
      */
-    private static class LockState {
+    public class LockState {
         /** Waiters. */
         private final TreeMap<UUID, WaiterImpl> waiters;
 
-        private final DeadlockPreventionPolicy deadlockPreventionPolicy;
-
-        /** Delayed executor for waiters timeout callback. */
-        private final Executor delayedExecutor;
-
         /** Marked for removal flag. */
-        private boolean markedForRemove = false;
+        private volatile boolean markedForRemove = false;
 
-        public LockState(DeadlockPreventionPolicy deadlockPreventionPolicy, Executor delayedExecutor) {
+        /** Lock key. */
+        private volatile LockKey key;
+
+        LockState() {
             Comparator<UUID> txComparator =
                     deadlockPreventionPolicy.txIdComparator() != null ? deadlockPreventionPolicy.txIdComparator() : UUID::compareTo;
 
             this.waiters = new TreeMap<>(txComparator);
-            this.deadlockPreventionPolicy = deadlockPreventionPolicy;
-            this.delayedExecutor = delayedExecutor;
         }
 
         /**
@@ -196,7 +363,7 @@ public class HeapLockManager implements LockManager {
          * @param lockMode Lock mode.
          * @return The future or null if state is marked for removal and acquired lock mode.
          */
-        public @Nullable IgniteBiTuple<CompletableFuture<Void>, LockMode> tryAcquire(UUID txId, LockMode lockMode) {
+        @Nullable IgniteBiTuple<CompletableFuture<Void>, LockMode> tryAcquire(UUID txId, LockMode lockMode) {
             WaiterImpl waiter = new WaiterImpl(txId, lockMode);
 
             synchronized (waiters) {
@@ -218,7 +385,7 @@ public class HeapLockManager implements LockManager {
 
                         waiter.upgrade(prev);
 
-                        return new IgniteBiTuple(completedFuture(null), prev.lockMode());
+                        return new IgniteBiTuple(nullCompletedFuture(), prev.lockMode());
                     } else {
                         waiter.upgrade(prev);
 
@@ -232,6 +399,11 @@ public class HeapLockManager implements LockManager {
                         setWaiterTimeout(waiter);
                     }
 
+                    // Put to wait queue, track.
+                    if (prev == null) {
+                        track(waiter.txId);
+                    }
+
                     return new IgniteBiTuple<>(waiter.fut, waiter.lockMode());
                 }
 
@@ -239,13 +411,22 @@ public class HeapLockManager implements LockManager {
                     waiters.remove(waiter.txId());
                 } else if (waiter.hasLockIntent()) {
                     waiter.refuseIntent(); // Restore old lock.
+                } else {
+                    // Lock granted, track.
+                    if (prev == null) {
+                        track(waiter.txId);
+                    }
                 }
             }
 
             // Notify outside the monitor.
             waiter.notifyLocked();
 
-            return new IgniteBiTuple(waiter.fut, waiter.lockMode());
+            return new IgniteBiTuple<>(waiter.fut, waiter.lockMode());
+        }
+
+        public synchronized int waitersCount() {
+            return waiters.size();
         }
 
         /**
@@ -260,8 +441,12 @@ public class HeapLockManager implements LockManager {
                 LockMode mode = lockedMode(tmp);
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
-                    if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
-                        waiter.fail(lockException(waiter.txId(), tmp));
+                    if (conflictFound(waiter.txId(), tmp.txId())) {
+                        waiter.fail(abandonedLockException(waiter, tmp));
+
+                        return true;
+                    } else if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
+                        waiter.fail(lockException(waiter, tmp));
 
                         return true;
                     }
@@ -277,8 +462,12 @@ public class HeapLockManager implements LockManager {
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
                     if (skipFail) {
                         return false;
+                    } else if (conflictFound(waiter.txId(), tmp.txId())) {
+                        waiter.fail(abandonedLockException(waiter, tmp));
+
+                        return true;
                     } else if (deadlockPreventionPolicy.waitTimeout() == 0) {
-                        waiter.fail(lockException(waiter.txId(), tmp));
+                        waiter.fail(lockException(waiter, tmp));
 
                         return true;
                     } else {
@@ -295,13 +484,25 @@ public class HeapLockManager implements LockManager {
         /**
          * Create lock exception with given parameters.
          *
-         * @param txId Transaction id.
-         * @param conflictingWaiter Conflicting waiter.
+         * @param locker Locker.
+         * @param holder Lock holder.
          * @return Lock exception.
          */
-        private LockException lockException(UUID txId, WaiterImpl conflictingWaiter) {
-            return new LockException(ACQUIRE_LOCK_ERR, "Failed to acquire a lock due to a conflict [txId="
-                    + txId + ", conflictingWaiter=" + conflictingWaiter + ']');
+        private LockException lockException(WaiterImpl locker, WaiterImpl holder) {
+            return new LockException(ACQUIRE_LOCK_ERR,
+                    "Failed to acquire a lock due to a possible deadlock [locker=" + locker + ", holder=" + holder + ']');
+        }
+
+        /**
+         * Create lock exception when lock holder is believed to be missing.
+         *
+         * @param locker Locker.
+         * @param holder Lock holder.
+         * @return Lock exception.
+         */
+        private LockException abandonedLockException(WaiterImpl locker, WaiterImpl holder) {
+            return new LockException(ACQUIRE_LOCK_ERR,
+                    "Failed to acquire an abandoned lock due to a possible deadlock [locker=" + locker + ", holder=" + holder + ']');
         }
 
         /**
@@ -310,7 +511,7 @@ public class HeapLockManager implements LockManager {
          * @param txId Transaction id.
          * @return {@code True} if the queue is empty.
          */
-        public boolean tryRelease(UUID txId) {
+        boolean tryRelease(UUID txId) {
             Collection<WaiterImpl> toNotify;
 
             synchronized (waiters) {
@@ -326,20 +527,20 @@ public class HeapLockManager implements LockManager {
         }
 
         /**
-         * Releases a specific lock of the key.
+         * Releases a specific lock of the key, if a key is locked in multiple modes by the same locker.
          *
          * @param txId Transaction id.
          * @param lockMode Lock mode.
          * @return If the value is true, no one waits of any lock of the key, false otherwise.
          */
-        public boolean tryRelease(UUID txId, LockMode lockMode) {
-            List<WaiterImpl> toNotify = Collections.emptyList();
+        boolean tryRelease(UUID txId, LockMode lockMode) {
+            List<WaiterImpl> toNotify = emptyList();
             synchronized (waiters) {
                 WaiterImpl waiter = waiters.get(txId);
 
                 if (waiter != null) {
-                    assert lockMode.supremum(lockMode, waiter.lockMode()) == waiter.lockMode() :
-                            "The lock mode is not locked [mode=" + lockMode + ", locked=" + waiter.lockMode() + ']';
+                    assert LockMode.supremum(lockMode, waiter.lockMode()) == waiter.lockMode() :
+                            "The lock is not locked in specified mode [mode=" + lockMode + ", locked=" + waiter.lockMode() + ']';
 
                     LockMode modeFromDowngrade = waiter.recalculateMode(lockMode);
 
@@ -360,8 +561,7 @@ public class HeapLockManager implements LockManager {
         }
 
         /**
-         * Releases all locks are held by a specific transaction.
-         * This method should be invoked synchronously.
+         * Releases all locks are held by a specific transaction. This method should be invoked synchronously.
          *
          * @param txId Transaction id.
          * @return List of waiters to notify.
@@ -370,14 +570,14 @@ public class HeapLockManager implements LockManager {
             waiters.remove(txId);
 
             if (waiters.isEmpty()) {
-                markedForRemove = true;
+                if (key != null) {
+                    markedForRemove = true;
+                }
 
-                return Collections.emptyList();
+                return emptyList();
             }
 
-            List<WaiterImpl> toNotify = unlockCompatibleWaiters();
-
-            return toNotify;
+            return unlockCompatibleWaiters();
         }
 
         /**
@@ -387,7 +587,7 @@ public class HeapLockManager implements LockManager {
          */
         private List<WaiterImpl> unlockCompatibleWaiters() {
             if (!deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() == 0) {
-                return Collections.emptyList();
+                return emptyList();
             }
 
             ArrayList<WaiterImpl> toNotify = new ArrayList<>();
@@ -482,6 +682,33 @@ public class HeapLockManager implements LockManager {
                 return waiters.get(txId);
             }
         }
+
+        private void track(UUID txId) {
+            txMap.compute(txId, (k, v) -> {
+                if (v == null) {
+                    v = new ConcurrentLinkedQueue<>();
+                }
+
+                v.add(this);
+
+                return v;
+            });
+        }
+
+        /**
+         * Notifies about the lock conflict found between transactions.
+         *
+         * @param acquirerTx Transaction which tries to acquire the lock.
+         * @param holderTx Transaction which holds the lock.
+         */
+        private boolean conflictFound(UUID acquirerTx, UUID holderTx) {
+            CompletableFuture<Void> eventResult = fireEvent(LockEvent.LOCK_CONFLICT, new LockEventParameters(acquirerTx, holderTx));
+            // No async handling is expected.
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
+            assert eventResult.isDone() : "Async lock conflict handling is not supported";
+
+            return eventResult.isCompletedExceptionally();
+        }
     }
 
     /**
@@ -490,15 +717,13 @@ public class HeapLockManager implements LockManager {
     private static class WaiterImpl implements Comparable<WaiterImpl>, Waiter {
         /**
          * Holding locks by type.
-         * TODO: IGNITE-18350 Abandon the collection in favor of BitSet.
          */
-        private final Map<LockMode, Integer> locks = new HashMap<>();
+        private final Map<LockMode, Integer> locks = new EnumMap<>(LockMode.class);
 
         /**
          * Lock modes are marked as intended, but have not taken yet. This is NOT specific to intention lock modes, such as IS and IX.
-         * TODO: IGNITE-18350 Abandon the collection in favor of BitSet.
          */
-        private final Set<LockMode> intendedLocks = new HashSet<>();
+        private final Set<LockMode> intendedLocks = EnumSet.noneOf(LockMode.class);
 
         /** Locked future. */
         @IgniteToStringExclude
@@ -547,7 +772,7 @@ public class HeapLockManager implements LockManager {
          * Removes a lock mode.
          *
          * @param lockMode Lock mode.
-         * @return True if the lock mode was removed, false otherwise.
+         * @return True if the lock is not locked in the passed mode, false otherwise.
          */
         private boolean removeLock(LockMode lockMode) {
             Integer counter = locks.get(lockMode);
@@ -636,7 +861,7 @@ public class HeapLockManager implements LockManager {
 
         /** {@inheritDoc} */
         @Override
-        public int compareTo(@NotNull WaiterImpl o) {
+        public int compareTo(WaiterImpl o) {
             return txId.compareTo(o.txId);
         }
 
@@ -647,6 +872,7 @@ public class HeapLockManager implements LockManager {
             } else {
                 assert lockMode != null;
 
+                // TODO FIXME https://issues.apache.org/jira/browse/IGNITE-20985
                 fut.complete(null);
             }
         }
@@ -721,13 +947,20 @@ public class HeapLockManager implements LockManager {
         /** {@inheritDoc} */
         @Override
         public String toString() {
-            return S.toString(WaiterImpl.class, this, "isDone", fut.isDone());
+            return S.toString(WaiterImpl.class, this, "granted", fut.isDone());
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public boolean isEmpty() {
-        return locks.isEmpty();
+    private static int spread(int h) {
+        return (h ^ (h >>> 16)) & 0x7fffffff;
+    }
+
+    @TestOnly
+    public LockState[] getSlots() {
+        return slots;
+    }
+
+    public int available() {
+        return empty.size();
     }
 }

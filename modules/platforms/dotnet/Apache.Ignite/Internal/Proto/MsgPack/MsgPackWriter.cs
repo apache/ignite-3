@@ -32,8 +32,6 @@ internal readonly ref struct MsgPackWriter
     private const int MaxFixPositiveInt = 127;
     private const int MaxFixStringLength = 31;
     private const int MinFixNegativeInt = -32;
-    private const int MaxFixMapCount = 15;
-    private const int MaxFixArrayCount = 15;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MsgPackWriter"/> struct.
@@ -300,56 +298,6 @@ internal readonly ref struct MsgPackWriter
     }
 
     /// <summary>
-    /// Writes array header.
-    /// </summary>
-    /// <param name="count">Array element count.</param>
-    public void WriteArrayHeader(int count)
-    {
-        if (count <= MaxFixArrayCount)
-        {
-            Buf.GetSpanAndAdvance(1)[0] = (byte)(MsgPackCode.MinFixArray | count);
-        }
-        else if (count <= ushort.MaxValue)
-        {
-            var span = Buf.GetSpanAndAdvance(3);
-            span[0] = MsgPackCode.Array16;
-            BinaryPrimitives.WriteUInt16BigEndian(span[1..], (ushort)count);
-        }
-        else
-        {
-            var span = Buf.GetSpanAndAdvance(5);
-
-            span[0] = MsgPackCode.Array32;
-            BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)count);
-        }
-    }
-
-    /// <summary>
-    /// Writes map header.
-    /// </summary>
-    /// <param name="count">Map element count.</param>
-    public void WriteMapHeader(int count)
-    {
-        if (count <= MaxFixMapCount)
-        {
-            Buf.GetSpanAndAdvance(1)[0] = (byte)(MsgPackCode.MinFixMap | count);
-        }
-        else if (count <= ushort.MaxValue)
-        {
-            var span = Buf.GetSpanAndAdvance(3);
-            span[0] = MsgPackCode.Map16;
-            BinaryPrimitives.WriteUInt16BigEndian(span[1..], (ushort)count);
-        }
-        else
-        {
-            var span = Buf.GetSpanAndAdvance(5);
-
-            span[0] = MsgPackCode.Map32;
-            BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)count);
-        }
-    }
-
-    /// <summary>
     /// Writes binary header.
     /// </summary>
     /// <param name="length">Binary payload length, in bytes.</param>
@@ -418,6 +366,11 @@ internal readonly ref struct MsgPackWriter
         }
 
         Write(col.Count);
+
+        if (col.Count == 0)
+        {
+            return;
+        }
 
         using var builder = new BinaryTupleBuilder(col.Count * 3);
 

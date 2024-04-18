@@ -29,8 +29,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.InvokeTimeoutException;
@@ -44,7 +44,7 @@ import org.apache.ignite.raft.jraft.util.Utils;
 
 public class IgniteRpcClient implements RpcClientEx {
     private static final IgniteLogger LOG = Loggers.forClass(IgniteRpcClient.class);
-    
+
     private volatile BiPredicate<Object, String> recordPred;
 
     private BiPredicate<Object, String> blockPred;
@@ -117,9 +117,9 @@ public class IgniteRpcClient implements RpcClientEx {
                         System.currentTimeMillis(),
                         (Runnable) () -> send(peerId, request, fut, timeoutMs)
                 };
-                
+
                 blockedMsgs.add(msgData);
-    
+
                 LOG.info("Blocked message to={} id={} msg={}", peerId.toString(), msgData[2], S.toString(request));
 
                 return fut;
@@ -177,9 +177,9 @@ public class IgniteRpcClient implements RpcClientEx {
 
         for (Object[] msg : msgs) {
             Runnable r = (Runnable) msg[4];
-    
+
             LOG.info("Unblocked message to={} id={} msg={}", msg[1], msg[2], S.toString(msg[0]));
-            
+
             r.run();
         }
     }

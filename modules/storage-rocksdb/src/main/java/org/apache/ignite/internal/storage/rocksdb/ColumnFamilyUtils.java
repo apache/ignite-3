@@ -18,17 +18,17 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.rocksdb.RocksDB;
 
 /**
@@ -110,7 +110,7 @@ public class ColumnFamilyUtils {
      *
      * @see #comparatorFromCfName(byte[])
      */
-    static byte[] sortedIndexCfName(List<StorageSortedIndexColumnDescriptor> columns) {
+    public static byte[] sortedIndexCfName(List<StorageSortedIndexColumnDescriptor> columns) {
         ByteBuffer buf = ByteBuffer.allocate(SORTED_INDEX_CF_PREFIX.length() + columns.size() * 2);
 
         buf.put(SORTED_INDEX_CF_PREFIX.getBytes(UTF_8));
@@ -163,15 +163,15 @@ public class ColumnFamilyUtils {
                     break;
 
                 case INT8:
-                    nativeType = NativeTypes.INT8; //TODO IGNITE-19751 Only use INT64.
+                    nativeType = NativeTypes.INT8; // TODO IGNITE-19751 Only use INT64.
                     break;
 
                 case INT16:
-                    nativeType = NativeTypes.INT16; //TODO IGNITE-19751 Only use INT64.
+                    nativeType = NativeTypes.INT16; // TODO IGNITE-19751 Only use INT64.
                     break;
 
                 case INT32:
-                    nativeType = NativeTypes.INT32; //TODO IGNITE-19751 Only use INT64.
+                    nativeType = NativeTypes.INT32; // TODO IGNITE-19751 Only use INT64.
                     break;
 
                 case INT64:
@@ -179,7 +179,7 @@ public class ColumnFamilyUtils {
                     break;
 
                 case FLOAT:
-                    nativeType = NativeTypes.FLOAT; //TODO IGNITE-19751 Only use DOUBLE? Maybe.
+                    nativeType = NativeTypes.FLOAT; // TODO IGNITE-19751 Only use DOUBLE? Maybe.
                     break;
 
                 case DOUBLE:
@@ -215,15 +215,15 @@ public class ColumnFamilyUtils {
                     break;
 
                 case TIME:
-                    nativeType = NativeTypes.time();
+                    nativeType = NativeTypes.time(0);
                     break;
 
                 case DATETIME:
-                    nativeType = NativeTypes.datetime();
+                    nativeType = NativeTypes.datetime(6);
                     break;
 
                 case TIMESTAMP:
-                    nativeType = NativeTypes.timestamp();
+                    nativeType = NativeTypes.timestamp(6);
                     break;
 
                 default:

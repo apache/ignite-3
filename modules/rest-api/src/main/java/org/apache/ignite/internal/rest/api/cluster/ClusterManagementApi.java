@@ -22,8 +22,7 @@ import io.micronaut.http.annotation.Consumes;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.annotation.Post;
-import io.micronaut.security.annotation.Secured;
-import io.micronaut.security.rules.SecurityRule;
+import io.micronaut.http.annotation.Produces;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.rest.constants.MediaType;
  * Cluster management controller.
  */
 @Controller("/management/v1/cluster")
-@Secured(SecurityRule.IS_AUTHENTICATED)
 @Tag(name = "clusterManagement")
 public interface ClusterManagementApi {
     /**
@@ -66,5 +64,6 @@ public interface ClusterManagementApi {
     @ApiResponse(responseCode = "400", description = "Incorrect configuration.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.PROBLEM_JSON)
     CompletableFuture<Void> init(@Body InitCommand initCommand);
 }

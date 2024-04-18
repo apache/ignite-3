@@ -19,8 +19,6 @@ package org.apache.ignite.internal.rest.api.cluster;
 
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
-import io.micronaut.security.annotation.Secured;
-import io.micronaut.security.rules.SecurityRule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -36,7 +34,6 @@ import org.apache.ignite.internal.rest.constants.MediaType;
  * Cluster topology endpoint.
  */
 @Controller("/management/v1/cluster/topology")
-@Secured(SecurityRule.IS_AUTHENTICATED)
 @Tag(name = "topology")
 public interface TopologyApi {
     /**

@@ -21,6 +21,10 @@
     "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
     "https://checkstyle.org/dtds/suppressions_1_2.dtd">
 <suppressions>
+    <!-- Supressed modules. -->
+    <suppress files="[/\\]examples[/\\]" checks=".*" />
     <suppress files="[/\\]target[/\\]" checks=".*" />
+
+    <!-- Supressed packages. -->
     <suppress files="[/\\]modules/raft[/\\]src[/\\]main[/\\]java[/\\]org[/\\]apache[/\\]ignite[/\\]raft[/\\]jraft[/\\]" checks=".*" />
 </suppressions>

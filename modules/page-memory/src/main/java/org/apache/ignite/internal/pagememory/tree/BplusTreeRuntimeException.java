@@ -19,7 +19,7 @@ package org.apache.ignite.internal.pagememory.tree;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 
 /**
  * This exception indicates that there's something wrong with B+Tree data integrity.

@@ -25,6 +25,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.CatchUpClosure;
@@ -75,7 +76,7 @@ import static org.mockito.ArgumentMatchers.same;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class ReplicatorTest {
+public class ReplicatorTest extends BaseIgniteAbstractTest {
 
     private ThreadId id;
     private final RaftOptions raftOptions = new RaftOptions();

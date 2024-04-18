@@ -28,8 +28,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.binary.BinaryObject;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -128,6 +126,7 @@ public interface Tuple extends Iterable<Object> {
      * @see #hashCode(Tuple)
      * @see Object#hashCode()
      */
+    @Override
     int hashCode();
 
     /**
@@ -162,7 +161,10 @@ public interface Tuple extends Iterable<Object> {
                 return false;
             }
 
-            if (!Objects.deepEquals(firstTuple.value(idx), secondTuple.value(idx2))) {
+            Object firstVal = firstTuple.value(idx);
+            Object secondVal = secondTuple.value(idx2);
+
+            if (!Objects.deepEquals(firstVal, secondVal)) {
                 return false;
             }
         }
@@ -177,6 +179,7 @@ public interface Tuple extends Iterable<Object> {
      * @see Tuple#equals(Tuple, Tuple)
      * @see Object#equals(Object)
      */
+    @Override
     boolean equals(Object obj);
 
     /**
@@ -198,46 +201,47 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets an index of the column with the specified name.
      *
-     * @param columnName Column name.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column index, or {@code -1} if the column with the given name is not present.
      */
-    int columnIndex(@NotNull String columnName);
+    int columnIndex(String columnName);
 
     /**
      * Gets a column value if the column with the specified name is present in the tuple; returns a default value otherwise.
      *
-     * @param columnName Column name in SQL-parser style notation; e.g.,
-     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @param defaultValue Default value.
      * @param <T>          Default value type.
      * @return Column value if the tuple contains a column with the specified name. Otherwise, {@code defaultValue}.
      */
-    @Nullable <T> T valueOrDefault(@NotNull String columnName, @Nullable T defaultValue);
+    @Nullable <T> T valueOrDefault(String columnName, @Nullable T defaultValue);
 
     /**
      * Sets a column value.
      *
-     * @param columnName Column name in SQL-parser style notation; e.g.,
-     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @param value      Value to set.
      * @return {@code this} for chaining.
      */
-    Tuple set(@NotNull String columnName, @Nullable Object value);
+    Tuple set(String columnName, @Nullable Object value);
 
     /**
      * Gets a column value for the given column name.
      *
-     * @param columnName Column name in SQL-parser style notation; e.g.,
-     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
-     *
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @param <T>        Value type.
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */
-    @Nullable <T> T value(@NotNull String columnName) throws IllegalArgumentException;
+    @Nullable <T> T value(String columnName) throws IllegalArgumentException;
 
     /**
      * Gets a column value for the given column index.
@@ -250,27 +254,11 @@ public interface Tuple extends Iterable<Object> {
     @Nullable <T> T value(int columnIndex);
 
     /**
-     * Gets a binary object column.
-     *
-     * @param columnName Column name.
-     * @return Column value.
-     * @throws IllegalArgumentException If no column with the given name exists.
-     */
-    BinaryObject binaryObjectValue(@NotNull String columnName);
-
-    /**
-     * Gets a binary object column.
-     *
-     * @param columnIndex Column index.
-     * @return Column value.
-     * @throws IndexOutOfBoundsException If no column with the given index exists.
-     */
-    BinaryObject binaryObjectValue(int columnIndex);
-
-    /**
      * Gets a {@code boolean} column value.
      *
-     * @param columnName Column name.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
      * @throws IllegalArgumentException If no column with given name exists.
      */
@@ -288,11 +276,13 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code byte} column value.
      *
-     * @param columnName Column name.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
      * @throws IllegalArgumentException If no column with given name exists.
      */
-    byte byteValue(@NotNull String columnName);
+    byte byteValue(String columnName);
 
     /**
      * Gets {@code byte} column value.
@@ -306,13 +296,13 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code short} column value.
      *
-     * @param columnName Column name in SQL-parser style notation; e.g.,
-     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */
-    short shortValue(@NotNull String columnName);
+    short shortValue(String columnName);
 
     /**
      * Gets a {@code short} column value.
@@ -326,14 +316,13 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code int} column value.
      *
-     * @param columnName Column name in SQL-parser style notation; e.g.,
-     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
-     *
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */
-    int intValue(@NotNull String columnName);
+    int intValue(String columnName);
 
     /**
      * Gets a {@code int} column value.
@@ -347,13 +336,13 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code long} column value.
      *
-     * @param columnName Column name with SQL-parser style quotation, e.g.
-     *                   "myColumn" - returns the value of the column with name "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */
-    long longValue(@NotNull String columnName);
+    long longValue(String columnName);
 
     /**
      * Gets a {@code long} column value.
@@ -367,13 +356,13 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code float} column value.
      *
-     * @param columnName Column name in SQL-parser style notation; e.g.,
-     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */
-    float floatValue(@NotNull String columnName);
+    float floatValue(String columnName);
 
     /**
      * Gets a {@code float} column value.
@@ -387,13 +376,13 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code double} column value.
      *
-     * @param columnName Column name in SQL-parser style notation; e.g.,
-     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */
-    double doubleValue(@NotNull String columnName);
+    double doubleValue(String columnName);
 
     /**
      * Gets a {@code double} column value.
@@ -407,13 +396,13 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code String} column value.
      *
-     * @param columnName Column name in SQL-parser style notation; e.g.,
-     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */
-    String stringValue(@NotNull String columnName);
+    String stringValue(String columnName);
 
     /**
      * Gets a {@code String} column value.
@@ -427,13 +416,13 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code UUID} column value.
      *
-     * @param columnName Column name in SQL-parser style notation; e.g.,
-     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */
-    UUID uuidValue(@NotNull String columnName);
+    UUID uuidValue(String columnName);
 
     /**
      * Gets a {@code UUID} column value.
@@ -447,13 +436,13 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code BitSet} column value.
      *
-     * @param columnName Column name in SQL-parser style notation; e.g.,
-     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */
-    BitSet bitmaskValue(@NotNull String columnName);
+    BitSet bitmaskValue(String columnName);
 
     /**
      * Gets a {@code BitSet} column value.
@@ -467,9 +456,9 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code LocalDate} column value.
      *
-     * @param columnName Column name in SQL-parser style notation; e.g.,
-     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */
@@ -487,9 +476,9 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code LocalTime} column value.
      *
-     * @param columnName Column name in SQL-parser style notation; e.g.,
-     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */
@@ -507,9 +496,9 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code LocalDateTime} column value.
      *
-     * @param columnName Column name in SQL-parser style notation; e.g.,
-     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */
@@ -527,9 +516,9 @@ public interface Tuple extends Iterable<Object> {
     /**
      * Gets a {@code Instant} column value.
      *
-     * @param columnName Column name in SQL-parser style notation; e.g.,
-     *                   "myColumn" - returns the value of the column named "MYCOLUMN",
-     *                   "\"MyColumn\"" - "MyColumn", etc.
+     * @param columnName Column name in SQL-parser style notation; e.g., <br>
+     *                   "myColumn" - "MYCOLUMN", returns the index of the column ignores case sensitivity, <br>
+     *                   "\"MyColumn\"" - "MyColumn", returns the index of the column with respect to case sensitivity.
      * @return Column value.
      * @throws IllegalArgumentException If no column with the given name exists.
      */

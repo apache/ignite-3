@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import org.jetbrains.annotations.NotNull;
-
 /**
  * Meta storage value with update counter.
  */
@@ -38,7 +36,7 @@ public class Value {
      * @param bytes   Value bytes or {@code #TOMBSTONE}.
      * @param updCntr Update counter.
      */
-    public Value(@NotNull byte[] bytes, long updCntr) {
+    public Value(byte[] bytes, long updCntr) {
         this.bytes = bytes;
         this.updCntr = updCntr;
     }

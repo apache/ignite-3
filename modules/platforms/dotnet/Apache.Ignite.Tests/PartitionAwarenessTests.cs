@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Compute;
 using Ignite.Compute;
 using Ignite.Table;
 using Internal.Proto;
@@ -54,8 +55,13 @@ public class PartitionAwarenessTests
         _server2 = new FakeServer(nodeName: "srv2");
 
         var assignment = new[] { _server1.Node.Name, _server2.Node.Name };
-        _server1.PartitionAssignment = assignment;
-        _server2.PartitionAssignment = assignment;
+        var assignmentTimestamp = DateTime.UtcNow.AddDays(-1).Ticks; // Old assignment.
+
+        foreach (var server in new[] { _server1, _server2 })
+        {
+            server.PartitionAssignment = assignment;
+            server.PartitionAssignmentTimestamp = assignmentTimestamp;
+        }
     }
 
     [TearDown]
@@ -106,7 +112,7 @@ public class PartitionAwarenessTests
     public async Task TestDataStreamerReceivesPartitionAssignmentUpdates() =>
         await TestClientReceivesPartitionAssignmentUpdates(
             view => view.StreamDataAsync(new[] { 1 }.ToAsyncEnumerable()),
-            ClientOp.TupleUpsertAll);
+            ClientOp.StreamerBatchSend);
 
     [Test]
     [TestCaseSource(nameof(KeyNodeCases))]
@@ -132,7 +138,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => recordView.ReplaceAsync(null, key, key), ClientOp.TupleReplaceExact, expectedNode);
         await AssertOpOnNode(() => recordView.DeleteAsync(null, key), ClientOp.TupleDelete, expectedNode);
         await AssertOpOnNode(() => recordView.DeleteExactAsync(null, key), ClientOp.TupleDeleteExact, expectedNode);
-        await AssertOpOnNode(() => recordView.StreamDataAsync(new[] { key }.ToAsyncEnumerable()), ClientOp.TupleUpsertAll, expectedNode);
+        await AssertOpOnNode(() => recordView.StreamDataAsync(new[] { key }.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
 
         // Multi-key operations use the first key for colocation.
         var keys = new[] { key, new IgniteTuple { ["ID"] = keyId - 1 }, new IgniteTuple { ["ID"] = keyId + 1 } };
@@ -166,7 +172,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => recordView.ReplaceAsync(null, key, key), ClientOp.TupleReplaceExact, expectedNode);
         await AssertOpOnNode(() => recordView.DeleteAsync(null, key), ClientOp.TupleDelete, expectedNode);
         await AssertOpOnNode(() => recordView.DeleteExactAsync(null, key), ClientOp.TupleDeleteExact, expectedNode);
-        await AssertOpOnNode(() => recordView.StreamDataAsync(new[] { key }.ToAsyncEnumerable()), ClientOp.TupleUpsertAll, expectedNode);
+        await AssertOpOnNode(() => recordView.StreamDataAsync(new[] { key }.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
 
         // Multi-key operations use the first key for colocation.
         var keys = new[] { key, key - 1, key + 1 };
@@ -186,7 +192,7 @@ public class PartitionAwarenessTests
 
         // Warm up (retrieve assignment).
         var key = new IgniteTuple { ["ID"] = keyId };
-        var val = new IgniteTuple { ["VAL"] = 0 };
+        var val = new IgniteTuple();
         await kvView.PutAsync(null, key, val);
 
         // Single-key operations.
@@ -212,7 +218,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => kvView.PutAllAsync(null, pairs), ClientOp.TupleUpsertAll, expectedNode);
         await AssertOpOnNode(() => kvView.RemoveAllAsync(null, keys), ClientOp.TupleDeleteAll, expectedNode);
         await AssertOpOnNode(() => kvView.RemoveAllAsync(null, pairs), ClientOp.TupleDeleteAllExact, expectedNode);
-        await AssertOpOnNode(() => kvView.StreamDataAsync(pairs.ToAsyncEnumerable()), ClientOp.TupleUpsertAll, expectedNode);
+        await AssertOpOnNode(() => kvView.StreamDataAsync(pairs.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
     }
 
     [Test]
@@ -242,7 +248,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => kvView.ContainsAsync(null, key), ClientOp.TupleContainsKey, expectedNode);
         await AssertOpOnNode(
             () => kvView.StreamDataAsync(new[] { new KeyValuePair<int, int>(key, val) }.ToAsyncEnumerable()),
-            ClientOp.TupleUpsertAll,
+            ClientOp.StreamerBatchSend,
             expectedNode);
 
         // Multi-key operations use the first key for colocation.
@@ -298,10 +304,10 @@ public class PartitionAwarenessTests
         var key = new IgniteTuple { ["ID"] = keyId };
 
         // Warm up.
-        await client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job");
+        await client.Compute.SubmitColocatedAsync<object?>(FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job");
 
         await AssertOpOnNode(
-            () => client.Compute.ExecuteColocatedAsync<object?>(FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job"),
+            () => client.Compute.SubmitColocatedAsync<object?>(FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job"),
             ClientOp.ComputeExecuteColocated,
             expectedNode);
     }
@@ -315,14 +321,42 @@ public class PartitionAwarenessTests
         var key = new SimpleKey(keyId);
 
         // Warm up.
-        await client.Compute.ExecuteColocatedAsync<object?, SimpleKey>(
+        await client.Compute.SubmitColocatedAsync<object?, SimpleKey>(
             FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job");
 
         await AssertOpOnNode(
-            () => client.Compute.ExecuteColocatedAsync<object?, SimpleKey>(
+            () => client.Compute.SubmitColocatedAsync<object?, SimpleKey>(
                 FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job"),
             ClientOp.ComputeExecuteColocated,
             expectedNode);
+    }
+
+    [Test]
+    public async Task TestOldAssignmentIsIgnored()
+    {
+        using var client = await GetClient();
+        var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
+
+        // Check default assignment.
+        await recordView.UpsertAsync(null, 1);
+        await AssertOpOnNode(() => recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2);
+
+        // One server has old assignment
+        _server1.PartitionAssignment = _server1.PartitionAssignment.Reverse().ToArray();
+        _server1.PartitionAssignmentTimestamp -= 1000;
+
+        // Multiple requests to receive timestamp from all servers.
+        for (int i = 0; i < 10; i++)
+        {
+            await client.Tables.GetTablesAsync();
+        }
+
+        // Check that assignment has not changed - update with old timestamp was ignored.
+        _server1.ClearOps();
+        _server2.ClearOps();
+
+        await recordView.UpsertAsync(null, 1);
+        await AssertOpOnNode(() => recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2);
     }
 
     private static async Task AssertOpOnNode(
@@ -362,16 +396,16 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => func(recordView), op, _server2);
 
         // Update assignment.
+        var assignmentTimestamp = DateTime.UtcNow.Ticks;
+
         foreach (var server in new[] { _server1, _server2 })
         {
             server.ClearOps();
             server.PartitionAssignment = server.PartitionAssignment.Reverse().ToArray();
-            server.PartitionAssignmentChanged = true;
+            server.PartitionAssignmentTimestamp = assignmentTimestamp;
         }
 
-        // First request on default node receives update flag.
-        // Make two requests because balancing uses round-robin node.
-        await client.Tables.GetTablesAsync();
+        // First request receives update flag.
         await client.Tables.GetTablesAsync();
 
         // Second request loads and uses new assignment.
@@ -390,8 +424,7 @@ public class PartitionAwarenessTests
         };
 
         var client = await IgniteClient.StartAsync(cfg);
-
-        TestUtils.WaitForCondition(() => client.GetConnections().Count == 2);
+        client.WaitForConnections(2);
 
         return client;
     }

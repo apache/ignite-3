@@ -47,7 +47,7 @@ public class IndexCleanupTest extends IndexBaseTest {
         assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
         assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
 
-        storageUpdateHandler.handleTransactionAbortion(Set.of(rowId), () -> {});
+        storageUpdateHandler.switchWriteIntents(getTxId(), false, null, null);
 
         assertEquals(0, storage.rowsCount());
         assertTrue(pkInnerStorage.allRowsIds().isEmpty());
@@ -88,14 +88,13 @@ public class IndexCleanupTest extends IndexBaseTest {
     @EnumSource(AddWrite.class)
     void testAbortTombstone(AddWrite writer) {
         UUID rowUuid = UUID.randomUUID();
-        RowId rowId = new RowId(PARTITION_ID, rowUuid);
 
         BinaryRow row = defaultRow();
 
         writer.addWrite(storageUpdateHandler, rowUuid, row);
         writer.addWrite(storageUpdateHandler, rowUuid, null);
 
-        storageUpdateHandler.handleTransactionAbortion(Set.of(rowId), () -> {});
+        storageUpdateHandler.switchWriteIntents(getTxId(), false, null, null);
 
         assertEquals(0, storage.rowsCount());
         assertTrue(pkInnerStorage.allRowsIds().isEmpty());
@@ -120,7 +119,7 @@ public class IndexCleanupTest extends IndexBaseTest {
 
         writer.addWrite(storageUpdateHandler, rowUuid2, binaryRow(key2, value));
 
-        storageUpdateHandler.handleTransactionAbortion(Set.of(rowId2), () -> {});
+        storageUpdateHandler.switchWriteIntents(getTxId(), false, null, null);
 
         assertEquals(1, storage.rowsCount());
 
@@ -153,7 +152,7 @@ public class IndexCleanupTest extends IndexBaseTest {
 
         writer.addWrite(storageUpdateHandler, rowUuid, row2);
 
-        storageUpdateHandler.handleTransactionAbortion(Set.of(rowId), () -> {});
+        storageUpdateHandler.switchWriteIntents(getTxId(), false, null, null);
 
         assertEquals(1, storage.rowsCount());
 
@@ -174,7 +173,7 @@ public class IndexCleanupTest extends IndexBaseTest {
 
         writer.addWrite(storageUpdateHandler, rowUuid, null);
 
-        storageUpdateHandler.handleTransactionAbortion(Set.of(rowId), () -> {});
+        storageUpdateHandler.switchWriteIntents(getTxId(), false, null, null);
 
         assertEquals(1, storage.rowsCount());
         assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
@@ -195,7 +194,7 @@ public class IndexCleanupTest extends IndexBaseTest {
 
         writer.addWrite(storageUpdateHandler, rowUuid, row);
 
-        storageUpdateHandler.handleTransactionAbortion(Set.of(rowId), () -> {});
+        storageUpdateHandler.switchWriteIntents(getTxId(), false, null, null);
 
         assertEquals(1, storage.rowsCount());
         assertThat(pkInnerStorage.allRowsIds(), contains(rowId));

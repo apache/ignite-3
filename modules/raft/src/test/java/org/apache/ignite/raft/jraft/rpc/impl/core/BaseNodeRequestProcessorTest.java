@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -38,7 +39,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-public abstract class BaseNodeRequestProcessorTest<T extends Message> {
+public abstract class BaseNodeRequestProcessorTest<T extends Message> extends BaseIgniteAbstractTest {
     @Mock(extraInterfaces = {RaftServerService.class})
     private Node node;
     protected final String groupId = "test";
@@ -77,7 +78,7 @@ public abstract class BaseNodeRequestProcessorTest<T extends Message> {
     }
 
     protected PeerId mockNode() {
-        Mockito.when(node.getGroupId()).thenReturn(this.groupId);
+        Mockito.lenient().when(node.getGroupId()).thenReturn(this.groupId);
         final PeerId peerId = new PeerId();
         peerId.parse(this.peerIdStr);
         Mockito.when(node.getNodeId()).thenReturn(new NodeId(groupId, peerId));

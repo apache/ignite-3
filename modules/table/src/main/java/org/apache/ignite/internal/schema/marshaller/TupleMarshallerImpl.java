@@ -21,73 +21,79 @@ import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getVal
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.Columns;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Tuple marshaller implementation.
  */
 public class TupleMarshallerImpl implements TupleMarshaller {
-    /** Poison object. */
     private static final Object POISON_OBJECT = new Object();
 
-    /** Schema manager. */
-    private final SchemaRegistry schemaReg;
+    private final SchemaDescriptor schema;
 
     /**
-     * Creates tuple marshaller.
+     * Creates marshaller for given schema.
      *
-     * @param schemaReg Schema manager.
+     * @param schema Schema.
      */
-    public TupleMarshallerImpl(SchemaRegistry schemaReg) {
-        this.schemaReg = schemaReg;
+    public TupleMarshallerImpl(SchemaDescriptor schema) {
+        this.schema = schema;
+    }
 
-        schemaReg.waitLatestSchema(); //TODO: Fix schema synchronization.
+    @Override
+    public int schemaVersion() {
+        return schema.version();
     }
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(@NotNull Tuple tuple) throws TupleMarshallerException {
+    public Row marshal(Tuple tuple) throws TupleMarshallerException {
         try {
-            SchemaDescriptor schema = schemaReg.schema();
-
             if (tuple instanceof SchemaAware && tuple instanceof BinaryTupleContainer) {
                 SchemaDescriptor tupleSchema = ((SchemaAware) tuple).schema();
                 BinaryTupleReader tupleReader = ((BinaryTupleContainer) tuple).binaryTuple();
 
-                if (tupleSchema != null
-                        && tupleReader != null
-                        && tupleSchema.version() == schema.version()
-                        && !binaryTupleRebuildRequired(schema)) {
-                    return new Row(schema, RowAssembler.build(tupleReader.byteBuffer(), schema.version(), true));
+                if (tupleSchema != null && tupleReader != null) {
+                    if (tupleSchema.version() != schema.version()) {
+                        throw new SchemaVersionMismatchException(schema.version(), tupleSchema.version());
+                    }
+
+                    if (!binaryTupleRebuildRequired(schema)) {
+                        validateTuple(tuple, schema);
+
+                        // BinaryTuple from client has matching schema version, and all values are valid. Use buffer as is.
+                        var binaryRow = new BinaryRowImpl(schema.version(), tupleReader.byteBuffer());
+                        return Row.wrapBinaryRow(schema, binaryRow);
+                    }
                 }
             }
 
-            InternalTuple keyTuple0 = toInternalTuple(schema, tuple, true);
-            InternalTuple valTuple0 = toInternalTuple(schema, tuple, false);
+            ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
 
-            if (valTuple0.knownColumns() + keyTuple0.knownColumns() != tuple.columnCount()) {
+            gatherStatistics(schema.columns(), tuple, valuesWithStatistics);
+
+            if (valuesWithStatistics.knownColumns != tuple.columnCount()) {
                 throw new SchemaMismatchException(
                         String.format("Tuple doesn't match schema: schemaVersion=%s, extraColumns=%s",
                                 schema.version(), extraColumnNames(tuple, schema)));
             }
 
-            return buildRow(schema, keyTuple0, valTuple0);
+            return buildRow(false, valuesWithStatistics);
         } catch (Exception ex) {
             throw new TupleMarshallerException("Failed to marshal tuple.", ex);
         }
@@ -95,157 +101,96 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(@NotNull Tuple keyTuple, @Nullable Tuple valTuple) throws TupleMarshallerException {
+    public Row marshal(Tuple keyTuple, @Nullable Tuple valTuple) throws TupleMarshallerException {
         try {
-            SchemaDescriptor schema = schemaReg.schema();
+            ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
 
-            InternalTuple keyTuple0 = toInternalTuple(schema, keyTuple, true);
-            InternalTuple valTuple0 = toInternalTuple(schema, valTuple, false);
+            gatherStatistics(schema.keyColumns(), keyTuple, valuesWithStatistics);
 
-            if (keyTuple0.knownColumns() != keyTuple.columnCount()) {
+            if (valuesWithStatistics.knownColumns != keyTuple.columnCount()) {
                 throw new SchemaMismatchException(
                         String.format("Key tuple doesn't match schema: schemaVersion=%s, extraColumns=%s",
                                 schema.version(), extraColumnNames(keyTuple, true, schema)));
             }
 
-            if (valTuple != null && valTuple0.knownColumns() != valTuple.columnCount()) {
-                throw new SchemaMismatchException(
-                        String.format("Value tuple doesn't match schema: schemaVersion=%s, extraColumns=%s",
-                                schema.version(), extraColumnNames(valTuple, false, schema)));
+            boolean keyOnly = valTuple == null;
+            if (!keyOnly) {
+                gatherStatistics(schema.valueColumns(), valTuple, valuesWithStatistics);
+
+                if ((valuesWithStatistics.knownColumns - keyTuple.columnCount()) != valTuple.columnCount()) {
+                    throw new SchemaMismatchException(
+                            String.format("Value tuple doesn't match schema: schemaVersion=%s, extraColumns=%s",
+                                    schema.version(), extraColumnNames(valTuple, false, schema)));
+                }
             }
 
-            return buildRow(schema, keyTuple0, valTuple0);
+            return buildRow(keyOnly, valuesWithStatistics);
         } catch (Exception ex) {
             throw new TupleMarshallerException("Failed to marshal tuple.", ex);
         }
-    }
-
-    /**
-     * Marshal tuple to a row.
-     *
-     * @param schema    Schema.
-     * @param keyTuple0 Internal key tuple.
-     * @param valTuple0 Internal value tuple.
-     * @return Row.
-     * @throws SchemaMismatchException If failed to write tuple column.
-     */
-    @NotNull
-    private Row buildRow(SchemaDescriptor schema, InternalTuple keyTuple0, InternalTuple valTuple0) throws SchemaMismatchException {
-        RowAssembler rowBuilder = createAssembler(schema, keyTuple0, valTuple0);
-
-        Columns columns = schema.keyColumns();
-
-        for (int i = 0, len = columns.length(); i < len; i++) {
-            final Column col = columns.column(i);
-
-            writeColumn(rowBuilder, col, keyTuple0);
-        }
-
-        if (valTuple0.tuple != null) {
-            columns = schema.valueColumns();
-
-            for (int i = 0, len = columns.length(); i < len; i++) {
-                final Column col = columns.column(i);
-
-                writeColumn(rowBuilder, col, valTuple0);
-            }
-        }
-
-        return new Row(schema, rowBuilder.build());
     }
 
     /** {@inheritDoc} */
     @Override
-    public Row marshalKey(@NotNull Tuple keyTuple) throws TupleMarshallerException {
+    public Row marshalKey(Tuple keyTuple) throws TupleMarshallerException {
         try {
-            final SchemaDescriptor schema = schemaReg.schema();
+            ValuesWithStatistics valuesWithStatistics = new ValuesWithStatistics();
 
-            InternalTuple keyTuple0 = toInternalTuple(schema, keyTuple, true);
+            gatherStatistics(schema.keyColumns(), keyTuple, valuesWithStatistics);
 
-            if (keyTuple0.knownColumns() < keyTuple.columnCount()) {
+            if (valuesWithStatistics.knownColumns < keyTuple.columnCount()) {
                 throw new SchemaMismatchException("Key tuple contains extra columns: " + extraColumnNames(keyTuple, true, schema));
             }
 
-            final RowAssembler rowBuilder = createAssembler(schema, keyTuple0, InternalTuple.NO_VALUE);
-
-            Columns cols = schema.keyColumns();
-
-            for (int i = 0, len = cols.length(); i < len; i++) {
-                final Column col = cols.column(i);
-
-                writeColumn(rowBuilder, col, keyTuple0);
-            }
-
-            return new Row(schema, rowBuilder.build());
+            return buildRow(true, valuesWithStatistics);
         } catch (Exception ex) {
             throw new TupleMarshallerException("Failed to marshal tuple.", ex);
         }
     }
 
-    /**
-     * Analyze tuple and wrap into internal tuple.
-     *
-     * @param schema  Schema.
-     * @param tuple   Key or value tuple.
-     * @param keyFlag If {@code true} marshal key columns, otherwise marshall value columns.
-     * @return Internal tuple.
-     * @throws SchemaMismatchException If tuple doesn't match the schema.
-     */
-    private @NotNull InternalTuple toInternalTuple(SchemaDescriptor schema, Tuple tuple, boolean keyFlag) throws SchemaMismatchException {
-        if (tuple == null) {
-            return InternalTuple.NO_VALUE;
+    private Row buildRow(
+            boolean keyOnly,
+            ValuesWithStatistics values
+    ) throws SchemaMismatchException {
+        List<Column> columns = keyOnly ? schema.keyColumns() : schema.columns();
+        RowAssembler rowBuilder = new RowAssembler(schema.version(), columns, values.estimatedValueSize);
+
+        for (Column col : columns) {
+            rowBuilder.appendValue(values.value(col.name()));
         }
 
-        Columns columns = keyFlag ? schema.keyColumns() : schema.valueColumns();
+        return keyOnly
+                ? Row.wrapKeyOnlyBinaryRow(schema, rowBuilder.build())
+                : Row.wrapBinaryRow(schema, rowBuilder.build());
+    }
 
-        boolean hasNulls = false;
+    private void gatherStatistics(
+            List<Column> columns,
+            Tuple tuple,
+            ValuesWithStatistics targetTuple
+    ) throws SchemaMismatchException {
         int estimatedValueSize = 0;
         int knownColumns = 0;
-        Map<String, Object> defaults = new HashMap<>();
+        for (Column col : columns) {
+            NativeType colType = col.type();
 
-        if (tuple instanceof SchemaAware && Objects.equals(((SchemaAware) tuple).schema(), schema)) {
-            for (int i = 0, len = columns.length(); i < len; i++) {
-                final Column col = columns.column(i);
-                NativeType colType = col.type();
+            Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT);
 
-                Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT);
-
-                assert val != POISON_OBJECT;
-
-                knownColumns++;
-
-                if (val == null) {
-                    hasNulls = true;
-                } else if (colType.spec().fixedLength()) {
-                    estimatedValueSize += colType.sizeInBytes();
-                } else {
-                    estimatedValueSize += getValueSize(val, colType);
-                }
+            if (val == POISON_OBJECT && col.positionInKey() != -1) {
+                throw new SchemaMismatchException("Missed key column: " + col.name());
             }
-        } else {
-            for (int i = 0, len = columns.length(); i < len; i++) {
-                final Column col = columns.column(i);
-                NativeType colType = col.type();
 
-                Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT);
+            if (val == POISON_OBJECT) {
+                val = col.defaultValue();
+            } else {
+                knownColumns++;
+            }
 
-                if (val == POISON_OBJECT) {
-                    if (keyFlag) {
-                        throw new SchemaMismatchException("Missed key column: " + col.name());
-                    }
+            col.validate(val);
+            targetTuple.values.put(col.name(), val);
 
-                    val = col.defaultValue();
-
-                    defaults.put(col.name(), val);
-                } else {
-                    knownColumns++;
-                }
-
-                col.validate(val);
-
-                if (val == null) {
-                    hasNulls = true;
-                } else if (colType.spec().fixedLength()) {
+            if (val != null) {
+                if (colType.spec().fixedLength()) {
                     estimatedValueSize += colType.sizeInBytes();
                 } else {
                     estimatedValueSize += getValueSize(val, colType);
@@ -253,7 +198,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             }
         }
 
-        return new InternalTuple(tuple, hasNulls, estimatedValueSize, defaults, knownColumns);
+        targetTuple.estimatedValueSize += estimatedValueSize;
+        targetTuple.knownColumns += knownColumns;
     }
 
     /**
@@ -263,7 +209,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @param schema Schema.
      * @return Extra columns.
      */
-    private Set<String> extraColumnNames(Tuple tuple, SchemaDescriptor schema) {
+    private static Set<String> extraColumnNames(Tuple tuple, SchemaDescriptor schema) {
         Set<String> cols = new HashSet<>();
 
         for (int i = 0, len = tuple.columnCount(); i < len; i++) {
@@ -285,8 +231,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @param schema   Schema to check against.
      * @return Column names.
      */
-    @NotNull
-    private Set<String> extraColumnNames(Tuple tuple, boolean keyTuple, SchemaDescriptor schema) {
+    private static Set<String> extraColumnNames(Tuple tuple, boolean keyTuple, SchemaDescriptor schema) {
         Set<String> cols = new HashSet<>();
 
         for (int i = 0, len = tuple.columnCount(); i < len; i++) {
@@ -294,45 +239,12 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
             Column col = schema.column(colName);
 
-            if (col == null || schema.isKeyColumn(col.schemaIndex()) ^ keyTuple) {
+            if (col == null || (col.positionInKey() != -1) ^ keyTuple) {
                 cols.add(colName);
             }
         }
 
         return cols;
-    }
-
-    /**
-     * Creates {@link RowAssembler} for key-value tuples.
-     *
-     * @param schema   Schema.
-     * @param keyTuple Internal key tuple.
-     * @param valTuple Internal value tuple.
-     * @return Row assembler.
-     */
-    private static RowAssembler createAssembler(SchemaDescriptor schema, InternalTuple keyTuple, InternalTuple valTuple) {
-        Columns valueColumns = valTuple.tuple != null ? schema.valueColumns() : null;
-
-        int totalValueSize;
-        if (keyTuple.estimatedValueSize < 0 || valTuple.estimatedValueSize < 0) {
-            totalValueSize = -1;
-        } else {
-            totalValueSize = keyTuple.estimatedValueSize + valTuple.estimatedValueSize;
-        }
-
-        return new RowAssembler(schema.keyColumns(), valueColumns, schema.version(), totalValueSize);
-    }
-
-    /**
-     * Writes column.
-     *
-     * @param rowAsm Row assembler.
-     * @param col    Column.
-     * @param tup    Internal tuple.
-     * @throws SchemaMismatchException If a tuple column value doesn't match the current column type.
-     */
-    private static void writeColumn(RowAssembler rowAsm, Column col, InternalTuple tup) throws SchemaMismatchException {
-        RowAssembler.writeValue(rowAsm, col, tup.value(col.name()));
     }
 
     /**
@@ -347,64 +259,32 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     }
 
     /**
-     * Internal tuple enriched original tuple with additional info.
+     * Validates tuple against schema.
+     *
+     * @param tuple Tuple.
+     * @param schema Schema.
      */
-    private static class InternalTuple {
-        /** Cached zero statistics. */
-        static final InternalTuple NO_VALUE = new InternalTuple(null, false, 0, null, 0);
+    private static void validateTuple(Tuple tuple, SchemaDescriptor schema) {
+        for (int i = 0; i < schema.length(); i++) {
+            Column col = schema.column(i);
+            Object val = tuple.value(i);
 
-        /** Original tuple. */
-        private final Tuple tuple;
-
-        /** Whether there are NULL values or not. */
-        private final boolean hasNulls;
-
-        /** Estimated total size of the object. */
-        private final int estimatedValueSize;
-
-        /** Pre-calculated defaults. */
-        private final Map<String, Object> defaults;
-
-        /** Schema columns in tuple. */
-        private final int knownColumns;
-
-        /**
-         * Creates internal tuple.
-         *
-         * @param tuple Tuple.
-         * @param hasNulls Whether there are NULL values or not..
-         * @param estimatedValueSize Estimated total size of the object.
-         * @param defaults Default values map.
-         * @param knownColumns Number of columns that match schema.
-         */
-        InternalTuple(Tuple tuple, boolean hasNulls, int estimatedValueSize, Map<String, Object> defaults, int knownColumns) {
-            this.hasNulls = hasNulls;
-            this.estimatedValueSize = estimatedValueSize;
-            this.tuple = tuple;
-            this.defaults = defaults;
-            this.knownColumns = knownColumns;
+            col.validate(val);
         }
+    }
 
-        /**
-         * Returns number of columns that matches schema.
-         */
-        public int knownColumns() {
-            return knownColumns;
-        }
+    /**
+     * Container to keep columns values and related statistics which help
+     * to build row with {@link RowAssembler}.
+     */
+    private static class ValuesWithStatistics {
+        private final Map<String, Object> values = new HashMap<>();
 
-        /**
-         * Returns column value.
-         *
-         * @param columnName Columns name.
-         */
-        Object value(String columnName) {
-            Object val = tuple.valueOrDefault(columnName, POISON_OBJECT);
+        private int estimatedValueSize;
+        private int knownColumns;
 
-            if (val == POISON_OBJECT) {
-                return defaults.get(columnName);
-            }
-
-            return val;
+        @Nullable Object value(String columnName) {
+            return values.get(columnName);
         }
     }
 }

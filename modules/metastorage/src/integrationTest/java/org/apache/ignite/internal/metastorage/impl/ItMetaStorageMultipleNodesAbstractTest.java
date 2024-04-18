@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
@@ -27,6 +26,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
@@ -43,7 +43,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
@@ -56,6 +58,8 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -65,23 +69,22 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -94,6 +97,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @ExtendWith(ConfigurationExtension.class)
 public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest {
+    private static final long AWAIT_TIMEOUT = TimeUnit.SECONDS.toMillis(10);
+
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
 
@@ -102,6 +107,9 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
+
+    @InjectConfiguration
+    private static StorageConfiguration storageConfiguration;
 
     /**
      * Large interval to effectively disable idle safe time propagation.
@@ -148,15 +156,22 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+            var clusterInitializer = new ClusterInitializer(
+                    clusterService,
+                    hocon -> hocon,
+                    new TestConfigurationValidator()
+            );
+
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
+                    clusterInitializer,
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
                     cmgConfiguration,
-                    nodeAttributes,
-                    new TestConfigurationValidator());
+                    new NodeAttributesCollector(nodeAttributes, storageConfiguration)
+            );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
@@ -168,7 +183,6 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
             );
 
             this.metaStorageManager = new MetaStorageManagerImpl(
-                    vaultManager,
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
@@ -225,7 +239,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
         CompletableFuture<Set<String>> getMetaStorageLearners() {
             return metaStorageManager
-                    .metaStorageServiceFuture()
+                    .metaStorageService()
                     .thenApply(MetaStorageServiceImpl::raftGroupService)
                     .thenCompose(service -> service.refreshMembers(false).thenApply(v -> service.learners()))
                     .thenApply(learners -> learners.stream().map(Peer::consistentId).collect(toSet()));
@@ -234,7 +248,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
     private final List<Node> nodes = new ArrayList<>();
 
-    private Node startNode(TestInfo testInfo) throws NodeStoppingException {
+    private Node startNode(TestInfo testInfo) {
         var nodeFinder = new StaticNodeFinder(List.of(new NetworkAddress("localhost", 10_000)));
 
         ClusterService clusterService = ClusterServiceTestUtils.clusterService(testInfo, 10_000 + nodes.size(), nodeFinder);
@@ -250,7 +264,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(nodes.stream().map(node -> node::stop));
+        IgniteUtils.closeAll(nodes.parallelStream().map(node -> node::stop));
     }
 
     /**
@@ -290,7 +304,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     awaitFuture.complete(event.entryEvent());
                 }
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -333,14 +347,14 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         assertThat(secondNode.metaStorageManager.get(new ByteArray("test")).thenApply(Entry::value), willBe(nullValue()));
 
         // Check that the second node has been registered as a learner.
-        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), 10_000));
+        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), AWAIT_TIMEOUT));
 
         // Stop the second node.
         secondNode.stop();
 
         nodes.remove(1);
 
-        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().isEmpty(), 10_000));
+        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().isEmpty(), AWAIT_TIMEOUT));
     }
 
     /**
@@ -368,14 +382,14 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         assertThat(secondNode.metaStorageManager.get(new ByteArray("test")).thenApply(Entry::value), willBe(nullValue()));
 
         // Check that the second node has been registered as a learner.
-        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), 10_000));
+        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().equals(Set.of(secondNode.name())), AWAIT_TIMEOUT));
 
         // Stop the second node.
         secondNode.stop();
 
         nodes.remove(1);
 
-        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().isEmpty(), 10_000));
+        assertTrue(waitForCondition(() -> firstNode.getMetaStorageLearners().join().isEmpty(), AWAIT_TIMEOUT));
     }
 
     /**
@@ -434,12 +448,10 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         );
 
         // Ensure watch listener is called.
-        assertTrue(watchCalledLatch.await(1, TimeUnit.SECONDS));
+        assertTrue(watchCalledLatch.await(AWAIT_TIMEOUT, TimeUnit.MILLISECONDS));
 
         // Wait until leader's safe time is propagated.
-        assertTrue(waitForCondition(() -> {
-            return firstNodeTime.currentSafeTime().compareTo(timeBeforeOp) > 0;
-        }, TimeUnit.SECONDS.toMillis(1)));
+        assertTrue(waitForCondition(() -> firstNodeTime.currentSafeTime().compareTo(timeBeforeOp) > 0, AWAIT_TIMEOUT));
 
         // Safe time must not be propagated to the second node at this moment.
         assertThat(firstNodeTime.currentSafeTime(), greaterThan(secondNodeTime.currentSafeTime()));
@@ -453,7 +465,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
             HybridTimestamp sf2 = secondNodeTime.currentSafeTime();
 
             return sf1.equals(sf2);
-        }, TimeUnit.SECONDS.toMillis(1)));
+        }, AWAIT_TIMEOUT));
 
         assertThat(
                 secondNode.metaStorageManager.put(ByteArray.fromString("test-key-2"), new byte[]{0, 1, 2, 3}),
@@ -465,7 +477,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
             HybridTimestamp sf2 = secondNodeTime.currentSafeTime();
 
             return sf1.equals(sf2);
-        }, TimeUnit.SECONDS.toMillis(1)));
+        }, AWAIT_TIMEOUT));
     }
 
     /**
@@ -498,7 +510,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
             HybridTimestamp sf2 = secondNodeTime.currentSafeTime();
 
             return sf1.equals(sf2);
-        }, TimeUnit.SECONDS.toMillis(1)));
+        }, AWAIT_TIMEOUT));
 
         // Change leader and check if propagation still works.
         Node prevLeader = transferLeadership(firstNode, secondNode);
@@ -513,7 +525,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
             HybridTimestamp sf2 = secondNodeTime.currentSafeTime();
 
             return sf1.equals(sf2);
-        }, TimeUnit.SECONDS.toMillis(1)));
+        }, AWAIT_TIMEOUT));
     }
 
     /**
@@ -610,7 +622,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
     }
 
     private RaftGroupService getMetastorageService(Node node) {
-        CompletableFuture<RaftGroupService> future = node.metaStorageManager.metaStorageServiceFuture()
+        CompletableFuture<RaftGroupService> future = node.metaStorageManager.metaStorageService()
                 .thenApply(MetaStorageServiceImpl::raftGroupService);
 
         assertThat(future, willCompleteSuccessfully());

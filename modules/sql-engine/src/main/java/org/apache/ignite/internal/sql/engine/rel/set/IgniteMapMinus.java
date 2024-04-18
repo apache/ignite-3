@@ -25,15 +25,22 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Physical node for MAP phase of MINUS (EXCEPT) operator.
  */
 public class IgniteMapMinus extends IgniteMinus implements IgniteMapSetOp {
+    private static final String REL_TYPE_NAME = "MapMinus";
+
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param cluster Cluster that this relational expression belongs to.
+     * @param traitSet  The traits of this rel.
+     * @param inputs  Input relational expressions.
+     * @param all Whether this operator should return all rows or only distinct rows.
      */
     public IgniteMapMinus(
             RelOptCluster cluster,
@@ -73,12 +80,21 @@ public class IgniteMapMinus extends IgniteMinus implements IgniteMapSetOp {
     /** {@inheritDoc} */
     @Override
     protected RelDataType deriveRowType() {
-        return buildRowType();
+        IgniteTypeFactory typeFactory = (IgniteTypeFactory) getCluster().getTypeFactory();
+        RelDataType rowType = getInput(0).getRowType();
+
+        return IgniteMapSetOp.buildRowType(typeFactory, rowType, COUNTER_FIELDS_CNT);
     }
 
     /** {@inheritDoc} */
     @Override
     public int aggregateFieldsCount() {
         return getInput(0).getRowType().getFieldCount() + COUNTER_FIELDS_CNT;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

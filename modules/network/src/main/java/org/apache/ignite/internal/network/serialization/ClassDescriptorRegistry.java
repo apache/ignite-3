@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Class descriptor registry.
@@ -126,8 +127,6 @@ public class ClassDescriptorRegistry implements DescriptorRegistry {
      * @param descriptor Descriptor.
      */
     void addDescriptor(Class<?> clazz, ClassDescriptor descriptor) {
-        assert clazz.getName().equals(descriptor.className());
-
         Integer descriptorId = idMap.get(clazz);
 
         assert descriptorId != null : "Attempting to store an unregistered descriptor";
@@ -137,7 +136,32 @@ public class ClassDescriptorRegistry implements DescriptorRegistry {
         assert descriptorId == realDescriptorId : "Descriptor id doesn't match, registered=" + descriptorId + ", real="
             + realDescriptorId;
 
-        descriptorMap.put(realDescriptorId, descriptor);
+        addDescriptorToMap(clazz, descriptor);
+    }
+
+    private void addDescriptorToMap(Class<?> clazz, ClassDescriptor descriptor) {
+        assert clazz.getName().equals(descriptor.className());
+
+        descriptorMap.put(descriptor.descriptorId(), descriptor);
+    }
+
+    /**
+     * Injects a class descriptor created in another registry, with the ID assigned in the original registry.
+     *
+     * @param descriptor Descriptor to inject.
+     */
+    @TestOnly
+    public void injectDescriptor(ClassDescriptor descriptor) {
+        if (shouldBeBuiltIn(descriptor.typeDescriptorId())) {
+            return;
+        }
+
+        assert !idMap.containsKey(descriptor.localClass());
+        assert !descriptorMap.containsKey(descriptor.descriptorId());
+
+        idMap.put(descriptor.localClass(), descriptor.descriptorId());
+
+        addDescriptorToMap(descriptor.localClass(), descriptor);
     }
 
     /**

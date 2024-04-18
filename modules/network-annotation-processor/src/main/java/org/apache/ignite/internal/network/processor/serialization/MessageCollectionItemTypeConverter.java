@@ -25,10 +25,10 @@ import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
+import org.apache.ignite.internal.lang.IgniteUuid;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.processor.ProcessingException;
 import org.apache.ignite.internal.network.processor.TypeUtils;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 
 /**

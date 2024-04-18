@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 /**
  * Message group for meta-storage RAFT commands and other required classes.

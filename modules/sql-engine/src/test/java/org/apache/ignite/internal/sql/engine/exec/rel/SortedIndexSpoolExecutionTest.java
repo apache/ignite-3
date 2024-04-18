@@ -18,35 +18,34 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static java.util.Collections.singletonList;
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.UNSPECIFIED_VALUE_PLACEHOLDER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Arrays;
 import java.util.Iterator;
-import java.util.List;
 import java.util.function.Predicate;
-import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 
 /**
  * TreeIndexSpoolExecutionTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
+public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest<Object[]> {
     @Test
     public void testIndexSpool() {
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, int.class);
+        RelDataType rowType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
 
         int inBufSize = Commons.IN_BUFFER_SIZE;
 
@@ -108,7 +107,7 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
                 boolean first = true;
 
                 @Override
-                public @NotNull Iterator<Object[]> iterator() {
+                public Iterator<Object[]> iterator() {
                     assertTrue(first, "Rewind right");
 
                     first = false;
@@ -149,76 +148,13 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
         }
     }
 
-    @Test
-    public void testUnspecifiedValuesInSearchRow() {
-        ExecutionContext<Object[]> ctx = executionContext();
-        IgniteTypeFactory tf = ctx.getTypeFactory();
-        RelDataType rowType = TypeUtils.createRowType(tf, int.class, String.class, int.class);
-
-        ScanNode<Object[]> scan = new ScanNode<>(
-                ctx,
-                new TestTable(100, rowType, rowId -> rowId / 10, rowId -> rowId % 10, rowId -> rowId)
-        );
-
-        Object[] lower = new Object[3];
-        Object[] upper = new Object[3];
-
-        RelCollation collation = RelCollations.of(ImmutableIntList.of(0, 1));
-
-        IndexSpoolNode<Object[]> spool = IndexSpoolNode.createTreeSpool(
-                ctx,
-                rowType,
-                collation,
-                ctx.expressionFactory().comparator(collation),
-                v -> true,
-                new SingleRangeIterable<>(lower, upper, true, true)
-        );
-
-        spool.register(scan);
-
-        RootRewindable<Object[]> root = new RootRewindable<>(ctx);
-        root.register(spool);
-
-        Object x = UNSPECIFIED_VALUE_PLACEHOLDER; // Unspecified filter value.
-
-        // Test tuple (lower, upper, expected result size).
-        List<TestParams> testBounds = Arrays.asList(
-                new TestParams(null, new Object[]{x, x, x}, new Object[]{x, x, x}, 100),
-                new TestParams(null, new Object[]{0, 0, x}, new Object[]{4, 9, x}, 50),
-                new TestParams(null, new Object[]{0, x, x}, new Object[]{4, 9, x}, 50),
-                new TestParams(null, new Object[]{0, 0, x}, new Object[]{4, x, x}, 50),
-                new TestParams(null, new Object[]{4, x, x}, new Object[]{4, x, x}, 10),
-                // This is a special case, we shouldn't compare the next field if current field bound value is null, or we
-                // can accidentally find wrong lower/upper row. So, {x, 4} bound must be converted to {x, x} and redunant
-                // rows must be filtered out by predicate.
-                new TestParams(null, new Object[]{x, 4, x}, new Object[]{x, 5, x}, 100)
-        );
-
-        for (TestParams bound : testBounds) {
-            log.info("Check: lowerBound=" + Arrays.toString(bound.lower)
-                    + ", upperBound=" + Arrays.toString(bound.upper));
-
-            // Set up bounds.
-            System.arraycopy(bound.lower, 0, lower, 0, lower.length);
-            System.arraycopy(bound.upper, 0, upper, 0, upper.length);
-
-            assertEquals(bound.expectedResultSize, root.rowsCount(), "Invalid result size");
-        }
-
-        root.closeRewindableRoot();
-    }
-
     static class TestPredicate implements Predicate<Object[]> {
         Predicate<Object[]> delegate;
 
         /** {@inheritDoc} */
         @Override
         public boolean test(Object[] objects) {
-            if (delegate == null) {
-                return true;
-            } else {
-                return delegate.test(objects);
-            }
+            return delegate == null || delegate.test(objects);
         }
     }
 
@@ -239,4 +175,8 @@ public class SortedIndexSpoolExecutionTest extends AbstractExecutionTest {
         }
     }
 
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
+    }
 }

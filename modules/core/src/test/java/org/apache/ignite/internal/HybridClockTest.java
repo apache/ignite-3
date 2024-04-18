@@ -30,6 +30,7 @@ import org.apache.ignite.internal.hlc.ClockUpdateListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,7 +43,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * {@link HybridClock}
  */
 @ExtendWith(MockitoExtension.class)
-class HybridClockTest {
+class HybridClockTest extends BaseIgniteAbstractTest {
     /**
      * Mock of a system clock.
      */

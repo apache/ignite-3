@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /** Primary replica request for test purpose. */
 @Transferable(ReplicaMessageTestGroup.PRIMARY_REPLICA_TEST_REQUEST)

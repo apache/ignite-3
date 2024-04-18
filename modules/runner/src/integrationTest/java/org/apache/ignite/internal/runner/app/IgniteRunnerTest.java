@@ -26,8 +26,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
-import org.apache.ignite.app.IgniteRunner;
 import org.apache.ignite.internal.IgniteIntegrationTest;
+import org.apache.ignite.internal.app.IgniteRunner;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -46,7 +46,6 @@ public class IgniteRunnerTest extends IgniteIntegrationTest {
         IgnitionManager.stop(NODE_NAME);
     }
 
-    /** TODO: Replace this test by full integration test on the cli side IGNITE-15097. */
     @Test
     public void smokeTestArgs() throws Exception {
         Path configPath = Path.of(IgniteRunnerTest.class.getResource("/ignite-config.json").toURI());

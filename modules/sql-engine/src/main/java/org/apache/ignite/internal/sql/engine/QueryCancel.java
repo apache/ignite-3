@@ -21,8 +21,8 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.Cancellable;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Holds query cancel state.

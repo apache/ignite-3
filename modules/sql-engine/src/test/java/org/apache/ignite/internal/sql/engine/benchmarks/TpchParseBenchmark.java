@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.benchmarks;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
 import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
+import org.apache.ignite.internal.sql.engine.util.tpch.TpchHelper;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -48,7 +49,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 public class TpchParseBenchmark {
 
     /**
-     * Identifiers of TPC-H queries. See {@link TpchQueries#getQuery(String)}.
+     * Identifiers of TPC-H queries. See {@link TpchHelper#getQuery(String)}.
      */
     @Param({
             "1", "2", "3", "4", "5", "6", "7", "8", "8v", "9", "10", "11", "12", "12v",
@@ -61,7 +62,7 @@ public class TpchParseBenchmark {
     /** Prepares the plan of the query. */
     @Setup
     public void setUp() {
-        queryString = TpchQueries.getQuery(queryId);
+        queryString = TpchHelper.getQuery(queryId);
     }
 
     /**
@@ -81,7 +82,7 @@ public class TpchParseBenchmark {
      */
     public static void main(String[] args) throws Exception {
         Options build = new OptionsBuilder()
-                //.addProfiler("gc")
+                // .addProfiler("gc")
                 .include(TpchParseBenchmark.class.getName())
                 .build();
 

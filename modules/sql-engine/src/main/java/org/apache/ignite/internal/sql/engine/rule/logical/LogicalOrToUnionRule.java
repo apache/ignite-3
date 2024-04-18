@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rule.logical;
 
+import static org.apache.ignite.internal.sql.engine.util.RexUtils.tryToDnf;
+
 import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +41,6 @@ import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -64,13 +65,14 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
     }
 
     private static @Nullable List<RexNode> getOrOperands(RexBuilder rexBuilder, RexNode condition) {
-        RexNode dnf = RexUtil.toDnf(rexBuilder, condition);
+        RexNode dnf = tryToDnf(rexBuilder, condition, 2);
 
-        if (!dnf.isA(SqlKind.OR)) {
+        if (dnf != null && !dnf.isA(SqlKind.OR)) {
             return null;
         }
 
         List<RexNode> operands = RelOptUtil.disjunctions(dnf);
+        assert operands.size() <= 2 : "unexpected operands count: " + operands.size();
 
         if (operands.size() != 2 || RexUtil.find(SqlKind.IS_NULL).anyContain(operands)) {
             return null;
@@ -139,8 +141,7 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
         BitSet idxsFirstFields = new BitSet(fieldCnt);
 
         for (IgniteIndex idx : tbl.indexes().values()) {
-            List<RelFieldCollation> fieldCollations = TraitUtils.createCollation(idx.columns(), idx.collations(), tbl.descriptor())
-                    .getFieldCollations();
+            List<RelFieldCollation> fieldCollations = idx.collation().getFieldCollations();
 
             if (!CollectionUtils.nullOrEmpty(fieldCollations)) {
                 idxsFirstFields.set(fieldCollations.get(0).getFieldIndex());
@@ -148,7 +149,7 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
         }
 
         Mappings.TargetMapping mapping = scan.requiredColumns() == null ? null :
-                Commons.inverseTrimmingMapping(fieldCnt, scan.requiredColumns());
+                Commons.trimmingMapping(fieldCnt, scan.requiredColumns());
 
         for (RexNode op : operands) {
             BitSet conditionFields = new BitSet(fieldCnt);

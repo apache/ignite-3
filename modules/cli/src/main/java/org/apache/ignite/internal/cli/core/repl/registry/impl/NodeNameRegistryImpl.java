@@ -32,7 +32,7 @@ import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.rest.client.model.ClusterNode;
-import org.apache.ignite.rest.client.model.NodeMetadata;
+import org.apache.ignite.rest.client.model.ClusterNodeMetadata;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link NodeNameRegistry}. */
@@ -87,11 +87,15 @@ public class NodeNameRegistryImpl implements NodeNameRegistry, PeriodicSessionTa
     }
 
     @Nullable
-    private static String urlFromClusterNode(NodeMetadata metadata) {
+    static String urlFromClusterNode(@Nullable ClusterNodeMetadata metadata) {
         if (metadata == null) {
             return null;
         }
         try {
+            Integer httpsPort = metadata.getHttpsPort();
+            if (httpsPort != -1) {
+                return new URL("https://" + metadata.getRestHost() + ":" + httpsPort).toString();
+            }
             return new URL("http://" + metadata.getRestHost() + ":" + metadata.getHttpPort()).toString();
         } catch (Exception e) {
             LOG.warn("Couldn't create URL: {}", e);

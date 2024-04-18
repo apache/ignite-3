@@ -17,14 +17,17 @@
 
 #include "ignite/client/detail/node_connection.h"
 
+#include <ignite/protocol/messages.h>
 #include <ignite/protocol/utils.h>
 
 namespace ignite::detail {
 
-node_connection::node_connection(uint64_t id, std::shared_ptr<network::async_client_pool> pool,
-    std::shared_ptr<ignite_logger> logger, const ignite_client_configuration &cfg)
+node_connection::node_connection(std::uint64_t id, std::shared_ptr<network::async_client_pool> pool,
+    std::weak_ptr<connection_event_handler> event_handler, std::shared_ptr<ignite_logger> logger,
+    const ignite_client_configuration &cfg)
     : m_id(id)
     , m_pool(std::move(pool))
+    , m_event_handler(std::move(event_handler))
     , m_logger(std::move(logger))
     , m_configuration(cfg) {
 }
@@ -43,7 +46,7 @@ node_connection::~node_connection() {
 }
 
 bool node_connection::handshake() {
-    static constexpr int8_t CLIENT_TYPE = 2;
+    static constexpr std::int8_t CLIENT_TYPE = 2;
 
     std::map<std::string, std::string> extensions;
     auto authenticator = m_configuration.get_authenticator();
@@ -53,107 +56,87 @@ bool node_connection::handshake() {
         extensions.emplace("authn-secret", authenticator->get_secret());
     }
 
-    std::vector<std::byte> message;
-    {
-        protocol::buffer_adapter buffer(message);
-        buffer.write_raw(bytes_view(protocol::MAGIC_BYTES));
-
-        protocol::write_message_to_buffer(
-            buffer, [&context = m_protocol_context, &extensions](protocol::writer &writer) {
-                auto ver = context.get_version();
-
-                writer.write(ver.major());
-                writer.write(ver.minor());
-                writer.write(ver.patch());
-
-                writer.write(CLIENT_TYPE);
-
-                // Features.
-                writer.write_binary_empty();
-
-                // Extensions.
-                writer.write_map(extensions);
-            });
-    }
-
+    std::vector<std::byte> message =
+        protocol::make_handshake_request(CLIENT_TYPE, m_protocol_context.get_version(), extensions);
     return m_pool->send(m_id, std::move(message));
 }
 
 void node_connection::process_message(bytes_view msg) {
     protocol::reader reader(msg);
-    auto response_type = reader.read_int32();
-    if (message_type(response_type) != message_type::RESPONSE) {
-        m_logger->log_warning("Unsupported message type: " + std::to_string(response_type));
-        return;
-    }
 
     auto req_id = reader.read_int64();
     auto flags = reader.read_int32();
-    UNUSED_VALUE flags; // Flags are unused for now.
-
-    auto handler = get_and_remove_handler(req_id);
-    if (!handler) {
-        m_logger->log_error("Missing handler for request with id=" + std::to_string(req_id));
-        return;
+    if (test_flag(flags, protocol::response_flag::PARTITION_ASSIGNMENT_CHANGED)) {
+        auto assignment_ts = reader.read_int64();
+        UNUSED_VALUE assignment_ts;
     }
 
-    auto err = protocol::read_error(reader);
-    if (err) {
+    auto observable_timestamp = reader.read_int64();
+    auto event_handler = m_event_handler.lock();
+    if (event_handler) {
+        event_handler->on_observable_timestamp_changed(observable_timestamp);
+    }
+
+    std::optional<ignite_error> err{};
+    if (test_flag(flags, protocol::response_flag::ERROR_FLAG)) {
+        err = {protocol::read_error(reader)};
         m_logger->log_error("Error: " + err->what_str());
-        auto res = handler->set_error(std::move(err.value()));
-        if (res.has_error())
-            m_logger->log_error(
-                "Uncaught user callback exception while handling operation error: " + res.error().what_str());
-        return;
     }
 
     auto pos = reader.position();
     bytes_view data{msg.data() + pos, msg.size() - pos};
-    auto handling_res = handler->handle(shared_from_this(), data);
-    if (handling_res.has_error())
-        m_logger->log_error("Uncaught user callback exception: " + handling_res.error().what_str());
+
+    { // Locking scope
+        std::lock_guard<std::recursive_mutex> lock(m_request_handlers_mutex);
+
+        auto handler = find_handler_unsafe(req_id);
+        if (!handler) {
+            m_logger->log_error("Missing handler for request with id=" + std::to_string(req_id));
+            return;
+        }
+
+        ignite_result<void> result{};
+        if (err) {
+            result = handler->set_error(std::move(*err));
+        } else {
+            result = handler->handle(shared_from_this(), data, flags);
+        }
+
+        if (result.has_error()) {
+            m_logger->log_error("Uncaught user callback exception: " + result.error().what_str());
+        }
+
+        if (handler->is_handling_complete()) {
+            m_request_handlers.erase(req_id);
+        }
+    }
 }
 
 ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
     m_logger->log_debug("Got handshake response");
 
-    protocol::reader reader(msg);
+    auto response = protocol::parse_handshake_response(msg);
+    auto const &ver = response.context.get_version();
 
-    auto ver_major = reader.read_int16();
-    auto ver_minor = reader.read_int16();
-    auto ver_patch = reader.read_int16();
-
-    protocol_version ver(ver_major, ver_minor, ver_patch);
     m_logger->log_debug("Server-side protocol version: " + ver.to_string());
 
     // We now only support a single version
-    if (ver != protocol_context::CURRENT_VERSION)
+    if (ver != protocol::protocol_version::get_current())
         return {ignite_error("Unsupported server version: " + ver.to_string())};
 
-    auto err = protocol::read_error(reader);
-    if (err) {
-        m_logger->log_warning("Handshake error: " + err.value().what_str());
-        return {ignite_error(err.value())};
+    if (response.error) {
+        m_logger->log_warning("Handshake error: " + response.error->what_str());
+        return {ignite_error(*response.error)};
     }
 
-    UNUSED_VALUE reader.read_int64(); // TODO: IGNITE-17606 Implement heartbeats
-    UNUSED_VALUE reader.read_string_nullable(); // Cluster node ID. Needed for partition-aware compute.
-    UNUSED_VALUE reader.read_string_nullable(); // Cluster node name. Needed for partition-aware compute.
-
-    auto cluster_id = reader.read_uuid();
-    reader.skip(); // Features.
-    reader.skip(); // Extensions.
-
-    m_protocol_context.set_version(ver);
-    m_protocol_context.set_cluster_id(cluster_id);
-
+    m_protocol_context = response.context;
     m_handshake_complete = true;
 
     return {};
 }
 
-std::shared_ptr<response_handler> node_connection::get_and_remove_handler(int64_t req_id) {
-    std::lock_guard<std::mutex> lock(m_request_handlers_mutex);
+std::shared_ptr<response_handler> node_connection::get_and_remove_handler(std::int64_t req_id) {
+    std::lock_guard<std::recursive_mutex> lock(m_request_handlers_mutex);
 
     auto it = m_request_handlers.find(req_id);
     if (it == m_request_handlers.end())
@@ -163,6 +146,14 @@ std::shared_ptr<response_handler> node_connection::get_and_remove_handler(int64_
     m_request_handlers.erase(it);
 
     return res;
+}
+
+std::shared_ptr<response_handler> node_connection::find_handler_unsafe(std::int64_t req_id) {
+    auto it = m_request_handlers.find(req_id);
+    if (it == m_request_handlers.end())
+        return {};
+
+    return it->second;
 }
 
 } // namespace ignite::detail

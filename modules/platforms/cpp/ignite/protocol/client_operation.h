@@ -17,7 +17,7 @@
 
 #pragma once
 
-namespace ignite::detail {
+namespace ignite::protocol {
 
 /**
  * Client operation code.
@@ -80,6 +80,15 @@ enum class client_operation {
     /** Contains tuple. */
     TUPLE_CONTAINS_KEY = 33,
 
+    /** Get table metadata. */
+    JDBC_TABLE_META = 38,
+
+    /** Get column metadata. */
+    JDBC_COLUMN_META = 39,
+
+    /** Get primary key metadata. */
+    JDBC_PK_META = 41,
+
     /** Begin transaction. */
     TX_BEGIN = 43,
 
@@ -106,17 +115,24 @@ enum class client_operation {
 
     /** Close cursor. */
     SQL_CURSOR_CLOSE = 52,
+
+    /** Execute SQL script. */
+    SQL_EXEC_SCRIPT = 56,
+
+    /** SQL query metadata. */
+    SQL_QUERY_META = 57,
+
+    /** Get compute job status. */
+    COMPUTE_GET_STATUS = 59,
+
+    /** Cancel compute job. */
+    COMPUTE_CANCEL = 60,
+
+    /** Change compute job priority. */
+    COMPUTE_CHANGE_PRIORITY = 61,
+
+    /** Execute SQL query with the parameters batch. */
+    SQL_EXEC_BATCH = 63,
 };
 
-/**
- * Message type.
- */
-enum class message_type {
-    /** response. */
-    RESPONSE = 0,
-
-    /** Notification. */
-    NOTIFICATION = 1,
-};
-
-} // namespace ignite::detail
+} // namespace ignite::protocol

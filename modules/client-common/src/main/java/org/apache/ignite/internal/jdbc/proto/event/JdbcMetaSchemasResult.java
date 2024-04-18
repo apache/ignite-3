@@ -59,7 +59,7 @@ public class JdbcMetaSchemasResult extends Response {
             return;
         }
 
-        packer.packArrayHeader(schemas.size());
+        packer.packInt(schemas.size());
 
         for (String schema : schemas) {
             packer.packString(schema);
@@ -75,7 +75,7 @@ public class JdbcMetaSchemasResult extends Response {
             return;
         }
 
-        int size = unpacker.unpackArrayHeader();
+        int size = unpacker.unpackInt();
 
         schemas = new ArrayList<>(size);
 

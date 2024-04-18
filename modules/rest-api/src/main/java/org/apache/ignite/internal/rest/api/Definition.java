@@ -18,17 +18,25 @@
 package org.apache.ignite.internal.rest.api;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.info.Contact;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.info.License;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
+import io.swagger.v3.oas.annotations.servers.Server;
 
 /**
  * Dummy class used to generate OpenAPI specification.
  */
-@OpenAPIDefinition(info = @Info(
-        title = "Ignite REST module",
-        version = "3.0.0-SNAPSHOT",
-        license = @License(name = "Apache 2.0", url = "https://ignite.apache.org"),
-        contact = @Contact(email = "user@ignite.apache.org")))
+@OpenAPIDefinition(
+        servers = @Server(url = "http://localhost:10300"),
+        info = @Info(
+                title = "Ignite REST module",
+                version = "3.0.0-SNAPSHOT",
+                license = @License(name = "Apache 2.0", url = "https://ignite.apache.org"),
+                contact = @Contact(email = "user@ignite.apache.org")))
+@SecurityRequirement(name = "basicAuth")
+@SecurityScheme(name = "basicAuth", scheme = "basic", type = SecuritySchemeType.HTTP)
 public class Definition {
 }

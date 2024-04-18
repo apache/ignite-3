@@ -1,0 +1,77 @@
+# name: test/sql/types/blob/test_blob.test
+# description: BLOB tests
+# group: [blob]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE blobs (b varbinary);
+
+# Insert valid hex strings
+statement ok
+INSERT INTO blobs VALUES(x'aaffaa'), (x'AAFFAAAAFFAA'), (x'AAFFAAAAFFAAAAFFAA')
+
+query T rowsort
+SELECT * FROM blobs
+----
+aaffaa
+aaffaaaaffaa
+aaffaaaaffaaaaffaa
+
+# Insert valid hex strings, lower case
+statement ok
+DELETE FROM blobs
+
+statement ok
+INSERT INTO blobs VALUES(x'aaffaa'), (x'aaffaaaaffaa'), (x'aaffaaaaffaaaaffaa')
+
+query T rowsort
+SELECT * FROM blobs
+----
+aaffaa
+aaffaaaaffaa
+aaffaaaaffaaaaffaa
+
+# Insert valid hex strings with number and letters
+statement ok
+DELETE FROM blobs
+
+statement ok
+INSERT INTO blobs VALUES(x'aa1199'), (x'aa1199aa1199'), (x'aa1199aa1199aa1199')
+
+query T rowsort
+SELECT * FROM blobs
+----
+aa1199
+aa1199aa1199
+aa1199aa1199aa1199
+
+# Insert invalid hex strings (invalid hex chars: G, H, I)
+statement error
+INSERT INTO blobs VALUES(x'GAFFAA')
+
+# Insert invalid hex strings (odd # of chars)
+statement error
+INSERT INTO blobs VALUES(x'A')
+
+statement error
+INSERT INTO blobs VALUES(x'AAA')
+
+statement ok
+DELETE FROM blobs
+
+# Implicit cast
+statement error
+INSERT INTO blobs VALUES('blablabla')
+
+# BINARY null and empty values
+statement error
+query T
+SELECT ''::VARBINARY
+
+query T
+SELECT NULL::VARBINARY
+----
+NULL
+

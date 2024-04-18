@@ -20,29 +20,18 @@ package org.apache.ignite.internal.cli.commands.connect;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
-import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
-import org.apache.ignite.internal.cli.core.repl.prompt.PromptProvider;
+import java.io.IOException;
+import org.apache.ignite.internal.cli.commands.ItConnectToClusterTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import picocli.CommandLine.Help.Ansi;
 
-class ItConnectCommandTest extends CliCommandTestInitializedIntegrationBase {
-    @Inject
-    PromptProvider promptProvider;
-
-    @Override
-    protected Class<?> getCommandClass() {
-        return TopLevelCliReplCommand.class;
-    }
+class ItConnectCommandTest extends ItConnectToClusterTestBase {
 
     @Test
     @DisplayName("Should connect to cluster with default url")
     void connectWithDefaultUrl() {
         // Given prompt before connect
-        String promptBefore = Ansi.OFF.string(promptProvider.getPrompt());
-        assertThat(promptBefore).isEqualTo("[disconnected]> ");
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
         // When connect without parameters
         execute("connect");
@@ -53,8 +42,7 @@ class ItConnectCommandTest extends CliCommandTestInitializedIntegrationBase {
                 () -> assertOutputContains("Connected to http://localhost:10300")
         );
         // And prompt is changed to connect
-        String promptAfter = Ansi.OFF.string(promptProvider.getPrompt());
-        assertThat(promptAfter).isEqualTo("[" + nodeName() + "]> ");
+        assertThat(getPrompt()).isEqualTo("[" + nodeName() + "]> ");
     }
 
     @Test
@@ -82,8 +70,7 @@ class ItConnectCommandTest extends CliCommandTestInitializedIntegrationBase {
                         + "Could not connect to node with URL http://localhost:11111" + System.lineSeparator())
         );
         // And prompt is
-        String prompt = Ansi.OFF.string(promptProvider.getPrompt());
-        assertThat(prompt).isEqualTo("[disconnected]> ");
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
     }
 
     @Test
@@ -92,8 +79,7 @@ class ItConnectCommandTest extends CliCommandTestInitializedIntegrationBase {
         // Given connected to cluster
         execute("connect");
         // And prompt is
-        String promptBefore = Ansi.OFF.string(promptProvider.getPrompt());
-        assertThat(promptBefore).isEqualTo("[" + nodeName() + "]> ");
+        assertThat(getPrompt()).isEqualTo("[" + nodeName() + "]> ");
 
         // When disconnect
         execute("disconnect");
@@ -103,8 +89,7 @@ class ItConnectCommandTest extends CliCommandTestInitializedIntegrationBase {
                 () -> assertOutputContains("Disconnected from http://localhost:10300")
         );
         // And prompt is changed
-        String promptAfter = Ansi.OFF.string(promptProvider.getPrompt());
-        assertThat(promptAfter).isEqualTo("[disconnected]> ");
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
     }
 
     @Test
@@ -118,8 +103,7 @@ class ItConnectCommandTest extends CliCommandTestInitializedIntegrationBase {
                 () -> assertOutputIs("Connected to http://localhost:10300" + System.lineSeparator())
         );
         // And prompt is
-        String promptBefore = Ansi.OFF.string(promptProvider.getPrompt());
-        assertThat(promptBefore).isEqualTo("[" + nodeName() + "]> ");
+        assertThat(getPrompt()).isEqualTo("[" + nodeName() + "]> ");
 
         // When connect again
         resetOutput();
@@ -131,11 +115,26 @@ class ItConnectCommandTest extends CliCommandTestInitializedIntegrationBase {
                 () -> assertOutputIs("You are already connected to http://localhost:10300" + System.lineSeparator())
         );
         // And prompt is still connected
-        String promptAfter = Ansi.OFF.string(promptProvider.getPrompt());
-        assertThat(promptAfter).isEqualTo("[" + nodeName() + "]> ");
+        assertThat(getPrompt()).isEqualTo("[" + nodeName() + "]> ");
     }
 
-    private String nodeName() {
-        return CLUSTER_NODES.get(0).name();
+    @Test
+    @DisplayName("Should throw error if cluster without authentication but command invoked with username/password")
+    void clusterWithoutAuthButUsernamePasswordProvided() throws IOException {
+
+        // Given prompt before connect
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // When connect with auth parameters
+        execute("connect", "--username", "admin", "--password", "password");
+
+        // Then
+        assertAll(
+                () -> assertErrOutputIs("Authentication is not enabled on cluster but username or password were provided."
+                        + System.lineSeparator())
+        );
+
+        // And prompt is
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
     }
 }

@@ -17,24 +17,19 @@
 
 package org.apache.ignite.internal.cli.commands.sql;
 
-import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInfo;
 
 /** Base class for testing CLI sql command which creates a table before each test. */
-public class CliSqlCommandTestBase extends CliCommandTestInitializedIntegrationBase {
+public class CliSqlCommandTestBase extends CliIntegrationTest {
     @BeforeEach
-    @Override
-    public void setUp(TestInfo testInfo) throws Exception {
-        super.setUp(testInfo);
+    public void createTable() {
         createAndPopulateTable();
     }
 
-    @Override
     @AfterEach
-    public void tearDown() {
-        super.tearDown();
+    public void dropTables() {
         dropAllTables();
     }
 }

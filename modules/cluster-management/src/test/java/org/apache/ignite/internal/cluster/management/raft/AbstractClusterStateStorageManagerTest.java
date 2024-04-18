@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -25,6 +26,8 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
@@ -32,34 +35,28 @@ import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * Tests for {@link RaftStorageManager}.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public abstract class AbstractClusterStateStorageManagerTest {
+public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstractTest {
     private RaftStorageManager storageManager;
 
     private ClusterStateStorage storage;
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
-    @WorkDirectory
-    Path workDir;
-
-    abstract ClusterStateStorage clusterStateStorage();
+    abstract ClusterStateStorage clusterStateStorage(String nodeName);
 
     @BeforeEach
-    void setUp() {
-        storage = clusterStateStorage();
+    void setUp(TestInfo testInfo) {
+        storage = clusterStateStorage(testNodeName(testInfo, 0));
 
         storage.start();
 
@@ -108,7 +105,7 @@ public abstract class AbstractClusterStateStorageManagerTest {
      * Tests the snapshot-related methods.
      */
     @Test
-    void testSnapshot() {
+    void testSnapshot() throws IOException {
         ClusterTag clusterTag1 = clusterTag(msgFactory, "cluster");
         var state = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo", "bar")))
@@ -119,7 +116,10 @@ public abstract class AbstractClusterStateStorageManagerTest {
 
         storageManager.putClusterState(state);
 
-        assertThat(storageManager.snapshot(workDir), willCompleteSuccessfully());
+        Path snapshotDir = workDir.resolve("snapshot");
+        Files.createDirectory(snapshotDir);
+
+        assertThat(storageManager.snapshot(snapshotDir), willCompleteSuccessfully());
 
         IgniteProductVersion igniteVersion = IgniteProductVersion.fromString("3.3.3");
         ClusterTag clusterTag = clusterTag(msgFactory, "new_cluster");
@@ -132,9 +132,7 @@ public abstract class AbstractClusterStateStorageManagerTest {
 
         storageManager.putClusterState(newState);
 
-        var node3 = new ClusterNode("nonono", "nononono", new NetworkAddress("localhost", 123));
-
-        storageManager.restoreSnapshot(workDir);
+        storageManager.restoreSnapshot(snapshotDir);
 
         assertThat(storageManager.getClusterState(), is(equalTo(state)));
     }

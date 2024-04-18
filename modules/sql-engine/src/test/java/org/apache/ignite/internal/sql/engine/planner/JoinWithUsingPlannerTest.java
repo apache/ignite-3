@@ -17,11 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import java.sql.Date;
 import java.util.ArrayList;
 import java.util.Collection;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -34,15 +35,29 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
 
     @BeforeAll
     public static void init() {
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteSchema otherSchema = new IgniteSchema("OTHER");
+        IgniteSchema publicSchema = createSchema("PUBLIC",
+                TestBuilders.table().name("T1")
+                        .addColumn("EMPID", NativeTypes.INT32)
+                        .addColumn("DEPTID", NativeTypes.INT32)
+                        .addColumn("NAME", NativeTypes.STRING)
+                        .distribution(IgniteDistributions.random())
+                        .build(),
+                TestBuilders.table().name("T2")
+                        .addColumn("DEPTID", NativeTypes.INT32)
+                        .addColumn("NAME", NativeTypes.STRING)
+                        .addColumn("PARENTID", NativeTypes.INT32)
+                        .distribution(IgniteDistributions.random())
+                        .build()
+        );
 
-        createTable(publicSchema, "T1", IgniteDistributions.random(),
-                "EMPID", Integer.class, "DEPTID", Integer.class, "NAME", String.class);
-        createTable(publicSchema, "T2", IgniteDistributions.random(),
-                "DEPTID", Integer.class, "NAME", String.class, "PARENTID", Integer.class);
-        createTable(otherSchema, "T3", IgniteDistributions.random(),
-                "EMPID", Integer.class, "DEPTID", Integer.class, "D", Date.class);
+        IgniteSchema otherSchema = createSchema("OTHER",
+                TestBuilders.table().name("T3")
+                        .addColumn("EMPID", NativeTypes.INT32)
+                        .addColumn("DEPTID", NativeTypes.INT32)
+                        .addColumn("D", NativeTypes.DATE)
+                        .distribution(IgniteDistributions.random())
+                        .build()
+        );
 
         schemas.add(publicSchema);
         schemas.add(otherSchema);
@@ -90,7 +105,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
         // TODO https://issues.apache.org/jira/browse/CALCITE-4923
         // For now we can't select system columns with "star", since when "star" is used, tables of join are rewrite to
         // subqueries without system columns.
-        //assertPlan("SELECT *, T2._KEY FROM T1 JOIN T2 USING (DEPTID)", schemas,
+        // assertPlan("SELECT *, T2._KEY FROM T1 JOIN T2 USING (DEPTID)", schemas,
         //    hasColumns("DEPTID", "EMPID", "NAME", "NAME0", "PARENTID", "_KEY"));
     }
 
@@ -110,7 +125,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
 
         // Double join.
         // TODO https://issues.apache.org/jira/browse/CALCITE-4921
-        //assertPlan("SELECT * FROM T1 NATURAL JOIN T2 NATURAL JOIN OTHER.T3", schemas,
+        // assertPlan("SELECT * FROM T1 NATURAL JOIN T2 NATURAL JOIN OTHER.T3", schemas,
         //    hasColumns("DEPTID", "EMPTID", "NAME", "PARENTID", "D"));
 
         // Join table with subquery.
@@ -123,7 +138,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
 
         // Select explicit columns, system columns. Columns not ambiguous.
         // TODO https://issues.apache.org/jira/browse/CALCITE-4915
-        //assertPlan("SELECT DEPTID, T1._KEY, T2.NAME FROM T1 NATURAL JOIN T2", schemas,
+        // assertPlan("SELECT DEPTID, T1._KEY, T2.NAME FROM T1 NATURAL JOIN T2", schemas,
         //    hasColumns("DEPTID", "_KEY", "NAME"));
 
         // Select all tables columns.
@@ -132,12 +147,12 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
 
         // Select system columns and all table columns.
         // TODO https://issues.apache.org/jira/browse/CALCITE-4923
-        //assertPlan("SELECT T1.*, T2._KEY FROM T1 NATURAL JOIN T2", schemas,
+        // assertPlan("SELECT T1.*, T2._KEY FROM T1 NATURAL JOIN T2", schemas,
         //    hasColumns("EMPID", "DEPTID", "NAME", "_KEY"));
 
         // System columns with "star".
         // TODO https://issues.apache.org/jira/browse/CALCITE-4923
-        //assertPlan("SELECT *, T2._KEY FROM T1 NATURAL JOIN T2", schemas,
+        // assertPlan("SELECT *, T2._KEY FROM T1 NATURAL JOIN T2", schemas,
         //    hasColumns("DEPTID", "NAME", "EMPID", "PARENTID", "_KEY"));
     }
 }

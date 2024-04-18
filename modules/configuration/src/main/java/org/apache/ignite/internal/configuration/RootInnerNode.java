@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.configuration;
 
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 
 /**
@@ -61,7 +61,7 @@ public class RootInnerNode {
     }
 
     /**
-     * Check if the root configuration is marked with {@link InternalConfiguration}.
+     * Check if the root configuration is marked with {@link ConfigurationExtension} an is internal.
      *
      * @return {@code true} if the root configuration is internal.
      */

@@ -35,10 +35,10 @@ import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
-import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -78,9 +78,9 @@ public class BinaryTupleComparatorTest {
                 NativeTypes.UUID,
                 NativeTypes.STRING,
                 NativeTypes.numberOf(20),
-                NativeTypes.timestamp(),
+                NativeTypes.timestamp(6),
                 NativeTypes.DATE,
-                NativeTypes.datetime()
+                NativeTypes.datetime(6)
         );
     }
 
@@ -199,11 +199,11 @@ public class BinaryTupleComparatorTest {
 
             case DECIMAL: {
                 tuple1 = new BinaryTupleBuilder(1)
-                        .appendDecimal(BigDecimal.valueOf(-1), 4)
+                        .appendDecimal(BigDecimal.valueOf(-1), 0)
                         .build();
 
                 tuple2 = new BinaryTupleBuilder(1)
-                        .appendDecimal(BigDecimal.valueOf(123456789.1234), 4)
+                        .appendDecimal(BigDecimal.valueOf(123456789.12), 2)
                         .build();
 
                 break;

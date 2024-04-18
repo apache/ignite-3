@@ -35,7 +35,7 @@ public partial class LinqTests
             .Select(x => x.Key)
             .OrderBy(x => x);
 
-        List<sbyte> res = query.ToList();
+        List<sbyte?> res = query.ToList();
 
         Assert.AreEqual(new[] { 0, 1, 2, 3 }, res);
 
@@ -73,17 +73,17 @@ public partial class LinqTests
     {
         var query = PocoByteView.AsQueryable()
             .GroupBy(x => x.Val)
-            .Select(x => new { x.Key, Count = x.Count(), Sum = x.Sum(e => e.Key), Avg = x.Average(e => e.Key) })
+            .Select(x => new { x.Key, Cnt = x.Count(), SumC = x.Sum(e => e.Key), AvgC = x.Average(e => e.Key) })
             .OrderBy(x => x.Key);
 
         var res = query.ToList();
 
         Assert.AreEqual(1, res[1].Key);
-        Assert.AreEqual(3, res[1].Count);
-        Assert.AreEqual(4.0d, res[1].Avg);
+        Assert.AreEqual(3, res[1].Cnt);
+        Assert.AreEqual(4.0d, res[1].AvgC);
 
         StringAssert.Contains(
-            "select _T0.VAL as _G0, count(*) as COUNT, sum(cast(_T0.KEY as int)) as SUM, avg(cast(_T0.KEY as int)) as AVG " +
+            "select _T0.VAL as _G0, count(*) as CNT, sum(cast(_T0.KEY as int)) as SUMC, avg(cast(_T0.KEY as int)) as AVGC " +
             "from PUBLIC.TBL_INT8 as _T0 " +
             "group by _G0 " +
             "order by _G0 asc",
@@ -96,19 +96,19 @@ public partial class LinqTests
         var query = PocoByteView.AsQueryable()
             .Select(x => new {Id = x.Key + 1, Price = x.Val * 10})
             .GroupBy(x => x.Price)
-            .Select(x => new { x.Key, Count = x.Count() })
+            .Select(x => new { x.Key, Cnt = x.Count() })
             .OrderBy(x => x.Key);
 
         var res = query.ToList();
 
         Assert.AreEqual(10, res[1].Key);
-        Assert.AreEqual(3, res[1].Count);
+        Assert.AreEqual(3, res[1].Cnt);
 
         Assert.AreEqual(20, res[2].Key);
-        Assert.AreEqual(3, res[2].Count);
+        Assert.AreEqual(3, res[2].Cnt);
 
         StringAssert.Contains(
-            "select (cast(_T0.VAL as int) * ?) as _G0, count(*) as COUNT " +
+            "select (cast(_T0.VAL as int) * ?) as _G0, count(*) as CNT " +
             "from PUBLIC.TBL_INT8 as _T0 " +
             "group by _G0 " +
             "order by _G0 asc",
@@ -132,17 +132,17 @@ public partial class LinqTests
                     Price = a.Val
                 })
             .GroupBy(x => x.Category)
-            .Select(g => new {Cat = g.Key, Count = g.Count()})
+            .Select(g => new {Cat = g.Key, Cnt = g.Count()})
             .OrderBy(x => x.Cat);
 
         var res = query.ToList();
 
         Assert.AreEqual(0, res[0].Cat);
-        Assert.AreEqual(1, res[0].Count);
+        Assert.AreEqual(1, res[0].Cnt);
         Assert.AreEqual(10, res.Count);
 
         StringAssert.Contains(
-            "select _T0.VAL as _G0, count(*) as COUNT " +
+            "select _T0.VAL as _G0, count(*) as CNT " +
             "from PUBLIC.TBL1 as _T1 " +
             "inner join PUBLIC.TBL_INT32 as _T0 on (cast(_T0.KEY as bigint) = _T1.KEY) " +
             "group by _G0 " +

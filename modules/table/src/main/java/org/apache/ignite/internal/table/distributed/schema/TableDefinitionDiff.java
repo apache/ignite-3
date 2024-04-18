@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.schema;
 import static java.util.Collections.emptyList;
 
 import java.util.List;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 
 /**
@@ -28,17 +27,16 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
  */
 public class TableDefinitionDiff {
     private static final TableDefinitionDiff EMPTY = new TableDefinitionDiff(
-            emptyList(), emptyList(), emptyList(), emptyList(), emptyList()
+            -1, -1, "name", "name", emptyList(), emptyList(), emptyList()
     );
 
+    private final int oldSchemaVersion;
+    private final int newSchemaVersion;
+
+    private final boolean nameDiffers;
     private final List<CatalogTableColumnDescriptor> addedColumns;
     private final List<CatalogTableColumnDescriptor> removedColumns;
     private final List<ColumnDefinitionDiff> changedColumns;
-
-    private final List<CatalogIndexDescriptor> addedIndexes;
-    private final List<CatalogIndexDescriptor> removedIndexes;
-
-    // TODO: IGNITE-19229 - other change types
 
     /**
      * Returns an empty diff (meaning there is no difference).
@@ -53,17 +51,42 @@ public class TableDefinitionDiff {
      * Constructor.
      */
     public TableDefinitionDiff(
+            int oldSchemaVersion,
+            int newSchemaVersion,
+            String oldName,
+            String newName,
             List<CatalogTableColumnDescriptor> addedColumns,
             List<CatalogTableColumnDescriptor> removedColumns,
-            List<ColumnDefinitionDiff> changedColumns,
-            List<CatalogIndexDescriptor> addedIndexes,
-            List<CatalogIndexDescriptor> removedIndexes
+            List<ColumnDefinitionDiff> changedColumns
     ) {
+        this.oldSchemaVersion = oldSchemaVersion;
+        this.newSchemaVersion = newSchemaVersion;
+
+        nameDiffers = !oldName.equals(newName);
         this.addedColumns = List.copyOf(addedColumns);
         this.removedColumns = List.copyOf(removedColumns);
         this.changedColumns = List.copyOf(changedColumns);
-        this.addedIndexes = List.copyOf(addedIndexes);
-        this.removedIndexes = List.copyOf(removedIndexes);
+    }
+
+    /**
+     * Returns old schema version.
+     */
+    public int oldSchemaVersion() {
+        return oldSchemaVersion;
+    }
+
+    /**
+     * Returns new schema version.
+     */
+    public int newSchemaVersion() {
+        return newSchemaVersion;
+    }
+
+    /**
+     * Returns whether name of the table has been changed.
+     */
+    public boolean nameDiffers() {
+        return nameDiffers;
     }
 
     /**
@@ -85,32 +108,5 @@ public class TableDefinitionDiff {
      */
     public List<ColumnDefinitionDiff> changedColumns() {
         return changedColumns;
-    }
-
-    /**
-     * Returns indexes that were added.
-     */
-    public List<CatalogIndexDescriptor> addedIndexes() {
-        return addedIndexes;
-    }
-
-    /**
-     * Returns indexes that were removed.
-     */
-    public List<CatalogIndexDescriptor> removedIndexes() {
-        return removedIndexes;
-    }
-
-    /**
-     * Returns whether this diff is empty (so no difference at all).
-     *
-     * @return Whether this diff is empty (so no difference at all).
-     */
-    public boolean isEmpty() {
-        return addedColumns.isEmpty()
-                && removedColumns.isEmpty()
-                && changedColumns.isEmpty()
-                && addedIndexes.isEmpty()
-                && removedIndexes.isEmpty();
     }
 }

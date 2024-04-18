@@ -17,22 +17,27 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.raft.jraft.test.TestUtils.INIT_PORT;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.TestInfo;
 
@@ -40,6 +45,8 @@ import org.junit.jupiter.api.TestInfo;
  * Ignite RPC test.
  */
 public class IgniteRpcTest extends AbstractRpcTest {
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteRpcTest.class);
+
     /** The counter. */
     private final AtomicInteger cntr = new AtomicInteger();
 
@@ -54,16 +61,13 @@ public class IgniteRpcTest extends AbstractRpcTest {
         this.testInfo = testInfo;
     }
 
-    /** {@inheritDoc} */
     @AfterEach
-    @Override public void tearDown() {
-        super.tearDown();
-
+    public void shutdownExecutor() {
         ExecutorServiceHelper.shutdownAndAwaitTermination(requestExecutor);
     }
 
-    /** {@inheritDoc} */
-    @Override public RpcServer<?> createServer() {
+    @Override
+    public RpcServer<?> createServer() {
         ClusterService service = ClusterServiceTestUtils.clusterService(
                 testInfo,
                 INIT_PORT,
@@ -87,8 +91,8 @@ public class IgniteRpcTest extends AbstractRpcTest {
         return server;
     }
 
-    /** {@inheritDoc} */
-    @Override public RpcClient createClient0() {
+    @Override
+    public RpcClient createClient0() {
         int i = cntr.incrementAndGet();
 
         ClusterService service = ClusterServiceTestUtils.clusterService(
@@ -112,38 +116,23 @@ public class IgniteRpcTest extends AbstractRpcTest {
         return client;
     }
 
-    /** {@inheritDoc} */
-    @Override protected boolean waitForTopology(RpcClient client, int expected, long timeout) {
-        IgniteRpcClient client0 = (IgniteRpcClient) client;
+    @Override
+    protected boolean waitForTopology(RpcClient client, int expected, long timeout) {
+        ClusterService service = ((IgniteRpcClient) client).clusterService();
 
-        ClusterService service = client0.clusterService();
+        boolean success = TestUtils.waitForTopology(service, expected, timeout);
 
-        return waitForTopology(service, expected, timeout);
-    }
+        if (!success) {
+            Collection<ClusterNode> topology = service.topologyService().allMembers();
 
-    /**
-     * Waits for the cluster's topology to have the expected count of nodes.
-     *
-     * @param service The service.
-     * @param expected Expected count.
-     * @param timeout The timeout.
-     * @return Wait status.
-     */
-    protected boolean waitForTopology(ClusterService service, int expected, long timeout) {
-        long stop = System.currentTimeMillis() + timeout;
-
-        while (System.currentTimeMillis() < stop) {
-            if (service.topologyService().allMembers().size() == expected) {
-                return true;
-            }
-
-            try {
-                Thread.sleep(50);
-            } catch (InterruptedException e) {
-                return false;
-            }
+            LOG.error("Topology on node '{}' didn't match expected topology size. Expected: {}, actual: {}.\nTopology nodes: {}",
+                    service.nodeName(),
+                    expected,
+                    topology.size(),
+                    topology.stream().map(ClusterNode::name).collect(toList())
+            );
         }
 
-        return false;
+        return success;
     }
 }

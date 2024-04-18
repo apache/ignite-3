@@ -17,34 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
 
 import java.util.EnumSet;
 import java.util.List;
 import java.util.stream.Stream;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.type.SqlTypeUtil;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -53,12 +36,11 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- *  A set of test to verify behavior of type coercion for binary comparison, when operands belongs
- *  to the NUMERIC type family.
+ * A set of test to verify behavior of type coercion for binary comparison, when operands belongs to the NUMERIC type family.
  *
- *  <p>This tests aim to help to understand in which cases implicit cast will be added to which operand.
+ * <p>This tests aim to help to understand in which cases implicit cast will be added to which operand.
  */
-public class NumericComparisonTypeCoercionTest extends AbstractPlannerTest {
+public class NumericComparisonTypeCoercionTest extends BaseTypeCoercionTest {
     private static Stream<Arguments> args() {
         return Stream.of(
                 forTypePair(NumericPair.TINYINT_TINYINT)
@@ -839,127 +821,5 @@ public class NumericComparisonTypeCoercionTest extends AbstractPlannerTest {
         args().map(Arguments::get).map(arg -> (NumericPair) arg[0]).forEach(remainingPairs::remove);
 
         assertThat(remainingPairs, Matchers.empty());
-    }
-
-    private static IgniteSchema createSchemaWithTwoColumnTable(NativeType c1, NativeType c2) {
-        return createSchema(
-                TestBuilders.table()
-                        .name("T")
-                        .distribution(IgniteDistributions.single())
-                        .addColumn("C1", c1)
-                        .addColumn("C2", c2)
-                        .build()
-        );
-    }
-
-    private static Matcher<IgniteRel> operandMatcher(Matcher<RexNode> first, Matcher<RexNode> second) {
-        return new BaseMatcher<IgniteRel>() {
-            @Override
-            public boolean matches(Object actual) {
-                RexNode comparison = ((ProjectableFilterableTableScan) actual).projects().get(0);
-
-                assertThat(comparison, instanceOf(RexCall.class));
-
-                RexCall comparisonCall = (RexCall) comparison;
-
-                RexNode leftOperand = comparisonCall.getOperands().get(0);
-                RexNode rightOperand = comparisonCall.getOperands().get(1);
-
-                assertThat(leftOperand, first);
-                assertThat(rightOperand, second);
-
-                return true;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-
-            }
-        };
-    }
-
-    /**
-     * Creates a matcher to verify that given expression has expected return type, but it is not CAST operator.
-     *
-     * @param type Expected return type.
-     * @return A matcher.
-     */
-    private static Matcher<RexNode> ofTypeWithoutCast(NativeType type) {
-        IgniteTypeFactory typeFactory = Commons.typeFactory();
-        RelDataType sqlType = TypeUtils.native2relationalType(typeFactory, type);
-
-        return new BaseMatcher<RexNode>() {
-            @Override
-            public boolean matches(Object actual) {
-                return SqlTypeUtil.equalSansNullability(typeFactory, ((RexNode) actual).getType(), sqlType)
-                        && !((RexNode) actual).isA(SqlKind.CAST);
-            }
-
-            @Override
-            public void describeMismatch(Object item, Description description) {
-                description.appendText("was ").appendValue(item).appendText(" of type " + ((RexNode) item).getType());
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText(format("Operand of type {} that is not CAST", sqlType));
-            }
-        };
-    }
-
-    /**
-     * Creates a matcher to verify that given expression is CAST operator with expected return type.
-     *
-     * @param type Expected return type.
-     * @return A matcher.
-     */
-    private static Matcher<RexNode> castTo(NativeType type) {
-        IgniteTypeFactory typeFactory = Commons.typeFactory();
-        RelDataType sqlType = TypeUtils.native2relationalType(typeFactory, type);
-
-        return new BaseMatcher<RexNode>() {
-            @Override
-            public boolean matches(Object actual) {
-                return actual instanceof RexCall
-                        && ((RexNode) actual).isA(SqlKind.CAST)
-                        && SqlTypeUtil.equalSansNullability(typeFactory, ((RexNode) actual).getType(), sqlType);
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText("Operand that is CAST(..):" + sqlType);
-            }
-
-            @Override
-            public void describeMismatch(Object item, Description description) {
-                description.appendText("was ").appendValue(item).appendText(" of type " + ((RexNode) item).getType());
-            }
-        };
-    }
-
-    private static TestCaseBuilder forTypePair(TypePair typePair) {
-        return new TestCaseBuilder(typePair);
-    }
-
-    /**
-     * Not really a builder, but provides DSL-like API to describe test case.
-     */
-    static class TestCaseBuilder {
-        private final TypePair pair;
-        private Matcher<RexNode> firstOpMatcher;
-
-        private TestCaseBuilder(TypePair pair) {
-            this.pair = pair;
-        }
-
-        TestCaseBuilder firstOpMatches(Matcher<RexNode> operandMatcher) {
-            firstOpMatcher = operandMatcher;
-
-            return this;
-        }
-
-        Arguments secondOpMatches(Matcher<RexNode> operandMatcher) {
-            return Arguments.of(pair, firstOpMatcher, operandMatcher);
-        }
     }
 }

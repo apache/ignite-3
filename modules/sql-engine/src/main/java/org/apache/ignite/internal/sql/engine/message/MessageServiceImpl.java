@@ -18,18 +18,20 @@
 package org.apache.ignite.internal.sql.engine.message;
 
 import static org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup.GROUP_TYPE;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.NodeLeftException;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,15 +39,15 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class MessageServiceImpl implements MessageService {
-    private final TopologyService topSrvc;
-
     private final MessagingService messagingSrvc;
 
-    private final String locNodeName;
+    private final String localNodeName;
 
     private final QueryTaskExecutor taskExecutor;
 
     private final IgniteSpinBusyLock busyLock;
+
+    private final ClockService clockService;
 
     private volatile Map<Short, MessageListener> lsnrs;
 
@@ -54,17 +56,17 @@ public class MessageServiceImpl implements MessageService {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public MessageServiceImpl(
-            TopologyService topSrvc,
+            String localNodeName,
             MessagingService messagingSrvc,
             QueryTaskExecutor taskExecutor,
-            IgniteSpinBusyLock busyLock
+            IgniteSpinBusyLock busyLock,
+            ClockService clockService
     ) {
-        this.topSrvc = topSrvc;
+        this.localNodeName = localNodeName;
         this.messagingSrvc = messagingSrvc;
         this.taskExecutor = taskExecutor;
         this.busyLock = busyLock;
-
-        locNodeName = topSrvc.localMember().name();
+        this.clockService = clockService;
     }
 
     /** {@inheritDoc} */
@@ -77,22 +79,16 @@ public class MessageServiceImpl implements MessageService {
     @Override
     public CompletableFuture<Void> send(String nodeName, NetworkMessage msg) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         try {
-            if (locNodeName.equals(nodeName)) {
+            if (localNodeName.equals(nodeName)) {
                 onMessage(nodeName, msg);
 
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             } else {
-                ClusterNode node = topSrvc.getByConsistentId(nodeName);
-
-                if (node == null) {
-                    return CompletableFuture.failedFuture(new NodeLeftException(nodeName));
-                }
-
-                return messagingSrvc.send(node, msg);
+                return messagingSrvc.send(nodeName, ChannelType.DEFAULT, msg);
             }
         } catch (Exception ex) {
             return CompletableFuture.failedFuture(ex);
@@ -122,7 +118,7 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
-    private void onMessage(NetworkMessage msg, String senderConsistentId, @Nullable Long correlationId) {
+    private void onMessage(NetworkMessage msg, ClusterNode sender, @Nullable Long correlationId) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -130,7 +126,12 @@ public class MessageServiceImpl implements MessageService {
         try {
             assert msg.groupType() == GROUP_TYPE : "unexpected message group grpType=" + msg.groupType();
 
-            onMessage(senderConsistentId, msg);
+            // TODO https://issues.apache.org/jira/browse/IGNITE-21709
+            if (msg instanceof TimestampAware) {
+                clockService.updateClock(((TimestampAware) msg).timestamp());
+            }
+
+            onMessage(sender.name(), msg);
         } finally {
             busyLock.leaveBusy();
         }

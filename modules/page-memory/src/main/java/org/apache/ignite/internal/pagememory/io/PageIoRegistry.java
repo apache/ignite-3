@@ -19,7 +19,7 @@ package org.apache.ignite.internal.pagememory.io;
 
 import java.nio.ByteBuffer;
 import java.util.ServiceLoader;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 
 /**
  * Page IO Registry. This component registers and provides all available {@link PageIo} types.

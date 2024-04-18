@@ -27,7 +27,6 @@ import java.sql.Statement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Base class for complex SQL tests based on JDBC driver.
@@ -35,18 +34,14 @@ import org.junit.jupiter.api.TestInfo;
 public class ItJdbcSelectAfterAlterTable extends AbstractJdbcSelfTest {
     /** {@inheritDoc} */
     @BeforeEach
-    @Override protected void beforeTest(TestInfo testInfo) throws Exception {
-        super.beforeTest(testInfo);
-
+    protected void beforeTest() throws Exception {
         stmt.executeUpdate("CREATE TABLE PUBLIC.PERSON (ID BIGINT, NAME VARCHAR, CITY_ID BIGINT, PRIMARY KEY (ID, CITY_ID))");
         stmt.executeUpdate("INSERT INTO PUBLIC.PERSON (ID, NAME, CITY_ID) values (1, 'name_1', 11)");
     }
 
     /** {@inheritDoc} */
     @AfterEach
-    @Override protected void afterTest(TestInfo testInfo) throws Exception {
-        super.afterTest(testInfo);
-
+    protected void afterTest() throws Exception {
         try (Statement stmt = conn.createStatement()) {
             stmt.executeUpdate("DROP TABLE public.person");
         }

@@ -19,32 +19,35 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
+import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.sql.api.AsyncResultSetImpl;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
-import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.Session.SessionBuilder;
-import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.Statement.StatementBuilder;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -60,17 +63,20 @@ public class ClientSqlExecuteRequest {
      * @param sql SQL API.
      * @param resources Resources.
      * @param metrics Metrics.
-     * @return Future.
+     * @param transactions Transactional facade. Used to acquire last observed time to propagate to client in response.
+     * @return Future representing result of operation.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteSql sql,
+            QueryProcessor sql,
             ClientResourceRegistry resources,
-            ClientHandlerMetricSource metrics) {
-        var tx = readTx(in, resources);
-        Session session = readSession(in, sql);
-        Statement statement = readStatement(in, sql);
+            ClientHandlerMetricSource metrics,
+            IgniteTransactionsImpl transactions
+    ) {
+        InternalTransaction tx = readTx(in, out, resources);
+        ClientSqlProperties props = new ClientSqlProperties(in);
+        String statement = in.unpackString();
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
 
         if (arguments == null) {
@@ -78,16 +84,21 @@ public class ClientSqlExecuteRequest {
             arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
         }
 
-        return session
-                .executeAsync(tx, statement, arguments)
-                .thenCompose(asyncResultSet -> writeResultSetAsync(out, resources, asyncResultSet, session, metrics));
+        HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+        transactions.updateObservableTimestamp(clientTs);
+
+        return executeAsync(tx, sql, transactions, statement, props.pageSize(), props.toSqlProps(), arguments)
+                .thenCompose(asyncResultSet -> {
+                    out.meta(transactions.observableTimestamp());
+
+                    return writeResultSetAsync(out, resources, asyncResultSet, metrics);
+                });
     }
 
     private static CompletionStage<Void> writeResultSetAsync(
             ClientMessagePacker out,
             ClientResourceRegistry resources,
             AsyncResultSet asyncResultSet,
-            Session session,
             ClientHandlerMetricSource metrics) {
         boolean hasResource = asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages();
 
@@ -95,7 +106,7 @@ public class ClientSqlExecuteRequest {
             try {
                 metrics.cursorsActiveIncrement();
 
-                var clientResultSet = new ClientSqlResultSet(asyncResultSet, session, metrics);
+                var clientResultSet = new ClientSqlResultSet(asyncResultSet, metrics);
 
                 ClientResource resource = new ClientResource(
                         clientResultSet,
@@ -125,108 +136,56 @@ public class ClientSqlExecuteRequest {
             packCurrentPage(out, asyncResultSet);
 
             return hasResource
-                    ? CompletableFuture.completedFuture(null)
-                    : asyncResultSet.closeAsync().thenCompose(res -> session.closeAsync());
+                    ? nullCompletedFuture()
+                    : asyncResultSet.closeAsync();
         } else {
-            return asyncResultSet.closeAsync().thenCompose(res -> session.closeAsync());
+            return asyncResultSet.closeAsync();
         }
-    }
-
-    private static Statement readStatement(ClientMessageUnpacker in, IgniteSql sql) {
-        StatementBuilder statementBuilder = sql.statementBuilder();
-
-        statementBuilder.query(in.unpackString());
-
-        return statementBuilder.build();
-    }
-
-    private static Session readSession(ClientMessageUnpacker in, IgniteSql sql) {
-        SessionBuilder sessionBuilder = sql.sessionBuilder();
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultSchema(in.unpackString());
-        }
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultPageSize(in.unpackInt());
-        }
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultQueryTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
-        }
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.idleTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
-        }
-
-        var propCount = in.unpackInt();
-        var reader = new BinaryTupleReader(propCount * 4, in.readBinaryUnsafe());
-
-        for (int i = 0; i < propCount; i++) {
-            sessionBuilder.property(reader.stringValue(i * 4), ClientBinaryTupleUtils.readObject(reader, i * 4 + 1));
-        }
-
-        return sessionBuilder.build();
     }
 
     private static void packMeta(ClientMessagePacker out, @Nullable ResultSetMetadata meta) {
         // TODO IGNITE-17179 metadata caching - avoid sending same meta over and over.
         if (meta == null || meta.columns() == null) {
-            out.packArrayHeader(0);
+            out.packInt(0);
             return;
         }
 
-        List<ColumnMetadata> cols = meta.columns();
-        out.packArrayHeader(cols.size());
+        ClientSqlCommon.packColumns(out, meta.columns());
+    }
 
-        // In many cases there are multiple columns from the same table.
-        // Schema is the same for all columns in most cases.
-        // When table or schema name was packed before, pack index instead of string.
-        Map<String, Integer> schemas = new HashMap<>();
-        Map<String, Integer> tables = new HashMap<>();
+    private static CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
+            @Nullable Transaction transaction,
+            QueryProcessor qryProc,
+            IgniteTransactions transactions,
+            String query,
+            int pageSize,
+            SqlProperties props,
+            @Nullable Object... arguments
+    ) {
+        try {
+            SqlProperties properties = SqlPropertiesHelper.builderFromProperties(props)
+                    .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
+                    .build();
 
-        for (int i = 0; i < cols.size(); i++) {
-            ColumnMetadata col = cols.get(i);
-            ColumnOrigin origin = col.origin();
+            CompletableFuture<AsyncResultSet<SqlRow>> fut = qryProc.queryAsync(
+                            properties, transactions, (InternalTransaction) transaction, query, arguments)
+                    .thenCompose(cur -> cur.requestNextAsync(pageSize)
+                            .thenApply(
+                                    batchRes -> new AsyncResultSetImpl<>(
+                                            cur,
+                                            batchRes,
+                                            pageSize
+                                    )
+                            )
+                    );
 
-            int fieldsNum = origin == null ? 6 : 9;
-            out.packArrayHeader(fieldsNum);
+            return fut.exceptionally((th) -> {
+                Throwable cause = ExceptionUtils.unwrapCause(th);
 
-            out.packString(col.name());
-            out.packBoolean(col.nullable());
-            out.packInt(col.type().ordinal());
-            out.packInt(col.scale());
-            out.packInt(col.precision());
-
-            if (origin == null) {
-                out.packBoolean(false);
-                continue;
-            }
-
-            out.packBoolean(true);
-
-            if (col.name().equals(origin.columnName())) {
-                out.packNil();
-            } else {
-                out.packString(origin.columnName());
-            }
-
-            Integer schemaIdx = schemas.get(origin.schemaName());
-
-            if (schemaIdx == null) {
-                schemas.put(origin.schemaName(), i);
-                out.packString(origin.schemaName());
-            } else {
-                out.packInt(schemaIdx);
-            }
-
-            Integer tableIdx = tables.get(origin.tableName());
-
-            if (tableIdx == null) {
-                tables.put(origin.tableName(), i);
-                out.packString(origin.tableName());
-            } else {
-                out.packInt(tableIdx);
-            }
+                throw new CompletionException(mapToPublicSqlException(cause));
+            });
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(mapToPublicSqlException(e));
         }
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayDeque;
@@ -25,11 +26,13 @@ import java.util.BitSet;
 import java.util.Deque;
 import java.util.List;
 import java.util.function.BiPredicate;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * NestedLoopJoinNode.
@@ -213,7 +216,6 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
      * Create.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    @NotNull
     public static <RowT> NestedLoopJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType outputRowType,
             RelDataType leftRowType, RelDataType rightRowType, JoinRelType joinType, BiPredicate<RowT, RowT> cond) {
         switch (joinType) {
@@ -221,20 +223,24 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
                 return new InnerJoin<>(ctx, cond);
 
             case LEFT: {
-                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightRowType);
+                RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
+                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
 
                 return new LeftJoin<>(ctx, cond, rightRowFactory);
             }
 
             case RIGHT: {
-                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), leftRowType);
+                RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
+                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
 
                 return new RightJoin<>(ctx, cond, leftRowFactory);
             }
 
             case FULL: {
-                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), leftRowType);
-                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightRowType);
+                RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
+                RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
+                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
+                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
 
                 return new FullOuterJoin<>(ctx, cond, leftRowFactory, rightRowFactory);
             }
@@ -427,7 +433,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         /** Right row factory. */
         private final RowHandler.RowFactory<RowT> leftRowFactory;
 
-        private BitSet rightNotMatchedIndexes;
+        private @Nullable BitSet rightNotMatchedIndexes;
 
         private int lastPushedInd;
 
@@ -457,7 +463,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         @Override
         protected void rewindInternal() {
             left = null;
-            rightNotMatchedIndexes.clear();
+            rightNotMatchedIndexes = null;
             lastPushedInd = 0;
             rightIdx = 0;
 
@@ -563,7 +569,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         /** Whether current left row was matched or not. */
         private boolean leftMatched;
 
-        private BitSet rightNotMatchedIndexes;
+        private @Nullable BitSet rightNotMatchedIndexes;
 
         private int lastPushedInd;
 
@@ -597,7 +603,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         protected void rewindInternal() {
             left = null;
             leftMatched = false;
-            rightNotMatchedIndexes.clear();
+            rightNotMatchedIndexes = null;
             lastPushedInd = 0;
             rightIdx = 0;
 

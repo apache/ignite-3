@@ -27,6 +27,7 @@ dependencies {
     implementation project(':ignite-storage-api')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-file-io')
+    implementation project(':ignite-failure-handler')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -39,6 +40,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation project(':ignite-configuration')
     testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation project(':ignite-failure-handler')
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
@@ -46,9 +48,11 @@ dependencies {
 
     testFixturesAnnotationProcessor libs.auto.service
     testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-failure-handler')
     testFixturesImplementation libs.mockito.core
     testFixturesImplementation libs.auto.service.annotations
 
+    integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))

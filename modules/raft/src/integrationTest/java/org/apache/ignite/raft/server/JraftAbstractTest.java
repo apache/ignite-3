@@ -34,22 +34,20 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -72,9 +70,6 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
      * The client port offset.
      */
     private static final int CLIENT_PORT = 6003;
-
-    @InjectConfiguration
-    private RaftConfiguration raftConfiguration;
 
     /**
      * Initial configuration.
@@ -174,16 +169,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         optionsUpdater.accept(opts);
 
-        JraftServerImpl server = new JraftServerImpl(service, workDir.resolve("node" + idx), opts, new RaftGroupEventsClientListener()) {
-            @Override
-            public void stop() throws Exception {
-                servers.remove(this);
-
-                super.stop();
-
-                service.stop();
-            }
-        };
+        JraftServerImpl server = jraftServer(servers, idx, service, opts);
 
         server.start();
 
@@ -212,8 +198,10 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         ClusterService clientNode = clusterService(CLIENT_PORT + clients.size(), List.of(addr), true);
 
+        var commandsMarshaller = new ThreadLocalOptimizedMarshaller(clientNode.serializationRegistry());
+
         RaftGroupService client = RaftGroupServiceImpl
-                .start(groupId, clientNode, FACTORY, raftConfiguration, configuration, false, executor)
+                .start(groupId, clientNode, FACTORY, raftConfiguration, configuration, false, executor, commandsMarshaller)
                 .get(3, TimeUnit.SECONDS);
 
         clients.add(client);

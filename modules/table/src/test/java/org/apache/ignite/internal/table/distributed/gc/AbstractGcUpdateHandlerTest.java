@@ -23,11 +23,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
@@ -35,11 +37,13 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
@@ -53,6 +57,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
     /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate due to recreating the storage every time. */
     private static final int REPEATS = 1000;
+
+    protected static final int TABLE_ID = 1;
 
     private static final int PARTITION_ID = 0;
 
@@ -91,7 +97,7 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
 
         assertTrue(gcUpdateHandler.vacuumBatch(lowWatermark, 1, strict));
         verify(partitionStorage).peek(lowWatermark);
-        verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId), any());
+        verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId), any(), isNull());
     }
 
     @ParameterizedTest(name = "strict : {0}")
@@ -119,8 +125,8 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         assertFalse(gcUpdateHandler.vacuumBatch(lowWatermark, 5, strict));
 
         verify(partitionStorage, times(3)).peek(lowWatermark);
-        verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId0), any());
-        verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId1), any());
+        verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId0), any(), isNull());
+        verify(indexUpdateHandler).tryRemoveFromIndexes(any(), eq(rowId1), any(), isNull());
     }
 
     @Test
@@ -193,11 +199,22 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
     }
 
     private TestPartitionDataStorage createPartitionDataStorage() {
-        return new TestPartitionDataStorage(getOrCreateMvPartition(tableStorage, PARTITION_ID));
+        return new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, getOrCreateMvPartition(tableStorage, PARTITION_ID));
     }
 
     private static IndexUpdateHandler createIndexUpdateHandler() {
-        return new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of()));
+        // Don’t use mocking to avoid performance degradation for concurrent tests.
+        return new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of())) {
+            @Override
+            public void tryRemoveFromIndexes(
+                    BinaryRow rowToRemove,
+                    RowId rowId,
+                    Cursor<ReadResult> previousValues,
+                    @Nullable List<Integer> indexIds
+            ) {
+                // No-op.
+            }
+        };
     }
 
     private static GcUpdateHandler createGcUpdateHandler(

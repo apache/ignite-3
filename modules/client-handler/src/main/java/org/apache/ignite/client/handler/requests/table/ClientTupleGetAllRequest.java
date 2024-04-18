@@ -49,11 +49,11 @@ public class ClientTupleGetAllRequest {
             ClientResourceRegistry resources
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readTx(in, resources);
-            var keyTuples = readTuples(in, table, true);
-
-            return table.recordView().getAllAsync(tx, keyTuples).thenAccept(tuples ->
-                    writeTuplesNullable(out, tuples, TuplePart.KEY_AND_VAL, table.schemaView()));
+            var tx = readTx(in, out, resources);
+            return readTuples(in, table, true).thenCompose(keyTuples -> {
+                return table.recordView().getAllAsync(tx, keyTuples).thenAccept(tuples ->
+                        writeTuplesNullable(out, tuples, TuplePart.KEY_AND_VAL, table.schemaView()));
+            });
         });
     }
 }

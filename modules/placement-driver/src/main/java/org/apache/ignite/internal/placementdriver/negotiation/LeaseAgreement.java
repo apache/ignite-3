@@ -17,16 +17,35 @@
 
 package org.apache.ignite.internal.placementdriver.negotiation;
 
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.findAny;
+
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The agreement is formed from {@link LeaseGrantedMessageResponse}.
  */
 public class LeaseAgreement {
-    /** The agreement, which has not try negotiating yet. */
-    public static final LeaseAgreement UNDEFINED_AGREEMENT = new LeaseAgreement(null, null);
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(LeaseAgreement.class);
+
+    /**
+     * The agreement, which has not try negotiating yet. We assume that it is {@link #ready()} and not {@link #isAccepted()}
+     * which allows both initiation and retries of negotiation.
+     */
+    public static final LeaseAgreement UNDEFINED_AGREEMENT = new LeaseAgreement(null, nullCompletedFuture());
 
     /** Lease. */
     private final Lease lease;
@@ -42,7 +61,7 @@ public class LeaseAgreement {
      */
     public LeaseAgreement(Lease lease, CompletableFuture<LeaseGrantedMessageResponse> remoteNodeResponseFuture) {
         this.lease = lease;
-        this.responseFut = remoteNodeResponseFuture;
+        this.responseFut = requireNonNull(remoteNodeResponseFuture);
     }
 
     /**
@@ -74,11 +93,21 @@ public class LeaseAgreement {
     }
 
     /**
+     * Whether the agreement is declined (ready but not accepted).
+     *
+     * @return Whether the agreement is declined (ready but not accepted).
+     */
+    public boolean isDeclined() {
+        return ready() && !isAccepted();
+    }
+
+    /**
      * The property matches to {@link LeaseGrantedMessageResponse#redirectProposal()}.
      * This property is available only when the agreement is ready (look at {@link #ready()}).
      *
      * @return Node id to propose a lease.
      */
+    @Nullable
     public String getRedirectTo() {
         assert ready() : "The method should be invoked only after the agreement is ready";
 
@@ -93,6 +122,40 @@ public class LeaseAgreement {
      * @return True if a response of the agreement has been received, false otherwise.
      */
     public boolean ready() {
-        return responseFut != null && responseFut.isDone();
+        return responseFut.isDone();
+    }
+
+    /**
+     * Check the validity of the agreement in the current logical topology and group assignments. If the suggested leaseholder
+     * has left topology or not included into the current assignments, the agreement is broken.
+     *
+     * @param groupId Group id.
+     * @param currentTopologySnapshot Current topology snapshot.
+     * @param assignments Assignments.
+     */
+    public void checkValid(
+            ReplicationGroupId groupId,
+            @Nullable LogicalTopologySnapshot currentTopologySnapshot,
+            Set<Assignment> assignments
+    ) {
+        if (ready()) {
+            return;
+        }
+
+        if (findAny(assignments, a -> a.consistentId().equals(lease.getLeaseholder())).isEmpty()) {
+            LOG.info("Lease was not negotiated because the node is not included into the group assignments anymore [node={}, group={}, "
+                    + "assignments={}].", lease.getLeaseholder(), lease, assignments);
+
+            responseFut.complete(null);
+        } else if (currentTopologySnapshot != null) {
+            Set<String> nodeIds = currentTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet());
+
+            if (!nodeIds.contains(lease.getLeaseholderId())) {
+                LOG.info("Lease was not negotiated because the node has left the logical topology [node={}, nodeId={}, group={}]",
+                        lease.getLeaseholder(), lease.getLeaseholderId(), groupId);
+
+                responseFut.complete(null);
+            }
+        }
     }
 }

@@ -83,7 +83,7 @@ public partial class LinqTests
         TestOpDouble(x => Math.Exp(x.Key), 8103.0839275753842d, "select Exp(_T0.KEY) from");
         TestOpDouble(x => Math.Log(x.Key), 2.1972245773362196d, "select Ln(_T0.KEY) from");
         TestOpDouble(x => Math.Log10(x.Key), 0.95424250943932487d, "select Log10(_T0.KEY) from");
-        TestOpDouble(x => Math.Pow(x.Key, 2), 81, "select Power(_T0.KEY, 2) from");
+        TestOpDouble(x => Math.Pow(x.Key, 2), 81, "select Power(_T0.KEY, ?) from");
         TestOpDouble(x => Math.Round(x.Key / 5), 2, "select Round((_T0.KEY / ?)) from");
         TestOpDouble(x => Math.Sign(x.Key - 10), -1, "select Sign((_T0.KEY - ?)) from");
         TestOpDouble(x => Math.Sqrt(x.Key), 3.0d, "select Sqrt(_T0.KEY) from");
@@ -101,7 +101,7 @@ public partial class LinqTests
         TestOpString(x => x.Val!.ToLower(), "v-9", "select lower(_T0.VAL) from");
 
         TestOpString(x => x.Val!.Substring(1), "-9", "select substring(_T0.VAL, ? + 1) from");
-        TestOpString(x => x.Val!.Substring(0, 2), "v-", "select substring(_T0.VAL, 0 + 1, 2) from");
+        TestOpString(x => x.Val!.Substring(0, 2), "v-", "select substring(_T0.VAL, ? + 1, ?) from");
 
         TestOpString(x => x.Val!.Trim(), "v-9", "select trim(_T0.VAL) from");
         TestOpString(x => x.Val!.TrimStart(), "v-9", "select ltrim(_T0.VAL) from");

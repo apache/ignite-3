@@ -81,8 +81,7 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
             // Get actual primary node using compute.
             Tuple keyTuple = Tuple.create().set("key", key);
             var primaryNodeName = proxyClient.compute()
-                    .<String>executeColocatedAsync(TABLE_NAME, keyTuple, List.of(), NodeNameJob.class.getName())
-                    .join();
+                    .executeColocated(TABLE_NAME, keyTuple, List.of(), NodeNameJob.class.getName());
 
             // Perform request and check routing with proxy.
             resetRequestCount();

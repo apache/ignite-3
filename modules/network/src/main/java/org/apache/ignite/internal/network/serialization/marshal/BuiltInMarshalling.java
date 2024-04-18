@@ -36,12 +36,11 @@ import java.util.Map;
 import java.util.RandomAccess;
 import java.util.UUID;
 import java.util.function.IntFunction;
+import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.util.StringIntrospection;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataInput.Materializer;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
-import org.apache.ignite.lang.IgniteUuid;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Built-in types marshalling.
@@ -254,7 +253,6 @@ class BuiltInMarshalling {
         return Enum.valueOf(enumClass, readString(input));
     }
 
-    @NotNull
     private static <T> Class<T> classByName(String className, ClassLoader classLoader) throws UnmarshalException {
         try {
             @SuppressWarnings("unchecked") Class<T> castedClass = (Class<T>) Class.forName(className, true, classLoader);
@@ -367,7 +365,7 @@ class BuiltInMarshalling {
     }
 
     static <T, C extends Collection<T>> C preInstantiateCollection(DataInput input, IntFunction<C> collectionFactory) throws IOException {
-        int length = ProtocolMarshalling.readLength(input);
+        int length = readLength(input);
         return collectionFactory.apply(length);
     }
 
@@ -416,7 +414,7 @@ class BuiltInMarshalling {
     }
 
     static <K, V, M extends Map<K, V>> M preInstantiateMap(DataInput input, IntFunction<M> mapFactory) throws IOException {
-        int length = ProtocolMarshalling.readLength(input);
+        int length = readLength(input);
         return mapFactory.apply(length);
     }
 

@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.metastorage.server.time;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTimeout;
@@ -39,6 +39,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl.SyncTimeAction;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.junit.jupiter.api.AfterEach;
@@ -49,7 +50,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for {@link ClusterTimeImpl}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class ClusterTimeTest {
+public class ClusterTimeTest extends BaseIgniteAbstractTest {
     private final ClusterTimeImpl clusterTime = new ClusterTimeImpl("foo", new IgniteSpinBusyLock(), new HybridClockImpl());
 
     @AfterEach
@@ -84,7 +85,7 @@ public class ClusterTimeTest {
     void testIdleSafeTimeScheduler(@InjectConfiguration("mock.idleSyncTimeInterval=1") MetaStorageConfiguration config) {
         SyncTimeAction action = mock(SyncTimeAction.class);
 
-        when(action.syncTime(any())).thenReturn(completedFuture(null));
+        when(action.syncTime(any())).thenReturn(nullCompletedFuture());
 
         clusterTime.startSafeTimeScheduler(action, config);
 
@@ -95,7 +96,7 @@ public class ClusterTimeTest {
     void testIdleSafeTimeSchedulerStop(@InjectConfiguration("mock.idleSyncTimeInterval=1") MetaStorageConfiguration config) {
         SyncTimeAction action = mock(SyncTimeAction.class);
 
-        when(action.syncTime(any())).thenReturn(completedFuture(null));
+        when(action.syncTime(any())).thenReturn(nullCompletedFuture());
 
         clusterTime.startSafeTimeScheduler(action, config);
 
@@ -112,21 +113,21 @@ public class ClusterTimeTest {
      * Tests that {@link ClusterTimeImpl#adjust} re-schedules the idle time sync timer.
      */
     @Test
-    void testSchedulerProlongation(@InjectConfiguration("mock.idleSyncTimeInterval=50") MetaStorageConfiguration config) {
+    void testSchedulerProlongation(@InjectConfiguration("mock.idleSyncTimeInterval=250") MetaStorageConfiguration config) {
         assertDoesNotThrow(() -> clusterTime.adjust(clusterTime.now()));
 
         SyncTimeAction action = mock(SyncTimeAction.class);
 
-        when(action.syncTime(any())).thenReturn(completedFuture(null));
+        when(action.syncTime(any())).thenReturn(nullCompletedFuture());
 
         clusterTime.startSafeTimeScheduler(action, config);
 
-        verify(action, after(30).never()).syncTime(any());
+        verify(action, after(150).never()).syncTime(any());
 
         clusterTime.adjust(clusterTime.now());
 
-        verify(action, after(30).never()).syncTime(any());
+        verify(action, after(150).never()).syncTime(any());
 
-        verify(action, after(50)).syncTime(any());
+        verify(action, after(250)).syncTime(any());
     }
 }

@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertionsAsync;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -30,17 +34,19 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
-import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,12 +65,12 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
 
     @BeforeEach
     public void beforeEach() {
-        sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={};",
-                ZONE_NAME, nodes(), 10));
+        sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}';",
+                ZONE_NAME, initialNodes(), 10, DEFAULT_STORAGE_PROFILE));
         sql(IgniteStringFormatter.format("CREATE TABLE {}(id INT PRIMARY KEY, val VARCHAR) WITH PRIMARY_ZONE='{}'",
                 TABLE_NAME, ZONE_NAME));
 
-        Ignite ignite = CLUSTER_NODES.get(0);
+        Ignite ignite = CLUSTER.aliveNode();
 
         ignite.transactions().runInTransaction(tx -> {
             for (int i = 0; i < 100; i++) {
@@ -86,12 +92,13 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testFutureRead() throws Exception {
-        for (int i = 0; i < nodes(); i++) {
-            Ignite ignite = CLUSTER_NODES.get(i);
+        for (int i = 0; i < initialNodes(); i++) {
+            IgniteImpl ignite = CLUSTER.node(i);
 
-            InternalTable internalTable = ((TableImpl) ignite.tables().table(TABLE_NAME)).internalTable();
-            SchemaDescriptor schema = ((TableImpl) ignite.tables().table(TABLE_NAME)).schemaView().schema();
-            HybridClock clock = ((IgniteImpl) ignite).clock();
+            TableViewInternal tableViewInternal = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
+            InternalTable internalTable = tableViewInternal.internalTable();
+            SchemaDescriptor schema = tableViewInternal.schemaView().lastKnownSchema();
+            HybridClock clock = ignite.clock();
 
             Collection<ClusterNode> nodes = ignite.clusterNodes();
 
@@ -128,65 +135,76 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             }
         }
 
-        assertEquals(100 + nodes(), checkData(null, id -> id < 100 ? ("str " + id) : ("new str " + id)));
+        assertTrue(IgniteTestUtils.waitForCondition(
+                () -> checkData(null, id -> id < 100 ? ("str " + id) : ("new str " + id)) == 100 + initialNodes(),
+                10_000
+        ));
     }
 
     @Test
     public void testPastRead() throws Exception {
-        for (int i = 0; i < nodes(); i++) {
-            Ignite ignite = CLUSTER_NODES.get(i);
+        for (int i = 0; i < initialNodes(); i++) {
+            IgniteImpl ignite = CLUSTER.node(i);
 
-            InternalTable internalTable = ((TableImpl) ignite.tables().table(TABLE_NAME)).internalTable();
-            SchemaDescriptor schema = ((TableImpl) ignite.tables().table(TABLE_NAME)).schemaView().schema();
-            HybridClock clock = ((IgniteImpl) ignite).clock();
+            TableViewInternal tableViewInternal = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
+            InternalTable internalTable = tableViewInternal.internalTable();
+            SchemaDescriptor schema = tableViewInternal.schemaView().lastKnownSchema();
+            HybridClock clock = ignite.clock();
 
             Collection<ClusterNode> nodes = ignite.clusterNodes();
 
-            for (ClusterNode clusterNode : nodes) {
-                CompletableFuture<BinaryRow> getFut = internalTable.get(createRowKey(schema, i), clock.now(), clusterNode);
+            int finalI = i;
+            bypassingThreadAssertions(() -> {
+                for (ClusterNode clusterNode : nodes) {
+                    CompletableFuture<BinaryRow> getFut = internalTable.get(createRowKey(schema, finalI), clock.now(), clusterNode);
 
-                assertNotNull(getFut.join());
-            }
+                    assertNotNull(getFut.join());
+                }
+            });
 
             var pastTs = clock.now();
 
             long startTime = System.currentTimeMillis();
 
-            internalTable.delete(createRowKey(schema, i), null).get();
+            bypassingThreadAssertionsAsync(() -> internalTable.delete(createRowKey(schema, finalI), null)).get();
 
-            for (ClusterNode clusterNode : nodes) {
-                CompletableFuture<BinaryRow> getFut = internalTable.get(createRowKey(schema, i), clock.now(), clusterNode);
+            bypassingThreadAssertions(() -> {
+                for (ClusterNode clusterNode : nodes) {
+                    CompletableFuture<BinaryRow> getFut = internalTable.get(createRowKey(schema, finalI), clock.now(), clusterNode);
 
-                assertNull(getFut.join());
-            }
+                    assertNull(getFut.join());
+                }
+            });
 
             log.info("Delay to remove a data record [node={}, delay={}]", ignite.name(), (System.currentTimeMillis() - startTime));
 
-            for (ClusterNode clusterNode : nodes) {
-                CompletableFuture<BinaryRow> getFut = internalTable.get(createRowKey(schema, i), pastTs, clusterNode);
+            bypassingThreadAssertions(() -> {
+                for (ClusterNode clusterNode : nodes) {
+                    CompletableFuture<BinaryRow> getFut = internalTable.get(createRowKey(schema, finalI), pastTs, clusterNode);
 
-                assertNotNull(getFut.join());
-            }
+                    assertNotNull(getFut.join());
+                }
+            });
         }
 
-        assertEquals(100 - nodes(), checkData(null, id -> "str " + id));
+        assertEquals(100 - initialNodes(), checkData(null, id -> "str " + id));
     }
 
     private static Row createRow(SchemaDescriptor schema, int id) {
-        RowAssembler rowBuilder = new RowAssembler(schema);
+        RowAssembler rowBuilder = new RowAssembler(schema, -1);
 
         rowBuilder.appendInt(id);
         rowBuilder.appendString("new str " + id);
 
-        return new Row(schema, rowBuilder.build());
+        return Row.wrapBinaryRow(schema, rowBuilder.build());
     }
 
     private static Row createRowKey(SchemaDescriptor schema, int id) {
-        RowAssembler rowBuilder = RowAssembler.keyAssembler(schema);
+        RowAssembler rowBuilder = new RowAssembler(schema.version(), schema.keyColumns(), -1);
 
         rowBuilder.appendInt(id);
 
-        return new Row(schema, rowBuilder.build());
+        return Row.wrapKeyOnlyBinaryRow(schema, rowBuilder.build());
     }
 
     /**
@@ -196,7 +214,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
      * @param valueMapper Function to map a primary key to a column.
      * @return Count of rows in the table.
      */
-    private static int checkData(Transaction tx, Function<Integer, String> valueMapper) {
+    private static int checkData(@Nullable Transaction tx, Function<Integer, String> valueMapper) {
         List<List<Object>> rows = sql(tx, "SELECT id, val FROM " + TABLE_NAME + " ORDER BY id");
 
         for (List<Object> row : rows) {

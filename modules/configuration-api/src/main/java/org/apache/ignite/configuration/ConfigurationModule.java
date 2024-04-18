@@ -21,8 +21,8 @@ import static java.util.Collections.emptySet;
 
 import java.util.Collection;
 import java.util.Set;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.validation.Validator;
 
@@ -41,14 +41,14 @@ import org.apache.ignite.configuration.validation.Validator;
  * <ul>
  *     <li><b>rootKeys</b> ({@link RootKey} instances)</li>
  *     <li><b>validators</b> ({@link Validator} instances)</li>
- *     <li><b>internalSchemaExtensions</b> (classes annotated with {@link InternalConfiguration})</li>
+ *     <li><b>schemaExtensions</b> (classes annotated with {@link ConfigurationExtension})</li>
  *     <li><b>polymorphicSchemaExtensions</b> (classes annotated with {@link PolymorphicConfig})</li>
  * </ul>
  *
  * @see ConfigurationType
  * @see RootKey
  * @see Validator
- * @see InternalConfiguration
+ * @see ConfigurationExtension
  * @see PolymorphicConfig
  */
 public interface ConfigurationModule {
@@ -78,12 +78,10 @@ public interface ConfigurationModule {
     }
 
     /**
-     * Returns classes of internal schema extensions (annotated with {@link InternalConfiguration})
-     * provided by this module.
-     *
-     * @return internal schema extensions' classes
+     * Returns classes of schema extensions (annotated with {@link ConfigurationExtension})
+     * provided by this module, including internal extensions.
      */
-    default Collection<Class<?>> internalSchemaExtensions() {
+    default Collection<Class<?>> schemaExtensions() {
         return emptySet();
     }
 
@@ -95,5 +93,28 @@ public interface ConfigurationModule {
      */
     default Collection<Class<?>> polymorphicSchemaExtensions() {
         return emptySet();
+    }
+
+    /**
+     * Patches the provided configuration with dynamic default values. This method is called
+     * <ul>
+     *     <li>for cluster-wide configuration on cluster initialization.</li>
+     *     <li>for node-local configuration on the node start during the process of local configs reading.</li>
+     * </ul>
+     *
+     * <p>Dynamic defaults are default values that are not specified in the configuration source,
+     * but are added to the configuration on-the-fly, based on some external conditions.
+     *
+     * <p>For example, if the configuration contains a list of caches, and the user specifies
+     * a list of caches in the source, then the defaults for the caches are not applied.
+     * But if the user does not specify a list of caches, then the configuration module may add
+     * a cache to the list based on some external conditions.
+     *
+     * <p>The default implementation of this method is a no-op.
+     *
+     * @param rootChange Root change.
+     */
+    default void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
+        // No-op.
     }
 }

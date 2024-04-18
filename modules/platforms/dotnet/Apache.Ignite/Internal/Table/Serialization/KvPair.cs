@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table.Serialization;
 
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Ignite.Table;
 
 /// <summary>
@@ -29,4 +30,5 @@ using Ignite.Table;
 /// <param name="Val">Value.</param>
 /// <typeparam name="TK">Key type.</typeparam>
 /// <typeparam name="TV">Value type.</typeparam>
+[ExcludeFromCodeCoverage]
 internal readonly record struct KvPair<TK, TV>(TK Key, TV Val = default!);

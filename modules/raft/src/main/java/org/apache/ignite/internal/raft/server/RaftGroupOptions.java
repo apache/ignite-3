@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.server;
 
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.RaftMetaStorageFactory;
@@ -41,6 +42,9 @@ public class RaftGroupOptions {
 
     /** Configuration of own striped disruptor for FSMCaller service of raft node, {@code null} means use shared disruptor. */
     private @Nullable RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig;
+
+    /** Marshaller to marshall/unmarshall commands. */
+    private @Nullable Marshaller commandsMarshaller;
 
     /**
      * Returns default options as defined by classic Raft (so stores are persistent).
@@ -144,6 +148,25 @@ public class RaftGroupOptions {
      */
     public RaftGroupOptions ownFsmCallerExecutorDisruptorConfig(RaftNodeDisruptorConfiguration ownFsmCallerExecutorDisruptorConfig) {
         this.ownFsmCallerExecutorDisruptorConfig = ownFsmCallerExecutorDisruptorConfig;
+
+        return this;
+    }
+
+    /**
+     * Returns Marshaller used to marshall/unmarshall commands.
+     */
+    public @Nullable Marshaller commandsMarshaller() {
+        return commandsMarshaller;
+    }
+
+    /**
+     * Sets the marshaller to use with commands.
+     *
+     * @param marshaller Marshaller.
+     * @return This object.
+     */
+    public RaftGroupOptions commandsMarshaller(Marshaller marshaller) {
+        commandsMarshaller = marshaller;
 
         return this;
     }

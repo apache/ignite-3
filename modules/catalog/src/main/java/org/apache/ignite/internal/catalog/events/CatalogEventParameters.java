@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.catalog.events;
 
-import org.apache.ignite.internal.manager.EventParameters;
+import org.apache.ignite.internal.event.CausalEventParameters;
 
 /**
  * Base class for Catalog event parameters.
  */
-public abstract class CatalogEventParameters extends EventParameters {
+public abstract class CatalogEventParameters extends CausalEventParameters {
     private final int catalogVersion;
 
     /**

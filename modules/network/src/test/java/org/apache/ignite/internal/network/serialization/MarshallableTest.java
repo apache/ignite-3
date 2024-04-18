@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.serialization;
 
-import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
@@ -43,6 +43,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.messages.MessageWithMarshallable;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
@@ -51,15 +52,14 @@ import org.apache.ignite.internal.network.netty.OutboundEncoder;
 import org.apache.ignite.internal.network.serialization.marshal.MarshalException;
 import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
-import org.apache.ignite.network.OutNetworkObject;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests marshallable serialization.
  */
-public class MarshallableTest {
+public class MarshallableTest extends BaseIgniteAbstractTest {
     /** {@link ByteBuf} allocator. */
     private final UnpooledByteBufAllocator allocator = UnpooledByteBufAllocator.DEFAULT;
 

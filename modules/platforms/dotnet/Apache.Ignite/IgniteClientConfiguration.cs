@@ -21,8 +21,10 @@ namespace Apache.Ignite
     using System.Collections.Generic;
     using System.ComponentModel;
     using System.Linq;
+    using System.Threading;
     using Internal.Common;
-    using Log;
+    using Microsoft.Extensions.Logging;
+    using Microsoft.Extensions.Logging.Abstractions;
 
     /// <summary>
     /// Ignite client driver configuration.
@@ -64,7 +66,7 @@ namespace Apache.Ignite
         public IgniteClientConfiguration(params string[] endpoints)
             : this()
         {
-            IgniteArgumentCheck.NotNull(endpoints, nameof(endpoints));
+            IgniteArgumentCheck.NotNull(endpoints);
 
             foreach (var endpoint in endpoints)
             {
@@ -78,10 +80,11 @@ namespace Apache.Ignite
         /// <param name="other">Other configuration.</param>
         public IgniteClientConfiguration(IgniteClientConfiguration other)
         {
-            IgniteArgumentCheck.NotNull(other, nameof(other));
+            IgniteArgumentCheck.NotNull(other);
 
-            Logger = other.Logger;
+            LoggerFactory = other.LoggerFactory;
             SocketTimeout = other.SocketTimeout;
+            OperationTimeout = other.OperationTimeout;
             Endpoints = other.Endpoints.ToList();
             RetryPolicy = other.RetryPolicy;
             HeartbeatInterval = other.HeartbeatInterval;
@@ -91,9 +94,9 @@ namespace Apache.Ignite
         }
 
         /// <summary>
-        /// Gets or sets the logger.
+        /// Gets or sets the logger factory. Default is <see cref="NullLoggerFactory.Instance"/>.
         /// </summary>
-        public IIgniteLogger? Logger { get; set; }
+        public ILoggerFactory LoggerFactory { get; set; } = NullLoggerFactory.Instance;
 
         /// <summary>
         /// Gets or sets the socket timeout.
@@ -102,10 +105,19 @@ namespace Apache.Ignite
         /// If the server does not respond to the initial handshake message or a periodic heartbeat in the specified time,
         /// the connection is closed with a <see cref="TimeoutException"/>.
         /// <para />
-        /// -1 means infinite timeout.
+        /// Use <see cref="Timeout.InfiniteTimeSpan"/> for infinite timeout.
         /// </summary>
         [DefaultValue(typeof(TimeSpan), "00:00:30")]
         public TimeSpan SocketTimeout { get; set; } = DefaultSocketTimeout;
+
+        /// <summary>
+        /// Gets or sets the operation timeout. Default is <see cref="Timeout.InfiniteTimeSpan"/> (no timeout).
+        /// <para />
+        /// The timeout applies to all operations except handshake and heartbeats.
+        /// The time is measured from the moment the request is written to the socket to the moment the response is received.
+        /// </summary>
+        [DefaultValue(typeof(TimeSpan), "-00:00:00.001")]
+        public TimeSpan OperationTimeout { get; set; } = Timeout.InfiniteTimeSpan;
 
         /// <summary>
         /// Gets endpoints to connect to.

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.rest.problem;
 
+import static org.apache.ignite.internal.rest.problem.ProblemJsonMediaType.APPLICATION_JSON_PROBLEM_TYPE;
+
 import io.micronaut.http.HttpResponseFactory;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MutableHttpResponse;
@@ -34,7 +36,10 @@ public final class HttpProblemResponse {
      * Create {@link MutableHttpResponse} from {@link Problem}.
      */
     public static MutableHttpResponse<Problem> from(Problem problem) {
-        return HttpResponseFactory.INSTANCE.status(HttpStatus.valueOf(problem.status())).body(problem);
+        return HttpResponseFactory.INSTANCE
+                .status(HttpStatus.valueOf(problem.status()))
+                .contentType(APPLICATION_JSON_PROBLEM_TYPE)
+                .body(problem);
     }
 
     /**

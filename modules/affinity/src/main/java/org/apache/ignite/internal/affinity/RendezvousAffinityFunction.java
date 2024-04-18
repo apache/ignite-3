@@ -30,9 +30,9 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.BiPredicate;
 import java.util.function.IntFunction;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
  * Affinity function for partitioned table based on Highest Random Weight algorithm. This function supports the following configuration:
@@ -142,10 +142,6 @@ public class RendezvousAffinityFunction {
                     }
                 } else if (nodeFilter == null || nodeFilter.test(node, res)) {
                     res.add(node);
-
-                    if (exclNeighbors) {
-                        allNeighbors.addAll(neighborhoodCache.get(node));
-                    }
                 }
             }
         }
@@ -297,7 +293,7 @@ public class RendezvousAffinityFunction {
         // Group by mac addresses.
         for (String node : topSnapshot) {
             String macs = String.valueOf(node.hashCode());
-            //node.attribute(IgniteNodeAttributes.ATTR_MACS);
+            // node.attribute(IgniteNodeAttributes.ATTR_MACS);
 
             Collection<String> nodes = macMap.get(macs);
 

@@ -17,66 +17,68 @@
 
 package org.apache.ignite.client.handler;
 
-import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
-import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import javax.annotation.Nullable;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
-import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 import org.mockito.Mockito;
 
 /** Test server that can be started with SSL configuration. */
 public class TestServer {
-    private final ConfigurationTreeGenerator generator;
-
-    private final ConfigurationManager configurationManager;
-
     private NettyBootstrapFactory bootstrapFactory;
 
     private final TestSslConfig testSslConfig;
 
-    private final AuthenticationConfiguration authenticationConfiguration;
+    private final AuthenticationManager authenticationManager;
 
     private final ClientHandlerMetricSource metrics = new ClientHandlerMetricSource();
 
+    private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
+
+    private final ClientConnectorConfiguration clientConnectorConfiguration;
+
+    private final NetworkConfiguration networkConfiguration;
+
     private long idleTimeout = 5000;
 
-    public TestServer() {
-        this(null, null);
+    public TestServer(ClientConnectorConfiguration clientConnectorConfiguration, NetworkConfiguration networkConfiguration) {
+        this(null, null, clientConnectorConfiguration, networkConfiguration);
     }
 
-    TestServer(@Nullable TestSslConfig testSslConfig, @Nullable AuthenticationConfiguration authenticationConfiguration) {
+    TestServer(
+            @Nullable TestSslConfig testSslConfig,
+            @Nullable SecurityConfiguration securityConfiguration,
+            ClientConnectorConfiguration clientConnectorConfiguration,
+            NetworkConfiguration networkConfiguration
+    ) {
         this.testSslConfig = testSslConfig;
-        this.authenticationConfiguration = authenticationConfiguration == null
-                ? mock(AuthenticationConfiguration.class)
-                : authenticationConfiguration;
-        this.generator = new ConfigurationTreeGenerator(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY);
-        this.configurationManager = new ConfigurationManager(
-                List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
-                new TestConfigurationStorage(LOCAL),
-                generator,
-                new TestConfigurationValidator()
-        );
+        this.authenticationManager = securityConfiguration == null
+                ? new DummyAuthenticationManager()
+                : new AuthenticationManagerImpl(securityConfiguration, ign -> {});
+        this.clientConnectorConfiguration = clientConnectorConfiguration;
+        this.networkConfiguration = networkConfiguration;
 
         metrics.enable();
     }
@@ -86,28 +88,25 @@ public class TestServer {
     }
 
     void tearDown() throws Exception {
-        configurationManager.stop();
         bootstrapFactory.stop();
-        generator.close();
     }
 
     ClientHandlerModule start(TestInfo testInfo) {
-        configurationManager.start();
+        authenticationManager.start();
 
-        clientConnectorConfig().change(
+        clientConnectorConfiguration.change(
                 local -> local
                         .changePort(10800)
                         .changeIdleTimeout(idleTimeout)
         ).join();
 
         if (testSslConfig != null) {
-            clientConnectorConfig().ssl().enabled().update(true).join();
-            clientConnectorConfig().ssl().keyStore().path().update(testSslConfig.keyStorePath()).join();
-            clientConnectorConfig().ssl().keyStore().password().update(testSslConfig.keyStorePassword()).join();
+            clientConnectorConfiguration.ssl().enabled().update(true).join();
+            clientConnectorConfiguration.ssl().keyStore().path().update(testSslConfig.keyStorePath()).join();
+            clientConnectorConfiguration.ssl().keyStore().password().update(testSslConfig.keyStorePassword()).join();
         }
 
-        var registry = configurationManager.configurationRegistry();
-        bootstrapFactory = new NettyBootstrapFactory(registry.getConfiguration(NetworkConfiguration.KEY), testInfo.getDisplayName());
+        bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, testInfo.getDisplayName());
 
         bootstrapFactory.start();
 
@@ -115,29 +114,31 @@ public class TestServer {
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
         Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
 
-        var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTablesInternal.class), mock(IgniteTransactions.class),
-                registry, mock(IgniteCompute.class), clusterService, bootstrapFactory, mock(IgniteSql.class),
-                () -> CompletableFuture.completedFuture(UUID.randomUUID()), mock(MetricManager.class), metrics,
-                authenticationManager(), authenticationConfiguration
+        var module = new ClientHandlerModule(
+                mock(QueryProcessor.class),
+                mock(IgniteTablesInternal.class),
+                mock(IgniteTransactionsImpl.class),
+                mock(IgniteComputeInternal.class),
+                clusterService,
+                bootstrapFactory,
+                () -> CompletableFuture.completedFuture(ClusterTag.clusterTag(msgFactory, "Test Server")),
+                mock(MetricManager.class),
+                metrics,
+                authenticationManager,
+                new TestClockService(new HybridClockImpl()),
+                new AlwaysSyncedSchemaSyncService(),
+                mock(CatalogService.class),
+                mock(PlacementDriver.class),
+                clientConnectorConfiguration,
+                new TestLowWatermark()
         );
 
-        module.start();
+        module.start().join();
 
         return module;
     }
 
     ClientHandlerMetricSource metrics() {
         return metrics;
-    }
-
-    private ClientConnectorConfiguration clientConnectorConfig() {
-        var registry = configurationManager.configurationRegistry();
-        return registry.getConfiguration(ClientConnectorConfiguration.KEY);
-    }
-
-    private AuthenticationManager authenticationManager() {
-        AuthenticationManagerImpl authenticationManager = new AuthenticationManagerImpl();
-        authenticationConfiguration.listen(authenticationManager);
-        return authenticationManager;
     }
 }

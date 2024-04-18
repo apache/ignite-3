@@ -20,21 +20,28 @@ package org.apache.ignite.internal.table.distributed.replication.request;
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 
-/**
- * Read-write replica request.
- */
+/** Read-write replica request. */
 public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
     UUID transactionId();
 
     /**
-     * Gets a raft term.
-     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
+     * Get the transaction coordinator inconsistent ID.
      *
-     * @return Raft term.
+     * @return Transaction coordinator inconsistent ID.
      */
-    @Deprecated
-    @Nullable
-    Long term();
+    String coordinatorId();
+
+    /**
+     * Return {@code true} if this is a full transaction.
+     */
+    boolean full();
+
+    /**
+     * Gets a commit partition id.
+     *
+     * @return Table partition id.
+     */
+    TablePartitionIdMessage commitPartitionId();
 }

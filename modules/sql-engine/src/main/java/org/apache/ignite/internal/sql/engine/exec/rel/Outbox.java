@@ -27,18 +27,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,6 +50,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, SingleNode<RowT>, Downstream<RowT> {
     private static final IgniteLogger LOG = Loggers.forClass(Outbox.class);
+    private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
 
     private final long exchangeId;
     private final long targetFragmentId;
@@ -232,13 +237,28 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     }
 
     private void sendBatch(String nodeName, int batchId, boolean last, List<RowT> rows) {
-        exchange.sendBatch(nodeName, queryId(), targetFragmentId, exchangeId, batchId, last, rows)
+        RowHandler<RowT> handler = context().rowHandler();
+
+        List<BinaryTupleMessage> rows0 = new ArrayList<>(rows.size());
+
+        for (RowT row : rows) {
+            BinaryTuple tuple = handler.toBinaryTuple(row);
+
+            rows0.add(
+                    TABLE_MESSAGES_FACTORY.binaryTupleMessage()
+                            .elementCount(tuple.elementCount())
+                            .tuple(tuple.byteBuffer())
+                            .build()
+            );
+        }
+
+        exchange.sendBatch(nodeName, queryId(), targetFragmentId, exchangeId, batchId, last, rows0)
                 .whenComplete((ignored, ex) -> {
                     if (ex == null) {
                         return;
                     }
 
-                    IgniteInternalException wrapperEx = ExceptionUtils.withCauseAndCode(
+                    IgniteInternalException wrapperEx = ExceptionUtils.withCause(
                             IgniteInternalException::new,
                             Common.INTERNAL_ERR,
                             "Unable to send batch: " + ex.getMessage(),
@@ -260,7 +280,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
                         return;
                     }
 
-                    IgniteInternalException wrapperEx = ExceptionUtils.withCauseAndCode(
+                    IgniteInternalException wrapperEx = ExceptionUtils.withCause(
                             IgniteInternalException::new,
                             Common.INTERNAL_ERR,
                             "Unable to send error: " + ex.getMessage(),

@@ -1,0 +1,8 @@
+N0
+SELECT * FROM TABLE(system_range(1, 5))
+---
+Fragment#0 root
+  executionNodes: [N0]
+  tree:
+    TableFunctionScan(source=1, distribution=single)
+---

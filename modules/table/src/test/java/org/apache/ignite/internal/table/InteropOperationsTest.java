@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -38,60 +40,77 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
+import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for different access methods:
  * 1) Create single table.
- * 2) Write throw different API's into it (row 1 - with all values, row 2 - with nulls).
+ * 2) Write using different API's into it (row 1 - with all values, row 2 - with nulls).
  * 3) Read data back through all possible APIs and validate it.
  */
-public class InteropOperationsTest {
+@ExtendWith(ConfigurationExtension.class)
+public class InteropOperationsTest extends BaseIgniteAbstractTest {
     /** Test schema. */
-    private static final SchemaDescriptor SCHEMA;
+    private static SchemaDescriptor schema;
 
     /** Table for tests. */
-    private static final TableImpl TABLE;
+    private static TableViewInternal table;
 
     /** Dummy internal table for tests. */
-    private static final DummyInternalTableImpl INT_TABLE;
+    private static DummyInternalTableImpl intTable;
 
     /** Key value binary view for test. */
-    private static final KeyValueView<Tuple, Tuple> KV_BIN_VIEW;
+    private static KeyValueView<Tuple, Tuple> kvBinView;
 
     /** Key value view for test. */
-    private static final KeyValueView<Long, Value> KV_VIEW;
+    private static KeyValueView<Long, Value> kvView;
 
     /** Record view for test. */
-    private static final RecordView<Row> R_VIEW;
+    private static RecordView<Row> rView;
 
     /** Record binary view for test. */
-    private static final RecordView<Tuple> R_BIN_VIEW;
+    private static RecordView<Tuple> rBinView;
 
-    static {
+    @InjectConfiguration
+    private static TransactionConfiguration txConfiguration;
+
+    @InjectConfiguration
+    private static StorageUpdateConfiguration storageUpdateConfiguration;
+
+    @BeforeAll
+    static void beforeAll() {
         NativeType[] types = {
                 NativeTypes.BOOLEAN,
                 NativeTypes.INT8, NativeTypes.INT16, NativeTypes.INT32, NativeTypes.INT64,
                 NativeTypes.FLOAT, NativeTypes.DOUBLE, NativeTypes.UUID, NativeTypes.STRING,
-                NativeTypes.BYTES, NativeTypes.DATE, NativeTypes.time(), NativeTypes.timestamp(), NativeTypes.datetime(),
+                NativeTypes.BYTES, NativeTypes.DATE, NativeTypes.time(0), NativeTypes.timestamp(4), NativeTypes.datetime(4),
                 NativeTypes.numberOf(2), NativeTypes.decimalOf(5, 2), NativeTypes.bitmaskOf(8)
         };
 
@@ -104,28 +123,31 @@ public class InteropOperationsTest {
             valueCols.add(new Column(colName + "N", type, true));
         }
 
-        SCHEMA = new SchemaDescriptor(1,
+        int schemaVersion = 1;
+
+        schema = new SchemaDescriptor(schemaVersion,
                 new Column[]{new Column("ID", NativeTypes.INT64, false)},
                 valueCols.toArray(Column[]::new)
         );
 
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
+        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        INT_TABLE = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS), SCHEMA);
+        intTable = new DummyInternalTableImpl(mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema, txConfiguration,
+                storageUpdateConfiguration);
 
-        SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(SCHEMA);
+        SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(schema);
 
-        Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
+        when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
-        TABLE = new TableImpl(INT_TABLE, schemaRegistry, new HeapLockManager());
-        KV_BIN_VIEW =  new KeyValueBinaryViewImpl(INT_TABLE, schemaRegistry);
+        SchemaVersions schemaVersions = new ConstantSchemaVersions(schemaVersion);
 
-        KV_VIEW = new KeyValueViewImpl<Long, Value>(INT_TABLE, schemaRegistry,
-                Mapper.of(Long.class, "id"), Mapper.of(Value.class));
+        table = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), schemaVersions, mock(IgniteSql.class), -1);
 
-        R_BIN_VIEW = TABLE.recordView();
-        R_VIEW = TABLE.recordView(Mapper.of(Row.class));
+        kvBinView = table.keyValueView();
+        kvView =  table.keyValueView(Mapper.of(Long.class, "id"), Mapper.of(Value.class));
+        rBinView = table.recordView();
+        rView = table.recordView(Mapper.of(Row.class));
     }
 
     /**
@@ -133,13 +155,13 @@ public class InteropOperationsTest {
      */
     @Test
     public void ensureAllTypesTested() {
-        SchemaTestUtils.ensureAllTypesChecked(Arrays.stream(SCHEMA.valueColumns().columns()));
+        SchemaTestUtils.ensureAllTypesChecked(schema.valueColumns().stream());
     }
 
     @AfterEach
     public void clearTable() {
-        TABLE.recordView().delete(null, Tuple.create().set("id", 1L));
-        TABLE.recordView().delete(null, Tuple.create().set("id", 2L));
+        table.recordView().delete(null, Tuple.create().set("id", 1L));
+        table.recordView().delete(null, Tuple.create().set("id", 2L));
     }
 
     /**
@@ -217,7 +239,7 @@ public class InteropOperationsTest {
         Tuple k = Tuple.create().set("id", (long) id);
         Tuple v = createTuple(id, nulls);
 
-        KV_BIN_VIEW.put(null, k, v);
+        kvBinView.put(null, k, v);
     }
 
     /**
@@ -229,8 +251,8 @@ public class InteropOperationsTest {
     private boolean readKeyValueBinary(int id, boolean nulls) {
         Tuple k = Tuple.create().set("id", (long) id);
 
-        Tuple v = KV_BIN_VIEW.get(null, k);
-        boolean contains = KV_BIN_VIEW.contains(null, k);
+        Tuple v = kvBinView.get(null, k);
+        boolean contains = kvBinView.contains(null, k);
 
         assertEquals((v != null), contains);
 
@@ -254,7 +276,7 @@ public class InteropOperationsTest {
     private void writeRecord(int id, boolean nulls) {
         Row r1 = new Row(id, nulls);
 
-        assertTrue(R_VIEW.insert(null, r1));
+        assertTrue(rView.insert(null, r1));
     }
 
     /**
@@ -267,7 +289,7 @@ public class InteropOperationsTest {
     private boolean readRecord(int id, boolean nulls) {
         Row expected = new Row(id, nulls);
 
-        Row actual = R_VIEW.get(null, expected);
+        Row actual = rView.get(null, expected);
 
         if (actual == null) {
             return false;
@@ -288,7 +310,7 @@ public class InteropOperationsTest {
         Tuple t1 = createTuple(id, nulls);
         t1.set("id", (long) id);
 
-        assertTrue(R_BIN_VIEW.insert(null, t1));
+        assertTrue(rBinView.insert(null, t1));
     }
 
     /**
@@ -301,7 +323,7 @@ public class InteropOperationsTest {
     private boolean readRecordBinary(int id, boolean nulls) {
         Tuple k = Tuple.create().set("id", (long) id);
 
-        Tuple res = R_BIN_VIEW.get(null, k);
+        Tuple res = rBinView.get(null, k);
 
         if (res == null) {
             return false;
@@ -319,7 +341,7 @@ public class InteropOperationsTest {
      * @param nulls If {@code true} - nullable fields will be filled, if {@code false} - otherwise.
      */
     private void writeKewVal(int id, boolean nulls) {
-        KV_VIEW.put(null, (long) id, new Value(id, nulls));
+        kvView.put(null, (long) id, new Value(id, nulls));
     }
 
     /**
@@ -330,7 +352,7 @@ public class InteropOperationsTest {
      * @return {@code true} if read successfully, {@code false} - otherwise.
      */
     private boolean readKeyValue(int id, boolean nulls) {
-        Value res = KV_VIEW.get(null, Long.valueOf(id));
+        Value res = kvView.get(null, Long.valueOf(id));
 
         if (res == null) {
             return false;
@@ -353,7 +375,7 @@ public class InteropOperationsTest {
     private Tuple createTuple(int id, boolean nulls) {
         Tuple res = Tuple.create();
 
-        for (Column col : SCHEMA.valueColumns().columns()) {
+        for (Column col : schema.valueColumns()) {
             if (!nulls && col.nullable()) {
                 continue;
             }
@@ -383,11 +405,11 @@ public class InteropOperationsTest {
                 res.set(colName, new UUID(0L, (long) id));
             } else if (NativeTypes.DATE.equals(type)) {
                 res.set(colName, LocalDate.ofYearDay(2021, id));
-            } else if (NativeTypes.time().equals(type)) {
+            } else if (NativeTypes.time(0).equals(type)) {
                 res.set(colName, LocalTime.ofSecondOfDay(id));
-            } else if (NativeTypes.datetime().equals(type)) {
+            } else if (NativeTypes.datetime(6).equals(type)) {
                 res.set(colName, LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC));
-            } else if (NativeTypes.timestamp().equals(type)) {
+            } else if (NativeTypes.timestamp(6).equals(type)) {
                 res.set(colName, Instant.ofEpochSecond(id));
             } else if (NativeTypes.numberOf(2).equals(type)) {
                 res.set(colName, BigInteger.valueOf(id));
@@ -420,7 +442,7 @@ public class InteropOperationsTest {
         Tuple expected = createTuple(id, nulls);
         expected.set("id", (long) id);
 
-        for (Column col : SCHEMA.valueColumns().columns()) {
+        for (Column col : schema.valueColumns()) {
             if (!nulls && col.nullable()) {
                 continue;
             }
@@ -450,11 +472,11 @@ public class InteropOperationsTest {
                 assertEquals(expected.uuidValue(colName), t.uuidValue(colName));
             } else if (NativeTypes.DATE.equals(type)) {
                 assertEquals(expected.dateValue(colName), t.dateValue(colName));
-            } else if (NativeTypes.time().equals(type)) {
+            } else if (NativeTypes.time(0).equals(type)) {
                 assertEquals(expected.timeValue(colName), t.timeValue(colName));
-            } else if (NativeTypes.datetime().equals(type)) {
+            } else if (NativeTypes.datetime(6).equals(type)) {
                 assertEquals(expected.datetimeValue(colName), t.datetimeValue(colName));
-            } else if (NativeTypes.timestamp().equals(type)) {
+            } else if (NativeTypes.timestamp(6).equals(type)) {
                 assertEquals(expected.timestampValue(colName), expected.timestampValue(colName));
             } else if (NativeTypes.numberOf(2).equals(type)) {
                 assertEquals((BigInteger) expected.value(colName), t.value(colName));
@@ -579,6 +601,46 @@ public class InteropOperationsTest {
                     && Objects.equals(fdecimal, value.fdecimal) && Objects.equals(fdecimalN, value.fdecimalN)
                     && Objects.equals(fbitmask, value.fbitmask) && Objects.equals(fbitmaskN, value.fbitmaskN);
         }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(
+                    fboolean,
+                    fbooleanN,
+                    fint8,
+                    fint8N,
+                    fint16,
+                    fint16N,
+                    fint32,
+                    fint32N,
+                    fint64,
+                    fint64N,
+                    ffloat,
+                    ffloatN,
+                    fdouble,
+                    fdoubleN,
+                    fuuid,
+                    fuuidN,
+                    fstring,
+                    fstringN,
+                    fbytes,
+                    fbytesN,
+                    fdate,
+                    fdateN,
+                    ftime,
+                    ftimeN,
+                    fdatetime,
+                    fdatetimeN,
+                    ftimestamp,
+                    ftimestampN,
+                    fnumber,
+                    fnumberN,
+                    fdecimal,
+                    fdecimalN,
+                    fbitmask,
+                    fbitmaskN
+            );
+        }
     }
 
     /**
@@ -695,6 +757,47 @@ public class InteropOperationsTest {
                     && Objects.equals(fnumberN, row.fnumberN) && Objects.equals(fdecimal, row.fdecimal)
                     && Objects.equals(fdecimalN, row.fdecimalN) && Objects.equals(fbitmask, row.fbitmask)
                     && Objects.equals(fbitmaskN, row.fbitmaskN);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(
+                    id,
+                    fboolean,
+                    fbooleanN,
+                    fint8,
+                    fint8N,
+                    fint16,
+                    fint16N,
+                    fint32,
+                    fint32N,
+                    fint64,
+                    fint64N,
+                    ffloat,
+                    ffloatN,
+                    fdouble,
+                    fdoubleN,
+                    fuuid,
+                    fuuidN,
+                    fstring,
+                    fstringN,
+                    fbytes,
+                    fbytesN,
+                    fdate,
+                    fdateN,
+                    ftime,
+                    ftimeN,
+                    fdatetime,
+                    fdatetimeN,
+                    ftimestamp,
+                    ftimestampN,
+                    fnumber,
+                    fnumberN,
+                    fdecimal,
+                    fdecimalN,
+                    fbitmask,
+                    fbitmaskN
+            );
         }
     }
 }

@@ -20,18 +20,25 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.storage.state.TxStateStorage.REBALANCE_IN_PROGRESS;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.storage.state.AbstractTxStateStorageTest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -43,15 +50,39 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     @WorkDirectory
     private Path workDir;
 
+    private TxStateRocksDbSharedStorage sharedStorage;
+
+    private final ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
+
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+
     @Override
     protected TxStateRocksDbTableStorage createTableStorage() {
         return new TxStateRocksDbTableStorage(
-                1,
+                TABLE_ID,
                 3,
-                workDir,
-                new ScheduledThreadPoolExecutor(1),
-                Executors.newFixedThreadPool(1),
-                () -> 1_000
+                sharedStorage
+        );
+    }
+
+    @Override
+    @BeforeEach
+    protected void beforeTest() {
+        sharedStorage = new TxStateRocksDbSharedStorage(workDir, scheduledExecutor, executor, mock(LogSyncer.class), () -> 0);
+        sharedStorage.start();
+
+        super.beforeTest();
+    }
+
+    @Override
+    @AfterEach
+    protected void afterTest() throws Exception {
+        super.afterTest();
+
+        IgniteUtils.closeAllManually(
+                sharedStorage,
+                () -> IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS),
+                () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)
         );
     }
 

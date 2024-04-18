@@ -17,20 +17,24 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.DEFAULT_VALUE_PLACEHOLDER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 import org.apache.calcite.rel.core.TableModify;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
 
@@ -47,15 +51,13 @@ import org.jetbrains.annotations.Nullable;
  *         and WHEN NOT MATCHED clauses</li>
  * </ol>
  * , where <ul>
- *     <li>[insert row type] is the same as [full row type], but may contain
- *         {@link ExpressionFactoryImpl#DEFAULT_VALUE_PLACEHOLDER DEFAULT placeholder}s which have to be resolved</li>
- *     <li>[delete row type] is the type of the row defined by {@link TableDescriptor#deleteRowType(IgniteTypeFactory)}</li>
+ *     <li>[insert row type] is the same as [full row type]</li>
+ *     <li>[delete row type] is the type of the row defined by {@link IgniteTable#rowTypeForDelete(IgniteTypeFactory)}</li>
  *     <li>[columns to update] is the projection of [full row type] having only columns enumerated in
  *         {@link #updateColumns} (with respect to the order of the enumeration)</li>
  * </ul>
  *
  * <p>Depending on the type of operation, different preparatory steps must be taken: <ul>
- *     <li>Before any insertion, all {@link ExpressionFactoryImpl#DEFAULT_VALUE_PLACEHOLDER DEFAULT placeholder}s must be resolved</li>
  *     <li>Before any update, new value must be inlined into the old row: rows for update contains actual row
  *         read from a table followed by new values with respect to {@link #updateColumns}</li>
  *     <li>For MERGE operation, the rows need to be split on two group: rows to insert and rows to update</li>
@@ -68,6 +70,11 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
+
+    private static final RowSchema MODIFY_RESULT = RowSchema.builder()
+            .addField(NativeTypes.INT64)
+            .build();
+
     private final TableModify.Operation modifyOp;
 
     private final UpdatableTable table;
@@ -75,6 +82,10 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     private final @Nullable List<String> updateColumns;
 
     private final int @Nullable [] mapping;
+
+    private final long sourceId;
+
+    private final int[] insertRowMapping;
 
     private List<RowT> rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
@@ -84,9 +95,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     private int requested;
 
-    private boolean inLoop;
-
-    private State state = State.UPDATING;
+    private boolean inFlightUpdate;
 
     /**
      * Constructor.
@@ -99,16 +108,19 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     public ModifyNode(
             ExecutionContext<RowT> ctx,
             UpdatableTable table,
+            long sourceId,
             TableModify.Operation op,
             @Nullable List<String> updateColumns
     ) {
         super(ctx);
 
         this.table = table;
+        this.sourceId = sourceId;
         this.modifyOp = op;
         this.updateColumns = updateColumns;
 
         this.mapping = mapping(table.descriptor(), updateColumns);
+        this.insertRowMapping = IntStream.range(0, table.descriptor().columnsCount()).toArray();
     }
 
     /** {@inheritDoc} */
@@ -121,9 +133,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         requested = rowsCnt;
 
-        if (!inLoop) {
-            tryEnd();
-        }
+        requestNextBatchIfNeeded();
     }
 
     /** {@inheritDoc} */
@@ -131,7 +141,6 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     public void push(RowT row) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
-        assert state == State.UPDATING;
 
         checkState();
 
@@ -139,11 +148,13 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         rows.add(row);
 
-        flushTuples(false);
+        assert rows.size() <= MODIFY_BATCH_SIZE;
 
-        if (waiting == 0) {
-            source().request(waiting = MODIFY_BATCH_SIZE);
+        if (needToFlush()) {
+            flushTuples();
         }
+
+        requestNextBatchIfNeeded();
     }
 
     /** {@inheritDoc} */
@@ -155,9 +166,15 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         checkState();
 
         waiting = -1;
-        state = State.UPDATED;
 
-        tryEnd();
+        if (needToFlush()) {
+            flushTuples();
+        } else {
+            // special case: if there is nothing to flush, and no in-flight batch,
+            // then the source most probably was empty, and we just need to pass
+            // through this signal to downstream
+            tryEnd();
+        }
     }
 
     /** {@inheritDoc} */
@@ -176,84 +193,99 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         return this;
     }
 
+    private void requestNextBatchIfNeeded() throws Exception {
+        if (waiting == 0 && rows.isEmpty()) {
+            source().request(waiting = MODIFY_BATCH_SIZE);
+        }
+    }
+
     private void tryEnd() throws Exception {
         assert downstream() != null;
 
-        if (state == State.UPDATING && waiting == 0) {
-            source().request(waiting = MODIFY_BATCH_SIZE);
-        }
+        if (waiting == -1 && requested > 0 && !inFlightUpdate && rows.isEmpty()) {
+            downstream().push(context().rowHandler().factory(MODIFY_RESULT).create(updatedRows));
 
-        if (state == State.UPDATED && requested > 0) {
-            flushTuples(true);
-
-            state = State.END;
-
-            inLoop = true;
-            try {
-                requested--;
-                downstream().push(context().rowHandler().factory(long.class).create(updatedRows));
-            } finally {
-                inLoop = false;
-            }
-        }
-
-        if (state == State.END && requested > 0) {
             requested = 0;
             downstream().end();
         }
     }
 
-    private void flushTuples(boolean force) {
-        if (nullOrEmpty(rows) || (!force && rows.size() < MODIFY_BATCH_SIZE)) {
-            return;
-        }
+    private void flushTuples() {
+        assert !nullOrEmpty(rows);
+
+        inFlightUpdate = true;
 
         List<RowT> rows = this.rows;
         this.rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
+        CompletableFuture<?> modifyResult;
+        ColocationGroup colocationGroup = context().group(sourceId);
+        assert colocationGroup != null : "No colocation group for sourceId#" + sourceId;
+
         switch (modifyOp) {
             case INSERT:
-                injectDefaults(table.descriptor(), context().rowHandler(), rows);
-
-                table.insertAll(context(), rows).join();
+                modifyResult = table.insertAll(context(), rows, colocationGroup);
 
                 break;
             case UPDATE:
                 inlineUpdates(0, rows);
 
-                table.upsertAll(context(), rows).join();
+                modifyResult = table.upsertAll(context(), rows, colocationGroup);
 
                 break;
             case MERGE:
                 // we split the rows because upsert will silently update the row if it's exists,
                 // but constraint violation error must to be raised if conflict row is inserted during
                 // WHEN NOT MATCHED handling
-                Pair<List<RowT>, List<RowT>> split = splitMerge(rows);
+                Pair<@Nullable List<RowT>, @Nullable List<RowT>> split = splitMerge(rows);
 
                 List<CompletableFuture<?>> mergeParts = new ArrayList<>(2);
 
                 if (split.getFirst() != null) {
-                    mergeParts.add(table.insertAll(context(), split.getFirst()));
+                    mergeParts.add(table.insertAll(context(), split.getFirst(), colocationGroup));
                 }
 
                 if (split.getSecond() != null) {
-                    mergeParts.add(table.upsertAll(context(), split.getSecond()));
+                    mergeParts.add(table.upsertAll(context(), split.getSecond(), colocationGroup));
                 }
 
-                CompletableFuture.allOf(
+                modifyResult = CompletableFuture.allOf(
                         mergeParts.toArray(CompletableFuture[]::new)
-                ).join();
+                );
 
                 break;
             case DELETE:
-                table.deleteAll(context(), rows).join();
+                modifyResult = table.deleteAll(context(), rows, colocationGroup);
 
                 break;
             default:
                 throw new UnsupportedOperationException(modifyOp.name());
         }
 
-        updatedRows += rows.size();
+        modifyResult.whenComplete((r, e) -> context().execute(() -> {
+            if (e != null) {
+                onError(e);
+
+                return;
+            }
+
+            inFlightUpdate = false;
+
+            updatedRows += rows.size();
+
+            if (needToFlush()) {
+                flushTuples();
+            }
+
+            requestNextBatchIfNeeded();
+
+            tryEnd();
+        }, this::onError));
+    }
+
+    private boolean needToFlush() {
+        return !inFlightUpdate
+                && (rows.size() >= MODIFY_BATCH_SIZE || (!rows.isEmpty() && waiting == -1));
     }
 
     /** See {@link #mapping(TableDescriptor, List)}. */
@@ -267,15 +299,24 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         RowHandler<RowT> handler = context().rowHandler();
 
-        for (RowT row : rows) {
-            for (int i = 0; i < mapping.length; i++) {
-                if (offset == 0 && i == mapping[i]) {
-                    continue;
-                }
+        int[] targetMapping = applyOffset(mapping, offset);
 
-                handler.set(i, row, handler.get(mapping[i] + offset, row));
-            }
+        rows.replaceAll(row -> handler.map(row, targetMapping));
+    }
+
+    /** Adds the provided offset to each value in the mapping. */
+    private static int[] applyOffset(int[] srcMapping, int offset) {
+        if (offset == 0) {
+            return srcMapping;
         }
+
+        int[] targetMapping = new int[srcMapping.length];
+
+        for (int i = 0; i < targetMapping.length; i++) {
+            targetMapping[i] = srcMapping[i] + offset;
+        }
+
+        return targetMapping;
     }
 
     /**
@@ -285,13 +326,10 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      * @return Pair where first element is list of rows to insert (or null if there is no such rows), and second
      *     element is list of rows to update (or null if there is no such rows).
      */
-    private Pair<List<RowT>, List<RowT>> splitMerge(List<RowT> rows) {
+    private Pair<@Nullable List<RowT>, @Nullable List<RowT>> splitMerge(List<RowT> rows) {
         RowHandler<RowT> handler = context().rowHandler();
 
         if (nullOrEmpty(updateColumns)) {
-            // WHEN NOT MATCHED clause only
-            injectDefaults(table.descriptor(), handler, rows);
-
             return new Pair<>(rows, null);
         }
 
@@ -336,12 +374,12 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             }
         }
 
-        if (rowsToUpdate != null) {
-            inlineUpdates(updateColumnOffset, rowsToUpdate);
+        if (rowsToInsert != null) {
+            rowsToInsert.replaceAll(row -> handler.map(row, insertRowMapping));
         }
 
-        if (rowsToInsert != null) {
-            injectDefaults(table.descriptor(), handler, rowsToInsert);
+        if (rowsToUpdate != null) {
+            inlineUpdates(updateColumnOffset, rowsToUpdate);
         }
 
         return new Pair<>(rowsToInsert, rowsToUpdate);
@@ -365,14 +403,14 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      * Creates a mapping to inline updates into the row.
      *
      * <p>The row passed to the modify node contains columns specified by
-     * {@link TableDescriptor#selectForUpdateRowType(IgniteTypeFactory)} followed by {@link #updateColumns}. Here is an example:
+     * {@link IgniteTable#getRowType(RelDataTypeFactory)} followed by {@link #updateColumns}. Here is an example:
      *
      * <pre>
      *     CREATE TABLE t (a INT, b INT, c INT);
      *     INSERT INTO t VALUES (2, 2, 2);
      *
      *     UPDATE t SET b = b + 10, c = c * 10;
-     *     -- If selectForUpdateRowType specifies all the table columns,
+     *     -- If getRowType specifies all the table columns,
      *     -- then the following row should be passed to ModifyNode:
      *     -- [2, 2, 2, 12, 20], where first three values is the original values
      *     -- of columns A, B, and C respectively, 12 is the computed value for column B,
@@ -410,49 +448,5 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         }
 
         return mapping;
-    }
-
-    // TODO Remove this method when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-    private static <RowT> void injectDefaults(
-            TableDescriptor tableDescriptor,
-            RowHandler<RowT> handler,
-            List<RowT> rows
-    ) {
-        for (RowT row : rows) {
-            for (int i = 0; i < tableDescriptor.columnsCount(); i++) {
-                ColumnDescriptor columnDescriptor = tableDescriptor.columnDescriptor(i);
-
-                Object oldValue = handler.get(columnDescriptor.logicalIndex(), row);
-                Object newValue = replaceDefaultValuePlaceholder(oldValue, columnDescriptor);
-
-                if (oldValue != newValue) {
-                    handler.set(columnDescriptor.logicalIndex(), row, newValue);
-                }
-            }
-        }
-    }
-
-    // TODO Remove this method when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-    private static @Nullable Object replaceDefaultValuePlaceholder(@Nullable Object val, ColumnDescriptor desc) {
-        Object newValue;
-
-        if (desc.key() && Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(desc.name())) {
-            assert val != DEFAULT_VALUE_PLACEHOLDER  : "Implicit primary key value should have already been generated";
-            newValue = val;
-        } else {
-            newValue = val == DEFAULT_VALUE_PLACEHOLDER ? desc.defaultValue() : val;
-        }
-
-        assert newValue != DEFAULT_VALUE_PLACEHOLDER : "Placeholder should have been replaced. Column: " + desc.name();
-
-        return newValue;
-    }
-
-    private enum State {
-        UPDATING,
-
-        UPDATED,
-
-        END
     }
 }

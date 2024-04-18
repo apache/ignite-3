@@ -1090,7 +1090,7 @@ uuid application_data_buffer::get_uuid() const {
             std::uint64_t lsb = 0;
 
             for (std::size_t i = 0; i < sizeof(guid->Data4); ++i)
-                lsb = guid->Data4[i] << (sizeof(guid->Data4) - i - 1) * 8;
+                lsb |= std::uint64_t(guid->Data4[i]) << (sizeof(guid->Data4) - i - 1) * 8;
 
             res = uuid(std::int64_t(msb), std::int64_t(lsb));
 
@@ -1144,8 +1144,7 @@ T application_data_buffer::get_num() const {
 
             converter << str;
 
-            // Workaround for char types which are recognised as
-            // symbolyc types and not numeric types.
+            // Workaround for char types which are recognized as symbolic types and not numeric types.
             if (sizeof(T) == 1) {
                 short tmp;
 

@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.tx;
 
-import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableCollection;
 
-import java.io.Serializable;
-import java.util.List;
+import java.util.Collection;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -28,15 +27,15 @@ import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /** Transaction meta. */
-public class TxMeta implements Serializable {
+public class TxMeta implements TransactionMeta {
     /** Serial version UID. */
     private static final long serialVersionUID = -172513482743911860L;
 
     /** Tx state. */
     private final TxState txState;
 
-    /** The list of enlisted partitions. */
-    private final List<TablePartitionId> enlistedPartitions;
+    /** Collection of enlisted partition groups. */
+    private final Collection<TablePartitionId> enlistedPartitions;
 
     /** Commit timestamp. */
     @Nullable
@@ -46,23 +45,25 @@ public class TxMeta implements Serializable {
      * The constructor.
      *
      * @param txState Tx state.
-     * @param enlistedPartitions The list of enlisted partitions.
+     * @param enlistedPartitions Collection of enlisted partition groups.
      * @param commitTimestamp Commit timestamp.
      */
-    public TxMeta(TxState txState, List<TablePartitionId> enlistedPartitions, @Nullable HybridTimestamp commitTimestamp) {
+    public TxMeta(TxState txState, Collection<TablePartitionId> enlistedPartitions, @Nullable HybridTimestamp commitTimestamp) {
         this.txState = txState;
         this.enlistedPartitions = enlistedPartitions;
         this.commitTimestamp = commitTimestamp;
     }
 
+    @Override
     public TxState txState() {
         return txState;
     }
 
-    public List<TablePartitionId> enlistedPartitions() {
-        return unmodifiableList(enlistedPartitions);
+    public Collection<TablePartitionId> enlistedPartitions() {
+        return unmodifiableCollection(enlistedPartitions);
     }
 
+    @Override
     public @Nullable HybridTimestamp commitTimestamp() {
         return commitTimestamp;
     }

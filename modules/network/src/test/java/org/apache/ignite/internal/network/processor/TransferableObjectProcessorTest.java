@@ -27,9 +27,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.tools.JavaFileObject;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.MessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.junit.jupiter.api.Test;
 
 /**

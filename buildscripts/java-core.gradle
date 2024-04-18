@@ -20,7 +20,7 @@ apply plugin: 'jacoco'
 apply plugin: 'checkstyle'
 apply plugin: 'pmd'
 apply plugin: 'java-library'
-apply plugin: 'com.github.andygoossens.modernizer'
+apply plugin: libs.plugins.spotbugs.get().pluginId
 
 java {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -54,7 +54,7 @@ pmdMain {
 }
 
 pmdTest {
-    enabled = false
+    enabled = true
 }
 
 checkstyle {
@@ -65,7 +65,7 @@ checkstyle {
     configFile = file("$rootDir/check-rules/checkstyle-rules.xml")
     configProperties = [
             "checkstyle.header.file" : file("$rootDir/check-rules/LICENSE.txt"),
-            "org.checkstyle.google.suppressionfilter.config" : file("$rootDir/check-rules/checkstyle-suppressions.txt")
+            "org.checkstyle.google.suppressionfilter.config" : file("$rootDir/check-rules/checkstyle-suppressions.xml")
     ]
 }
 
@@ -84,15 +84,6 @@ tasks.withType(Checkstyle) {
     }
 }
 
-modernizer {
-    failOnViolations = true
-    includeTestClasses = false
-    violationsFile = "${rootDir}/check-rules/modernizer-rules.xml"
-    ignorePackages = ["org.apache.ignite.internal.sql.engine",
-                      "org.apache.ignite.internal.generated",
-                      "org.apache.ignite.rest.client"]
-}
-
 javadoc {
     source = sourceSets.main.allJava
     classpath = configurations.compileClasspath
@@ -104,6 +95,7 @@ javadoc {
 
     exclude 'org/apache/ignite/internal/**'
     exclude 'org/apache/ignite/raft/jraft/**'
+    exclude 'org/apache/calcite/plan/volcano/**'
     exclude 'com/facebook/presto/**'
 
     enabled = true
@@ -130,4 +122,63 @@ jacocoTestReport {
                     exclude: ['org/apache/calcite/**/*'])
         }))
     }
+}
+
+
+spotbugs {
+    ignoreFailures = false
+    showStackTraces = true
+    showProgress = false
+    omitVisitors = ["ConstructorThrow", "FindNullDeref", "SwitchFallthrough", "SerializableIdiom", ""]
+    reportsDir = file("$buildDir/reports/spotbugs")
+    excludeFilter = file("${rootDir}/check-rules/spotbugs-excludes.xml")
+    maxHeapSize = "1g"
+    extraArgs = ["-longBugCodes"]
+    toolVersion = libs.versions.spotbugsTool.get()
+}
+
+spotbugsMain {
+    reports {
+        text {
+            enabled = true
+        }
+        html {
+            enabled = true
+            stylesheet = 'fancy-hist.xsl'
+        }
+        xml {
+            enabled = true
+        }
+    }
+}
+
+def reportSpotbugsViolations = tasks.register("reportSpotbugsViolations") {
+    onlyIf { spotbugsMain.state.failure != null }
+    def spotbugsTextReportFile = file("$buildDir/reports/spotbugs/main.txt")
+
+    inputs.file spotbugsTextReportFile
+
+    doLast {
+        try {
+            if (!spotbugsTextReportFile.isFile()) return
+            println()
+            def spotbugsReport = spotbugsTextReportFile.readLines()
+            spotbugsReport.forEach {
+                System.err.println(it)
+            }
+        } catch (Exception ex) {
+            throw new GradleException("Failed to open spotbugs text report", ex);
+        }
+        def failure = spotbugsMain.state.failure
+        if (failure != null) {
+            throw new GradleException(failure.getCause().getMessage(), failure.getCause());
+        }
+    }
+}
+
+spotbugsMain.finalizedBy(reportSpotbugsViolations)
+
+
+spotbugsTest {
+    enabled(false)
 }

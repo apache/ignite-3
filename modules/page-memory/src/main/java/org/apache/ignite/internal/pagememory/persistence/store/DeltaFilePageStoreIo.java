@@ -31,8 +31,8 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Implementation of the class for working with the delta file page storage IO.

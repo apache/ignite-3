@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Will be thrown if data integrity violation is found.

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.processor.serialization;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.processor.messages.MessageImplGenerator.getByteArrayFieldName;
 
 import com.squareup.javapoet.ArrayTypeName;
@@ -32,12 +33,13 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.serialization.MessageDeserializer;
-import org.apache.ignite.network.serialization.MessageMappingException;
-import org.apache.ignite.network.serialization.MessageReader;
+import org.apache.ignite.internal.network.serialization.MessageDeserializer;
+import org.apache.ignite.internal.network.serialization.MessageMappingException;
+import org.apache.ignite.internal.network.serialization.MessageReader;
 
 /**
  * Class for generating {@link MessageDeserializer} classes.
@@ -118,7 +120,9 @@ public class MessageDeserializerGenerator {
                 .addParameter(MessageReader.class, "reader")
                 .addException(MessageMappingException.class);
 
-        List<ExecutableElement> getters = message.getters();
+        List<ExecutableElement> getters = message.getters().stream()
+                .filter(e -> e.getAnnotation(Transient.class) == null)
+                .collect(toList());
 
         method
                 .beginControlFlow("if (!reader.beforeMessageRead())")

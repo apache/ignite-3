@@ -32,9 +32,10 @@ import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.stream.Stream;
 import javax.tools.JavaFileObject;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.network.processor.messages.MarshallableTypesBlackList;
-import org.apache.ignite.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -79,9 +80,9 @@ public class MarshallableBlacklistTest {
                 "package org.apache.ignite.internal.network.processor;",
 
                 "import org.apache.ignite.internal.network.message.ScaleCubeMessage;",
-                "import org.apache.ignite.network.NetworkMessage;",
-                "import org.apache.ignite.network.annotations.Transferable;",
-                "import org.apache.ignite.network.annotations.Marshallable;",
+                "import org.apache.ignite.internal.network.NetworkMessage;",
+                "import org.apache.ignite.internal.network.annotations.Transferable;",
+                "import org.apache.ignite.internal.network.annotations.Marshallable;",
 
                 "@Transferable(1)",
                 "public interface TestMessage extends NetworkMessage {",
@@ -171,7 +172,7 @@ public class MarshallableBlacklistTest {
 
     /**
      * Tests that compilation fails if message's field is both {@link NetworkMessage} and marked
-     * as {@link org.apache.ignite.network.annotations.Marshallable}.
+     * as {@link Marshallable}.
      */
     @Test
     void testMessageWithMarshallableMessage() {

@@ -37,15 +37,11 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.network.ClusterService;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -55,25 +51,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest {
-    /** Vault manager. */
-    private static VaultManager vaultManager;
-
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
-
-    @BeforeAll
-    public static void init() {
-        vaultManager = new VaultManager(new InMemoryVaultService());
-
-        vaultManager.start();
-    }
-
-    @AfterAll
-    public static void deInit() {
-        vaultManager.beforeNodeStop();
-
-        vaultManager.stop();
-    }
 
     /**
      * Returns a stream with test arguments.
@@ -98,7 +77,6 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
 
         return Stream.of(
                 new MetaStorageManagerImpl(
-                        vaultManager,
                         clusterService,
                         cmgManager,
                         mock(LogicalTopologyService.class),
@@ -108,7 +86,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
                         mock(TopologyAwareRaftGroupServiceFactory.class),
                         metaStorageConfiguration
                 ),
-                StandaloneMetaStorageManager.create(vaultManager)
+                StandaloneMetaStorageManager.create()
         );
     }
 

@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import com.typesafe.config.ConfigFactory;
 import java.io.Serializable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -61,6 +62,7 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
+import org.apache.ignite.internal.configuration.hocon.HoconConverter;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -566,6 +568,26 @@ public class ConfigurationChangerTest {
 
         changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> c.changeDefStr("foo"))).get(1, SECONDS);
         assertEquals(3, storage.lastRevision().get(1, SECONDS));
+    }
+
+    @Test
+    public void initializeWith() throws Exception {
+        // When we initialize the configuration with a source, the configuration should be updated with the values from the source.
+        String initialConfiguration = "def:{child:{defStr:initialStr,arr:[bar]}}";
+        com.typesafe.config.Config config = ConfigFactory.parseString(initialConfiguration);
+        ConfigurationSource hoconSource = HoconConverter.hoconSource(config.root());
+
+        ConfigurationChanger changer = createChanger(DefaultsConfiguration.KEY);
+
+        changer.initializeConfigurationWith(hoconSource);
+
+        changer.start();
+
+        DefaultsView root = (DefaultsView) changer.getRootNode(DefaultsConfiguration.KEY);
+
+        assertEquals("foo", root.defStr());
+        assertEquals("initialStr", root.child().defStr());
+        assertArrayEquals(new String[]{"bar"}, root.child().arr());
     }
 
     private static <CHANGET> ConfigurationSource source(RootKey<?, ? super CHANGET> rootKey, Consumer<CHANGET> changer) {

@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.configuration.processor.ConfigurationPr
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
-import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
 import com.google.auto.service.AutoService;
 import com.squareup.javapoet.ClassName;
@@ -77,9 +76,9 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InjectedName;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
@@ -243,8 +242,8 @@ public class ConfigurationProcessor extends AbstractProcessor {
             // Is root of the configuration.
             boolean isRootConfig = clazz.getAnnotation(ConfigurationRoot.class) != null;
 
-            // Is the internal configuration.
-            boolean isInternalConfig = clazz.getAnnotation(InternalConfiguration.class) != null;
+            // Is the extending configuration.
+            boolean isExtendingConfig = clazz.getAnnotation(ConfigurationExtension.class) != null;
 
             // Is a polymorphic configuration.
             boolean isPolymorphicConfig = clazz.getAnnotation(PolymorphicConfig.class) != null;
@@ -257,7 +256,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
                     fields,
                     schemaClassName,
                     configurationInterfaceBuilder,
-                    (isInternalConfig && !isRootConfig) || isPolymorphicInstance,
+                    (isExtendingConfig && !isRootConfig) || isPolymorphicInstance,
                     clazz,
                     isPolymorphicConfig,
                     isPolymorphicInstance
@@ -641,8 +640,8 @@ public class ConfigurationProcessor extends AbstractProcessor {
                     String.format("%s must end with '%s'", clazz.getQualifiedName(), CONFIGURATION_SCHEMA_POSTFIX));
         }
 
-        if (clazz.getAnnotation(InternalConfiguration.class) != null) {
-            validateInternalConfiguration(clazz, fields);
+        if (clazz.getAnnotation(ConfigurationExtension.class) != null) {
+            validateExtensionConfiguration(clazz, fields);
         } else if (clazz.getAnnotation(PolymorphicConfig.class) != null) {
             validatePolymorphicConfig(clazz, fields);
         } else if (clazz.getAnnotation(PolymorphicConfigInstance.class) != null) {
@@ -661,31 +660,31 @@ public class ConfigurationProcessor extends AbstractProcessor {
     }
 
     /**
-     * Checks configuration schema with {@link InternalConfiguration}.
+     * Checks configuration schema with {@link ConfigurationExtension}.
      *
      * @param clazz Type element under validation.
      * @param fields Non-static fields of the class under validation.
      */
-    private void validateInternalConfiguration(TypeElement clazz, List<VariableElement> fields) {
+    private void validateExtensionConfiguration(TypeElement clazz, List<VariableElement> fields) {
         checkIncompatibleClassAnnotations(
                 clazz,
-                InternalConfiguration.class,
-                incompatibleSchemaClassAnnotations(InternalConfiguration.class, ConfigurationRoot.class)
+                ConfigurationExtension.class,
+                incompatibleSchemaClassAnnotations(ConfigurationExtension.class, ConfigurationRoot.class)
         );
 
-        checkNotContainsPolymorphicIdField(clazz, InternalConfiguration.class, fields);
+        checkNotContainsPolymorphicIdField(clazz, ConfigurationExtension.class, fields);
 
         if (clazz.getAnnotation(ConfigurationRoot.class) != null) {
-            checkNotExistSuperClass(clazz, InternalConfiguration.class);
+            checkNotExistSuperClass(clazz, ConfigurationExtension.class);
         } else {
-            checkExistSuperClass(clazz, InternalConfiguration.class);
+            checkExistSuperClass(clazz, ConfigurationExtension.class);
 
             TypeElement superClazz = superClass(clazz);
 
-            if (superClazz.getAnnotation(InternalConfiguration.class) != null) {
+            if (superClazz.getAnnotation(ConfigurationExtension.class) != null) {
                 throw new ConfigurationProcessorException(String.format(
                         "Superclass must not have %s: %s",
-                        simpleName(InternalConfiguration.class),
+                        simpleName(ConfigurationExtension.class),
                         clazz.getQualifiedName()
                 ));
             }
@@ -760,7 +759,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
     /** {@inheritDoc} */
     @Override
     public Set<String> getSupportedAnnotationTypes() {
-        return Set.copyOf(viewReadOnly(supportedAnnotationTypes(), Class::getCanonicalName));
+        return supportedAnnotationTypes().stream().map(Class::getCanonicalName).collect(toSet());
     }
 
     /** {@inheritDoc} */
@@ -776,7 +775,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
         return Set.of(
                 Config.class,
                 ConfigurationRoot.class,
-                InternalConfiguration.class,
+                ConfigurationExtension.class,
                 PolymorphicConfig.class,
                 PolymorphicConfigInstance.class,
                 AbstractConfiguration.class

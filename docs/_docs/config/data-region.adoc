@@ -28,8 +28,7 @@ ignite config set --type cluster \
 "{
     rocksdb.regions: [{
         name: lsm_region,
-        size: 256000000,
-        cache: lru
+        size: 256000000
     }],
 
     aimem.regions: [{

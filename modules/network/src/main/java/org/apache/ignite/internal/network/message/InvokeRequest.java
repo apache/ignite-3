@@ -19,12 +19,13 @@ package org.apache.ignite.internal.network.message;
 
 import static org.apache.ignite.internal.network.NetworkMessageTypes.INVOKE_REQUEST;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Invocation request.
- * Used internally in the {@link org.apache.ignite.network.DefaultMessagingService}.
+ * Used internally in the {@link DefaultMessagingService}.
  */
 @Transferable(value = INVOKE_REQUEST)
 public interface InvokeRequest extends NetworkMessage {

@@ -17,11 +17,17 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.nio.ByteBuffer;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.table.distributed.replicator.TimedBinaryRow;
+import org.apache.ignite.internal.util.CollectionUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * State machine command for updating a batch of entries.
@@ -30,5 +36,26 @@ import org.apache.ignite.network.annotations.Transferable;
 public interface UpdateAllCommand extends PartitionCommand {
     TablePartitionIdMessage tablePartitionId();
 
-    Map<UUID, ByteBuffer> rowsToUpdate();
+    Map<UUID, TimedBinaryRowMessage> messageRowsToUpdate();
+
+    String txCoordinatorId();
+
+    /** Lease start time, hybrid timestamp as long, see {@link HybridTimestamp#longValue()}. Should be non-null for the full transactions.*/
+    @Nullable Long leaseStartTime();
+
+    /**
+     * Returns the timestamps of the last committed entries for each row.
+     */
+    default Map<UUID, TimedBinaryRow> rowsToUpdate() {
+        Map<UUID, TimedBinaryRow> map = new HashMap<>();
+
+        Map<UUID, TimedBinaryRowMessage> timedRowMap = messageRowsToUpdate();
+
+        if (!CollectionUtils.nullOrEmpty(timedRowMap)) {
+            timedRowMap.forEach(
+                    (uuid, trMsg) -> map.put(uuid, new TimedBinaryRow(trMsg.binaryRow(), nullableHybridTimestamp(trMsg.timestamp()))));
+        }
+
+        return map;
+    }
 }

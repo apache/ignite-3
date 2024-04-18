@@ -20,10 +20,8 @@ package org.apache.ignite.internal.pagememory.util;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.future.InFlightFutures;
-import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Executor for {@link GradualTask}s. See GradualTask documentation for details.
@@ -70,7 +68,7 @@ public class GradualTaskExecutor implements ManuallyCloseable {
                         return;
                     }
 
-                    task.runStep();
+                    runStep(task);
 
                     if (task.isCompleted()) {
                         future.complete(null);
@@ -94,12 +92,24 @@ public class GradualTaskExecutor implements ManuallyCloseable {
         return future.whenComplete((res, ex) -> task.cleanup());
     }
 
+    /**
+     * Runs a single step from the given {@code task}.
+     */
+    protected void runStep(GradualTask task) throws Exception {
+        task.runStep();
+    }
+
     @Override
     public void close() {
         cancelled = true;
 
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-
         inFlightFutures.cancelInFlightFutures();
+    }
+
+    /**
+     * Returns the internal thread pool that is actually used to execute tasks.
+     */
+    public ExecutorService executorService() {
+        return executor;
     }
 }

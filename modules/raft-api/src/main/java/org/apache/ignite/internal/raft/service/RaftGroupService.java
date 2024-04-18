@@ -21,14 +21,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
-import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * A service providing operations on a replication group.
@@ -47,7 +45,7 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>All async operations provided by the service are not cancellable.
  */
-public interface RaftGroupService {
+public interface RaftGroupService extends RaftCommandRunner {
     /**
      * Returns group id.
      */
@@ -218,17 +216,6 @@ public interface RaftGroupService {
     CompletableFuture<Void> transferLeadership(Peer newLeader);
 
     /**
-     * Runs a command on a replication group leader.
-     *
-     * <p>Read commands always see up to date data.
-     *
-     * @param cmd The command.
-     * @param <R> Execution result type.
-     * @return A future with the execution result.
-     */
-    <R> CompletableFuture<R> run(Command cmd);
-
-    /**
      * Shutdown and cleanup resources for this instance.
      */
     void shutdown();
@@ -245,6 +232,12 @@ public interface RaftGroupService {
      *
      * @return Cluster service.
      */
-    @TestOnly
     ClusterService clusterService();
+
+    /**
+     * Updates peers and learners lists in raft client.
+     *
+     * @param configuration Peers and learners configuration.
+     */
+    void updateConfiguration(PeersAndLearners configuration);
 }

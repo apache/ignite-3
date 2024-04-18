@@ -20,7 +20,7 @@ package org.apache.ignite.internal.util;
 import java.util.Iterator;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Closeable cursor.

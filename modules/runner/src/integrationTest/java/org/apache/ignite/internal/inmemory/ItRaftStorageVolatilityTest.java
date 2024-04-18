@@ -20,10 +20,10 @@ package org.apache.ignite.internal.inmemory;
 import static ca.seinesoftware.hamcrest.path.PathMatcher.exists;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
@@ -37,17 +37,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.raft.configuration.EntryCountBudgetChange;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageChange;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.Test;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -60,6 +58,7 @@ import org.rocksdb.Slice;
  * Tests for making sure that RAFT groups corresponding to partition stores of in-memory tables use volatile
  * storages for storing RAFT meta and RAFT log, while they are persistent for persistent storages.
  */
+@WithSystemProperty(key = JraftServerImpl.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
 class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     private static final String TABLE_NAME = "test";
 
@@ -78,11 +77,11 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createInMemoryTable() {
-        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE aimem");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " WITH STORAGE_PROFILES = '" + DEFAULT_AIMEM_PROFILE_NAME + "'");
 
         executeSql("CREATE TABLE " + TABLE_NAME
-                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_"
-                + TABLE_NAME.toUpperCase() + "'");
+                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH STORAGE_PROFILE='"
+                + DEFAULT_AIMEM_PROFILE_NAME + "', PRIMARY_ZONE='ZONE_" + TABLE_NAME.toUpperCase() + "'");
     }
 
     /**
@@ -111,8 +110,8 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private int testTableId(IgniteImpl ignite) {
-        TableManager tables = (TableManager) ignite.tables();
-        return tables.tableImpl(TABLE_NAME).tableId();
+        TableManager tables = unwrapTableManager(ignite.tables());
+        return tables.tableView(TABLE_NAME).tableId();
     }
 
     @Test
@@ -166,11 +165,13 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createPersistentTable() {
-        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE rocksdb");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME
+                + " WITH STORAGE_PROFILES = '" + DEFAULT_ROCKSDB_PROFILE_NAME + "'");
 
         executeSql("CREATE TABLE " + TABLE_NAME
-                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_"
-                + TABLE_NAME.toUpperCase() + "'");
+                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) "
+                + "WITH STORAGE_PROFILE='" + DEFAULT_ROCKSDB_PROFILE_NAME + "',"
+                + "PRIMARY_ZONE='ZONE_" + TABLE_NAME.toUpperCase() + "'");
     }
 
     @Test
@@ -227,31 +228,30 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void logSpillsOutToDisk() {
-        node(0).nodeConfiguration().getConfiguration(RaftConfiguration.KEY).change(cfg -> {
-            cfg.changeVolatileRaft(change -> {
-                change.changeLogStorage(budgetChange -> budgetChange.convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1));
-            });
-        });
-
         createTableWithMaxOneInMemoryEntryAllowed("PERSON");
 
         executeSql("INSERT INTO PERSON(ID, NAME) VALUES (1, 'JOHN')");
         executeSql("INSERT INTO PERSON(ID, NAME) VALUES (2, 'JANE')");
     }
 
+    @SuppressWarnings("resource")
     private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
-        int zoneId = await(createZone(
-                node(0).distributionZoneManager(), "zone1", 1, DEFAULT_PARTITION_COUNT,
-                dataStorageChange -> dataStorageChange.convert(VolatilePageMemoryDataStorageChange.class)));
+        CompletableFuture<Void> configUpdateFuture = node(0).nodeConfiguration().getConfiguration(RaftConfiguration.KEY).change(cfg -> {
+            cfg.changeVolatileRaft(change -> {
+                change.changeLogStorage(budgetChange -> budgetChange.convert(EntryCountBudgetChange.class).changeEntriesCountLimit(1));
+            });
+        });
+        assertThat(configUpdateFuture, willCompleteSuccessfully());
 
-        TableDefinition tableDef = SchemaBuilders.tableBuilder("PUBLIC", tableName).columns(
-                SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build()
-        ).withPrimaryKey("ID").build();
-
-        await(((TableManager) node(0).tables()).createTableAsync(tableName, DEFAULT_ZONE_NAME, tableChange -> {
-            SchemaConfigurationConverter.convert(tableDef, tableChange)
-                    .changeZoneId(zoneId);
-        }));
+        cluster.doInSession(0, session -> {
+            session.execute(
+                    null,
+                    "create zone zone1 with partitions=1, replicas=1, "
+                            + "storage_profiles = '" + DEFAULT_AIMEM_PROFILE_NAME + "'"
+            );
+            session.execute(null, "create table " + tableName
+                    + " (id int primary key, name varchar) with storage_profile='"
+                    + DEFAULT_AIMEM_PROFILE_NAME + "', primary_zone='ZONE1'");
+        });
     }
 }

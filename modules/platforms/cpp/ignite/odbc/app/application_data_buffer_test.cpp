@@ -925,7 +925,12 @@ TEST_F(application_data_buffer_test, get_timestamp_from_date) {
 
     auto ts = app_buf.get_timestamp();
 
-    EXPECT_EQ(454449600, ts.get_epoch_second());
+    tm tm_time{};
+    tm_time.tm_year = 84;
+    tm_time.tm_mon = 4;
+    tm_time.tm_mday = 27;
+
+    EXPECT_EQ(mktime(&tm_time), ts.get_epoch_second());
     EXPECT_EQ(0, ts.get_nano());
 }
 
@@ -984,7 +989,15 @@ TEST_F(application_data_buffer_test, get_timestamp_from_timestamp) {
 
     auto ts = app_buf.get_timestamp();
 
-    EXPECT_EQ(1092450891, ts.get_epoch_second());
+    tm tm_time{};
+    tm_time.tm_year = 104;
+    tm_time.tm_mon = 7;
+    tm_time.tm_mday = 14;
+    tm_time.tm_hour = 6;
+    tm_time.tm_min = 34;
+    tm_time.tm_sec = 51;
+
+    EXPECT_EQ(mktime(&tm_time), ts.get_epoch_second());
     EXPECT_EQ(573948623, ts.get_nano());
 }
 

@@ -17,13 +17,13 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -45,7 +45,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Statement test.
@@ -83,10 +82,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
     /** {@inheritDoc} */
     @BeforeEach
-    @Override
-    protected void beforeTest(TestInfo testInfo) throws Exception {
-        super.beforeTest(testInfo);
-
+    protected void beforeTest() throws Exception {
         pstmt = conn.prepareStatement(SQL_PREPARED);
 
         assertNotNull(pstmt);
@@ -99,15 +95,12 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
     /** {@inheritDoc} */
     @AfterEach
-    @Override
-    protected void afterTest(TestInfo testInfo) throws Exception {
+    protected void afterTest() throws Exception {
         if (pstmt != null && !pstmt.isClosed()) {
             pstmt.close();
         }
 
         assertTrue(pstmt.isClosed());
-
-        super.afterTest(testInfo);
     }
 
     @Test
@@ -136,7 +129,10 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
         stmt.addBatch(ins1 + ";" + ins2);
 
-        assertThrows(BatchUpdateException.class, () -> stmt.executeBatch(), "Multiple statements are not allowed.");
+        assertThrowsSqlException(
+                BatchUpdateException.class,
+                "Multiple statements are not allowed.",
+                () -> stmt.executeBatch());
     }
 
     @Test
@@ -147,17 +143,17 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         stmt2.close();
         pstmt2.close();
 
-        assertThrows(SQLException.class, () -> stmt2.addBatch(""), "Statement is closed.");
+        assertThrowsSqlException("Statement is closed.", () -> stmt2.addBatch(""));
 
-        assertThrows(SQLException.class, stmt2::clearBatch, "Statement is closed.");
+        assertThrowsSqlException("Statement is closed.", stmt2::clearBatch);
 
-        assertThrows(SQLException.class, stmt2::executeBatch, "Statement is closed.");
+        assertThrowsSqlException("Statement is closed.", stmt2::executeBatch);
 
-        assertThrows(SQLException.class, pstmt2::addBatch, "Statement is closed.");
+        assertThrowsSqlException("Statement is closed.", pstmt2::addBatch);
 
-        assertThrows(SQLException.class, pstmt2::clearBatch, "Statement is closed.");
+        assertThrowsSqlException("Statement is closed.", pstmt2::clearBatch);
 
-        assertThrows(SQLException.class, pstmt2::executeBatch, "Statement is closed.");
+        assertThrowsSqlException("Statement is closed.", pstmt2::executeBatch);
     }
 
     @Test
@@ -176,7 +172,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             assertEquals(0, updCnts.length, "Invalid update counts size");
 
-            assertThat(e.getMessage(), containsString("Given statement type does not match that declared by JDBC driver"));
+            assertThat(e.getMessage(), containsString("Invalid SQL statement type"));
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
             assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
@@ -221,24 +217,21 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         stmt.addBatch("insert into Person (id, firstName, lastName, age) values "
                 + generateValues(100, 7));
 
-        try {
-            stmt.executeBatch();
+        BatchUpdateException e = assertThrowsSqlException(
+                BatchUpdateException.class,
+                "Invalid SQL statement type",
+                stmt::executeBatch);
 
-            fail("BatchUpdateException must be thrown");
-        } catch (BatchUpdateException e) {
-            int[] updCnts = e.getUpdateCounts();
+        int[] updCnts = e.getUpdateCounts();
 
-            assertEquals(successUpdates, updCnts.length, "Invalid update counts size");
+        assertEquals(successUpdates, updCnts.length, "Invalid update counts size");
 
-            for (int i = 0; i < successUpdates; ++i) {
-                assertEquals(i + 1, updCnts[i], "Invalid update count");
-            }
-
-            assertThat(e.getMessage(), containsString("Given statement type does not match that declared by JDBC driver"));
-
-            assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
-            assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
+        for (int i = 0; i < successUpdates; ++i) {
+            assertEquals(i + 1, updCnts[i], "Invalid update count");
         }
+
+        assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
+        assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
     }
 
     @Test
@@ -410,11 +403,12 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
                 + "tt_date date, "
                 + "tt_time time, "
                 + "tt_timestamp timestamp, "
+                + "tt_timestamp_tz timestamp with local time zone, "
                 + "PRIMARY KEY (tt_id));");
 
         PreparedStatement prepStmt = conn.prepareStatement(
-                "INSERT INTO timetypes(tt_id, tt_date, tt_time, tt_timestamp)"
-                        + " VALUES (?, ?, ?, ?)");
+                "INSERT INTO timetypes(tt_id, tt_date, tt_time, tt_timestamp, tt_timestamp_tz)"
+                        + " VALUES (?, ?, ?, ?, ?)");
 
         Date date = Date.valueOf(LocalDate.now());
         Time time = Time.valueOf(LocalTime.now());
@@ -424,6 +418,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         prepStmt.setLong(idx++, 1);
         prepStmt.setDate(idx++, date);
         prepStmt.setTime(idx++, time);
+        prepStmt.setTimestamp(idx++, ts);
         prepStmt.setTimestamp(idx, ts);
         prepStmt.addBatch();
 
@@ -435,6 +430,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         assertEquals(date, res.getDate(2));
         assertEquals(time, res.getTime(3));
         assertEquals(ts, res.getTimestamp(4));
+        assertEquals(ts, res.getTimestamp(5));
 
         stmt0.execute("DROP TABLE timetypes");
         stmt0.close();

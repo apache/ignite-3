@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.pagememory;
 
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Class responsible for acquiring/releasing and locking/unlocking pages.
  */
-//TODO IGNITE-16350 Document a naming convention for "page" and "pageAddr" parameters.
+// TODO IGNITE-16350 Document a naming convention for "page" and "pageAddr" parameters.
 public interface PageSupport {
     /**
      * Returns an absolute pointer to a page, associated with the given page ID. Each pointer obtained with this method must be released by

@@ -16,18 +16,21 @@
  */
 package org.apache.ignite.raft.jraft.disruptor;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import com.lmax.disruptor.BlockingWaitStrategy;
 import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.ExceptionHandler;
 import com.lmax.disruptor.RingBuffer;
+import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadFactory;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -65,35 +68,78 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * If {@code false}, this stripe will always pass {@code true} into {@link EventHandler#onEvent(Object, long, boolean)}.
      * Otherwise, the data will be provided with batches.
      */
-    //TODO: IGNITE-15568 endOfBatch should be set to true to prevent caching tasks until IGNITE-15568 has fixed.
+    // TODO: IGNITE-15568 endOfBatch should be set to true to prevent caching tasks until IGNITE-15568 has fixed.
     private final boolean supportsBatches;
 
     /**
-     * @param name Name of the Striped disruptor.
+     * @param nodeName Name of the Ignite node.
+     * @param poolName Name of the pool.
      * @param bufferSize Buffer size for each Disruptor.
      * @param eventFactory Event factory for the Striped disruptor.
      * @param stripes Amount of stripes.
      * @param supportsBatches If {@code false}, this stripe will always pass {@code true} into
      *      {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
+     * @param useYieldStrategy If {@code true}, the yield strategy is to be used, otherwise the blocking strategy.
      */
-    public StripedDisruptor(String name, int bufferSize, EventFactory<T> eventFactory, int stripes, boolean supportsBatches) {
+    public StripedDisruptor(
+            String nodeName,
+            String poolName,
+            int bufferSize,
+            EventFactory<T> eventFactory,
+            int stripes,
+            boolean supportsBatches,
+            boolean useYieldStrategy
+    ) {
+        this(
+                nodeName,
+                poolName,
+                (igniteName, stripeName) -> NamedThreadFactory.create(igniteName, stripeName, true, LOG),
+                bufferSize,
+                eventFactory,
+                stripes,
+                supportsBatches,
+                useYieldStrategy
+        );
+    }
+
+    /**
+     * @param nodeName Name of the Ignite node.
+     * @param poolName Name of the pool.
+     * @param threadFactorySupplier Function that produces a thread factory given stripe name.
+     * @param bufferSize Buffer size for each Disruptor.
+     * @param eventFactory Event factory for the Striped disruptor.
+     * @param stripes Amount of stripes.
+     * @param supportsBatches If {@code false}, this stripe will always pass {@code true} into
+     *      {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
+     * @param useYieldStrategy If {@code true}, the yield strategy is to be used, otherwise the blocking strategy.
+     */
+    public StripedDisruptor(
+            String nodeName,
+            String poolName,
+            BiFunction<String, String, ThreadFactory> threadFactorySupplier,
+            int bufferSize,
+            EventFactory<T> eventFactory,
+            int stripes,
+            boolean supportsBatches,
+            boolean useYieldStrategy
+    ) {
         disruptors = new Disruptor[stripes];
         queues = new RingBuffer[stripes];
         eventHandlers = new ArrayList<>(stripes);
         exceptionHandlers = new ArrayList<>(stripes);
         this.stripes = stripes;
-        this.name = name;
+        this.name = NamedThreadFactory.threadPrefix(nodeName, poolName);
         this.supportsBatches = supportsBatches;
 
         for (int i = 0; i < stripes; i++) {
-            String stripeName = format("{}_stripe_{}-", name, i);
+            String stripeName = format("{}_stripe_{}", poolName, i);
 
             Disruptor<T> disruptor = DisruptorBuilder.<T>newInstance()
                 .setRingBufferSize(bufferSize)
                 .setEventFactory(eventFactory)
-                .setThreadFactory(new NamedThreadFactory(stripeName, true, LOG))
+                .setThreadFactory(threadFactorySupplier.apply(nodeName, stripeName))
                 .setProducerType(ProducerType.MULTI)
-                .setWaitStrategy(new BlockingWaitStrategy())
+                .setWaitStrategy(useYieldStrategy ? new YieldingWaitStrategy() : new BlockingWaitStrategy())
                 .build();
 
             eventHandlers.add(new StripeEntryHandler());
@@ -221,9 +267,12 @@ public class StripedDisruptor<T extends NodeIdAware> {
         @Override public void onEvent(T event, long sequence, boolean endOfBatch) throws Exception {
             EventHandler<T> handler = subscribers.get(event.nodeId());
 
-            assert handler != null : format("Group of the event is unsupported [nodeId={}, event={}]", event.nodeId(), event);
-
-            handler.onEvent(event, sequence, endOfBatch || subscribers.size() > 1 && !supportsBatches);
+            // TODO: IGNITE-20536 Need to add assert that handler is not null and to implement a no-op handler.
+            if (handler != null) {
+                handler.onEvent(event, sequence, endOfBatch || subscribers.size() > 1 && !supportsBatches);
+            } else {
+                LOG.warn(format("Group of the event is unsupported [nodeId={}, event={}]", event.nodeId(), event));
+            }
         }
     }
 

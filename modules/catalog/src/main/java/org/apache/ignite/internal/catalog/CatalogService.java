@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.catalog;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.manager.EventListener;
+import org.apache.ignite.internal.event.EventProducer;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -33,36 +37,77 @@ import org.jetbrains.annotations.Nullable;
  * <p>Catalog service listens distributed schema update event, stores/restores schema evolution history (schema versions) for time-travelled
  * queries purposes and for lazy data evolution purposes.
  *
+ * <p>Notes:</p>
+ * <ul>
+ *     <li>Events are fired in the metastore thread.</li>
+ * </ul>
+ *
  * <p>TBD: events
  */
-public interface CatalogService {
+public interface CatalogService extends EventProducer<CatalogEvent, CatalogEventParameters> {
     String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
-    String DEFAULT_ZONE_NAME = "Default";
+    String SYSTEM_SCHEMA_NAME = "SYSTEM";
 
-    CatalogTableDescriptor table(String tableName, long timestamp);
+    /** Default storage profile. */
+    String DEFAULT_STORAGE_PROFILE = "default";
 
-    CatalogTableDescriptor table(int tableId, long timestamp);
+    @Nullable Catalog catalog(int catalogVersion);
 
-    CatalogTableDescriptor table(int tableId, int catalogVersion);
+    @Nullable CatalogTableDescriptor table(String tableName, long timestamp);
 
-    CatalogIndexDescriptor index(String indexName, long timestamp);
+    @Nullable CatalogTableDescriptor table(int tableId, long timestamp);
 
-    CatalogIndexDescriptor index(int indexId, long timestamp);
+    @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion);
 
-    CatalogSchemaDescriptor schema(int version);
+    Collection<CatalogTableDescriptor> tables(int catalogVersion);
 
-    CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
+    /**
+     * Returns an <em>alive</em> index with the given name, that is an index that has not been dropped yet at a given point in time.
+     *
+     * <p>This effectively means that the index must be present in the Catalog and not in the {@link CatalogIndexStatus#STOPPING}
+     * state.
+     */
+    @Nullable CatalogIndexDescriptor aliveIndex(String indexName, long timestamp);
 
-    CatalogZoneDescriptor zone(String zoneName, long timestamp);
+    @Nullable CatalogIndexDescriptor index(int indexId, long timestamp);
 
-    CatalogZoneDescriptor zone(int zoneId, long timestamp);
+    @Nullable CatalogIndexDescriptor index(int indexId, int catalogVersion);
 
-    CatalogSchemaDescriptor activeSchema(long timestamp);
+    Collection<CatalogIndexDescriptor> indexes(int catalogVersion);
 
-    CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
+    List<CatalogIndexDescriptor> indexes(int catalogVersion, int tableId);
+
+    @Nullable CatalogSchemaDescriptor schema(int catalogVersion);
+
+    @Nullable CatalogSchemaDescriptor schema(@Nullable String schemaName, int catalogVersion);
+
+    @Nullable CatalogSchemaDescriptor schema(int schemaId, int catalogVersion);
+
+    @Nullable CatalogZoneDescriptor zone(String zoneName, long timestamp);
+
+    @Nullable CatalogZoneDescriptor zone(int zoneId, long timestamp);
+
+    @Nullable CatalogZoneDescriptor zone(int zoneId, int catalogVersion);
+
+    Collection<CatalogZoneDescriptor> zones(int catalogVersion);
+
+    @Nullable CatalogSchemaDescriptor activeSchema(long timestamp);
+
+    @Nullable CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
 
     int activeCatalogVersion(long timestamp);
 
-    void listen(CatalogEvent evt, EventListener<CatalogEventParameters> closure);
+    /** Returns the earliest registered version of the catalog. */
+    int earliestCatalogVersion();
+
+    /** Returns the latest registered version of the catalog. */
+    int latestCatalogVersion();
+
+    /**
+     * Returns a future, which completes, when catalog of given version will be available.
+     *
+     * @param version Catalog version to wait for.
+     */
+    CompletableFuture<Void> catalogReadyFuture(int version);
 }

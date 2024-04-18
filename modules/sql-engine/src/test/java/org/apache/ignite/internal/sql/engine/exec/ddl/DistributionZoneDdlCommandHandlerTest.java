@@ -17,206 +17,87 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
-import java.util.Arrays;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.index.IndexManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
+import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
-import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
-import org.mockito.stubbing.Answer;
 
 /**
  * Tests distribution zone commands handling.
  */
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
-    /** Holder of the result of the invoked method. */
-    private final AtomicReference<Object[]> invocationResultHolder = new AtomicReference<>();
+    private static final String ZONE_NAME = "test_zone";
 
-    @Mock
-    private TableManager tableManager;
-
-    @Mock
-    private IndexManager indexManager;
-
-    @Mock
-    private DataStorageManager dataStorageManager;
-
-    /** DDL commands handler. */
     private DdlCommandHandler commandHandler;
 
-    /** Inner initialisation. */
+    private CatalogManager catalogManager;
+
     @BeforeEach
     void before() {
-        DistributionZoneManager distributionZoneManager = Mockito.mock(DistributionZoneManager.class,
-                (Answer<CompletableFuture<Void>>) invocationOnMock -> {
-                    Object[] arguments = invocationOnMock.getArguments();
-                    invocationResultHolder.set(Arrays.copyOf(arguments, arguments.length, Object[].class));
+        catalogManager = mock(CatalogManager.class, invocation -> nullCompletedFuture());
 
-                    return CompletableFuture.completedFuture(null);
-                });
-
-        commandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
+        commandHandler = new DdlCommandHandler(catalogManager, mock(ClockService.class, invocation -> nullCompletedFuture()), () -> 100);
     }
-
 
     @Test
     public void testCreateZone() {
         CreateZoneCommand cmd = new CreateZoneCommand();
-        cmd.zoneName("test_zone");
+        cmd.zoneName(ZONE_NAME);
+        cmd.storageProfiles(DEFAULT_STORAGE_PROFILE);
 
         invokeHandler(cmd);
-        DistributionZoneConfigurationParameters params = getArgument(0);
 
-        assertNotNull(params);
-        assertThat(params.name(), equalTo(cmd.zoneName()));
-    }
-
-    @Test
-    public void testCreateZoneOptions() {
-        String name = "test_zone";
-        int autoAdjust = 1;
-        int autoAdjustScaleUp = 2;
-        int autoAdjustScaleDown = 3;
-
-        // Invalid options combination.
-        CreateZoneCommand cmdInvalidOptions = new CreateZoneCommand();
-        cmdInvalidOptions.zoneName(name);
-        cmdInvalidOptions.dataNodesAutoAdjust(autoAdjust);
-        cmdInvalidOptions.dataNodesAutoAdjustScaleUp(autoAdjustScaleUp);
-        cmdInvalidOptions.dataNodesAutoAdjustScaleDown(autoAdjustScaleDown);
-
-        assertThrows(IllegalArgumentException.class, () -> invokeHandler(cmdInvalidOptions));
-
-        // Valid options combination.
-        CreateZoneCommand cmdValidArguments1 = new CreateZoneCommand();
-        cmdValidArguments1.zoneName(name);
-        cmdValidArguments1.dataNodesAutoAdjust(autoAdjust);
-
-        invokeHandler(cmdValidArguments1);
-        DistributionZoneConfigurationParameters params = getArgument(0);
-
-        assertNotNull(params);
-        assertThat(params.dataNodesAutoAdjust(), equalTo(autoAdjust));
-
-        // Another valid options combination.
-        CreateZoneCommand cmdValidArguments2 = new CreateZoneCommand();
-        cmdValidArguments2.zoneName(name);
-        cmdValidArguments2.dataNodesAutoAdjustScaleUp(autoAdjustScaleUp);
-        cmdValidArguments2.dataNodesAutoAdjustScaleDown(autoAdjustScaleDown);
-
-        invokeHandler(cmdValidArguments2);
-        params = getArgument(0);
-
-        assertThat(params.dataNodesAutoAdjustScaleUp(), equalTo(autoAdjustScaleUp));
-        assertThat(params.dataNodesAutoAdjustScaleDown(), equalTo(autoAdjustScaleDown));
+        verify(catalogManager).execute(any(org.apache.ignite.internal.catalog.commands.CreateZoneCommand.class));
     }
 
     @Test
     public void testRenameZone() {
-        String name = "test_zone";
-        String newName = "new_test_zone";
-
         AlterZoneRenameCommand renameCmd = new AlterZoneRenameCommand();
-        renameCmd.zoneName(name);
-        renameCmd.newZoneName(newName);
+        renameCmd.zoneName(ZONE_NAME);
+        renameCmd.newZoneName(ZONE_NAME + "_new");
+
         invokeHandler(renameCmd);
 
-        String zoneName = getArgument(0);
-        DistributionZoneConfigurationParameters params = getArgument(1);
-
-        assertEquals(name, zoneName);
-        assertEquals(newName, params.name());
+        verify(catalogManager).execute(any(RenameZoneCommand.class));
     }
 
     @Test
     public void testAlterZone() {
-        String name = "test_zone";
-        int autoAdjust = 1;
-        int autoAdjustScaleUp = 2;
-        int autoAdjustScaleDown = 3;
-        int partitions = 4;
-        String nodeFilter = "a = 1";
-        int replicas = 5;
+        AlterZoneSetCommand cmd = new AlterZoneSetCommand();
+        cmd.zoneName(ZONE_NAME);
 
-        // Valid options combination.
-        AlterZoneSetCommand cmdValidArguments1 = new AlterZoneSetCommand();
-        cmdValidArguments1.zoneName(name);
-        cmdValidArguments1.dataNodesAutoAdjust(autoAdjust);
-        cmdValidArguments1.partitions(partitions);
-        cmdValidArguments1.nodeFilter(nodeFilter);
-        cmdValidArguments1.replicas(replicas);
+        invokeHandler(cmd);
 
-        invokeHandler(cmdValidArguments1);
-
-        assertEquals(name, getArgument(0));
-        DistributionZoneConfigurationParameters params = getArgument(1);
-
-        assertNotNull(params);
-        assertThat(params.dataNodesAutoAdjust(), equalTo(autoAdjust));
-        assertThat(params.partitions(), equalTo(partitions));
-        assertThat(params.filter(), equalTo(nodeFilter));
-        assertThat(params.replicas(), equalTo(replicas));
-
-        // Invalid options combination.
-        AlterZoneSetCommand cmdInvalidOptions = new AlterZoneSetCommand();
-        cmdInvalidOptions.zoneName(name);
-        cmdInvalidOptions.dataNodesAutoAdjust(autoAdjust);
-        cmdInvalidOptions.dataNodesAutoAdjustScaleUp(autoAdjustScaleUp);
-        cmdInvalidOptions.dataNodesAutoAdjustScaleDown(autoAdjustScaleDown);
-
-        assertThrows(IllegalArgumentException.class, () -> invokeHandler(cmdInvalidOptions));
+        verify(catalogManager).execute(any(AlterZoneCommand.class));
     }
 
     @Test
     public void testDropZone() {
         DropZoneCommand cmd = new DropZoneCommand();
-        cmd.zoneName("test_zone");
+        cmd.zoneName(ZONE_NAME);
 
         invokeHandler(cmd);
 
-        String name = getArgument(0);
-        assertThat(name, equalTo(cmd.zoneName()));
+        verify(catalogManager).execute(any(org.apache.ignite.internal.catalog.commands.DropZoneCommand.class));
     }
 
     private void invokeHandler(DdlCommand cmd) {
-        commandHandler.handle(cmd);
-    }
-
-    private <T> T getArgument(int index) {
-        Object[] arguments = invocationResultHolder.get();
-        if (index >= arguments.length) {
-            String errorMessage = String.format(
-                    "DistributionZoneManager has been called with the following arguments: %s"
-                            + "The index %d is out of bounds for the arguments array of size %d.",
-                    Arrays.toString(arguments), index, arguments.length);
-
-            throw new IllegalArgumentException(errorMessage);
-        }
-
-        return (T) arguments[index];
+        assertThat(commandHandler.handle(cmd), willCompleteSuccessfully());
     }
 }

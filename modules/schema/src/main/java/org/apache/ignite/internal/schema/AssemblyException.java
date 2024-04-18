@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * The exception is thrown when the row assembler encountered an unrecoverable error during the row marshalling. After the exception is

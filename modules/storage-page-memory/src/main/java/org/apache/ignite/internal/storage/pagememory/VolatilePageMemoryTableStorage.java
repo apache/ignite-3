@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPart
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 import org.apache.ignite.internal.storage.pagememory.mv.VolatilePageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for in-memory case.
@@ -40,7 +40,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     private final VolatilePageMemoryDataRegion dataRegion;
 
-    private final GradualTaskExecutor destructionExecutor;
+    private final ExecutorService destructionExecutor;
 
     /**
      * Constructor.
@@ -54,7 +54,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier,
             VolatilePageMemoryDataRegion dataRegion,
-            GradualTaskExecutor destructionExecutor
+            ExecutorService destructionExecutor
     ) {
         super(tableDescriptor, indexDescriptorSupplier);
 
@@ -163,9 +163,9 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
     @Override
     CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
-        VolatilePageMemoryMvPartitionStorage volatilePartitionStorage = ((VolatilePageMemoryMvPartitionStorage) mvPartitionStorage);
+        VolatilePageMemoryMvPartitionStorage volatilePartitionStorage = (VolatilePageMemoryMvPartitionStorage) mvPartitionStorage;
 
-        volatilePartitionStorage.cleanStructuresData();
+        volatilePartitionStorage.destroyStructures();
 
         int partitionId = mvPartitionStorage.partitionId();
 
@@ -175,19 +175,21 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
                 createGarbageCollectionTree(partitionId)
         );
 
-        return completedFuture(null);
+        return nullCompletedFuture();
     }
 
     @Override
     CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
-        mvPartitionStorage.closeForDestruction();
-
         VolatilePageMemoryMvPartitionStorage volatilePartitionStorage = (VolatilePageMemoryMvPartitionStorage) mvPartitionStorage;
 
-        // We ignore the future returned by destroyStructures() on purpose: the destruction happens in the background,
-        // we don't care when it finishes.
-        volatilePartitionStorage.destroyStructures();
+        boolean transitioned = volatilePartitionStorage.transitionToDestroyedState();
+        if (!transitioned) {
+            // Someone has already started destruction (in which case we don't need to do anything), or closed the storage
+            // (which means the node is going down, so the volatile storage does not need to be destroyed).
+            return nullCompletedFuture();
+        }
 
-        return completedFuture(null);
+        return volatilePartitionStorage.destroyStructures()
+                .whenComplete((v, e) -> volatilePartitionStorage.closeResources());
     }
 }

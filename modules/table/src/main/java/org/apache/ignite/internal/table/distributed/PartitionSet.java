@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import java.util.PrimitiveIterator.OfInt;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Represents a collection of partition IDs.
@@ -27,6 +28,11 @@ public interface PartitionSet {
     PartitionSet EMPTY_SET = new PartitionSet() {
         @Override
         public void set(int partitionId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void clear(int partitionId) {
             throw new UnsupportedOperationException();
         }
 
@@ -67,6 +73,13 @@ public interface PartitionSet {
      * @param partitionId Partition ID.
      */
     void set(int partitionId);
+
+    /**
+     * Removes the partition from the partition set.
+     *
+     * @param partitionId Partition ID.
+     */
+    void clear(int partitionId);
 
     /**
      * Returns {@code true} if partition with {@code partitionId} is present in this set, {@code false} otherwise.
@@ -134,5 +147,59 @@ public interface PartitionSet {
         }
 
         return h;
+    }
+
+    /**
+     * Returns an immutable set of partition IDs containing a single value.
+     *
+     * @param partId Partition ID.
+     */
+    static PartitionSet of(int partId) {
+        return new PartitionSet() {
+            @Override
+            public void set(int partitionId) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void clear(int partitionId) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public boolean get(int partitionId) {
+                return partitionId == partId;
+            }
+
+            @Override
+            public IntStream stream() {
+                return IntStream.of(partId);
+            }
+
+            @Override
+            public int size() {
+                return 1;
+            }
+
+            @Override
+            public PartitionSet copy() {
+                return PartitionSet.of(partId);
+            }
+
+            @Override
+            public int hashCode() {
+                return getHashCode();
+            }
+
+            @Override
+            public boolean equals(Object o) {
+                return isEqual(o);
+            }
+
+            @Override
+            public String toString() {
+                return S.toString(PartitionSet.class, this, "partitionId=" + partId);
+            }
+        };
     }
 }

@@ -25,10 +25,10 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId
 import java.util.Comparator;
 import java.util.List;
 import java.util.RandomAccess;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**

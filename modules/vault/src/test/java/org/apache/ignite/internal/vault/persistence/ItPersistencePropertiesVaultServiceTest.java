@@ -18,21 +18,19 @@
 package org.apache.ignite.internal.vault.persistence;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultEntry;
-import org.apache.ignite.lang.ByteArray;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -48,39 +46,37 @@ class ItPersistencePropertiesVaultServiceTest {
      * Tests that the Vault Service correctly persists data after multiple service restarts.
      */
     @Test
-    void testPersistentRestart() throws Exception {
+    void testPersistentRestart() {
         var data = Map.of(
                 new ByteArray("key" + 1), fromString("value" + 1),
                 new ByteArray("key" + 2), fromString("value" + 2),
                 new ByteArray("key" + 3), fromString("value" + 3)
         );
 
-        String nodeName = "test";
-
-        var service = new PersistentVaultService(nodeName, vaultDir);
+        var service = new PersistentVaultService(vaultDir);
 
         try {
             service.start();
 
-            assertThat(service.putAll(data), willBe(nullValue(Void.class)));
+            service.putAll(data);
         } finally {
             service.close();
         }
 
-        service = new PersistentVaultService(nodeName, vaultDir);
+        service = new PersistentVaultService(vaultDir);
 
         try {
             service.start();
 
             assertThat(
                     service.get(new ByteArray("key" + 1)),
-                    willBe(equalTo(new VaultEntry(new ByteArray("key" + 1), fromString("value" + 1))))
+                    is(equalTo(new VaultEntry(new ByteArray("key" + 1), fromString("value" + 1))))
             );
         } finally {
             service.close();
         }
 
-        service = new PersistentVaultService(nodeName, vaultDir);
+        service = new PersistentVaultService(vaultDir);
 
         try {
             service.start();

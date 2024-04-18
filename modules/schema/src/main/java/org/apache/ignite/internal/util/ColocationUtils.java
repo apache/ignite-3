@@ -25,9 +25,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.DecimalNativeType;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.TemporalNativeType;
+import org.apache.ignite.internal.type.DecimalNativeType;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.TemporalNativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**

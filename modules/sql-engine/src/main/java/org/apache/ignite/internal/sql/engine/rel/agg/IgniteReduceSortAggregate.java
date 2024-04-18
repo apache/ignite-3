@@ -42,6 +42,8 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteReduceSortAggregate extends IgniteReduceAggregateBase implements IgniteSortAggregateBase {
+    private static final String REL_TYPE_NAME = "ReduceSortAggregate";
+
     /** Collation. */
     private final RelCollation collation;
 
@@ -132,5 +134,17 @@ public class IgniteReduceSortAggregate extends IgniteReduceAggregateBase impleme
                 rows * IgniteCost.ROW_PASS_THROUGH_COST,
                 0
         );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelCollation collation() {
+        return collation;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

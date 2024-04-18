@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.sql.engine.message;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
-import org.apache.ignite.network.NetworkMessage;
 
 /**
  * MessageService interface.

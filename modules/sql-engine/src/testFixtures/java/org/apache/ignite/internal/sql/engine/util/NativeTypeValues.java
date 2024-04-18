@@ -31,8 +31,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 

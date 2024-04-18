@@ -44,6 +44,11 @@ public interface StorageEngine {
     void stop() throws StorageException;
 
     /**
+     * Whether the data is lost upon engine restart or not.
+     */
+    boolean isVolatile();
+
+    /**
      * Creates new table storage.
      *
      * @param tableDescriptor Table descriptor.
@@ -52,4 +57,12 @@ public interface StorageEngine {
      */
     // TODO: IGNITE-19717 Get rid of indexDescriptorSupplier
     MvTableStorage createMvTable(StorageTableDescriptor tableDescriptor, StorageIndexDescriptorSupplier indexDescriptorSupplier);
+
+    /**
+     * Destroys the table if it exists.
+     *
+     * @param tableId Table ID.
+     * @throws StorageException If an error has occurs while dropping the table.
+     */
+    void dropMvTable(int tableId);
 }

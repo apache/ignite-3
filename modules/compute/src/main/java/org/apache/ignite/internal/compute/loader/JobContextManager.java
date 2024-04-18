@@ -19,14 +19,12 @@ package org.apache.ignite.internal.compute.loader;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.lang.reflect.Array;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
@@ -35,11 +33,12 @@ import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitUnavailableException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.RefCountedObjectPool;
 import org.apache.ignite.lang.ErrorGroups.Compute;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Manages job context.
@@ -99,8 +98,8 @@ public class JobContextManager {
     }
 
     /**
-     * Creates a class loader for the given deployment units. The units will be acquired.
-     * The class loader will be closed when it is not used by any other job.
+     * Creates a class loader for the given deployment units. The units will be acquired. The class loader will be closed when it is not
+     * used by any other job.
      */
     private JobClassLoader createClassLoader(List<DeploymentUnit> units) {
         List<DisposableDeploymentUnit> disposableDeploymentUnits = units.stream()
@@ -110,8 +109,8 @@ public class JobContextManager {
     }
 
     /**
-     * Releases a class loader. If the class loader is not used by any other job,
-     * it will be closed and the deployment units will be released.
+     * Releases a class loader. If the class loader is not used by any other job, it will be closed and the deployment units will be
+     * released.
      */
     private void releaseClassLoader(JobContext jobContext) {
         List<DeploymentUnit> units = jobContext.classLoader().units().stream()
@@ -126,16 +125,14 @@ public class JobContextManager {
      * Check if the deployment units are deployed to the cluster. Only deployed units can be used in compute.
      */
     private CompletableFuture<Void> checkUnitStatuses(List<DeploymentUnit> units) {
-        return mapList(units, Void.class, this::checkUnitStatus)
-                .thenApply(v -> null);
+        return mapList(units, this::checkUnitStatus, CompletableFuture::allOf);
     }
-
 
     private CompletableFuture<Void> checkUnitStatus(DeploymentUnit unit) {
         return deployment.clusterStatusAsync(unit.name(), unit.version())
                 .thenCompose(clusterStatus -> {
                     if (clusterStatus == DeploymentStatus.DEPLOYED) {
-                        return completedFuture(null);
+                        return nullCompletedFuture();
                     } else if (clusterStatus == null) {
                         return failedFuture(new DeploymentUnitNotFoundException(unit.name(), unit.version()));
                     } else {
@@ -150,24 +147,23 @@ public class JobContextManager {
                 });
     }
 
-
     private CompletableFuture<List<DeploymentUnit>> normalizeVersions(List<DeploymentUnit> units) {
-        return mapList(units, DeploymentUnit.class, this::normalizeVersion);
+        return mapList(units, this::normalizeVersion, CompletableFutures::allOf);
     }
 
     private CompletableFuture<Void> onDemandDeploy(List<DeploymentUnit> units) {
-        return mapList(units, Void.class, it -> {
-            return deployment.onDemandDeploy(it.name(), it.version())
-                    .thenCompose(result -> {
-                        if (result) {
-                            return completedFuture(null);
-                        } else {
-                            return failedFuture(
-                                    new IgniteInternalException(Compute.CLASS_LOADER_ERR, "Failed to deploy on demand unit: " + it.render())
-                            );
-                        }
-                    });
-        }).thenApply(ignored -> null);
+        return mapList(
+                units,
+                unit -> deployment.onDemandDeploy(unit.name(), unit.version())
+                        .thenAccept(result -> {
+                            if (!result) {
+                                throw new IgniteInternalException(
+                                        Compute.CLASS_LOADER_ERR, "Failed to deploy on demand unit: " + unit.render()
+                                );
+                            }
+                        }),
+                CompletableFuture::allOf
+        );
     }
 
     private CompletableFuture<DeploymentUnit> normalizeVersion(DeploymentUnit unit) {
@@ -179,17 +175,17 @@ public class JobContextManager {
         }
     }
 
-    private static <I, O> CompletableFuture<List<O>> mapList(
+    private static <I, O, R> CompletableFuture<R> mapList(
             List<I> list,
-            Class<O> outputClass,
-            Function<I, CompletableFuture<O>> mapper
+            Function<I, CompletableFuture<O>> mapper,
+            Function<CompletableFuture<O>[], CompletableFuture<R>> collector
     ) {
-        O[] accumulator = (O[]) Array.newInstance(outputClass, list.size());
-        CompletableFuture<Void>[] futures = IntStream.range(0, list.size())
-                .mapToObj(id -> mapper.apply(list.get(id))
-                        .thenAccept(result -> accumulator[id] = result))
-                .<CompletableFuture<Void>>toArray(CompletableFuture[]::new);
-        return CompletableFuture.allOf(futures)
-                .thenApply(ignored -> Arrays.asList(accumulator));
+        CompletableFuture<O>[] futures = new CompletableFuture[list.size()];
+
+        for (int i = 0; i < list.size(); i++) {
+            futures[i] = mapper.apply(list.get(i));
+        }
+
+        return collector.apply(futures);
     }
 }

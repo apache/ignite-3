@@ -32,10 +32,13 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
- * IgniteTableModify.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Relational operator that represents DML operation (such as INSERT, UPDATE, DELETE, etc.)
  */
-public class IgniteTableModify extends TableModify implements IgniteRel {
+public class IgniteTableModify extends TableModify implements SourceAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "TableModify";
+
+    private final long sourceId;
+
     /**
      * Creates a {@code TableModify}.
      *
@@ -63,8 +66,42 @@ public class IgniteTableModify extends TableModify implements IgniteRel {
             List<RexNode> sourceExpressionList,
             boolean flattened
     ) {
+        this(-1, cluster, traitSet, table, input, operation, updateColumnList,
+                sourceExpressionList, flattened);
+    }
+
+    /**
+     * Creates a {@code TableModify}.
+     *
+     * <p>The UPDATE operation has format like this:
+     * <blockquote>
+     * <pre>UPDATE table SET iden1 = exp1, ident2 = exp2  WHERE condition</pre>
+     * </blockquote>
+     *
+     * @param sourceId             Source Id.
+     * @param cluster              Cluster this relational expression belongs to.
+     * @param traitSet             Traits of this relational expression.
+     * @param table                Target table to modify.
+     * @param input                Sub-query or filter condition.
+     * @param operation            Modify operation (INSERT, UPDATE, DELETE, MERGE).
+     * @param updateColumnList     List of column identifiers to be updated (e.g. ident1, ident2); null if not UPDATE.
+     * @param sourceExpressionList List of value expressions to be set (e.g. exp1, exp2); null if not UPDATE.
+     * @param flattened            Whether set flattens the input row type.
+     */
+    public IgniteTableModify(
+            long sourceId,
+            RelOptCluster cluster,
+            RelTraitSet traitSet,
+            RelOptTable table,
+            RelNode input,
+            Operation operation,
+            List<String> updateColumnList,
+            List<RexNode> sourceExpressionList,
+            boolean flattened
+    ) {
         super(cluster, traitSet, table, Commons.context(cluster).catalogReader(), input, operation, updateColumnList,
                 sourceExpressionList, flattened);
+        this.sourceId = sourceId;
     }
 
     /**
@@ -74,6 +111,7 @@ public class IgniteTableModify extends TableModify implements IgniteRel {
      */
     public IgniteTableModify(RelInput input) {
         this(
+                input.get("sourceId") != null ? ((Number) input.get("sourceId")).longValue() : -1,
                 input.getCluster(),
                 input.getTraitSet().replace(IgniteConvention.INSTANCE),
                 input.getTable("table"),
@@ -89,6 +127,7 @@ public class IgniteTableModify extends TableModify implements IgniteRel {
     @Override
     public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
         return new IgniteTableModify(
+                sourceId,
                 getCluster(),
                 traitSet,
                 getTable(),
@@ -96,7 +135,8 @@ public class IgniteTableModify extends TableModify implements IgniteRel {
                 getOperation(),
                 getUpdateColumnList(),
                 getSourceExpressionList(),
-                isFlattened());
+                isFlattened()
+        );
     }
 
     /** {@inheritDoc} */
@@ -107,16 +147,46 @@ public class IgniteTableModify extends TableModify implements IgniteRel {
 
     /** {@inheritDoc} */
     @Override
+    public IgniteRel clone(long sourceId) {
+        return new IgniteTableModify(
+                sourceId,
+                getCluster(),
+                traitSet,
+                getTable(),
+                input,
+                getOperation(),
+                getUpdateColumnList(),
+                getSourceExpressionList(),
+                isFlattened()
+        );
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgniteTableModify(cluster, getTraitSet(), getTable(), sole(inputs),
+        return new IgniteTableModify(sourceId, cluster, getTraitSet(), getTable(), sole(inputs),
                 getOperation(), getUpdateColumnList(), getSourceExpressionList(), isFlattened());
     }
 
+    /** {@inheritDoc} */
     @Override
     public RelWriter explainTerms(RelWriter pw) {
         // for correct rel obtaining from ExecutionServiceImpl#physNodesCache.
         return super.explainTerms(pw)
-                .itemIf("tableId", Integer.toString(getTable().unwrap(IgniteTable.class).id()),
-                pw.getDetailLevel() == ALL_ATTRIBUTES);
+                .itemIf("tableId", Integer.toString(getTable().unwrap(IgniteTable.class).id()), pw.getDetailLevel() == ALL_ATTRIBUTES)
+                .itemIf("sourceId", sourceId, sourceId != -1);
+
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long sourceId() {
+        return sourceId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

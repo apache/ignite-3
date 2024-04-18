@@ -22,25 +22,23 @@ apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 
 dependencies {
-    implementation project(':ignite-core')
+    annotationProcessor project(':ignite-error-code-annotation-processor')
+
+    implementation project(':ignite-error-code-annotation-processor')
+    implementation libs.fastutil.core
     implementation libs.jetbrains.annotations
 
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
-    testImplementation libs.auto.service.annotations
-    testImplementation testFixtures(project(":ignite-core"))
 
-    testAnnotationProcessor libs.auto.service
-
-    testFixturesAnnotationProcessor libs.micronaut.inject.annotation.processor
-    testFixturesImplementation project(":ignite-core")
-    testFixturesImplementation testFixtures(project(":ignite-core"))
-    testFixturesImplementation libs.typesafe.config
     testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.micronaut.junit5
     testFixturesImplementation libs.jetbrains.annotations
+}
+
+compileJava {
+    options.headerOutputDirectory = file("${projectDir}/../platforms/")
 }
 
 description = 'ignite-api'

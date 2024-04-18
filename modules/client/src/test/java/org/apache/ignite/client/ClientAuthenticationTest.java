@@ -19,17 +19,16 @@ package org.apache.ignite.client;
 
 import java.util.UUID;
 import org.apache.ignite.client.fakes.FakeIgnite;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.security.AuthenticationException;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -38,22 +37,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @SuppressWarnings({"resource", "ThrowableNotThrown"})
 @ExtendWith(ConfigurationExtension.class)
-public class ClientAuthenticationTest {
-    @SuppressWarnings("unused")
-    @InjectConfiguration
-    private AuthenticationConfiguration authenticationConfiguration;
+public class ClientAuthenticationTest extends BaseIgniteAbstractTest {
+    @InjectConfiguration(rootName = "security")
+    private SecurityConfiguration securityConfiguration;
 
     private TestServer server;
 
     private IgniteClient client;
-
-    @BeforeEach
-    public void beforeEach() {
-        authenticationConfiguration.change(change -> {
-            change.changeEnabled(false);
-            change.changeProviders().delete("basic");
-        }).join();
-    }
 
     @AfterEach
     public void afterEach() throws Exception {
@@ -70,14 +60,14 @@ public class ClientAuthenticationTest {
     public void testAuthnOnClientNoAuthnOnServer() {
         server = startServer(false);
 
-        startClient(BasicAuthenticator.builder().username("u").password("p").build());
+        client = startClient(BasicAuthenticator.builder().username("u").password("p").build());
     }
 
     @Test
     public void testAuthnOnServerNoAuthnOnClient() {
         server = startServer(true);
 
-        IgniteTestUtils.assertThrowsWithCause(() -> startClient(null), AuthenticationException.class, "Authentication failed");
+        IgniteTestUtils.assertThrowsWithCause(() -> startClient(null), InvalidCredentialsException.class, "Authentication failed");
     }
 
     @Test
@@ -86,14 +76,14 @@ public class ClientAuthenticationTest {
 
         BasicAuthenticator authenticator = BasicAuthenticator.builder().username("u").password("p").build();
 
-        IgniteTestUtils.assertThrowsWithCause(() -> startClient(authenticator), AuthenticationException.class, "Authentication failed");
+        IgniteTestUtils.assertThrowsWithCause(() -> startClient(authenticator), InvalidCredentialsException.class, "Authentication failed");
     }
 
     @Test
     public void testAuthnOnClientAuthnOnServer() {
         server = startServer(false);
 
-        startClient(BasicAuthenticator.builder().username("usr").password("pwd").build());
+        client = startClient(BasicAuthenticator.builder().username("usr").password("pwd").build());
     }
 
     private IgniteClient startClient(@Nullable IgniteClientAuthenticator authenticator) {
@@ -103,7 +93,6 @@ public class ClientAuthenticationTest {
                 .build();
     }
 
-    @NotNull
     private TestServer startServer(boolean basicAuthn) {
         var server = new TestServer(
                 1000,
@@ -112,16 +101,18 @@ public class ClientAuthenticationTest {
                 null,
                 null,
                 UUID.randomUUID(),
-                authenticationConfiguration,
+                securityConfiguration,
                 null);
 
         if (basicAuthn) {
-            authenticationConfiguration.change(change -> {
-                change.changeEnabled(true);
-                change.changeProviders().create("basic", authenticationProviderChange ->
-                        authenticationProviderChange.convert(BasicAuthenticationProviderChange.class)
-                                .changeUsername("usr")
-                                .changePassword("pwd"));
+            securityConfiguration.change(securityChange -> {
+                securityChange.changeEnabled(true);
+                securityChange.changeAuthentication().changeProviders().create("basic", change ->
+                        change.convert(BasicAuthenticationProviderChange.class)
+                                .changeUsers(users -> users.create("usr", user ->
+                                        user.changePassword("pwd"))
+                                )
+                );
             }).join();
         }
 

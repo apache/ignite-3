@@ -16,6 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -51,13 +58,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(MockitoExtension.class)
 public class LogManagerTest extends BaseStorageTest {
@@ -101,10 +101,11 @@ public class LogManagerTest extends BaseStorageTest {
         opts.setNodeMetrics(new NodeMetrics(false));
         opts.setLogStorage(this.logStorage);
         opts.setRaftOptions(raftOptions);
-        opts.setLogManagerDisruptor(disruptor = new StripedDisruptor<>("TestLogManagerDisruptor",
+        opts.setLogManagerDisruptor(disruptor = new StripedDisruptor<>("test", "TestLogManagerDisruptor",
             1024,
             () -> new LogManagerImpl.StableClosureEvent(),
             1,
+            false,
             false));
         assertTrue(this.logManager.init(opts));
     }
@@ -131,6 +132,13 @@ public class LogManagerTest extends BaseStorageTest {
         lastLogId = this.logManager.getLastLogId(false);
         assertEquals(0, lastLogId.getIndex());
         assertTrue(this.logManager.checkConsistency().isOk());
+    }
+
+    @Test
+    public void testHasAvailableCapacityToAppendEntries() {
+        assertTrue(this.logManager.hasAvailableCapacityToAppendEntries(1));
+        assertTrue(this.logManager.hasAvailableCapacityToAppendEntries(10));
+        assertFalse(this.logManager.hasAvailableCapacityToAppendEntries(1000000));
     }
 
     @Test

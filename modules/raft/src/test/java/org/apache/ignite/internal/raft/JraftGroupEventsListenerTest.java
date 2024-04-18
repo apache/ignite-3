@@ -32,6 +32,7 @@ import static org.mockito.Mockito.when;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.util.DirectExecutor;
 import org.apache.ignite.raft.jraft.Closure;
@@ -40,7 +41,7 @@ import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.junit.jupiter.api.Test;
 
-class JraftGroupEventsListenerTest {
+class JraftGroupEventsListenerTest extends BaseIgniteAbstractTest {
     /**
      * Tests that {@link JraftGroupEventsListener} handles correctly a situation when
      * ConfigurationCtx#reset is called with null status.

@@ -56,4 +56,31 @@ public final class ArrayUtils {
         }
         return "";
     }
+
+    /**
+     * Checks if the first array starts with the second array.
+     *
+     * @param array1 First array.
+     * @param array2 Second array.
+     * @return {@code true} if the first array starts with the second array, {@code false} otherwise.
+     */
+    public static boolean firstStartsWithSecond(String[] array1, String[] array2) {
+        // Check that the arrays are not null and that the first array is not shorter than the second
+        if (array1 == null || array2 == null) {
+            throw new IllegalArgumentException("Arrays cannot be null and the first array cannot be shorter than the second");
+        }
+
+        if (array1.length < array2.length) {
+            return false;
+        }
+
+        // Check if the start of the first array is the same as the second array
+        for (int i = 0; i < array2.length; i++) {
+            if (!array1[i].equals(array2[i])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

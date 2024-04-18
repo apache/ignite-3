@@ -18,13 +18,15 @@
 package org.apache.ignite.internal.schema;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.junit.jupiter.api.Test;
@@ -47,7 +49,7 @@ public class BinaryTuplePrefixTest {
                 .appendDate(date)
                 .build();
 
-        assertTrue((tuple.get(0) & BinaryTupleCommon.PREFIX_FLAG) != 0);
+        assertNotEquals(0, tuple.get(0) & BinaryTupleCommon.PREFIX_FLAG);
 
         var prefix = new BinaryTuplePrefix(5, tuple);
 
@@ -74,6 +76,81 @@ public class BinaryTuplePrefixTest {
 
         assertThat(prefix.elementCount(), is(1));
         assertThat(prefix.intValue(0), is(Integer.MAX_VALUE));
+    }
+
+    @Test
+    public void testCreatePrefixFromBinaryTupleWhichSizeIsLessThanRequired() {
+        int sourceTupleSize = 1;
+
+        ByteBuffer buffer = new BinaryTupleBuilder(sourceTupleSize)
+                .appendInt(10)
+                .build();
+
+        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(4, new BinaryTuple(sourceTupleSize, buffer));
+
+        assertThat(prefix.elementCount(), equalTo(sourceTupleSize));
+        assertThat(prefix.intValue(0), equalTo(10));
+        assertThat(prefix.hasNullValue(1), equalTo(true));
+        assertThat(prefix.hasNullValue(2), equalTo(true));
+        assertThat(prefix.hasNullValue(3), equalTo(true));
+    }
+
+    @Test
+    public void testCreatePrefixFromBinaryTupleWhichSizeIsEqualToRequired() {
+        int sourceTupleSize = 4;
+
+        ByteBuffer buffer = new BinaryTupleBuilder(sourceTupleSize)
+                .appendInt(10)
+                .appendString("foo")
+                .appendNull()
+                .appendBoolean(false)
+                .build();
+
+        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(sourceTupleSize, new BinaryTuple(sourceTupleSize, buffer));
+
+        assertThat(prefix.elementCount(), equalTo(sourceTupleSize));
+        assertThat(prefix.intValue(0), equalTo(10));
+        assertThat(prefix.stringValue(1), equalTo("foo"));
+        assertThat(prefix.hasNullValue(2), equalTo(true));
+        assertThat(prefix.booleanValue(3), equalTo(false));
+    }
+
+    @Test
+    public void testCreatePrefixFromBinaryTupleWhichSizeIsGreaterThanRequired() {
+        int sourceTupleSize = 5;
+
+        ByteBuffer buffer = new BinaryTupleBuilder(sourceTupleSize)
+                .appendInt(10)
+                .appendString("foo")
+                .appendNull()
+                .appendBoolean(false)
+                .appendString("truncated value")
+                .build();
+
+        int prefixSize = 4;
+
+        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(prefixSize, new BinaryTuple(sourceTupleSize, buffer));
+
+        assertThat(prefix.elementCount(), equalTo(prefixSize));
+        assertThat(prefix.intValue(0), equalTo(10));
+        assertThat(prefix.stringValue(1), equalTo("foo"));
+        assertThat(prefix.hasNullValue(2), equalTo(true));
+        assertThat(prefix.booleanValue(3), equalTo(false));
+    }
+
+    @Test
+    public void testCreatePrefixFromZeroLengthBinaryTuple() {
+        int sourceTupleSize = 0;
+
+        ByteBuffer buffer = new BinaryTupleBuilder(sourceTupleSize).build();
+
+        BinaryTuplePrefix prefix = BinaryTuplePrefix.fromBinaryTuple(4, new BinaryTuple(sourceTupleSize, buffer));
+
+        assertThat(prefix.elementCount(), equalTo(sourceTupleSize));
+        assertThat(prefix.hasNullValue(0), equalTo(true));
+        assertThat(prefix.hasNullValue(1), equalTo(true));
+        assertThat(prefix.hasNullValue(2), equalTo(true));
+        assertThat(prefix.hasNullValue(3), equalTo(true));
     }
 
     /**

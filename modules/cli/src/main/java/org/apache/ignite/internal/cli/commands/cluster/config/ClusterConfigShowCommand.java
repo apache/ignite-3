@@ -23,6 +23,8 @@ import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.decorators.JsonDecorator;
@@ -48,6 +50,9 @@ public class ClusterConfigShowCommand extends BaseCommand implements Callable<In
     @Inject
     private ClusterConfigShowCall call;
 
+    @Inject
+    private ConfigManagerProvider configManagerProvider;
+
     /** {@inheritDoc} */
     @Override
     public Integer call() {
@@ -55,13 +60,17 @@ public class ClusterConfigShowCommand extends BaseCommand implements Callable<In
                 .inputProvider(this::buildCallInput)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new JsonDecorator())
+                .decorator(new JsonDecorator(isHighlightEnabled()))
                 .exceptionHandler(new ClusterNotInitializedExceptionHandler(
                         "Cannot show cluster config", "ignite cluster init"
                 ))
                 .verbose(verbose)
                 .build()
                 .runPipeline();
+    }
+
+    private boolean isHighlightEnabled() {
+        return Boolean.parseBoolean(configManagerProvider.get().getCurrentProperty(CliConfigKeys.SYNTAX_HIGHLIGHTING.value()));
     }
 
     private ClusterConfigShowCallInput buildCallInput() {

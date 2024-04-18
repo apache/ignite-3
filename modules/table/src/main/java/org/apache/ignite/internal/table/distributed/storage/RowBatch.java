@@ -31,9 +31,9 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>NOTE: Not thread-safe.
  */
-class RowBatch {
+public class RowBatch {
     /** Batch of rows from the original collection of rows. */
-    final List<BinaryRow> requestedRows = new ArrayList<>();
+    public final List<BinaryRow> requestedRows = new ArrayList<>();
 
     /** Order of the rows from the {@link #requestedRows} in the original row collection. */
     final IntList originalRowOrder = new IntArrayList();
@@ -41,15 +41,15 @@ class RowBatch {
     /**
      * Future of the result of processing the {@link #requestedRows}, {@code null} if not set and may return {@code null}.
      */
-    @Nullable CompletableFuture<Object> resultFuture;
+    public @Nullable CompletableFuture<?> resultFuture;
 
-    void add(BinaryRow row, int originalIndex) {
+    public void add(BinaryRow row, int originalIndex) {
         requestedRows.add(row);
         originalRowOrder.add(originalIndex);
     }
 
     @Nullable Object getCompletedResult() {
-        CompletableFuture<Object> resultFuture = this.resultFuture;
+        CompletableFuture<?> resultFuture = this.resultFuture;
 
         assert resultFuture != null;
         assert resultFuture.isDone();

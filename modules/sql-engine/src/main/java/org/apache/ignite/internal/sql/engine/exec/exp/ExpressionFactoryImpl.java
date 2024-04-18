@@ -24,7 +24,6 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -32,12 +31,15 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.TimeZone;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.calcite.DataContext;
+import org.apache.calcite.DataContext.Variable;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.linq4j.tree.BlockBuilder;
@@ -48,6 +50,7 @@ import org.apache.calcite.linq4j.tree.ParameterExpression;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelFieldCollation;
+import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -66,11 +69,13 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorsFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -80,6 +85,9 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -89,34 +97,17 @@ import org.jetbrains.annotations.Nullable;
 public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private static final int CACHE_SIZE = 1024;
 
-    /** Placeholder for DEFAULT operator value. */
-    // TODO Remove this constant when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-    public static final Object DEFAULT_VALUE_PLACEHOLDER = Placeholder.DEFAULT_VALUE;
-
-    /** Placeholder for values, which expressions are not specified. */
-    public static final Object UNSPECIFIED_VALUE_PLACEHOLDER = Placeholder.UNSPECIFIED_VALUE;
-
-    // We use enums for placeholders because enum serialization/deserialization guarantees to preserve object's identity.
-    private enum Placeholder {
-        // TODO Remove this enum element when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-        DEFAULT_VALUE,
-        UNSPECIFIED_VALUE
-    }
-
     private static final ConcurrentMap<String, Scalar> SCALAR_CACHE = Caffeine.newBuilder()
             .maximumSize(CACHE_SIZE)
             .<String, Scalar>build()
             .asMap();
 
-    private final IgniteTypeFactory typeFactory;
+    private static final IgniteTypeFactory TYPE_FACTORY = IgniteTypeFactory.INSTANCE;
+    private static final RexBuilder REX_BUILDER = IgniteRexBuilder.INSTANCE;
+    private static final RelDataType NULL_TYPE = TYPE_FACTORY.createSqlType(SqlTypeName.NULL);
+    private static final RelDataType EMPTY_TYPE = new RelDataTypeFactory.Builder(TYPE_FACTORY).build();
 
     private final SqlConformance conformance;
-
-    private final RexBuilder rexBuilder;
-
-    private final RelDataType emptyType;
-
-    private final RelDataType nullType;
 
     private final ExecutionContext<RowT> ctx;
 
@@ -124,14 +115,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public ExpressionFactoryImpl(ExecutionContext<RowT> ctx, IgniteTypeFactory typeFactory, SqlConformance conformance) {
+    public ExpressionFactoryImpl(
+            ExecutionContext<RowT> ctx,
+            SqlConformance conformance
+    ) {
         this.ctx = ctx;
-        this.typeFactory = typeFactory;
         this.conformance = conformance;
-
-        rexBuilder = new IgniteRexBuilder(this.typeFactory);
-        emptyType = new RelDataTypeFactory.Builder(this.typeFactory).build();
-        nullType = typeFactory.createSqlType(SqlTypeName.NULL);
     }
 
     /** {@inheritDoc} */
@@ -157,24 +146,38 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         return (o1, o2) -> {
             RowHandler<RowT> hnd = ctx.rowHandler();
-            Object unspecifiedVal = UNSPECIFIED_VALUE_PLACEHOLDER;
+            List<RelFieldCollation> collations = collation.getFieldCollations();
 
-            for (RelFieldCollation field : collation.getFieldCollations()) {
+            int colsCountRow1 = hnd.columnCount(o1);
+            int colsCountRow2 = hnd.columnCount(o2);
+
+            // The index range condition can contain the prefix of the index columns (not all index columns).
+            int maxCols = Math.min(Math.max(colsCountRow1, colsCountRow2), collations.size());
+
+            for (int i = 0; i < maxCols; i++) {
+                RelFieldCollation field = collations.get(i);
+                boolean ascending = field.direction == Direction.ASCENDING;
+
+                if (i == colsCountRow1) {
+                    // There is no more values in first row.
+                    return ascending ? -1 : 1;
+                }
+
+                if (i == colsCountRow2) {
+                    // There is no more values in second row.
+                    return ascending ? 1 : -1;
+                }
+
                 int fieldIdx = field.getFieldIndex();
-                int nullComparison = field.nullDirection.nullComparison;
 
                 Object c1 = hnd.get(fieldIdx, o1);
                 Object c2 = hnd.get(fieldIdx, o2);
 
-                // If filter for some field is unspecified, assume equality for this field and all subsequent fields.
-                if (c1 == unspecifiedVal || c2 == unspecifiedVal) {
-                    return 0;
-                }
+                int nullComparison = field.nullDirection.nullComparison;
 
-                int res = (field.direction == RelFieldCollation.Direction.ASCENDING)
-                        ?
-                        compare(c1, c2, nullComparison) :
-                        compare(c2, c1, -nullComparison);
+                int res = ascending
+                        ? compare(c1, c2, nullComparison)
+                        : compare(c2, c1, -nullComparison);
 
                 if (res != 0) {
                     return res;
@@ -241,7 +244,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     }
 
     @SuppressWarnings("rawtypes")
-    private static int compare(Object o1, Object o2, int nullComparison) {
+    private static int compare(@Nullable Object o1, @Nullable Object o2, int nullComparison) {
         final Comparable c1 = (Comparable) o1;
         final Comparable c2 = (Comparable) o2;
         return RelFieldCollation.compare(c1, c2, nullComparison);
@@ -262,53 +265,83 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /** {@inheritDoc} */
     @Override
     public Function<RowT, RowT> project(List<RexNode> projects, RelDataType rowType) {
-        return new ProjectImpl(scalar(projects, rowType), ctx.rowHandler().factory(typeFactory, RexUtil.types(projects)));
+        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RexUtil.types(projects));
+
+        return new ProjectImpl(scalar(projects, rowType), ctx.rowHandler().factory(rowSchema));
     }
 
     /** {@inheritDoc} */
     @Override
     public Supplier<RowT> rowSource(List<RexNode> values) {
-        return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(typeFactory,
-                Commons.transform(values, v -> v != null ? v.getType() : nullType)));
+        List<RelDataType> typeList = Commons.transform(values, v -> v != null ? v.getType() : NULL_TYPE);
+        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(typeList);
+
+        return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(rowSchema));
     }
 
     /** {@inheritDoc} */
     @Override
     public <T> Supplier<T> execute(RexNode node) {
-        return new ValueImpl<>(scalar(node, null), ctx.rowHandler().factory(typeFactory.getJavaClass(node.getType())));
+        RelDataType exprType = node.getType();
+        List<RelDataType> typesList;
+
+        if (exprType.getSqlTypeName() == SqlTypeName.ROW) {
+            // Convert a row returned from a table function into a list of columns.
+            typesList = RelOptUtil.getFieldTypeList(exprType);
+        } else {
+            typesList = List.of(exprType);
+        }
+
+        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(typesList);
+
+        RowFactory<RowT> factory = ctx.rowHandler().factory(rowSchema);
+
+        return new ValueImpl<>(scalar(node, null), factory);
     }
 
     /** {@inheritDoc} */
     @Override
     public Iterable<RowT> values(List<RexLiteral> values, RelDataType rowType) {
         RowHandler<RowT> handler = ctx.rowHandler();
-        RowFactory<RowT> factory = handler.factory(typeFactory, rowType);
+        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+        RowFactory<RowT> factory = handler.factory(rowSchema);
 
         int columns = rowType.getFieldCount();
         assert values.size() % columns == 0;
 
         List<Class<?>> types = new ArrayList<>(columns);
         for (RelDataType type : RelOptUtil.getFieldTypeList(rowType)) {
-            types.add(Primitives.wrap((Class<?>) typeFactory.getJavaClass(type)));
+            types.add(Primitives.wrap((Class<?>) TYPE_FACTORY.getJavaClass(type)));
         }
 
         List<RowT> rows = new ArrayList<>(values.size() / columns);
-        RowT currRow = null;
-        for (int i = 0; i < values.size(); i++) {
-            int field = i % columns;
 
-            if (field == 0) {
-                rows.add(currRow = factory.create());
+        if (!values.isEmpty()) {
+            RowBuilder<RowT> rowBuilder = factory.rowBuilder();
+
+            for (int i = 0; i < values.size(); i++) {
+                int field = i % columns;
+
+                if (field == 0 && i > 0) {
+                    rows.add(rowBuilder.buildAndReset());
+                }
+
+                RexLiteral literal = values.get(i);
+                Object val = literal.getValueAs(types.get(field));
+
+                // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
+                if (val != null && literal.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+                    val = IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) ctx.get(Variable.TIME_ZONE.camelName));
+                }
+
+                rowBuilder.addField(val);
             }
 
-            RexLiteral literal = values.get(i);
-
-            handler.set(field, currRow, literal.getValueAs(types.get(field)));
+            rows.add(rowBuilder.buildAndReset());
         }
 
         return rows;
     }
-
 
     /** {@inheritDoc} */
     @Override
@@ -317,7 +350,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             RelDataType rowType,
             @Nullable Comparator<RowT> comparator
     ) {
-        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(typeFactory, rowType);
+        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 
         List<RangeCondition<RowT>> ranges = new ArrayList<>();
 
@@ -334,6 +368,30 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         );
 
         return new RangeIterableImpl(ranges, comparator);
+    }
+
+    /**
+     * Transforms input bound, stores only sequential non null elements.
+     * i.e. (literal1, literal2, null, literal3) -> (literal1, literal2).
+     * Return transformed bound and appropriate type.
+     */
+    private static Map.Entry<List<RexNode>, RelDataType> shrinkBounds(IgniteTypeFactory factory, List<RexNode> bound, RelDataType rowType) {
+        List<RexNode> newBound = new ArrayList<>();
+        List<RelDataType> newTypes = new ArrayList<>();
+        List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
+        int i = 0;
+        for (RexNode node : bound) {
+            if (node != null) {
+                newTypes.add(types.get(i++));
+                newBound.add(node);
+            } else {
+                break;
+            }
+        }
+        bound = Collections.unmodifiableList(newBound);
+        rowType = TypeUtils.createRowType(factory, newTypes);
+
+        return Map.entry(bound, rowType);
     }
 
     /**
@@ -363,12 +421,35 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         if ((fieldIdx >= searchBounds.size())
                 || (!lowerInclude && !upperInclude)
                 || searchBounds.get(fieldIdx) == null) {
+            RelDataType lowerType = rowType;
+            RelDataType upperType = rowType;
+
+            RowFactory<RowT> lowerFactory = rowFactory;
+            RowFactory<RowT> upperFactory = rowFactory;
+
+            // we need to shrink bounds here due to the recursive logic for processing lower and upper bounds,
+            // after division this logic into upper and lower calculation such approach need to be removed.
+            Entry<List<RexNode>, RelDataType> res = shrinkBounds(ctx.getTypeFactory(), curLower, rowType);
+            curLower = res.getKey();
+            lowerType = res.getValue();
+
+            res = shrinkBounds(ctx.getTypeFactory(), curUpper, rowType);
+            curUpper = res.getKey();
+            upperType = res.getValue();
+
+            lowerFactory = ctx.rowHandler()
+                    .factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(lowerType)));
+
+            upperFactory = ctx.rowHandler()
+                    .factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(upperType)));
+
             ranges.add(new RangeConditionImpl(
-                    scalar(curLower, rowType),
-                    scalar(curUpper, rowType),
+                    nullOrEmpty(curLower) ? null : scalar(curLower, lowerType),
+                    nullOrEmpty(curUpper) ? null : scalar(curUpper, upperType),
                     lowerInclude,
                     upperInclude,
-                    rowFactory
+                    lowerFactory.rowBuilder(),
+                    upperFactory.rowBuilder()
             ));
 
             return;
@@ -439,7 +520,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /**
      * Creates {@link SingleScalar}, a code-generated expressions evaluator.
      *
-     * @param nodes Expressions. {@code Null} expressions will be evaluated to {@link ExpressionFactoryImpl#UNSPECIFIED_VALUE_PLACEHOLDER}.
+     * @param nodes Expressions.
      * @param type Row type.
      * @return SingleScalar.
      */
@@ -464,24 +545,15 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     private Scalar compile(List<RexNode> nodes, RelDataType type, boolean biInParams) {
         if (type == null) {
-            type = emptyType;
+            type = EMPTY_TYPE;
         }
 
-        RexProgramBuilder programBuilder = new RexProgramBuilder(type, rexBuilder);
+        RexProgramBuilder programBuilder = new RexProgramBuilder(type, REX_BUILDER);
 
-        BitSet unspecifiedValues = new BitSet(nodes.size());
+        for (RexNode node : nodes) {
+            assert node != null : "unexpected nullable node";
 
-        for (int i = 0; i < nodes.size(); i++) {
-            RexNode node = nodes.get(i);
-
-            if (node != null) {
-                programBuilder.addProject(node, null);
-            } else {
-                unspecifiedValues.set(i);
-
-                programBuilder.addProject(rexBuilder.makeNullLiteral(type == emptyType
-                        ? nullType : type.getFieldList().get(i).getType()), null);
-            }
+            programBuilder.addProject(node, null);
         }
 
         RexProgram program = programBuilder.getProgram();
@@ -498,7 +570,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 Expressions.parameter(Object.class, "in2");
 
         ParameterExpression out =
-                Expressions.parameter(Object.class, "out");
+                Expressions.parameter(RowBuilder.class, "out");
 
         builder.add(
                 Expressions.declare(Modifier.FINAL, DataContext.ROOT, Expressions.convert_(ctx, DataContext.class)));
@@ -512,22 +584,20 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         Function1<String, InputGetter> correlates = new CorrelatesBuilder(builder, ctx, hnd).build(nodes);
 
-        List<Expression> projects = RexToLixTranslator.translateProjects(program, typeFactory, conformance,
+        List<Expression> projects = RexToLixTranslator.translateProjects(program, TYPE_FACTORY, conformance,
                 builder, null, null, ctx, inputGetter, correlates);
 
-        assert nodes.size() == projects.size();
-
         for (int i = 0; i < projects.size(); i++) {
-            Expression val = unspecifiedValues.get(i)
-                    ? Expressions.field(null, ExpressionFactoryImpl.class, "UNSPECIFIED_VALUE_PLACEHOLDER")
-                    : projects.get(i);
-
-            builder.add(
-                    Expressions.statement(
-                            Expressions.call(hnd,
-                                    IgniteMethod.ROW_HANDLER_SET.method(),
-                                    Expressions.constant(i), out, val)));
+            Expression val = projects.get(i);
+            Expression addRowField = Expressions.call(out, IgniteMethod.ROW_BUILDER_ADD_FIELD.method(), val);
+            builder.add(Expressions.statement(addRowField));
         }
+
+        ParameterExpression ex = Expressions.parameter(0, Exception.class, "e");
+        Expression sqlException = Expressions.new_(SqlException.class, Expressions.constant(Sql.RUNTIME_ERR), ex);
+        BlockBuilder tryCatchBlock = new BlockBuilder();
+
+        tryCatchBlock.add(Expressions.tryCatch(builder.toBlock(), Expressions.catch_(ex, Expressions.throw_(sqlException))));
 
         String methodName = biInParams ? IgniteMethod.BI_SCALAR_EXECUTE.method().getName() :
                 IgniteMethod.SCALAR_EXECUTE.method().getName();
@@ -537,7 +607,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         MethodDeclaration decl = Expressions.methodDecl(
                 Modifier.PUBLIC, void.class, methodName,
-                params, builder.toBlock());
+                params, tryCatchBlock.toBlock());
 
         Class<? extends Scalar> clazz = biInParams ? BiScalar.class : SingleScalar.class;
 
@@ -582,9 +652,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             }.apply(node);
         }
 
-        b.append(", biParam=").append(biParam);
-
-        b.append(']');
+        b.append(", biParam=").append(biParam)
+                .append(']');
 
         if (type != null) {
             b.append(':').append(type.getFullTypeString());
@@ -596,9 +665,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private abstract class AbstractScalarPredicate<T extends Scalar> {
         protected final T scalar;
 
-        protected final RowT out;
-
         protected final RowHandler<RowT> hnd;
+
+        protected final RowBuilder<RowT> rowBuilder;
 
         /**
          * Constructor.
@@ -608,7 +677,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         private AbstractScalarPredicate(T scalar) {
             this.scalar = scalar;
             hnd = ctx.rowHandler();
-            out = hnd.factory(typeFactory, typeFactory.createJavaType(Boolean.class)).create();
+
+            RelDataType booleanType = TYPE_FACTORY.createSqlType(SqlTypeName.BOOLEAN);
+            RelDataType nullableType = TYPE_FACTORY.createTypeWithNullability(booleanType, true);
+            RowSchema schema = TypeUtils.rowSchemaFromRelTypes(List.of(nullableType));
+
+            rowBuilder = hnd.factory(schema).rowBuilder();
         }
     }
 
@@ -623,9 +697,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** {@inheritDoc} */
         @Override
         public boolean test(RowT r) {
-            scalar.execute(ctx, r, out);
+            scalar.execute(ctx, r, rowBuilder);
+            RowT res = rowBuilder.buildAndReset();
 
-            return Boolean.TRUE == hnd.get(0, out);
+            return Boolean.TRUE.equals(hnd.get(0, res));
         }
     }
 
@@ -640,15 +715,17 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** {@inheritDoc} */
         @Override
         public boolean test(RowT r1, RowT r2) {
-            scalar.execute(ctx, r1, r2, out);
-            return Boolean.TRUE == hnd.get(0, out);
+            scalar.execute(ctx, r1, r2, rowBuilder);
+            RowT res = rowBuilder.buildAndReset();
+
+            return Boolean.TRUE.equals(hnd.get(0, res));
         }
     }
 
     private class ProjectImpl implements Function<RowT, RowT> {
         private final SingleScalar scalar;
 
-        private final RowFactory<RowT> factory;
+        private final RowBuilder<RowT> rowBuilder;
 
         /**
          * Constructor.
@@ -658,60 +735,58 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
          */
         private ProjectImpl(SingleScalar scalar, RowFactory<RowT> factory) {
             this.scalar = scalar;
-            this.factory = factory;
+            this.rowBuilder = factory.rowBuilder();
         }
 
         /** {@inheritDoc} */
         @Override
         public RowT apply(RowT r) {
-            RowT res = factory.create();
-            scalar.execute(ctx, r, res);
+            scalar.execute(ctx, r, rowBuilder);
 
-            return res;
+            return rowBuilder.buildAndReset();
         }
     }
 
     private class ValuesImpl implements Supplier<RowT> {
         private final SingleScalar scalar;
 
-        private final RowFactory<RowT> factory;
+        private final RowBuilder<RowT> rowBuilder;
 
         /**
          * Constructor.
          */
         private ValuesImpl(SingleScalar scalar, RowFactory<RowT> factory) {
             this.scalar = scalar;
-            this.factory = factory;
+            this.rowBuilder = factory.rowBuilder();
         }
 
         /** {@inheritDoc} */
         @Override
         public RowT get() {
-            RowT res = factory.create();
-            scalar.execute(ctx, null, res);
+            scalar.execute(ctx, null, rowBuilder);
 
-            return res;
+            return rowBuilder.buildAndReset();
         }
     }
 
     private class ValueImpl<T> implements Supplier<T> {
         private final SingleScalar scalar;
 
-        private final RowFactory<RowT> factory;
+        private final RowBuilder<RowT> rowBuilder;
 
         /**
          * Constructor.
          */
         private ValueImpl(SingleScalar scalar, RowFactory<RowT> factory) {
             this.scalar = scalar;
-            this.factory = factory;
+            this.rowBuilder = factory.rowBuilder();
         }
 
         /** {@inheritDoc} */
         @Override
         public T get() {
-            RowT res = factory.create();
-            scalar.execute(ctx, null, res);
+            scalar.execute(ctx, null, rowBuilder);
+            RowT res = rowBuilder.buildAndReset();
 
             return (T) ctx.rowHandler().get(0, res);
         }
@@ -719,10 +794,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     private class RangeConditionImpl implements RangeCondition<RowT> {
         /** Lower bound expression. */
-        private final SingleScalar lowerBound;
+        private final @Nullable SingleScalar lowerBound;
 
         /** Upper bound expression. */
-        private final SingleScalar upperBound;
+        private final @Nullable SingleScalar upperBound;
 
         /** Inclusive lower bound flag. */
         private final boolean lowerInclude;
@@ -736,36 +811,47 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** Upper row. */
         private @Nullable RowT upperRow;
 
-        /** Cached skip range flag. */
-        private Boolean skip;
+        /** Lower bound row factory. */
+        private final RowBuilder<RowT> lowerRowBuilder;
 
-        /** Row factory. */
-        private final RowFactory<RowT> factory;
+        /** Upper bound row factory. */
+        private final RowBuilder<RowT> upperRowBuilder;
 
         private RangeConditionImpl(
-                SingleScalar lowerBound,
-                SingleScalar upperBound,
+                @Nullable SingleScalar lowerScalar,
+                @Nullable SingleScalar upperScalar,
                 boolean lowerInclude,
                 boolean upperInclude,
-                RowFactory<RowT> factory
+                RowBuilder<RowT> lowerRowBuilder,
+                RowBuilder<RowT> upperRowBuilder
         ) {
-            this.lowerBound = lowerBound;
-            this.upperBound = upperBound;
+            this.lowerBound = lowerScalar;
+            this.upperBound = upperScalar;
             this.lowerInclude = lowerInclude;
             this.upperInclude = upperInclude;
-            this.factory = factory;
+
+            this.lowerRowBuilder = lowerRowBuilder;
+            this.upperRowBuilder = upperRowBuilder;
         }
 
         /** {@inheritDoc} */
         @Override
-        public RowT lower() {
-            return lowerRow != null ? lowerRow : (lowerRow = getRow(lowerBound));
+        public @Nullable RowT lower() {
+            if (lowerBound == null) {
+                return null;
+            }
+
+            return lowerRow != null ? lowerRow : (lowerRow = getRow(lowerBound, lowerRowBuilder));
         }
 
         /** {@inheritDoc} */
         @Override
-        public RowT upper() {
-            return upperRow != null ? upperRow : (upperRow = getRow(upperBound));
+        public @Nullable RowT upper() {
+            if (upperBound == null) {
+                return null;
+            }
+
+            return upperRow != null ? upperRow : (upperRow = getRow(upperBound, upperRowBuilder));
         }
 
         /** {@inheritDoc} */
@@ -781,53 +867,21 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         /** Compute row. */
-        private RowT getRow(SingleScalar scalar) {
-            RowT res = factory.create();
-            scalar.execute(ctx, null, res);
+        private RowT getRow(SingleScalar scalar, RowBuilder<RowT> rowBuilder) {
+            scalar.execute(ctx, null, rowBuilder);
 
-            RowHandler<RowT> hnd = ctx.rowHandler();
-
-            // Check bound for NULL values. If bound contains NULLs, the whole range should be skipped.
-            // There is special placeholder for searchable NULLs, make this replacement here too.
-            for (int i = 0; i < hnd.columnCount(res); i++) {
-                Object fldVal = hnd.get(i, res);
-
-                if (fldVal == null) {
-                    skip = Boolean.TRUE;
-                }
-
-                if (fldVal == ctx.nullBound()) {
-                    hnd.set(i, res, null);
-                }
-            }
-
-            return res;
+            return rowBuilder.buildAndReset();
         }
 
         /** Clear cached rows. */
         void clearCache() {
-            lowerRow = upperRow = null;
-            skip = null;
-        }
-
-        /** Skip this range. */
-        public boolean skip() {
-            if (skip == null) {
-                // Precalculate skip flag.
-                lower();
-                upper();
-
-                if (skip == null) {
-                    skip = Boolean.FALSE;
-                }
-            }
-
-            return skip;
+            lowerRow = null;
+            upperRow = null;
         }
     }
 
     private class RangeIterableImpl implements RangeIterable<RowT> {
-        private final List<RangeCondition<RowT>> ranges;
+        private List<RangeCondition<RowT>> ranges;
 
         private final @Nullable Comparator<RowT> comparator;
 
@@ -852,11 +906,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             ranges.forEach(b -> ((RangeConditionImpl) b).clearCache());
 
             if (ranges.size() == 1) {
-                if (((RangeConditionImpl) ranges.get(0)).skip()) {
-                    return Collections.emptyIterator();
-                } else {
-                    return ranges.iterator();
-                }
+                return ranges.iterator();
             }
 
             // Sort ranges using collation comparator to produce sorted output. There should be no ranges
@@ -864,11 +914,133 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             // Do not sort again if ranges already were sorted before, different values of correlated variables
             // should not affect ordering.
             if (!sorted && comparator != null) {
-                ranges.sort((o1, o2) -> comparator.compare(o1.lower(), o2.lower()));
+                ranges.sort(this::compareRanges);
+
+                List<RangeCondition<RowT>> ranges0 = new ArrayList<>(ranges.size());
+
+                RangeConditionImpl prevRange = null;
+
+                for (RangeCondition<RowT> range0 : ranges) {
+                    RangeConditionImpl range = (RangeConditionImpl) range0;
+
+                    if (compareLowerAndUpperBounds(range.lower(), range.upper()) > 0) {
+                        // Invalid range (low > up).
+                        continue;
+                    }
+
+                    if (prevRange != null) {
+                        RangeConditionImpl merged = tryMerge(prevRange, range);
+
+                        if (merged == null) {
+                            ranges0.add(prevRange);
+                        } else {
+                            range = merged;
+                        }
+                    }
+
+                    prevRange = range;
+                }
+
+                if (prevRange != null) {
+                    ranges0.add(prevRange);
+                }
+
+                ranges = ranges0;
                 sorted = true;
             }
 
-            return ranges.stream().filter(r -> !((RangeConditionImpl) r).skip()).iterator();
+            return ranges.iterator();
+        }
+
+        private int compareRanges(RangeCondition<RowT> first, RangeCondition<RowT> second) {
+            int cmp = compareBounds(first.lower(), second.lower(), true);
+
+            if (cmp != 0) {
+                return cmp;
+            }
+
+            return compareBounds(first.upper(), second.upper(), false);
+        }
+
+        private int compareBounds(@Nullable RowT row1, @Nullable RowT row2, boolean lower) {
+            assert comparator != null;
+
+            if (row1 == null || row2 == null) {
+                if (row1 == row2) {
+                    return 0;
+                }
+
+                RowT row = lower ? row2 : row1;
+
+                return row == null ? 1 : -1;
+            }
+
+            return comparator.compare(row1, row2);
+        }
+
+        private int compareLowerAndUpperBounds(@Nullable RowT lower, @Nullable RowT upper) {
+            assert comparator != null;
+
+            if (lower == null || upper == null) {
+                if (lower == upper) {
+                    return 0;
+                } else {
+                    // lower = null -> lower < any upper
+                    // upper = null -> upper > any lower
+                    return -1;
+                }
+            }
+
+            return comparator.compare(lower, upper);
+        }
+
+        /** Returns combined range if the provided ranges intersect, {@code null} otherwise. */
+        @Nullable RangeConditionImpl tryMerge(RangeConditionImpl first, RangeConditionImpl second) {
+            if (compareLowerAndUpperBounds(first.lower(), second.upper()) > 0
+                    || compareLowerAndUpperBounds(second.lower(), first.upper()) > 0) {
+                // Ranges are not intersect.
+                return null;
+            }
+
+            SingleScalar newLowerBound;
+            RowT newLowerRow;
+            boolean newLowerInclude;
+
+            int cmp = compareBounds(first.lower(), second.lower(), true);
+
+            if (cmp < 0 || (cmp == 0 && first.lowerInclude())) {
+                newLowerBound = first.lowerBound;
+                newLowerRow = first.lower();
+                newLowerInclude = first.lowerInclude();
+            } else {
+                newLowerBound = second.lowerBound;
+                newLowerRow = second.lower();
+                newLowerInclude = second.lowerInclude();
+            }
+
+            SingleScalar newUpperBound;
+            RowT newUpperRow;
+            boolean newUpperInclude;
+
+            cmp = compareBounds(first.upper(), second.upper(), false);
+
+            if (cmp > 0 || (cmp == 0 && first.upperInclude())) {
+                newUpperBound = first.upperBound;
+                newUpperRow = first.upper();
+                newUpperInclude = first.upperInclude();
+            } else {
+                newUpperBound = second.upperBound;
+                newUpperRow = second.upper();
+                newUpperInclude = second.upperInclude();
+            }
+
+            RangeConditionImpl newRangeCondition = new RangeConditionImpl(newLowerBound, newUpperBound,
+                    newLowerInclude, newUpperInclude, first.lowerRowBuilder, first.upperRowBuilder);
+
+            newRangeCondition.lowerRow = newLowerRow;
+            newRangeCondition.upperRow = newUpperRow;
+
+            return newRangeCondition;
         }
     }
 
@@ -932,7 +1104,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         public Expression field(BlockBuilder list, int index, Type desiredType) {
             Expression fldExpression = fillExpressions(list, index);
 
-            Type fieldType = typeFactory.getJavaClass(rowType.getFieldList().get(index).getType());
+            Type fieldType = TYPE_FACTORY.getJavaClass(rowType.getFieldList().get(index).getType());
 
             if (desiredType == null) {
                 desiredType = fieldType;

@@ -34,12 +34,14 @@ public interface RaftServiceFactory<T extends RaftGroupService> {
      * @param peersAndLearners Peers configuration.
      * @param raftConfiguration Raft configuration.
      * @param raftClientExecutor Client executor.
+     * @param commandsMarshaller Marshaller that should be used to serialize commands.
      * @return Future that contains client when completes.
      */
     CompletableFuture<T> startRaftGroupService(
             ReplicationGroupId groupId,
             PeersAndLearners peersAndLearners,
             RaftConfiguration raftConfiguration,
-            ScheduledExecutorService raftClientExecutor
+            ScheduledExecutorService raftClientExecutor,
+            Marshaller commandsMarshaller
     );
 }

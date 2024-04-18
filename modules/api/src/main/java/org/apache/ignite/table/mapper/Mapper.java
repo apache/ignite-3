@@ -26,7 +26,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Mapper interface defines marshaller methods for mapping class field names to table columns.
@@ -52,9 +51,8 @@ public interface Mapper<T> {
      * @return Mapper for key objects that represent a single key column.
      * @throws IllegalArgumentException If {@code type} is not supported.
      */
-    static <O> Mapper<O> of(@NotNull Class<O> type) {
+    static <O> Mapper<O> of(Class<O> type) {
         if (nativelySupported(type)) {
-            // TODO: Cache mappers (IGNITE-16094).
             return new OneColumnMapperImpl<>(type, null, null);
         } else {
             return builder(type).automap().build();
@@ -71,7 +69,7 @@ public interface Mapper<T> {
      * @return Mapper for objects that represent a single column.
      * @throws IllegalArgumentException If {@code type} is not supported.
      */
-    static <O> Mapper<O> of(@NotNull Class<O> type, @NotNull String columnName) {
+    static <O> Mapper<O> of(Class<O> type, String columnName) {
         return new OneColumnMapperImpl<>(ensureNativelySupported(type), columnName, null);
     }
 
@@ -88,9 +86,9 @@ public interface Mapper<T> {
      * @throws IllegalArgumentException If {@code type} is not supported.
      */
     static <ObjectT, ColumnT> Mapper<ObjectT> of(
-            @NotNull Class<ObjectT> type,
-            @NotNull String columnName,
-            @NotNull TypeConverter<ObjectT, ColumnT> converter
+            Class<ObjectT> type,
+            String columnName,
+            TypeConverter<ObjectT, ColumnT> converter
     ) {
         return new OneColumnMapperImpl<>(Objects.requireNonNull(type), Objects.requireNonNull(columnName),
                 Objects.requireNonNull(converter));
@@ -109,7 +107,7 @@ public interface Mapper<T> {
      * @throws IllegalArgumentException If a field name has no matching column name in {@code fieldColumnPairs}, 
      *                                  or if {@code type} is not unsupported.
      */
-    static <O> Mapper<O> of(@NotNull Class<O> type, @NotNull String fieldName, @NotNull String columnName, String... fieldColumnPairs) {
+    static <O> Mapper<O> of(Class<O> type, String fieldName, String columnName, String... fieldColumnPairs) {
         if (fieldColumnPairs.length % 2 != 0) {
             throw new IllegalArgumentException(
                     "Missed a column name, which the field is mapped to: " + fieldColumnPairs[fieldColumnPairs.length - 1]);
@@ -126,7 +124,7 @@ public interface Mapper<T> {
      * @return {@code this} for chaining.
      */
     static <O> Mapper<O> of(Function<O, Tuple> objectToRow, Function<Tuple, O> rowToObject) {
-        //TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
+        // TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -139,7 +137,7 @@ public interface Mapper<T> {
      * @return Mapper builder.
      * @throws IllegalArgumentException If {@code type} is not supported.
      */
-    static <O> MapperBuilder<O> builder(@NotNull Class<O> type) {
+    static <O> MapperBuilder<O> builder(Class<O> type) {
         if (nativelySupported(type)) {
             return new MapperBuilder<>(type, null);
         } else {
@@ -154,7 +152,7 @@ public interface Mapper<T> {
      * @return {@code type} if it is of a natively supported kind.
      * @throws IllegalArgumentException If {@code type} is invalid and cannot be used in one-column mapping.
      */
-    static <O> Class<O> ensureNativelySupported(@NotNull Class<O> type) {
+    static <O> Class<O> ensureNativelySupported(Class<O> type) {
         if (nativelySupported(type)) {
             return type;
         }
@@ -179,6 +177,7 @@ public interface Mapper<T> {
                                    || LocalTime.class == type
                                    || LocalDateTime.class == type
                                    || Instant.class == type
+                                   || Void.class == type
                                    || Number.class
                                               .isAssignableFrom(type)); // Byte, Short, Integer, Long, Float, Double, BigInteger, BigDecimal
     }

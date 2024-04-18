@@ -27,7 +27,6 @@ import java.time.ZoneOffset;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * A timestamp implementation. Timestamps are used to order transactions and perform conflict resolution.
@@ -84,7 +83,7 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
 
     /** {@inheritDoc} */
     @Override
-    public int compareTo(@NotNull Timestamp other) {
+    public int compareTo(Timestamp other) {
         return (this.timestamp < other.timestamp ? -1 : (this.timestamp > other.timestamp ? 1 :
                 Long.compare(this.nodeId, other.nodeId)));
     }

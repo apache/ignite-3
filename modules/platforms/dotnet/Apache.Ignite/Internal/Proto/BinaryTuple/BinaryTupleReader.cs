@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Buffers.Binary;
     using System.Collections;
     using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
     using System.Numerics;
     using Ignite.Sql;
     using NodaTime;
@@ -93,18 +94,17 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public bool GetByteAsBool(int index) => GetByteAsBoolNullable(index) ?? ThrowNullElementException<bool>(index);
+        public bool GetBool(int index) => GetBoolNullable(index) ?? ThrowNullElementException<bool>(index);
 
         /// <summary>
         /// Gets a byte value as bool.
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public bool? GetByteAsBoolNullable(int index) => GetByteNullable(index) switch
+        public bool? GetBoolNullable(int index) => GetByteNullable(index) switch
         {
             null => null,
-            1 => true,
-            _ => false
+            { } b => BinaryTupleCommon.ByteToBool(b)
         };
 
         /// <summary>
@@ -466,6 +466,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public object? GetObject(int index, ColumnType columnType, int scale = 0) =>
             columnType switch
             {
+                ColumnType.Null => null,
                 ColumnType.Int8 => GetByteNullable(index),
                 ColumnType.Int16 => GetShortNullable(index),
                 ColumnType.Int32 => GetIntNullable(index),
@@ -482,7 +483,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 ColumnType.Datetime => GetDateTimeNullable(index),
                 ColumnType.Timestamp => GetTimestampNullable(index),
                 ColumnType.Number => GetNumberNullable(index),
-                ColumnType.Boolean => GetByteAsBoolNullable(index),
+                ColumnType.Boolean => GetBoolNullable(index),
                 ColumnType.Period => GetPeriodNullable(index),
                 ColumnType.Duration => GetDurationNullable(index),
                 _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)
@@ -552,6 +553,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return LocalTime.FromHourMinuteSecondNanosecond(hour, minute, second, nanos);
         }
 
+        [SuppressMessage("ReSharper", "UnusedParameter.Local", Justification = "Schema scale is not required for deserialization.")]
         private static decimal? ReadDecimal(ReadOnlySpan<byte> span, int scale)
         {
             if (span.IsEmpty)
@@ -559,12 +561,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 return null;
             }
 
+            var valScale = BinaryPrimitives.ReadInt16LittleEndian(span[..2]);
+            return ReadDecimalUnscaled(span[2..], valScale);
+        }
+
+        private static decimal? ReadDecimalUnscaled(ReadOnlySpan<byte> span, int scale)
+        {
             var unscaled = new BigInteger(span, isBigEndian: true);
             var res = (decimal)unscaled;
 
             if (scale > 0)
             {
                 res /= (decimal)BigInteger.Pow(10, scale);
+            }
+            else if (scale < 0)
+            {
+                res *= (decimal)BigInteger.Pow(10, -scale);
             }
 
             return res;

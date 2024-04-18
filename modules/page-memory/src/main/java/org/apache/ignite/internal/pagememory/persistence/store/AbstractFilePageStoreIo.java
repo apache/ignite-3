@@ -21,11 +21,11 @@ import static java.nio.ByteOrder.nativeOrder;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.util.IgniteUtils.atomicMoveFile;
-import static org.apache.ignite.internal.util.IgniteUtils.hexInt;
-import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
-import static org.apache.ignite.internal.util.IgniteUtils.toHexString;
-import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.internal.util.StringUtils.hexInt;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
+import static org.apache.ignite.internal.util.StringUtils.toHexString;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -38,10 +38,10 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.persistence.FastCrc;
 import org.apache.ignite.internal.pagememory.persistence.IgniteInternalDataIntegrityViolationException;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -201,9 +201,10 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
                     readWriteLock.readLock().unlock();
                 }
             } catch (IOException e) {
-                if (e instanceof ClosedChannelException) {
+                IOException cause = e;
+                if (cause instanceof ClosedChannelException) {
                     try {
-                        if (e instanceof ClosedByInterruptException) {
+                        if (cause instanceof ClosedByInterruptException) {
                             interrupted = true;
 
                             Thread.interrupted();
@@ -217,15 +218,15 @@ public abstract class AbstractFilePageStoreIo implements Closeable {
 
                         continue;
                     } catch (IOException e0) {
-                        e0.addSuppressed(e);
+                        e0.addSuppressed(cause);
 
-                        e = e0;
+                        cause = e0;
                     }
                 }
 
                 throw new IgniteInternalCheckedException(
                         "Failed to write page [filePath=" + filePath + ", pageId=" + pageId + "]",
-                        e
+                        cause
                 );
             }
         }

@@ -27,47 +27,54 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.stream.Collectors;
+import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.index.ColumnCollation;
-import org.apache.ignite.internal.index.HashIndex;
-import org.apache.ignite.internal.index.Index;
-import org.apache.ignite.internal.index.IndexDescriptor;
-import org.apache.ignite.internal.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.index.SortedIndexImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
+import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
-import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 /**
  * Test {@link IndexScanNode} execution.
  */
-public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
+public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     /**
      * Sorted index scan execution.
      */
     @Test
     public void testSortedIndex() {
-        Index<?> index = newSortedIndex();
+        List<String> columns = List.of("C1");
+        List<Collation> collations = List.of(IgniteIndex.Collation.ASC_NULLS_LAST);
+
+        TableDescriptor tableDescriptor = createTableDescriptor(columns);
+        IgniteIndex indexDescriptor = createSortedIndexDescriptor(columns, collations, tableDescriptor);
 
         ExecutionContext<Object[]> ctx = executionContext();
 
@@ -79,7 +86,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         Comparator<Object[]> cmp = Comparator.comparing(row -> (Comparable<Object>) row[0]);
 
-        IndexScanNode<Object[]> node = tester.createSortedIndex(index, scannableTable, cmp);
+        IndexScanNode<Object[]> node = tester.createSortedIndex(indexDescriptor, tableDescriptor, scannableTable, cmp);
         List<Object[]> result = tester.execute(node);
 
         validateResult(result, List.of(new Object[]{1}, new Object[]{2}, new Object[]{4}, new Object[]{5}));
@@ -90,7 +97,10 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
      */
     @Test
     public void testHashIndex() {
-        Index<?> index = newHashIndex();
+        List<String> columns = List.of("C1");
+
+        TableDescriptor tableDescriptor = createTableDescriptor(columns);
+        IgniteIndex indexDescriptor = createHashIndexDescriptor(columns, tableDescriptor);
 
         ExecutionContext<Object[]> ctx = executionContext();
 
@@ -100,13 +110,46 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         scannableTable.setPartitionData(0, new Object[]{2}, new Object[]{1});
         scannableTable.setPartitionData(2, new Object[]{0});
 
-        IndexScanNode<Object[]> node = tester.createHashIndex(index, scannableTable);
+        IndexScanNode<Object[]> node = tester.createHashIndex(indexDescriptor, tableDescriptor, scannableTable);
         List<Object[]> result = tester.execute(node);
 
         validateResult(result, List.of(new Object[]{2}, new Object[]{1}, new Object[]{0}));
     }
 
-    private class Tester {
+    private static TableDescriptor createTableDescriptor(List<String> columns) {
+        Builder rowTypeBuilder = new Builder(Commons.typeFactory());
+
+        for (String column : columns) {
+            rowTypeBuilder = rowTypeBuilder.add(column, SqlTypeName.INTEGER);
+        }
+
+        RelDataType rowType =  rowTypeBuilder.build();
+
+        return new TestTableDescriptor(IgniteDistributions::single, rowType);
+    }
+
+    private static IgniteIndex createHashIndexDescriptor(
+            List<String> columns,
+            TableDescriptor tableDescriptor
+    ) {
+        RelCollation collation = TraitUtils.createCollation(columns, null, tableDescriptor);
+        IgniteDistribution distribution = tableDescriptor.distribution();
+
+        return new IgniteIndex(1, "IDX", IgniteIndex.Type.HASH, distribution, collation);
+    }
+
+    private static IgniteIndex createSortedIndexDescriptor(
+            List<String> columns,
+            List<Collation> collations,
+            TableDescriptor tableDescriptor
+    ) {
+        RelCollation collation = TraitUtils.createCollation(columns, collations, tableDescriptor);
+        IgniteDistribution distribution = tableDescriptor.distribution();
+
+        return new IgniteIndex(1, "IDX", IgniteIndex.Type.HASH, distribution, collation);
+    }
+
+    private static class Tester {
 
         private final ExecutionContext<Object[]> ctx;
 
@@ -114,12 +157,14 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             this.ctx = ctx;
         }
 
-        IndexScanNode<Object[]> createSortedIndex(Index<?> index, TestScannableTable<?> scannableTable, Comparator<Object[]> cmp) {
-            return createIndexNode(ctx, index, scannableTable, cmp);
+        IndexScanNode<Object[]> createSortedIndex(IgniteIndex indexDescriptor, TableDescriptor tableDescriptor,
+                TestScannableTable<?> scannableTable, Comparator<Object[]> cmp) {
+            return createIndexNode(ctx, indexDescriptor, tableDescriptor, scannableTable, cmp);
         }
 
-        IndexScanNode<Object[]> createHashIndex(Index<?> index, TestScannableTable<?> scannableTable) {
-            return createIndexNode(ctx, index, scannableTable, null);
+        IndexScanNode<Object[]> createHashIndex(IgniteIndex desc, TableDescriptor tableDescriptor,
+                TestScannableTable<?> scannableTable) {
+            return createIndexNode(ctx, desc, tableDescriptor, scannableTable, null);
         }
 
         List<Object[]> execute(IndexScanNode<Object[]> indexNode) {
@@ -150,39 +195,23 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         }
     }
 
-    private Index<?> newHashIndex() {
-        IndexDescriptor descriptor = new IndexDescriptor("IDX", List.of("C1"));
+    private static IndexScanNode<Object[]> createIndexNode(ExecutionContext<Object[]> ctx, IgniteIndex indexDescriptor,
+            TableDescriptor tableDescriptor, TestScannableTable<?> scannableTable, @Nullable Comparator<Object[]> comparator) {
 
-        return new HashIndex(1, Mockito.mock(InternalTable.class), descriptor);
-    }
+        RowSchema.Builder rowSchemaBuilder = RowSchema.builder();
 
-    private Index<?> newSortedIndex() {
-        List<String> columnNames = List.of("C1");
-        List<ColumnCollation> columnCollations = List.of(ColumnCollation.ASC_NULLS_LAST);
-        SortedIndexDescriptor descriptor = new SortedIndexDescriptor("IDX", columnNames, columnCollations);
-
-        return new SortedIndexImpl(1, Mockito.mock(InternalTable.class), descriptor);
-    }
-
-    private IndexScanNode<Object[]> createIndexNode(ExecutionContext<Object[]> ctx, Index<?> index,
-            TestScannableTable<?> scannableTable, @Nullable Comparator<Object[]> comparator) {
-
-        RelDataTypeFactory.Builder rowTypeBuilder = new Builder(Commons.typeFactory());
-
-        for (String column : index.descriptor().columns()) {
-            rowTypeBuilder = rowTypeBuilder.add(column, SqlTypeName.INTEGER);
+        for (RelFieldCollation ignored : indexDescriptor.collation().getFieldCollations()) {
+            rowSchemaBuilder = rowSchemaBuilder.addField(NativeTypes.INT32);
         }
 
-        RelDataType rowType = rowTypeBuilder.build();
+        RowSchema rowSchema = rowSchemaBuilder.build();
 
-        TableDescriptor tableDescriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
-
-        IgniteIndex schemaIndex = new IgniteIndex(index);
-        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(rowSchema);
         SingleRangeIterable<Object[]> conditions = new SingleRangeIterable<>(new Object[]{}, null, false, false);
-        List<PartitionWithTerm> partitions = scannableTable.getPartitions();
+        List<PartitionWithConsistencyToken> partitions = scannableTable.getPartitions();
+        PartitionProvider<Object[]> partitionProvider = PartitionProvider.fromPartitions(partitions);
 
-        return new IndexScanNode<>(ctx, rowFactory, schemaIndex, scannableTable, tableDescriptor, partitions,
+        return new IndexScanNode<>(ctx, rowFactory, indexDescriptor, scannableTable, tableDescriptor, partitionProvider,
                 comparator, conditions, null, null, null);
     }
 
@@ -194,43 +223,53 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             partitionedData.put(partitionId, List.of(rows));
         }
 
-        List<PartitionWithTerm> getPartitions() {
+        List<PartitionWithConsistencyToken> getPartitions() {
             return new TreeSet<>(partitionedData.keySet())
                     .stream()
-                    .map(k -> new PartitionWithTerm(k, 2L))
+                    .map(k -> new PartitionWithConsistencyToken(k, 2L))
                     .collect(Collectors.toList());
         }
 
         /** {@inheritDoc} */
         @Override
-        public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm, RowFactory<RowT> rowFactory,
-                @Nullable BitSet requiredColumns) {
+        public <RowT> Publisher<RowT> scan(
+                ExecutionContext<RowT> ctx,
+                PartitionWithConsistencyToken partWithConsistencyToken,
+                RowFactory<RowT> rowFactory,
+                @Nullable BitSet requiredColumns
+        ) {
 
             throw new UnsupportedOperationException("Not supported");
         }
 
         /** {@inheritDoc} */
         @Override
-        public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+        public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory, int indexId, List<String> columns,
                 @Nullable RangeCondition<RowT> cond, @Nullable BitSet requiredColumns) {
 
-            List<T> list = partitionedData.get(partWithTerm.partId());
+            List<T> list = partitionedData.get(partWithConsistencyToken.partId());
             return new ScanPublisher<>(list, ctx, rowFactory);
         }
 
         @Override
-        public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+        public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
                 RowFactory<RowT> rowFactory, int indexId, List<String> columns,
                 RowT key, @Nullable BitSet requiredColumns) {
 
-            return newPublisher(ctx, partWithTerm, rowFactory);
+            return newPublisher(ctx, partWithConsistencyToken, rowFactory);
         }
 
-        private <RowT> ScanPublisher<RowT> newPublisher(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
+        @Override
+        public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+                RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+            throw new UnsupportedOperationException();
+        }
+
+        private <RowT> ScanPublisher<RowT> newPublisher(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithToken,
                 RowFactory<RowT> rowFactory) {
 
-            int partId = partWithTerm.partId();
+            int partId = partWithToken.partId();
             List<T> list = partitionedData.get(partId);
             Objects.requireNonNull(list, "No data for partition " + partId);
 
@@ -283,5 +322,10 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
                 });
             }
         }
+    }
+
+    @Override
+    protected RowHandler<Object[]> rowHandler() {
+        return ArrayRowHandler.INSTANCE;
     }
 }

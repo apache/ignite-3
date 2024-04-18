@@ -36,6 +36,15 @@ public class IgniteCost implements RelOptCost {
     /** Cost of a comparison of one row. */
     public static final double ROW_COMPARISON_COST = 3;
 
+    /**
+     * According to benchmark, deriving a single row from index approximately 5 times slower that deriving
+     * a single row from table, so we have to reflect this in cost estimation. But in case of multiplier=5
+     * indexes won't be chosen by optimiser for range scan with only bound. Thus, multiplier=4 looks like
+     * good compromise between reflecting the real state of things and not breaking up usage of index for
+     * range scans.
+     */
+    public static final double INDEX_ROW_SCAN_MULTIPLIER = 4;
+
     /** Memory cost of a aggregate call. */
     public static final double AGG_CALL_MEM_COST = 5;
 
@@ -151,12 +160,13 @@ public class IgniteCost implements RelOptCost {
 
     /** {@inheritDoc} */
     @Override
+    @SuppressWarnings("PMD.OverrideBothEqualsAndHashcode")
     public int hashCode() {
         return Objects.hash(rowCount, cpu, io, memory, network);
     }
 
     /** {@inheritDoc} */
-    @SuppressWarnings("FloatingPointEquality")
+    @SuppressWarnings({"FloatingPointEquality", "PMD.SuspiciousEqualsMethodName"})
     @Override
     public boolean equals(RelOptCost cost) {
         return this == cost

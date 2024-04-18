@@ -53,12 +53,12 @@ public class UosProfilerTarget {
             MarshalledObject marshal = userObjectMarshaller.marshal(obj);
             marshalledByUos = marshal.bytes();
         } catch (MarshalException e) {
-            e.printStackTrace();
+            e.printStackTrace(); // NOPMD
         }
     }
 
     public static void main(String[] args) throws Exception {
-        //serialize();
+        // serialize();
         deserialize();
     }
 

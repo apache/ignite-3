@@ -30,6 +30,16 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * Physical node for MINUS (EXCEPT) operator which inputs are colocated.
  */
 public class IgniteColocatedMinus extends IgniteMinus implements IgniteColocatedSetOp {
+    private static final String REL_TYPE_NAME = "ColocatedMinus";
+
+    /**
+     * Constructor.
+     *
+     * @param cluster Cluster that this relational expression belongs to.
+     * @param traitSet The traits of this rel.
+     * @param inputs Input relational expressions.
+     * @param all Whether this operator should return all rows or only distinct rows.
+     */
     public IgniteColocatedMinus(
             RelOptCluster cluster,
             RelTraitSet traitSet,
@@ -70,5 +80,11 @@ public class IgniteColocatedMinus extends IgniteMinus implements IgniteColocated
     @Override
     public int aggregateFieldsCount() {
         return getInput(0).getRowType().getFieldCount() + COUNTER_FIELDS_CNT;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

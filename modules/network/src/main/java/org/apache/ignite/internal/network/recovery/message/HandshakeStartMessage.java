@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.network.recovery.message;
 
-import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.network.message.ClusterNodeMessage;
 
 /**
  * Handshake start message, contains info about the node.
@@ -27,17 +27,6 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(NetworkMessageTypes.HANDSHAKE_START)
 public interface HandshakeStartMessage extends InternalMessage {
-    /**
-     * Returns launch id.
-     *
-     * @return Launch id.
-     */
-    UUID launchId();
-
-    /**
-     * Returns consistent id.
-     *
-     * @return Consistent id.
-     */
-    String consistentId();
+    /** Returns the server node that sends this. */
+    ClusterNodeMessage serverNode();
 }

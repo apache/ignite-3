@@ -23,8 +23,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
  * Concurrent queue that wraps collection of {@code Pair<K, V[]>}.

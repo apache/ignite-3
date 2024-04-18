@@ -74,6 +74,35 @@ public:
      */
     sql_result get_info(info_type type, void *buf, short buffer_len, short *result_len) const;
 
+    /**
+     * Set string info.
+     *
+     * @param type Info type.
+     * @param value Info value.
+     */
+    void set_info(info_type type, std::string value);
+
+    /**
+     * Set int info.
+     *
+     * @param type Info type.
+     * @param value Info value.
+     */
+    void set_info(info_type type, std::int32_t value);
+
+    /**
+     * Set short info.
+     *
+     * @param type Info type.
+     * @param value Info value.
+     */
+    void set_info(info_type type, std::int16_t value);
+
+    /**
+     * Rebuild connection_info from config.
+     */
+    void rebuild();
+
 private:
     /** Associative array of string m_parameters. */
     typedef std::map<info_type, std::string> string_info_map;

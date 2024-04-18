@@ -28,7 +28,7 @@ import jakarta.inject.Inject;
 import java.io.FileNotFoundException;
 import java.nio.file.Path;
 import java.util.List;
-import org.apache.ignite.internal.cli.call.CallInitializedIntegrationTestBase;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.call.cluster.unit.ClusterListUnitCall;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallFactory;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallInput;
@@ -47,7 +47,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Integration test for the deployment lifecycle: deploy, list, check status, undeploy. */
-public class ItDeployUndeployCallsTest extends CallInitializedIntegrationTestBase {
+public class ItDeployUndeployCallsTest extends CliIntegrationTest {
 
     @Inject
     DeployUnitCallFactory deployUnitCallFactory;

@@ -47,7 +47,7 @@ import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.AnyNodeConfigurationVisitor;
 import org.apache.ignite.internal.configuration.util.KeysTrackingConfigurationVisitor;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -61,7 +61,8 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
             new OneOfValidator(),
             new ExceptKeysValidator(),
             new PowerOfTwoValidator(),
-            new RangeValidator()
+            new RangeValidator(),
+            new NotBlankValidator()
     );
 
     /** Lazy annotations cache for configuration schema fields. */
@@ -234,10 +235,10 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
 
             // Get parent schema.
             schemaType = schemaType.getSuperclass();
-        } else if (innerNode.internalSchemaTypes() != null) {
+        } else if (innerNode.extensionSchemaTypes() != null) {
             // Linear search to not fight with NoSuchFieldException.
-            for (Class<?> internalSchemaType : innerNode.internalSchemaTypes()) {
-                for (Field field : internalSchemaType.getDeclaredFields()) {
+            for (Class<?> extensionSchemaType : innerNode.extensionSchemaTypes()) {
+                for (Field field : extensionSchemaType.getDeclaredFields()) {
                     if (field.getName().equals(schemaFieldName)) {
                         return field;
                     }

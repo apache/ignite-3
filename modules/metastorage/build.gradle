@@ -33,6 +33,7 @@ dependencies {
     implementation project(':ignite-api')
     implementation project(':ignite-core')
     implementation project(':ignite-rocksdb-common')
+    implementation project(':ignite-failure-handler')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
 
@@ -42,6 +43,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-vault'))
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-replicator'))
+    testImplementation testFixtures(project(':ignite-failure-handler'))
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
 
@@ -52,6 +54,8 @@ dependencies {
     integrationTestImplementation project(':ignite-rest')
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(":ignite-raft-api")
+    integrationTestImplementation project(':ignite-storage-api')
+    integrationTestImplementation project(':ignite-storage-rocksdb')
     integrationTestImplementation project(":ignite-vault")
     integrationTestImplementation project(":ignite-security")
     integrationTestImplementation testFixtures(project(':ignite-core'))
@@ -61,6 +65,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-vault'))
     integrationTestImplementation testFixtures(project(':ignite-metastorage'))
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
+    integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
 
     testFixturesImplementation project(':ignite-cluster-management')
     testFixturesImplementation project(':ignite-core')
@@ -68,6 +73,9 @@ dependencies {
     testFixturesImplementation project(':ignite-replicator')
     testFixturesImplementation project(':ignite-rocksdb-common')
     testFixturesImplementation project(':ignite-vault')
+    testFixturesImplementation project(':ignite-failure-handler')
+    testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.mockito.core
 }

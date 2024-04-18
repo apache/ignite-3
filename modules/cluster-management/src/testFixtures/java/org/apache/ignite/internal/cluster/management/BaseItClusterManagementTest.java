@@ -30,11 +30,12 @@ import org.apache.ignite.internal.cluster.management.configuration.ClusterManage
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -52,7 +53,10 @@ public abstract class BaseItClusterManagementTest extends BaseIgniteAbstractTest
     private static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private static NodeAttributesConfiguration nodeAttributes;
+    private static NodeAttributesConfiguration userNodeAttributes;
+
+    @InjectConfiguration
+    private static StorageConfiguration storageConfiguration;
 
     protected static List<MockNode> createNodes(int numNodes, TestInfo testInfo, Path workDir) {
         StaticNodeFinder nodeFinder = createNodeFinder(numNodes);
@@ -65,7 +69,8 @@ public abstract class BaseItClusterManagementTest extends BaseIgniteAbstractTest
                         workDir.resolve("node" + i),
                         raftConfiguration,
                         cmgConfiguration,
-                        nodeAttributes
+                        userNodeAttributes,
+                        storageConfiguration
 
                 ))
                 .collect(toList());
@@ -79,7 +84,8 @@ public abstract class BaseItClusterManagementTest extends BaseIgniteAbstractTest
                 workDir.resolve("node" + cluster.size()),
                 raftConfiguration,
                 cmgConfiguration,
-                nodeAttributes
+                userNodeAttributes,
+                storageConfiguration
         );
 
         cluster.add(node);

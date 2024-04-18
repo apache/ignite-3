@@ -20,7 +20,7 @@ package org.apache.ignite.internal.cli.call.configuration;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.CallInitializedIntegrationTestBase;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link NodeConfigUpdateCall}.
  */
-public class ItUpdateConfigurationCallTest extends CallInitializedIntegrationTestBase {
+public class ItUpdateConfigurationCallTest extends CliIntegrationTest {
 
     @Inject
     ClusterConfigUpdateCall updateCall;
@@ -40,12 +40,12 @@ public class ItUpdateConfigurationCallTest extends CallInitializedIntegrationTes
     @DisplayName("Should update cluster configuration")
     void shouldUpdateClusterConfiguration() {
         // Given default write buffer size
-        String givenConfigurationProperty = readConfigurationProperty("rocksDb.defaultRegion.writeBufferSize");
-        assertThat(givenConfigurationProperty).isEqualTo("67108864");
+        String givenConfigurationProperty = readConfigurationProperty("gc.batchSize");
+        assertThat(givenConfigurationProperty).isEqualTo("5");
         // And
         var input = ClusterConfigUpdateCallInput.builder()
                 .clusterUrl(NODE_URL)
-                .config("{rocksDb: {defaultRegion: {writeBufferSize: 1024}}}")
+                .config("{gc: {batchSize: 1}}")
                 .build();
 
         // When update buffer size
@@ -56,19 +56,19 @@ public class ItUpdateConfigurationCallTest extends CallInitializedIntegrationTes
         // And
         assertThat(output.body()).contains("Cluster configuration was updated successfully");
         // And buffer size is updated
-        String updatedConfigurationProperty = readConfigurationProperty("rocksDb.defaultRegion.writeBufferSize");
-        assertThat(updatedConfigurationProperty).isEqualTo("1024");
+        String updatedConfigurationProperty = readConfigurationProperty("gc.batchSize");
+        assertThat(updatedConfigurationProperty).isEqualTo("1");
 
         // When update buffer size back to default but using key-value format
         updateCall.execute(
                 ClusterConfigUpdateCallInput.builder()
                         .clusterUrl(NODE_URL)
-                        .config("rocksDb.defaultRegion.writeBufferSize=67108864")
+                        .config("gc.batchSize=5")
                         .build()
         );
 
         // Then buffer size is updated
-        assertThat(readConfigurationProperty("rocksDb.defaultRegion.writeBufferSize")).isEqualTo("67108864");
+        assertThat(readConfigurationProperty("gc.batchSize")).isEqualTo("5");
     }
 
     private String readConfigurationProperty(String selector) {

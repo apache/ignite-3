@@ -28,8 +28,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
-import org.apache.ignite.lang.IgniteBiTuple;
 
 /**
  * Abstract class making lock manager tests more simple.
@@ -44,12 +44,16 @@ public abstract class AbstractLockingTest {
         return TestTransactionIds.newTransactionId();
     }
 
+    protected UUID beginTx(TxPriority priority) {
+        return TestTransactionIds.newTransactionId(priority);
+    }
+
     protected LockKey key(Object key) {
         ByteBuffer b = ByteBuffer.allocate(Integer.BYTES);
         b.putInt(key.hashCode());
         b.position(0);
 
-        return new LockKey(b);
+        return new LockKey(0, b);
     }
 
     protected CompletableFuture<?> xlock(UUID tx, LockKey key) {

@@ -28,13 +28,12 @@ import java.util.BitSet;
 import java.util.Random;
 import java.util.UUID;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.lang.IgniteUuid;
+import org.apache.ignite.internal.lang.IgniteUuidGenerator;
 import org.apache.ignite.internal.network.messages.AllTypesMessage;
 import org.apache.ignite.internal.network.messages.AllTypesMessageBuilder;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.lang.IgniteUuidGenerator;
-import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**

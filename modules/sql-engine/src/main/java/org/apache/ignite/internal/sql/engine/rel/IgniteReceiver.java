@@ -34,6 +34,8 @@ import org.apache.calcite.util.Pair;
  * Relational expression that receives elements from remote {@link IgniteSender}.
  */
 public class IgniteReceiver extends AbstractRelNode implements IgniteRel {
+    private static final String REL_TYPE_NAME = "Receiver";
+
     private final long exchangeId;
 
     private final long sourceFragmentId;
@@ -146,5 +148,11 @@ public class IgniteReceiver extends AbstractRelNode implements IgniteRel {
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteReceiver(cluster, getTraitSet(), rowType, exchangeId, sourceFragmentId, collation);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

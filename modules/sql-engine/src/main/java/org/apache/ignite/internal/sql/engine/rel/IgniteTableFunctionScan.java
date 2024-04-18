@@ -33,12 +33,14 @@ import org.apache.calcite.rel.metadata.RelColumnMapping;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
-import org.apache.ignite.internal.sql.engine.prepare.Splitter;
+import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
 
 /**
  * Relational operator for table function scan.
  */
 public class IgniteTableFunctionScan extends TableFunctionScan implements SourceAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "TableFunctionScan";
+
     /** Default estimate row count. */
     private static final int ESTIMATE_ROW_COUNT = 100;
 
@@ -59,13 +61,13 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Source
     /**
      * Creates a new Scan over function.
      *
-     * @param sourceId An identifier of a source of rows. Will be assigned by {@link Splitter}.
+     * @param sourceId An identifier of a source of rows. Will be assigned by {@link QuerySplitter}.
      * @param cluster Cluster that this relational expression belongs to.
      * @param traits A set of particular properties this relation satisfies.
      * @param call A call to a function emitting the rows to scan over.
      * @param rowType Row type for tuples produced by this rel.
      *
-     * @see Splitter
+     * @see QuerySplitter
      */
     private IgniteTableFunctionScan(
             long sourceId,
@@ -139,5 +141,11 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Source
     @Override
     public double estimateRowCount(RelMetadataQuery mq) {
         return ESTIMATE_ROW_COUNT;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

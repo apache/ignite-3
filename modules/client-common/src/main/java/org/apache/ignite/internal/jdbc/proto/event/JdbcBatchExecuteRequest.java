@@ -92,7 +92,7 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         packer.packBoolean(autoCommit);
         ClientMessageUtils.writeStringNullable(packer, schemaName);
 
-        packer.packArrayHeader(queries.size());
+        packer.packInt(queries.size());
 
         for (String q : queries) {
             packer.packString(q);
@@ -105,7 +105,7 @@ public class JdbcBatchExecuteRequest implements ClientMessage {
         autoCommit = unpacker.unpackBoolean();
         schemaName = ClientMessageUtils.readStringNullable(unpacker);
 
-        int n = unpacker.unpackArrayHeader();
+        int n = unpacker.unpackInt();
 
         queries = new ArrayList<>(n);
 

@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -25,11 +27,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -80,13 +82,18 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
     @SuppressWarnings("resource")
     @Test
     void testAccessDroppedTableThrowsTableDoesNotExistsError() {
-        Session session = client().sql().createSession();
-        session.execute(null, "CREATE TABLE IF NOT EXISTS DELME (key INTEGER PRIMARY KEY)");
+        IgniteSql sql = client().sql();
+        sql.execute(null, "CREATE TABLE IF NOT EXISTS DELME (key INTEGER PRIMARY KEY)");
 
         var table = client().tables().table("DELME");
-        session.execute(null, "DROP TABLE DELME");
+        sql.execute(null, "DROP TABLE DELME");
 
         IgniteException ex = assertThrows(IgniteException.class, () -> table.recordView(Integer.class).delete(null, 1));
-        assertEquals(Client.TABLE_ID_NOT_FOUND_ERR, ex.code(), ex.getMessage());
+        assertEquals(TABLE_NOT_FOUND_ERR, ex.code(), ex.getMessage());
+    }
+
+    @Test
+    void clusterName() {
+        assertThat(((TcpIgniteClient) client()).clusterName(), is("cluster"));
     }
 }

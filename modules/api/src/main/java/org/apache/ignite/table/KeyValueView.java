@@ -24,8 +24,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
+import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  * @apiNote 'Key/value class field' &gt;-&lt; 'table column' mapping laid down in implementation.
  * @see org.apache.ignite.table.mapper.Mapper
  */
-public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
+public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, CriteriaQuerySource<Entry<K, V>> {
     /**
      * Gets a value associated with a given key.
      *
@@ -50,7 +50,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @throws UnexpectedNullValueException If value for the key exists, and it is {@code null}.
      * @see #getNullable(Transaction, Object)
      */
-    V get(@Nullable Transaction tx, @NotNull K key);
+    @Nullable V get(@Nullable Transaction tx, K key);
 
     /**
      * Asynchronously gets a value associated with a given key.
@@ -65,17 +65,21 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @see #getNullableAsync(Transaction, Object)
      * @see #get(Transaction, Object)
      */
-    @NotNull CompletableFuture<V> getAsync(@Nullable Transaction tx, @NotNull K key);
+    CompletableFuture<V> getAsync(@Nullable Transaction tx, K key);
 
     /**
      * Gets a nullable value associated with a given key.
+     *
+     * <p>Examples:
+     *     {@code getNullable(tx, key)} returns {@code null} after {@code remove(tx, key)}.
+     *     {@code getNullable(tx, key)} returns {@code Nullable.of(null)} after {@code put(tx, key, null)}.
      *
      * @param tx Transaction or {@code null} to auto commit.
      * @param key Key whose value is to be returned. The key cannot be {@code null}.
      * @return Wrapped nullable value or {@code null} if it does not exist.
      * @throws MarshallerException if the key doesn't match the schema.
      */
-    NullableValue<V> getNullable(@Nullable Transaction tx, @NotNull K key);
+    NullableValue<V> getNullable(@Nullable Transaction tx, K key);
 
     /**
      * Gets a nullable value associated with a given key.
@@ -83,10 +87,11 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key whose value is to be returned. The key cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
+     *     The future returns wrapped nullable value or {@code null} if the row with the given key does not exist.
      * @throws MarshallerException if the key doesn't match the schema.
      * @see #getNullable(Transaction, Object)
      */
-    @NotNull CompletableFuture<NullableValue<V>> getNullableAsync(@Nullable Transaction tx, @NotNull K key);
+    CompletableFuture<NullableValue<V>> getNullableAsync(@Nullable Transaction tx, K key);
 
     /**
      * Gets a value associated with a given key, if it exists and is not null, otherwise returns {@code defaultValue}.
@@ -97,7 +102,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @return Value or {@code defaultValue} if does not exist.
      * @throws MarshallerException if the key doesn't match the schema.
      */
-    V getOrDefault(@Nullable Transaction tx, @NotNull K key, V defaultValue);
+    @Nullable V getOrDefault(@Nullable Transaction tx, K key, @Nullable V defaultValue);
 
     /**
      * Gets a value associated with a given key, if it exists and is not null, otherwise returns {@code defaultValue}.
@@ -109,7 +114,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @throws MarshallerException if the key doesn't match the schema.
      * @see #getOrDefault(Transaction, Object, Object)
      */
-    @NotNull CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, @NotNull K key, V defaultValue);
+    CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, K key, @Nullable V defaultValue);
 
     /**
      * Get values associated with given keys.
@@ -119,7 +124,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @return Values associated with given keys.
      * @throws MarshallerException if the keys don't match the schema.
      */
-    Map<K, V> getAll(@Nullable Transaction tx, @NotNull Collection<K> keys);
+    Map<K, V> getAll(@Nullable Transaction tx, Collection<K> keys);
 
     /**
      * Get values associated with given keys.
@@ -129,7 +134,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key doesn't match the schema.
      */
-    @NotNull CompletableFuture<Map<K, V>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<K> keys);
+    CompletableFuture<Map<K, V>> getAllAsync(@Nullable Transaction tx, Collection<K> keys);
 
     /**
      * Determines whether a table contains an entry for the specified key.
@@ -139,7 +144,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @return {@code True} if a value exists for the specified key, {@code false} otherwise.
      * @throws MarshallerException if the key doesn't match the schema.
      */
-    boolean contains(@Nullable Transaction tx, @NotNull K key);
+    boolean contains(@Nullable Transaction tx, K key);
 
     /**
      * Determines whether a table contains an entry for the specified key.
@@ -149,28 +154,28 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key doesn't match the schema.
      */
-    CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, @NotNull K key);
+    CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, K key);
 
     /**
      * Puts into a table a value associated with the given key.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
+     * @param val Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
-    void put(@Nullable Transaction tx, @NotNull K key, V val);
+    void put(@Nullable Transaction tx, K key, @Nullable V val);
 
     /**
      * Asynchronously puts into a table a value associated with the given key.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
+     * @param val Value to be associated with the specified key. Can be null when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
-    @NotNull CompletableFuture<Void> putAsync(@Nullable Transaction tx, @NotNull K key, V val);
+    CompletableFuture<Void> putAsync(@Nullable Transaction tx, K key, @Nullable V val);
 
     /**
      * Puts associated key-value pairs.
@@ -179,7 +184,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @param pairs Key-value pairs. The pairs cannot be {@code null}.
      * @throws MarshallerException if one of key, or values doesn't match the schema.
      */
-    void putAll(@Nullable Transaction tx, @NotNull Map<K, V> pairs);
+    void putAll(@Nullable Transaction tx, Map<K, V> pairs);
 
     /**
      * Asynchronously puts associated key-value pairs.
@@ -189,78 +194,79 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if one of key, or values doesn't match the schema.
      */
-    @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<K, V> pairs);
+    CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, Map<K, V> pairs);
 
     /**
      * Puts into a table a new, or replaces an existing, value associated with the given key.
      *
-     * <p>NB: The method doesn't support {@code null} value, use {@link #getNullableAndPut(Transaction, Object, Object)} instead.
+     * <p>NB: The method doesn't support {@code null} column value, use {@link #getNullableAndPut(Transaction, Object, Object)} instead.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key. The value cannot be {@code null}.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Replaced value or {@code null} if it did not exist.
      * @throws MarshallerException if one of the keys or values doesn't match the schema.
      * @throws UnexpectedNullValueException If value for the key exists, and it is {@code null}.
      */
-    V getAndPut(@Nullable Transaction tx, @NotNull K key, @NotNull V val);
+    @Nullable V getAndPut(@Nullable Transaction tx, K key, @Nullable V val);
 
     /**
      * Asynchronously puts into a table a new, or replaces an existing, value associated with given key.
      *
-     * <p>NB: The method doesn't support {@code null} value, use {@link #getNullableAndPutAsync(Transaction, Object, Object)} instead.
+     * <p>NB: The method doesn't support {@code null} column value, use {@link #getNullableAndPutAsync(Transaction, Object, Object)}
+     *     instead.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key. The value cannot be {@code null}.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
-    @NotNull CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, @NotNull K key, @NotNull V val);
+    CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, K key, @Nullable V val);
 
     /**
      * Puts into a table a new, or replaces an existing, value associated with given key.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Wrapped nullable value that was replaced or {@code null} if it did no exist.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
-    NullableValue<V> getNullableAndPut(@Nullable Transaction tx, @NotNull K key, V val);
+    NullableValue<V> getNullableAndPut(@Nullable Transaction tx, K key, @Nullable V val);
 
     /**
      * Asynchronously puts into a table a new, or replaces an existing, value associated with given key.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
-    @NotNull CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, @NotNull K key, V val);
+    CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, K key, @Nullable V val);
 
     /**
      * Puts into a table a value associated with the given key if this value does not exists.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return {@code True} if successful, {@code false} otherwise.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
-    boolean putIfAbsent(@Nullable Transaction tx, @NotNull K key, V val);
+    boolean putIfAbsent(@Nullable Transaction tx, K key, @Nullable V val);
 
     /**
      * Asynchronously puts into a table a value associated with the given key if this value does not exist.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key with which the specified value is to be associated. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
-    @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, @NotNull K key, V val);
+    CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, K key, @Nullable V val);
 
     /**
      * Removes from a table a value associated with the given key.
@@ -270,7 +276,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @return {@code True} if a value associated with the specified key was successfully removed, {@code false} otherwise.
      * @throws MarshallerException if the key doesn't match the schema.
      */
-    boolean remove(@Nullable Transaction tx, @NotNull K key);
+    boolean remove(@Nullable Transaction tx, K key);
 
     /**
      * Removes from a table an expected value associated with the given key.
@@ -281,7 +287,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @return {@code True} if the expected value for the specified key was successfully removed, {@code false} otherwise.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
-    boolean remove(@Nullable Transaction tx, @NotNull K key, V val);
+    boolean remove(@Nullable Transaction tx, K key, V val);
 
     /**
      * Asynchronously removes from a table a value associated with the given key.
@@ -291,7 +297,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key doesn't match the schema.
      */
-    @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull K key);
+    CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key);
 
     /**
      * Asynchronously removes from a table an expected value associated with the given key.
@@ -302,7 +308,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
-    @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull K key, V val);
+    CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val);
 
     /**
      * Removes from a table values associated with the given keys.
@@ -312,7 +318,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @return Keys that did not exist.
      * @throws MarshallerException if one of keys doesn't match the schema.
      */
-    Collection<K> removeAll(@Nullable Transaction tx, @NotNull Collection<K> keys);
+    Collection<K> removeAll(@Nullable Transaction tx, Collection<K> keys);
 
     /**
      * Asynchronously remove from a table values associated with the given keys.
@@ -322,12 +328,12 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if one of the keys doesn't match the schema.
      */
-    @NotNull CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, @NotNull Collection<K> keys);
+    CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys);
 
     /**
      * Gets and removes from a table a value associated with the given key.
      *
-     * <p>NB: Method doesn't support {@code null} value, use {@link #getNullableAndRemove(Transaction, Object)} instead.
+     * <p>NB: Method doesn't support {@code null} column value, use {@link #getNullableAndRemove(Transaction, Object)} instead.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key whose value is to be removed from the table. The key cannot be {@code null}.
@@ -335,19 +341,19 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @throws UnexpectedNullValueException If the key value is {@code null}.
      * @throws MarshallerException if the key doesn't match the schema.
      */
-    V getAndRemove(@Nullable Transaction tx, @NotNull K key);
+    @Nullable V getAndRemove(@Nullable Transaction tx, K key);
 
     /**
      * Asynchronously gets and removes from a table a value associated with the given key.
      *
-     * <p>NB: Method doesn't support {@code null} value, use {@link #getNullableAndRemoveAsync(Transaction, Object)} instead.
+     * <p>NB: Method doesn't support {@code null} column value, use {@link #getNullableAndRemoveAsync(Transaction, Object)} instead.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key whose value is to be removed from the table. The key cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key doesn't match the schema.
      */
-    @NotNull CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, @NotNull K key);
+    CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, K key);
 
     /**
      * Gets and removes from a table a value associated with the given key.
@@ -357,7 +363,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @return Wrapped nullable value that was removed or {@code null} if it did not exist.
      * @throws MarshallerException if the key doesn't match the schema.
      */
-    NullableValue<V> getNullableAndRemove(@Nullable Transaction tx, @NotNull K key);
+    NullableValue<V> getNullableAndRemove(@Nullable Transaction tx, K key);
 
     /**
      * Asynchronously gets and removes from a table a value associated with the given key.
@@ -367,7 +373,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key doesn't match the schema.
      */
-    @NotNull CompletableFuture<NullableValue<V>> getNullableAndRemoveAsync(@Nullable Transaction tx, @NotNull K key);
+    CompletableFuture<NullableValue<V>> getNullableAndRemoveAsync(@Nullable Transaction tx, K key);
 
     /**
      * Replaces a value for a key if it exists. This is equivalent to
@@ -382,11 +388,11 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
      * @throws MarshallerException if the key and/or the value doesn't match the schema.
      */
-    boolean replace(@Nullable Transaction tx, @NotNull K key, V val);
+    boolean replace(@Nullable Transaction tx, K key, @Nullable V val);
 
     /**
      * Replaces an expected value for a key. This is equivalent to
@@ -402,34 +408,35 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
      * @param oldValue Expected value associated with the specified key.
-     * @param newValue Value to be associated with the specified key.
+     * @param newValue Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
      * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
-    boolean replace(@Nullable Transaction tx, @NotNull K key, V oldValue, V newValue);
+    boolean replace(@Nullable Transaction tx, K key, V oldValue, @Nullable V newValue);
 
     /**
      * Asynchronously replaces a value for a key if it exists. See {@link #replace(Transaction, Object, Object)}.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key or the oldValue doesn't match the schema.
      */
-    @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull K key, V val);
+    CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V val);
 
     /**
      * Asynchronously replaces an expected value for a key. See {@link #replace(Transaction, Object, Object, Object)}
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param oldVal Expected value associated with the specified key.
-     * @param newVal Value to be associated with the specified key.
+     * @param oldVal Expected value associated with the specified key. Can be {@code null} when mapped to a single column
+     *     with a simple type.
+     * @param newVal Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
-    @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull K key, V oldVal, V newVal);
+    CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal);
 
     /**
      * Replaces a value for a given key if it exists. This is equivalent to
@@ -444,52 +451,53 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>> {
      * </code></pre>
      * except the action is performed atomically.
      *
-     * <p>NB: Method doesn't support {@code null} value, use {@link #getNullableAndReplace(Transaction, Object, Object)} instead.
+     * <p>NB: Method doesn't support {@code null} column value, use {@link #getNullableAndReplace(Transaction, Object, Object)} instead.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key. The value cannot be {@code null}.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Replaced value, or {@code null} if it did not exist.
      * @throws UnexpectedNullValueException If the value for the key is {@code null}.
      * @throws MarshallerException if the key, or the value doesn't match the schema.
      */
-    V getAndReplace(@Nullable Transaction tx, @NotNull K key, @NotNull V val);
+    @Nullable V getAndReplace(@Nullable Transaction tx, @Nullable K key, @Nullable V val);
 
     /**
      * Asynchronously replaces a value for a given key if it exists.
      *
-     * <p>NB: Method doesn't support {@code null} value, use {@link #getNullableAndReplaceAsync(Transaction, Object, Object)} instead.
+     * <p>NB: Method doesn't support {@code null} column value, use {@link #getNullableAndReplaceAsync(Transaction, Object, Object)}
+     *     instead.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key or the value doesn't match the schema.
      * @see #getAndReplace(Transaction, Object, Object)
      */
-    @NotNull CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, @NotNull V val);
+    CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, K key, @Nullable V val);
 
     /**
      * Replaces a value for a given key if it exists.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Wrapped nullable value that was replaced or {@code null} if it did not exist.
      * @throws MarshallerException if the key or the value doesn't match the schema.
      * @see #getAndReplace(Transaction, Object, Object)
      */
-    NullableValue<V> getNullableAndReplace(@Nullable Transaction tx, @NotNull K key, V val);
+    NullableValue<V> getNullableAndReplace(@Nullable Transaction tx, K key, @Nullable V val);
 
     /**
      * Asynchronously replaces a value for a given key if it exists.
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param val Value to be associated with the specified key.
+     * @param val Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return Future that represents the pending completion of the operation.
      * @throws MarshallerException if the key or the value doesn't match the schema.
      * @see #getAndReplace(Transaction, Object, Object)
      */
-    @NotNull CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, V val);
+    CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, K key, @Nullable V val);
 }

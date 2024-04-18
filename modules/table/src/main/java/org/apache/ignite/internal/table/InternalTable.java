@@ -23,9 +23,10 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -65,6 +66,14 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Table name.
      */
     String name();
+
+    /**
+     * Sets the name of the table.
+     *
+     * @param newName New name.
+     */
+    // TODO: revisit this approach, see https://issues.apache.org/jira/browse/IGNITE-21235.
+    void name(String newName);
 
     /**
      * Extracts an identifier of a partition from a given row.
@@ -146,13 +155,14 @@ public interface InternalTable extends ManuallyCloseable {
     CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
     /**
-     * Asynchronously inserts records into a table, if they do not exist, or replaces the existing ones.
+     * Asynchronously updates records in the table (insert, update, delete).
      *
-     * @param rows Rows to insert into the table.
+     * @param rows Rows to update.
+     * @param deleted Bit set indicating deleted rows (one bit per item in {@param rows}). When null, no rows are deleted.
      * @param partition Partition that the rows belong to.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition);
+    CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, @Nullable BitSet deleted, int partition);
 
     /**
      * Asynchronously inserts a row into the table or replaces if exists and return replaced previous row.
@@ -176,10 +186,12 @@ public interface InternalTable extends ManuallyCloseable {
      * Asynchronously insert rows into the table which do not exist, skipping existed ones.
      *
      * @param rows Rows to insert into the table.
-     * @param tx   The transaction.
-     * @return Future representing pending completion of the operation.
+     * @param tx The transaction.
+     * @return Future represents the pending completion of the operation, with rejected rows for insertion in the result. The order of
+     *         collection elements is guaranteed to be the same as the order of {@code rows}. If a record is inserted, the element will be
+     *         excluded from the collection result.
      */
-    CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
+    CompletableFuture<List<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
     /**
      * Asynchronously replaces an existed row associated with the same key columns values as the given one has.
@@ -241,19 +253,23 @@ public interface InternalTable extends ManuallyCloseable {
      * Asynchronously remove rows with the same key columns values as the given one has from the table.
      *
      * @param rows Rows with key columns set.
-     * @param tx   The transaction.
-     * @return Future representing pending completion of the operation.
+     * @param tx The transaction.
+     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
+     *         collection elements is guaranteed to be the same as the order of {@code rows}. If a record is deleted, the element will be
+     *         excluded from the collection result.
      */
-    CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
+    CompletableFuture<List<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
     /**
      * Asynchronously remove given rows from the table.
      *
      * @param rows Rows to delete.
-     * @param tx   The transaction.
-     * @return Future representing pending completion of the operation.
+     * @param tx The transaction.
+     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
+     *         collection elements is guaranteed to be the same as the order of {@code rows}. If a record is deleted, the element will be
+     *         excluded from the collection result.
      */
-    CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
+    CompletableFuture<List<BinaryRow>> deleteAllExact(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
     /**
      * Returns a partition for a key.
@@ -281,16 +297,19 @@ public interface InternalTable extends ManuallyCloseable {
      * @param partId The partition.
      * @param readTimestamp Read timestamp.
      * @param recipientNode Cluster node that will handle given get request.
+     * @param txCoordinatorId Transaction coordinator inconsistent id.
      * @return {@link Publisher} that reactively notifies about partition rows.
      * @throws IllegalArgumentException If proposed partition index {@code p} is out of bounds.
      * @throws TransactionException If proposed {@code tx} is read-write. Transaction itself won't be automatically rolled back.
      */
     default Publisher<BinaryRow> scan(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
-            ClusterNode recipientNode
+            ClusterNode recipientNode,
+            String txCoordinatorId
     ) {
-        return scan(partId, readTimestamp, recipientNode, null, null, null, 0, null);
+        return scan(partId, txId, readTimestamp, recipientNode, null, null, null, 0, null, txCoordinatorId);
     }
 
     /**
@@ -305,17 +324,20 @@ public interface InternalTable extends ManuallyCloseable {
      * @param upperBound Upper search bound.
      * @param flags Control flags. See {@link org.apache.ignite.internal.storage.index.SortedIndexStorage} constants.
      * @param columnsToInclude Row projection.
+     * @param txCoordinatorId Transaction coordinator inconsistent id.
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
     Publisher<BinaryRow> scan(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
-            @Nullable BitSet columnsToInclude
+            @Nullable BitSet columnsToInclude,
+            String txCoordinatorId
     );
 
     /**
@@ -323,6 +345,8 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param partId The partition.
      * @param txId Transaction id.
+     * @param commitPartition Commit partition id.
+     * @param txCoordinatorId Transaction coordinator id.
      * @param recipient Primary replica that will handle given get request.
      * @param lowerBound Lower search bound.
      * @param upperBound Upper search bound.
@@ -333,6 +357,8 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
+            TablePartitionId commitPartition,
+            String txCoordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
             @Nullable BinaryTuplePrefix lowerBound,
@@ -372,15 +398,18 @@ public interface InternalTable extends ManuallyCloseable {
      * @param indexId Index id.
      * @param key Key to search.
      * @param columnsToInclude Row projection.
+     * @param txCoordinatorId Transaction coordinator id.
      * @return {@link Publisher} that reactively notifies about partition rows.
      */
     Publisher<BinaryRow> lookup(
             int partId,
+            UUID txId,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode,
             int indexId,
             BinaryTuple key,
-            @Nullable BitSet columnsToInclude
+            @Nullable BitSet columnsToInclude,
+            String txCoordinatorId
     );
 
     /**
@@ -389,6 +418,8 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @param partId The partition.
      * @param txId Transaction id.
+     * @param commitPartition Commit partition id.
+     * @param txCoordinatorId Transaction coordinator id.
      * @param recipient Primary replica that will handle given get request.
      * @param indexId Index id.
      * @param key Key to search.
@@ -398,6 +429,8 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
+            TablePartitionId commitPartition,
+            String txCoordinatorId,
             PrimaryReplica recipient,
             int indexId,
             BinaryTuple key,
@@ -412,48 +445,20 @@ public interface InternalTable extends ManuallyCloseable {
     int partitions();
 
     /**
-     * Gets a list of current table assignments.
-     *
-     * <p>Returns a list where on the i-th place resides a node id that considered as a leader for
-     * the i-th partition on the moment of invocation.
-     *
-     * @return List of current assignments.
-     */
-    List<String> assignments();
-
-    /**
-     * Gets a list of current primary replicas for each partition.
-     *
-     * @return List of current primary replicas for each partition.
-     */
-    List<PrimaryReplica> primaryReplicas();
-
-    /**
-     * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
-     * it cannot be found.
-     *
-     * @param partition partition number
-     * @return leader node of the partition group corresponding to the partition
-     */
-    ClusterNode leaderAssignment(int partition);
-
-    /**
-     * Returns raft group client for corresponding partition.
-     *
-     * @param partition partition number
-     * @return raft group client for corresponding partition
-     * @throws org.apache.ignite.lang.IgniteInternalException if partition can't be found.
-     */
-    RaftGroupService partitionRaftGroupService(int partition);
-
-    /**
      * Storage of transaction states for this table.
      *
      * @return Transaction states' storage.
      */
     TxStateTableStorage txStateStorage();
 
-    //TODO: IGNITE-14488. Add invoke() methods.
+    /**
+     * Raft service for this table.
+     *
+     * @return Table raft service.
+     */
+    TableRaftService tableRaftService();
+
+    // TODO: IGNITE-14488. Add invoke() methods.
 
     /**
      * Closes the table.
@@ -474,4 +479,11 @@ public interface InternalTable extends ManuallyCloseable {
      * @param partitionId Partition ID.
      */
     @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId);
+
+    /**
+     * Gets the streamer flush executor service.
+     *
+     * @return Streamer flush executor.
+     */
+    ScheduledExecutorService streamerFlushExecutor();
 }

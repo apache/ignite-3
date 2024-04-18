@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.util.subscription;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 
 /**
  * Throws when accumulation process finished unsuccessfully {@link Accumulator#get()}.

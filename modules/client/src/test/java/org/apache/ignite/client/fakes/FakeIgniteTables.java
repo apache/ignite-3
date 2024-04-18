@@ -17,28 +17,31 @@
 
 package org.apache.ignite.client.fakes;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.mockito.Mockito.mock;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
-import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake tables.
@@ -60,13 +63,9 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     public static final String BAD_TABLE_ERR = "Err!";
 
-    private final ConcurrentHashMap<String, TableImpl> tables = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, TableViewInternal> tables = new ConcurrentHashMap<>();
 
-    private final ConcurrentHashMap<Integer, TableImpl> tablesById = new ConcurrentHashMap<>();
-
-    private final CopyOnWriteArrayList<Consumer<IgniteTablesInternal>> assignmentsChangeListeners = new CopyOnWriteArrayList<>();
-
-    private volatile List<String> partitionAssignments = null;
+    private final ConcurrentHashMap<Integer, TableViewInternal> tablesById = new ConcurrentHashMap<>();
 
     private final AtomicInteger nextTableId = new AtomicInteger(1);
 
@@ -87,7 +86,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
      * @param id Table id.
      * @return Table.
      */
-    public TableImpl createTable(String name, int id) {
+    public TableViewInternal createTable(String name, int id) {
         var newTable = getNewTable(name, id);
 
         var oldTable = tables.putIfAbsent(name, newTable);
@@ -123,7 +122,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<Table>> tablesAsync() {
-        return CompletableFuture.completedFuture(tables());
+        return completedFuture(tables());
     }
 
     /** {@inheritDoc} */
@@ -133,76 +132,45 @@ public class FakeIgniteTables implements IgniteTablesInternal {
             throw new RuntimeException(BAD_TABLE_ERR);
         }
 
-        return tableImpl(name);
+        return tableView(name);
     }
 
     /** {@inheritDoc} */
     @Override
-    public TableImpl table(int id) {
+    public TableViewInternal table(int id) {
         return tablesById.get(id);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
-        return CompletableFuture.completedFuture(table(name));
+        return completedFuture(table(name));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<TableImpl> tableAsync(int id) {
-        return CompletableFuture.completedFuture(tablesById.get(id));
+    public CompletableFuture<TableViewInternal> tableAsync(int id) {
+        return completedFuture(tablesById.get(id));
     }
 
     /** {@inheritDoc} */
     @Override
-    public TableImpl tableImpl(String name) {
+    public TableViewInternal tableView(String name) {
         return tables.get(name);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<TableImpl> tableImplAsync(String name) {
-        return CompletableFuture.completedFuture(tableImpl(name));
+    public CompletableFuture<TableViewInternal> tableViewAsync(String name) {
+        return completedFuture(tableView(name));
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<List<String>> assignmentsAsync(int tableId) {
-        return CompletableFuture.completedFuture(partitionAssignments);
+    public @Nullable TableViewInternal cachedTable(int tableId) {
+        return table(tableId);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void addAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
-        Objects.requireNonNull(listener);
-
-        assignmentsChangeListeners.add(listener);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean removeAssignmentsChangeListener(Consumer<IgniteTablesInternal> listener) {
-        Objects.requireNonNull(listener);
-
-        return assignmentsChangeListeners.remove(listener);
-    }
-
-    /**
-     * Sets partition assignments.
-     *
-     * @param assignments Assignments.
-     */
-    public void setPartitionAssignments(List<String> assignments) {
-        partitionAssignments = assignments;
-
-        for (var listener : assignmentsChangeListeners) {
-            listener.accept(this);
-        }
-    }
-
-    @NotNull
-    private TableImpl getNewTable(String name, int id) {
+    private TableViewInternal getNewTable(String name, int id) {
         Function<Integer, SchemaDescriptor> history;
 
         switch (name) {
@@ -232,14 +200,30 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         }
 
         FakeSchemaRegistry schemaReg = new FakeSchemaRegistry(history);
-        Function<BinaryRow, BinaryTuple> keyExtractor = binaryRow -> {
-            SchemaDescriptor schema = schemaReg.schema(binaryRow.schemaVersion());
-            return BinaryRowConverter.keyExtractor(schema).apply(binaryRow);
+
+        ColumnsExtractor keyExtractor = row -> {
+            SchemaDescriptor schema = schemaReg.schema(row.schemaVersion());
+
+            return BinaryRowConverter.keyExtractor(schema).extractColumns(row);
         };
+
         return new TableImpl(
                 new FakeInternalTable(name, id, keyExtractor),
                 schemaReg,
-                new HeapLockManager()
+                new HeapLockManager(),
+                new SchemaVersions() {
+                    @Override
+                    public CompletableFuture<Integer> schemaVersionAt(HybridTimestamp timestamp, int tableId) {
+                        return completedFuture(schemaReg.lastKnownSchemaVersion());
+                    }
+
+                    @Override
+                    public CompletableFuture<Integer> schemaVersionAtNow(int tableId) {
+                        return completedFuture(schemaReg.lastKnownSchemaVersion());
+                    }
+                },
+                mock(IgniteSql.class),
+                -1
         );
     }
 
@@ -292,8 +276,8 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                         new Column("zfloat".toUpperCase(), NativeTypes.FLOAT, true),
                         new Column("zdouble".toUpperCase(), NativeTypes.DOUBLE, true),
                         new Column("zdate".toUpperCase(), NativeTypes.DATE, true),
-                        new Column("ztime".toUpperCase(), NativeTypes.time(), true),
-                        new Column("ztimestamp".toUpperCase(), NativeTypes.timestamp(), true),
+                        new Column("ztime".toUpperCase(), NativeTypes.time(0), true),
+                        new Column("ztimestamp".toUpperCase(), NativeTypes.timestamp(6), true),
                         new Column("zstring".toUpperCase(), NativeTypes.STRING, true),
                         new Column("zbytes".toUpperCase(), NativeTypes.BYTES, true),
                         new Column("zuuid".toUpperCase(), NativeTypes.UUID, true),
@@ -350,19 +334,19 @@ public class FakeIgniteTables implements IgniteTablesInternal {
      */
     private SchemaDescriptor getColocationKeySchema(Integer v) {
         Column colocationCol1 = new Column("COLO-1", NativeTypes.STRING, false);
-        Column colocationCol2 = new Column("COLO-2", NativeTypes.INT64, true);
+        Column colocationCol2 = new Column("COLO-2", NativeTypes.INT64, false);
 
         return new SchemaDescriptor(
                 v,
-                new Column[]{
+                List.of(
                         new Column("ID", NativeTypes.INT32, false),
-                },
-                new String[]{ colocationCol1.name(), colocationCol2.name() },
-                new Column[]{
                         colocationCol1,
                         colocationCol2,
                         new Column("STR", NativeTypes.STRING, true)
-                });
+                ),
+                List.of("ID", colocationCol1.name(), colocationCol2.name()),
+                List.of(colocationCol1.name(), colocationCol2.name())
+        );
     }
 
     /**

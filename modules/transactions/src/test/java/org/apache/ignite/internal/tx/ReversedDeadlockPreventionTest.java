@@ -17,10 +17,18 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import java.util.Comparator;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.tx.impl.TxIdPriorityComparator;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test for WOUND-WAIT deadlock prevention policy.
@@ -35,8 +43,13 @@ public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTe
 
     @Override
     protected UUID beginTx() {
+        return beginTx(TxPriority.NORMAL);
+    }
+
+    @Override
+    protected UUID beginTx(TxPriority priority) {
         counter++;
-        return new UUID(0, Long.MAX_VALUE - counter);
+        return TransactionIds.transactionId(Long.MAX_VALUE - counter, 1, priority);
     }
 
     @Override
@@ -44,7 +57,7 @@ public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTe
         return new DeadlockPreventionPolicy() {
             @Override
             public @Nullable Comparator<UUID> txIdComparator() {
-                return Comparator.reverseOrder();
+                return new TxIdPriorityComparator().reversed();
             }
 
             @Override
@@ -52,5 +65,33 @@ public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTe
                 return 0;
             }
         };
+    }
+
+    @Test
+    public void youngLowTxShouldWaitForOldNormalTx() {
+        var oldNormalTx = beginTx(TxPriority.NORMAL);
+        var youngLowTx = beginTx(TxPriority.LOW);
+
+        var key1 = key("test");
+
+        assertThat(xlock(oldNormalTx, key1), willSucceedFast());
+
+        CompletableFuture<?> youngLowXlock = xlock(youngLowTx, key1);
+
+        commitTx(oldNormalTx);
+
+        assertThat(youngLowXlock, willCompleteSuccessfully());
+    }
+
+    @Test
+    public void youngNormalTxShouldBeAborted() {
+        var tx1 = beginTx(TxPriority.LOW);
+        var tx2 = beginTx(TxPriority.NORMAL);
+
+        var key1 = key("test");
+
+        assertThat(xlock(tx1, key1), willSucceedFast());
+
+        assertThat(xlock(tx2, key1), willThrow(LockException.class));
     }
 }

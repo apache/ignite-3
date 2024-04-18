@@ -117,13 +117,38 @@ namespace Apache.Ignite
         TupleContainsKey,
 
         /// <summary>
-        /// Compute (<see cref="ICompute.ExecuteAsync{T}"/>, <see cref="ICompute.BroadcastAsync{T}"/>).
+        /// Compute (<see cref="ICompute.SubmitAsync{T}"/>, <see cref="ICompute.SubmitBroadcast{T}"/>).
         /// </summary>
         ComputeExecute,
 
         /// <summary>
         /// SQL (<see cref="ISql.ExecuteAsync"/>, <see cref="ISql.ExecuteAsync{T}"/>).
         /// </summary>
-        SqlExecute
+        SqlExecute,
+
+        /// <summary>
+        /// SQL script (<see cref="ISql.ExecuteScriptAsync"/>).
+        /// </summary>
+        SqlExecuteScript,
+
+        /// <summary>
+        /// Get status of a compute job (<see cref="IJobExecution{T}.GetStatusAsync"/>).
+        /// </summary>
+        ComputeGetStatus,
+
+        /// <summary>
+        /// Cancel compute job (<see cref="IJobExecution{T}.CancelAsync"/>).
+        /// </summary>
+        ComputeCancel,
+
+        /// <summary>
+        /// Change compute job priority (<see cref="IJobExecution{T}.ChangePriorityAsync"/>).
+        /// </summary>
+        ComputeChangePriority,
+
+        /// <summary>
+        /// Send data streamer batch (<see cref="IDataStreamerTarget{T}"/>).
+        /// </summary>
+        StreamerBatchSend
     }
 }

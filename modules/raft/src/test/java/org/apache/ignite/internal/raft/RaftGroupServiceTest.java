@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -53,16 +54,21 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.TestWriteCommand;
@@ -85,6 +91,7 @@ import org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ReadIndexRequest;
+import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -141,11 +148,14 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
         when(cluster.messagingService()).thenReturn(messagingService);
         when(cluster.topologyService()).thenReturn(topologyService);
 
+        MessageSerializationRegistry serializationRegistry = ClusterServiceTestUtils.defaultSerializationRegistry();
+        when(cluster.serializationRegistry()).thenReturn(serializationRegistry);
+
         when(topologyService.getByConsistentId(any()))
                 .thenAnswer(invocation -> {
                     String consistentId = invocation.getArgument(0);
 
-                    return new ClusterNode(consistentId, consistentId, new NetworkAddress("localhost", 123));
+                    return new ClusterNodeImpl(consistentId, consistentId, new NetworkAddress("localhost", 123));
                 });
 
         executor = new ScheduledThreadPoolExecutor(20, new NamedThreadFactory(Loza.CLIENT_POOL_NAME, logger()));
@@ -519,8 +529,6 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     public void testRemoveLearners() {
         List<String> addLearners = peersToIds(NODES.subList(1, 3));
 
-        List<String> removeLearners = peersToIds(NODES.subList(2, 3));
-
         List<String> resultLearners = peersToIds(NODES.subList(1, 2));
 
         when(messagingService.invoke(any(ClusterNode.class), any(RemoveLearnersRequest.class), anyLong()))
@@ -555,7 +563,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         GetLeaderRequest req = FACTORY.getLeaderRequest().groupId(TEST_GRP.toString()).build();
 
-        CompletableFuture<GetLeaderResponse> fut = messagingService.invoke(new ClusterNode(null, null, null), req, TIMEOUT)
+        CompletableFuture<GetLeaderResponse> fut = messagingService.invoke(new ClusterNodeImpl(null, null, null), req, TIMEOUT)
                         .thenApply(GetLeaderResponse.class::cast);
 
         assertThat(fut.thenApply(GetLeaderResponse::leaderId), willBe(equalTo(PeerId.fromPeer(leader).toString())));
@@ -587,8 +595,11 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     private RaftGroupService startRaftGroupService(List<Peer> peers, boolean getLeader) {
         PeersAndLearners memberConfiguration = PeersAndLearners.fromPeers(peers, Set.of());
 
-        CompletableFuture<RaftGroupService> service =
-                RaftGroupServiceImpl.start(TEST_GRP, cluster, FACTORY, raftConfiguration, memberConfiguration, getLeader, executor);
+        var commandsSerializer = new ThreadLocalOptimizedMarshaller(cluster.serializationRegistry());
+
+        CompletableFuture<RaftGroupService> service = RaftGroupServiceImpl.start(
+                TEST_GRP, cluster, FACTORY, raftConfiguration, memberConfiguration, getLeader, executor, commandsSerializer
+        );
 
         assertThat(service, willCompleteSuccessfully());
 
@@ -613,12 +624,16 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
      * @param peer Fail the request targeted to given peer.
      */
     private void mockUserInput(boolean delay, @Nullable Peer peer) {
+        //noinspection Convert2Lambda
         when(messagingService.invoke(
                 any(ClusterNode.class),
-                argThat(new ArgumentMatcher<ActionRequest>() {
+                // Must be an anonymous class, to deduce the message type from the generic superclass.
+                argThat(new ArgumentMatcher<WriteActionRequest>() {
                     @Override
-                    public boolean matches(ActionRequest arg) {
-                        return arg.command() instanceof TestWriteCommand;
+                    public boolean matches(WriteActionRequest arg) {
+                        Object command = new OptimizedMarshaller(cluster.serializationRegistry(), NO_POOL).unmarshall(arg.command());
+
+                        return command instanceof TestWriteCommand;
                     }
                 }),
                 anyLong()

@@ -28,7 +28,7 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Transactions;
-    using Log;
+    using Microsoft.Extensions.Logging;
     using Proto;
     using Proto.MsgPack;
     using Serialization;
@@ -39,8 +39,15 @@ namespace Apache.Ignite.Internal.Table
     /// </summary>
     internal sealed class Table : ITable
     {
-        /** Unknown schema version. */
-        private const int UnknownSchemaVersion = -1;
+        /// <summary>
+        /// Unknown schema version.
+        /// </summary>
+        public const int SchemaVersionUnknown = -1;
+
+        /// <summary>
+        /// Latest schema version, bypassing cache.
+        /// </summary>
+        public const int SchemaVersionForceLatest = -2;
 
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
@@ -58,19 +65,19 @@ namespace Apache.Ignite.Internal.Table
         private readonly object _latestSchemaLock = new();
 
         /** */
-        private readonly IIgniteLogger? _logger;
+        private readonly ILogger _logger;
 
         /** */
         private readonly SemaphoreSlim _partitionAssignmentSemaphore = new(1);
 
         /** */
-        private volatile int _latestSchemaVersion = UnknownSchemaVersion;
+        private volatile int _latestSchemaVersion = SchemaVersionUnknown;
 
         /** */
-        private volatile int _partitionAssignmentVersion = -1;
+        private long _partitionAssignmentTimestamp = -1;
 
         /** */
-        private volatile string[]? _partitionAssignment;
+        private volatile string?[]? _partitionAssignment;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Table"/> class.
@@ -87,7 +94,7 @@ namespace Apache.Ignite.Internal.Table
             Name = name;
             Id = id;
 
-            _logger = socket.Configuration.Logger.GetLogger(GetType());
+            _logger = socket.Configuration.LoggerFactory.CreateLogger<Table>();
 
             RecordBinaryView = new RecordView<IIgniteTuple>(
                 this,
@@ -129,8 +136,7 @@ namespace Apache.Ignite.Internal.Table
 
         /// <inheritdoc/>
         public IKeyValueView<TK, TV> GetKeyValueView<TK, TV>()
-            where TK : notnull
-            where TV : notnull =>
+            where TK : notnull =>
             new KeyValueView<TK, TV>(GetRecordViewInternal<KvPair<TK, TV>>());
 
         /// <inheritdoc/>
@@ -167,16 +173,13 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <summary>
-        /// Gets the latest schema.
+        /// Gets the schema by version.
         /// </summary>
+        /// <param name="version">Schema version; when null, latest is used.</param>
         /// <returns>Schema.</returns>
-        internal Task<Schema> GetLatestSchemaAsync()
-        {
-            // _latestSchemaVersion can be -1 (unknown) or a valid version.
-            // In case of unknown version, we request latest from the server and cache it with -1 key
-            // to avoid duplicate requests for latest schema.
-            return GetCachedSchemaAsync(_latestSchemaVersion);
-        }
+        internal Task<Schema> GetSchemaAsync(int? version) => version == SchemaVersionForceLatest
+            ? LoadSchemaAsync(SchemaVersionUnknown)
+            : GetCachedSchemaAsync(version ?? _latestSchemaVersion);
 
         /// <summary>
         /// Gets the preferred node by colocation hash.
@@ -193,12 +196,6 @@ namespace Apache.Ignite.Internal.Table
 
             var assignment = await GetPartitionAssignmentAsync().ConfigureAwait(false);
 
-            if (assignment == null || assignment.Length == 0)
-            {
-                // Happens on table drop.
-                return default;
-            }
-
             var partition = Math.Abs(colocationHash % assignment.Length);
             var nodeConsistentId = assignment[partition];
 
@@ -209,13 +206,13 @@ namespace Apache.Ignite.Internal.Table
         /// Gets the partition assignment.
         /// </summary>
         /// <returns>Partition assignment.</returns>
-        internal async ValueTask<string[]?> GetPartitionAssignmentAsync()
+        internal async ValueTask<string?[]> GetPartitionAssignmentAsync()
         {
-            var socketVer = _socket.PartitionAssignmentVersion;
+            var latestKnownTimestamp = _socket.PartitionAssignmentTimestamp;
             var assignment = _partitionAssignment;
 
             // Async double-checked locking. Assignment changes rarely, so we avoid the lock if possible.
-            if (_partitionAssignmentVersion == socketVer && assignment != null)
+            if (Interlocked.Read(ref _partitionAssignmentTimestamp) >= latestKnownTimestamp && assignment != null)
             {
                 return assignment;
             }
@@ -224,20 +221,27 @@ namespace Apache.Ignite.Internal.Table
 
             try
             {
-                socketVer = _socket.PartitionAssignmentVersion;
+                latestKnownTimestamp = _socket.PartitionAssignmentTimestamp;
                 assignment = _partitionAssignment;
 
-                if (_partitionAssignmentVersion == socketVer && assignment != null)
+                if (Interlocked.Read(ref _partitionAssignmentTimestamp) >= latestKnownTimestamp && assignment != null)
                 {
                     return assignment;
                 }
 
-                assignment = await LoadPartitionAssignmentAsync().ConfigureAwait(false);
+                var res = await LoadPartitionAssignmentAsync(latestKnownTimestamp).ConfigureAwait(false);
 
-                _partitionAssignment = assignment;
-                _partitionAssignmentVersion = socketVer;
+                if (res.Timestamp != 0)
+                {
+                    Debug.Assert(
+                        res.Timestamp >= latestKnownTimestamp,
+                        "Timestamp is older than requested: " + res.Timestamp + " < " + latestKnownTimestamp);
 
-                return assignment;
+                    _partitionAssignment = res.Assignment;
+                    Interlocked.Exchange(ref _partitionAssignmentTimestamp, res.Timestamp);
+                }
+
+                return res.Assignment;
             }
             finally
             {
@@ -280,13 +284,13 @@ namespace Apache.Ignite.Internal.Table
                 var w = writer.MessageWriter;
                 w.Write(Id);
 
-                if (version == UnknownSchemaVersion)
+                if (version == SchemaVersionUnknown)
                 {
                     w.WriteNil();
                 }
                 else
                 {
-                    w.WriteArrayHeader(1);
+                    w.Write(1);
                     w.Write(version);
                 }
             }
@@ -294,7 +298,7 @@ namespace Apache.Ignite.Internal.Table
             Schema Read()
             {
                 var r = resBuf.GetReader();
-                var schemaCount = r.ReadMapHeader();
+                var schemaCount = r.ReadInt32();
 
                 if (schemaCount == 0)
                 {
@@ -321,22 +325,20 @@ namespace Apache.Ignite.Internal.Table
         private Schema ReadSchema(ref MsgPackReader r)
         {
             var schemaVersion = r.ReadInt32();
-            var columnCount = r.ReadArrayHeader();
-            var keyColumnCount = 0;
-            var colocationColumnCount = 0;
+            var columnCount = r.ReadInt32();
 
             var columns = new Column[columnCount];
 
             for (var i = 0; i < columnCount; i++)
             {
-                var propertyCount = r.ReadArrayHeader();
+                var propertyCount = r.ReadInt32();
                 const int expectedCount = 7;
 
                 Debug.Assert(propertyCount >= expectedCount, "propertyCount >= " + expectedCount);
 
                 var name = r.ReadString();
                 var type = r.ReadInt32();
-                var isKey = r.ReadBoolean();
+                var keyIndex = r.ReadInt32();
                 var isNullable = r.ReadBoolean();
                 var colocationIndex = r.ReadInt32();
                 var scale = r.ReadInt32();
@@ -344,34 +346,14 @@ namespace Apache.Ignite.Internal.Table
 
                 r.Skip(propertyCount - expectedCount);
 
-                var column = new Column(name, (ColumnType)type, isNullable, isKey, colocationIndex, i, scale, precision);
-
-                columns[i] = column;
-
-                if (isKey)
-                {
-                    keyColumnCount++;
-                }
-
-                if (colocationIndex >= 0)
-                {
-                    colocationColumnCount++;
-                }
+                columns[i] = new Column(name, (ColumnType)type, isNullable, keyIndex, colocationIndex, i, scale, precision);
             }
 
-            var schema = new Schema(
-                Version: schemaVersion,
-                TableId: Id,
-                KeyColumnCount: keyColumnCount,
-                ColocationColumnCount: colocationColumnCount,
-                Columns: columns);
+            var schema = Schema.CreateInstance(schemaVersion, Id, columns);
 
             _schemas[schemaVersion] = Task.FromResult(schema);
 
-            if (_logger?.IsEnabled(LogLevel.Debug) == true)
-            {
-                _logger.Debug($"Schema loaded [tableId={Id}, schemaVersion={schema.Version}]");
-            }
+            _logger.LogSchemaLoadedDebug(Id, schema.Version);
 
             lock (_latestSchemaLock)
             {
@@ -388,32 +370,44 @@ namespace Apache.Ignite.Internal.Table
         /// Loads the partition assignment.
         /// </summary>
         /// <returns>Partition assignment.</returns>
-        private async Task<string[]?> LoadPartitionAssignmentAsync()
+        private async Task<(string?[] Assignment, long Timestamp)> LoadPartitionAssignmentAsync(long timestamp)
         {
             using var writer = ProtoCommon.GetMessageWriter();
-            writer.MessageWriter.Write(Id);
+            Write(writer.MessageWriter);
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.PartitionAssignmentGet, writer).ConfigureAwait(false);
             return Read();
 
-            string[]? Read()
+            void Write(MsgPackWriter w)
+            {
+                w.Write(Id);
+                w.Write(timestamp);
+            }
+
+            (string?[] Assignment, long Timestamp) Read()
             {
                 var r = resBuf.GetReader();
-                var count = r.ReadArrayHeader();
 
-                if (count == 0)
+                var count = r.ReadInt32();
+                Debug.Assert(count > 0, $"Invalid partition count: {count}");
+                var res = new string?[count];
+
+                var assignmentAvailable = r.ReadBoolean();
+                if (!assignmentAvailable)
                 {
-                    return null;
+                    // Return empty array so that per-partition batches can be initialized.
+                    // We'll get the actual assignment on the next call.
+                    return (res, 0);
                 }
 
-                var res = new string[count];
+                var resTimestamp = r.ReadInt64();
 
                 for (int i = 0; i < count; i++)
                 {
-                    res[i] = r.ReadString();
+                    res[i] = r.ReadStringNullable();
                 }
 
-                return res;
+                return (res, resTimestamp);
             }
         }
     }

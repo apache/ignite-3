@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.configuration.processor.abstractconfig.validation;
 
 import org.apache.ignite.configuration.annotation.AbstractConfiguration;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 
 /**
- * Checks for incompatibility {@link AbstractConfiguration} and {@link InternalConfiguration}.
+ * Checks for incompatibility {@link AbstractConfiguration} and {@link ConfigurationExtension}.
  */
 @AbstractConfiguration
-@InternalConfiguration
+@ConfigurationExtension(internal = true)
 public class IncompatibleSchemaAnnotations0ConfigurationSchema {
 }

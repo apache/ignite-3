@@ -20,9 +20,12 @@ package org.apache.ignite.internal.jdbc;
 import java.io.Serializable;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.StringTokenizer;
+import java.util.TimeZone;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.IgniteClientConfiguration;
@@ -30,7 +33,6 @@ import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -105,7 +107,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final StringProperty ciphers = new StringProperty("ciphers",
             "SSL ciphers", null, null, false, null);
 
-    @NotNull
     private static String[] clientAuthValues() {
         return Arrays.stream(ClientAuthenticationMode.values())
                 .map(Enum::name)
@@ -118,19 +119,23 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final BooleanProperty sslEnabled = new BooleanProperty("sslEnabled",
             "Enable ssl", false, null, false, null);
 
-    /** Basic authentication username. */
-    private final StringProperty basicAuthenticationUsername = new StringProperty("basicAuthenticationUsername",
-            "Basic authentication username", null, null, false, null);
+    /** Username. */
+    private final StringProperty username = new StringProperty("username",
+            "Username", null, null, false, null);
 
-    /** Basic authentication password. */
-    private final StringProperty basicAuthenticationPassword = new StringProperty("basicAuthenticationPassword",
-            "Basic authentication password", null, null, false, null);
+    /** Password. */
+    private final StringProperty password = new StringProperty("password",
+            "Password", null, null, false, null);
+
+    /** Client connection time zone ID. This property can be used by the client to change the time zone of the "session" on the server. */
+    private final TimeZoneProperty connectionTimeZone = new TimeZoneProperty("connectionTimeZone",
+            "Client connection time zone ID", TimeZone.getDefault().toZoneId(), null, false, null);
 
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {
             qryTimeout, connTimeout, trustStorePath, trustStorePassword,
             sslEnabled, clientAuth, ciphers, keyStorePath, keyStorePassword,
-            basicAuthenticationUsername, basicAuthenticationPassword
+            username, password, connectionTimeZone
     };
 
     /** {@inheritDoc} */
@@ -327,23 +332,33 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     }
 
     @Override
-    public String getBasicAuthenticationUsername() {
-        return basicAuthenticationUsername.value();
+    public String getUsername() {
+        return username.value();
     }
 
     @Override
-    public void setBasicAuthenticationUsername(String username) {
-        basicAuthenticationUsername.setValue(username);
+    public void setUsername(String username) {
+        this.username.setValue(username);
     }
 
     @Override
-    public String getBasicAuthenticationPassword() {
-        return basicAuthenticationPassword.value();
+    public String getPassword() {
+        return password.value();
     }
 
     @Override
-    public void setBasicAuthenticationPassword(String password) {
-        basicAuthenticationPassword.setValue(password);
+    public void setPassword(String password) {
+        this.password.setValue(password);
+    }
+
+    @Override
+    public ZoneId getConnectionTimeZone() {
+        return connectionTimeZone.value();
+    }
+
+    @Override
+    public void setConnectionTimeZone(ZoneId timeZoneId) {
+        connectionTimeZone.setValue(timeZoneId);
     }
 
     /**
@@ -396,9 +411,9 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
      */
     private void parseUrl0(String url, Properties props) throws SQLException {
         // Determine mode - semicolon or ampersand.
-        int semicolonPos = url.indexOf(";");
-        int slashPos = url.indexOf("/");
-        int queryPos = url.indexOf("?");
+        int semicolonPos = url.indexOf(';');
+        int slashPos = url.indexOf('/');
+        int queryPos = url.indexOf('?');
 
         boolean semicolonMode;
 
@@ -555,7 +570,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
                     insideBrace = true;
                 }
             } else {
-                val += delimChar + token;
+                val += delimChar + token; // NOPMD
             }
 
             if (val.endsWith("}")) {
@@ -1042,6 +1057,54 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             }
 
             val = Boolean.parseBoolean(str);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        String valueObject() {
+            return String.valueOf(val);
+        }
+    }
+
+    /**
+     * Time zone property.
+     */
+    private static class TimeZoneProperty extends ConnectionProperty {
+        private static final long serialVersionUID = 0L;
+
+        private ZoneId val;
+
+        TimeZoneProperty(String name, String desc, ZoneId dfltVal, String[] choices, boolean required,
+                PropertyValidator validator) {
+            super(name, desc, dfltVal, choices, required, validator);
+
+            val = dfltVal;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        void init(String str) throws SQLException {
+            if (str == null) {
+                val = dfltVal != null ? (ZoneId) dfltVal : null;
+
+                return;
+            }
+
+            try {
+                val = ZoneId.of(str);
+            } catch (DateTimeException e) {
+                throw new SQLException("Failed to set time zone property [value=" + str + ']', SqlStateCode.CLIENT_CONNECTION_FAILED, e);
+            }
+        }
+
+        /** Sets the property value. */
+        void setValue(ZoneId val) {
+            this.val = val;
+        }
+
+        /** Returns property value. */
+        ZoneId value() {
+            return val;
         }
 
         /** {@inheritDoc} */

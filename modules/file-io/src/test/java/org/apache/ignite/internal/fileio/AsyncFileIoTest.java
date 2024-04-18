@@ -42,16 +42,4 @@ public class AsyncFileIoTest extends AbstractFileIoTest {
     void testMap() {
         assertThrows(UnsupportedOperationException.class, super::testMap);
     }
-
-    @Test
-    @Override
-    void testTransferTo() {
-        assertThrows(UnsupportedOperationException.class, super::testTransferTo);
-    }
-
-    @Test
-    @Override
-    void testTransferFrom() {
-        assertThrows(UnsupportedOperationException.class, super::testTransferFrom);
-    }
 }

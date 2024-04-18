@@ -100,7 +100,7 @@ namespace Apache.Ignite.Tests.Table
         {
             var pocoView = Table.GetRecordView<object>();
 
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await pocoView.UpsertAsync(null, new object()));
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () => await pocoView.UpsertAsync(null, new object()));
 
             Assert.AreEqual("Can't map 'System.Object' to columns 'Int64 KEY, String VAL'. Matching fields not found.", ex!.Message);
         }
@@ -612,7 +612,6 @@ namespace Apache.Ignite.Tests.Table
         {
             var pocoView = PocoAllColumnsView;
 
-            var dt = LocalDateTime.FromDateTime(DateTime.UtcNow);
             var poco = new PocoAllColumns(
                 Key: 123,
                 Str: "str",
@@ -623,20 +622,12 @@ namespace Apache.Ignite.Tests.Table
                 Float: 32.32f,
                 Double: 64.64,
                 Uuid: Guid.NewGuid(),
-                Date: dt.Date,
-                BitMask: new BitArray(new byte[] { 1 }),
-                Time: dt.TimeOfDay,
-                DateTime: dt,
-                Timestamp: Instant.FromDateTimeUtc(DateTime.UtcNow),
-                Blob: new byte[] { 1, 2, 3 },
                 Decimal: 123.456m);
 
             await pocoView.UpsertAsync(null, poco);
 
             var res = (await pocoView.GetAsync(null, poco)).Value;
 
-            Assert.AreEqual(poco.Blob, res.Blob);
-            Assert.AreEqual(poco.Date, res.Date);
             Assert.AreEqual(poco.Decimal, res.Decimal);
             Assert.AreEqual(poco.Double, res.Double);
             Assert.AreEqual(poco.Float, res.Float);
@@ -646,10 +637,6 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(poco.Int64, res.Int64);
             Assert.AreEqual(poco.Str, res.Str);
             Assert.AreEqual(poco.Uuid, res.Uuid);
-            Assert.AreEqual(poco.BitMask, res.BitMask);
-            Assert.AreEqual(poco.Timestamp, res.Timestamp);
-            Assert.AreEqual(poco.Time, res.Time);
-            Assert.AreEqual(poco.DateTime, res.DateTime);
         }
 
         [Test]
@@ -674,7 +661,8 @@ namespace Apache.Ignite.Tests.Table
                 DateTime: dt,
                 Timestamp: Instant.FromDateTimeUtc(DateTime.UtcNow),
                 Blob: new byte[] { 1, 2, 3 },
-                Decimal: 123.456m);
+                Decimal: 123.456m,
+                Boolean: true);
 
             await pocoView.UpsertAsync(null, poco);
 
@@ -695,6 +683,7 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(poco.Timestamp, res.Timestamp);
             Assert.AreEqual(poco.Time, res.Time);
             Assert.AreEqual(poco.DateTime, res.DateTime);
+            Assert.AreEqual(poco.Boolean, res.Boolean);
         }
 
         [Test]
@@ -722,11 +711,14 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(poco.Timestamp, res.Timestamp);
             Assert.AreEqual(poco.Time, res.Time);
             Assert.AreEqual(poco.DateTime, res.DateTime);
+            Assert.AreEqual(poco.Boolean, res.Boolean);
         }
 
         [Test]
         public async Task TestEnumColumns()
         {
+            var table = await Client.Tables.GetTableAsync(TableAllColumnsNotNullName);
+
             // Normal values.
             await Test(new PocoEnums.PocoIntEnum(1, PocoEnums.IntEnum.Foo));
             await Test(new PocoEnums.PocoByteEnum(1, PocoEnums.ByteEnum.Foo));
@@ -748,7 +740,41 @@ namespace Apache.Ignite.Tests.Table
             async Task Test<T>(T val)
                 where T : notnull
             {
-                var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+                var view = table!.GetRecordView<T>();
+
+                await view.UpsertAsync(null, val);
+
+                var res = await view.GetAsync(null, val);
+                Assert.AreEqual(val, res.Value);
+            }
+        }
+
+        [Test]
+        public async Task TestEnumColumnsNullable()
+        {
+            var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+
+            // Normal values.
+            await Test(new PocoEnums.PocoIntEnumNullable(1, PocoEnums.IntEnum.Foo));
+            await Test(new PocoEnums.PocoByteEnumNullable(1, PocoEnums.ByteEnum.Foo));
+            await Test(new PocoEnums.PocoShortEnumNullable(1, PocoEnums.ShortEnum.Foo));
+            await Test(new PocoEnums.PocoLongEnumNullable(1, PocoEnums.LongEnum.Foo));
+
+            // Values that are not represented in the enum (it is just a number underneath).
+            await Test(new PocoEnums.PocoIntEnumNullable(1, (PocoEnums.IntEnum)100));
+            await Test(new PocoEnums.PocoByteEnumNullable(1, (PocoEnums.ByteEnum)101));
+            await Test(new PocoEnums.PocoShortEnumNullable(1, (PocoEnums.ShortEnum)102));
+            await Test(new PocoEnums.PocoLongEnumNullable(1, (PocoEnums.LongEnum)103));
+
+            // Default values.
+            await Test(new PocoEnums.PocoIntEnumNullable(1, default));
+            await Test(new PocoEnums.PocoByteEnumNullable(1, default));
+            await Test(new PocoEnums.PocoShortEnumNullable(1, default));
+            await Test(new PocoEnums.PocoLongEnumNullable(1, default));
+
+            async Task Test<T>(T val)
+                where T : notnull
+            {
                 var view = table!.GetRecordView<T>();
 
                 await view.UpsertAsync(null, val);
@@ -768,6 +794,19 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(
                 "Can't map field 'UnsupportedByteType.<Int8>k__BackingField' of type 'System.Byte' " +
                 "to column 'INT8' of type 'System.SByte' - types do not match.",
+                ex!.Message);
+        }
+
+        [Test]
+        public async Task TestColumnNullabilityMismatchThrowsException()
+        {
+            var table = await Client.Tables.GetTableAsync(TableAllColumnsName);
+            var pocoView = table!.GetRecordView<NonNullableLongType>();
+
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await pocoView.UpsertAsync(null, new NonNullableLongType(1, 1)));
+            Assert.AreEqual(
+                "Can't map field 'NonNullableLongType.<Int64>k__BackingField' of type 'System.Int64' " +
+                "to column 'INT64' - column is nullable, but field is not.",
                 ex!.Message);
         }
 
@@ -804,7 +843,9 @@ namespace Apache.Ignite.Tests.Table
             StringAssert.StartsWith("RecordView`1[Poco] { Table = Table { Name = TBL1, Id =", PocoView.ToString());
         }
 
-        // ReSharper disable once NotAccessedPositionalProperty.Local
+        // ReSharper disable NotAccessedPositionalProperty.Local
         private record UnsupportedByteType(byte Int8);
+
+        private record NonNullableLongType(long Key, long Int64);
     }
 }

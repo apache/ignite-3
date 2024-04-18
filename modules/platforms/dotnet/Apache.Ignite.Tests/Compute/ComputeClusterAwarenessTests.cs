@@ -43,18 +43,16 @@ namespace Apache.Ignite.Tests.Compute
             };
 
             using var client = await IgniteClient.StartAsync(clientCfg);
+            client.WaitForConnections(3);
 
-            // ReSharper disable once AccessToDisposedClosure
-            TestUtils.WaitForCondition(() => client.GetConnections().Count == 3, 5000);
-
-            var res2 = await client.Compute.ExecuteAsync<string>(
+            IJobExecution<string> exec2 = await client.Compute.SubmitAsync<string>(
                 new[] { server2.Node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
 
-            var res3 = await client.Compute.ExecuteAsync<string>(
+            IJobExecution<string> exec3 = await client.Compute.SubmitAsync<string>(
                 new[] { server3.Node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
 
-            Assert.AreEqual("s2", res2);
-            Assert.AreEqual("s3", res3);
+            Assert.AreEqual("s2", await exec2.GetResultAsync());
+            Assert.AreEqual("s3", await exec3.GetResultAsync());
 
             Assert.AreEqual(ClientOp.ComputeExecute, server2.ClientOps.Single());
             Assert.AreEqual(ClientOp.ComputeExecute, server3.ClientOps.Single());
@@ -71,14 +69,14 @@ namespace Apache.Ignite.Tests.Compute
 
             using var client = await server1.ConnectClientAsync();
 
-            var res2 = await client.Compute.ExecuteAsync<string>(
+            IJobExecution<string> exec2 = await client.Compute.SubmitAsync<string>(
                 new[] { server2.Node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
 
-            var res3 = await client.Compute.ExecuteAsync<string>(
+            IJobExecution<string> exec3 = await client.Compute.SubmitAsync<string>(
                 new[] { server3.Node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
 
-            Assert.AreEqual("s1", res2);
-            Assert.AreEqual("s1", res3);
+            Assert.AreEqual("s1", await exec2.GetResultAsync());
+            Assert.AreEqual("s1", await exec3.GetResultAsync());
             Assert.AreEqual(new[] { ClientOp.ComputeExecute, ClientOp.ComputeExecute }, server1.ClientOps);
 
             Assert.IsEmpty(server2.ClientOps);
@@ -100,17 +98,18 @@ namespace Apache.Ignite.Tests.Compute
             };
 
             using var client = await IgniteClient.StartAsync(clientCfg);
-
-            // ReSharper disable once AccessToDisposedClosure
-            TestUtils.WaitForCondition(() => client.GetConnections().Count == 2, 5000);
+            client.WaitForConnections(2);
 
             var nodeNames = new HashSet<string>();
 
             for (int i = 0; i < 100; i++)
             {
                 var node = i % 2 == 0 ? server1.Node : server2.Node;
-                var res = await client.Compute.ExecuteAsync<string>(
+
+                IJobExecution<string> jobExecution = await client.Compute.SubmitAsync<string>(
                     new[] { node }, Array.Empty<DeploymentUnit>(), jobClassName: string.Empty);
+
+                string res = await jobExecution.GetResultAsync();
 
                 nodeNames.Add(res);
             }

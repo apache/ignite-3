@@ -27,10 +27,17 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
+import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 
 /**
  * Acquires dependencies from appropriate component managers.
@@ -38,24 +45,48 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 public class ExecutionDependencyResolverImpl implements ExecutionDependencyResolver {
 
     private final ExecutableTableRegistry registry;
+    private final ScannableDataSourceProvider dataSourceProvider;
 
-    public ExecutionDependencyResolverImpl(ExecutableTableRegistry registry) {
+    public ExecutionDependencyResolverImpl(
+            ExecutableTableRegistry registry,
+            ScannableDataSourceProvider dataSourceProvider
+    ) {
         this.registry = registry;
+        this.dataSourceProvider = dataSourceProvider;
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public CompletableFuture<ResolvedDependencies> resolveDependencies(IgniteRel rel, long schemaVersion) {
+    public CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, int schemaVersion) {
         Map<Integer, CompletableFuture<ExecutableTable>> tableMap = new HashMap<>();
+        Map<Integer, ScannableDataSource> dataSources = new HashMap<>();
 
         IgniteRelShuttle shuttle = new IgniteRelShuttle() {
+            @Override
+            public IgniteRel visit(IgniteSender rel) {
+                IgniteDistribution distribution = TraitUtils.distribution(rel);
+
+                resolveDistributionFunction(distribution);
+
+                return super.visit(rel);
+            }
+
+            @Override
+            public IgniteRel visit(IgniteTrimExchange rel) {
+                IgniteDistribution distribution = TraitUtils.distribution(rel);
+
+                resolveDistributionFunction(distribution);
+
+                return super.visit(rel);
+            }
+
             @Override
             public IgniteRel visit(IgniteTableModify rel) {
                 IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
 
-                resolveTable(igniteTable);
+                resolveTable(schemaVersion, igniteTable.id());
 
                 return super.visit(rel);
             }
@@ -64,7 +95,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
             public IgniteRel visit(IgniteIndexScan rel) {
                 IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
 
-                resolveTable(igniteTable);
+                resolveTable(schemaVersion, igniteTable.id());
 
                 return rel;
             }
@@ -73,20 +104,40 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
             public IgniteRel visit(IgniteTableScan rel) {
                 IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
 
-                resolveTable(igniteTable);
+                resolveTable(schemaVersion, igniteTable.id());
 
                 return rel;
             }
 
-            private void resolveTable(IgniteTable igniteTable) {
-                int tableId = igniteTable.id();
-                TableDescriptor tableDescriptor = igniteTable.descriptor();
+            @Override
+            public IgniteRel visit(IgniteSystemViewScan rel) {
+                IgniteSystemView view = rel.getTable().unwrap(IgniteSystemView.class);
 
-                tableMap.computeIfAbsent(tableId, (id) -> registry.getTable(tableId, tableDescriptor));
+                assert view != null;
+
+                dataSources.put(view.id(), dataSourceProvider.forSystemView(view));
+
+                return rel;
+            }
+
+            private void resolveDistributionFunction(IgniteDistribution distribution) {
+                DistributionFunction function = distribution.function();
+
+                if (function.affinity()) {
+                    int tableId = ((AffinityDistribution) function).tableId();
+
+                    resolveTable(schemaVersion, tableId);
+                }
+            }
+
+            private void resolveTable(int schemaVersion, int tableId) {
+                tableMap.computeIfAbsent(tableId, (id) -> registry.getTable(schemaVersion, tableId));
             }
         };
 
-        shuttle.visit(rel);
+        for (IgniteRel rel : rels) {
+            shuttle.visit(rel);
+        }
 
         List<CompletableFuture<ExecutableTable>> fs = new ArrayList<>(tableMap.values());
 
@@ -94,10 +145,9 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
                 .thenApply(r -> {
                     Map<Integer, ExecutableTable> map = tableMap.entrySet()
                             .stream()
-                            .map(e -> Map.entry(e.getKey(), e.getValue().join()))
-                            .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+                            .collect(Collectors.toMap(Entry::getKey, e -> e.getValue().join()));
 
-                    return new ResolvedDependencies(map);
+                    return new ResolvedDependencies(map, dataSources);
                 });
     }
 }

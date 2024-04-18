@@ -20,17 +20,16 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.util.List;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * A node with a single input.
  */
 public interface SingleNode<RowT> extends Node<RowT> {
-    default void register(@NotNull Node<RowT> src) {
+    default void register(Node<RowT> src) {
         register(List.of(src));
     }
 
-    default @NotNull Node<RowT> source() {
+    default Node<RowT> source() {
         return first(sources());
     }
 }

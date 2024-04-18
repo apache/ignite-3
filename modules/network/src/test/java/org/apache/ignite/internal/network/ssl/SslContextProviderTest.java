@@ -26,9 +26,11 @@ import static org.junit.Assert.assertThrows;
 
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -37,6 +39,7 @@ import java.security.cert.CertificateException;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.configuration.SslConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,7 +48,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 
 @ExtendWith(ConfigurationExtension.class)
-class SslContextProviderTest {
+class SslContextProviderTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private SslConfiguration configuration;
@@ -72,7 +75,7 @@ class SslContextProviderTest {
         KeyStore ts = KeyStore.getInstance("JKS");
         ts.load(null, null);
         ts.setCertificateEntry("cert", cert.cert());
-        try (FileOutputStream fos = new FileOutputStream(trustStoreJks12Path)) {
+        try (OutputStream fos = Files.newOutputStream(Paths.get(trustStoreJks12Path))) {
             ts.store(fos, password.toCharArray());
         }
     }
@@ -82,7 +85,7 @@ class SslContextProviderTest {
         KeyStore ks = KeyStore.getInstance("PKCS12");
         ks.load(null, null);
         ks.setKeyEntry("key", cert.key(), password.toCharArray(), new Certificate[]{cert.cert()});
-        try (FileOutputStream fos = new FileOutputStream(keyStorePkcs12Path)) {
+        try (OutputStream fos = Files.newOutputStream(Paths.get(keyStorePkcs12Path))) {
             ks.store(fos, password.toCharArray());
         }
     }

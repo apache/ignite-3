@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using NUnit.Framework;
 
@@ -34,6 +35,8 @@ namespace Apache.Ignite.Tests
 
         private static readonly string InternalDir =
             $"{Path.DirectorySeparatorChar}Internal{Path.DirectorySeparatorChar}";
+
+        public static IEnumerable<string> GetCsFiles() => Directory.GetFiles(TestUtils.SolutionDir, "*.cs", SearchOption.AllDirectories);
 
         [Test]
         public void TestInternalNamespaceHasNoPublicTypes()
@@ -75,7 +78,33 @@ namespace Apache.Ignite.Tests
                 if (text.Contains("public class", StringComparison.Ordinal) ||
                     text.Contains("public record", StringComparison.Ordinal))
                 {
-                    Assert.Fail("Public classes must be sealed: " + file);
+                    if (!text.Contains("public record struct"))
+                    {
+                        Assert.Fail("Public classes must be sealed: " + file);
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void TestNoConsoleOutputInCoreProject()
+        {
+            foreach (var file in GetCsFiles())
+            {
+                if (file.Contains(".Tests", StringComparison.Ordinal) ||
+                    file.Contains(".Benchmarks", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                foreach (var line in File.ReadAllLines(file))
+                {
+                    if (line.Trim().StartsWith("//", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    StringAssert.DoesNotContain("Console.Write", line, $"Console output in '{file}'");
                 }
             }
         }
@@ -83,29 +112,46 @@ namespace Apache.Ignite.Tests
         [Test]
         public void TestTodosHaveTickets()
         {
-            Assert.Multiple(() =>
-            {
-                foreach (var file in GetCsFiles())
-                {
-                    if (file.EndsWith("ProjectFilesTests.cs", StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
+            var exceptions = new List<Exception>();
 
-                    foreach (var line in File.ReadAllLines(file))
+            foreach (var file in GetCsFiles())
+            {
+                if (file.EndsWith("ProjectFilesTests.cs", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                int lineNum = 0;
+                foreach (var line in File.ReadAllLines(file))
+                {
+                    lineNum++;
+
+                    if (line.Contains("TODO", StringComparison.Ordinal) && !line.Contains("IGNITE-", StringComparison.Ordinal))
                     {
-                        if (line.Contains("TODO", StringComparison.Ordinal))
-                        {
-                            StringAssert.Contains("IGNITE-", line, "TODOs should be linked to tickets: " + file);
-                        }
+                        exceptions.Add(new TodoWithoutTicketException(
+                            "TODO without ticket: " + line.Trim(),
+                            $"at Apache.Ignite.Tests.ProjectFilesTests.TestTodosHaveTickets() in {file}:line {lineNum}"));
                     }
                 }
-            });
+            }
+
+            if (exceptions.Count > 0)
+            {
+                throw new AggregateException(exceptions);
+            }
         }
 
-        private static IEnumerable<string> GetCsFiles()
+        [SuppressMessage("Design", "CA1064:Exceptions should be public", Justification = "Tests.")]
+        [SuppressMessage("Design", "CA1032:Implement standard exception constructors", Justification = "Tests.")]
+        private sealed class TodoWithoutTicketException : AssertionException
         {
-            return Directory.GetFiles(TestUtils.SolutionDir, "*.cs", SearchOption.AllDirectories);
+            public TodoWithoutTicketException(string message, string stackTrace)
+                : base(message)
+            {
+                StackTrace = stackTrace;
+            }
+
+            public override string StackTrace { get; }
         }
     }
 }

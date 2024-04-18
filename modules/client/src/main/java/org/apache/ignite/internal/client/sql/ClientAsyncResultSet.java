@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.client.sql;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_NO_MORE_PAGES_ERR;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -33,13 +33,13 @@ import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.marshaller.MarshallersProvider;
+import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
-import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.mapper.Mapper;
@@ -91,7 +91,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
      * @param in Unpacker.
      * @param mapper Mapper.
      */
-    ClientAsyncResultSet(ClientChannel ch, ClientMessageUnpacker in, @Nullable Mapper<T> mapper) {
+    ClientAsyncResultSet(ClientChannel ch, MarshallersProvider marshallers, ClientMessageUnpacker in, @Nullable Mapper<T> mapper) {
         this.ch = ch;
 
         resourceId = in.tryUnpackNil() ? null : in.unpackLong();
@@ -103,7 +103,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
 
         this.mapper = mapper;
         marshaller = metadata != null && mapper != null && mapper.targetType() != SqlRow.class
-                ? marshaller(metadata, mapper)
+                ? marshaller(metadata, marshallers, mapper)
                 : null;
 
         if (hasRowSet) {
@@ -157,13 +157,8 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
         requireResultSet();
 
-        if (closed) {
+        if (closed || !hasMorePages()) {
             return CompletableFuture.failedFuture(new CursorClosedException());
-        }
-
-        if (!hasMorePages()) {
-            return CompletableFuture.failedFuture(
-                    new SqlException(CURSOR_NO_MORE_PAGES_ERR, "There are no more pages."));
         }
 
         return ch.serviceAsync(
@@ -192,7 +187,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     @Override
     public CompletableFuture<Void> closeAsync() {
         if (resourceId == null || closed) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         closed = true;
@@ -207,7 +202,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     }
 
     private void readRows(ClientMessageUnpacker in) {
-        int size = in.unpackArrayHeader();
+        int size = in.unpackInt();
         int rowSize = metadata.columns().size();
 
         var res = new ArrayList<T>(size);
@@ -222,7 +217,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             try {
                 for (int i = 0; i < size; i++) {
                     var tupleReader = new BinaryTupleReader(rowSize, in.readBinaryUnsafe());
-                    var reader = new ClientMarshallerReader(tupleReader);
+                    var reader = new ClientMarshallerReader(tupleReader, null, TuplePart.KEY_AND_VAL);
 
                     res.add((T) marshaller.readObject(reader, null));
                 }
@@ -306,7 +301,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         }
     }
 
-    private static <T> Marshaller marshaller(ResultSetMetadata metadata, Mapper<T> mapper) {
+    private static <T> Marshaller marshaller(ResultSetMetadata metadata, MarshallersProvider marshallers, Mapper<T> mapper) {
         var schemaColumns = new ClientColumn[metadata.columns().size()];
         List<ColumnMetadata> columns = metadata.columns();
 
@@ -317,7 +312,8 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
                     metaColumn.name(),
                     metaColumn.type(),
                     metaColumn.nullable(),
-                    true,
+                    i,
+                    -1,
                     -1,
                     i,
                     metaColumn.scale(),
@@ -326,7 +322,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             schemaColumns[i] = schemaColumn;
         }
 
-        var schema = new ClientSchema(0, schemaColumns, null);
-        return schema.getMarshaller(mapper, TuplePart.KEY_AND_VAL);
+        var schema = new ClientSchema(0, schemaColumns, marshallers);
+        return schema.getMarshaller(mapper);
     }
 }

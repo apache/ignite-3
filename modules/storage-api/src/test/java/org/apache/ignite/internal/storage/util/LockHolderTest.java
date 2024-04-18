@@ -26,13 +26,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.locks.Lock;
-import org.apache.ignite.internal.storage.util.LockHolder;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * Class for testing {@link LockHolder}.
  */
-public class LockHolderTest {
+public class LockHolderTest extends BaseIgniteAbstractTest {
     @Test
     void testSimple() {
         LockHolder<Lock> lockHolder = createLockHolder();

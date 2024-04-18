@@ -59,13 +59,10 @@ struct queries_test : public odbc_suite {
                 FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
         }
 
-        SQLCHAR request[] = "select key,str,int8,int16,int32,int64,float,double,uuid,"
-                            "date,\"TIME\",\"DATETIME\",decimal FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
+        SQLCHAR request[] = "select key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\","
+                            "\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\" FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
 
         ret = SQLExecDirect(m_statement, request, SQL_NTS);
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-
         if (!SQL_SUCCEEDED(ret))
             FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
@@ -199,8 +196,8 @@ TEST_F(queries_test, two_rows_string) {
             FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
     }
 
-    SQLCHAR request[] = "select key,str,int8,int16,int32,int64,float,double,uuid,"
-                        "date,\"TIME\",\"DATETIME\",decimal FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
+    SQLCHAR request[] = "select key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\","
+                        "\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\" FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
 
     ret = SQLExecDirect(m_statement, request, SQL_NTS);
     if (!SQL_SUCCEEDED(ret))
@@ -293,8 +290,8 @@ TEST_F(queries_test, one_row_string_len) {
             FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
     }
 
-    SQLCHAR request[] = "select key,str,int8,int16,int32,int64,float,double,uuid,"
-                        "date,\"TIME\",\"DATETIME\",decimal FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
+    SQLCHAR request[] = "select key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\","
+                        "\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\" FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
 
     ret = SQLExecDirect(m_statement, request, SQL_NTS);
     if (!SQL_SUCCEEDED(ret))
@@ -342,8 +339,8 @@ TEST_F(queries_test, data_at_execution) {
             FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
     }
 
-    SQLCHAR request[] = "select key,str,int8,int16,int32,int64,float,double,uuid,"
-                        "date,\"TIME\",\"DATETIME\",decimal FROM TBL_ALL_COLUMNS_SQL "
+    SQLCHAR request[] = "select key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\","
+                        "\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\" FROM TBL_ALL_COLUMNS_SQL "
                         "where int32 = ? AND str = ? ORDER BY key";
 
     ret = SQLPrepare(m_statement, request, SQL_NTS);
@@ -451,9 +448,10 @@ TEST_F(queries_test, null_fields) {
 
     insert_all_types_row(1);
 
-    exec_query("insert into TBL_ALL_COLUMNS_SQL("
-               "   key,str,int8,int16,int32,int64,float,double,uuid,date,\"TIME\",\"DATETIME\",decimal) "
-               "values(2, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
+    exec_query(
+        "insert into TBL_ALL_COLUMNS_SQL("
+        "   key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\",\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\") "
+        "values(2, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
 
     insert_all_types_row(3);
 
@@ -523,8 +521,8 @@ TEST_F(queries_test, null_fields) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    SQLCHAR request[] = "select str,int8,int16,int32,int64,float,double,uuid,"
-                        "date,\"TIME\",\"DATETIME\",decimal FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
+    SQLCHAR request[] = "select str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\","
+                        "\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\" FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
 
     ret = SQLExecDirect(m_statement, request, SQL_NTS);
     if (!SQL_SUCCEEDED(ret))
@@ -603,8 +601,7 @@ TEST_F(queries_test, insert_select) {
         if (ret == SQL_NO_DATA)
             break;
 
-        if (!SQL_SUCCEEDED(ret))
-            FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+        ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         std::string expected_str = get_test_string(selected_records_num);
         int64_t expected_key = selected_records_num + 1;
@@ -757,18 +754,15 @@ TEST_F(queries_test, insert_delete_select) {
     EXPECT_EQ(records_num / 2, selected_records_num);
 }
 
-// TODO: IGNITE-19854: Implement params metadata fetching
-#ifdef MUTED
 TEST_F(queries_test, params_num) {
     odbc_connect(get_basic_connection_string());
 
     check_params_num("SELECT * FROM TBL_ALL_COLUMNS_SQL", 0);
     check_params_num("SELECT * FROM TBL_ALL_COLUMNS_SQL WHERE key=?", 1);
-    check_params_num("SELECT * FROM TBL_ALL_COLUMNS_SQL WHERE key=? AND _val=?", 2);
+    check_params_num("SELECT * FROM TBL_ALL_COLUMNS_SQL WHERE key=? AND str=?", 2);
     check_params_num("INSERT INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(1, 'some')", 0);
     check_params_num("INSERT INTO TBL_ALL_COLUMNS_SQL(key, str) VALUES(?, ?)", 2);
 }
-#endif // MUTED
 
 TEST_F(queries_test, execute_after_cursor_close) {
     odbc_connect(get_basic_connection_string());
@@ -1181,4 +1175,50 @@ TEST_F(queries_test, close_after_empty_update) {
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+}
+
+TEST_F(queries_test, max_min_select) {
+    odbc_connect(get_basic_connection_string());
+
+    auto ret = exec_query("DROP TABLE IF EXISTS PUBLIC.MIN_MAX_SELECT");
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    ret = exec_query("CREATE TABLE PUBLIC.MIN_MAX_SELECT(ID INT PRIMARY KEY, CAPACITY INT NOT NULL)");
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    ret = exec_query("INSERT INTO PUBLIC.MIN_MAX_SELECT(ID, CAPACITY) VALUES(1, 1)");
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    ret = exec_query("SELECT MIN(CAPACITY), MAX(CAPACITY) FROM PUBLIC.MIN_MAX_SELECT");
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    ret = SQLFetch(m_statement);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+
+    ret = SQLFreeStmt(m_statement, SQL_CLOSE);
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+}
+
+TEST_F(queries_test, insert_select_batch_100) {
+    odbc_connect(get_basic_connection_string());
+
+    insert_batch_select(100);
+}
+
+TEST_F(queries_test, insert_select_batch_2047) {
+    odbc_connect(get_basic_connection_string());
+
+    insert_batch_select(500);
+}
+
+TEST_F(queries_test, test_non_full_batch_select_100_60) {
+    odbc_connect(get_basic_connection_string());
+
+    insert_non_full_batch_select(100, 60);
+}
+
+TEST_F(queries_test, test_non_full_batch_select_1000_239) {
+    odbc_connect(get_basic_connection_string());
+
+    insert_non_full_batch_select(1000, 239);
 }

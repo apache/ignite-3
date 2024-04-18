@@ -32,6 +32,6 @@ public final class Constants {
 
     /** Stub. */
     private Constants() {
-        //Noop.
+        // Noop.
     }
 }

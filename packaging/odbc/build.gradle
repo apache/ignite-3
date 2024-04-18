@@ -25,6 +25,11 @@ plugins {
     alias(libs.plugins.checksum)
 }
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
 configurations {
     odbc
 }
@@ -40,6 +45,10 @@ def tokens = [
 ]
 
 task replacePackageScriptVars(type: Copy) {
+    onlyIf {
+        project.hasProperty('platforms.enable')
+    }
+
     from "$rootDir/packaging/odbc/ignite3-odbc.ini"
 
     from "$rootDir/packaging/odbc/scripts"
@@ -63,11 +72,28 @@ distributions {
     }
 }
 
-distZip.dependsOn replacePackageScriptVars
-distTar.dependsOn replacePackageScriptVars
+distZip {
+    onlyIf {
+        project.hasProperty('platforms.enable')
+    }
+
+    dependsOn replacePackageScriptVars
+}
+
+distTar {
+    onlyIf {
+        project.hasProperty('platforms.enable')
+    }
+
+    dependsOn replacePackageScriptVars
+}
 
 buildRpm {
+    onlyIf {
+        project.hasProperty('platforms.enable')
+    }
     dependsOn replacePackageScriptVars
+    requires("unixODBC")
 
     preInstall file("$buildDir/scripts/preInstall.sh")
     postInstall file("$buildDir/scripts/postInstall.sh")
@@ -76,7 +102,12 @@ buildRpm {
 }
 
 buildDeb {
+    onlyIf {
+        project.hasProperty('platforms.enable')
+    }
     dependsOn replacePackageScriptVars
+    requires("unixodbc")
+    requires("odbcinst")
 
     preInstall file("$buildDir/scripts/preInstall.sh")
     postInstall file("$buildDir/scripts/postInstall.sh")
@@ -91,7 +122,6 @@ ospackage {
     url "https://ignite.apache.org"
     packageDescription "This package will install Apache Ignite 3 ODBC driver"
     os LINUX
-    requires("unixODBC")
 
     into(tokens.LIB_DIR) {
         from configurations.odbc

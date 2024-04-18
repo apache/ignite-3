@@ -26,10 +26,10 @@ import static org.apache.ignite.internal.configuration.notifications.Configurati
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotificationUtils.namedDynamicConfig;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.innerNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.leafNodeVisitor;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.mapIterable;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.namedListNodeVisitor;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.touch;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
-import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
 import java.io.Serializable;
 import java.lang.reflect.Field;
@@ -44,6 +44,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
+import org.apache.ignite.internal.configuration.DynamicProperty;
 import org.apache.ignite.internal.configuration.NamedListConfiguration;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
@@ -100,7 +101,7 @@ public class ConfigurationNotifier {
             @Nullable InnerNode oldInnerNode,
             InnerNode newInnerNode,
             DynamicConfiguration<InnerNode, ?> config,
-            Collection<DynamicConfiguration<InnerNode, ?>> anyConfigs,
+            Iterable<DynamicConfiguration<InnerNode, ?>> anyConfigs,
             ConfigurationNotificationContext ctx
     ) {
         assert !(config instanceof NamedListConfiguration);
@@ -111,7 +112,7 @@ public class ConfigurationNotifier {
 
         notifyPublicListeners(
                 listeners(config, ctx.notificationNum),
-                concat(viewReadOnly(anyConfigs, anyCfg -> listeners(anyCfg, ctx.notificationNum))),
+                concat(mapIterable(anyConfigs, anyCfg -> listeners(anyCfg, ctx.notificationNum))),
                 oldInnerNode.specificNode(),
                 newInnerNode.specificNode(),
                 ctx,
@@ -133,9 +134,11 @@ public class ConfigurationNotifier {
                 Serializable newLeaf = newInnerNode.traverseChild(key, leafNodeVisitor(), true);
 
                 if (newLeaf != oldLeaf) {
+                    // TODO: Remove null check after https://issues.apache.org/jira/browse/IGNITE-21101
+                    DynamicProperty<Serializable> node = config != null ? dynamicProperty(config, key) : null;
                     notifyPublicListeners(
-                            listeners(dynamicProperty(config, key), ctx.notificationNum),
-                            concat(viewReadOnly(anyConfigs, anyCfg -> listeners(dynamicProperty(anyCfg, key), ctx.notificationNum))),
+                            listeners(node, ctx.notificationNum),
+                            concat(mapIterable(anyConfigs, anyCfg -> listeners(dynamicProperty(anyCfg, key), ctx.notificationNum))),
                             oldLeaf,
                             newLeaf,
                             ctx,
@@ -159,7 +162,7 @@ public class ConfigurationNotifier {
                         oldNode,
                         newNode,
                         newConfig,
-                        viewReadOnly(anyConfigs, anyCfg -> dynamicConfig(anyCfg, key)),
+                        mapIterable(anyConfigs, anyCfg -> dynamicConfig(anyCfg, key)),
                         ctx
                 );
 
@@ -177,7 +180,7 @@ public class ConfigurationNotifier {
                 if (newNamedList != oldNamedList) {
                     notifyPublicListeners(
                             listeners(namedDynamicConfig(config, key), ctx.notificationNum),
-                            concat(viewReadOnly(anyConfigs, anyCfg -> listeners(namedDynamicConfig(anyCfg, key), ctx.notificationNum))),
+                            concat(mapIterable(anyConfigs, anyCfg -> listeners(namedDynamicConfig(anyCfg, key), ctx.notificationNum))),
                             oldNamedList,
                             newNamedList,
                             ctx,
@@ -191,7 +194,7 @@ public class ConfigurationNotifier {
                     Map<String, ConfigurationProperty<?>> namedListCfgMembers = namedListCfg.touchMembers();
 
                     // Lazy initialization.
-                    Collection<DynamicConfiguration<InnerNode, ?>> newAnyConfigs = null;
+                    Iterable<DynamicConfiguration<InnerNode, ?>> newAnyConfigs = null;
 
                     for (String name : namedListChanges.created) {
                         DynamicConfiguration<InnerNode, ?> newNodeCfg =
@@ -205,7 +208,7 @@ public class ConfigurationNotifier {
 
                         notifyPublicListeners(
                                 extendedListeners(namedDynamicConfig(config, key), ctx.notificationNum),
-                                concat(viewReadOnly(
+                                concat(mapIterable(
                                         anyConfigs,
                                         anyCfg -> extendedListeners(namedDynamicConfig(anyCfg, key), ctx.notificationNum)
                                 )),
@@ -217,7 +220,7 @@ public class ConfigurationNotifier {
 
                         if (newAnyConfigs == null) {
                             newAnyConfigs = mergeAnyConfigs(
-                                    viewReadOnly(anyConfigs, anyCfg -> any(namedDynamicConfig(anyCfg, key))),
+                                    mapIterable(anyConfigs, anyCfg -> any(namedDynamicConfig(anyCfg, key))),
                                     any(namedListCfg)
                             );
                         }
@@ -242,7 +245,7 @@ public class ConfigurationNotifier {
 
                         notifyPublicListeners(
                                 extendedListeners(namedDynamicConfig(config, key), ctx.notificationNum),
-                                concat(viewReadOnly(
+                                concat(mapIterable(
                                         anyConfigs,
                                         anyCfg -> extendedListeners(namedDynamicConfig(anyCfg, key), ctx.notificationNum)
                                 )),
@@ -256,7 +259,7 @@ public class ConfigurationNotifier {
 
                         notifyPublicListeners(
                                 listeners(delNodeCfg, ctx.notificationNum),
-                                concat(viewReadOnly(
+                                concat(mapIterable(
                                         anyConfigs,
                                         anyCfg -> listeners(any(namedDynamicConfig(anyCfg, key)), ctx.notificationNum)
                                 )),
@@ -277,7 +280,7 @@ public class ConfigurationNotifier {
 
                         notifyPublicListeners(
                                 extendedListeners(namedDynamicConfig(config, key), ctx.notificationNum),
-                                concat(viewReadOnly(
+                                concat(mapIterable(
                                         anyConfigs,
                                         anyCfg -> extendedListeners(namedDynamicConfig(anyCfg, key), ctx.notificationNum)
                                 )),
@@ -305,7 +308,7 @@ public class ConfigurationNotifier {
 
                         notifyPublicListeners(
                                 extendedListeners(namedDynamicConfig(config, key), ctx.notificationNum),
-                                concat(viewReadOnly(
+                                concat(mapIterable(
                                         anyConfigs,
                                         anyCfg -> extendedListeners(namedDynamicConfig(anyCfg, key), ctx.notificationNum)
                                 )),
@@ -317,7 +320,7 @@ public class ConfigurationNotifier {
 
                         if (newAnyConfigs == null) {
                             newAnyConfigs = mergeAnyConfigs(
-                                    viewReadOnly(anyConfigs, anyCfg -> any(namedDynamicConfig(anyCfg, key))),
+                                    mapIterable(anyConfigs, anyCfg -> any(namedDynamicConfig(anyCfg, key))),
                                     any(namedListCfg)
                             );
                         }
@@ -349,14 +352,14 @@ public class ConfigurationNotifier {
     private static void notifyListeners(
             InnerNode innerNode,
             DynamicConfiguration<InnerNode, ?> config,
-            Collection<DynamicConfiguration<InnerNode, ?>> anyConfigs,
+            Iterable<DynamicConfiguration<InnerNode, ?>> anyConfigs,
             ConfigurationNotificationContext ctx
     ) {
         assert !(config instanceof NamedListConfiguration);
 
         notifyPublicListeners(
                 listeners(config, ctx.notificationNum),
-                concat(viewReadOnly(anyConfigs, anyCfg -> listeners(anyCfg, ctx.notificationNum))),
+                concat(mapIterable(anyConfigs, anyCfg -> listeners(anyCfg, ctx.notificationNum))),
                 null,
                 innerNode.specificNode(),
                 ctx,
@@ -369,7 +372,7 @@ public class ConfigurationNotifier {
             public Void visitLeafNode(Field field, String key, Serializable leaf) {
                 notifyPublicListeners(
                         listeners(dynamicProperty(config, key), ctx.notificationNum),
-                        concat(viewReadOnly(
+                        concat(mapIterable(
                                 anyConfigs,
                                 anyCfg -> listeners(dynamicProperty(anyCfg, key), ctx.notificationNum)
                         )),
@@ -392,7 +395,7 @@ public class ConfigurationNotifier {
                 notifyListeners(
                         nestedInnerNode,
                         nestedNodeConfig,
-                        viewReadOnly(anyConfigs, anyCfg -> dynamicConfig(anyCfg, key)),
+                        mapIterable(anyConfigs, anyCfg -> dynamicConfig(anyCfg, key)),
                         ctx
                 );
 
@@ -406,7 +409,7 @@ public class ConfigurationNotifier {
             public Void visitNamedListNode(Field field, String key, NamedListNode<?> newNamedList) {
                 notifyPublicListeners(
                         listeners(namedDynamicConfig(config, key), ctx.notificationNum),
-                        concat(viewReadOnly(
+                        concat(mapIterable(
                                 anyConfigs,
                                 anyCfg -> listeners(namedDynamicConfig(anyCfg, key), ctx.notificationNum)
                         )),
@@ -419,7 +422,7 @@ public class ConfigurationNotifier {
                 // Created only.
 
                 // Lazy initialization.
-                Collection<DynamicConfiguration<InnerNode, ?>> newAnyConfigs = null;
+                Iterable<DynamicConfiguration<InnerNode, ?>> newAnyConfigs = null;
 
                 NamedListConfiguration<?, InnerNode, ?> namedListCfg = namedDynamicConfig(config, key);
 
@@ -436,7 +439,7 @@ public class ConfigurationNotifier {
 
                     notifyPublicListeners(
                             extendedListeners(namedDynamicConfig(config, key), ctx.notificationNum),
-                            concat(viewReadOnly(
+                            concat(mapIterable(
                                     anyConfigs,
                                     anyCfg -> extendedListeners(namedDynamicConfig(anyCfg, key), ctx.notificationNum)
                             )),
@@ -448,7 +451,7 @@ public class ConfigurationNotifier {
 
                     if (newAnyConfigs == null) {
                         newAnyConfigs = mergeAnyConfigs(
-                                viewReadOnly(anyConfigs, anyCfg -> any(namedDynamicConfig(anyCfg, key))),
+                                mapIterable(anyConfigs, anyCfg -> any(namedDynamicConfig(anyCfg, key))),
                                 any(namedDynamicConfig(config, key))
                         );
                     }

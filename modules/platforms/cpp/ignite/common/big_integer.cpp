@@ -366,7 +366,10 @@ std::uint32_t big_integer::magnitude_bit_length() const noexcept {
 
 std::uint32_t big_integer::bit_length() const noexcept {
     auto res = magnitude_bit_length();
-    if (res != 0 && is_negative()) {
+    if (res == 0)
+        return 1;
+
+    if (is_negative()) {
         // Check if the magnitude is a power of 2.
         auto last = mag.back();
         if ((last & (last - 1)) == 0 && std::all_of(mag.rbegin() + 1, mag.rend(), [](auto x) { return x == 0; })) {
@@ -382,6 +385,11 @@ std::size_t big_integer::byte_size() const noexcept {
 }
 
 void big_integer::store_bytes(std::byte *data) const {
+    if (mag.empty()) {
+        data[0] = std::byte{0};
+        return;
+    }
+
     std::size_t size = byte_size();
 
     if (!is_negative()) {
@@ -392,6 +400,10 @@ void big_integer::store_bytes(std::byte *data) const {
 
         if (size > 0) {
             std::uint32_t last = mag.empty() ? 0u : mag.back();
+            if (std::int8_t(last) < 0 && size == 1) {
+                last = 0;
+            }
+
             switch (size) {
                 case 3:
                     data[size - 3] = std::byte(last >> 16);
@@ -422,6 +434,9 @@ void big_integer::store_bytes(std::byte *data) const {
 
         if (size > 0) {
             std::uint32_t last = ~mag.back() + carry;
+            if (std::int8_t(last) > 0 && size == 1) {
+                last = -1;
+            }
 
             switch (size) {
                 case 3:
@@ -614,7 +629,7 @@ uint32_t big_integer::get_mag_int(int32_t n) const {
 void big_integer::divide(const big_integer &divisor, big_integer &res, big_integer *rem) const {
     // Can't divide by zero.
     if (divisor.mag.empty())
-        throw ignite_error(status_code::GENERIC, "Division by zero.");
+        throw ignite_error(error::code::GENERIC, "Division by zero.");
 
     int32_t compRes = compare(divisor, true);
     auto resSign = int8_t(sign * divisor.sign);

@@ -24,21 +24,19 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.function.UnaryOperator;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.RelCollations;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexFieldAccess;
-import org.apache.ignite.internal.index.ColumnCollation;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -53,28 +51,10 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testNotColocatedEqJoin() throws Exception {
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteTypeFactory f = Commons.typeFactory();
-
-        createTable(publicSchema,
-                "T0",
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("JID", f.createJavaType(Integer.class))
-                        .add("VAL", f.createJavaType(String.class))
-                        .build(),
-                someAffinity()
-        ).addIndex("t0_jid_idx", 1, 0);
-
-        createTable(publicSchema,
-                "T1",
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("JID", f.createJavaType(Integer.class))
-                        .add("VAL", f.createJavaType(String.class))
-                        .build(),
-                someAffinity()
-        ).addIndex("t1_jid_idx", 1, 0);
+        IgniteSchema publicSchema = createSchemaFrom(
+                tableA("T0").andThen(addSortIndex("JID", "ID")),
+                tableA("T1").andThen(addSortIndex("JID", "ID"))
+        );
 
         String sql = "select * "
                 + "from t0 "
@@ -103,30 +83,10 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testPartialIndexForCondition() throws Exception {
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteTypeFactory f = Commons.typeFactory();
-
-        createTable(publicSchema,
-                "T0",
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("JID0", f.createJavaType(Integer.class))
-                        .add("JID1", f.createJavaType(Integer.class))
-                        .add("VAL", f.createJavaType(String.class))
-                        .build(),
-                someAffinity()
+        IgniteSchema publicSchema = createSchemaFrom(
+                tableB("T0"),
+                tableB("T1").andThen(addSortIndex("JID2", "JID1"))
         );
-
-        createTable(publicSchema,
-                "T1",
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("JID0", f.createJavaType(Integer.class))
-                        .add("JID1", f.createJavaType(Integer.class))
-                        .add("VAL", f.createJavaType(String.class))
-                        .build(),
-                someAffinity()
-        ).addIndex("t1_jid0_idx", 2, 1);
 
         String sql = "select * "
                 + "from t0 "
@@ -158,13 +118,9 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testDescFields() throws Exception {
-        IgniteSchema publicSchema = createSchema(
-                createTable("T0", 10, someAffinity(),
-                        "ID", Integer.class, "JID", Integer.class, "VAL", String.class)
-                        .addIndex("t0_jid_idx", 1),
-                createTable("T1", 100, someAffinity(),
-                        "ID", Integer.class, "JID", Integer.class, "VAL", String.class)
-                        .addIndex(RelCollations.of(TraitUtils.createFieldCollation(1, ColumnCollation.DESC_NULLS_LAST)), "t1_jid_idx")
+        IgniteSchema publicSchema = createSchemaFrom(
+                tableA("T0").andThen(setSize(10)),
+                tableA("T1").andThen(setSize(100)).andThen(index("jid", Collation.DESC_NULLS_LAST))
         );
 
         String sql = "select * "
@@ -192,9 +148,35 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
 
                                     return true;
                                 })
-                                .and(hasChildThat(isIndexScan("T1", "t1_jid_idx")))
+                                .and(hasChildThat(isIndexScan("T1", "idx_jid")))
                         )),
                 "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeToHashIndexSpoolRule"
         );
+    }
+
+    private static UnaryOperator<TableBuilder> tableA(String tableName) {
+        return tableBuilder -> tableBuilder
+                .name(tableName)
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("JID", NativeTypes.INT32)
+                .addColumn("VAL", NativeTypes.STRING)
+                .distribution(someAffinity());
+    }
+
+    private static UnaryOperator<TableBuilder> tableB(String tableName) {
+        return tableBuilder -> tableBuilder
+                .name(tableName)
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("JID0", NativeTypes.INT32)
+                .addColumn("JID1", NativeTypes.INT32)
+                .addColumn("VAL", NativeTypes.STRING)
+                .distribution(someAffinity());
+    }
+
+    private static UnaryOperator<TableBuilder> index(String column, Collation collation) {
+        return tableBuilder -> tableBuilder.sortedIndex()
+                .name("idx_" + column)
+                .addColumn(column, collation)
+                .end();
     }
 }

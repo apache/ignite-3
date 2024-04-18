@@ -44,12 +44,16 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTuple;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests client tuple builder implementation.
@@ -57,32 +61,34 @@ import org.junit.jupiter.api.Test;
  * <p>Should be in sync with org.apache.ignite.internal.table.TupleBuilderImplTest.
  */
 public class ClientTupleTest {
+    private static final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
+
     private static final ClientSchema SCHEMA = new ClientSchema(1, new ClientColumn[]{
-            new ClientColumn("ID", ColumnType.INT64, false, true, 0, 0),
-            new ClientColumn("NAME", ColumnType.STRING, false, false, -1, 1)
-    }, null);
+            new ClientColumn("NAME", ColumnType.STRING, false, -1, 0, -1, 0),
+            new ClientColumn("ID", ColumnType.INT64, false, 0, -1, 0, 1)
+    }, marshallers);
 
     private static final ClientSchema FULL_SCHEMA = new ClientSchema(100, new ClientColumn[]{
-            new ClientColumn("I8", ColumnType.INT8, false, false, -1, 0),
-            new ClientColumn("I16", ColumnType.INT16, false, false, -1, 1),
-            new ClientColumn("I32", ColumnType.INT32, false, false, -1, 2),
-            new ClientColumn("I64", ColumnType.INT64, false, false, -1, 3),
-            new ClientColumn("FLOAT", ColumnType.FLOAT, false, false, -1, 4),
-            new ClientColumn("DOUBLE", ColumnType.DOUBLE, false, false, -1, 5),
-            new ClientColumn("UUID", ColumnType.UUID, false, false, -1, 6),
-            new ClientColumn("STR", ColumnType.STRING, false, false, -1, 7),
-            new ClientColumn("BITS", ColumnType.BITMASK, false, false, -1, 8),
-            new ClientColumn("DATE", ColumnType.DATE, false, false, -1, 9),
-            new ClientColumn("TIME", ColumnType.TIME, false, false, -1, 10),
-            new ClientColumn("DATETIME", ColumnType.DATETIME, false, false, -1, 11),
-            new ClientColumn("TIMESTAMP", ColumnType.TIMESTAMP, false, false, -1, 12),
-            new ClientColumn("BOOL", ColumnType.BOOLEAN, false, false, -1, 13),
-            new ClientColumn("DECIMAL", ColumnType.DECIMAL, false, false, -1, 14),
-            new ClientColumn("BYTES", ColumnType.BYTE_ARRAY, false, false, -1, 15),
-            new ClientColumn("PERIOD", ColumnType.PERIOD, false, false, -1, 16),
-            new ClientColumn("DURATION", ColumnType.DURATION, false, false, -1, 17),
-            new ClientColumn("NUMBER", ColumnType.NUMBER, false, false, -1, 18)
-    }, null);
+            new ClientColumn("I8", ColumnType.INT8, false, -1, 0, -1, 0),
+            new ClientColumn("I16", ColumnType.INT16, false, -1, 1, -1, 1),
+            new ClientColumn("I32", ColumnType.INT32, false, 0, -1, -1, 2),
+            new ClientColumn("I64", ColumnType.INT64, false, 1, -1, -1, 3),
+            new ClientColumn("FLOAT", ColumnType.FLOAT, false, -1, 2, -1, 4),
+            new ClientColumn("DOUBLE", ColumnType.DOUBLE, false, -1, 3, -1, 5),
+            new ClientColumn("UUID", ColumnType.UUID, false, -1, 4, -1, 6),
+            new ClientColumn("STR", ColumnType.STRING, false, 2, -1, -1, 7),
+            new ClientColumn("BITS", ColumnType.BITMASK, false, -1, 5, -1, 8),
+            new ClientColumn("DATE", ColumnType.DATE, false, -1, 6, -1, 9),
+            new ClientColumn("TIME", ColumnType.TIME, false, -1, 7, -1, 10),
+            new ClientColumn("DATETIME", ColumnType.DATETIME, false, -1, 8, -1, 11),
+            new ClientColumn("TIMESTAMP", ColumnType.TIMESTAMP, false, -1, 9, -1, 12),
+            new ClientColumn("BOOL", ColumnType.BOOLEAN, false, -1, 10, -1, 13),
+            new ClientColumn("DECIMAL", ColumnType.DECIMAL, false, -1, 11, -1, 14, 3, 10),
+            new ClientColumn("BYTES", ColumnType.BYTE_ARRAY, false, -1, 12, -1, 15),
+            new ClientColumn("PERIOD", ColumnType.PERIOD, false, -1, 13, -1, 16),
+            new ClientColumn("DURATION", ColumnType.DURATION, false, -1, 14, -1, 17),
+            new ClientColumn("NUMBER", ColumnType.NUMBER, false, -1, 15, -1, 18)
+    }, marshallers);
 
     private static final UUID GUID = UUID.randomUUID();
 
@@ -102,8 +108,8 @@ public class ClientTupleTest {
 
     @Test
     public void testValueReturnsValueByIndex() {
-        assertEquals(3L, (Long) createTuple().value(0));
-        assertEquals("Shirt", createTuple().value(1));
+        assertEquals(3L, (Long) createTuple().value(1));
+        assertEquals("Shirt", createTuple().value(0));
     }
 
     @Test
@@ -119,7 +125,7 @@ public class ClientTupleTest {
 
     @Test
     public void testValueOrDefaultReturnsNullWhenColumnIsSetToNull() {
-        var tuple = createTuple().set("name", null);
+        Tuple tuple = createTuple().set("name", null);
 
         assertNull(tuple.valueOrDefault("name", "foo"));
     }
@@ -138,10 +144,34 @@ public class ClientTupleTest {
         assertEquals(SCHEMA.columns().length, createTuple().columnCount());
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testColumnCountKeyOnlyReturnsKeySize(boolean partialData) {
+        assertEquals(FULL_SCHEMA.columns(TuplePart.KEY).length, createFullSchemaTuple(TuplePart.KEY, partialData).columnCount());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testColumnCountValOnlyReturnsValSize(boolean partialData) {
+        assertEquals(FULL_SCHEMA.columns(TuplePart.VAL).length, createFullSchemaTuple(TuplePart.VAL, partialData).columnCount());
+    }
+
     @Test
     public void testColumnNameReturnsNameByIndex() {
-        assertEquals("ID", createTuple().columnName(0));
-        assertEquals("NAME", createTuple().columnName(1));
+        assertEquals("ID", createTuple().columnName(1));
+        assertEquals("NAME", createTuple().columnName(0));
+    }
+
+    @Test
+    public void testColumnNameReturnsNameByIndexKeyOnly() {
+        assertEquals("I32", createFullSchemaTuple(TuplePart.KEY, false).columnName(0));
+        assertEquals("I64", createFullSchemaTuple(TuplePart.KEY, false).columnName(1));
+    }
+
+    @Test
+    public void testColumnNameReturnsNameByIndexValOnly() {
+        assertEquals("I8", createFullSchemaTuple(TuplePart.VAL, false).columnName(0));
+        assertEquals("I16", createFullSchemaTuple(TuplePart.VAL, false).columnName(1));
     }
 
     @Test
@@ -152,13 +182,46 @@ public class ClientTupleTest {
 
     @Test
     public void testColumnIndexReturnsIndexByName() {
-        assertEquals(0, createTuple().columnIndex("id"));
-        assertEquals(1, createTuple().columnIndex("name"));
+        assertEquals(1, createTuple().columnIndex("id"));
+        assertEquals(0, createTuple().columnIndex("name"));
+
+        assertEquals(2, createFullSchemaTuple().columnIndex("I32"));
+        assertEquals(3, createFullSchemaTuple().columnIndex("I64"));
+        assertEquals(7, createFullSchemaTuple().columnIndex("STR"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testColumnIndexReturnsIndexByNameKeyOnly(boolean partialData) {
+        assertEquals(0, createFullSchemaTuple(TuplePart.KEY, partialData).columnIndex("I32"));
+        assertEquals(1, createFullSchemaTuple(TuplePart.KEY, partialData).columnIndex("I64"));
+        assertEquals(2, createFullSchemaTuple(TuplePart.KEY, partialData).columnIndex("STR"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testColumnIndexReturnsIndexByNameValOnly(boolean partialData) {
+        assertEquals(0, createFullSchemaTuple(TuplePart.VAL, partialData).columnIndex("I8"));
+        assertEquals(1, createFullSchemaTuple(TuplePart.VAL, partialData).columnIndex("I16"));
+        assertEquals(4, createFullSchemaTuple(TuplePart.VAL, partialData).columnIndex("UUID"));
     }
 
     @Test
     public void testColumnIndexForMissingColumns() {
         assertEquals(-1, createTuple().columnIndex("foo"));
+        assertEquals(-1, createFullSchemaTuple().columnIndex("UUID1"));
+    }
+
+    @Test
+    public void testColumnIndexForMissingColumnsKeyOnly() {
+        assertEquals(-1, createFullSchemaTuple(TuplePart.KEY, true).columnIndex("foo"));
+        assertEquals(-1, createFullSchemaTuple(TuplePart.KEY, true).columnIndex("UUID"));
+    }
+
+    @Test
+    public void testColumnIndexForMissingColumnsValOnly() {
+        assertEquals(-1, createFullSchemaTuple(TuplePart.VAL, true).columnIndex("foo"));
+        assertEquals(-1, createFullSchemaTuple(TuplePart.VAL, true).columnIndex("I32"));
     }
 
     @Test
@@ -298,42 +361,120 @@ public class ClientTupleTest {
         }
     }
 
+    @Test
+    public void testKeyOnlyTupleEquality() {
+        var keyTupleFullData = createFullSchemaTuple(TuplePart.KEY, false);
+        var keyTuplePartialData = createFullSchemaTuple(TuplePart.KEY, true);
+        var keyTupleUser = Tuple.create().set("I32", 3).set("I64", 4L).set("STR", "8");
+
+        assertEquals(keyTupleFullData, keyTuplePartialData);
+        assertEquals(keyTupleUser, keyTupleFullData);
+        assertEquals(keyTupleUser, keyTuplePartialData);
+    }
+
+    @Test
+    public void testValOnlyTupleEquality() {
+        var valTupleFullData = createFullSchemaTuple(TuplePart.VAL, false);
+        var valTuplePartialData = createFullSchemaTuple(TuplePart.VAL, true);
+
+        var valTupleUser = Tuple.create()
+                .set("I8", (byte) 1)
+                .set("I16", (short) 2)
+                .set("FLOAT", 5.5f)
+                .set("DOUBLE", 6.6)
+                .set("UUID", GUID)
+                .set("BITS", new BitSet(3))
+                .set("DATE", DATE)
+                .set("TIME", TIME)
+                .set("DATETIME", DATE_TIME)
+                .set("TIMESTAMP", TIMESTAMP)
+                .set("BOOL", true)
+                .set("DECIMAL", BigDecimal.valueOf(1.234))
+                .set("BYTES", new byte[]{1, 2, 3})
+                .set("PERIOD", Period.ofDays(16))
+                .set("DURATION", Duration.ofDays(17))
+                .set("NUMBER", BigInteger.valueOf(18));
+
+        assertEquals(valTupleFullData, valTuplePartialData);
+        assertEquals(valTupleUser, valTupleFullData);
+        assertEquals(valTupleUser, valTuplePartialData);
+    }
+
     private static Tuple createTuple() {
         var binTupleBuf = new BinaryTupleBuilder(SCHEMA.columns().length)
-                .appendLong(3L)
                 .appendString("Shirt")
+                .appendLong(3L)
                 .build();
 
         var binTuple = new BinaryTupleReader(SCHEMA.columns().length, binTupleBuf);
 
-        return new ClientTuple(SCHEMA, binTuple, 0, SCHEMA.columns().length);
+        return new ClientTuple(SCHEMA, TuplePart.KEY_AND_VAL, binTuple);
     }
 
     private static ClientTuple createFullSchemaTuple() {
+        return createFullSchemaTuple(TuplePart.KEY_AND_VAL, false);
+    }
+
+    private static ClientTuple createFullSchemaTuple(TuplePart part, boolean partialData) {
         var binTupleBuf = new BinaryTupleBuilder(FULL_SCHEMA.columns().length)
-                .appendByte((byte) 1)
-                .appendShort((short) 2)
-                .appendInt(3)
-                .appendLong(4)
-                .appendFloat(5.5f)
-                .appendDouble(6.6)
-                .appendUuid(GUID)
-                .appendString("8")
-                .appendBitmask(new BitSet(3))
-                .appendDate(DATE)
-                .appendTime(TIME)
-                .appendDateTime(DATE_TIME)
-                .appendTimestamp(TIMESTAMP)
-                .appendByte((byte) 1)
-                .appendDecimal(BigDecimal.valueOf(1.234), 3)
-                .appendBytes(new byte[] {1, 2, 3})
-                .appendPeriod(Period.ofDays(16))
-                .appendDuration(Duration.ofDays(17))
-                .appendNumber(BigInteger.valueOf(18))
-                .build();
+                        .appendByte((byte) 1)
+                        .appendShort((short) 2)
+                        .appendInt(3)
+                        .appendLong(4)
+                        .appendFloat(5.5f)
+                        .appendDouble(6.6)
+                        .appendUuid(GUID)
+                        .appendString("8")
+                        .appendBitmask(new BitSet(3))
+                        .appendDate(DATE)
+                        .appendTime(TIME)
+                        .appendDateTime(DATE_TIME)
+                        .appendTimestamp(TIMESTAMP)
+                        .appendByte((byte) 1)
+                        .appendDecimal(BigDecimal.valueOf(1.234), 3)
+                        .appendBytes(new byte[] {1, 2, 3})
+                        .appendPeriod(Period.ofDays(16))
+                        .appendDuration(Duration.ofDays(17))
+                        .appendNumber(BigInteger.valueOf(18))
+                        .build();
 
-        var binTuple = new BinaryTupleReader(FULL_SCHEMA.columns().length, binTupleBuf);
+        var binTupleColumnCount = FULL_SCHEMA.columns().length;
 
-        return new ClientTuple(FULL_SCHEMA, binTuple, 0, FULL_SCHEMA.columns().length);
+        if (part == TuplePart.KEY && partialData) {
+            binTupleBuf = new BinaryTupleBuilder(3)
+                    .appendInt(3)
+                    .appendLong(4)
+                    .appendString("8")
+                    .build();
+
+            binTupleColumnCount = 3;
+        }
+
+        if (part == TuplePart.VAL && partialData) {
+            binTupleBuf = new BinaryTupleBuilder(16)
+                    .appendByte((byte) 1)
+                    .appendShort((short) 2)
+                    .appendFloat(5.5f)
+                    .appendDouble(6.6)
+                    .appendUuid(GUID)
+                    .appendBitmask(new BitSet(3))
+                    .appendDate(DATE)
+                    .appendTime(TIME)
+                    .appendDateTime(DATE_TIME)
+                    .appendTimestamp(TIMESTAMP)
+                    .appendByte((byte) 1)
+                    .appendDecimal(BigDecimal.valueOf(1.234), 3)
+                    .appendBytes(new byte[] {1, 2, 3})
+                    .appendPeriod(Period.ofDays(16))
+                    .appendDuration(Duration.ofDays(17))
+                    .appendNumber(BigInteger.valueOf(18))
+                    .build();
+
+            binTupleColumnCount = 16;
+        }
+
+        var binTuple = new BinaryTupleReader(binTupleColumnCount, binTupleBuf);
+
+        return new ClientTuple(FULL_SCHEMA, part, binTuple);
     }
 }

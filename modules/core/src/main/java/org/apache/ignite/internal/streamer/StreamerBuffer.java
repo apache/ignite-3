@@ -18,28 +18,29 @@
 package org.apache.ignite.internal.streamer;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
+import java.util.function.BiConsumer;
+import org.apache.ignite.table.DataStreamerItem;
+import org.apache.ignite.table.DataStreamerOperationType;
 
 class StreamerBuffer<T> {
     private final int capacity;
 
-    private final Function<List<T>, CompletableFuture<Void>> flusher;
+    private final BiConsumer<List<T>, BitSet> flusher;
 
     /** Primary buffer. Won't grow over capacity. */
     private List<T> buf;
 
-    private CompletableFuture<Void> flushFut;
+    private BitSet deleted;
 
     private boolean closed;
 
-    private long lastFlushTime;
-
-    StreamerBuffer(int capacity, Function<List<T>, CompletableFuture<Void>> flusher) {
+    StreamerBuffer(int capacity, BiConsumer<List<T>, BitSet> flusher) {
         this.capacity = capacity;
         this.flusher = flusher;
         buf = new ArrayList<>(capacity);
+        deleted = new BitSet(capacity);
     }
 
     /**
@@ -47,20 +48,25 @@ class StreamerBuffer<T> {
      *
      * @param item Item.
      */
-    synchronized void add(T item) {
+    synchronized void add(DataStreamerItem<T> item) {
         if (closed) {
             throw new IllegalStateException("Streamer is closed, can't add items.");
         }
 
-        buf.add(item);
+        buf.add(item.get());
+
+        if (item.operationType() == DataStreamerOperationType.REMOVE) {
+            deleted.set(buf.size() - 1);
+        }
 
         if (buf.size() >= capacity) {
-            flush(buf);
+            flusher.accept(buf, deleted);
             buf = new ArrayList<>(capacity);
+            deleted = new BitSet(capacity);
         }
     }
 
-    synchronized CompletableFuture<Void> flushAndClose() {
+    synchronized void flushAndClose() {
         if (closed) {
             throw new IllegalStateException("Streamer is already closed.");
         }
@@ -68,31 +74,17 @@ class StreamerBuffer<T> {
         closed = true;
 
         if (!buf.isEmpty()) {
-            flush(buf);
+            flusher.accept(buf, deleted);
         }
-
-        return flushFut == null ? CompletableFuture.completedFuture(null) : flushFut;
     }
 
-    synchronized void flush(long period) {
+    synchronized void flush() {
         if (closed || buf.isEmpty()) {
             return;
         }
 
-        if (System.nanoTime() - lastFlushTime > period) {
-            flush(buf);
-            buf = new ArrayList<>(capacity);
-        }
-    }
-
-    private void flush(List<T> b) {
-        if (flushFut == null || flushFut.isDone()) {
-            flushFut = flusher.apply(b);
-        } else {
-            // Chain flush futures to ensure the order of items.
-            flushFut = flushFut.thenCompose(ignored -> flusher.apply(b));
-        }
-
-        lastFlushTime = System.nanoTime();
+        flusher.accept(buf, deleted);
+        buf = new ArrayList<>(capacity);
+        deleted = new BitSet(capacity);
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.jdbc;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -55,17 +56,21 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     @Override
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
         long fetched0 = fetched.addAndGet(rows);
+
+        assert cur != null : "non initialized cursor";
+
         return cur.requestNextAsync(rows).thenApply(batch -> {
             if (maxRows == 0 || fetched0 < maxRows) {
                 return batch;
             }
 
-            if (fetched0 - rows < maxRows) {
-                return new BatchedResult<>(batch.items()
-                        .subList(0, (int) (maxRows - fetched0 + rows)), false);
-            }
+            int remainCnt = (int) (maxRows - fetched0 + rows);
 
-            return new BatchedResult<>(List.of(), false);
+            List<T> remainItems = remainCnt < batch.items().size()
+                    ? batch.items().subList(0, remainCnt)
+                    : batch.items();
+
+            return new BatchedResult<>(remainItems, false);
         });
     }
 
@@ -73,6 +78,18 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     @Override 
     public CompletableFuture<Void> closeAsync() {
         return cur.closeAsync();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> onClose() {
+        return cur.onClose();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> onFirstPageReady() {
+        return cur.onFirstPageReady();
     }
 
     /** {@inheritDoc} */
@@ -85,5 +102,21 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     @Override
     public ResultSetMetadata metadata() {
         return cur.metadata();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean hasNextResult() {
+        return cur.hasNextResult();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncSqlCursor<T>> nextResult() {
+        if (!hasNextResult()) {
+            throw new NoSuchElementException("Query has no more results");
+        }
+
+        return cur.nextResult();
     }
 }

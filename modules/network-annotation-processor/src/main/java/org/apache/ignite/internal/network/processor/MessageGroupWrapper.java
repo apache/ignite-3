@@ -19,7 +19,7 @@ package org.apache.ignite.internal.network.processor;
 
 import com.squareup.javapoet.ClassName;
 import javax.lang.model.element.TypeElement;
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 /**
  * Wrapper around an element annotated with {@link MessageGroup}.

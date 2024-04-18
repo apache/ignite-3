@@ -21,7 +21,6 @@ import java.util.Iterator;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.util.TransformingIterator;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * TableFunctionScan.
@@ -45,7 +44,6 @@ public class TableFunctionScan<RowT> implements Iterable<RowT> {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Iterator<RowT> iterator() {
         return new TransformingIterator<>(dataSupplier.get().iterator(), rowFactory::create);

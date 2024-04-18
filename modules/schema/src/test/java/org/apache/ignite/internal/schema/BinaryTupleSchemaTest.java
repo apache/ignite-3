@@ -17,41 +17,110 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 
 /** Tests for the {@link BinaryTupleSchema} class. */
 public class BinaryTupleSchemaTest {
 
-    private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(1, new Column[]{
-            new Column("id".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
-    }, new Column[]{
-            new Column("val".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
-    });
-
     @Test
     public void rowSchema() {
-        BinaryTupleSchema schema = BinaryTupleSchema.createRowSchema(SCHEMA);
-        assertEquals(0, schema.columnIndex(0));
-        assertEquals(1, schema.columnIndex(1));
-        assertTrue(schema.convertible());
+        SchemaDescriptor schema = new SchemaDescriptor(1, Arrays.asList(
+                new Column("C1".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
+                new Column("C2".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
+                new Column("C3".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
+                new Column("C4".toUpperCase(Locale.ROOT), NativeTypes.INT32, false)
+        ), List.of("C2", "C4"), null);
+
+        BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schema);
+        assertEquals(0, rowSchema.columnIndex(0));
+        assertEquals(1, rowSchema.columnIndex(1));
+        assertTrue(rowSchema.convertible());
     }
 
     @Test
     public void keySchema() {
-        BinaryTupleSchema schema = BinaryTupleSchema.createKeySchema(SCHEMA);
-        assertEquals(0, schema.columnIndex(0));
-        assertTrue(schema.convertible());
+        {
+            SchemaDescriptor schema = new SchemaDescriptor(1, Arrays.asList(
+                    new Column("C1".toUpperCase(Locale.ROOT), NativeTypes.INT8, false),
+                    new Column("C2".toUpperCase(Locale.ROOT), NativeTypes.INT16, false),
+                    new Column("C3".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
+                    new Column("C4".toUpperCase(Locale.ROOT), NativeTypes.INT64, false)
+            ), List.of("C2", "C4"), null);
+
+            BinaryTupleSchema keySchema = BinaryTupleSchema.createKeySchema(schema);
+
+            assertEquals(0, keySchema.columnIndex(0));
+            assertEquals(1, keySchema.columnIndex(1));
+            assertTrue(keySchema.convertible());
+
+            expectColumnMatch(schema, keySchema, 1, 0);
+            expectColumnMatch(schema, keySchema, 3, 1);
+        }
+
+        {
+            SchemaDescriptor schema = new SchemaDescriptor(1, Arrays.asList(
+                    new Column("C1".toUpperCase(Locale.ROOT), NativeTypes.INT8, false),
+                    new Column("C2".toUpperCase(Locale.ROOT), NativeTypes.INT16, false),
+                    new Column("C3".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
+                    new Column("C4".toUpperCase(Locale.ROOT), NativeTypes.INT64, false)
+            ), List.of("C4", "C2"), null);
+
+            BinaryTupleSchema keySchema = BinaryTupleSchema.createKeySchema(schema);
+
+            assertEquals(0, keySchema.columnIndex(0));
+            assertEquals(1, keySchema.columnIndex(1));
+            assertTrue(keySchema.convertible());
+
+            expectColumnMatch(schema, keySchema, 3, 0);
+            expectColumnMatch(schema, keySchema, 1, 1);
+        }
     }
 
     @Test
     public void valueSchema() {
-        BinaryTupleSchema schema = BinaryTupleSchema.createValueSchema(SCHEMA);
-        assertEquals(1, schema.columnIndex(0));
-        assertFalse(schema.convertible());
+        SchemaDescriptor schema = new SchemaDescriptor(1, Arrays.asList(
+                new Column("C1".toUpperCase(Locale.ROOT), NativeTypes.INT8, false),
+                new Column("C2".toUpperCase(Locale.ROOT), NativeTypes.INT16, false)
+        ), List.of("C1"), null);
+
+        BinaryTupleSchema valueSchema = BinaryTupleSchema.createValueSchema(schema);
+
+        assertEquals(1, valueSchema.columnIndex(0));
+        assertFalse(valueSchema.convertible());
+    }
+
+    @Test
+    public void destinationKeySchema() {
+        SchemaDescriptor schema = new SchemaDescriptor(1, Arrays.asList(
+                new Column("C1".toUpperCase(Locale.ROOT), NativeTypes.INT8, false),
+                new Column("C2".toUpperCase(Locale.ROOT), NativeTypes.INT16, false),
+                new Column("C3".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
+                new Column("C4".toUpperCase(Locale.ROOT), NativeTypes.INT64, false)
+        ), List.of("C2", "C4"), null);
+
+        BinaryTupleSchema dstSchema = BinaryTupleSchema.createDestinationKeySchema(schema);
+
+        assertEquals(1, dstSchema.columnIndex(0));
+        assertEquals(3, dstSchema.columnIndex(1));
+        assertFalse(dstSchema.convertible());
+    }
+
+    private static void expectColumnMatch(SchemaDescriptor schema, BinaryTupleSchema tupleSchema, int schemaIdx, int tupleIdx) {
+        Column column = schema.column(schemaIdx);
+        Element elem = tupleSchema.element(tupleIdx);
+
+        String message = format("schema field: {}, tuple field: {}", schemaIdx, tupleIdx);
+        assertSame(column.type().spec(), elem.typeSpec, message);
     }
 }

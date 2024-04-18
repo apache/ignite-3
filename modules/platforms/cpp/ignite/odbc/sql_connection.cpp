@@ -27,10 +27,10 @@
 #include <ignite/common/bytes.h>
 #include <ignite/network/network.h>
 #include <ignite/protocol/client_operation.h>
+#include <ignite/protocol/messages.h>
 
 #include <algorithm>
 #include <cstddef>
-#include <cstring>
 #include <random>
 #include <sstream>
 
@@ -126,6 +126,7 @@ void sql_connection::init_socket() {
 
 sql_result sql_connection::internal_establish(const configuration &cfg) {
     m_config = cfg;
+    m_info.rebuild();
 
     if (!m_config.get_address().is_set() || m_config.get_address().get_value().empty()) {
         add_status_record("No valid address to connect.");
@@ -159,7 +160,7 @@ sql_result sql_connection::internal_release() {
         add_status_record(sql_state::S08003_NOT_CONNECTED, "Connection is not open.");
 
         // It is important to return SUCCESS_WITH_INFO and not ERROR here, as if we return an error, Windows
-        // Driver Manager may decide that connection is not valid anymore which results in memory leak.
+        // Driver Manager may decide that connection is not valid anymore, which results in memory leak.
         return sql_result::AI_SUCCESS_WITH_INFO;
     }
 
@@ -271,6 +272,28 @@ bool sql_connection::receive(std::vector<std::byte> &msg, std::int32_t timeout) 
     return true;
 }
 
+bool sql_connection::receive_and_check_magic(std::vector<std::byte> &msg, std::int32_t timeout) {
+    msg.clear();
+    msg.resize(protocol::MAGIC_BYTES.size());
+
+    auto res = receive_all(msg.data(), msg.size(), timeout);
+    if (res != operation_result::SUCCESS) {
+        add_status_record(
+            sql_state::S08001_CANNOT_CONNECT, "Failed to get handshake response (Did you forget to enable SSL?).");
+
+        return false;
+    }
+
+    if (!std::equal(msg.begin(), msg.end(), protocol::MAGIC_BYTES.begin(), protocol::MAGIC_BYTES.end())) {
+        add_status_record(sql_state::S08001_CANNOT_CONNECT,
+            "Failed to receive magic bytes in handshake response. "
+            "Possible reasons: wrong port number used, TLS is enabled on server but not on client.");
+        return false;
+    }
+
+    return true;
+}
+
 sql_connection::operation_result sql_connection::receive_all(void *dst, std::size_t len, std::int32_t timeout) {
     std::size_t remain = len;
     auto *buffer = reinterpret_cast<std::byte *>(dst);
@@ -310,12 +333,6 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
             throw odbc_error(sql_state::SHYT00_TIMEOUT_EXPIRED, "Could not receive a response within timeout");
 
         protocol::reader reader(res);
-        auto response_type = reader.read_int32();
-        if (detail::message_type(response_type) != detail::message_type::RESPONSE) {
-            LOG_MSG("Unsupported message type: " + std::to_string(response_type));
-            continue;
-        }
-
         auto req_id = reader.read_int64();
         if (req_id != id) {
             throw odbc_error(
@@ -323,11 +340,18 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
         }
 
         auto flags = reader.read_int32();
-        UNUSED_VALUE flags; // Flags are unused for now.
+        if (test_flag(flags, protocol::response_flag::PARTITION_ASSIGNMENT_CHANGED)) {
+            auto assignment_ts = reader.read_int64();
 
-        auto err = protocol::read_error(reader);
-        if (err) {
-            throw odbc_error(sql_state::SHY000_GENERAL_ERROR, err.value().what_str());
+            UNUSED_VALUE assignment_ts;
+        }
+
+        auto observable_timestamp = reader.read_int64();
+        on_observable_timestamp(observable_timestamp);
+
+        if (test_flag(flags, protocol::response_flag::ERROR_FLAG)) {
+            auto err = protocol::read_error(reader);
+            throw odbc_error(error_code_to_sql_state(err.get_status_code()), err.what_str());
         }
 
         return network::data_buffer_owning{std::move(res), reader.position()};
@@ -357,7 +381,7 @@ sql_result sql_connection::internal_transaction_commit() {
     network::data_buffer_owning response;
     auto success = catch_errors([&] {
         auto response = sync_request(
-            detail::client_operation::TX_COMMIT, [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
+            protocol::client_operation::TX_COMMIT, [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
     });
 
     if (!success)
@@ -383,8 +407,8 @@ sql_result sql_connection::internal_transaction_rollback() {
 
     network::data_buffer_owning response;
     auto success = catch_errors([&] {
-        auto response = sync_request(
-            detail::client_operation::TX_ROLLBACK, [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
+        auto response = sync_request(protocol::client_operation::TX_ROLLBACK,
+            [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
     });
 
     if (!success)
@@ -400,7 +424,7 @@ void sql_connection::transaction_start() {
     LOG_MSG("Starting transaction");
 
     network::data_buffer_owning response =
-        sync_request(detail::client_operation::TX_BEGIN, [&](protocol::writer &writer) {
+        sync_request(protocol::client_operation::TX_BEGIN, [&](protocol::writer &writer) {
             writer.write_bool(false); // read_only.
         });
 
@@ -571,7 +595,7 @@ sql_result sql_connection::internal_set_attribute(int attr, void *value, SQLINTE
 }
 
 std::vector<std::byte> sql_connection::make_request(
-    std::int64_t id, detail::client_operation op, const std::function<void(protocol::writer &)> &func) {
+    std::int64_t id, protocol::client_operation op, const std::function<void(protocol::writer &)> &func) {
     std::vector<std::byte> req;
     protocol::buffer_adapter buffer(req);
     buffer.reserve_length_header();
@@ -588,28 +612,17 @@ std::vector<std::byte> sql_connection::make_request(
 
 sql_result sql_connection::make_request_handshake() {
     static constexpr int8_t ODBC_CLIENT = 3;
-    m_protocol_version = protocol_version::get_current();
+    m_protocol_version = protocol::protocol_version::get_current();
 
     try {
-        std::vector<std::byte> message;
-        {
-            protocol::buffer_adapter buffer(message);
-            buffer.write_raw(bytes_view(protocol::MAGIC_BYTES));
-
-            protocol::write_message_to_buffer(buffer, [&ver = m_protocol_version](protocol::writer &writer) {
-                writer.write(ver.get_major());
-                writer.write(ver.get_minor());
-                writer.write(ver.get_maintenance());
-
-                writer.write(ODBC_CLIENT);
-
-                // Features.
-                writer.write_binary_empty();
-
-                // Extensions.
-                writer.write_map_empty();
-            });
+        std::map<std::string, std::string> extensions;
+        if (!m_config.get_auth_identity().get_value().empty()) {
+            extensions.emplace("authn-type", m_config.get_auth_type());
+            extensions.emplace("authn-identity", m_config.get_auth_identity().get_value());
+            extensions.emplace("authn-secret", m_config.get_auth_secret().get_value());
         }
+
+        std::vector<std::byte> message = protocol::make_handshake_request(ODBC_CLIENT, m_protocol_version, extensions);
 
         auto res = send_all(message.data(), message.size(), m_login_timeout);
         if (res != operation_result::SUCCESS) {
@@ -617,21 +630,7 @@ sql_result sql_connection::make_request_handshake() {
             return sql_result::AI_ERROR;
         }
 
-        message.clear();
-        message.resize(protocol::MAGIC_BYTES.size());
-
-        res = receive_all(message.data(), message.size(), m_login_timeout);
-        if (res != operation_result::SUCCESS) {
-            add_status_record(
-                sql_state::S08001_CANNOT_CONNECT, "Failed to get handshake response (Did you forget to enable SSL?).");
-
-            return sql_result::AI_ERROR;
-        }
-
-        if (!std::equal(message.begin(), message.end(), protocol::MAGIC_BYTES.begin(), protocol::MAGIC_BYTES.end())) {
-            add_status_record(sql_state::S08001_CANNOT_CONNECT,
-                "Failed to receive magic bytes in handshake response. "
-                "Possible reasons: wrong port number used, TLS is enabled on server but not on client.");
+        if (!receive_and_check_magic(message, m_login_timeout)) {
             return sql_result::AI_ERROR;
         }
 
@@ -641,34 +640,38 @@ sql_result sql_connection::make_request_handshake() {
             return sql_result::AI_ERROR;
         }
 
-        protocol::reader reader(message);
-
-        auto ver_major = reader.read_int16();
-        auto ver_minor = reader.read_int16();
-        auto ver_patch = reader.read_int16();
-
-        protocol_version ver(ver_major, ver_minor, ver_patch);
+        auto response = protocol::parse_handshake_response(message);
+        auto const &ver = response.context.get_version();
         LOG_MSG("Server-side protocol version: " << ver.to_string());
 
         // We now only support a single version
-        if (ver != protocol_version::get_current()) {
+        if (ver != protocol::protocol_version::get_current()) {
             add_status_record(
                 sql_state::S08004_CONNECTION_REJECTED, "Unsupported server version: " + ver.to_string() + ".");
+
             return sql_result::AI_ERROR;
         }
 
-        auto err = protocol::read_error(reader);
-        if (err) {
-            add_status_record(
-                sql_state::S08004_CONNECTION_REJECTED, "Server rejected handshake with error: " + err->what_str());
+        if (response.error) {
+            add_status_record(sql_state::S08004_CONNECTION_REJECTED,
+                "Server rejected handshake with error: " + response.error->what_str());
+
             return sql_result::AI_ERROR;
         }
+
+        auto server_ver_str = response.context.get_server_version().to_string();
+        LOG_MSG("Server version: " << server_ver_str);
+        m_info.set_info(SQL_DBMS_VER, server_ver_str);
+
+        auto cluster_name = response.context.get_cluster_name();
+        LOG_MSG("Cluster name: " << cluster_name);
+        m_info.set_info(SQL_SERVER_NAME, cluster_name);
     } catch (const odbc_error &err) {
         add_status_record(err);
 
         return sql_result::AI_ERROR;
     } catch (const ignite_error &err) {
-        add_status_record(sql_state::S08004_CONNECTION_REJECTED, err.what_str());
+        add_status_record(sql_state::S08001_CANNOT_CONNECT, err.what_str());
 
         return sql_result::AI_ERROR;
     }
@@ -737,6 +740,16 @@ std::int32_t sql_connection::retrieve_timeout(void *value) {
     }
 
     return static_cast<std::int32_t>(u_timeout);
+}
+
+void sql_connection::on_observable_timestamp(std::int64_t timestamp) {
+    auto expected = m_observable_timestamp.load();
+    while (expected < timestamp) {
+        auto success = m_observable_timestamp.compare_exchange_weak(expected, timestamp);
+        if (success)
+            return;
+        expected = m_observable_timestamp.load();
+    }
 }
 
 } // namespace ignite

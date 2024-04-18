@@ -36,7 +36,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiT
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.Constants.GiB;
-import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -76,6 +76,8 @@ import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -97,13 +99,10 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteRandom;
 import org.apache.ignite.internal.util.IgniteStripedLock;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteStringBuilder;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * An abstract class for testing {@link BplusTree} using different implementations of {@link PageMemory}.
@@ -152,9 +151,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     private boolean debugPrint = false;
 
     @BeforeEach
-    protected void beforeEach(TestInfo testInfo) throws Exception {
-        setupBase(testInfo, null);
-
+    protected void beforeEach() throws Exception {
         stop.set(false);
 
         long seed = System.nanoTime();
@@ -171,7 +168,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     @AfterEach
-    protected void afterTest(TestInfo testInfo) throws Exception {
+    protected void afterTest() throws Exception {
         rnd = null;
 
         try {
@@ -182,7 +179,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
                     asyncRunFut.cancel(true);
                     asyncRunFut.get(60_000, MILLISECONDS);
                 } catch (Throwable ex) {
-                    //Ignore
+                    // Ignore
                 }
             }
 
@@ -210,8 +207,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             RMV_INC = -1;
             CNT = 10;
         }
-
-        tearDownBase(testInfo);
     }
 
     /**
@@ -2165,7 +2160,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
     @Test
     public void testConcurrentGrowDegenerateTreeAndConcurrentRemove() throws Exception {
-        //calculate tree size when split happens
+        // Calculate tree size when split happens.
         final TestTree t = createTestTree(true);
         long i = 0;
 
@@ -2782,7 +2777,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         }
 
         static Object threadId() {
-            return Thread.currentThread().getId(); //.getName();
+            return Thread.currentThread().getId(); // .getName();
         }
 
         private static void printLocks(IgniteStringBuilder b, ConcurrentMap<Object, Map<Long, Long>> locks, Map<Object, Long> beforeLock) {

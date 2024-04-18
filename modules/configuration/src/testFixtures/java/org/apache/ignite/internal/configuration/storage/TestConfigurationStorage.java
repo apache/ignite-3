@@ -27,7 +27,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Test configuration storage.
@@ -154,7 +153,7 @@ public class TestConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void registerConfigurationListener(@NotNull ConfigurationStorageListener listener) {
+    public synchronized void registerConfigurationListener(ConfigurationStorageListener listener) {
         listeners.add(listener);
     }
 
@@ -168,6 +167,11 @@ public class TestConfigurationStorage implements ConfigurationStorage {
     @Override
     public synchronized CompletableFuture<Long> lastRevision() {
         return CompletableFuture.completedFuture(version);
+    }
+
+    @Override
+    public CompletableFuture<Long> localRevision() {
+        return lastRevision();
     }
 
     /**

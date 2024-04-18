@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 
 /**
  * Throws when failed to marshal a tuple.

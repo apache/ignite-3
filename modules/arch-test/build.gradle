@@ -29,11 +29,13 @@ dependencies {
 
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
+    testImplementation testFixtures(project(':ignite-core'))
 }
 
 tasks.withType(Test).configureEach {
     parent.subprojects.forEach {
         dependsOn it.getTasksByName("testClasses", true)
         dependsOn it.getTasksByName("integrationTestClasses", true)
+        dependsOn it.getTasksByName("testFixturesClasses", true)
     }
 }

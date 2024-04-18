@@ -23,10 +23,13 @@ import io.netty.buffer.ByteBuf;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.sql.BatchedArguments;
+import org.jetbrains.annotations.Nullable;
 import org.msgpack.core.ExtensionTypeHeader;
 import org.msgpack.core.MessageFormat;
 import org.msgpack.core.MessageFormatException;
@@ -357,58 +360,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
 
             default:
                 throw unexpected("Float", code);
-        }
-    }
-
-    /**
-     * Reads an array header.
-     *
-     * @return Array size.
-     */
-    public int unpackArrayHeader() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        byte code = buf.readByte();
-
-        if (Code.isFixedArray(code)) { // fixarray
-            return code & 0x0f;
-        }
-
-        switch (code) {
-            case Code.ARRAY16:
-                return readLength16();
-
-            case Code.ARRAY32:
-                return readLength32();
-
-            default:
-                throw unexpected("Array", code);
-        }
-    }
-
-    /**
-     * Reads a map header.
-     *
-     * @return Map size.
-     */
-    public int unpackMapHeader() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        byte code = buf.readByte();
-
-        if (Code.isFixedMap(code)) { // fixmap
-            return code & 0x0f;
-        }
-
-        switch (code) {
-            case Code.MAP16:
-                return readLength16();
-
-            case Code.MAP32:
-                return readLength32();
-
-            default:
-                throw unexpected("Map", code);
         }
     }
 
@@ -744,6 +695,16 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
+     * Reads a nullable bit set.
+     *
+     * @return Bit set or null.
+     * @throws MessageTypeException when type is not BitSet.
+     */
+    public @Nullable BitSet unpackBitSetNullable() {
+        return tryUnpackNil() ? null : unpackBitSet();
+    }
+
+    /**
      * Reads an integer array.
      *
      * @return Integer array.
@@ -751,7 +712,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     public int[] unpackIntArray() {
         assert refCnt > 0 : "Unpacker is closed";
 
-        int size = unpackArrayHeader();
+        int size = unpackInt();
 
         if (size == 0) {
             return ArrayUtils.INT_EMPTY_ARRAY;
@@ -764,6 +725,56 @@ public class ClientMessageUnpacker implements AutoCloseable {
         }
 
         return res;
+    }
+
+    /**
+     * Unpacks batch of arguments from binary tuples.
+     *
+     * @return BatchedArguments object with the unpacked arguments.
+     */
+    @SuppressWarnings("unused")
+    public BatchedArguments unpackObjectArrayFromBinaryTupleArray() {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        if (tryUnpackNil()) {
+            return null;
+        }
+
+        int rowLen = unpackInt();
+        int rows = unpackInt();
+        boolean last = unpackBoolean(); // unused now, but we will need it in case of arguments load by pages.
+
+        BatchedArguments args = BatchedArguments.create();
+
+        for (int i = 0; i < rows; i++) {
+            args.add(unpackObjectArrayFromBinaryTuple(rowLen));
+        }
+
+        return args;
+    }
+
+    /**
+     * Unpacks object array.
+     *
+     * @param size Array size.
+     *
+     * @return Object array.
+     */
+    public Object[] unpackObjectArrayFromBinaryTuple(int size) {
+        assert refCnt > 0 : "Unpacker is closed";
+
+        if (tryUnpackNil()) {
+            return null;
+        }
+
+        Object[] args = new Object[size];
+        var reader = new BinaryTupleReader(size * 3, readBinaryUnsafe());
+
+        for (int i = 0; i < size; i++) {
+            args[i] = ClientBinaryTupleUtils.readObject(reader, i * 3);
+        }
+
+        return args;
     }
 
     /**
@@ -862,6 +873,53 @@ public class ClientMessageUnpacker implements AutoCloseable {
             default:
                 throw unexpected("String", code);
         }
+    }
+
+    /**
+     * Reads a nullable {@link Instant}.
+     *
+     * @return {@link Instant} value or {@code null}.
+     */
+    public @Nullable Instant unpackInstantNullable() {
+        if (tryUnpackNil()) {
+            return null;
+        }
+        return unpackInstant();
+    }
+
+    /**
+     * Reads a nullable byte.
+     *
+     * @return Byte value or {@code null}.
+     */
+    public @Nullable Byte unpackByteNullable() {
+        if (tryUnpackNil()) {
+            return null;
+        }
+        return unpackByte();
+    }
+
+    /**
+     * Reads a nullable string.
+     *
+     * @return String value or {@code null}.
+     */
+    public @Nullable String unpackStringNullable() {
+        if (tryUnpackNil()) {
+            return null;
+        }
+        return unpackString();
+    }
+
+    /**
+     * Reads an {@link Instant}.
+     *
+     * @return {@link Instant} value.
+     */
+    public Instant unpackInstant() {
+        long seconds = unpackLong();
+        int nanos = unpackInt();
+        return Instant.ofEpochSecond(seconds, nanos);
     }
 
     private int readLength8() {

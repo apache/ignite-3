@@ -26,8 +26,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,28 +41,45 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     protected final TxManager txManager;
 
     /**
+     * Transaction coordinator inconsistent ID.
+     */
+    private final String coordinatorId;
+
+    /**
      * The constructor.
      *
      * @param txManager The tx manager.
      * @param id The id.
+     * @param coordinatorId Transaction coordinator inconsistent ID.
      */
-    public IgniteAbstractTransactionImpl(TxManager txManager, @NotNull UUID id) {
+    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id, String coordinatorId) {
         this.txManager = txManager;
         this.id = id;
+        this.coordinatorId = coordinatorId;
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public UUID id() {
         return id;
     }
 
-    /** {@inheritDoc} */
-    @Nullable
+    /**
+     * Get the transaction coordinator inconsistent ID.
+     *
+     * @return Transaction coordinator inconsistent ID.
+     */
     @Override
-    public TxState state() {
-        return txManager.state(id);
+    public String coordinatorId() {
+        return coordinatorId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable TxState state() {
+        TxStateMeta meta = txManager.stateMeta(id);
+
+        return meta == null ? null : meta.txState();
     }
 
     /** {@inheritDoc} */

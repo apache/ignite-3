@@ -19,14 +19,15 @@ package org.apache.ignite.internal.network.message;
 
 import static org.apache.ignite.internal.network.NetworkMessageTypes.INVOKE_RESPONSE;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Invocation response.
- * Used internally in the {@link org.apache.ignite.network.DefaultMessagingService}.
+ * Used internally in the {@link DefaultMessagingService}.
  */
-@Transferable(value = INVOKE_RESPONSE)
+@Transferable(INVOKE_RESPONSE)
 public interface InvokeResponse extends NetworkMessage {
     /** Request's correlation id. */
     long correlationId();

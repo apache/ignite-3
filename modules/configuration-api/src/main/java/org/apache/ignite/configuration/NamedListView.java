@@ -71,6 +71,15 @@ public interface NamedListView<VIEWT> extends Iterable<VIEWT> {
     int size();
 
     /**
+     * Returns the true if this list is empty.
+     *
+     * @return true if this list is empty.
+     */
+    default boolean isEmpty() {
+        return size() == 0;
+    }
+
+    /**
      * Returns an ordered stream of values from the named list.
      */
     Stream<VIEWT> stream();

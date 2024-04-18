@@ -25,15 +25,15 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.MetricRegistry;
+import org.apache.ignite.internal.cli.event.ConnectionEventListener;
 import org.apache.ignite.rest.client.model.MetricSource;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link MetricRegistry}. */
 @Singleton
-public class MetricRegistryImpl implements MetricRegistry, AsyncSessionEventListener {
+public class MetricRegistryImpl implements MetricRegistry, ConnectionEventListener {
 
     @Inject
     private NodeMetricSourceListCall metricSourceListCall;

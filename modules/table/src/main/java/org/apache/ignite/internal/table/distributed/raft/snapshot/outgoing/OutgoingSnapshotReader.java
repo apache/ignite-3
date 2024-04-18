@@ -50,7 +50,7 @@ public class OutgoingSnapshotReader extends SnapshotReader {
     public OutgoingSnapshotReader(PartitionSnapshotStorage snapshotStorage) {
         this.snapshotStorage = snapshotStorage;
 
-        snapshot = new OutgoingSnapshot(id, snapshotStorage.partition());
+        snapshot = new OutgoingSnapshot(id, snapshotStorage.partition(), snapshotStorage.catalogService());
 
         LOG.info("Starting snapshot reader for snapshot {}", id);
 

@@ -17,26 +17,14 @@
 
 #pragma once
 
+#include "error_codes.h"
+
 #include <cstdint>
 #include <exception>
+#include <optional>
 #include <string>
 
 namespace ignite {
-
-/**
- * Status code.
- */
-enum class status_code : std::int32_t {
-    SUCCESS = 0,
-
-    GENERIC,
-
-    UNKNOWN,
-
-    NETWORK,
-
-    OS,
-};
 
 /**
  * Ignite Error.
@@ -52,8 +40,16 @@ public:
      * @param message Message.
      */
     explicit ignite_error(std::string message) noexcept
-        : m_status_code(status_code::GENERIC)
-        , m_message(std::move(message)) {} // NOLINT(bugprone-throw-keyword-missing)
+        : m_message(std::move(message)) {} // NOLINT(bugprone-throw-keyword-missing)
+
+    /**
+     * Constructor.
+     *
+     * @param message Message.
+     */
+    explicit ignite_error(std::string message, std::int32_t flags) noexcept
+        : m_message(std::move(message))
+        , m_flags(flags) {} // NOLINT(bugprone-throw-keyword-missing)
 
     /**
      * Constructor.
@@ -61,9 +57,21 @@ public:
      * @param statusCode Status code.
      * @param message Message.
      */
-    explicit ignite_error(status_code statusCode, std::string message) noexcept
-        : m_status_code(statusCode)
+    explicit ignite_error(error::code code, std::string message) noexcept
+        : m_status_code(code)
         , m_message(std::move(message)) {} // NOLINT(bugprone-throw-keyword-missing)
+
+    /**
+     * Constructor.
+     *
+     * @param statusCode Status code.
+     * @param message Message.
+     * @param ver Version.
+     */
+    explicit ignite_error(error::code code, std::string message, std::optional<std::int32_t> ver) noexcept
+        : m_status_code(code)
+        , m_message(std::move(message)) // NOLINT(bugprone-throw-keyword-missing)
+        , m_version(ver) {}
 
     /**
      * Constructor.
@@ -72,8 +80,8 @@ public:
      * @param message Message.
      * @param cause Error cause.
      */
-    explicit ignite_error(status_code statusCode, std::string message, std::exception_ptr cause) noexcept
-        : m_status_code(statusCode)
+    explicit ignite_error(error::code code, std::string message, std::exception_ptr cause) noexcept
+        : m_status_code(code)
         , m_message(std::move(message))
         , m_cause(std::move(cause)) {} // NOLINT(bugprone-throw-keyword-missing)
 
@@ -92,7 +100,7 @@ public:
      *
      * @return Status code.
      */
-    [[nodiscard]] status_code get_status_code() const noexcept { return m_status_code; }
+    [[nodiscard]] error::code get_status_code() const noexcept { return m_status_code; }
 
     /**
      * Get error cause.
@@ -101,15 +109,37 @@ public:
      */
     [[nodiscard]] std::exception_ptr get_cause() const noexcept { return m_cause; }
 
+    /**
+     * Get flags.
+     * Internal method.
+     *
+     * @return Flags.
+     */
+    [[nodiscard]] std::int32_t get_flags() const noexcept { return m_flags; }
+
+    /**
+     * Get expected schema version.
+     * Internal method.
+     *
+     * @return Expected schema version.
+     */
+    [[nodiscard]] std::optional<std::int32_t> get_schema_version() const noexcept { return m_version; }
+
 private:
     /** Status code. */
-    status_code m_status_code{status_code::SUCCESS};
+    error::code m_status_code{error::code::GENERIC};
 
     /** Message. */
     std::string m_message;
 
     /** Cause. */
     std::exception_ptr m_cause;
+
+    /** Flags. */
+    std::int32_t m_flags{0};
+
+    /** Schema version. */
+    std::optional<std::int32_t> m_version{};
 };
 
 } // namespace ignite

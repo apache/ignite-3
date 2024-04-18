@@ -17,21 +17,29 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Tests for ddl queries that contain multiply sql statements, separated by ";".
+ * Tests for queries containing multiple sql statements, separated by ";".
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-16204")
 public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     /**
      * Setup tables.
@@ -52,48 +60,510 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
                 + "(4, 19, 'Nick');");
     }
 
-    /**
-     * Execute sql script using thin driver.
-     */
-    private void execute(String sql) throws Exception {
-        stmt.executeUpdate(sql);
+    @AfterEach
+    void tearDown() throws Exception {
+        int openCursorResources = openResources();
+        // connection + not closed result set
+        assertTrue(openResources() <= 2, "Open cursors: " + openCursorResources);
+
+        stmt.close();
+
+        openCursorResources = openResources();
+        // only connection context or 0 if already closed.
+        assertTrue(openResources() <= 1, "Open cursors: " + openCursorResources);
+        assertTrue(waitForCondition(() -> openCursors() == 0, 5_000));
     }
 
-    /**
-     * Assert that script containing both h2 and non h2 (native) sql statements is handled correctly.
-     */
     @Test
-    public void testMixedCommands() throws Exception {
-        execute("CREATE TABLE public.transactions (pk INT, id INT, k VARCHAR, v VARCHAR, PRIMARY KEY (pk, id)); "
-                + "CREATE INDEX transactions_id_k_v ON public.transactions (id, k, v) INLINE_SIZE 150; "
-                + "INSERT INTO public.transactions VALUES (1,2,'some', 'word') ; "
-                + "CREATE INDEX transactions_k_v_id ON public.transactions (k, v, id) INLINE_SIZE 150; "
-                + "CREATE INDEX transactions_pk_id ON public.transactions (pk, id) INLINE_SIZE 20;");
+    public void testAllStatementsAppliedIfExecutedWithFailure() throws Exception {
+        stmt.execute("SELECT COUNT(*) FROM TEST_TX");
+        try (ResultSet rs = stmt.getResultSet()) {
+            assertTrue(rs.next());
+            assertEquals(4, rs.getInt(1));
+        }
+
+        // pk violation exception
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21133
+        stmt.execute("START TRANSACTION; INSERT INTO TEST_TX VALUES (1, 1, '1'); COMMIT");
+        assertThrowsSqlException("Failed to fetch query results", () -> stmt.execute("SELECT COUNT(*) FROM TEST_TX"));
+        stmt.execute("SELECT COUNT(*) FROM TEST_TX");
+        try (ResultSet rs = stmt.getResultSet()) {
+            assertTrue(rs.next());
+            assertEquals(4, rs.getInt(1));
+        }
+    }
+
+    @Test
+    public void testAllStatementsAppliedIfExecutedWithoutFailure() throws Exception {
+        // no pk violation
+        stmt.execute("START TRANSACTION; INSERT INTO TEST_TX VALUES (5, 5, '5'); COMMIT");
+        stmt.execute("SELECT COUNT(*) FROM TEST_TX");
+        try (ResultSet rs = stmt.getResultSet()) {
+            assertTrue(rs.next());
+            assertEquals(5, rs.getInt(1));
+        }
+    }
+
+    @Test
+    public void testEmptyResults() throws Exception {
+        boolean res = stmt.execute("SELECT 1; SELECT 1 FROM table(system_range(1, 0))");
+        assertTrue(res);
+        assertEquals(-1, stmt.getUpdateCount());
+        assertTrue(stmt.getMoreResults());
+        assertFalse(stmt.getMoreResults());
+    }
+
+    @Test
+    public void testSimpleQueryExecute() throws Exception {
+        boolean res = stmt.execute("INSERT INTO TEST_TX VALUES (5, 5, '5');");
+        assertFalse(res);
+        assertNull(stmt.getResultSet());
+        assertFalse(stmt.getMoreResults());
+        assertNull(stmt.getResultSet());
+        assertEquals(-1, stmt.getUpdateCount());
+
+        stmt.execute("INSERT INTO TEST_TX VALUES (6, 5, '5');");
+        assertEquals(1, stmt.getUpdateCount());
+        assertTrue(checkNoMoreResults());
+
+        // empty result
+        res = stmt.execute("SELECT ID FROM TEST_TX WHERE ID=1000;");
+        assertTrue(res);
+        assertNotNull(stmt.getResultSet());
+    }
+
+    @Test
+    public void testSimpleQueryError() throws Exception {
+        boolean res = stmt.execute("SELECT 1; SELECT 1/0; SELECT 2");
+        assertTrue(res);
+        assertThrowsSqlException("Failed to fetch query results", () -> stmt.getMoreResults());
+        // Next after exception.
+        assertFalse(stmt.getMoreResults());
+
+        stmt.closeOnCompletion();
+    }
+
+    @Test
+    public void testSimpleQueryErrorCloseRs() throws Exception {
+        stmt.execute("SELECT 1; SELECT 1/0; SELECT 2");
+        ResultSet rs = stmt.getResultSet();
+        assertThrowsSqlException("Failed to fetch query results", () -> stmt.getMoreResults());
+        stmt.closeOnCompletion();
+
+        rs.close();
+    }
+
+    @ParameterizedTest(name = "closeOnCompletion = {0}")
+    @ValueSource(booleans = {true, false})
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21129")
+    public void testCloseOnCompletionFirstRsClosed(boolean closeOnCompletion) throws Exception {
+        stmt.execute("SELECT 1; DROP TABLE IF EXISTS TEST_TX; SELECT 1; ");
+        ResultSet rs = stmt.getResultSet();
+
+        if (closeOnCompletion) {
+            stmt.closeOnCompletion();
+        }
+
+        rs.close();
+        assertFalse(stmt.isClosed());
+
+        stmt.getMoreResults();
+        stmt.getResultSet();
+
+        stmt.getMoreResults();
+        rs = stmt.getResultSet();
+
+        rs.close();
+
+        if (closeOnCompletion) {
+            assertTrue(stmt.isClosed());
+        } else {
+            assertFalse(stmt.isClosed());
+        }
+    }
+
+    @ParameterizedTest(name = "closeOnCompletion = {0}")
+    @ValueSource(booleans = {true, false})
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21129")
+    public void testCloseOnCompletionFirstRsClosed2(boolean closeOnCompletion) throws Exception {
+        stmt.execute("SELECT 1; DROP TABLE IF EXISTS TEST_TX;");
+        ResultSet rs = stmt.getResultSet();
+
+        if (closeOnCompletion) {
+            stmt.closeOnCompletion();
+        }
+
+        rs.close();
+
+        if (closeOnCompletion) {
+            assertTrue(stmt.isClosed());
+        } else {
+            assertFalse(stmt.isClosed());
+        }
+    }
+
+    @Test
+    public void noMoreResultsArePossibleAfterCloseOnCompletion() throws Exception {
+        stmt.execute("SELECT 1; SELECT 2; SELECT 3");
+        // SELECT 2;
+        assertTrue(stmt.getMoreResults());
+
+        stmt.closeOnCompletion();
+
+        // SELECT 3;
+        assertTrue(stmt.getMoreResults());
+        assertFalse(stmt.isClosed());
+
+        // no more results, auto close statement
+        assertFalse(stmt.getMoreResults());
+        assertThrowsSqlException("Statement is closed", () -> stmt.getMoreResults());
+        assertTrue(stmt.isClosed());
+    }
+
+    @Test
+    public void requestMoreThanOneFetch() throws Exception {
+        int range = stmt.getFetchSize() + 100;
+        stmt.execute(format("START TRANSACTION; SELECT * FROM TABLE(system_range(0, {})); COMMIT;", range));
+        assertEquals(range + 1, getResultSetSize());
+
+        stmt.execute("START TRANSACTION; SELECT * FROM TABLE(system_range(0, 2000)); COMMIT;");
+        stmt.getMoreResults();
+        ResultSet rs = stmt.getResultSet();
+        rs.close();
+        stmt.getMoreResults();
+        assertTrue(checkNoMoreResults());
+    }
+
+    @Test
+    public void moreResultsAfterClosedRs() throws Exception {
+        stmt.execute("START TRANSACTION; SELECT 1; SELECT 2; COMMIT;");
+        stmt.getMoreResults();
+        ResultSet rs = stmt.getResultSet();
+        rs.close();
+        assertTrue(stmt.getMoreResults());
+        stmt.getResultSet().next();
+        assertEquals(2, stmt.getResultSet().getInt(1));
+    }
+
+    @Test
+    public void testMixedDmlQueryExecute() throws Exception {
+        boolean res = stmt.execute("INSERT INTO TEST_TX VALUES (6, 5, '5'); DELETE FROM TEST_TX WHERE ID=6; SELECT 1;");
+        assertFalse(res);
+        assertEquals(1, getResultSetSize());
+
+        res = stmt.execute("SELECT 1; INSERT INTO TEST_TX VALUES (7, 5, '5'); DELETE FROM TEST_TX WHERE ID=6;");
+        assertEquals(true, res);
+        assertEquals(1, getResultSetSize());
+
+        // empty results set in the middle
+        res = stmt.execute("SELECT * FROM TEST_TX; INSERT INTO TEST_TX VALUES (6, 6, '6'); SELECT * FROM TEST_TX;");
+        assertEquals(true, res);
+        assertEquals(11, getResultSetSize());
+    }
+
+    @Test
+    public void testMiscDmlExecute() throws Exception {
+        boolean res = stmt.execute("DROP TABLE IF EXISTS TEST_TX; DROP TABLE IF EXISTS SOME_UNEXISTING_TBL;");
+        assertFalse(res);
+        assertEquals(0, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
+        assertEquals(0, stmt.getUpdateCount());
+
+        res = stmt.execute("CREATE TABLE TEST_TX (ID INT PRIMARY KEY, AGE INT, NAME VARCHAR) ");
+        assertFalse(res);
+        assertEquals(0, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
+        assertNull(stmt.getResultSet());
+
+        res = stmt.execute("INSERT INTO TEST_TX VALUES (1, 17, 'James'), (2, 43, 'Valery');");
+        assertFalse(res);
+        assertEquals(2, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
+        assertNull(stmt.getResultSet());
+
+        res = stmt.execute("DROP TABLE IF EXISTS PUBLIC.TRANSACTIONS; INSERT INTO TEST_TX VALUES (3, 25, 'Michel');");
+        assertFalse(res);
+        assertEquals(0, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
+        assertEquals(1, stmt.getUpdateCount());
+    }
+
+    @Test
+    public void testPureTransaction() throws Exception {
+        boolean res = stmt.execute("START TRANSACTION; COMMIT");
+        assertFalse(res);
+        assertNull(stmt.getResultSet());
+        assertEquals(0, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
+        assertEquals(0, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
+        assertEquals(-1, stmt.getUpdateCount());
+    }
+
+    @Test
+    public void testBrokenTransaction() throws Exception {
+        boolean res = stmt.execute("START TRANSACTION;");
+        assertFalse(res);
+        assertNull(stmt.getResultSet());
+        assertEquals(0, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
+        assertEquals(-1, stmt.getUpdateCount());
+
+        res = stmt.execute("COMMIT;");
+        assertFalse(res);
+        assertNull(stmt.getResultSet());
+        assertEquals(0, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
+        assertEquals(-1, stmt.getUpdateCount());
+    }
+
+    @Test
+    public void testTransactionQueryInside() throws Exception {
+        stmt.execute("START TRANSACTION; SELECT 1; COMMIT");
+        ResultSet resultSet = stmt.getResultSet();
+        assertNull(resultSet);
+        assertEquals(0, stmt.getUpdateCount());
+
+        // SELECT 1
+        assertTrue(stmt.getMoreResults());
+        resultSet = stmt.getResultSet();
+        assertNotNull(resultSet);
+
+        // COMMIT
+        assertFalse(stmt.getMoreResults());
+        resultSet = stmt.getResultSet();
+        assertNull(resultSet);
+        assertEquals(0, stmt.getUpdateCount());
+
+        // after commit
+        assertFalse(stmt.getMoreResults());
+        assertEquals(-1, stmt.getUpdateCount());
+    }
+
+    @Test
+    public void testTransactionQueryInsideOutside() throws Exception {
+        stmt.execute("START TRANSACTION; SELECT 1; COMMIT; SELECT 2;");
+        ResultSet resultSet = stmt.getResultSet();
+        assertNull(resultSet);
+        assertEquals(0, stmt.getUpdateCount());
+
+        // SELECT 1;
+        assertTrue(stmt.getMoreResults());
+        resultSet = stmt.getResultSet();
+        assertNotNull(resultSet);
+
+        // COMMIT;
+        assertFalse(stmt.getMoreResults());
+        resultSet = stmt.getResultSet();
+        assertNull(resultSet);
+        assertEquals(0, stmt.getUpdateCount());
+
+        // SELECT 2;
+        assertTrue(stmt.getMoreResults());
+        resultSet = stmt.getResultSet();
+        assertNotNull(resultSet);
+        assertEquals(-1, stmt.getUpdateCount());
+
+        // after
+        assertFalse(stmt.getMoreResults());
+        assertEquals(-1, stmt.getUpdateCount());
+    }
+
+    @Test
+    public void testDmlInsideTransaction() throws Exception {
+        stmt.execute("START TRANSACTION; INSERT INTO TEST_TX VALUES (5, 19, 'Nick'); COMMIT");
+        assertEquals(0, stmt.getUpdateCount());
+        stmt.getMoreResults();
+        assertEquals(1, stmt.getUpdateCount());
+        stmt.getMoreResults();
+        assertEquals(0, stmt.getUpdateCount());
+        assertTrue(checkNoMoreResults());
+    }
+
+    @Test
+    public void testAutoCommitFalseNonCompleted() throws Exception {
+        String txErrMsg = "Transaction control statement cannot be executed within an external transaction";
+        conn.setAutoCommit(false);
+        assertThrowsSqlException(txErrMsg, () -> stmt.execute("COMMIT"));
+
+        boolean res = stmt.execute("SELECT 1;COMMIT");
+        assertTrue(res);
+        assertNotNull(stmt.getResultSet());
+        assertThrowsSqlException(txErrMsg, () -> stmt.getMoreResults());
+
+        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; SELECT 1;"));
+    }
+
+    @Test
+    public void testAutoCommitFalse() throws Exception {
+        conn.setAutoCommit(false);
+
+        stmt.execute("SELECT 1;");
+        ResultSet rs = stmt.getResultSet();
+        assertTrue(rs.next());
+        assertEquals(1, rs.getInt(1));
+
+        stmt.execute("INSERT INTO TEST_TX VALUES (5, 19, 'Nick');");
+        conn.rollback();
+
+        stmt.execute("SELECT COUNT(ID) FROM TEST_TX WHERE ID=5;");
+        rs = stmt.getResultSet();
+        assertTrue(rs.next());
+        assertEquals(0, rs.getInt(1));
+
+
+        stmt.execute("INSERT INTO TEST_TX VALUES (5, 19, 'Nick');");
+        conn.commit();
+
+        stmt.execute("SELECT COUNT(ID) FROM TEST_TX WHERE ID=5;");
+        rs = stmt.getResultSet();
+        assertTrue(rs.next());
+        assertEquals(1, rs.getInt(1));
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21167")
+    public void testAutoCommitFalseWithEmptyTx() throws Exception {
+        String txErrMsg = "Transaction control statement cannot be executed within an external transaction";
+        conn.setAutoCommit(false);
+        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; SELECT 1; COMMIT;"));
+    }
+
+    @Test
+    public void testPreviousResultSetIsClosedExecute() throws Exception {
+        boolean res = stmt.execute("SELECT ID FROM TEST_TX; SELECT 1;");
+        assertEquals(true, res);
+        stmt.getResultSet();
+        ResultSet rs = stmt.getResultSet();
+
+        res = stmt.getMoreResults();
+        assertEquals(true, res);
+
+        assertTrue(rs.isClosed());
+        assertNotNull(stmt.getResultSet());
+        assertTrue(checkNoMoreResults());
+
+        stmt.execute("SELECT 1; SELECT 2; SELECT 3;");
+        ResultSet rs1 = stmt.getResultSet();
+        stmt.getMoreResults();
+        assertTrue(rs1.isClosed());
+        ResultSet rs2 = stmt.getResultSet();
+        stmt.getMoreResults();
+        assertTrue(rs2.isClosed());
+        rs = stmt.getResultSet();
+        assertTrue(rs.next());
+        assertEquals(3, rs.getObject(1));
+        rs.close();
+    }
+
+    @Test
+    public void testPreviousResultsNotInvolvedExecute() throws Exception {
+        boolean res = stmt.execute("SELECT ID FROM TEST_TX; SELECT 1;");
+        assertEquals(true, res);
+        assertEquals(5, getResultSetSize());
+
+        res = stmt.execute("SELECT 1; SELECT 1;");
+        assertEquals(true, res);
+        assertEquals(2, getResultSetSize());
+    }
+
+    /** Check update count invariants. */
+    @Test
+    public void testUpdCountMisc() throws Exception {
+        // pure select case
+        stmt.execute("SELECT 1; SELECT 1;");
+        assertEquals(-1, stmt.getUpdateCount());
+
+        ResultSet rs = stmt.getResultSet();
+        assertEquals(-1, stmt.getUpdateCount());
+
+        rs.next();
+        assertEquals(-1, stmt.getUpdateCount());
+
+        stmt.getMoreResults();
+        assertTrue(rs.isClosed());
+        rs = stmt.getResultSet();
+        assertEquals(-1, stmt.getUpdateCount());
+
+        rs.next();
+        assertEquals(-1, stmt.getUpdateCount());
+
+        // empty result
+        stmt.execute("SELECT ID FROM TEST_TX WHERE ID=1000;");
+        assertEquals(-1, stmt.getUpdateCount());
+    }
+
+    @Test
+    public void testUpdCountNoMoreResults() throws Exception {
+        stmt.execute("INSERT INTO TEST_TX VALUES (5, 5, '5'), (6, 5, '5');");
+        assertEquals(2, stmt.getUpdateCount());
+        stmt.getMoreResults();
+        assertEquals(-1, stmt.getUpdateCount());
+        stmt.getResultSet();
+        assertEquals(-1, stmt.getUpdateCount());
+    }
+
+    @Test
+    public void testMixedQueriesUpdCount() throws Exception {
+        stmt.execute("SELECT 1; INSERT INTO TEST_TX VALUES (7, 5, '5');");
+        stmt.getMoreResults();
+        assertEquals(1, stmt.getUpdateCount());
+        assertEquals(1, stmt.getUpdateCount());
+        stmt.getMoreResults();
+        assertEquals(-1, stmt.getUpdateCount());
+
+        stmt.execute("DROP TABLE IF EXISTS TEST_TX; DROP TABLE IF EXISTS PUBLIC.TRANSACTIONS;");
+        assertEquals(0, stmt.getUpdateCount());
+
+        stmt.execute("CREATE TABLE TEST_TX (ID INT PRIMARY KEY, AGE INT, NAME VARCHAR) ");
+        assertEquals(0, stmt.getUpdateCount());
+    }
+
+    @Test
+    public void testUpdCountAfterError() throws Exception {
+        try {
+            stmt.execute("INSERT INTO NOT_EXIST VALUES (3, 17, 'James');");
+        } catch (Throwable ignored) {
+            // No op.
+        }
+        ResultSet rs = stmt.getResultSet();
+        assertNull(rs);
+        assertEquals(-1, stmt.getUpdateCount());
+    }
+
+    @Test
+    public void testResultsFromExecuteBatch() throws Exception {
+        stmt.addBatch("INSERT INTO TEST_TX VALUES (7, 25, 'Michel');");
+        stmt.addBatch("INSERT INTO TEST_TX VALUES (8, 25, 'Michel');");
+        int[] arr = stmt.executeBatch();
+
+        assertEquals(2, arr.length);
+        assertArrayEquals(new int[]{1, 1}, arr);
+        assertEquals(-1, stmt.getUpdateCount());
+        assertFalse(stmt.getMoreResults());
     }
 
     /**
      * Sanity test for scripts, containing empty statements are handled correctly.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21081")
     public void testEmptyStatements() throws Exception {
-        execute(";; ;;;;");
+        execute(";;;SELECT 1 + 2");
         execute(" ;; ;;;; ");
         execute("CREATE TABLE ONE (id INT PRIMARY KEY, VAL VARCHAR);;"
                 + "CREATE INDEX T_IDX ON ONE(val)"
                 + ";;UPDATE ONE SET VAL = 'SOME';;;  ");
-
-        // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
-        // org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest.waitForIndexBuild
 
         execute("DROP INDEX T_IDX ;;  ;;"
                 + "UPDATE ONE SET VAL = 'SOME'");
     }
 
     /**
-     * Check multi-statement containing both h2 and native parser statements (having "?" args) works well.
+     * Check multiple statements execution through prepared statement.
      */
     @Test
-    public void testMultiStatementTxWithParams() throws Exception {
+    public void testMultiStatementPreparedStatement() throws Exception {
         int leoAge = 28;
 
         String nickolas = "Nickolas";
@@ -104,12 +574,11 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         int delYounger = 19;
 
         String complexQuery =
-                "INSERT INTO TEST_TX VALUES (5, ?, 'Leo'); " // 1
-                    + ";;;;"
-                    + "BEGIN ; "
-                    + "UPDATE TEST_TX  SET name = ? WHERE name = 'Nick' ;" // 2
-                    + "INSERT INTO TEST_TX VALUES (6, ?, ?); "   // 3, 4
-                    + "DELETE FROM TEST_TX WHERE age < ?; "   // 5
+                "INSERT INTO TEST_TX VALUES (5, ?, 'Leo'); "
+                    + "START TRANSACTION ; "
+                    + "UPDATE TEST_TX SET name = ? WHERE name = 'Nick' ;"
+                    + "INSERT INTO TEST_TX VALUES (6, ?, ?); "
+                    + "DELETE FROM TEST_TX WHERE age < ?; "
                     + "COMMIT;";
 
         try (PreparedStatement p = conn.prepareStatement(complexQuery)) {
@@ -118,56 +587,21 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
             p.setInt(3, gabAge);
             p.setString(4, gabName);
             p.setInt(5, delYounger);
-
-            assertFalse(p.execute(), "Expected, that first result is an update count.");
-
-            assertTrue(p.getUpdateCount() != -1, "Expected update count of the INSERT.");
-            assertTrue(p.getMoreResults(), "More results are expected.");
-
-            assertTrue(p.getUpdateCount() != -1, "Expected update count of an empty statement.");
-            assertTrue(p.getMoreResults(), "More results are expected.");
-            assertTrue(p.getUpdateCount() != -1, "Expected update count of an empty statement.");
-            assertTrue(p.getMoreResults(), "More results are expected.");
-            assertTrue(p.getUpdateCount() != -1, "Expected update count of an empty statement.");
-            assertTrue(p.getMoreResults(), "More results are expected.");
-            assertTrue(p.getUpdateCount() != -1, "Expected update count of an empty statement.");
-            assertTrue(p.getMoreResults(), "More results are expected.");
-
-            assertTrue(p.getUpdateCount() != -1, "Expected update count of the BEGIN");
-            assertTrue(p.getMoreResults(), "More results are expected.");
-            assertTrue(p.getUpdateCount() != -1, "Expected update count of the UPDATE");
-            assertTrue(p.getMoreResults(), "More results are expected.");
-            assertTrue(p.getUpdateCount() != -1, "Expected update count of the INSERT");
-            assertTrue(p.getMoreResults(), "More results are expected.");
-            assertTrue(p.getUpdateCount() != -1, "Expected update count of the DELETE");
-            assertTrue(p.getMoreResults(), "More results are expected.");
-            assertTrue(p.getUpdateCount() != -1, "Expected update count of the COMMIT");
-
-            assertFalse(p.getMoreResults(), "There should have been no results.");
-            assertFalse(p.getUpdateCount() != -1, "There should have been no update results.");
         }
 
-        try (PreparedStatement sel = conn.prepareStatement("SELECT * FROM TEST_TX ORDER BY ID;")) {
+        complexQuery = "UPDATE TEST_TX SET name = ? WHERE name = 'James';";
+
+        try (PreparedStatement p = conn.prepareStatement(complexQuery)) {
+            p.setString(1, nickolas);
+
+            p.execute();
+        }
+
+        try (PreparedStatement sel = conn.prepareStatement("SELECT * FROM TEST_TX ORDER BY ID LIMIT 1;")) {
             try (ResultSet pers = sel.executeQuery()) {
                 assertTrue(pers.next());
-                assertEquals(43, age(pers));
-                assertEquals("Valery", name(pers));
-
-                assertTrue(pers.next());
-                assertEquals(25, age(pers));
-                assertEquals("Michel", name(pers));
-
-                assertTrue(pers.next());
-                assertEquals(19, age(pers));
-                assertEquals("Nickolas", name(pers));
-
-                assertTrue(pers.next());
-                assertEquals(28, age(pers));
-                assertEquals("Leo", name(pers));
-
-                assertTrue(pers.next());
-                assertEquals(84, age(pers));
-                assertEquals("Gab", name(pers));
+                assertEquals(17, age(pers));
+                assertEquals(nickolas, name(pers));
 
                 assertFalse(pers.next());
             }
@@ -188,4 +622,49 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         return rs.getInt("AGE");
     }
 
+    /**
+     * Execute sql script using thin driver.
+     */
+    private boolean execute(String sql) throws Exception {
+        return stmt.execute(sql);
+    }
+
+    /**
+     * Check summary results returned from statement.
+     *
+     * @throws SQLException If failed.
+     */
+    private int getResultSetSize() throws SQLException {
+        ResultSet rs = stmt.getResultSet();
+        int size = -1;
+        boolean more;
+        int updCount;
+
+        do {
+            if (rs != null) {
+                if (size == -1) {
+                    size = 0;
+                }
+                while (rs.next()) {
+                    ++size;
+                }
+            }
+
+            if (stmt.getMoreResults()) {
+                rs = stmt.getResultSet();
+                more = true;
+            } else {
+                rs = null;
+                more = false;
+            }
+            updCount = stmt.getUpdateCount();
+        } while (more || updCount != -1);
+        return size;
+    }
+
+    private boolean checkNoMoreResults() throws SQLException {
+        boolean more = stmt.getMoreResults();
+        int updCnt = stmt.getUpdateCount();
+        return !more && updCnt == -1;
+    }
 }

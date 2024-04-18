@@ -55,6 +55,11 @@ public class ConfigurationListenerHolder<L> {
             public boolean equals(Object obj) {
                 return listener == ((Container<L>) obj).listener;
             }
+
+            @Override
+            public int hashCode() {
+                return listener.hashCode();
+            }
         });
     }
 

@@ -17,27 +17,22 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toHashIndexDescriptor;
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
-import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.addIndex;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.sameInstance;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.index.HashIndexDefinition;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
-import org.junit.jupiter.api.Disabled;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -46,27 +41,16 @@ import org.junit.jupiter.api.Test;
 public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageTest<HashIndexStorage, StorageHashIndexDescriptor> {
     @Override
     protected HashIndexStorage createIndexStorage(String name, ColumnType... columnTypes) {
-        HashIndexDefinition indexDefinition = SchemaBuilders.hashIndex(name)
-                .withColumns(Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).toArray(String[]::new))
-                .build();
+        CatalogTableDescriptor tableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
 
-        CompletableFuture<Void> createIndexFuture = tablesCfg.indexes()
-                .change(chg -> chg.create(indexDefinition.name(), idx -> {
-                    int tableId = tablesCfg.tables().value().get(TABLE_NAME).id();
+        int tableId = tableDescriptor.id();
+        int indexId = catalogId.getAndIncrement();
 
-                    addIndex(indexDefinition, tableId, indexDefinition.name().hashCode(), idx);
-                }));
-
-        assertThat(createIndexFuture, willCompleteSuccessfully());
-
-        TablesView tablesView = tablesCfg.value();
-
-        TableIndexView indexView = tablesView.indexes().get(indexDefinition.name());
-        TableView tableView = findTableView(tablesView, indexView.tableId());
+        CatalogHashIndexDescriptor indexDescriptor = createCatalogIndexDescriptor(tableId, indexId, name, columnTypes);
 
         return tableStorage.getOrCreateHashIndex(
                 TEST_PARTITION,
-                new StorageHashIndexDescriptor(toTableDescriptor(tableView), toHashIndexDescriptor(((HashIndexView) indexView)))
+                new StorageHashIndexDescriptor(tableDescriptor, indexDescriptor)
         );
     }
 
@@ -75,11 +59,32 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
         return index.indexDescriptor();
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17626")
+    @Override
+    CatalogHashIndexDescriptor createCatalogIndexDescriptor(int tableId, int indexId, String indexName, ColumnType... columnTypes) {
+        var indexDescriptor = new CatalogHashIndexDescriptor(
+                indexId,
+                indexName,
+                tableId,
+                false,
+                AVAILABLE,
+                catalogService.latestCatalogVersion(),
+                Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).collect(toList())
+        );
+
+        addToCatalog(indexDescriptor);
+
+        return indexDescriptor;
+    }
+
     @Test
     public void testDestroy() {
-        HashIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.string());
-        var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
+        HashIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
+
+        int indexId = index.indexDescriptor().id();
+
+        assertThat(tableStorage.getIndex(TEST_PARTITION, indexId), is(sameInstance(index)));
+
+        var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
         IndexRow row1 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
         IndexRow row2 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
@@ -91,23 +96,14 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
 
         CompletableFuture<Void> destroyFuture = tableStorage.destroyIndex(index.indexDescriptor().id());
 
-        waitForDurableCompletion(destroyFuture);
+        assertThat(destroyFuture, willCompleteSuccessfully());
 
-        //TODO IGNITE-17626 Index must be invalid, we should assert that getIndex returns null and that in won't surface upon restart.
-        // "destroy" is not "clear", you know. Maybe "getAndCreateIndex" will do it for the test, idk
+        assertThat(tableStorage.getIndex(TEST_PARTITION, indexId), is(nullValue()));
+
+        index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
         assertThat(getAll(index, row1), is(empty()));
         assertThat(getAll(index, row2), is(empty()));
         assertThat(getAll(index, row3), is(empty()));
-    }
-
-    private void waitForDurableCompletion(CompletableFuture<?> future) {
-        while (true) {
-            if (future.isDone()) {
-                return;
-            }
-
-            partitionStorage.flush().join();
-        }
     }
 
     protected IndexRow createIndexRow(BinaryTupleRowSerializer serializer, RowId rowId, Object... values) {

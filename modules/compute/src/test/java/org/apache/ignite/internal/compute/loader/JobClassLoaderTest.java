@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,7 +46,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class JobClassLoaderTest {
+class JobClassLoaderTest extends BaseIgniteAbstractTest {
 
     @Mock
     private ClassLoader parentClassLoader;

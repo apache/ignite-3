@@ -26,6 +26,7 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
  * Preparation service that accepts an AST of the query and returns a prepared query plan.
  */
 public interface PrepareService extends LifecycleAware {
+
     /**
      * Prepare query plan.
      *

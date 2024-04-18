@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.processor.messages;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,11 +37,11 @@ import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleTypeVisitor9;
+import org.apache.ignite.internal.lang.IgniteUuid;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.processor.ProcessingException;
 import org.apache.ignite.internal.network.processor.TypeUtils;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * Class for checking that a given message field can be annotated as {@link Marshallable}. A message field can be annotated as
@@ -102,7 +104,7 @@ public class MarshallableTypesBlackList {
         private List<TypeMirror> readBlacklistFromResources() {
             try (
                     InputStream is = getClass().getClassLoader().getResourceAsStream(BLACKLIST_FILE_NAME);
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(is))
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(is, UTF_8))
             ) {
                 return reader.lines()
                         .map(typeUtils.elements()::getTypeElement)

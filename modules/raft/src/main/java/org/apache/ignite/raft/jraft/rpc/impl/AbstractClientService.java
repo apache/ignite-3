@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+
 import java.net.ConnectException;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -94,7 +96,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         configRpcClient(this.rpcClient);
 
         // TODO asch should the client be created lazily? A client doesn't make sence without a server IGNITE-14832
-        this.rpcClient.init(null);
+        this.rpcClient.init(this.rpcOptions);
 
         this.rpcExecutor = rpcOptions.getClientExecutor();
 
@@ -133,7 +135,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
 
         // Remote node is alive and pinged, safe to continue.
         if (readyConsistentIds.contains(peerId.getConsistentId())) {
-            return CompletableFuture.completedFuture(true);
+            return trueCompletedFuture();
         }
 
         final RpcRequests.PingRequest req = rpcOptions.getRaftMessagesFactory()

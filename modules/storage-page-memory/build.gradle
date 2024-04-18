@@ -31,6 +31,7 @@ dependencies {
     implementation project(':ignite-configuration')
     implementation project(':ignite-transactions')
     implementation project(':ignite-catalog')
+    implementation project(':ignite-failure-handler')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
 

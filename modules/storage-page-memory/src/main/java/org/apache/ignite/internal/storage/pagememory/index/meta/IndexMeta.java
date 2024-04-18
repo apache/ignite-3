@@ -20,13 +20,44 @@ package org.apache.ignite.internal.storage.pagememory.index.meta;
 import java.util.UUID;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Index meta information.
  */
 public class IndexMeta extends IndexMetaKey {
+    /** Index type. */
+    public enum IndexType {
+        HASH((byte) 0),
+
+        SORTED((byte) 1);
+
+        private final byte serializationValue;
+
+        IndexType(byte serializationValue) {
+            this.serializationValue = serializationValue;
+        }
+
+        /** Converts an index type to its serialized representation. */
+        public byte serialize() {
+            return serializationValue;
+        }
+
+        /** Restores an index type from its serialized representation. */
+        public static IndexType deserialize(byte serializationValue) {
+            if (HASH.serializationValue == serializationValue) {
+                return HASH;
+            } else if (SORTED.serializationValue == serializationValue) {
+                return SORTED;
+            } else {
+                throw new AssertionError("Unknown serialization value: " + serializationValue);
+            }
+        }
+    }
+
+    private final IndexType indexType;
+
     @IgniteToStringExclude
     private final long metaPageId;
 
@@ -40,11 +71,16 @@ public class IndexMeta extends IndexMetaKey {
      * @param nextRowIdUuidToBuild Row ID uuid for which the index needs to be built, {@code null} means that the index building has
      *      completed.
      */
-    public IndexMeta(int id, long metaPageId, @Nullable UUID nextRowIdUuidToBuild) {
+    public IndexMeta(int id, IndexType indexType, long metaPageId, @Nullable UUID nextRowIdUuidToBuild) {
         super(id);
 
+        this.indexType = indexType;
         this.metaPageId = metaPageId;
         this.nextRowIdUuidToBuild = nextRowIdUuidToBuild;
+    }
+
+    public IndexType indexType() {
+        return indexType;
     }
 
     /**
@@ -63,6 +99,6 @@ public class IndexMeta extends IndexMetaKey {
 
     @Override
     public String toString() {
-        return S.toString(IndexMeta.class, this, "indexId=", indexId(), "metaPageId", IgniteUtils.hexLong(metaPageId));
+        return S.toString(IndexMeta.class, this, "indexId=", indexId(), "metaPageId", StringUtils.hexLong(metaPageId));
     }
 }

@@ -23,6 +23,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteNestedLoopJoin;
@@ -33,6 +35,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -99,6 +102,18 @@ public class IgniteRelShuttle implements IgniteRelVisitor<IgniteRel> {
     /** {@inheritDoc} */
     @Override
     public IgniteRel visit(IgniteExchange rel) {
+        return processNode(rel);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteRel visit(IgniteKeyValueGet rel) {
+        return processNode(rel);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteRel visit(IgniteKeyValueModify rel) {
         return processNode(rel);
     }
 
@@ -171,6 +186,12 @@ public class IgniteRelShuttle implements IgniteRelVisitor<IgniteRel> {
     /** {@inheritDoc} */
     @Override
     public IgniteRel visit(IgniteTableScan rel) {
+        return processNode(rel);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteRel visit(IgniteSystemViewScan rel) {
         return processNode(rel);
     }
 

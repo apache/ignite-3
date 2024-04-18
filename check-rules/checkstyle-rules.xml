@@ -360,8 +360,7 @@
       <property name="scope" value="public"/>
       <property name="minLineCount" value="2"/>
       <property name="allowedAnnotations" value="Override, Test, ParameterizedTest, TestFactory, BeforeEach, BeforeAll, AfterEach, AfterAll"/>
-      <property name="tokens" value="METHOD_DEF, CTOR_DEF, ANNOTATION_FIELD_DEF,
-                                   COMPACT_CTOR_DEF"/>
+      <property name="tokens" value="METHOD_DEF, CTOR_DEF, ANNOTATION_FIELD_DEF, COMPACT_CTOR_DEF"/>
     </module>
     <module name="MissingJavadocType">
       <property name="scope" value="protected"/>
@@ -376,6 +375,12 @@
     </module>
     <module name="CommentsIndentation">
       <property name="tokens" value="SINGLE_LINE_COMMENT, BLOCK_COMMENT_BEGIN"/>
+    </module>
+    <!-- Comments should start with space -->
+    <module name="TodoComment">
+      <property name="id" value="CommentStartWithSpace"/>
+      <property name="format" value="^(?!CHECKSTYLE:ON)(?!noinspection)(?!---)(?!===)([^\s\/*])"/>
+      <message key="todo.match" value="Comment text should start with space."/>
     </module>
     <!-- https://checkstyle.org/config_filters.html#SuppressionXpathFilter -->
     <module name="SuppressionXpathFilter">

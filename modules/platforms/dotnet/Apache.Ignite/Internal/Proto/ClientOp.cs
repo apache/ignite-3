@@ -113,6 +113,24 @@ namespace Apache.Ignite.Internal.Proto
         SqlCursorClose = 52,
 
         /** Get partition assignment. */
-        PartitionAssignmentGet = 53
+        PartitionAssignmentGet = 53,
+
+        /** Execute SQL script. */
+        SqlExecScript = 56,
+
+        /** SQL parameter metadata. */
+        SqlParamMeta = 57,
+
+        /** Get compute job status. */
+        ComputeGetStatus = 59,
+
+        /** Cancel compute job. */
+        ComputeCancel = 60,
+
+        /** Change compute job priority. */
+        ComputeChangePriority = 61,
+
+        /** Send streamer batch. */
+        StreamerBatchSend = 62
     }
 }

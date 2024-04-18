@@ -20,7 +20,7 @@ package org.apache.ignite.internal.metastorage.command;
 import java.util.Collection;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Represents invoke command for meta storage.

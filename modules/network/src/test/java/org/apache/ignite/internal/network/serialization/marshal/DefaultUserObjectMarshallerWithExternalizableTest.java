@@ -52,6 +52,8 @@ class DefaultUserObjectMarshallerWithExternalizableTest {
 
     private final DefaultUserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(descriptorRegistry, descriptorFactory);
 
+    private final CleanSlateUnmarshaller unmarshaller = new CleanSlateUnmarshaller(marshaller, descriptorRegistry);
+
     private static final int WRITE_REPLACE_INCREMENT = 1_000_000;
     private static final int READ_RESOLVE_INCREMENT = 1_000;
 
@@ -74,15 +76,7 @@ class DefaultUserObjectMarshallerWithExternalizableTest {
 
     private <T> T marshalAndUnmarshalNonNull(Object object) throws MarshalException, UnmarshalException {
         MarshalledObject marshalled = marshaller.marshal(object);
-        return unmarshalNonNull(marshalled);
-    }
-
-    private <T> T unmarshalNonNull(MarshalledObject marshalled) throws UnmarshalException {
-        T unmarshalled = marshaller.unmarshal(marshalled.bytes(), descriptorRegistry);
-
-        assertThat(unmarshalled, is(notNullValue()));
-
-        return unmarshalled;
+        return unmarshaller.unmarshalNonNull(marshalled);
     }
 
     @Test

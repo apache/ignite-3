@@ -60,6 +60,7 @@ import org.apache.ignite.internal.network.serialization.ClassNameMapBackedClassI
 import org.apache.ignite.internal.network.serialization.CompositeDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.FieldDescriptor;
 import org.apache.ignite.internal.network.serialization.MapBackedIdIndexedDescriptors;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -75,7 +76,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * with a class which structure differs from our local version of the class.
  */
 @ExtendWith(MockitoExtension.class)
-public class DefaultUserObjectMarshallerWithSchemaChangeTest {
+public class DefaultUserObjectMarshallerWithSchemaChangeTest extends BaseIgniteAbstractTest {
     private static final byte[] INT_42_BYTES_IN_LITTLE_ENDIAN = {42, 0, 0, 0};
     private static final String NON_LEAF_CLASS_NAME = "test.NonLeaf";
     private static final String LEAF_CLASS_NAME = "test.Leaf";
@@ -266,7 +267,7 @@ public class DefaultUserObjectMarshallerWithSchemaChangeTest {
                 remoteDescriptor.isPrimitive(),
                 remoteDescriptor.isArray(),
                 remoteDescriptor.isRuntimeEnum(),
-                remoteDescriptor.isRuntimeTypeKnownUpfront(),
+                remoteDescriptor.isSerializationTypeKnownUpfront(),
                 reconstructFields(remoteDescriptor.fields(), localDescriptor.localClass()),
                 remoteDescriptor.serialization(),
                 localDescriptor
@@ -298,7 +299,7 @@ public class DefaultUserObjectMarshallerWithSchemaChangeTest {
                 remoteField.typeDescriptorId(),
                 remoteField.isUnshared(),
                 remoteField.isPrimitive(),
-                remoteField.isRuntimeTypeKnownUpfront(),
+                remoteField.isSerializationTypeKnownUpfront(),
                 localDeclaringClass
         );
     }
@@ -417,7 +418,7 @@ public class DefaultUserObjectMarshallerWithSchemaChangeTest {
                 superDescriptor.isPrimitive(),
                 superDescriptor.isArray(),
                 superDescriptor.isRuntimeEnum(),
-                superDescriptor.isRuntimeTypeKnownUpfront(),
+                superDescriptor.isSerializationTypeKnownUpfront(),
                 superDescriptor.fields(),
                 superDescriptor.serialization()
         );

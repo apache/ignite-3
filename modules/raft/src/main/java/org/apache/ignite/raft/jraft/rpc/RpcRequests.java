@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimes
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.EntryMeta;
@@ -189,7 +189,7 @@ public final class RpcRequests {
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.APPEND_ENTRIES_RESPONSE)
-    public interface AppendEntriesResponse extends Message {
+    public interface AppendEntriesResponse extends ErrorResponse {
         long term();
 
         boolean success();

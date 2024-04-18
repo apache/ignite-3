@@ -17,12 +17,18 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static java.util.Collections.emptyList;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
-import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -35,52 +41,71 @@ import static org.mockito.Mockito.when;
 import io.netty.handler.codec.DecoderException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.future.OrderingFuture;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
+import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ChannelType;
-import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.OutNetworkObject;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for {@link ConnectionManager}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class ItConnectionManagerTest {
+public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
     /** Started connection managers. */
     private final List<ConnectionManagerWrapper> startedManagers = new ArrayList<>();
 
     /** Message factory. */
     private final TestMessagesFactory messageFactory = new TestMessagesFactory();
 
+    private final TestMessage emptyTestMessage = messageFactory.testMessage().build();
+
     /** Reusable network configuration object. */
     @InjectConfiguration
     private NetworkConfiguration networkConfiguration;
+
+    private TestInfo testInfo;
+
+    @BeforeEach
+    void setTestInfo(TestInfo testInfo) {
+        this.testInfo = testInfo;
+    }
 
     /**
      * After each.
@@ -102,7 +127,6 @@ public class ItConnectionManagerTest {
         int port1 = 4000;
         int port2 = 4001;
 
-
         try (ConnectionManagerWrapper manager1 = startManager(port1);
                 ConnectionManagerWrapper manager2 = startManager(port2)) {
             var fut = new CompletableFuture<NetworkMessage>();
@@ -113,7 +137,7 @@ public class ItConnectionManagerTest {
 
             TestMessage testMessage = messageFactory.testMessage().msg(msgText).build();
 
-            sender.send(new OutNetworkObject(testMessage, Collections.emptyList())).get(3, TimeUnit.SECONDS);
+            sender.send(new OutNetworkObject(testMessage, emptyList())).get(3, TimeUnit.SECONDS);
 
             NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
 
@@ -137,37 +161,31 @@ public class ItConnectionManagerTest {
 
         try (ConnectionManagerWrapper manager1 = startManager(port1);
                 ConnectionManagerWrapper manager2 = startManager(port2)) {
-            var fut = new CompletableFuture<NetworkMessage>();
-
-            manager1.connectionManager.addListener((obj) -> fut.complete(obj.message()));
+            var receivedAt1 = new CompletableFuture<NetworkMessage>();
+            manager1.connectionManager.addListener((obj) -> receivedAt1.complete(obj.message()));
 
             NettySender senderFrom1to2 = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
+            assertThat(senderFrom1to2, is(notNullValue()));
 
             // Ensure a handshake has finished on both sides by sending a message.
-            // TODO: IGNITE-16947 When the recovery protocol is implemented replace this with simple
-            // CompletableFuture#get called on the send future.
-            var messageReceivedOn2 = new CompletableFuture<Void>();
-
-            // If the message is received, that means that the handshake was successfully performed.
-            manager2.connectionManager.addListener((message) -> messageReceivedOn2.complete(null));
-
-            senderFrom1to2.send(new OutNetworkObject(testMessage, Collections.emptyList()));
-
-            messageReceivedOn2.get(3, TimeUnit.SECONDS);
+            assertThat(senderFrom1to2.send(new OutNetworkObject(testMessage, emptyList())), willCompleteSuccessfully());
 
             NettySender senderFrom2to1 = manager2.openChannelTo(manager1).get(3, TimeUnit.SECONDS);
+            assertThat(senderFrom2to1, is(notNullValue()));
 
             InetSocketAddress clientLocalAddress = (InetSocketAddress) senderFrom1to2.channel().localAddress();
-
             InetSocketAddress clientRemoteAddress = (InetSocketAddress) senderFrom2to1.channel().remoteAddress();
 
             assertEquals(clientLocalAddress, clientRemoteAddress);
 
-            senderFrom2to1.send(new OutNetworkObject(testMessage, Collections.emptyList())).get(3, TimeUnit.SECONDS);
+            assertThat(
+                    senderFrom2to1.send(new OutNetworkObject(messageFactory.testMessage().msg("2->1").build(), emptyList())),
+                    willCompleteSuccessfully()
+            );
 
-            NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
+            NetworkMessage receivedMessage = receivedAt1.get(3, TimeUnit.SECONDS);
 
-            assertEquals(msgText, ((TestMessage) receivedMessage).msg());
+            assertThat(((TestMessage) receivedMessage).msg(), is("2->1"));
         }
     }
 
@@ -185,6 +203,10 @@ public class ItConnectionManagerTest {
         ConnectionManagerWrapper manager2 = startManager(port2);
 
         NettySender sender1 = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
+
+        // Wait for the channel to appear on the recipient side.
+        waitForCondition(() -> !manager2.channels().isEmpty(), 10_000);
+
         NettySender sender2 = manager2.openChannelTo(manager1).get(3, TimeUnit.SECONDS);
 
         assertNotNull(sender1);
@@ -215,40 +237,37 @@ public class ItConnectionManagerTest {
 
         int port1 = 4000;
         int port2 = 4001;
+        UUID launchId2 = UUID.randomUUID();
 
         ConnectionManagerWrapper manager1 = startManager(port1);
 
-        ConnectionManagerWrapper manager2 = startManager(port2);
+        ConnectionManagerWrapper manager2 = startManager(port2, launchId2);
 
-        NettySender sender = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
+        NettySender sender = manager1.openChannelTo(manager2).get(300, TimeUnit.SECONDS);
+        assertNotNull(sender);
 
         TestMessage testMessage = messageFactory.testMessage().msg(msgText).build();
 
         manager2.close();
 
-        NettySender finalSender = sender;
+        sender.send(new OutNetworkObject(testMessage, emptyList()));
 
-        assertThrows(ClosedChannelException.class, () -> {
-            try {
-                finalSender.send(new OutNetworkObject(testMessage, Collections.emptyList())).get(3, TimeUnit.SECONDS);
-            } catch (Exception e) {
-                throw e.getCause();
+        manager2 = startManager(port2, launchId2);
+
+        var latch = new CountDownLatch(2);
+
+        manager2.connectionManager.addListener((obj) -> {
+            if (testMessage.equals(obj.message())) {
+                latch.countDown();
             }
         });
 
-        manager2 = startManager(port2);
-
-        var fut = new CompletableFuture<NetworkMessage>();
-
-        manager2.connectionManager.addListener((obj) -> fut.complete(obj.message()));
-
         sender = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
+        assertNotNull(sender);
 
-        sender.send(new OutNetworkObject(testMessage, Collections.emptyList())).get(3, TimeUnit.SECONDS);
+        sender.send(new OutNetworkObject(testMessage, emptyList())).get(3, TimeUnit.SECONDS);
 
-        NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
-
-        assertEquals(msgText, ((TestMessage) receivedMessage).msg());
+        assertTrue(latch.await(3, TimeUnit.SECONDS));
     }
 
     /**
@@ -306,6 +325,7 @@ public class ItConnectionManagerTest {
      * @throws Exception If failed.
      */
     @RepeatedTest(100)
+    @Timeout(10)
     public void testOneChannelLeftIfConnectToEachOther() throws Exception {
         try (
                 ConnectionManagerWrapper manager1 = startManager(4000);
@@ -314,46 +334,15 @@ public class ItConnectionManagerTest {
             CompletableFuture<NettySender> fut1 = manager1.openChannelTo(manager2).toCompletableFuture();
             CompletableFuture<NettySender> fut2 = manager2.openChannelTo(manager1).toCompletableFuture();
 
-            NettySender sender1 = null;
-            NettySender sender2 = null;
+            NettySender sender1 = fut1.get(1, TimeUnit.SECONDS);
+            NettySender sender2 = fut2.get(1, TimeUnit.SECONDS);
 
-            try {
-                sender1 = fut1.get(1, TimeUnit.SECONDS);
-            } catch (Exception ignored) {
-                // No-op.
-            }
-            try {
-                sender2 = fut2.get(1, TimeUnit.SECONDS);
-            } catch (Exception ignored) {
-                // No-op.
-            }
-
-            NettySender highlander = null;
-
-            assertTrue(sender1 != null || sender2 != null);
-
-            if (sender1 != null && sender1.isOpen()) {
-                highlander = sender1;
-
-                boolean sender2NullOrClosed = sender2 == null || !sender2.isOpen();
-
-                assertTrue(sender2NullOrClosed);
-            }
-
-            if (sender2 != null && sender2.isOpen()) {
-                highlander = sender2;
-
-                boolean sender1NullOrClosed = sender1 == null || !sender1.isOpen();
-
-                assertTrue(sender1NullOrClosed);
-            }
-
-            assertNotNull(highlander);
-            assertTrue(highlander.isOpen());
+            assertTrue(sender1.isOpen());
+            assertTrue(sender2.isOpen());
 
             assertTrue(
                     waitForCondition(
-                            () -> manager1.channels().size() == 1 && manager2.channels().size() == 1,
+                            () -> singleOpenedChannel(manager1) && singleOpenedChannel(manager2),
                             TimeUnit.SECONDS.toMillis(1)
                     )
             );
@@ -389,6 +378,103 @@ public class ItConnectionManagerTest {
         }
     }
 
+    private static boolean singleOpenedChannel(ConnectionManagerWrapper manager) {
+        Iterator<NettySender> it = manager.channels().values().iterator();
+
+        return it.hasNext() && it.next().isOpen() && !it.hasNext();
+    }
+
+    @Test
+    public void sendFutureOfMessageNeedingAckCompletesWhenMessageGetsAcknowledged() throws Exception {
+        try (
+                ConnectionManagerWrapper manager1 = startManager(4000);
+                ConnectionManagerWrapper manager2 = startManager(4001)
+        ) {
+            NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
+            waitTillChannelAppearsInMapOnAcceptor(sender, manager1, manager2);
+
+            OutgoingAcknowledgementSilencer ackSilencer = dropAcksFrom(manager2);
+
+            CompletableFuture<Void> sendFuture = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true));
+            assertThat(sendFuture, willTimeoutIn(100, TimeUnit.MILLISECONDS));
+
+            ackSilencer.stopSilencing();
+
+            provokeAckFor(sender);
+
+            assertThat(sendFuture, willCompleteSuccessfully());
+        }
+    }
+
+    private static void waitTillChannelAppearsInMapOnAcceptor(
+            NettySender senderFromOpener,
+            ConnectionManagerWrapper opener,
+            ConnectionManagerWrapper acceptor
+    ) throws InterruptedException {
+        assertTrue(
+                waitForCondition(
+                        () -> acceptor.channels().values().stream().anyMatch(acceptorSender
+                                -> acceptorSender.consistentId().equals(opener.connectionManager.consistentId())
+                                        && acceptorSender.channelId() == senderFromOpener.channelId()),
+                        TimeUnit.SECONDS.toMillis(10)
+                ),
+                "Did not observe the sender appearing in the acceptor's sender map in time"
+        );
+    }
+
+    @Test
+    public void sendFuturesCompleteInSendOrder() throws Exception {
+        try (
+                ConnectionManagerWrapper manager1 = startManager(4000);
+                ConnectionManagerWrapper manager2 = startManager(4001)
+        ) {
+            NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
+            waitTillChannelAppearsInMapOnAcceptor(sender, manager1, manager2);
+
+            OutgoingAcknowledgementSilencer ackSilencer = dropAcksFrom(manager2);
+
+            List<Integer> ordinals = new CopyOnWriteArrayList<>();
+
+            CompletableFuture<Void> future1 = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true))
+                    .whenComplete((res, ex) -> ordinals.add(1));
+            CompletableFuture<Void> future2 = sender.send(new OutNetworkObject(emptyTestMessage, emptyList(), true))
+                    .whenComplete((res, ex) -> ordinals.add(2));
+
+            ackSilencer.stopSilencing();
+
+            provokeAckFor(sender);
+
+            assertThat(CompletableFuture.allOf(future1, future2), willCompleteSuccessfully());
+            assertThat(ordinals, contains(1, 2));
+        }
+    }
+
+    @Test
+    public void sendFutureOfMessageNotNeedingAckCompletesWhenMessageGetsWritten() throws Exception {
+        try (
+                ConnectionManagerWrapper manager1 = startManager(4000);
+                ConnectionManagerWrapper manager2 = startManager(4001)
+        ) {
+            NettySender sender = manager1.openChannelTo(manager2).toCompletableFuture().get(10, TimeUnit.SECONDS);
+            waitTillChannelAppearsInMapOnAcceptor(sender, manager1, manager2);
+
+            dropAcksFrom(manager2);
+
+            HandshakeFinishMessage messageNotNeedingAck = new NetworkMessagesFactory().handshakeFinishMessage().build();
+            CompletableFuture<Void> sendFuture = sender.send(new OutNetworkObject(messageNotNeedingAck, emptyList(), true));
+            assertThat(sendFuture, willCompleteSuccessfully());
+        }
+    }
+
+    private static OutgoingAcknowledgementSilencer dropAcksFrom(ConnectionManagerWrapper connectionManagerWrapper)
+            throws InterruptedException {
+        return OutgoingAcknowledgementSilencer.installOn(connectionManagerWrapper.channels().values());
+    }
+
+    private void provokeAckFor(NettySender sender1) {
+        sender1.send(new OutNetworkObject(emptyTestMessage, emptyList(), true));
+    }
+
     /**
      * Creates a mock {@link MessageSerializationRegistry} that throws an exception when trying to get a serializer or a deserializer.
      */
@@ -411,6 +497,14 @@ public class ItConnectionManagerTest {
         return startManager(port, defaultSerializationRegistry());
     }
 
+    private ConnectionManagerWrapper startManager(int port, MessageSerializationRegistry registry) throws Exception {
+        return startManager(port, UUID.randomUUID(), registry);
+    }
+
+    private ConnectionManagerWrapper startManager(int port, UUID launchId) throws Exception {
+        return startManager(port, launchId, defaultSerializationRegistry());
+    }
+
     /**
      * Creates and starts a {@link ConnectionManager} listening on the given port, configured with the provided serialization registry.
      *
@@ -418,9 +512,8 @@ public class ItConnectionManagerTest {
      * @param registry Serialization registry.
      * @return Connection manager.
      */
-    private ConnectionManagerWrapper startManager(int port, MessageSerializationRegistry registry) throws Exception {
-        UUID launchId = UUID.randomUUID();
-        String consistentId = UUID.randomUUID().toString();
+    private ConnectionManagerWrapper startManager(int port, UUID launchId, MessageSerializationRegistry registry) throws Exception {
+        String consistentId = testNodeName(testInfo, port);
 
         networkConfiguration.port().update(port).join();
 
@@ -434,13 +527,18 @@ public class ItConnectionManagerTest {
             var manager = new ConnectionManager(
                     cfg,
                     new SerializationService(registry, mock(UserObjectSerializationContext.class)),
-                    launchId,
                     consistentId,
                     bootstrapFactory,
-                    new AllIdsAreFresh()
+                    new AllIdsAreFresh(),
+                    mock(FailureProcessor.class)
             );
 
             manager.start();
+            manager.setLocalNode(new ClusterNodeImpl(
+                    launchId.toString(),
+                    consistentId,
+                    new NetworkAddress(manager.localAddress().getHostName(), port)
+            ));
 
             var wrapper = new ConnectionManagerWrapper(manager, bootstrapFactory);
 
@@ -466,7 +564,7 @@ public class ItConnectionManagerTest {
 
         @Override
         public void close() throws Exception {
-            IgniteUtils.closeAll(connectionManager::stop, nettyFactory::stop);
+            IgniteUtils.closeAll(connectionManager::initiateStopping, connectionManager::stop, nettyFactory::stop);
         }
 
         OrderingFuture<NettySender> openChannelTo(ConnectionManagerWrapper recipient) {
@@ -477,7 +575,7 @@ public class ItConnectionManagerTest {
             );
         }
 
-        public Map<ConnectorKey<String>, NettySender> channels() {
+        Map<ConnectorKey<String>, NettySender> channels() {
             return connectionManager.channels();
         }
     }

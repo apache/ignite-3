@@ -17,50 +17,75 @@
 
 package org.apache.ignite.client.fakes;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import static org.apache.ignite.internal.sql.engine.QueryProperty.DEFAULT_SCHEMA;
+import static org.apache.ignite.internal.sql.engine.QueryProperty.QUERY_TIMEOUT;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.QueryContext;
+import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
-import org.apache.ignite.internal.sql.engine.session.SessionInfo;
+import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake {@link QueryProcessor}.
  */
 public class FakeIgniteQueryProcessor implements QueryProcessor {
+    public static final String FAILED_SQL = "SELECT FAIL";
+
+    String lastScript;
+
     @Override
-    public SessionId createSession(PropertiesHolder properties) {
-        return new SessionId(UUID.randomUUID());
+    public CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
+            @Nullable InternalTransaction transaction, String qry, Object... params) {
+        throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> closeSession(SessionId sessionId) {
-        return CompletableFuture.completedFuture(null);
+    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
+            SqlProperties properties,
+            IgniteTransactions transactions,
+            @Nullable InternalTransaction transaction,
+            String qry,
+            Object... params
+    ) {
+        if (FAILED_SQL.equals(qry)) {
+            return CompletableFuture.failedFuture(new SqlException(STMT_VALIDATION_ERR, "Query failed"));
+        }
+
+        if (Commons.isMultiStatementQueryAllowed(properties)) {
+            var sb = new StringBuilder(qry);
+
+            sb.append(", arguments: [");
+
+            for (Object arg : params) {
+                sb.append(arg).append(", ");
+            }
+
+            sb.append(']').append(", ")
+                    .append("defaultSchema=").append(properties.getOrDefault(DEFAULT_SCHEMA, "<not set>")).append(", ")
+                    .append("defaultQueryTimeout=").append(properties.get(QUERY_TIMEOUT));
+
+            lastScript = sb.toString();
+        }
+
+        return CompletableFuture.completedFuture(new FakeCursor(qry, properties, params, this));
     }
 
     @Override
-    public List<SessionInfo> liveSessions() {
-        return Collections.emptyList();
+    public CompletableFuture<Void> start() {
+        return nullCompletedFuture();
     }
 
     @Override
-    public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
-            SessionId sessionid, QueryContext context, String qry,
-            Object... params) {
-        return CompletableFuture.completedFuture(new FakeCursor());
-    }
-
-    @Override
-    public void start() {
-
-    }
-
-    @Override
-    public void stop() throws Exception {
+    public void stop() {
 
     }
 }

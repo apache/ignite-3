@@ -25,13 +25,14 @@ import java.util.UUID;
 import java.util.function.Function;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests heartbeat and idle timeout behavior.
  */
-public class HeartbeatTest {
+public class HeartbeatTest extends BaseIgniteAbstractTest {
     @Test
     public void testHeartbeatLongerThanIdleTimeoutCausesDisconnect() throws Exception {
         try (var srv = new TestServer(50, new FakeIgnite())) {

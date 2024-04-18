@@ -26,8 +26,8 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.serialization.MessageReader;
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.serialization.MessageReader;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 
 /**

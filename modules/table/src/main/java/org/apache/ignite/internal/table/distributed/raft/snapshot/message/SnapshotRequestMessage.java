@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot.message;
 
 import java.util.UUID;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.network.NetworkMessage;
 
 /**
  * Base interface for snapshot request messages.

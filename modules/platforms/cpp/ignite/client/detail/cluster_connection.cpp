@@ -76,7 +76,7 @@ void cluster_connection::on_connection_success(const end_point &addr, uint64_t i
     m_logger->log_info("Established connection with remote host " + addr.to_string());
     m_logger->log_debug("Connection ID: " + std::to_string(id));
 
-    auto connection = node_connection::make_new(id, m_pool, m_logger, m_configuration);
+    auto connection = node_connection::make_new(id, m_pool, weak_from_this(), m_logger, m_configuration);
     {
         [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connections_mutex);
 
@@ -104,7 +104,7 @@ void cluster_connection::on_connection_error(const end_point &addr, ignite_error
     m_logger->log_warning(
         "Failed to establish connection with remote host " + addr.to_string() + ", reason: " + err.what());
 
-    if (err.get_status_code() == status_code::OS)
+    if (err.get_status_code() == error::code::INTERNAL || err.get_status_code() == error::code::GENERIC)
         initial_connect_result(std::move(err));
 }
 
@@ -161,6 +161,16 @@ void cluster_connection::on_message_sent(uint64_t id) {
         m_logger->log_debug("Message sent successfully on Connection ID " + std::to_string(id));
 }
 
+void cluster_connection::on_observable_timestamp_changed(std::int64_t timestamp) {
+    auto expected = m_observable_timestamp.load();
+    while (expected < timestamp) {
+        auto success = m_observable_timestamp.compare_exchange_weak(expected, timestamp);
+        if (success)
+            return;
+        expected = m_observable_timestamp.load();
+    }
+}
+
 void cluster_connection::remove_client(uint64_t id) {
     [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connections_mutex);
 
@@ -177,7 +187,7 @@ void cluster_connection::initial_connect_result(ignite_result<void> &&res) {
     m_on_initial_connect = {};
 }
 
-void cluster_connection::initial_connect_result(const protocol_context &context) {
+void cluster_connection::initial_connect_result(const protocol::protocol_context &context) {
     [[maybe_unused]] std::lock_guard<std::mutex> lock(m_on_initial_connect_mutex);
 
     if (!m_on_initial_connect)
@@ -200,6 +210,37 @@ std::shared_ptr<node_connection> cluster_connection::get_random_channel() {
     std::uniform_int_distribution<size_t> distrib(0, m_connections.size() - 1);
     auto idx = ptrdiff_t(distrib(m_generator));
     return std::next(m_connections.begin(), idx)->second;
+}
+
+void cluster_connection::perform_request_handler(protocol::client_operation op, transaction_impl *tx,
+    const std::function<void(protocol::writer &)> &wr, const std::shared_ptr<response_handler> &handler) {
+    if (tx) {
+        auto channel = tx->get_connection();
+        if (!channel)
+            throw ignite_error("Transaction was not started properly");
+
+        auto res = channel->perform_request(op, wr, handler);
+        if (!res)
+            throw ignite_error("Connection associated with the transaction is closed");
+
+        return;
+    }
+
+    while (true) {
+        auto channel = get_random_channel();
+        if (!channel)
+            throw ignite_error("No nodes connected");
+
+        auto res = channel->perform_request(op, wr, handler);
+        if (res)
+            return;
+    }
+}
+
+void cluster_connection::perform_request_raw(protocol::client_operation op, transaction_impl *tx,
+    const std::function<void(protocol::writer &)> &wr, ignite_callback<bytes_view> callback) {
+    auto handler = std::make_shared<response_handler_raw>(std::move(callback));
+    perform_request_handler(op, tx, wr, std::move(handler));
 }
 
 } // namespace ignite::detail

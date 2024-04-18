@@ -20,7 +20,7 @@ package org.apache.ignite.internal.jdbc;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.tostring.S;
 
@@ -29,7 +29,7 @@ import org.apache.ignite.internal.tostring.S;
  */
 public class JdbcQueryExecuteResponse extends Response {
     /** Query result. */
-    private JdbcQueryExecuteResult result;
+    private JdbcQuerySingleResult result;
 
     /** Client channel. */
     private final ClientChannel channel;
@@ -52,7 +52,7 @@ public class JdbcQueryExecuteResponse extends Response {
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
-        result = new JdbcQueryExecuteResult();
+        result = new JdbcQuerySingleResult();
 
         result.readBinary(unpacker);
     }
@@ -75,12 +75,16 @@ public class JdbcQueryExecuteResponse extends Response {
         return result.hasResults();
     }
 
+    boolean hasResult() {
+        return result.resultAvailable();
+    }
+
     /**
      * Get the query results.
      *
      * @return Query result.
      */
-    public JdbcQueryExecuteResult result() {
+    public JdbcQuerySingleResult result() {
         return result;
     }
 

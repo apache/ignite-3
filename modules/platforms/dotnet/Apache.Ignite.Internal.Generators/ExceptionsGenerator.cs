@@ -78,28 +78,37 @@ namespace Apache.Ignite.Internal.Generators
             var template = GetExceptionClassTemplate();
 
             var classMap = new List<(string JavaClass, string DotNetClass)>();
+            var dotNetClassSet = new HashSet<string>();
 
             foreach (var javaException in javaExceptions)
             {
                 var className = javaException.Key;
+                var dotNetClassName = className.Replace("CheckedException", "Exception");
+
+                if (!dotNetClassSet.Add(dotNetClassName) || existingExceptions.Contains(dotNetClassName))
+                {
+                    // .NET does not have checked exceptions, so we map them to unchecked.
+                    // If there is already an unchecked exception with the same name - skip it.
+                    continue;
+                }
 
                 var (javaPackage, dotNetNamespace) = GetPackageAndNamespace(className, javaException.Value.Source);
 
                 var src = template
-                    .Replace("IgniteTemplateException", className)
-                    .Replace("XMLDOC", GetXmlDoc(className, javaException.Value.Source))
+                    .Replace("IgniteTemplateException", dotNetClassName)
+                    .Replace("XMLDOC", GetXmlDoc(dotNetClassName, javaException.Value.Source))
                     .Replace("NAMESPACE", dotNetNamespace);
 
-                yield return (className + ".g.cs", src);
+                yield return (dotNetClassName + ".g.cs", src);
 
-                classMap.Add((javaPackage + "." + className, dotNetNamespace + "." + className));
+                classMap.Add((javaPackage + "." + className, dotNetNamespace + "." + dotNetClassName));
             }
 
             yield return EmitClassMap(classMap);
 
             bool IsIgniteException(string? ex) =>
                 ex != null &&
-                (ex == "IgniteException" ||
+                (ex == "IgniteException" || ex == "IgniteCheckedException" ||
                  IsIgniteException(javaExceptionsWithParents.TryGetValue(ex, out var parent) ? parent.Parent : null));
         }
 

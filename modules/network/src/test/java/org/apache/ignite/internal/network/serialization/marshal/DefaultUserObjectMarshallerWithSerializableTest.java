@@ -23,7 +23,6 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -40,16 +39,20 @@ import java.util.Set;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for how {@link DefaultUserObjectMarshaller} handles {@link java.io.Serializable}s (but not {@link Externalizable}s).
  */
+@SuppressWarnings({"serial", "AssignmentToStaticFieldFromInstanceMethod", "ReadResolveAndWriteReplaceProtected"})
 class DefaultUserObjectMarshallerWithSerializableTest {
     private final ClassDescriptorRegistry descriptorRegistry = new ClassDescriptorRegistry();
     private final ClassDescriptorFactory descriptorFactory = new ClassDescriptorFactory(descriptorRegistry);
 
     private final DefaultUserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(descriptorRegistry, descriptorFactory);
+
+    private final CleanSlateUnmarshaller unmarshaller = new CleanSlateUnmarshaller(marshaller, descriptorRegistry);
 
     private static final int WRITE_REPLACE_INCREMENT = 1_000_000;
     private static final int READ_RESOLVE_INCREMENT = 1_000;
@@ -62,8 +65,6 @@ class DefaultUserObjectMarshallerWithSerializableTest {
 
     private static boolean nonSerializableParentConstructorCalled;
     private static boolean constructorCalled;
-    private static boolean writeObjectCalled;
-    private static boolean readObjectCalled;
 
     @Test
     void marshalsAndUnmarshalsSerializable() throws Exception {
@@ -74,15 +75,7 @@ class DefaultUserObjectMarshallerWithSerializableTest {
 
     private <T> T marshalAndUnmarshalNonNull(Object object) throws MarshalException, UnmarshalException {
         MarshalledObject marshalled = marshaller.marshal(object);
-        return unmarshalNonNull(marshalled);
-    }
-
-    private <T> T unmarshalNonNull(MarshalledObject marshalled) throws UnmarshalException {
-        T unmarshalled = marshaller.unmarshal(marshalled.bytes(), descriptorRegistry);
-
-        assertThat(unmarshalled, is(notNullValue()));
-
-        return unmarshalled;
+        return unmarshaller.unmarshalNonNull(marshalled);
     }
 
     @Test
@@ -331,7 +324,7 @@ class DefaultUserObjectMarshallerWithSerializableTest {
             super(intValue);
         }
 
-        private Object writeReplace() {
+        private @Nullable Object writeReplace() {
             return null;
         }
     }
@@ -341,7 +334,7 @@ class DefaultUserObjectMarshallerWithSerializableTest {
             super(intValue);
         }
 
-        private Object readResolve() {
+        private @Nullable Object readResolve() {
             return null;
         }
     }
@@ -510,18 +503,6 @@ class DefaultUserObjectMarshallerWithSerializableTest {
 
         private Object readResolve() {
             return new IndirectSelfRefWithResolveToSelf(value + READ_RESOLVE_INCREMENT, ref);
-        }
-    }
-
-    private static class WithWriteObjectButNoReadObject implements Serializable {
-        private void writeObject(ObjectOutputStream stream) {
-            writeObjectCalled = true;
-        }
-    }
-
-    private static class WithReadObjectButNoWriteObject implements Serializable {
-        private void readObject(ObjectInputStream stream) {
-            readObjectCalled = true;
         }
     }
 

@@ -31,10 +31,13 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
@@ -42,10 +45,10 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAcces
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,9 +57,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class OutgoingSnapshotTxDataStreamingTest {
+class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
     @Mock
     private PartitionAccess partitionAccess;
+
+    @Mock
+    private CatalogService catalogService;
 
     private OutgoingSnapshot snapshot;
 
@@ -71,7 +77,7 @@ class OutgoingSnapshotTxDataStreamingTest {
     private final TablePartitionId partition2Id = new TablePartitionId(2, 2);
 
     private final TxMeta meta1 = new TxMeta(TxState.ABORTED, List.of(partition1Id), clock.now());
-    private final TxMeta meta2 = new TxMeta(TxState.COMMITED, List.of(partition1Id, partition2Id), clock.now());
+    private final TxMeta meta2 = new TxMeta(TxState.COMMITTED, List.of(partition1Id, partition2Id), clock.now());
 
     private final PartitionKey partitionKey = new PartitionKey(1, 1);
 
@@ -81,7 +87,7 @@ class OutgoingSnapshotTxDataStreamingTest {
 
         lenient().when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
-        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
+        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, catalogService);
     }
 
     @Test
@@ -95,11 +101,11 @@ class OutgoingSnapshotTxDataStreamingTest {
         assertThat(response.txMeta(), hasSize(2));
 
         assertThat(response.txMeta().get(0).txState(), is(TxState.ABORTED));
-        assertThat(response.txMeta().get(0).enlistedPartitions(), is(List.of(partition1Id)));
+        assertThat(new ArrayList<>(response.txMeta().get(0).enlistedPartitions()), is(List.of(partition1Id)));
         assertThat(response.txMeta().get(0).commitTimestamp(), is(meta1.commitTimestamp()));
 
-        assertThat(response.txMeta().get(1).txState(), is(TxState.COMMITED));
-        assertThat(response.txMeta().get(1).enlistedPartitions(), is(List.of(partition1Id, partition2Id)));
+        assertThat(response.txMeta().get(1).txState(), is(TxState.COMMITTED));
+        assertThat(new ArrayList<>(response.txMeta().get(1).enlistedPartitions()), is(List.of(partition1Id, partition2Id)));
         assertThat(response.txMeta().get(1).commitTimestamp(), is(meta2.commitTimestamp()));
     }
 

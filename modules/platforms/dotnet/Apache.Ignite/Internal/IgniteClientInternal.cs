@@ -83,18 +83,18 @@ namespace Apache.Ignite.Internal
             IList<IClusterNode> Read()
             {
                 var r = resBuf.GetReader();
-                var count = r.ReadArrayHeader();
+                var count = r.ReadInt32();
                 var res = new List<IClusterNode>(count);
 
                 for (var i = 0; i < count; i++)
                 {
-                    var fieldCount = r.ReadArrayHeader();
+                    var fieldCount = r.ReadInt32();
                     Debug.Assert(fieldCount == 4, "fieldCount == 4");
 
                     res.Add(new ClusterNode(
-                        Id: r.ReadString(),
-                        Name: r.ReadString(),
-                        Address: new IPEndPoint(IPAddress.Parse(r.ReadString()), r.ReadInt32())));
+                        id: r.ReadString(),
+                        name: r.ReadString(),
+                        endpoint: new IPEndPoint(IPAddress.Parse(r.ReadString()), r.ReadInt32())));
                 }
 
                 return res;

@@ -219,6 +219,37 @@ public class ConverterUtils {
             throw new AssertionError("For conversion to decimal, ConverterUtils#convertToDecimal method should be used instead.");
         }
 
+        Primitive toPrimitive = Primitive.of(toType);
+        Primitive fromPrimitive = Primitive.of(fromType);
+
+        // check overflow for 'integer' subtypes
+        if (fromPrimitive == Primitive.LONG && toPrimitive == Primitive.INT) {
+            return IgniteExpressions.convertToIntExact(operand);
+        }
+
+        if ((fromPrimitive == Primitive.LONG || fromPrimitive == Primitive.INT) && toPrimitive == Primitive.SHORT) {
+            return IgniteExpressions.convertToShortExact(operand);
+        }
+
+        if ((fromPrimitive == Primitive.LONG || fromPrimitive == Primitive.INT || fromPrimitive == Primitive.SHORT)
+                && toPrimitive == Primitive.BYTE) {
+            return IgniteExpressions.convertToByteExact(operand);
+        }
+
+        if (!Primitive.isBox(fromType)) {
+            if ((fromType == BigDecimal.class || fromType == String.class) && toPrimitive == Primitive.LONG) {
+                return IgniteExpressions.convertToLongExact(operand);
+            }
+
+            if (fromType == BigDecimal.class && toPrimitive == Primitive.BYTE) {
+                return IgniteExpressions.convertToByteExact(operand);
+            }
+
+            if (fromType == BigDecimal.class && toPrimitive == Primitive.SHORT) {
+                return IgniteExpressions.convertToShortExact(operand);
+            }
+        }
+
         // SELECT '0.1'::DECIMAL::VARCHAR case, looks like a stub
         if (toType == String.class) {
             if (fromType == BigDecimal.class) {

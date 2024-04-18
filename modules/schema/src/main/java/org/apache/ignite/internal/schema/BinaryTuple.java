@@ -19,7 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.schema.row.InternalTuple;
+import org.apache.ignite.internal.lang.InternalTuple;
 
 /**
  * Utility for access to binary tuple elements as typed values and with schema knowledge that allows to read

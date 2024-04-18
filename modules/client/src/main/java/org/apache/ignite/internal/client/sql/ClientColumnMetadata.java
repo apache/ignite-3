@@ -52,13 +52,13 @@ public class ClientColumnMetadata implements ColumnMetadata {
      * @param prevColumns Previous columns.
      */
     public ClientColumnMetadata(ClientMessageUnpacker unpacker, List<ColumnMetadata> prevColumns) {
-        var propCnt = unpacker.unpackArrayHeader();
+        var propCnt = unpacker.unpackInt();
 
         assert propCnt >= 6;
 
         name = unpacker.unpackString();
         nullable = unpacker.unpackBoolean();
-        type = ColumnTypeConverter.fromOrdinalOrThrow(unpacker.unpackInt());
+        type = ColumnTypeConverter.fromIdOrThrow(unpacker.unpackInt());
         scale = unpacker.unpackInt();
         precision = unpacker.unpackInt();
 
@@ -80,7 +80,7 @@ public class ClientColumnMetadata implements ColumnMetadata {
     /** {@inheritDoc} */
     @Override
     public Class<?> valueClass() {
-        return ColumnType.columnTypeToClass(type);
+        return type.javaClass();
     }
 
     /** {@inheritDoc} */

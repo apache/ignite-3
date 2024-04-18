@@ -18,55 +18,25 @@
 package org.apache.ignite.internal.cli.core.repl;
 
 import jakarta.inject.Singleton;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.cli.core.exception.ConnectionException;
-import org.apache.ignite.internal.cli.logger.CliLoggers;
-import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.cli.event.ConnectionEventListener;
 
 /**
  * Connection session that in fact is holder for state: connected or disconnected. Also has session info if the state is connected.
  */
 @Singleton
-public class Session {
-
-    private static final IgniteLogger log = CliLoggers.forClass(Session.class);
+public class Session implements ConnectionEventListener {
 
     private final AtomicReference<SessionInfo> info = new AtomicReference<>();
 
-    private final List<? extends AsyncSessionEventListener> listeners;
-
-    public Session(List<? extends AsyncSessionEventListener> listeners) {
-        this.listeners = listeners;
+    @Override
+    public void onConnect(SessionInfo sessionInfo) {
+        info.set(sessionInfo);
     }
 
-    /** Creates session info with provided nodeUrl, nodeName, jdbcUrl. */
-    public void connect(SessionInfo newInfo) {
-        if (info.compareAndSet(null, newInfo)) {
-            listeners.forEach(it -> {
-                try {
-                    it.onConnect(newInfo);
-                } catch (Exception e) {
-                    log.warn("Got an exception: ", e);
-                }
-            });
-        } else {
-            throw new ConnectionException("Already connected to " + info.get().nodeUrl());
-        }
-    }
-
-    /** Clears session info and sets false to connectedToNode. */
-    public void disconnect() {
-        SessionInfo wasConnected = info.getAndSet(null);
-        if (wasConnected != null) {
-            listeners.forEach(it -> {
-                try {
-                    it.onDisconnect();
-                } catch (Exception e) {
-                    log.warn("Got an exception: ", e);
-                }
-            });
-        }
+    @Override
+    public void onDisconnect() {
+        info.set(null);
     }
 
     /** Returns {@link SessionInfo}. */

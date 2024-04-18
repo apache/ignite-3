@@ -37,21 +37,24 @@ import static org.mockito.Mockito.verify;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
-import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Abstract class for testing descendants of {@link AbstractFilePageStoreIo}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public abstract class AbstractFilePageStoreIoTest {
+public abstract class AbstractFilePageStoreIoTest extends BaseIgniteAbstractTest {
     protected static final int PAGE_SIZE = 1024;
 
     @WorkDirectory
@@ -235,7 +238,7 @@ public abstract class AbstractFilePageStoreIoTest {
 
             assertEquals(2 * PAGE_SIZE, testFilePath.toFile().length());
 
-            assertEquals(0, PageIo.getCrc(pageByteBuffer));
+            assertEquals(0, getCrc(pageByteBuffer));
         }
     }
 
@@ -371,5 +374,37 @@ public abstract class AbstractFilePageStoreIoTest {
 
             verify(ioFactory).create(newFilePath, CREATE, READ, WRITE);
         }
+    }
+
+    @ParameterizedTest
+    @MethodSource("ioFactories")
+    void testRenameAndReadRace(FileIoFactory ioFactory) throws Exception {
+        Path filePath = workDir.resolve("test");
+
+        try (AbstractFilePageStoreIo filePageStoreIo = createFilePageStoreIo(filePath, ioFactory)) {
+            filePageStoreIo.ensure();
+
+            long expPageId = createDataPageId(() -> 1);
+
+            ByteBuffer byteBuffer = createPageByteBuffer(expPageId, PAGE_SIZE);
+
+            filePageStoreIo.write(expPageId, byteBuffer.rewind(), true);
+
+            // Loop works way better than @RepeatedTest when you need to reproduce a particularly naughty race.
+            for (int i = 0; i < 1000; i++) {
+                Path newFilePath = workDir.resolve("test" + i);
+
+                byteBuffer.rewind();
+
+                runRace(
+                        () -> filePageStoreIo.renameFilePath(newFilePath),
+                        () -> filePageStoreIo.read(expPageId, filePageStoreIo.pageOffset(expPageId), byteBuffer, false)
+                );
+            }
+        }
+    }
+
+    private static FileIoFactory[] ioFactories() {
+        return new FileIoFactory[]{new RandomAccessFileIoFactory(), new AsyncFileIoFactory()};
     }
 }

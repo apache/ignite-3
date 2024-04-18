@@ -17,12 +17,18 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
+import java.util.UUID;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 
 /**
- * Scan retrieve batch replica request.
+ * Scan cursor close request.
  */
+@Transferable(TableMessageGroup.SCAN_CLOSE_REPLICA_REQUEST)
 public interface ScanCloseReplicaRequest extends ReplicaRequest {
+    UUID transactionId();
+
     /** The id uniquely determines a cursor for the transaction. */
     long scanId();
 }

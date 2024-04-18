@@ -29,8 +29,8 @@ public class IntersectExecutionTest extends AbstractSetOpExecutionTest {
     /** {@inheritDoc} */
     @Override
     protected AbstractSetOpNode<Object[]> setOpNodeFactory(ExecutionContext<Object[]> ctx,
-            AggregateType type, boolean all, int inputsCnt) {
-        return new IntersectNode<>(ctx, type, all, rowFactory(), inputsCnt);
+            AggregateType type, int columnCount, boolean all, int inputsCnt) {
+        return new IntersectNode<>(ctx, columnCount, type, all, rowFactory(), inputsCnt);
     }
 
     /** {@inheritDoc} */

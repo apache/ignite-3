@@ -23,6 +23,19 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 description = 'ignite-raft'
 
+pmdMain {
+    excludes = [
+            'org/apache/ignite/raft/jraft/**'
+    ]
+}
+
+pmdTest {
+    excludes = [
+            'org/apache/ignite/raft/jraft/**'
+    ]
+}
+
+
 dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-configuration-api')
@@ -36,6 +49,7 @@ dependencies {
     implementation libs.dropwizard.metrics
     implementation libs.jctools.core
     implementation libs.auto.service.annotations
+    implementation libs.jna
 
     annotationProcessor project(":ignite-network-annotation-processor")
     annotationProcessor libs.auto.service
@@ -53,7 +67,6 @@ dependencies {
     testImplementation libs.netty.common
     testImplementation libs.hamcrest.core
     testImplementation libs.jmh.core
-    testImplementation libs.slf4j.jdk14
 
     testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
     testFixturesImplementation project(':ignite-core')
@@ -74,7 +87,9 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation(testFixtures(project(':ignite-network')))
+    integrationTestImplementation testFixtures(project(':ignite-workers'))
     integrationTestImplementation project(':ignite-raft-api')
+    integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.dropwizard.metrics
 }

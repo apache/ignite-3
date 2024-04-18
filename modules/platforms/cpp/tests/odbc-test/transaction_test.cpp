@@ -354,6 +354,10 @@ TEST_F(transaction_test, transaction_connection_rollback_update_2) {
 
     check_test_value(42, "Some");
 
+    ret = SQLEndTran(SQL_HANDLE_DBC, m_conn, SQL_ROLLBACK);
+
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
+
     update_test_value(42, "Other");
 
     check_test_value(42, "Other");
@@ -403,6 +407,10 @@ TEST_F(transaction_test, transaction_connection_rollback_delete_2) {
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
 
     check_test_value(42, "Some");
+
+    ret = SQLEndTran(SQL_HANDLE_DBC, m_conn, SQL_ROLLBACK);
+
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
 
     delete_test_value(42);
 
@@ -490,6 +498,10 @@ TEST_F(transaction_test, transaction_environment_rollback_update_2) {
 
     check_test_value(42, "Some");
 
+    ret = SQLEndTran(SQL_HANDLE_DBC, m_conn, SQL_ROLLBACK);
+
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
+
     update_test_value(42, "Other");
 
     check_test_value(42, "Other");
@@ -540,6 +552,10 @@ TEST_F(transaction_test, transaction_environment_rollback_delete_2) {
 
     check_test_value(42, "Some");
 
+    ret = SQLEndTran(SQL_HANDLE_DBC, m_conn, SQL_ROLLBACK);
+
+    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
+
     delete_test_value(42);
 
     check_no_test_value(42);
@@ -575,26 +591,29 @@ TEST_F(transaction_test, transaction_error) {
             try {
                 insert_test_value(conn2.m_statement, 2, "test_2");
             } catch (const odbc_exception &err) {
-                EXPECT_THAT(err.message, testing::HasSubstr("Failed to acquire a lock due to a conflict"));
-                // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
-                EXPECT_EQ(err.sql_state, "HY000");
+                EXPECT_THAT(err.message, testing::HasSubstr("Failed to acquire a lock due to a possible deadlock"));
+                EXPECT_EQ(err.sql_state, "25000");
                 throw;
             }
         },
         odbc_exception);
 
-    ret = SQLEndTran(SQL_HANDLE_DBC, m_conn, SQL_COMMIT);
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, conn2.m_conn);
-
-    reset_statement();
-
-    insert_test_value(conn2.m_statement, 2, "test_2");
-
     reset_statement(conn2.m_statement);
 
-    ret = SQLEndTran(SQL_HANDLE_DBC, conn2.m_conn, SQL_ROLLBACK);
-    ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
+    // If any statement in transaction fails, then the transaction is considered aborted -
+    // all subsequent statements within that transaction should fail.
+
+    EXPECT_THROW(
+        {
+            try {
+                insert_test_value(conn2.m_statement, 2, "test_2");
+            } catch (const odbc_exception &err) {
+                EXPECT_THAT(err.message, testing::HasSubstr("Transaction is already finished"));
+                EXPECT_EQ(err.sql_state, "25000");
+                throw;
+            }
+        },
+        odbc_exception);
 
     check_no_test_value(2);
-    check_no_test_value(conn2.m_statement, 2);
 }

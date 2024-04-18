@@ -19,6 +19,9 @@
 #include "ignite/odbc/string_utils.h"
 #include "ignite/odbc/system/odbc_constants.h"
 #include "ignite/odbc/utility.h"
+
+#include "ignite/common/server_version.h"
+
 #include <iomanip>
 
 // Temporary workaround.
@@ -572,8 +575,7 @@ const char *connection_info::info_type_to_string(info_type type) {
 
 #undef DBG_STR_CASE
 
-connection_info::connection_info(const configuration &config)
-    : config(config) {
+void connection_info::rebuild() {
     //
     //======================= String Params =======================
     //
@@ -602,8 +604,7 @@ connection_info::connection_info(const configuration &config)
     // the form ##.##.####, where the first two digits are the major version, the next two digits are the minor version,
     // and the last four digits are the release version. The driver must render the DBMS product version in this form
     // but can also append the DBMS product-specific version. For example, "04.01.0000 Rdb 4.1".
-    // TODO: IGNITE-19720 Get current server version on handshake to report here.
-    m_str_params[SQL_DBMS_VER] = get_formatted_project_version();
+    m_str_params[SQL_DBMS_VER] = server_version().to_string(); // default: 00.00.0000. Will be updated after handshake.
 #endif // SQL_DBMS_VER
 
 #ifdef SQL_COLUMN_ALIAS
@@ -803,14 +804,12 @@ connection_info::connection_info(const configuration &config)
 #ifdef SQL_SERVER_NAME
     // A character string with the actual data source-specific server name; useful when a data source name
     // is used during SQLConnect, SQLDriverConnect, and SQLBrowseConnect.
-    // TODO: IGNITE-19720 Get current server name on handshake to report here.
-    m_str_params[SQL_SERVER_NAME] = "Apache Ignite 3";
+    m_str_params[SQL_SERVER_NAME] = "Apache Ignite 3"; // Will be updated after handshake.
 #endif // SQL_SERVER_NAME
 
 #ifdef SQL_USER_NAME
     // A character string with the name used in a particular database, which can be different from the login name.
-    // TODO: IGNITE-19722 Report username here.
-    m_str_params[SQL_USER_NAME] = "ignite";
+    m_str_params[SQL_USER_NAME] = config.get_auth_identity().get_value();
 #endif // SQL_USER_NAME
 
     //
@@ -2526,6 +2525,11 @@ connection_info::connection_info(const configuration &config)
 #endif // SQL_NULL_COLLATION
 }
 
+connection_info::connection_info(const configuration &config)
+    : config(config) {
+    rebuild();
+}
+
 std::string connection_info::get_formatted_project_version() {
     std::string_view project_ver = CMAKE_PROJECT_VERSION;
 
@@ -2578,6 +2582,27 @@ sql_result connection_info::get_info(info_type type, void *buf, short buffer_len
     }
 
     return sql_result::AI_ERROR;
+}
+
+void connection_info::set_info(info_type type, std::string value) {
+    auto str_it = m_str_params.find(type);
+    if (str_it != m_str_params.end()) {
+        str_it->second = std::move(value);
+    }
+}
+
+void connection_info::set_info(info_type type, std::int32_t value) {
+    auto int_it = m_int_params.find(type);
+    if (int_it != m_int_params.end()) {
+        int_it->second = value;
+    }
+}
+
+void connection_info::set_info(info_type type, std::int16_t value) {
+    auto short_it = m_short_params.find(type);
+    if (short_it != m_short_params.end()) {
+        short_it->second = value;
+    }
 }
 
 } // namespace ignite

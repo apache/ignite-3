@@ -19,7 +19,7 @@ package org.apache.ignite.internal.network.recovery.message;
 
 import static org.apache.ignite.internal.network.NetworkMessageTypes.ACKNOWLEDGEMENT;
 
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Message that holds count of messages received by node.

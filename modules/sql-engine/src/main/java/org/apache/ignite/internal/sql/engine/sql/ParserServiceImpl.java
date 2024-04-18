@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Supplier;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlWriterConfig;
+import org.apache.calcite.sql.dialect.AnsiSqlDialect;
+import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.util.Cache;
-import org.apache.ignite.internal.sql.engine.util.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
@@ -29,47 +32,63 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  */
 public class ParserServiceImpl implements ParserService {
 
-    private final Cache<String, ParsedResult> queryToParsedResultCache;
-
-    /**
-     * Constructs the object.
-     *
-     * @param cacheFactory A factory to create cache for parsed results.
-     */
-    public ParserServiceImpl(int cacheSize, CacheFactory cacheFactory) {
-        this.queryToParsedResultCache = cacheFactory.create(cacheSize);
-    }
+    private static final SqlWriterConfig NORMALIZED_SQL_WRITER_CONFIG = SqlPrettyWriter.config()
+            // Uses the same config as SqlNode::toString
+            .withDialect(AnsiSqlDialect.DEFAULT)
+            .withAlwaysUseParentheses(false)
+            .withSelectListItemsOnSeparateLines(false)
+            .withUpdateSetListNewline(false)
+            .withIndentation(0);
 
     /** {@inheritDoc} */
     @Override
     public ParsedResult parse(String query) {
-        ParsedResult cachedResult = queryToParsedResultCache.get(query);
-
-        if (cachedResult != null) {
-            return cachedResult;
-        }
-
         StatementParseResult parsedStatement = IgniteSqlParser.parse(query, StatementParseResult.MODE);
 
         SqlNode parsedTree = parsedStatement.statement();
 
         SqlQueryType queryType = Commons.getQueryType(parsedTree);
 
-        assert queryType != null : parsedTree.toString();
+        SqlPrettyWriter w = new SqlPrettyWriter(NORMALIZED_SQL_WRITER_CONFIG);
+        parsedTree.unparse(w, 0, 0);
+        String normalizedQuery = w.toString();
+
+        assert queryType != null : normalizedQuery;
 
         ParsedResult result = new ParsedResultImpl(
                 queryType,
                 query,
-                parsedTree.toString(),
+                normalizedQuery,
                 parsedStatement.dynamicParamsCount(),
                 () -> IgniteSqlParser.parse(query, StatementParseResult.MODE).statement()
         );
 
-        if (shouldBeCached(queryType)) {
-            queryToParsedResultCache.put(query, result);
+        return result;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<ParsedResult> parseScript(String query) {
+        ScriptParseResult parsedStatement = IgniteSqlParser.parse(query, ScriptParseResult.MODE);
+        List<ParsedResult> results = new ArrayList<>(parsedStatement.results().size());
+
+        for (StatementParseResult result : parsedStatement.results()) {
+            SqlNode parsedTree = result.statement();
+            SqlQueryType queryType = Commons.getQueryType(parsedTree);
+            String normalizedQuery = parsedTree.toString();
+
+            assert queryType != null : normalizedQuery;
+
+            results.add(new ParsedResultImpl(
+                    queryType,
+                    normalizedQuery,
+                    normalizedQuery,
+                    result.dynamicParamsCount(),
+                    () -> parsedTree
+            ));
         }
 
-        return result;
+        return results;
     }
 
     static class ParsedResultImpl implements ParsedResult {
@@ -122,9 +141,5 @@ public class ParserServiceImpl implements ParserService {
         public SqlNode parsedTree() {
             return parsedTreeSupplier.get();
         }
-    }
-
-    private static boolean shouldBeCached(SqlQueryType queryType) {
-        return queryType == SqlQueryType.QUERY || queryType == SqlQueryType.DML;
     }
 }

@@ -127,11 +127,25 @@ public:
     [[nodiscard]] std::int8_t read_int8() { return read_object<std::int8_t>(); }
 
     /**
+     * Read uint8.
+     *
+     * @return Value.
+     */
+    [[nodiscard]] std::uint8_t read_uint8() { return read_object<std::uint8_t>(); }
+
+    /**
      * Read int16.
      *
      * @return Value.
      */
     [[nodiscard]] std::int16_t read_int16() { return read_object<std::int16_t>(); }
+
+    /**
+     * Read uint16.
+     *
+     * @return Value.
+     */
+    [[nodiscard]] std::uint16_t read_uint16() { return read_object<std::uint16_t>(); }
 
     /**
      * Read int32.
@@ -141,11 +155,113 @@ public:
     [[nodiscard]] std::int32_t read_int32() { return read_object<std::int32_t>(); }
 
     /**
+     * Read timestamp.
+     *
+     * @return Timestamp.
+     */
+    [[nodiscard]] ignite_timestamp read_timestamp() {
+        auto seconds = read_int64();
+        auto nanos = read_int32();
+        return {seconds, nanos};
+    }
+
+    /**
+     * Read timestamp or null.
+     *
+     * @return Timestamp or std::nullopt.
+     */
+    [[nodiscard]] std::optional<ignite_timestamp> read_timestamp_opt() {
+        if (try_read_nil())
+            return std::nullopt;
+
+        return {read_timestamp()};
+    }
+
+    /**
+     * Read array of int32.
+     *
+     * @return Value.
+     */
+    [[nodiscard]] std::vector<std::int32_t> read_int32_array() {
+        auto length = read_int32();
+        std::vector<std::int32_t> values(length);
+
+        for (auto i = 0; i < length; i++) {
+            values[i] = read_int32();
+        }
+
+        return values;
+    }
+
+    /**
+     * Read array of int32.
+     *
+     * @return Value or nullopt.
+     */
+    [[nodiscard]] std::optional<std::vector<std::int32_t>> read_int32_array_nullable() {
+        if (try_read_nil()) {
+            return std::nullopt;
+        }
+
+        return read_int32_array();
+    }
+
+    /**
+     * Read array of int64.
+     *
+     * @return Value or nullopt.
+     */
+    [[nodiscard]] std::vector<std::int64_t> read_int64_array() {
+        auto length = read_int32();
+        std::vector<std::int64_t> values(length);
+
+        for (auto i = 0; i < length; i++) {
+            values[i] = read_int64();
+        }
+
+        return values;
+    }
+
+    /**
+     * Read array of int64.
+     *
+     * @return Value or nullopt.
+     */
+    [[nodiscard]] std::optional<std::vector<std::int64_t>> read_int64_array_nullable() {
+        if (try_read_nil()) {
+            return std::nullopt;
+        }
+
+        return read_int64_array();
+    }
+
+    /**
      * Read int32 or nullopt.
      *
      * @return Value or nullopt if the next value in stream is not integer.
      */
     [[nodiscard]] std::optional<std::int32_t> try_read_int32() { return try_read_object<std::int32_t>(); }
+
+    /**
+     * Read int32 or nullopt.
+     *
+     * @return Value or nullopt if the next value in stream is nil.
+     */
+    [[nodiscard]] std::optional<std::int32_t> read_int32_nullable() { return read_object_nullable<std::int32_t>(); }
+
+    /**
+     * Read uint8 or nullopt.
+     *
+     * @return Value or nullopt if the next value in stream is nil.
+     */
+    [[nodiscard]] std::optional<std::uint8_t> read_uint8_nullable() { return read_object_nullable<std::uint8_t>(); }
+
+    /**
+     * Read int16 or nullopt.
+     *
+     * @return Value or nullopt if the next value in stream is nil.
+     */
+    [[nodiscard]] std::optional<std::int16_t> read_int16_nullable() { return read_object_nullable<std::int16_t>(); }
 
     /**
      * Read int64 number.
@@ -183,115 +299,6 @@ public:
     [[nodiscard]] uuid read_uuid() { return read_object<uuid>(); }
 
     /**
-     * Read Map size.
-     *
-     * @return Map size.
-     */
-    [[nodiscard]] uint32_t read_map_size() const {
-        check_data_in_stream();
-
-        if (m_current_val.data.type != MSGPACK_OBJECT_MAP)
-            throw ignite_error("The value in stream is not a Map");
-
-        return m_current_val.data.via.map.size;
-    }
-
-    /**
-     * Read Map raw.
-     *
-     * @param handler Pair handler.
-     */
-    void read_map_raw(const std::function<void(const msgpack_object_kv &)> &handler) {
-        auto size = read_map_size();
-        for (std::uint32_t i = 0; i < size; ++i) {
-            handler(m_current_val.data.via.map.ptr[i]);
-        }
-        next();
-    }
-
-    /**
-     * Read Map.
-     *
-     * @tparam K key type.
-     * @tparam V Value type.
-     * @param handler Pair handler.
-     */
-    template<typename K, typename V>
-    void read_map(const std::function<void(K &&, V &&)> &handler) {
-        auto size = read_map_size();
-        for (std::uint32_t i = 0; i < size; ++i) {
-            auto key = unpack_object<K>(m_current_val.data.via.map.ptr[i].key);
-            auto val = unpack_object<V>(m_current_val.data.via.map.ptr[i].val);
-            handler(std::move(key), std::move(val));
-        }
-        next();
-    }
-
-    /**
-     * Read array size.
-     *
-     * @return Array size.
-     */
-    [[nodiscard]] uint32_t read_array_size() const {
-        check_data_in_stream();
-
-        return unpack_array_size(m_current_val.data);
-    }
-
-    /**
-     * Read array.
-     *
-     * @param read_func Object read function.
-     */
-    void read_array_raw(const std::function<void(std::uint32_t idx, const msgpack_object &)> &read_func) {
-        auto size = read_array_size();
-        for (std::uint32_t i = 0; i < size; ++i) {
-            read_func(i, m_current_val.data.via.array.ptr[i]);
-        }
-        next();
-    }
-
-    /**
-     * Get array element.
-     *
-     * @param idx Index.
-     * @return Element reference.
-     */
-    [[nodiscard]] const msgpack_object &get_array_element(std::uint32_t idx) const {
-        return m_current_val.data.via.array.ptr[idx];
-    }
-
-    /**
-     * Read array.
-     *
-     * @tparam T Value type.
-     * @param unpack_func Object unpack function.
-     */
-    template<typename T>
-    [[nodiscard]] std::vector<T> read_array(const std::function<T(const msgpack_object &)> &unpack_func) {
-        auto size = read_array_size();
-        std::vector<T> res;
-        res.reserve(size);
-        for (std::uint32_t i = 0; i < size; ++i) {
-            auto val = unpack_func(m_current_val.data.via.array.ptr[i]);
-            res.emplace_back(std::move(val));
-        }
-        next();
-        return std::move(res);
-    }
-
-    /**
-     * Read array.
-     *
-     * @tparam T Value type.
-     * @param handler Value handler.
-     */
-    template<typename T>
-    [[nodiscard]] std::vector<T> read_array() {
-        return read_array<T>(unpack_object<T>);
-    }
-
-    /**
      * Read array.
      *
      * @return Binary data view.
@@ -313,6 +320,15 @@ public:
      * Skip next value.
      */
     void skip() { next(); }
+
+    /**
+     * Skip next value.
+     */
+    void skip(int count) {
+        for (int i = 0; i < count; i++) {
+            skip();
+        }
+    }
 
     /**
      * Position.

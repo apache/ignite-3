@@ -17,35 +17,73 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import java.util.List;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
+import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.sql.SqlExplainLevel;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.util.Cloner;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Regular query or DML.
  */
-public interface MultiStepPlan extends QueryPlan {
-    /** Get execution fragments. */
-    List<Fragment> fragments();
+public class MultiStepPlan implements ExplainablePlan {
 
-    /**
-     * Mapping.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param fragment Fragment.
-     * @return Mapping for a given fragment.
-     */
-    FragmentMapping mapping(Fragment fragment);
+    private final PlanId id;
 
-    ColocationGroup target(Fragment fragment);
+    private final SqlQueryType type;
 
-    Long2ObjectOpenHashMap<List<String>> remotes(Fragment fragment);
+    private final ResultSetMetadata meta;
 
-    /**
-     * Inits query fragments.
-     *
-     * @param ctx Planner context.
-     */
-    void init(MappingQueryContext ctx);
+    private final IgniteRel root;
+
+    private final ParameterMetadata parameterMetadata;
+
+    /** Constructor. */
+    public MultiStepPlan(PlanId id, SqlQueryType type, IgniteRel root, ResultSetMetadata meta, ParameterMetadata parameterMetadata) {
+        this.id = id;
+        this.type = type;
+        this.root = root;
+        this.meta = meta;
+        this.parameterMetadata = parameterMetadata;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public PlanId id() {
+        return id;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ResultSetMetadata metadata() {
+        return meta;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ParameterMetadata parameterMetadata() {
+        return parameterMetadata;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    @Nullable
+    public SqlQueryType type() {
+        return type;
+    }
+
+    @Override
+    public String explain() {
+        IgniteRel clonedRoot = Cloner.clone(root, Commons.cluster());
+
+        return RelOptUtil.toString(clonedRoot, SqlExplainLevel.ALL_ATTRIBUTES);
+    }
+
+    /** Returns root of the query tree. */
+    public IgniteRel root() {
+        return root;
+    }
 }

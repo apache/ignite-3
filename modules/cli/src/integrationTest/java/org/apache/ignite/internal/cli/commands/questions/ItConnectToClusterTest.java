@@ -82,8 +82,7 @@ class ItConnectToClusterTest extends ItConnectToClusterTestBase {
         // And prompt is changed to connect
         String promptAfter = getPrompt();
         assertThat(promptAfter).isEqualTo("[" + nodeName() + "]> ");
-        assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.CLUSTER_URL.value()))
-                .isEqualTo("http://localhost:10300");
+        assertThat(getConfigProperty(CliConfigKeys.CLUSTER_URL)).isEqualTo("http://localhost:10300");
     }
 
     @Test
@@ -120,7 +119,7 @@ class ItConnectToClusterTest extends ItConnectToClusterTestBase {
         );
         // And prompt is changed to another node
         String promptAfter = getPrompt();
-        assertThat(promptAfter).isEqualTo("[" + CLUSTER_NODES.get(1).name() + "]> ");
+        assertThat(promptAfter).isEqualTo("[" + CLUSTER.node(1).name() + "]> ");
     }
 
 }

@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.schema.NativeTypes.INT32;
-import static org.apache.ignite.internal.schema.NativeTypes.INT8;
-import static org.apache.ignite.internal.schema.NativeTypes.STRING;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.INT8;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -29,20 +29,18 @@ import java.util.Random;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.DecimalNativeType;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
-import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.type.DecimalNativeType;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -69,20 +67,20 @@ public class ColocationHashCalculationTest {
     public void simple() {
         SchemaDescriptor schema = new SchemaDescriptor(42,
                 new Column[]{
-                        new Column(0, "id0", INT8, false),
-                        new Column(1, "id1", INT32, false),
-                        new Column(2, "id2", STRING, false),
+                        new Column("id0", INT8, false),
+                        new Column("id1", INT32, false),
+                        new Column("id2", STRING, false),
                 },
-                new Column[]{new Column(3, "val", INT32, true).copy(3)});
+                new Column[]{new Column("val", INT32, true)});
 
-        RowAssembler rasm = new RowAssembler(schema);
+        RowAssembler rasm = new RowAssembler(schema, -1);
 
         rasm.appendByte((byte) 1);
         rasm.appendInt(2);
         rasm.appendString("key_" + 3);
         rasm.appendInt(0);
 
-        Row r = new Row(schema, rasm.build());
+        Row r = Row.wrapBinaryRow(schema, rasm.build());
 
         HashCalculator hashCalc = new HashCalculator();
         hashCalc.appendByte((byte) 1);
@@ -103,17 +101,17 @@ public class ColocationHashCalculationTest {
         Column[] keyCols = IntStream.range(0, SchemaTestUtils.ALL_TYPES.size())
                 .mapToObj(i -> {
                     NativeType t = SchemaTestUtils.ALL_TYPES.get(i);
-                    return new Column(i, "id_" + t.spec().name(), t, false);
+                    return new Column("id_" + t.spec().name(), t, false);
                 })
                 .toArray(Column[]::new);
 
         SchemaDescriptor schema = new SchemaDescriptor(42, keyCols,
-                new Column[]{new Column("val", INT32, true).copy(keyCols.length)});
+                new Column[]{new Column("val", INT32, true)});
 
         Row r = generateRandomRow(rnd, schema);
         assertEquals(colocationHash(r), r.colocationHash());
 
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
         for (int i = 0; i < 10; ++i) {
             Column rndCol = schema.column(rnd.nextInt(schema.length()));
 
@@ -182,8 +180,8 @@ public class ColocationHashCalculationTest {
         }
     }
 
-    private static Row generateRandomRow(Random rnd, @NotNull SchemaDescriptor schema) throws TupleMarshallerException {
-        TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
+    private static Row generateRandomRow(Random rnd, SchemaDescriptor schema) throws TupleMarshallerException {
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         Tuple t = Tuple.create();
 
@@ -201,7 +199,7 @@ public class ColocationHashCalculationTest {
         for (Column c : r.schema().colocationColumns()) {
             var scale = c.type() instanceof DecimalNativeType ? ((DecimalNativeType) c.type()).scale() : 0;
             var precision = c.type() instanceof TemporalNativeType ? ((TemporalNativeType) c.type()).precision() : 0;
-            hashCalc.append(r.value(c.schemaIndex()), scale, precision);
+            hashCalc.append(r.value(c.positionInRow()), scale, precision);
         }
 
         return hashCalc.hash();

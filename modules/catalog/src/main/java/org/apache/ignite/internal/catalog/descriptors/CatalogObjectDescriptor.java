@@ -17,24 +17,26 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import java.io.Serializable;
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+
 import java.util.Objects;
+import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Base class for catalog objects.
- * TODO: IGNITE-19082 Implement custom effective serialization instead.
  */
-public abstract class CatalogObjectDescriptor implements Serializable {
-    private static final long serialVersionUID = -6525237234280004860L;
+public abstract class CatalogObjectDescriptor {
     private final int id;
     private final String name;
     private final Type type;
+    private long updateToken;
 
-    CatalogObjectDescriptor(int id, Type type, String name) {
+    CatalogObjectDescriptor(int id, Type type, String name, long causalityToken) {
         this.id = id;
         this.type = Objects.requireNonNull(type, "type");
         this.name = Objects.requireNonNull(name, "name");
+        this.updateToken = causalityToken;
     }
 
     /** Returns id of the described object. */
@@ -52,17 +54,43 @@ public abstract class CatalogObjectDescriptor implements Serializable {
         return type;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Token of the update of the descriptor.
+     * Updated when {@link UpdateEntry#applyUpdate(org.apache.ignite.internal.catalog.Catalog, long)} is called for the
+     * corresponding catalog descriptor. This token is the token that is associated with the corresponding update being applied to
+     * the Catalog. Any new catalog descriptor associated with an {@link UpdateEntry}, meaning that this token is set only once.
+     *
+     * @return Token of the update of the descriptor.
+     */
+    public long updateToken() {
+        return updateToken;
+    }
+
+    /**
+     * Set token of the update of the descriptor. Must be called only once when
+     * {@link UpdateEntry#applyUpdate(org.apache.ignite.internal.catalog.Catalog, long)} is called for the corresponding catalog descriptor.
+     * This token is the token that is associated with the corresponding update being applied to
+     * the Catalog. Any new catalog descriptor associated with an {@link UpdateEntry}, meaning that this token is set only once.
+     *
+     * @param updateToken Update token of the descriptor.
+     */
+    public void updateToken(long updateToken) {
+        assert this.updateToken == INITIAL_CAUSALITY_TOKEN : "Update token for the descriptor must be updated only once";
+
+        this.updateToken = updateToken;
+    }
+
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(CatalogObjectDescriptor.class, this);
     }
 
     /** Catalog object type. */
-    enum Type {
+    public enum Type {
         SCHEMA,
         TABLE,
         INDEX,
-        ZONE
+        ZONE,
+        SYSTEM_VIEW
     }
 }

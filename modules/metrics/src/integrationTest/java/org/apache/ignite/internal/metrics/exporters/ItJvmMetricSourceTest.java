@@ -28,6 +28,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -35,7 +36,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Suite to test, that enabled by default jvm metrics aren't broken.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class ItJvmMetricSourceTest {
+public class ItJvmMetricSourceTest extends BaseIgniteAbstractTest {
     @InjectConfiguration(
             value = "mock.exporters = {"
                     + "simple = {exporterName = simple}"

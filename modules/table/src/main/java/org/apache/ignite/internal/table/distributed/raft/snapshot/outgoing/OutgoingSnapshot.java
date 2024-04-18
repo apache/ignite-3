@@ -17,15 +17,20 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import java.nio.ByteBuffer;
+import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils.collectNextRowIdToBuildIndexes;
+import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils.snapshotMetaAt;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -42,9 +47,9 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.Nullable;
@@ -62,6 +67,8 @@ public class OutgoingSnapshot {
     private final UUID id;
 
     private final PartitionAccess partition;
+
+    private final CatalogService catalogService;
 
     /**
      * Lock that is used for mutual exclusion of MV snapshot reading (by this class) and threads that write MV data to the same
@@ -113,9 +120,10 @@ public class OutgoingSnapshot {
     /**
      * Creates a new instance.
      */
-    public OutgoingSnapshot(UUID id, PartitionAccess partition) {
+    public OutgoingSnapshot(UUID id, PartitionAccess partition, CatalogService catalogService) {
         this.id = id;
         this.partition = partition;
+        this.catalogService = catalogService;
 
         lastRowId = RowId.lowestRowId(partition.partitionKey().partitionId());
     }
@@ -159,7 +167,11 @@ public class OutgoingSnapshot {
 
         assert config != null : "Configuration should never be null when installing a snapshot";
 
-        return SnapshotMetaUtils.snapshotMetaAt(lastAppliedIndex, lastAppliedTerm, config);
+        int catalogVersion = catalogService.latestCatalogVersion();
+
+        Map<Integer, UUID> nextRowIdToBuildByIndexId = collectNextRowIdToBuildIndexes(catalogService, partition, catalogVersion);
+
+        return snapshotMetaAt(lastAppliedIndex, lastAppliedTerm, config, catalogVersion, nextRowIdToBuildByIndexId);
     }
 
     /**
@@ -264,12 +276,13 @@ public class OutgoingSnapshot {
         return totalBytesAfter;
     }
 
-    private static long rowSizeInBytes(List<ByteBuffer> rowVersions) {
+    private static long rowSizeInBytes(List<BinaryRowMessage> rowVersions) {
         long sum = 0;
 
-        for (ByteBuffer buf : rowVersions) {
-            if (buf != null) {
-                sum += buf.remaining();
+        for (BinaryRowMessage rowMessage : rowVersions) {
+            if (rowMessage != null) {
+                // Schema version is an unsigned short.
+                sum += rowMessage.binaryTuple().remaining() + Short.BYTES;
             }
         }
 
@@ -318,7 +331,7 @@ public class OutgoingSnapshot {
         }
 
         int count = rowVersionsN2O.size();
-        List<ByteBuffer> buffers = new ArrayList<>(count);
+        List<BinaryRowMessage> rowVersions = new ArrayList<>(count);
 
         int commitTimestampsCount = rowVersionsN2O.get(0).isWriteIntent() ? count - 1 : count;
         long[] commitTimestamps = new long[commitTimestampsCount];
@@ -331,7 +344,14 @@ public class OutgoingSnapshot {
             ReadResult version = rowVersionsN2O.get(i);
             BinaryRow row = version.binaryRow();
 
-            buffers.add(row == null ? null : row.byteBuffer());
+            BinaryRowMessage rowMessage = row == null
+                    ? null
+                    : MESSAGES_FACTORY.binaryRowMessage()
+                            .binaryTuple(row.tupleSlice())
+                            .schemaVersion(row.schemaVersion())
+                            .build();
+
+            rowVersions.add(rowMessage);
 
             if (version.isWriteIntent()) {
                 assert i == 0 : rowVersionsN2O;
@@ -346,7 +366,7 @@ public class OutgoingSnapshot {
 
         return MESSAGES_FACTORY.responseEntry()
                 .rowId(rowId.uuid())
-                .rowVersions(buffers)
+                .rowVersions(rowVersions)
                 .timestamps(commitTimestamps)
                 .txId(transactionId)
                 .commitTableId(commitTableId)

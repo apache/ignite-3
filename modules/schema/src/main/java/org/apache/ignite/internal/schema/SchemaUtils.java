@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.util.Arrays;
-import java.util.Comparator;
-import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
-import org.apache.ignite.internal.schema.configuration.TableView;
+import java.util.List;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.schema.catalog.CatalogToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 
@@ -29,14 +28,13 @@ import org.apache.ignite.internal.schema.mapping.ColumnMapping;
  */
 public class SchemaUtils {
     /**
-     * Creates schema descriptor for the table with specified configuration.
+     * Creates schema descriptor for the table with specified descriptor.
      *
-     * @param schemaVer Schema version.
-     * @param tableView Table configuration.
+     * @param tableDescriptor Table descriptor.
      * @return Schema descriptor.
      */
-    public static SchemaDescriptor prepareSchemaDescriptor(int schemaVer, TableView tableView) {
-        return ConfigurationToSchemaDescriptorConverter.convert(schemaVer, tableView);
+    public static SchemaDescriptor prepareSchemaDescriptor(CatalogTableDescriptor tableDescriptor) {
+        return CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableDescriptor.tableVersion());
     }
 
     /**
@@ -50,25 +48,18 @@ public class SchemaUtils {
             SchemaDescriptor oldDesc,
             SchemaDescriptor newDesc
     ) {
-        Column[] cols = oldDesc.valueColumns().columns();
-        Column[] oldCols = Arrays.copyOf(cols, cols.length);
-
-        Arrays.sort(oldCols, Comparator.comparingInt(Column::columnOrder));
-
-        cols = newDesc.valueColumns().columns();
-        Column[] newCols = Arrays.copyOf(cols, cols.length);
-
-        Arrays.sort(newCols, Comparator.comparingInt(Column::columnOrder));
+        List<Column> oldCols = oldDesc.columns();
+        List<Column> newCols = newDesc.columns();
 
         ColumnMapper mapper = null;
 
-        for (int i = 0; i < newCols.length; ++i) {
-            Column newCol = newCols[i];
+        for (int i = 0; i < newCols.size(); ++i) {
+            Column newCol = newCols.get(i);
 
-            if (i < oldCols.length) {
-                Column oldCol = oldCols[i];
+            if (i < oldCols.size()) {
+                Column oldCol = oldCols.get(i);
 
-                if (newCol.schemaIndex() == oldCol.schemaIndex()) {
+                if (newCol.positionInRow() == oldCol.positionInRow()) {
                     if (!newCol.name().equals(oldCol.name())) {
                         if (mapper == null) {
                             mapper = ColumnMapping.createMapper(newDesc);
@@ -78,7 +69,7 @@ public class SchemaUtils {
 
                         // rename
                         if (oldIdx != null) {
-                            mapper.add(newCol.schemaIndex(), oldIdx.schemaIndex());
+                            mapper.add(newCol.positionInRow(), oldIdx.positionInRow());
                         }
                     }
                 } else {
@@ -86,7 +77,15 @@ public class SchemaUtils {
                         mapper = ColumnMapping.createMapper(newDesc);
                     }
 
-                    mapper.add(newCol.schemaIndex(), oldCol.schemaIndex());
+                    if (newCol.name().equals(oldCol.name())) {
+                        mapper.add(newCol.positionInRow(), oldCol.positionInRow());
+                    } else {
+                        Column oldIdx = oldDesc.column(newCol.name());
+
+                        assert oldIdx != null : newCol.name();
+
+                        mapper.add(newCol.positionInRow(), oldIdx.positionInRow());
+                    }
                 }
             } else {
                 if (mapper == null) {
@@ -108,8 +107,7 @@ public class SchemaUtils {
      * @return {@code True} if schemas are equal, {@code false} otherwise.
      */
     public static boolean equalSchemas(SchemaDescriptor exp, SchemaDescriptor actual) {
-        if (exp.keyColumns().length() != actual.keyColumns().length()
-                || exp.valueColumns().length() != actual.valueColumns().length()) {
+        if (exp.columns().size() != actual.columns().size()) {
             return false;
         }
 

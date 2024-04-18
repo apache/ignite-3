@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.benchmark;
 
 import static java.util.stream.Collectors.joining;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -29,18 +29,22 @@ import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
+import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
@@ -51,24 +55,39 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmark for insertion operation, comparing KV, JDBC and SQL APIs.
  */
 @State(Scope.Benchmark)
+@Fork(1)
+@Threads(1)
+@Warmup(iterations = 10, time = 2)
+@Measurement(iterations = 20, time = 2)
+@BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
-public class InsertBenchmark extends AbstractOneNodeBenchmark {
+public class InsertBenchmark extends AbstractMultiNodeBenchmark {
+    @Param({"1", "2", "3"})
+    private int clusterSize;
+
+    @Param({"1", "2", "4", "8", "16", "32"})
+    private int partitionCount;
+
     /**
      * Benchmark for SQL insert via embedded client.
      */
     @Benchmark
-    @Warmup(iterations = 1, time = 10)
-    @Measurement(iterations = 1, time = 20)
     public void sqlInsert(SqlState state) {
         state.executeQuery();
+    }
+
+    /**
+     * Benchmark for SQL script insert via embedded client.
+     */
+    @Benchmark
+    public void sqlInsertScript(SqlState state) {
+        state.executeScript();
     }
 
     /**
      * Benchmark for KV insert via embedded client.
      */
     @Benchmark
-    @Warmup(iterations = 1, time = 10)
-    @Measurement(iterations = 1, time = 20)
     public void kvInsert(KvState state) {
         state.executeQuery();
     }
@@ -77,18 +96,22 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
      * Benchmark for JDBC insert.
      */
     @Benchmark
-    @Warmup(iterations = 1, time = 10)
-    @Measurement(iterations = 1, time = 20)
     public void jdbcInsert(JdbcState state) throws SQLException {
         state.executeQuery();
+    }
+
+    /**
+     * Benchmark for JDBC script insert.
+     */
+    @Benchmark
+    public void jdbcInsertScript(JdbcState state) throws SQLException {
+        state.executeScript();
     }
 
     /**
      * Benchmark for SQL insert via thin client.
      */
     @Benchmark
-    @Warmup(iterations = 1, time = 10)
-    @Measurement(iterations = 1, time = 20)
     public void sqlThinInsert(SqlThinState state) {
         state.executeQuery();
     }
@@ -97,8 +120,6 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
      * Benchmark for KV insert via thin client.
      */
     @Benchmark
-    @Warmup(iterations = 1, time = 10)
-    @Measurement(iterations = 1, time = 20)
     public void kvThinInsert(KvThinState state) {
         state.executeQuery();
     }
@@ -109,23 +130,20 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + InsertBenchmark.class.getSimpleName() + ".*")
-                .forks(1)
-                .threads(1)
-                .mode(Mode.AverageTime)
                 .build();
 
         new Runner(opt).run();
     }
 
     /**
-     * Benchmark state for {@link #sqlInsert(SqlState)}.
+     * Benchmark state for {@link #sqlInsert(SqlState)} and {@link #sqlInsertScript(SqlState)}.
      *
-     * <p>Holds {@link Session} and {@link Statement}.
+     * <p>Holds {@link Statement}.
      */
     @State(Scope.Benchmark)
     public static class SqlState {
         private Statement statement;
-        private Session session;
+        private IgniteSql sql;
 
         /**
          * Initializes session and statement.
@@ -134,38 +152,33 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
         public void setUp() {
             String queryStr = createInsertStatement();
 
-            IgniteSql sql = clusterNode.sql();
-
+            sql = clusterNode.sql();
             statement = sql.createStatement(queryStr);
-            session = sql.createSession();
-        }
-
-        /**
-         * Closes resources.
-         */
-        @TearDown
-        public void tearDown() throws Exception {
-            // statement.close() throws `UnsupportedOperationException("Not implemented yet.")`, that's why it's commented.
-            IgniteUtils.closeAll(session/*, statement*/);
         }
 
         private int id = 0;
 
         void executeQuery() {
-            session.execute(null, statement, id++);
+            try (ResultSet<?> rs = sql.execute(null, statement, id++)) {
+                // NO-OP
+            }
+        }
+
+        void executeScript() {
+            sql.executeScript(statement.query(), id++);
         }
     }
 
     /**
      * Benchmark state for {@link #sqlThinInsert(SqlThinState)}.
      *
-     * <p>Holds {@link Session}, {@link IgniteClient}, and {@link Statement}.
+     * <p>Holds {@link IgniteClient} and {@link Statement}.
      */
     @State(Scope.Benchmark)
     public static class SqlThinState {
         private IgniteClient client;
         private Statement statement;
-        private Session session;
+        private IgniteSql sql;
 
         /**
          * Initializes session and statement.
@@ -176,10 +189,9 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
 
             client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
 
-            IgniteSql sql = client.sql();
+            sql = client.sql();
 
             statement = sql.createStatement(queryStr);
-            session = sql.createSession();
         }
 
         /**
@@ -188,18 +200,18 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
         @TearDown
         public void tearDown() throws Exception {
             // statement.close() throws `UnsupportedOperationException("Not implemented yet.")`, that's why it's commented.
-            IgniteUtils.closeAll(session/*, statement*/, client);
+            IgniteUtils.closeAll(/* statement, */ client);
         }
 
         private int id = 0;
 
         void executeQuery() {
-            session.execute(null, statement, id++);
+            sql.execute(null, statement, id++);
         }
     }
 
     /**
-     * Benchmark state for {@link #jdbcInsert(JdbcState)}.
+     * Benchmark state for {@link #jdbcInsert(JdbcState)} and {@link #jdbcInsertScript(JdbcState)}.
      *
      * <p>Holds {@link Connection} and {@link PreparedStatement}.
      */
@@ -235,6 +247,11 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
         void executeQuery() throws SQLException {
             stmt.setInt(1, id++);
             stmt.executeUpdate();
+        }
+
+        void executeScript() throws SQLException {
+            stmt.setInt(1, id++);
+            stmt.execute();
         }
     }
 
@@ -310,5 +327,15 @@ public class InsertBenchmark extends AbstractOneNodeBenchmark {
         String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
 
         return format(insertQueryTemplate, TABLE_NAME, "ycsb_key", fieldsQ, valQ);
+    }
+
+    @Override
+    protected int nodes() {
+        return clusterSize;
+    }
+
+    @Override
+    protected int partitionCount() {
+        return partitionCount;
     }
 }

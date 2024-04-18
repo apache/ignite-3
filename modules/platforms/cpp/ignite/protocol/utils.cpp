@@ -18,6 +18,8 @@
 #include "ignite/protocol/utils.h"
 #include "ignite/protocol/reader.h"
 
+#include "ignite/common/error_codes.h"
+
 #include <msgpack.h>
 
 #include <limits>
@@ -27,6 +29,14 @@
 #include <type_traits>
 
 namespace ignite::protocol {
+
+/**
+ * Error data extensions. When the server returns an error response, it may contain additional data in a map.
+ * Keys are defined here.
+ */
+namespace error_extensions {
+const std::string EXPECTED_SCHEMA_VERSION{"expected-schema-ver"};
+}
 
 /**
  * Check if int value fits in @c T.
@@ -88,6 +98,17 @@ T unpack_int(const msgpack_object &object) {
     return T(i64_val);
 }
 
+template<typename T>
+T unpack_uint(const msgpack_object &object) {
+    static_assert(std::numeric_limits<T>::is_integer && !std::numeric_limits<T>::is_signed,
+        "Type T is not a unsigned integer type");
+
+    auto u64_val = unpack_object<std::uint64_t>(object);
+
+    check_int_fits<T>(u64_val);
+    return T(u64_val);
+}
+
 template<>
 std::optional<std::string> unpack_nullable(const msgpack_object &object) {
     if (object.type == MSGPACK_OBJECT_NIL)
@@ -105,6 +126,14 @@ std::int64_t unpack_object(const msgpack_object &object) {
 }
 
 template<>
+std::uint64_t unpack_object(const msgpack_object &object) {
+    if (object.type != MSGPACK_OBJECT_POSITIVE_INTEGER)
+        throw ignite_error("The value in stream is not a positive integer number : " + std::to_string(object.type));
+
+    return object.via.u64;
+}
+
+template<>
 std::int32_t unpack_object(const msgpack_object &object) {
     return unpack_int<std::int32_t>(object);
 }
@@ -115,8 +144,18 @@ std::int16_t unpack_object(const msgpack_object &object) {
 }
 
 template<>
+std::uint16_t unpack_object(const msgpack_object &object) {
+    return unpack_uint<std::uint16_t>(object);
+}
+
+template<>
 std::int8_t unpack_object(const msgpack_object &object) {
     return unpack_int<std::int8_t>(object);
+}
+
+template<>
+std::uint8_t unpack_object(const msgpack_object &object) {
+    return unpack_uint<std::uint8_t>(object);
 }
 
 template<>
@@ -151,18 +190,6 @@ bool unpack_object(const msgpack_object &object) {
     return object.via.boolean;
 }
 
-std::uint32_t unpack_array_size(const msgpack_object &object) {
-    if (object.type != MSGPACK_OBJECT_ARRAY)
-        throw ignite_error("The value in stream is not an Array : " + std::to_string(object.type));
-    return object.via.array.size;
-}
-
-void unpack_array_raw(const msgpack_object &object, const std::function<void(const msgpack_object &)> &read_func) {
-    auto size = unpack_array_size(object);
-    for (std::uint32_t i = 0; i < size; ++i)
-        read_func(object.via.array.ptr[i]);
-}
-
 bytes_view unpack_binary(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_BIN)
         throw ignite_error("The value in stream is not a Binary data : " + std::to_string(object.type));
@@ -182,14 +209,20 @@ uuid make_random_uuid() {
     return {distrib(gen), distrib(gen)};
 }
 
-std::optional<ignite_error> read_error(reader &reader) {
+std::optional<ignite_error> try_read_error(reader &reader) {
     if (reader.try_read_nil())
         return std::nullopt;
 
+    return {read_error(reader)};
+}
+
+ignite_error read_error(reader &reader) {
     auto trace_id = reader.try_read_nil() ? make_random_uuid() : reader.read_uuid();
     auto code = reader.read_object_or_default<std::int32_t>(65537);
     auto class_name = reader.read_string();
     auto message = reader.read_string_nullable();
+    auto java_stack_trace = reader.read_string_nullable();
+    UNUSED_VALUE java_stack_trace;
 
     std::stringstream err_msg_builder;
 
@@ -198,7 +231,21 @@ std::optional<ignite_error> read_error(reader &reader) {
         err_msg_builder << ": " << *message;
     err_msg_builder << " (" << code << ", " << trace_id << ")";
 
-    return {ignite_error(status_code(code), err_msg_builder.str())};
+    std::optional<std::int32_t> ver{};
+    if (!reader.try_read_nil()) {
+        // Reading extensions
+        auto num = reader.read_int32();
+        for (std::int32_t i = 0; i < num; ++i) {
+            auto key = reader.read_string();
+            if (key == error_extensions::EXPECTED_SCHEMA_VERSION) {
+                ver = reader.read_int32();
+            } else {
+                reader.skip();
+            }
+        }
+    }
+
+    return ignite_error{error::code(code), err_msg_builder.str(), ver};
 }
 
 void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &value) {
@@ -211,7 +258,7 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
 
     switch (value.get_type()) {
         case ignite_type::BOOLEAN: {
-            claim_type_and_scale(builder, ignite_type::INT8);
+            claim_type_and_scale(builder, ignite_type::BOOLEAN);
             builder.claim_bool(value.get<bool>());
             break;
         }
@@ -322,7 +369,7 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
 
     switch (value.get_type()) {
         case ignite_type::BOOLEAN: {
-            append_type_and_scale(builder, ignite_type::INT8);
+            append_type_and_scale(builder, ignite_type::BOOLEAN);
             builder.append_bool(value.get<bool>());
             break;
         }

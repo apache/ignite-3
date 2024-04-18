@@ -32,7 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Set;
 import org.apache.ignite.internal.cli.config.ConfigManager;
-import org.apache.ignite.internal.cli.util.OperatingSystem;
+import org.apache.ignite.internal.util.OperatingSystem;
 
 /**
  * Test factory for {@link ConfigManager}.
@@ -97,6 +97,10 @@ public class TestConfigManagerHelper {
 
     public static File createClusterUrlSslConfig() {
         return copyResourceToTempFile(CLUSTER_URL_SSL);
+    }
+
+    public static File readClusterConfigurationWithEnabledAuthFile() {
+        return copyResourceToTempFile(CLUSTER_CONFIGURATION_WITH_ENABLED_AUTH);
     }
 
     public static String readClusterConfigurationWithEnabledAuth() {

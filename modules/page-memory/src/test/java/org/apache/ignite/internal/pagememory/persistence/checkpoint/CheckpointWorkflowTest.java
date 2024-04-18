@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
+import static org.apache.ignite.internal.pagememory.persistence.PartitionMeta.partitionMetaPageId;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.EMPTY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
@@ -32,12 +33,15 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.BEFORE_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_MARK_CHECKPOINT_BEGIN;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -63,14 +67,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointDirtyPages.CheckpointDirtyPagesView;
-import org.apache.ignite.internal.pagememory.util.PageIdUtils;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -79,9 +81,7 @@ import org.mockito.ArgumentCaptor;
 /**
  * For {@link CheckpointWorkflow} testing.
  */
-public class CheckpointWorkflowTest {
-    private final IgniteLogger log = Loggers.forClass(CheckpointWorkflowTest.class);
-
+public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
     @Nullable
     private CheckpointWorkflow workflow;
 
@@ -202,7 +202,7 @@ public class CheckpointWorkflowTest {
 
         doNothing().when(progressImpl).currentCheckpointPagesCount(pagesCountArgumentCaptor.capture());
 
-        when(progressImpl.futureFor(PAGES_SORTED)).thenReturn(completedFuture(null));
+        when(progressImpl.futureFor(PAGES_SORTED)).thenReturn(nullCompletedFuture());
 
         UUID checkpointId = UUID.randomUUID();
 
@@ -499,6 +499,89 @@ public class CheckpointWorkflowTest {
         );
     }
 
+    /**
+     * Tests that dirty partition with no dirty pages will be checkpointed.
+     */
+    @Test
+    void testDirtyPartitionWithoutDirtyPages() throws Exception {
+        PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
+
+        DataRegion<PersistentPageMemory> dataRegion = () -> pageMemory;
+
+        workflow = new CheckpointWorkflow(
+                "test",
+                newReadWriteLock(log),
+                List.of(dataRegion),
+                1
+        );
+
+        workflow.start();
+
+        int groupId = 10;
+        int partitionId = 20;
+
+        FullPageId metaPageId = new FullPageId(partitionMetaPageId(partitionId), groupId);
+        workflow.markPartitionAsDirty(dataRegion, groupId, partitionId);
+
+        Checkpoint checkpoint = workflow.markCheckpointBegin(
+                coarseCurrentTimeMillis(),
+                mock(CheckpointProgressImpl.class),
+                mock(CheckpointMetricsTracker.class),
+                () -> {},
+                () -> {}
+        );
+
+        assertEquals(1, checkpoint.dirtyPagesSize);
+
+        CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.nextPartitionView(null);
+
+        assertNotNull(dirtyPagesView);
+        assertThat(toListDirtyPageIds(dirtyPagesView), is(List.of(metaPageId)));
+    }
+
+    /**
+     * Tests that dirty partition with dirty pages will be checkpointed.
+     */
+    @Test
+    void testDirtyPartitionWithDirtyPages() throws Exception {
+        PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
+
+        DataRegion<PersistentPageMemory> dataRegion = () -> pageMemory;
+
+        workflow = new CheckpointWorkflow(
+                "test",
+                newReadWriteLock(log),
+                List.of(dataRegion),
+                1
+        );
+
+        workflow.start();
+
+        int groupId = 10;
+        int partitionId = 20;
+
+        FullPageId metaPageId = new FullPageId(partitionMetaPageId(partitionId), groupId);
+        FullPageId dataPageId = new FullPageId(pageId(partitionId, FLAG_DATA, 1), groupId);
+
+        workflow.markPartitionAsDirty(dataRegion, groupId, partitionId);
+        when(pageMemory.beginCheckpoint(any())).thenReturn(List.of(dataPageId));
+
+        Checkpoint checkpoint = workflow.markCheckpointBegin(
+                coarseCurrentTimeMillis(),
+                mock(CheckpointProgressImpl.class),
+                mock(CheckpointMetricsTracker.class),
+                () -> {},
+                () -> {}
+        );
+
+        assertEquals(2, checkpoint.dirtyPagesSize);
+
+        CheckpointDirtyPagesView dirtyPagesView = checkpoint.dirtyPages.nextPartitionView(null);
+
+        assertNotNull(dirtyPagesView);
+        assertThat(toListDirtyPageIds(dirtyPagesView), is(List.of(metaPageId, dataPageId)));
+    }
+
     @Test
     void testAwaitPendingTasksOfListenerCallback() {
         workflow = new CheckpointWorkflow(
@@ -595,7 +678,7 @@ public class CheckpointWorkflowTest {
     }
 
     private static FullPageId of(int grpId, int partId, int pageIdx) {
-        return new FullPageId(PageIdUtils.pageId(partId, (byte) 0, pageIdx), grpId);
+        return new FullPageId(pageId(partId, (byte) 0, pageIdx), grpId);
     }
 
     /**

@@ -23,13 +23,13 @@ import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicId;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.mapIterable;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicInstanceId;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
-import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
 import java.lang.reflect.Field;
 import java.util.Collection;
@@ -41,8 +41,8 @@ import java.util.Set;
 import java.util.function.Function;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -74,22 +74,22 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
      * Constructor that takes a collection of root keys and a collection of internal schema extensions.
      *
      * @param rootKeys Root keys.
-     * @param internalSchemaExtensions Internal schema extensions.
+     * @param schemaExtensions Schema extensions.
      * @param polymorphicSchemaExtensions Polymorphic schema extensions.
      */
     public ConfigurationTreeGenerator(
             Collection<RootKey<?, ?>> rootKeys,
-            Collection<Class<?>> internalSchemaExtensions,
+            Collection<Class<?>> schemaExtensions,
             Collection<Class<?>> polymorphicSchemaExtensions) {
 
         this.rootKeys = rootKeys.stream().collect(toMap(RootKey::key, identity()));
 
-        Set<Class<?>> allSchemas = collectAllSchemas(rootKeys, internalSchemaExtensions, polymorphicSchemaExtensions);
+        Set<Class<?>> allSchemas = collectAllSchemas(rootKeys, schemaExtensions, polymorphicSchemaExtensions);
 
-        Map<Class<?>, Set<Class<?>>> internalExtensions = internalExtensionsWithCheck(allSchemas, internalSchemaExtensions);
+        Map<Class<?>, Set<Class<?>>> extensions = extensionsWithCheck(allSchemas, schemaExtensions);
         Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicExtensionsWithCheck(allSchemas, polymorphicSchemaExtensions);
 
-        rootKeys.forEach(key -> generator.compileRootSchema(key.schemaClass(), internalExtensions, polymorphicExtensions));
+        rootKeys.forEach(key -> generator.compileRootSchema(key.schemaClass(), extensions, polymorphicExtensions));
     }
 
     /**
@@ -161,12 +161,14 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
      * @param polymorphicSchemaExtensions polymorphic schema extensions
      * @return set of all schema classes
      */
-    private static Set<Class<?>> collectAllSchemas(Collection<RootKey<?, ?>> rootKeys,
+    private static Set<Class<?>> collectAllSchemas(
+            Collection<RootKey<?, ?>> rootKeys,
             Collection<Class<?>> internalSchemaExtensions,
-            Collection<Class<?>> polymorphicSchemaExtensions) {
+            Collection<Class<?>> polymorphicSchemaExtensions
+    ) {
         Set<Class<?>> allSchemas = new HashSet<>();
 
-        allSchemas.addAll(collectSchemas(viewReadOnly(rootKeys, RootKey::schemaClass)));
+        allSchemas.addAll(collectSchemas(mapIterable(rootKeys, RootKey::schemaClass)));
         allSchemas.addAll(collectSchemas(internalSchemaExtensions));
         allSchemas.addAll(collectSchemas(polymorphicSchemaExtensions));
 
@@ -177,30 +179,30 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
      * Get configuration schemas and their validated internal extensions with checks.
      *
      * @param allSchemas All configuration schemas.
-     * @param internalSchemaExtensions Internal extensions ({@link InternalConfiguration}) of configuration schemas
+     * @param schemaExtensions Extensions ({@link ConfigurationExtension}) of configuration schemas
      *         ({@link ConfigurationRoot} and {@link Config}).
      * @return Mapping: original of the schema -> internal schema extensions.
      * @throws IllegalArgumentException If the schema extension is invalid.
      */
-    private Map<Class<?>, Set<Class<?>>> internalExtensionsWithCheck(
+    private Map<Class<?>, Set<Class<?>>> extensionsWithCheck(
             Set<Class<?>> allSchemas,
-            Collection<Class<?>> internalSchemaExtensions
+            Collection<Class<?>> schemaExtensions
     ) {
-        if (internalSchemaExtensions.isEmpty()) {
+        if (schemaExtensions.isEmpty()) {
             return Map.of();
         }
 
-        Map<Class<?>, Set<Class<?>>> internalExtensions = internalSchemaExtensions(internalSchemaExtensions);
+        Map<Class<?>, Set<Class<?>>> extensions = schemaExtensions(schemaExtensions);
 
-        Set<Class<?>> notInAllSchemas = difference(internalExtensions.keySet(), allSchemas);
+        Set<Class<?>> notInAllSchemas = difference(extensions.keySet(), allSchemas);
 
         if (!notInAllSchemas.isEmpty()) {
             throw new IllegalArgumentException(
-                    "Internal extensions for which no parent configuration schemas were found: " + notInAllSchemas
+                    "Extensions for which no parent configuration schemas were found: " + notInAllSchemas
             );
         }
 
-        return internalExtensions;
+        return extensions;
     }
 
     /**

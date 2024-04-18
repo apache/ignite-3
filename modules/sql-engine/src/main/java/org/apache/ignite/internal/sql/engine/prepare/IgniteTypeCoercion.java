@@ -23,6 +23,7 @@ import static org.apache.calcite.util.Static.RESOURCE;
 
 import java.nio.charset.Charset;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -38,10 +39,13 @@ import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDynamicParam;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperator;
+import org.apache.calcite.sql.SqlSelect;
+import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
@@ -93,8 +97,8 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         }
 
         SqlValidatorScope scope = binding.getScope();
-        RelDataType leftType = validator.deriveType(scope, call.operand(0));
-        RelDataType rightType = validator.deriveType(scope, call.operand(1));
+        RelDataType leftType = binding.getOperandType(0);
+        RelDataType rightType = binding.getOperandType(1);
 
         //
         // binaryComparisonCoercion that makes '1' > 1 work, may introduce some inconsistent results
@@ -151,7 +155,16 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     public boolean binaryArithmeticCoercion(SqlCallBinding binding) {
         ContextStack ctxStack = contextStack.get();
         Context ctx = ctxStack.push(ContextType.UNSPECIFIED);
+
         try {
+            // Called from CompositeOperandTypeChecker that does not care whether this is a binary arithmetic or not.
+            if (binding.getOperandCount() == 2 && SqlKind.BINARY_ARITHMETIC.contains(binding.getCall().getKind())) {
+                RelDataType leftType = binding.getOperandType(0);
+                RelDataType rightType = binding.getOperandType(1);
+
+                validateBinaryOperation(binding, leftType, rightType);
+            }
+
             return super.binaryArithmeticCoercion(binding);
         } finally {
             ctxStack.pop(ctx);
@@ -164,6 +177,8 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         ContextStack ctxStack = contextStack.get();
         Context ctx = ctxStack.push(ContextType.UNSPECIFIED);
         try {
+            validateFunctionOperands(binding, operandTypes, expectedFamilies);
+
             return super.builtinFunctionCoercion(binding, operandTypes, expectedFamilies);
         } finally {
             ctxStack.pop(ctx);
@@ -238,6 +253,8 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         ContextStack ctxStack = contextStack.get();
         Context ctx = ctxStack.push(ContextType.MODIFY);
         try {
+            validateDynamicParametersInModify(scope, targetRowType, query);
+
             return super.querySourceCoercion(scope, sourceRowType, targetRowType, query);
         } finally {
             ctxStack.pop(ctx);
@@ -270,6 +287,14 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         } else if (SqlTypeUtil.isIntType(toType)) {
             if (fromType == null) {
                 return false;
+            }
+
+            // we need this check for further possibility to validate BIGINT overflow
+            // TODO: need to be removed after https://issues.apache.org/jira/browse/IGNITE-20889
+            if (fromType.getSqlTypeName() == SqlTypeName.BIGINT && toType.getSqlTypeName() == SqlTypeName.BIGINT) {
+                if (node.getKind() == SqlKind.LITERAL) {
+                    return true;
+                }
             }
             // The following checks ensure that there no ClassCastException when casting from one
             // integer type to another (e.g. int to smallint, int to bigint)
@@ -308,7 +333,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         }
 
         // We should never coerce DEFAULT, since it is going to break
-        // convertColumnList and DEFAULTs are not going to be replaced with
+        // SqlToRelConverter::convertColumnList and DEFAULTs are not going to be replaced with
         // values, produced by initializerFactory.newColumnDefaultValue.
         if (operand.getKind() == SqlKind.DEFAULT) {
             // DEFAULT is also of type ANY
@@ -456,6 +481,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
      * Sync the data type additional attributes before casting,
      * i.e. nullability, charset, collation.
      */
+    @SuppressWarnings("PMD.MissingOverride")
     RelDataType syncAttributes(
             RelDataType fromType,
             RelDataType toType) {
@@ -522,6 +548,103 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     }
 
     /**
+     * Validate dynamic parameters in binary operator.
+     */
+    private void validateBinaryOperation(SqlCallBinding binding, RelDataType type1, RelDataType type2) {
+        SqlValidator validator = binding.getValidator();
+        boolean lhsUnknown = validator.getUnknownType() == type1;
+        boolean rhsUnknown = validator.getUnknownType() == type2;
+
+        if (lhsUnknown && rhsUnknown) {
+            String signature = IgniteResource.makeSignature(binding, type1, type2);
+            throw binding.newValidationError(IgniteResource.INSTANCE.ambiguousOperator1(signature));
+        } else if (lhsUnknown) {
+            RelDataType nullableType = typeFactory.createTypeWithNullability(type2, true);
+            validator.setValidatedNodeType(binding.operand(0), nullableType);
+        } else if (rhsUnknown) {
+            RelDataType nullableType = typeFactory.createTypeWithNullability(type1, true);
+            validator.setValidatedNodeType(binding.operand(1), nullableType);
+        }
+    }
+
+    /**
+     * Validates dynamic parameters passed as function arguments.
+     */
+    private void validateFunctionOperands(SqlCallBinding binding, List<RelDataType> operandTypes, List<SqlTypeFamily> expectedFamilies) {
+        // This method is also called from SqlBinaryOperator's CompositeOperandTypeChecker
+        // in case fo binary operators.
+        IgniteSqlValidator validator = (IgniteSqlValidator) binding.getValidator();
+
+        for (int i = 0; i < binding.getOperandCount(); i++) {
+            SqlNode operand = binding.getCall().operand(i);
+
+            if (validator.isUnspecifiedDynamicParam(operand)) {
+                SqlTypeFamily expectedTypeFamily = expectedFamilies.get(i);
+
+                if (expectedTypeFamily.getTypeNames().size() > 1) {
+                    String signature = IgniteResource.makeSignature(binding, operandTypes);
+                    String allowedSignatures = binding.getOperator().getAllowedSignatures();
+
+                    throw binding.newValidationError(IgniteResource.INSTANCE.ambiguousOperator2(signature, allowedSignatures));
+                }
+            }
+        }
+    }
+
+    /**
+     * Validates parameters in INSERT/UPDATE.
+     */
+    private void validateDynamicParametersInModify(@Nullable SqlValidatorScope scope, RelDataType targetRowType, SqlNode query) {
+        ContextType contextType;
+        List<List<SqlNode>> sourceLists;
+
+        if (query instanceof SqlInsert) {
+            SqlInsert insert = (SqlInsert) query;
+
+            if (insert.getSource() instanceof SqlSelect) {
+                // NOT MATCHED THEN arm of a MERGE statement.
+                SqlSelect select = (SqlSelect) insert.getSource();
+                sourceLists = List.of(select.getSelectList());
+            } else  {
+                // Basic INSERT INTO ... VALUES (...).
+                SqlCall values = (SqlCall) insert.getSource();
+                assert values.getKind() == SqlKind.VALUES : "Unexpected source node for INSERT " + values;
+                List<List<SqlNode>> rows = new ArrayList<>(values.getOperandList().size());
+
+                for (SqlNode rowNode : values.getOperandList()) {
+                    SqlCall row = (SqlCall) rowNode;
+                    rows.add(row.getOperandList());
+                }
+
+                sourceLists = rows;
+            }
+
+            contextType = ContextType.INSERT;
+        } else if (query instanceof SqlUpdate) {
+            SqlUpdate update = (SqlUpdate) query;
+            sourceLists = List.of(update.getSourceExpressionList());
+
+            contextType = ContextType.MODIFY;
+        } else {
+            throw new AssertionError("Encountered unexpected SQL node during dynamic parameter validation: " + query);
+        }
+
+        for (List<SqlNode> sourceList : sourceLists) {
+            for (int i = 0; i < sourceList.size(); i++) {
+                SqlNode node = sourceList.get(i);
+
+                if (node.getKind() == SqlKind.DYNAMIC_PARAM) {
+                    SqlDynamicParam dynamicParam = (SqlDynamicParam) node;
+                    RelDataType targetType = targetRowType.getFieldList().get(i).getType();
+                    IgniteSqlValidator validator1 = (IgniteSqlValidator) scope.getValidator();
+
+                    validateAssignment(dynamicParam, targetType, contextType, validator1);
+                }
+            }
+        }
+    }
+
+    /**
      * Validates dynamic parameters in binary comparison operation.
      */
     private void validateBinaryComparisonCoercion(SqlCallBinding binding, RelDataType leftType,
@@ -530,12 +653,30 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         SqlNode lhs = binding.operand(0);
         SqlNode rhs = binding.operand(1);
 
+        boolean lhsUnknown = validator.isUnspecifiedDynamicParam(lhs);
+        boolean rhsUnknown = validator.isUnspecifiedDynamicParam(rhs);
+
+        if (lhsUnknown && rhsUnknown) {
+            String signature = IgniteResource.makeSignature(binding, leftType, rightType);
+            throw binding.newValidationError(IgniteResource.INSTANCE.ambiguousOperator1(signature));
+        }
+
         if (lhs instanceof SqlDynamicParam) {
-            validateOperand((SqlDynamicParam) lhs, rightType, binding.getOperator(), validator);
+            if (rhsUnknown) {
+                RelDataType nullableType = typeFactory.createTypeWithNullability(rightType, true);
+                validator.setValidatedNodeType(binding.operand(0), nullableType);
+            } else {
+                validateOperand((SqlDynamicParam) lhs, rightType, binding.getOperator(), validator);
+            }
         }
 
         if (rhs instanceof SqlDynamicParam) {
-            validateOperand((SqlDynamicParam) rhs, leftType, binding.getOperator(), validator);
+            if (lhsUnknown) {
+                RelDataType nullableType = typeFactory.createTypeWithNullability(leftType, true);
+                validator.setValidatedNodeType(binding.operand(1), nullableType);
+            } else {
+                validateOperand((SqlDynamicParam) rhs, leftType, binding.getOperator(), validator);
+            }
         }
     }
 
@@ -572,7 +713,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         // (and we have no such information here).
 
         if (ctxType == ContextType.SET_OP) {
-            RelDataType paramType = validator.getDynamicParamType(dynamicParam);
+            RelDataType paramType = validator.resolveDynamicParameterType(dynamicParam, targetType);
             return TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType);
         } else {
             validateAssignment(dynamicParam, targetType, ctxType, validator);
@@ -582,8 +723,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19721 - move this check to SqlValidator (if possible).
     private void validateAssignment(SqlDynamicParam node, RelDataType targetType, ContextType ctxType, IgniteSqlValidator validator) {
-
-        RelDataType paramType = validator.getDynamicParamType(node);
+        RelDataType paramType = validator.resolveDynamicParameterType(node, targetType);
         boolean compatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType);
         if (compatible) {
             return;
@@ -611,14 +751,19 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19721 - move this check to SqlValidator (if possible).
     private void validateOperand(SqlDynamicParam node, RelDataType targetType, SqlOperator operator, IgniteSqlValidator validator) {
 
-        RelDataType paramType = validator.getDynamicParamType(node);
+        RelDataType paramType = validator.resolveDynamicParameterType(node, targetType);
         boolean compatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType);
         if (compatible) {
             return;
         }
 
-        var ex = IgniteResource.INSTANCE.operationRequiresExplicitCast(operator.getName());
-        throw SqlUtil.newContextException(node.getParserPosition(), ex);
+        if (validator.isUnspecified(node)) {
+            var ex = IgniteResource.INSTANCE.ambiguousOperator1(operator.getName());
+            throw SqlUtil.newContextException(node.getParserPosition(), ex);
+        } else {
+            var ex = IgniteResource.INSTANCE.operationRequiresExplicitCast(operator.getName());
+            throw SqlUtil.newContextException(node.getParserPosition(), ex);
+        }
     }
 
     /**

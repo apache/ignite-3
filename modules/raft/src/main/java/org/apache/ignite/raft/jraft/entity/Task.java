@@ -40,7 +40,7 @@ public class Task implements Serializable {
     private static final long serialVersionUID = 2971309899898274575L;
 
     /** Associated  task data */
-    private ByteBuffer data = LogEntry.EMPTY_DATA;;
+    private ByteBuffer data = LogEntry.EMPTY_DATA;
     /** task closure, called when the data is successfully committed to the raft group or failures happen. */
     private Closure done;
     /**

@@ -17,40 +17,53 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Network.PORT_IN_USE_ERR;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.timeout.IdleStateHandler;
 import java.net.BindException;
 import java.net.InetSocketAddress;
-import java.util.UUID;
+import java.nio.channels.UnresolvedAddressException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
-import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
-import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Client handler module maintains TCP endpoint for thin client connections.
@@ -59,20 +72,18 @@ public class ClientHandlerModule implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientHandlerModule.class);
 
-    /** Configuration registry. */
-    private final ConfigurationRegistry registry;
+    /** Connection id generator.
+     * The resulting connection id is local to the current node and is intended for logging, diagnostics, and management purposes. */
+    private static final AtomicLong CONNECTION_ID_GEN = new AtomicLong();
 
     /** Ignite tables API. */
     private final IgniteTablesInternal igniteTables;
 
     /** Ignite transactions API. */
-    private final IgniteTransactions igniteTransactions;
-
-    /** Ignite SQL API. */
-    private final IgniteSql sql;
+    private final IgniteTransactionsImpl igniteTransactions;
 
     /** Cluster ID supplier. */
-    private final Supplier<CompletableFuture<UUID>> clusterIdSupplier;
+    private final Supplier<CompletableFuture<ClusterTag>> clusterTagSupplier;
 
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
@@ -80,17 +91,15 @@ public class ClientHandlerModule implements IgniteComponent {
     /** Metric manager. */
     private final MetricManager metricManager;
 
-    /** Cluster ID. */
-    private UUID clusterId;
-
     /** Netty channel. */
+    @Nullable
     private volatile Channel channel;
 
     /** Processor. */
     private final QueryProcessor queryProcessor;
 
     /** Compute. */
-    private final IgniteCompute igniteCompute;
+    private final IgniteComputeInternal igniteCompute;
 
     /** Cluster. */
     private final ClusterService clusterService;
@@ -100,7 +109,23 @@ public class ClientHandlerModule implements IgniteComponent {
 
     private final AuthenticationManager authenticationManager;
 
-    private final AuthenticationConfiguration authenticationConfiguration;
+    private final ClockService clockService;
+
+    private final SchemaSyncService schemaSyncService;
+
+    private final CatalogService catalogService;
+
+    private final ClientPrimaryReplicaTracker primaryReplicaTracker;
+
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
+
+    private final ClientConnectorConfiguration clientConnectorConfiguration;
+
+    @TestOnly
+    @SuppressWarnings("unused")
+    private volatile ChannelHandler handler;
 
     /**
      * Constructor.
@@ -108,88 +133,102 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param queryProcessor Sql query processor.
      * @param igniteTables Ignite.
      * @param igniteTransactions Transactions.
-     * @param registry Configuration registry.
      * @param igniteCompute Compute.
      * @param clusterService Cluster.
      * @param bootstrapFactory Bootstrap factory.
-     * @param sql SQL.
-     * @param clusterIdSupplier ClusterId supplier.
+     * @param clusterTagSupplier ClusterTag supplier.
      * @param metricManager Metric manager.
      * @param authenticationManager Authentication manager.
-     * @param authenticationConfiguration Authentication configuration.
+     * @param clockService Clock service.
+     * @param clientConnectorConfiguration Configuration of the connector.
+     * @param lowWatermark Low watermark.
      */
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
             IgniteTablesInternal igniteTables,
-            IgniteTransactions igniteTransactions,
-            ConfigurationRegistry registry,
-            IgniteCompute igniteCompute,
+            IgniteTransactionsImpl igniteTransactions,
+            IgniteComputeInternal igniteCompute,
             ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory,
-            IgniteSql sql,
-            Supplier<CompletableFuture<UUID>> clusterIdSupplier,
+            Supplier<CompletableFuture<ClusterTag>> clusterTagSupplier,
             MetricManager metricManager,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
-            AuthenticationConfiguration authenticationConfiguration) {
+            ClockService clockService,
+            SchemaSyncService schemaSyncService,
+            CatalogService catalogService,
+            PlacementDriver placementDriver,
+            ClientConnectorConfiguration clientConnectorConfiguration,
+            LowWatermark lowWatermark
+    ) {
         assert igniteTables != null;
-        assert registry != null;
         assert queryProcessor != null;
         assert igniteCompute != null;
         assert clusterService != null;
         assert bootstrapFactory != null;
-        assert sql != null;
-        assert clusterIdSupplier != null;
+        assert clusterTagSupplier != null;
         assert metricManager != null;
         assert metrics != null;
         assert authenticationManager != null;
-        assert authenticationConfiguration != null;
+        assert clockService != null;
+        assert schemaSyncService != null;
+        assert catalogService != null;
+        assert placementDriver != null;
+        assert clientConnectorConfiguration != null;
+        assert lowWatermark != null;
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
         this.igniteCompute = igniteCompute;
         this.clusterService = clusterService;
-        this.registry = registry;
         this.bootstrapFactory = bootstrapFactory;
-        this.sql = sql;
-        this.clusterIdSupplier = clusterIdSupplier;
+        this.clusterTagSupplier = clusterTagSupplier;
         this.metricManager = metricManager;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
-        this.authenticationConfiguration = authenticationConfiguration;
+        this.clockService = clockService;
+        this.schemaSyncService = schemaSyncService;
+        this.catalogService = catalogService;
+        this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(placementDriver, catalogService, clockService, schemaSyncService,
+                lowWatermark);
+        this.clientConnectorConfiguration = clientConnectorConfiguration;
     }
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         if (channel != null) {
-            throw new IgniteException("ClientHandlerModule is already started.");
+            throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule is already started.");
         }
 
-        var configuration = registry.getConfiguration(ClientConnectorConfiguration.KEY).value();
+        var configuration = clientConnectorConfiguration.value();
 
         metricManager.registerSource(metrics);
-
         if (configuration.metricsEnabled()) {
             metrics.enable();
         }
 
-        try {
-            channel = startEndpoint(configuration).channel();
-            clusterId = clusterIdSupplier.get().join();
-        } catch (InterruptedException e) {
-            throw new IgniteException(e);
-        }
+        primaryReplicaTracker.start();
+
+        return startEndpoint(configuration).thenAccept(ch -> channel = ch);
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-        metricManager.unregisterSource(metrics);
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
 
-        if (channel != null) {
-            channel.close().await();
+        busyLock.block();
+
+        metricManager.unregisterSource(metrics);
+        primaryReplicaTracker.stop();
+
+        var ch = channel;
+        if (ch != null) {
+            ch.close().await();
 
             channel = null;
         }
@@ -202,11 +241,12 @@ public class ClientHandlerModule implements IgniteComponent {
      * @throws IgniteInternalException if the module is not started.
      */
     public InetSocketAddress localAddress() {
-        if (channel == null) {
-            throw new IgniteInternalException("ClientHandlerModule has not been started");
+        var ch = channel;
+        if (ch == null) {
+            throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule has not been started");
         }
 
-        return (InetSocketAddress) channel.localAddress();
+        return (InetSocketAddress) ch.localAddress();
     }
 
     /**
@@ -214,11 +254,11 @@ public class ClientHandlerModule implements IgniteComponent {
      *
      * @param configuration Configuration.
      * @return Channel future.
-     * @throws InterruptedException If thread has been interrupted during the start.
-     * @throws IgniteException      When startup has failed.
      */
-    private ChannelFuture startEndpoint(ClientConnectorView configuration) throws InterruptedException {
+    private CompletableFuture<Channel> startEndpoint(ClientConnectorView configuration) {
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
+        CompletableFuture<ClusterTag> clusterTag = clusterTagSupplier.get();
+        CompletableFuture<Channel> result = new CompletableFuture<>();
 
         // Initialize SslContext once on startup to avoid initialization on each connection, and to fail in case of incorrect config.
         SslContext sslContext = configuration.ssl().enabled() ? SslContextProvider.createServerSslContext(configuration.ssl()) : null;
@@ -226,74 +266,111 @@ public class ClientHandlerModule implements IgniteComponent {
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug("New client connection [remoteAddress=" + ch.remoteAddress() + ']');
+                        if (!busyLock.enterBusy()) {
+                            ch.close();
+                            return;
                         }
 
-                        if (configuration.idleTimeout() > 0) {
-                            IdleStateHandler idleStateHandler = new IdleStateHandler(
-                                    configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
+                        try {
+                            long connectionId = CONNECTION_ID_GEN.incrementAndGet();
 
-                            ch.pipeline().addLast(idleStateHandler);
-                            ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeout(), metrics));
+                            if (LOG.isDebugEnabled()) {
+                                LOG.debug("New client connection [connectionId=" + connectionId
+                                        + ", remoteAddress=" + ch.remoteAddress() + ']');
+                            }
+
+                            if (configuration.idleTimeout() > 0) {
+                                IdleStateHandler idleStateHandler = new IdleStateHandler(
+                                        configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
+
+                                ch.pipeline().addLast(idleStateHandler);
+                                ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeout(), metrics, connectionId));
+                            }
+
+                            if (sslContext != null) {
+                                ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
+                            }
+
+                            ClientInboundMessageHandler messageHandler = createInboundMessageHandler(
+                                    configuration, clusterTag, connectionId);
+
+                            //noinspection TestOnlyProblems
+                            handler = messageHandler;
+
+                            ch.pipeline().addLast(
+                                    new ClientMessageDecoder(),
+                                    messageHandler
+                            );
+
+                            metrics.connectionsInitiatedIncrement();
+                        } finally {
+                            busyLock.leaveBusy();
                         }
-
-                        if (sslContext != null) {
-                            ch.pipeline().addFirst("ssl", sslContext.newHandler(ch.alloc()));
-                        }
-
-                        ch.pipeline().addLast(
-                                new ClientMessageDecoder(),
-                                createInboundMessageHandler(configuration));
-
-                        metrics.connectionsInitiatedIncrement();
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
 
         int port = configuration.port();
-        Channel ch = null;
+        String address = configuration.listenAddress();
 
-        ChannelFuture bindRes = bootstrap.bind(port).await();
+        ChannelFuture channelFuture = address.isEmpty() ? bootstrap.bind(port) : bootstrap.bind(address, port);
 
-        if (bindRes.isSuccess()) {
-            ch = bindRes.channel();
-        } else if (!(bindRes.cause() instanceof BindException)) {
-            throw new IgniteException(
-                    ErrorGroups.Common.INTERNAL_ERR,
-                    "Failed to start thin client connector endpoint: " + bindRes.cause().getMessage(),
-                    bindRes.cause());
-        }
+        channelFuture.addListener((ChannelFutureListener) bindFut -> {
+            if (bindFut.isSuccess()) {
+                if (LOG.isInfoEnabled()) {
+                    LOG.info(
+                            "Thin client connector endpoint started successfully [{}]",
+                            (address.isEmpty() ? "" : "address=" + address + ",") + "port=" + port);
+                }
 
-        if (ch == null) {
-            String msg = "Cannot start thin client connector endpoint. Port " + port + " is in use.";
+                result.complete(bindFut.channel());
+            } else if (bindFut.cause() instanceof BindException) {
+                // TODO IGNITE-21614
+                result.completeExceptionally(
+                        new IgniteException(
+                                PORT_IN_USE_ERR,
+                                "Cannot start thin client connector endpoint. Port " + port + " is in use.",
+                                bindFut.cause())
+                );
+            } else if (bindFut.cause() instanceof UnresolvedAddressException) {
+                result.completeExceptionally(
+                        new IgniteException(
+                                ADDRESS_UNRESOLVED_ERR,
+                                "Failed to start thin connector endpoint, unresolved socket address \"" + address + "\"",
+                                bindFut.cause()
+                        )
+                );
+            } else {
+                result.completeExceptionally(
+                        new IgniteException(
+                                INTERNAL_ERR,
+                                "Failed to start thin client connector endpoint: " + bindFut.cause().getMessage(),
+                                bindFut.cause()));
+            }
+        });
 
-            LOG.debug(msg);
-
-            throw new IgniteException(ErrorGroups.Network.PORT_IN_USE_ERR, msg);
-        }
-
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Thin client protocol started successfully [port={}]", port);
-        }
-
-        return ch.closeFuture();
+        return result;
     }
 
-    private ClientInboundMessageHandler createInboundMessageHandler(ClientConnectorView configuration) {
-        ClientInboundMessageHandler clientInboundMessageHandler = new ClientInboundMessageHandler(
+    private ClientInboundMessageHandler createInboundMessageHandler(
+            ClientConnectorView configuration,
+            CompletableFuture<ClusterTag> clusterTag,
+            long connectionId) {
+        return new ClientInboundMessageHandler(
                 igniteTables,
                 igniteTransactions,
                 queryProcessor,
                 configuration,
                 igniteCompute,
                 clusterService,
-                sql,
-                clusterId,
+                clusterTag,
                 metrics,
-                authenticationManager);
-        authenticationConfiguration.listen(clientInboundMessageHandler);
-        return clientInboundMessageHandler;
+                authenticationManager,
+                clockService,
+                schemaSyncService,
+                catalogService,
+                connectionId,
+                primaryReplicaTracker
+        );
     }
-
 }

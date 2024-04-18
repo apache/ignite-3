@@ -18,8 +18,12 @@
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
+    annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor libs.auto.service
+
     implementation project(':ignite-api')
     implementation project(':ignite-catalog')
     implementation project(':ignite-core')
@@ -30,15 +34,49 @@ dependencies {
     implementation project(':ignite-storage-api')
     implementation project(':ignite-network-api')
     implementation project(':ignite-raft-api')
+    implementation project(':ignite-metastorage-api')
+    implementation project(':ignite-placement-driver-api')
+    implementation project(':ignite-replicator')
+    implementation project(':ignite-cluster-management')
+    implementation project(':ignite-low-watermark')
     implementation libs.jetbrains.annotations
 
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-core')))
+    testImplementation(testFixtures(project(':ignite-vault')))
+    testImplementation(testFixtures(project(':ignite-metastorage')))
+    testImplementation(testFixtures(project(':ignite-table')))
+    testImplementation(testFixtures(project(':ignite-catalog')))
+    testImplementation(testFixtures(project(':ignite-low-watermark')))
+    testImplementation project(':ignite-placement-driver')
+    testImplementation project(':ignite-replicator')
+    testImplementation project(':ignite-cluster-management')
     testImplementation libs.mockito.core
-    testImplementation libs.mockito.inline
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
-    testImplementation libs.slf4j.jdk14
+
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-core')
+    integrationTestImplementation project(':ignite-raft-api')
+    integrationTestImplementation project(':ignite-raft')
+    integrationTestImplementation project(':ignite-table')
+    integrationTestImplementation project(':ignite-network-api')
+    integrationTestImplementation project(':ignite-replicator')
+    integrationTestImplementation project(':ignite-storage-api')
+    integrationTestImplementation project(':ignite-transactions')
+    integrationTestImplementation project(':ignite-distribution-zones')
+    integrationTestImplementation project(':ignite-affinity')
+    integrationTestImplementation project(':ignite-metastorage-api')
+    integrationTestImplementation project(':ignite-storage-page-memory')
+    integrationTestImplementation project(':ignite-storage-rocksdb')
+    integrationTestImplementation project(':ignite-page-memory')
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
+    integrationTestImplementation testFixtures(project(':ignite-table'))
+    integrationTestImplementation testFixtures(project(':ignite-storage-api'))
+    integrationTestImplementation libs.jetbrains.annotations
 }
 
 description = 'ignite-index'

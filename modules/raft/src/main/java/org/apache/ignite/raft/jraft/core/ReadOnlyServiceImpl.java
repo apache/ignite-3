@@ -41,6 +41,7 @@ import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.ReadIndexState;
 import org.apache.ignite.raft.jraft.entity.ReadIndexStatus;
+import org.apache.ignite.raft.jraft.error.OverloadException;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.error.RaftException;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -53,15 +54,12 @@ import org.apache.ignite.raft.jraft.util.ByteString;
 import org.apache.ignite.raft.jraft.util.Bytes;
 import org.apache.ignite.raft.jraft.util.DisruptorMetricSet;
 import org.apache.ignite.raft.jraft.util.OnlyForTest;
-import org.apache.ignite.raft.jraft.util.ThreadHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
  * Read-only service implementation.
  */
 public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndexListener {
-    private static final int MAX_ADD_REQUEST_RETRY_TIMES = 3;
-
     /**
      * Disruptor to run readonly service.
      */
@@ -194,10 +192,19 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
                     notifySuccess(readIndexStatus);
                 }
                 else {
-                    // Not applied, add it to pending-notify cache.
-                    ReadOnlyServiceImpl.this.pendingNotifyStatus
-                        .computeIfAbsent(readIndexStatus.getIndex(), k -> new ArrayList<>(10)) //
-                        .add(readIndexStatus);
+                    if (readIndexStatus.isOverMaxReadIndexLag(
+                            ReadOnlyServiceImpl.this.fsmCaller.getLastAppliedIndex(),
+                            ReadOnlyServiceImpl.this.raftOptions.getMaxReadIndexLag())
+                    ) {
+                        ReadOnlyServiceImpl.this.lock.unlock();
+                        doUnlock = false;
+                        notifyFail(new Status(-1, "Fail to run ReadIndex task, the gap of current node's apply index between leader's commit index over maxReadIndexLag"));
+                    } else  {
+                        // Not applied, add it to pending-notify cache.
+                        ReadOnlyServiceImpl.this.pendingNotifyStatus
+                            .computeIfAbsent(readIndexStatus.getIndex(), k -> new ArrayList<>(10)) //
+                            .add(readIndexStatus);
+                    }
                 }
             }
             finally {
@@ -329,22 +336,23 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
                 event.requestContext = new Bytes(reqCtx);
                 event.startTime = Utils.monotonicMs();
             };
-            int retryTimes = 0;
-            while (true) {
-                if (this.readIndexQueue.tryPublishEvent(translator)) {
+
+            switch (this.node.getOptions().getApplyTaskMode()) {
+                case Blocking:
+                    this.readIndexQueue.publishEvent(translator);
                     break;
-                }
-                else {
-                    retryTimes++;
-                    if (retryTimes > MAX_ADD_REQUEST_RETRY_TIMES) {
-                        Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), closure,
-                            new Status(RaftError.EBUSY, "Node is busy, has too many read-only requests."));
+                case NonBlocking:
+                default:
+                    if (!this.readIndexQueue.tryPublishEvent(translator)) {
+                        String errorMsg = "Node is busy, has too many read-index requests, queue is full and bufferSize="+ this.readIndexQueue.getBufferSize();
+                        Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), closure, new Status(RaftError.EBUSY, errorMsg));
                         this.nodeMetrics.recordTimes("read-index-overload-times", 1);
                         LOG.warn("Node {} ReadOnlyServiceImpl readIndexQueue is overload.", this.node.getNodeId());
-                        return;
-                    }
-                    ThreadHelper.onSpinWait();
-                }
+                        if(closure == null) {
+                            throw new OverloadException(errorMsg);
+                        }
+                  }
+                  break;
             }
         }
         catch (final Exception e) {
@@ -417,6 +425,11 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
     @OnlyForTest
     TreeMap<Long, List<ReadIndexStatus>> getPendingNotifyStatus() {
         return this.pendingNotifyStatus;
+    }
+
+    @OnlyForTest
+    RaftOptions getRaftOptions() {
+        return this.raftOptions;
     }
 
     private void reportError(final ReadIndexStatus status, final Status st) {

@@ -24,14 +24,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.internal.lang.IgniteUuid;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.direct.state.DirectMessageState;
 import org.apache.ignite.internal.network.direct.state.DirectMessageStateItem;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStream;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStreamImplV1;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageReader;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.network.serialization.MessageReader;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.jetbrains.annotations.Nullable;
 
@@ -429,6 +429,17 @@ public class DirectMessageReader implements MessageReader {
         DirectByteBufferStream stream = state.item().stream;
 
         IgniteUuid val = stream.readIgniteUuid();
+
+        lastRead = stream.lastFinished();
+
+        return val;
+    }
+
+    @Override
+    public short readHeaderShort() {
+        DirectByteBufferStream stream = state.item().stream;
+
+        short val = stream.readShort();
 
         lastRead = stream.lastFinished();
 

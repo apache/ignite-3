@@ -30,7 +30,6 @@ using Transactions;
 /// <typeparam name="TV">Value type.</typeparam>
 public interface IKeyValueView<TK, TV> : IDataStreamerTarget<KeyValuePair<TK, TV>>
     where TK : notnull
-    where TV : notnull
 {
     /// <summary>
     /// Gets a value associated with the given key.

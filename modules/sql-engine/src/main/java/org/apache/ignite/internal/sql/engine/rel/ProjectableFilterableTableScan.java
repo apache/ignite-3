@@ -45,6 +45,7 @@ import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
+import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -127,7 +128,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     public RelWriter explainTerms(RelWriter pw) {
         return explainTerms0(pw
                 .item("table", table.getQualifiedName())
-                .itemIf("tableId", Integer.toString(table.unwrap(IgniteTable.class).id()),
+                .itemIf("tableId", Integer.toString(table.unwrap(IgniteDataSource.class).id()),
                 pw.getDetailLevel() == ALL_ATTRIBUTES));
     }
 
@@ -175,7 +176,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         if (projects != null) {
             return RexUtil.createStructType(Commons.typeFactory(getCluster()), projects);
         } else {
-            return table.unwrap(IgniteTable.class).getRowType(Commons.typeFactory(getCluster()), requiredColumns);
+            return table.unwrap(IgniteDataSource.class).getRowType(Commons.typeFactory(getCluster()), requiredColumns);
         }
     }
 

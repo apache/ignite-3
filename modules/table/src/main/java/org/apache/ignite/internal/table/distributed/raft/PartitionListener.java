@@ -18,72 +18,82 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowUpgrader;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
-import org.apache.ignite.internal.storage.PartitionTimestampCursor;
-import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
-import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.tx.TransactionResult;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
  * Partition command handler.
  */
-public class PartitionListener implements RaftGroupListener {
+public class PartitionListener implements RaftGroupListener, BeforeApplyHandler {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
-    /** Empty sorted set. */
-    private static final SortedSet<RowId> EMPTY_SET = Collections.emptySortedSet();
+    /** Transaction manager. */
+    private final TxManager txManager;
 
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
@@ -94,45 +104,53 @@ public class PartitionListener implements RaftGroupListener {
     /** Storage of transaction metadata. */
     private final TxStateStorage txStateStorage;
 
-    /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
-    private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new HashMap<>();
-
     /** Safe time tracker. */
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
     /** Storage index tracker. */
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
+    /** Is used in order to detect and retry safe time reordering within onBeforeApply. */
+    private volatile long maxObservableSafeTime = -1;
+
+    /** Is used in order to assert safe time reordering within onWrite. */
+    private long maxObservableSafeTimeVerifier = -1;
+
+    private final CatalogService catalogService;
+
+    private final SchemaRegistry schemaRegistry;
+
+    private final ClockService clockService;
+
     /**
      * The constructor.
      *
+     * @param txManager Transaction manager.
      * @param partitionDataStorage The storage.
      * @param safeTime Safe time tracker.
      * @param storageIndexTracker Storage index tracker.
+     * @param catalogService Catalog service.
      */
     public PartitionListener(
+            TxManager txManager,
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,
             TxStateStorage txStateStorage,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
+            CatalogService catalogService,
+            SchemaRegistry schemaRegistry,
+            ClockService clockService
     ) {
+        this.txManager = txManager;
         this.storage = partitionDataStorage;
         this.storageUpdateHandler = storageUpdateHandler;
         this.txStateStorage = txStateStorage;
         this.safeTime = safeTime;
         this.storageIndexTracker = storageIndexTracker;
-
-        // TODO: IGNITE-18502 Implement a pending update storage
-        try (PartitionTimestampCursor cursor = partitionDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
-            while (cursor.hasNext()) {
-                ReadResult readResult = cursor.next();
-
-                if (readResult.isWriteIntent()) {
-                    txsPendingRowIds.computeIfAbsent(readResult.transactionId(), key -> new TreeSet<>()).add(readResult.rowId());
-                }
-            }
-        }
+        this.catalogService = catalogService;
+        this.schemaRegistry = schemaRegistry;
+        this.clockService = clockService;
     }
 
     @Override
@@ -149,6 +167,19 @@ public class PartitionListener implements RaftGroupListener {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();
 
+            if (command instanceof SafeTimePropagatingCommand) {
+                SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
+                long proposedSafeTime = cmd.safeTime().longValue();
+
+                // Because of clock.tick it's guaranteed that two different commands will have different safe timestamps.
+                // maxObservableSafeTime may match proposedSafeTime only if it is the command that was previously validated and then retried
+                // by raft client because of either TimeoutException or inner raft server recoverable exception.
+                assert proposedSafeTime >= maxObservableSafeTimeVerifier : "Safe time reordering detected [current="
+                        + maxObservableSafeTimeVerifier + ", proposed=" + proposedSafeTime + "]";
+
+                maxObservableSafeTimeVerifier = proposedSafeTime;
+            }
+
             long commandIndex = clo.index();
             long commandTerm = clo.term();
 
@@ -160,6 +191,8 @@ public class PartitionListener implements RaftGroupListener {
                     "Write command must have an index greater than that of storages [commandIndex=" + commandIndex
                             + ", mvAppliedIndex=" + storage.lastAppliedIndex()
                             + ", txStateAppliedIndex=" + txStateStorage.lastAppliedIndex() + "]";
+
+            Serializable result = null;
 
             // NB: Make sure that ANY command we accept here updates lastAppliedIndex+term info in one of the underlying
             // storages!
@@ -174,26 +207,26 @@ public class PartitionListener implements RaftGroupListener {
 
             try {
                 if (command instanceof UpdateCommand) {
-                    handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
+                    result = handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof UpdateAllCommand) {
-                    handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm);
+                    result = handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof FinishTxCommand) {
-                    handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
-                } else if (command instanceof TxCleanupCommand) {
-                    handleTxCleanupCommand((TxCleanupCommand) command, commandIndex, commandTerm);
+                    result = handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof WriteIntentSwitchCommand) {
+                    handleWriteIntentSwitchCommand((WriteIntentSwitchCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof SafeTimeSyncCommand) {
                     handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof BuildIndexCommand) {
                     handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof PrimaryReplicaChangeCommand) {
+                    handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
-
-                clo.result(null);
             } catch (IgniteInternalException e) {
-                clo.result(e);
+                result = e;
             } catch (CompletionException e) {
-                clo.result(e.getCause());
+                result = e.getCause();
             } catch (Throwable t) {
                 LOG.error(
                         "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
@@ -206,12 +239,18 @@ public class PartitionListener implements RaftGroupListener {
                 storage.releasePartitionSnapshotsReadLock();
             }
 
+            // Completing the closure out of the partition snapshots lock to reduce possibility of deadlocks as it might
+            // trigger other actions taking same locks.
+            clo.result(result);
+
             if (command instanceof SafeTimePropagatingCommand) {
                 SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) command;
 
                 assert safeTimePropagatingCommand.safeTime() != null;
 
-                updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
+                synchronized (safeTime) {
+                    updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
+                }
             }
 
             updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
@@ -225,19 +264,50 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
      */
-    private void handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
+    private UpdateCommandResult handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return;
+            return new UpdateCommandResult(true);
         }
 
-        storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.rowBuffer(),
-                rowId -> {
-                    txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new TreeSet<>()).add(rowId);
+        if (cmd.leaseStartTime() != null) {
+            long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
 
-                    storage.lastApplied(commandIndex, commandTerm);
-                }
-        );
+            long storageLeaseStartTime = storage.leaseStartTime();
+
+            if (leaseStartTime != storageLeaseStartTime) {
+                return new UpdateCommandResult(false, storageLeaseStartTime);
+            }
+        }
+
+        UUID txId = cmd.txId();
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
+        synchronized (safeTime) {
+            if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                storageUpdateHandler.handleUpdate(
+                        txId,
+                        cmd.rowUuid(),
+                        cmd.tablePartitionId().asTablePartitionId(),
+                        cmd.rowToUpdate(),
+                        !cmd.full(),
+                        () -> storage.lastApplied(commandIndex, commandTerm),
+                        cmd.full() ? cmd.safeTime() : null,
+                        cmd.lastCommitTimestamp(),
+                        indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
+                );
+
+                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+            } else {
+                // We MUST bump information about last updated index+term.
+                // See a comment in #onWrite() for explanation.
+                advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
+            }
+        }
+
+        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
+
+        return new UpdateCommandResult(true);
     }
 
     /**
@@ -247,19 +317,48 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
      */
-    private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm) {
+    private UpdateCommandResult handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return;
+            return new UpdateCommandResult(true);
         }
 
-        storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), rowIds -> {
-            for (RowId rowId : rowIds) {
-                txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new TreeSet<>()).add(rowId);
-            }
+        if (cmd.leaseStartTime() != null) {
+            long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
 
-            storage.lastApplied(commandIndex, commandTerm);
-        });
+            long storageLeaseStartTime = storage.leaseStartTime();
+
+            if (leaseStartTime != storageLeaseStartTime) {
+                return new UpdateCommandResult(false, storageLeaseStartTime);
+            }
+        }
+
+        UUID txId = cmd.txId();
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
+        synchronized (safeTime) {
+            if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                storageUpdateHandler.handleUpdateAll(
+                        txId,
+                        cmd.rowsToUpdate(),
+                        cmd.tablePartitionId().asTablePartitionId(),
+                        !cmd.full(),
+                        () -> storage.lastApplied(commandIndex, commandTerm),
+                        cmd.full() ? cmd.safeTime() : null,
+                        indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
+                );
+
+                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+            } else {
+                // We MUST bump information about last updated index+term.
+                // See a comment in #onWrite() for explanation.
+                advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
+            }
+        }
+
+        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
+
+        return new UpdateCommandResult(true);
     }
 
     /**
@@ -268,24 +367,23 @@ public class PartitionListener implements RaftGroupListener {
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
+     * @return The actually stored transaction state {@link TransactionResult}.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
-    private void handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm) throws IgniteInternalException {
+    private @Nullable TransactionResult handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm)
+            throws IgniteInternalException {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStateStorage.lastAppliedIndex()) {
-            return;
+            return null;
         }
 
         UUID txId = cmd.txId();
 
-        TxState stateToSet = cmd.commit() ? COMMITED : ABORTED;
+        TxState stateToSet = cmd.commit() ? COMMITTED : ABORTED;
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
-                cmd.tablePartitionIds()
-                        .stream()
-                        .map(TablePartitionIdMessage::asTablePartitionId)
-                        .collect(toList()),
+                fromPartitionIdMessage(cmd.partitionIds()),
                 cmd.commitTimestamp()
         );
 
@@ -299,36 +397,35 @@ public class PartitionListener implements RaftGroupListener {
                 commandTerm
         );
 
+        markFinished(txId, cmd.commit(), cmd.commitTimestamp());
+
         LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 
         if (!txStateChangeRes) {
-            UUID traceId = UUID.randomUUID();
-
-            String errorMsg = format("Fail to finish the transaction txId = {} because of inconsistent state = {},"
-                            + " expected state = null, state to set = {}",
-                    txId,
-                    txMetaBeforeCas,
-                    txMetaToSet
-            );
-
-            IgniteInternalException stateChangeException = new IgniteInternalException(traceId, TX_UNEXPECTED_STATE_ERR, errorMsg);
-
-            // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
-            LOG.error(errorMsg);
-
-            throw stateChangeException;
+            onTxStateStorageCasFail(txId, txMetaBeforeCas, txMetaToSet);
         }
+
+        return new TransactionResult(stateToSet, cmd.commitTimestamp());
     }
 
+    private static List<TablePartitionId> fromPartitionIdMessage(List<TablePartitionIdMessage> partitionIds) {
+        List<TablePartitionId> list = new ArrayList<>(partitionIds.size());
+
+        for (TablePartitionIdMessage partitionIdMessage : partitionIds) {
+            list.add(partitionIdMessage.asTablePartitionId());
+        }
+
+        return list;
+    }
 
     /**
-     * Handler for the {@link TxCleanupCommand}.
+     * Handler for the {@link WriteIntentSwitchCommand}.
      *
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
      */
-    private void handleTxCleanupCommand(TxCleanupCommand cmd, long commandIndex, long commandTerm) {
+    private void handleWriteIntentSwitchCommand(WriteIntentSwitchCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return;
@@ -336,28 +433,15 @@ public class PartitionListener implements RaftGroupListener {
 
         UUID txId = cmd.txId();
 
-        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
+        markFinished(txId, cmd.commit(), cmd.commitTimestamp());
 
-        if (cmd.commit()) {
-            storage.runConsistently(locker -> {
-                pendingRowIds.forEach(locker::lock);
-
-                pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
-
-                txsPendingRowIds.remove(txId);
-
-                storage.lastApplied(commandIndex, commandTerm);
-
-                return null;
-            });
-        } else {
-            storageUpdateHandler.handleTransactionAbortion(pendingRowIds, () -> {
-                // on replication callback
-                txsPendingRowIds.remove(txId);
-
-                storage.lastApplied(commandIndex, commandTerm);
-            });
-        }
+        storageUpdateHandler.switchWriteIntents(
+                txId,
+                cmd.commit(),
+                cmd.commitTimestamp(),
+                () -> storage.lastApplied(commandIndex, commandTerm),
+                indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
+        );
     }
 
     /**
@@ -365,7 +449,7 @@ public class PartitionListener implements RaftGroupListener {
      *
      * @param cmd Command.
      * @param commandIndex RAFT index of the command.
-     * @param commandTerm  RAFT term of the command.
+     * @param commandTerm RAFT term of the command.
      */
     private void handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
@@ -375,6 +459,10 @@ public class PartitionListener implements RaftGroupListener {
 
         // We MUST bump information about last updated index+term.
         // See a comment in #onWrite() for explanation.
+        advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
+    }
+
+    private void advanceLastAppliedIndexConsistently(long commandIndex, long commandTerm) {
         storage.runConsistently(locker -> {
             storage.lastApplied(commandIndex, commandTerm);
 
@@ -400,6 +488,7 @@ public class PartitionListener implements RaftGroupListener {
                         new RaftGroupConfiguration(config.peers(), config.learners(), config.oldPeers(), config.oldLearners())
                 );
                 storage.lastApplied(config.index(), config.term());
+                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
 
                 return null;
             });
@@ -432,6 +521,7 @@ public class PartitionListener implements RaftGroupListener {
         });
 
         txStateStorage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
+        updateTrackerIgnoringTrackerClosedException(storageIndexTracker, maxLastAppliedIndex);
 
         CompletableFuture.allOf(storage.flush(), txStateStorage.flush())
                 .whenComplete((unused, throwable) -> doneClo.accept(throwable));
@@ -445,6 +535,31 @@ public class PartitionListener implements RaftGroupListener {
     @Override
     public void onShutdown() {
         storage.close();
+    }
+
+    @Override
+    public void onLeaderStart() {
+        maxObservableSafeTime = clockService.now().addPhysicalTime(clockService.maxClockSkewMillis()).longValue();
+    }
+
+    @Override
+    public boolean onBeforeApply(Command command) {
+        // This method is synchronized by replication group specific monitor, see ActionRequestProcessor#handleRequest.
+        if (command instanceof SafeTimePropagatingCommand) {
+            SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
+            long proposedSafeTime = cmd.safeTime().longValue();
+
+            // Because of clock.tick it's guaranteed that two different commands will have different safe timestamps.
+            // maxObservableSafeTime may match proposedSafeTime only if it is the command that was previously validated and then retried
+            // by raft client because of either TimeoutException or inner raft server recoverable exception.
+            if (proposedSafeTime >= maxObservableSafeTime) {
+                maxObservableSafeTime = proposedSafeTime;
+            } else {
+                throw new SafeTimeReorderException();
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -468,8 +583,9 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
-        // It's important to not block any thread while being inside of the "runConsistently" section.
-        storageUpdateHandler.getIndexUpdateHandler().waitForIndex(cmd.indexId());
+        BuildIndexRowVersionChooser rowVersionChooser = createBuildIndexRowVersionChooser(cmd);
+
+        BinaryRowUpgrader binaryRowUpgrader = createBinaryRowUpgrader(cmd);
 
         storage.runConsistently(locker -> {
             List<UUID> rowUuids = new ArrayList<>(cmd.rowIds());
@@ -477,7 +593,12 @@ public class PartitionListener implements RaftGroupListener {
             // Natural UUID order matches RowId order within the same partition.
             Collections.sort(rowUuids);
 
-            Stream<BinaryRowAndRowId> buildIndexRowStream = createBuildIndexRowStream(rowUuids, locker);
+            Stream<BinaryRowAndRowId> buildIndexRowStream = createBuildIndexRowStream(
+                    rowUuids,
+                    locker,
+                    rowVersionChooser,
+                    binaryRowUpgrader
+            );
 
             RowId nextRowIdToBuild = cmd.finish() ? null : toRowId(requireNonNull(last(rowUuids))).increment();
 
@@ -491,9 +612,51 @@ public class PartitionListener implements RaftGroupListener {
         if (cmd.finish()) {
             LOG.info(
                     "Finish building the index: [tableId={}, partitionId={}, indexId={}]",
-                    cmd.tablePartitionId().tableId(), cmd.tablePartitionId().partitionId(), cmd.indexId()
+                    storage.tableId(), storage.partitionId(), cmd.indexId()
             );
         }
+    }
+
+    /**
+     * Handler for {@link PrimaryReplicaChangeCommand}.
+     *
+     * @param cmd Command.
+     * @param commandIndex Command index.
+     * @param commandTerm Command term.
+     */
+    private void handlePrimaryReplicaChangeCommand(PrimaryReplicaChangeCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        storage.runConsistently(locker -> {
+            storage.updateLease(cmd.leaseStartTime());
+
+            storage.lastApplied(commandIndex, commandTerm);
+
+            return null;
+        });
+    }
+
+    private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {
+        String errorMsg = format("Failed to update tx state in the storage, transaction txId = {} because of inconsistent state,"
+                        + " expected state = {}, state to set = {}",
+                txId,
+                txMetaBeforeCas,
+                txMetaToSet
+        );
+
+        IgniteInternalException stateChangeException =
+                new UnexpectedTransactionStateException(
+                        errorMsg,
+                        new TransactionResult(txMetaBeforeCas.txState(), txMetaBeforeCas.commitTimestamp())
+                );
+
+        // Exception is explicitly logged because otherwise it can be lost if it did not occur on the leader.
+        LOG.error(errorMsg);
+
+        throw stateChangeException;
     }
 
     private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
@@ -507,23 +670,77 @@ public class PartitionListener implements RaftGroupListener {
         }
     }
 
-    private Stream<BinaryRowAndRowId> createBuildIndexRowStream(List<UUID> rowUuids, Locker locker) {
+    private Stream<BinaryRowAndRowId> createBuildIndexRowStream(
+            List<UUID> rowUuids,
+            Locker locker,
+            BuildIndexRowVersionChooser rowVersionChooser,
+            BinaryRowUpgrader binaryRowUpgrader
+    ) {
         return rowUuids.stream()
                 .map(this::toRowId)
                 .peek(locker::lock)
-                .map(rowId -> {
-                    try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-                        return cursor.stream()
-                                .filter(not(ReadResult::isEmpty))
-                                .map(ReadResult::binaryRow)
-                                .map(binaryRow -> new BinaryRowAndRowId(binaryRow, rowId))
-                                .collect(toList());
-                    }
-                })
-                .flatMap(Collection::stream);
+                .map(rowVersionChooser::chooseForBuildIndex)
+                .flatMap(Collection::stream)
+                .map(binaryRowAndRowId -> upgradeBinaryRow(binaryRowUpgrader, binaryRowAndRowId));
     }
 
     private RowId toRowId(UUID rowUuid) {
         return new RowId(storageUpdateHandler.partitionId(), rowUuid);
+    }
+
+    private void replicaTouch(UUID txId, String txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(
+                full ? COMMITTED : PENDING,
+                txCoordinatorId,
+                old == null ? null : old.commitPartitionId(),
+                full ? commitTimestamp : null
+        ));
+    }
+
+    private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(
+                commit ? COMMITTED : ABORTED,
+                old == null ? null : old.txCoordinatorId(),
+                old == null ? null : old.commitPartitionId(),
+                commit ? commitTimestamp : null
+        ));
+    }
+
+    private BuildIndexRowVersionChooser createBuildIndexRowVersionChooser(BuildIndexCommand command) {
+        int indexCreationCatalogVersion = command.creationCatalogVersion();
+        Catalog indexCreationCatalog = catalogService.catalog(indexCreationCatalogVersion);
+
+        assert indexCreationCatalog != null : "indexId=" + command.indexId() + ", catalogVersion=" + indexCreationCatalogVersion;
+
+        int startBuildingIndexCatalogVersion = command.requiredCatalogVersion();
+
+        Catalog startBuildingIndexCatalog = catalogService.catalog(startBuildingIndexCatalogVersion);
+
+        assert startBuildingIndexCatalog != null : "indexId=" + command.indexId() + ", catalogVersion=" + startBuildingIndexCatalogVersion;
+
+        return new BuildIndexRowVersionChooser(storage, indexCreationCatalog.time(), startBuildingIndexCatalog.time());
+    }
+
+    private BinaryRowUpgrader createBinaryRowUpgrader(BuildIndexCommand command) {
+        int indexCreationCatalogVersion = command.creationCatalogVersion();
+
+        CatalogIndexDescriptor indexDescriptor = catalogService.index(command.indexId(), indexCreationCatalogVersion);
+
+        assert indexDescriptor != null : "indexId=" + command.indexId() + ", catalogVersion=" + indexCreationCatalogVersion;
+
+        CatalogTableDescriptor tableDescriptor = catalogService.table(indexDescriptor.tableId(), indexCreationCatalogVersion);
+
+        assert tableDescriptor != null : "tableId=" + indexDescriptor.tableId() + ", catalogVersion=" + indexCreationCatalogVersion;
+
+        SchemaDescriptor schema = schemaRegistry.schema(tableDescriptor.tableVersion());
+
+        return new BinaryRowUpgrader(schemaRegistry, schema);
+    }
+
+    private static BinaryRowAndRowId upgradeBinaryRow(BinaryRowUpgrader upgrader, BinaryRowAndRowId source) {
+        BinaryRow sourceBinaryRow = source.binaryRow();
+        BinaryRow upgradedBinaryRow = upgrader.upgrade(sourceBinaryRow);
+
+        return upgradedBinaryRow == sourceBinaryRow ? source : new BinaryRowAndRowId(upgradedBinaryRow, source.rowId());
     }
 }

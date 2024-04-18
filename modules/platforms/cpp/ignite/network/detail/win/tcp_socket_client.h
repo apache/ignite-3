@@ -77,7 +77,7 @@ public:
         int res = getaddrinfo(hostname, str_port.c_str(), &hints, &result);
 
         if (res != 0)
-            throw ignite_error(status_code::NETWORK,
+            throw ignite_error(error::code::CONNECTION,
                 "Can not resolve host: " + std::string(hostname) + ":" + str_port
                     + ", error_code=" + std::to_string(res));
 
@@ -96,7 +96,7 @@ public:
 
             if (m_socket_handle == INVALID_SOCKET)
                 throw ignite_error(
-                    status_code::OS, "Socket creation failed: " + detail::get_last_socket_error_message());
+                    error::code::CONNECTION, "Socket creation failed: " + detail::get_last_socket_error_message());
 
             detail::try_set_socket_options(m_socket_handle, BUFFER_SIZE, TRUE, TRUE, TRUE);
 
@@ -133,7 +133,7 @@ public:
             if (is_timeout)
                 return false;
 
-            throw ignite_error(status_code::NETWORK, last_err_msg);
+            throw ignite_error(error::code::CONNECTION, last_err_msg);
         }
 
         return true;

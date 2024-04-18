@@ -60,7 +60,7 @@ public class SnapshotFileReaderTest extends BaseStorageTest {
         final LocalFileMetaOutter.LocalFileMeta meta = opts.getRaftMessagesFactory()
             .localFileMeta()
             .checksum("test")
-            .source(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL)
+            .sourceNumber(LocalFileMetaOutter.FileSource.FILE_SOURCE_LOCAL.getNumber())
             .build();
         this.metaTable.addFile("data", meta);
         return meta;

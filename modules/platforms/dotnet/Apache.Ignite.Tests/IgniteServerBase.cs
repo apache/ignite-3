@@ -70,24 +70,7 @@ public abstract class IgniteServerBase : IDisposable
 
     public void Dispose()
     {
-        lock (_disposeSyncRoot)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            _cts.Cancel();
-            _handler?.Dispose();
-            _listener.Disconnect(false);
-            _listener.Dispose();
-            _cts.Dispose();
-
-            Dispose(true);
-            GC.SuppressFinalize(this);
-
-            _disposed = true;
-        }
+        Dispose(true);
     }
 
     internal static int ReceiveMessageSize(Socket handler)
@@ -101,19 +84,27 @@ public abstract class IgniteServerBase : IDisposable
         int received = 0;
         var buf = ByteArrayPool.Rent(size);
 
-        while (received < size)
+        try
         {
-            var res = socket.Receive(buf, received, size - received, SocketFlags.None);
-
-            if (res == 0)
+            while (received < size)
             {
-                throw new ConnectionLostException();
+                var res = socket.Receive(buf, received, size - received, SocketFlags.None);
+
+                if (res == 0)
+                {
+                    throw new ConnectionLostException();
+                }
+
+                received += res;
             }
 
-            received += res;
+            return new PooledBuffer(buf, 0, size);
         }
-
-        return new PooledBuffer(buf, 0, size);
+        catch (Exception)
+        {
+            ByteArrayPool.Return(buf);
+            throw;
+        }
     }
 
     protected virtual void Handle(Socket handler, CancellationToken cancellationToken)
@@ -125,7 +116,23 @@ public abstract class IgniteServerBase : IDisposable
     {
         if (disposing)
         {
-            // No-op.
+            lock (_disposeSyncRoot)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _cts.Cancel();
+                _handler?.Dispose();
+                _listener.Disconnect(false);
+                _listener.Dispose();
+                _cts.Dispose();
+
+                GC.SuppressFinalize(this);
+
+                _disposed = true;
+            }
         }
     }
 

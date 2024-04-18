@@ -18,10 +18,12 @@
 package org.apache.ignite.sql.async;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.lang.AsyncCursor;
+import org.apache.ignite.lang.CursorClosedException;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -53,12 +55,12 @@ import org.jetbrains.annotations.Nullable;
  *     if no explicit mapper is provided or a particular type defined by supplied mapper.
  *
  * @see ResultSet
- * @see Session#executeAsync(Transaction, String, Object...)
- * @see Session#executeAsync(Transaction, Mapper, String, Object...)
+ * @see IgniteSql#executeAsync(Transaction, String, Object...)
+ * @see IgniteSql#executeAsync(Transaction, Mapper, String, Object...)
  */
-public interface AsyncResultSet<T> {
+public interface AsyncResultSet<T> extends AsyncCursor<T> {
     /**
-     * Returns metadata for query results. If the result set contains rows ({@link #hasRowSet()}, returns {@code true}). 
+     * Returns metadata for query results. If the result set contains rows ({@link #hasRowSet()}, returns {@code true}).
      * If not applicable, returns {@code null}.
      *
      * @return ResultSet Metadata.
@@ -88,11 +90,11 @@ public interface AsyncResultSet<T> {
     long affectedRows();
 
     /**
-     * Indicates whether the query that had produced the result was a conditional query. 
-     * E.g., for query "Create table if not exists", the method returns {@code true} if 
+     * Indicates whether the query that had produced the result was a conditional query.
+     * E.g., for query "Create table if not exists", the method returns {@code true} if
      * the operation was successful or {@code false} if the operation was ignored because the table already existed.
      *
-     * <p>Note: If the method returns {@code false}, then either {@link #affectedRows()} returns the number of 
+     * <p>Note: If the method returns {@code false}, then either {@link #affectedRows()} returns the number of
      * affected rows, or {@link #hasRowSet()} returns {@code true}, or the conditional DDL query is not applied.
      *
      * @return {@code True} if a conditional query is applied, {@code false} otherwise.
@@ -106,6 +108,7 @@ public interface AsyncResultSet<T> {
      * @return Iterable set of rows.
      * @throws NoRowSetExpectedException if no row set is returned.
      */
+    @Override
     Iterable<T> currentPage();
 
     /**
@@ -114,31 +117,28 @@ public interface AsyncResultSet<T> {
      * @return The size of {@link #currentPage()}.
      * @throws NoRowSetExpectedException if no row set is returned.
      */
+    @Override
     int currentPageSize();
 
     /**
      * Fetches the next page of results asynchronously.
-     * The future that is completed with the same {@code AsyncResultSet} object.
      * The current page is changed after the future completion.
      * The methods {@link #currentPage()}, {@link #currentPageSize()}, {@link #hasMorePages()}
      * use the current page and return consistent results between complete last page future and call {@code fetchNextPage}.
      *
-     * @return Operation future.
-     * @throws NoRowSetExpectedException if no row set is expected as a query result.
+     * @return A future which will be completed when next page will be fetched and set as the current page.
+     *     The future will return {@code this} for chaining.
+     * @throws NoRowSetExpectedException If no row set is expected as a query result.
+     * @throws CursorClosedException If cursor is closed.
      */
+    @Override
     CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage();
-
-    /**
-     * Indicates whether there are more pages of results.
-     *
-     * @return {@code True} if there are more pages with results, {@code false} otherwise.
-     */
-    boolean hasMorePages();
 
     /**
      * Invalidates a query result, stops the query, and cleans up query resources.
      *
      * @return Operation future.
      */
+    @Override
     CompletableFuture<Void> closeAsync();
 }

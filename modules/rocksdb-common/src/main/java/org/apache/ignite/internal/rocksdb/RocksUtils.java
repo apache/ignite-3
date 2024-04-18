@@ -19,7 +19,7 @@ package org.apache.ignite.internal.rocksdb;
 
 import java.util.Arrays;
 import java.util.Collection;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.AbstractNativeReference;
 import org.rocksdb.RocksDBException;
@@ -47,8 +47,7 @@ public class RocksUtils {
     /**
      * Checks the status of the iterator and throws an exception if it is not correct.
      *
-     * <p>Check the status first. This operation is guaranteed to throw if an internal error has occurred during the iteration. Otherwise,
-     * we've exhausted the data range.
+     * <p>This operation is guaranteed to throw if an internal error has occurred during the iteration.
      *
      * @param it RocksDB iterator.
      * @throws IgniteInternalException if the iterator has an incorrect status.

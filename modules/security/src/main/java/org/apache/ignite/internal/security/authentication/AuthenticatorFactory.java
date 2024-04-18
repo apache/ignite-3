@@ -17,20 +17,26 @@
 
 package org.apache.ignite.internal.security.authentication;
 
-import org.apache.ignite.internal.configuration.AuthenticationProviderView;
-import org.apache.ignite.internal.configuration.BasicAuthenticationProviderView;
-import org.apache.ignite.security.AuthenticationType;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderView;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticator;
+import org.apache.ignite.internal.security.authentication.basic.BasicUser;
+import org.apache.ignite.internal.security.authentication.configuration.AuthenticationProviderView;
 
 /** Factory for {@link Authenticator}. */
 class AuthenticatorFactory {
-
     static Authenticator create(AuthenticationProviderView view) {
-        AuthenticationType type = AuthenticationType.parse(view.type());
-        if (type == AuthenticationType.BASIC) {
+        if (view instanceof BasicAuthenticationProviderView) {
             BasicAuthenticationProviderView basicAuthProviderView = (BasicAuthenticationProviderView) view;
-            return new BasicAuthenticator(basicAuthProviderView.username(), basicAuthProviderView.password());
+            return new BasicAuthenticator(
+                    view.name(),
+                    basicAuthProviderView.users()
+                            .stream()
+                            .map(basicUserView -> new BasicUser(basicUserView.username(), basicUserView.password()))
+                            .collect(Collectors.toList())
+            );
         } else {
-            throw new IllegalArgumentException("Unexpected authentication type: " + type);
+            throw new IllegalArgumentException("Unexpected authentication provider view: " + view);
         }
     }
 }

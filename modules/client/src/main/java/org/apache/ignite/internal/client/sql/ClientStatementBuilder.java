@@ -17,22 +17,16 @@
 
 package org.apache.ignite.internal.client.sql;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.time.ZoneId;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Client SQL statement builder.
  */
 public class ClientStatementBuilder implements Statement.StatementBuilder {
-    /** Properties. */
-    private final Map<String, Object> properties = new HashMap<>();
-
     /** Query. */
     private String query;
 
@@ -47,7 +41,7 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull String query() {
+    public String query() {
         return query;
     }
 
@@ -61,7 +55,7 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public long queryTimeout(@NotNull TimeUnit timeUnit) {
+    public long queryTimeout(TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
         return timeUnit.convert(queryTimeoutMs == null ? 0 : queryTimeoutMs, TimeUnit.MILLISECONDS);
@@ -69,7 +63,7 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public StatementBuilder queryTimeout(long timeout, @NotNull TimeUnit timeUnit) {
+    public StatementBuilder queryTimeout(long timeout, TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
         queryTimeoutMs = TimeUnit.MILLISECONDS.convert(timeout, timeUnit);
@@ -85,7 +79,7 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public StatementBuilder defaultSchema(@NotNull String schema) {
+    public StatementBuilder defaultSchema(String schema) {
         defaultSchema = schema;
 
         return this;
@@ -105,18 +99,16 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
         return this;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public @Nullable Object property(@NotNull String name) {
-        return properties.get(name);
+    public ZoneId timeZoneId() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21568
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
-    /** {@inheritDoc} */
     @Override
-    public StatementBuilder property(@NotNull String name, @Nullable Object value) {
-        properties.put(name, value);
-
-        return this;
+    public StatementBuilder timeZoneId(ZoneId timeZoneId) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21568
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */
@@ -126,7 +118,6 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
                 query,
                 defaultSchema,
                 queryTimeoutMs,
-                pageSize,
-                new HashMap<>(properties));
+                pageSize);
     }
 }

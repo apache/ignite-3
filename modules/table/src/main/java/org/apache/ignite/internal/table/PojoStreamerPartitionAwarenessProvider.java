@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.table;
 
+import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshaller;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
@@ -44,7 +44,7 @@ class PojoStreamerPartitionAwarenessProvider<R> extends AbstractClientStreamerPa
             HashCalculator hashCalc = new HashCalculator();
 
             for (Column c : schema.colocationColumns()) {
-                Object val = marsh.value(item, c.schemaIndex());
+                Object val = marsh.value(item, c.positionInRow());
                 ColocationUtils.append(hashCalc, val, c.type());
             }
 

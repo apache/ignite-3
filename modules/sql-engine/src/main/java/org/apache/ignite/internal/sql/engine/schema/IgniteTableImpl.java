@@ -17,291 +17,170 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.DoubleSupplier;
+import java.util.Objects;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.Statistic;
-import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
-import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.StorageRebalanceException;
-import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.util.Lazy;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Ignite table implementation.
+ * Table implementation for sql engine.
  */
-public class IgniteTableImpl extends AbstractTable implements IgniteTable {
+public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteTable {
+    private final ImmutableIntList keyColumns;
+    private final @Nullable ImmutableBitSet columnsToInsert;
 
-    private final TableDescriptor desc;
+    private final Map<String, IgniteIndex> indexMap;
 
-    private final int ver;
+    private final int partitions;
 
-    private final int id;
+    private final Lazy<NativeType[]> colocationColumnTypes;
 
-    private final String name;
-
-    private final Supplier<ColocationGroup> colocationGroup;
-
-    private final Statistic statistic;
-
-    private final Map<String, IgniteIndex> indexes = new HashMap<>();
-
-    /**
-     * Constructor.
-     *
-     * @param desc Table descriptor.
-     * @param tableId Table id.
-     * @param name Table name.
-     */
-    IgniteTableImpl(TableDescriptor desc, int tableId, String name, int version,
-            Supplier<ColocationGroup> colocationGroup, DoubleSupplier rowCount) {
-        this.ver = version;
-        this.desc = desc;
-        this.id = tableId;
-        this.name = name;
-        this.colocationGroup = colocationGroup;
-        this.statistic = new IgniteStatistic(rowCount, desc.distribution());
-    }
-
-    private IgniteTableImpl(IgniteTableImpl t) {
-        this.desc = t.desc;
-        this.ver = t.ver;
-        this.id = t.id;
-        this.name = t.name;
-        this.statistic = t.statistic;
-        this.colocationGroup = t.colocationGroup;
-        this.indexes.putAll(t.indexes);
-    }
-
-    public static IgniteTableImpl copyOf(IgniteTableImpl v) {
-        return new IgniteTableImpl(v);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int id() {
-        return id;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int version() {
-        return ver;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String name() {
-        return name;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet requiredColumns) {
-        return desc.rowType((IgniteTypeFactory) typeFactory, requiredColumns);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Statistic getStatistic() {
-        return statistic;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public TableDescriptor descriptor() {
-        return desc;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteLogicalTableScan toRel(
-            RelOptCluster cluster,
-            RelOptTable relOptTbl,
-            List<RelHint> hints,
-            @Nullable List<RexNode> proj,
-            @Nullable RexNode cond,
-            @Nullable ImmutableBitSet requiredColumns
+    /** Constructor. */
+    public IgniteTableImpl(
+            String name,
+            int id,
+            int version,
+            TableDescriptor desc,
+            ImmutableIntList keyColumns,
+            Statistic statistic,
+            Map<String, IgniteIndex> indexMap,
+            int partitions
     ) {
-        RelTraitSet traitSet = cluster.traitSetOf(distribution());
+        super(name, id, version, desc, statistic);
 
-        return IgniteLogicalTableScan.create(cluster, traitSet, hints, relOptTbl, proj, cond, requiredColumns);
+        this.keyColumns = keyColumns;
+        this.indexMap = indexMap;
+        this.partitions = partitions;
+        this.columnsToInsert = deriveColumnsToInsert(desc);
+
+        colocationColumnTypes = new Lazy<>(this::evaluateTypes);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public IgniteLogicalIndexScan toRel(
-            RelOptCluster cluster,
-            RelOptTable relOptTable,
-            String idxName,
-            List<RexNode> proj,
-            RexNode condition,
-            ImmutableBitSet requiredCols
+    private static RelDataType deriveDeleteRowType(
+            IgniteTypeFactory typeFactory,
+            TableDescriptor desc,
+            ImmutableIntList keyColumns
     ) {
-        IgniteIndex index = getIndex(idxName);
+        var builder = new RelDataTypeFactory.Builder(typeFactory);
 
-        RelCollation collation = TraitUtils.createCollation(index.columns(), index.collations(), descriptor());
+        RelDataType fullRow = desc.rowType(typeFactory, null);
+        for (int i : keyColumns) {
+            builder.add(fullRow.getFieldList().get(i));
+        }
 
-        RelTraitSet traitSet = cluster.traitSetOf(Convention.Impl.NONE)
-                .replace(distribution())
-                .replace(index.type() == Type.HASH ? RelCollations.EMPTY : collation);
+        return builder.build();
+    }
 
-        return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTable, idxName, proj, condition, requiredCols);
+    private static @Nullable ImmutableBitSet deriveColumnsToInsert(TableDescriptor desc) {
+        /*
+        Columns to insert are columns which will be expanded in case user omit
+        columns list in insert statement as in example below:
+
+            INSERT INTO table VALUES (1, 1); -- mind omitted columns list after table identifier
+
+        Although hidden columns are currently not supported by Ignite, we have special mode
+        where we allow to omit primary key declaration during table creation. In that case, we
+        inject the column that will serve as primary key, but this column must be hidden during
+        star expansion (SELECT * FROM ... clause), as well as must be ignored during columns
+        list inference for INSERT INTO statement.
+
+        See org.apache.ignite.internal.sql.engine.util.Commons.implicitPkEnabled, and
+        org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl.injectDefault for details.
+         */
+        ImmutableBitSet.Builder builder = ImmutableBitSet.builder();
+
+        boolean hiddenColumnFound = false;
+        for (ColumnDescriptor columnDescriptor : desc) {
+            if (columnDescriptor.hidden()) {
+                hiddenColumnFound = true;
+
+                continue;
+            }
+
+            builder.set(columnDescriptor.logicalIndex());
+        }
+
+        if (hiddenColumnFound) {
+            return builder.build();
+        }
+
+        return null;
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteDistribution distribution() {
-        return desc.distribution();
+    public Supplier<PartitionCalculator> partitionCalculator() {
+        return () -> new PartitionCalculator(partitions, Objects.requireNonNull(colocationColumnTypes.get()));
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-        return partitionedGroup();
+    private NativeType[] evaluateTypes() {
+        int fieldCnt = descriptor().distribution().getKeys().size();
+        NativeType[] fieldTypes = new NativeType[fieldCnt];
+
+        int[] colocationColumns = descriptor().distribution().getKeys().toIntArray();
+
+        for (int i = 0; i < fieldCnt; i++) {
+            ColumnDescriptor colDesc = descriptor().columnDescriptor(colocationColumns[i]);
+
+            fieldTypes[i] = colDesc.physicalType();
+        }
+
+        return fieldTypes;
     }
 
     /** {@inheritDoc} */
     @Override
     public Map<String, IgniteIndex> indexes() {
-        return Collections.unmodifiableMap(indexes);
+        return indexMap;
     }
 
     /** {@inheritDoc} */
     @Override
-    public void addIndex(IgniteIndex idxTbl) {
-        indexes.put(idxTbl.name(), idxTbl);
+    public int partitions() {
+        return partitions;
+    }
+
+    @Override
+    public ImmutableIntList keyColumns() {
+        return keyColumns;
     }
 
     /** {@inheritDoc} */
     @Override
-    public IgniteIndex getIndex(String idxName) {
-        return indexes.get(idxName);
+    protected TableScan toRel(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable relOptTbl, List<RelHint> hints) {
+        return IgniteLogicalTableScan.create(cluster, traitSet, hints, relOptTbl, null, null, null);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void removeIndex(String idxName) {
-        indexes.remove(idxName);
+    public boolean isUpdateAllowed(int colIdx) {
+        return !descriptor().columnDescriptor(colIdx).key();
     }
 
     /** {@inheritDoc} */
     @Override
-    public <C> C unwrap(Class<C> cls) {
-        if (cls.isInstance(desc)) {
-            return cls.cast(desc);
-        }
-
-        return super.unwrap(cls);
+    public RelDataType rowTypeForInsert(IgniteTypeFactory factory) {
+        return descriptor().rowType(factory, columnsToInsert);
     }
 
-    private ColocationGroup partitionedGroup() {
-        return colocationGroup.get();
-    }
-
-    // TODO: should be moved to a separate component after https://issues.apache.org/jira/browse/IGNITE-18453
-    static Supplier<ColocationGroup> partitionedGroup(InternalTable table) {
-        return () -> {
-            List<List<NodeWithTerm>> assignments = table.primaryReplicas().stream()
-                    .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
-                    .map(Collections::singletonList)
-                    .collect(Collectors.toList());
-
-            return ColocationGroup.forAssignments(assignments);
-        };
-    }
-
-    static DoubleSupplier rowCountStatistic(InternalTable table) {
-        return new RowCountStatistic(table);
-    }
-
-    private static final class RowCountStatistic implements DoubleSupplier {
-        private static final int UPDATE_THRESHOLD = DistributionZoneManager.DEFAULT_PARTITION_COUNT;
-
-        private final AtomicLong lastUpd = new AtomicLong();
-
-        private volatile long localRowCnt = 0L;
-
-        private final InternalTable table;
-
-        private RowCountStatistic(InternalTable table) {
-            this.table = table;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        // TODO: need to be refactored https://issues.apache.org/jira/browse/IGNITE-19558
-        public double getAsDouble() {
-            int parts = table.storage().getTableDescriptor().getPartitions();
-
-            long partitionsRevisionCounter = 0L;
-
-            for (int p = 0; p < parts; ++p) {
-                @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
-
-                if (part == null) {
-                    continue;
-                }
-
-                long upd = part.lastAppliedIndex();
-
-                partitionsRevisionCounter += upd;
-            }
-
-            long prev = lastUpd.get();
-
-            if (partitionsRevisionCounter - prev > UPDATE_THRESHOLD) {
-                synchronized (this) {
-                    if (lastUpd.compareAndSet(prev, partitionsRevisionCounter)) {
-                        long size = 0L;
-
-                        for (int p = 0; p < parts; ++p) {
-                            @Nullable MvPartitionStorage part = table.storage().getMvPartition(p);
-
-                            if (part == null) {
-                                continue;
-                            }
-
-                            try {
-                                size += part.rowsCount();
-                            } catch (StorageRebalanceException ignore) {
-                                // No-op.
-                            }
-                        }
-
-                        localRowCnt = size;
-                    }
-                }
-            }
-
-            // Forbid zero result, to prevent zero cost for table and index scans.
-            return Math.max(10_000.0, (double) localRowCnt);
-        }
+    /** {@inheritDoc} */
+    @Override
+    public RelDataType rowTypeForDelete(IgniteTypeFactory factory) {
+        return deriveDeleteRowType(factory, descriptor(), keyColumns);
     }
 }

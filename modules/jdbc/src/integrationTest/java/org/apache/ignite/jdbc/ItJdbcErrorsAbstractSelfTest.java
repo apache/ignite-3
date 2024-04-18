@@ -23,10 +23,7 @@ import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.INVALID_CURSOR_
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.NULL_VALUE;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.PARSING_EXCEPTION;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.UNSUPPORTED_OPERATION;
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.net.URL;
@@ -39,6 +36,8 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.List;
+import org.apache.ignite.internal.lang.RunnableX;
+import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -589,11 +588,10 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * @param expState Expected SQLSTATE code.
      * @param expMsg   Expected message.
      */
-    protected void checkErrorState(final RunnableX clo, String expState, String expMsg) {
-        SQLException ex = assertThrows(SQLException.class, clo::run, expMsg);
-        assertThat(ex.getMessage(), containsString(expMsg));
+    protected void checkErrorState(RunnableX clo, String expState, String expMsg) {
+        SQLException ex = JdbcTestUtils.assertThrowsSqlException(expMsg, clo::run);
 
-        assertEquals(expState, ex.getSQLState(), ex.getMessage());
+        assertEquals(expState, ex.getSQLState());
     }
 
     /**
@@ -603,7 +601,7 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
      * @param expState Error code.
      * @param expMsg   Error message.
      */
-    private void checkSqlErrorMessage(final String sql, String expState, String expMsg) {
+    private void checkSqlErrorMessage(String sql, String expState, String expMsg) {
         checkErrorState(() -> {
             stmt.executeUpdate("DROP TABLE IF EXISTS wrong");
             stmt.executeUpdate("DROP TABLE IF EXISTS test");
@@ -617,15 +615,5 @@ public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest 
 
             fail("Exception is expected");
         }, expState, expMsg);
-    }
-
-    /**
-     * A runnable that can throw an SQLException.
-     */
-    public interface RunnableX {
-        /**
-         * Runs this runnable.
-         */
-        void run() throws SQLException;
     }
 }

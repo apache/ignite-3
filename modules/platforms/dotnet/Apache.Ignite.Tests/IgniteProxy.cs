@@ -24,6 +24,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using Internal.Proto;
 
 /// <summary>
@@ -55,47 +56,87 @@ public sealed class IgniteProxy : IgniteServerBase
 
     protected override void Handle(Socket handler, CancellationToken cancellationToken)
     {
-        int messageCount = 0;
-
-        while (!cancellationToken.IsCancellationRequested)
+        // Handshake.
         {
-            if (messageCount == 0)
-            {
-                // Forward magic from client to server.
-                using var magic = ReceiveBytes(handler, 4);
-                _socket.Send(magic.AsMemory().Span);
-            }
+            // Forward magic from client to server.
+            using var magic = ReceiveBytes(handler, 4);
+            _socket.Send(magic.AsMemory().Span);
 
-            // Receive from client.
+            // Receive handshake from client.
             var msgSize = ReceiveMessageSize(handler);
             using var msg = ReceiveBytes(handler, msgSize);
 
-            if (messageCount > 0)
-            {
-                _ops.Enqueue((ClientOp)msg.GetReader().ReadInt32());
-            }
-
-            // Forward to server.
+            // Forward handshake to server.
             _socket.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(msgSize)));
             _socket.Send(msg.AsMemory().Span);
 
-            // Receive from server.
-            if (messageCount == 0)
-            {
-                // Forward magic from server to client.
-                using var serverMagic = ReceiveBytes(_socket, 4);
-                handler.Send(serverMagic.AsMemory().Span);
-            }
+            // Forward magic from server to client.
+            using var serverMagic = ReceiveBytes(_socket, 4);
+            handler.Send(serverMagic.AsMemory().Span);
 
+            // Receive handshake from server.
             var serverMsgSize = ReceiveMessageSize(_socket);
             using var serverMsg = ReceiveBytes(_socket, serverMsgSize);
 
             // Forward to client.
             handler.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(serverMsgSize)));
             handler.Send(serverMsg.AsMemory().Span);
-
-            messageCount++;
         }
+
+        // Separate relay loops for each direction: don't block heartbeats while some request is being processed.
+        // Client -> Server.
+        var clientToServerRelay = Task.Run(
+            () =>
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    try
+                    {
+                        // Receive from client.
+                        var msgSize = ReceiveMessageSize(handler);
+                        using var msg = ReceiveBytes(handler, msgSize);
+                        _ops.Enqueue((ClientOp)msg.GetReader().ReadInt32());
+
+                        // Forward to server.
+                        _socket.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(msgSize)));
+                        _socket.Send(msg.AsMemory().Span);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"Error in IgniteProxy Client -> Server relay (lastOp = {_ops.Last()}: {e}");
+                        throw;
+                    }
+                }
+            },
+            cancellationToken);
+
+        // Server -> Client.
+        var serverToClientRelay = Task.Run(
+            () =>
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    try
+                    {
+                        // Receive from server.
+                        var serverMsgSize = ReceiveMessageSize(_socket);
+                        using var serverMsg = ReceiveBytes(_socket, serverMsgSize);
+
+                        // Forward to client.
+                        handler.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(serverMsgSize)));
+                        handler.Send(serverMsg.AsMemory().Span);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"Error in IgniteProxy Server -> Client relay (lastOp = {_ops.Last()}: {e}");
+                        throw;
+                    }
+                }
+            },
+            cancellationToken);
+
+        Task.WhenAll(clientToServerRelay, serverToClientRelay).Wait(cancellationToken);
+        handler.Disconnect(true);
     }
 
     protected override void Dispose(bool disposing)

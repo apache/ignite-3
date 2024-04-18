@@ -19,13 +19,13 @@ package org.apache.ignite.internal.vault;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -33,8 +33,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.ByteArray;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,18 +76,18 @@ public abstract class VaultServiceTest {
     public void testPut() {
         ByteArray key = getKey(1);
 
-        assertThat(vaultService.get(key), willBe(nullValue(VaultEntry.class)));
+        assertThat(vaultService.get(key), is(nullValue(VaultEntry.class)));
 
         byte[] val = getValue(1);
 
-        assertThat(vaultService.put(key, val), willBe(nullValue(Void.class)));
+        vaultService.put(key, val);
 
-        assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, val))));
+        assertThat(vaultService.get(key), is(equalTo(new VaultEntry(key, val))));
 
         // test idempotency
-        assertThat(vaultService.put(key, val), willBe(nullValue(Void.class)));
+        vaultService.put(key, val);
 
-        assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, val))));
+        assertThat(vaultService.get(key), is(equalTo(new VaultEntry(key, val))));
     }
 
     /**
@@ -99,13 +99,13 @@ public abstract class VaultServiceTest {
 
         byte[] val = getValue(1);
 
-        assertThat(vaultService.put(key, val), willBe(nullValue(Void.class)));
+        vaultService.put(key, val);
 
-        assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, val))));
+        assertThat(vaultService.get(key), is(equalTo(new VaultEntry(key, val))));
 
-        assertThat(vaultService.put(key, null), willBe(nullValue(Void.class)));
+        vaultService.put(key, null);
 
-        assertThat(vaultService.get(key), willBe(nullValue(VaultEntry.class)));
+        assertThat(vaultService.get(key), is(nullValue(VaultEntry.class)));
     }
 
     /**
@@ -116,20 +116,20 @@ public abstract class VaultServiceTest {
         ByteArray key = getKey(1);
 
         // Remove non-existent value.
-        assertThat(vaultService.remove(key), willBe(nullValue(Void.class)));
+        assertDoesNotThrow(() -> vaultService.remove(key));
 
-        assertThat(vaultService.get(key), willBe(nullValue(VaultEntry.class)));
+        assertThat(vaultService.get(key), is(nullValue(VaultEntry.class)));
 
         byte[] val = getValue(1);
 
-        assertThat(vaultService.put(key, val), willBe(nullValue(Void.class)));
+        vaultService.put(key, val);
 
-        assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, val))));
+        assertThat(vaultService.get(key), is(equalTo(new VaultEntry(key, val))));
 
         // Remove existing value.
-        assertThat(vaultService.remove(key), willBe(nullValue(Void.class)));
+        vaultService.remove(key);
 
-        assertThat(vaultService.get(key), willBe(nullValue(VaultEntry.class)));
+        assertThat(vaultService.get(key), is(nullValue(VaultEntry.class)));
     }
 
     /**
@@ -141,13 +141,13 @@ public abstract class VaultServiceTest {
                 .boxed()
                 .collect(toMap(VaultServiceTest::getKey, VaultServiceTest::getValue));
 
-        assertThat(vaultService.putAll(batch), willBe(nullValue(Void.class)));
+        vaultService.putAll(batch);
 
-        batch.forEach((k, v) -> assertThat(vaultService.get(k), willBe(equalTo(new VaultEntry(k, v)))));
+        batch.forEach((k, v) -> assertThat(vaultService.get(k), is(equalTo(new VaultEntry(k, v)))));
 
-        assertThat(vaultService.putAll(batch), willBe(nullValue(Void.class)));
+        vaultService.putAll(batch);
 
-        batch.forEach((k, v) -> assertThat(vaultService.get(k), willBe(equalTo(new VaultEntry(k, v)))));
+        batch.forEach((k, v) -> assertThat(vaultService.get(k), is(equalTo(new VaultEntry(k, v)))));
     }
 
     /**
@@ -159,9 +159,9 @@ public abstract class VaultServiceTest {
                 .boxed()
                 .collect(toMap(VaultServiceTest::getKey, VaultServiceTest::getValue));
 
-        assertThat(vaultService.putAll(batch), willBe(nullValue(Void.class)));
+        vaultService.putAll(batch);
 
-        batch.forEach((k, v) -> assertThat(vaultService.get(k), willBe(equalTo(new VaultEntry(k, v)))));
+        batch.forEach((k, v) -> assertThat(vaultService.get(k), is(equalTo(new VaultEntry(k, v)))));
 
         Map<ByteArray, byte[]> secondBatch = new HashMap<>();
 
@@ -170,12 +170,12 @@ public abstract class VaultServiceTest {
         secondBatch.put(getKey(1), null);
         secondBatch.put(getKey(3), null);
 
-        assertThat(vaultService.putAll(secondBatch), willBe(nullValue(Void.class)));
+        vaultService.putAll(secondBatch);
 
-        assertThat(vaultService.get(getKey(4)), willBe(equalTo(new VaultEntry(getKey(4), getValue(3)))));
-        assertThat(vaultService.get(getKey(8)), willBe(equalTo(new VaultEntry(getKey(8), getValue(3)))));
-        assertThat(vaultService.get(getKey(1)), willBe(nullValue(VaultEntry.class)));
-        assertThat(vaultService.get(getKey(3)), willBe(nullValue(VaultEntry.class)));
+        assertThat(vaultService.get(getKey(4)), is(equalTo(new VaultEntry(getKey(4), getValue(3)))));
+        assertThat(vaultService.get(getKey(8)), is(equalTo(new VaultEntry(getKey(8), getValue(3)))));
+        assertThat(vaultService.get(getKey(1)), is(nullValue(VaultEntry.class)));
+        assertThat(vaultService.get(getKey(3)), is(nullValue(VaultEntry.class)));
     }
 
     /**
@@ -187,7 +187,7 @@ public abstract class VaultServiceTest {
 
         Map<ByteArray, byte[]> batch = entries.stream().collect(toMap(VaultEntry::key, VaultEntry::value));
 
-        assertThat(vaultService.putAll(batch), willBe(nullValue(Void.class)));
+        vaultService.putAll(batch);
 
         List<VaultEntry> range = range(getKey(3), getKey(7));
 
@@ -203,7 +203,7 @@ public abstract class VaultServiceTest {
 
         Map<ByteArray, byte[]> batch = entries.stream().collect(toMap(VaultEntry::key, VaultEntry::value));
 
-        assertThat(vaultService.putAll(batch), willBe(nullValue(Void.class)));
+        vaultService.putAll(batch);
 
         List<VaultEntry> range = range(getKey(0), getKey(9));
 
@@ -219,7 +219,7 @@ public abstract class VaultServiceTest {
 
         Map<ByteArray, byte[]> batch = entries.stream().collect(toMap(VaultEntry::key, VaultEntry::value));
 
-        assertThat(vaultService.putAll(batch), willBe(nullValue(Void.class)));
+        vaultService.putAll(batch);
 
         List<VaultEntry> range = range(getKey(3), getKey(4));
 
@@ -233,7 +233,7 @@ public abstract class VaultServiceTest {
     public void testRangeInvalidBoundaries() throws Exception {
         Map<ByteArray, byte[]> batch = getRange(3, 5).stream().collect(toMap(VaultEntry::key, VaultEntry::value));
 
-        assertThat(vaultService.putAll(batch), willBe(nullValue(Void.class)));
+        vaultService.putAll(batch);
 
         List<VaultEntry> range = range(getKey(4), getKey(1));
 

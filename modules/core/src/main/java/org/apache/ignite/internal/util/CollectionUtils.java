@@ -19,8 +19,6 @@ package org.apache.ignite.internal.util;
 
 import static java.util.Collections.addAll;
 import static java.util.Collections.emptyIterator;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.toSet;
 
@@ -316,14 +314,29 @@ public final class CollectionUtils {
      * @param <T> Type of the elements.
      * @return Concatenation of iterators.
      */
-    public static <T> Iterator<T> concat(@Nullable Collection<Iterator<? extends T>> iterators) {
-        if (iterators == null || iterators.isEmpty()) {
+    public static <T> Iterator<T> concat(@Nullable Iterable<Iterator<? extends T>> iterators) {
+        if (iterators == null) {
+            return emptyIterator();
+        }
+
+        return concat(iterators.iterator());
+    }
+
+    /**
+     * Create a lazy concatenation of iterators.
+     *
+     * <p>NOTE: {@link Iterator#remove} - not supported.
+     *
+     * @param iterators Iterators.
+     * @param <T> Type of the elements.
+     * @return Concatenation of iterators.
+     */
+    public static <T> Iterator<T> concat(@Nullable Iterator<Iterator<? extends T>> iterators) {
+        if (iterators == null || !iterators.hasNext()) {
             return emptyIterator();
         }
 
         return new Iterator<>() {
-            /** Super iterator. */
-            final Iterator<Iterator<? extends T>> it = iterators.iterator();
 
             /** Current iterator. */
             Iterator<? extends T> curr = emptyIterator();
@@ -331,8 +344,8 @@ public final class CollectionUtils {
             /** {@inheritDoc} */
             @Override
             public boolean hasNext() {
-                while (!curr.hasNext() && it.hasNext()) {
-                    curr = it.next();
+                while (!curr.hasNext() && iterators.hasNext()) {
+                    curr = iterators.next();
                 }
 
                 return curr.hasNext();
@@ -406,157 +419,6 @@ public final class CollectionUtils {
                 }
 
                 return false;
-            }
-        };
-    }
-
-    /**
-     * Create a collection view that can only be read.
-     *
-     * @param collection Basic collection.
-     * @param mapper Conversion function.
-     * @param <T1> Base type of the collection.
-     * @param <T2> Type for view.
-     * @return Read-only collection view.
-     */
-    public static <T1, T2> Collection<T2> viewReadOnly(
-            @Nullable Collection<? extends T1> collection,
-            @Nullable Function<? super T1, ? extends T2> mapper
-    ) {
-        if (nullOrEmpty(collection)) {
-            return emptyList();
-        }
-
-        if (mapper == null) {
-            return unmodifiableCollection((Collection<T2>) collection);
-        }
-
-        return new AbstractCollection<>() {
-            /** {@inheritDoc} */
-            @Override
-            public Iterator<T2> iterator() {
-                Iterator<? extends T1> iterator = collection.iterator();
-
-                return new Iterator<>() {
-                    /** {@inheritDoc} */
-                    @Override
-                    public boolean hasNext() {
-                        return iterator.hasNext();
-                    }
-
-                    /** {@inheritDoc} */
-                    @Override
-                    public T2 next() {
-                        return mapper.apply(iterator.next());
-                    }
-                };
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public int size() {
-                return collection.size();
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public boolean isEmpty() {
-                return collection.isEmpty();
-            }
-        };
-    }
-
-    /**
-     * Create a collection view that can only be read.
-     *
-     * @param collection Basic collection.
-     * @param mapper Conversion function.
-     * @param predicate Predicate to apply to each element of basic collection.
-     * @param <T1> Base type of the collection.
-     * @param <T2> Type for view.
-     * @return Read-only collection view.
-     */
-    public static <T1, T2> Collection<T2> viewReadOnly(
-            @Nullable Collection<? extends T1> collection,
-            @Nullable Function<? super T1, ? extends T2> mapper,
-            @Nullable Predicate<? super T1> predicate
-    ) {
-        if (collection == null) {
-            return emptyList();
-        }
-
-        if (mapper == null && predicate == null) {
-            return unmodifiableCollection((Collection<T2>) collection);
-        }
-
-        return new AbstractCollection<>() {
-            /** {@inheritDoc} */
-            @Override
-            public Iterator<T2> iterator() {
-                Iterator<? extends T1> iterator = collection.iterator();
-
-                return new Iterator<>() {
-                    @Nullable
-                    T1 current = advance();
-
-                    /** {@inheritDoc} */
-                    @Override
-                    public boolean hasNext() {
-                        return current != NO_NEXT_ELEMENT;
-                    }
-
-                    /** {@inheritDoc} */
-                    @Override
-                    public T2 next() {
-                        T1 current = this.current;
-
-                        if (current == NO_NEXT_ELEMENT) {
-                            throw new NoSuchElementException();
-                        }
-
-                        this.current = advance();
-
-                        return mapper == null ? (T2) current : mapper.apply(current);
-                    }
-
-                    private @Nullable T1 advance() {
-                        while (iterator.hasNext()) {
-                            T1 next = iterator.next();
-
-                            if (predicate == null || predicate.test(next)) {
-                                return next;
-                            }
-                        }
-
-                        return (T1) NO_NEXT_ELEMENT;
-                    }
-                };
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public int size() {
-                if (predicate == null) {
-                    return collection.size();
-                }
-
-                int count = 0;
-
-                for (Iterator<T2> iterator = iterator(); iterator.hasNext(); iterator.next()) {
-                    count++;
-                }
-
-                return count;
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public boolean isEmpty() {
-                if (predicate == null) {
-                    return collection.isEmpty();
-                }
-
-                return size() == 0;
             }
         };
     }
@@ -644,5 +506,116 @@ public final class CollectionUtils {
                 (oldVal, newVal) -> newVal,
                 Int2ObjectOpenHashMap::new
         );
+    }
+
+    /** Returns immutable copy of the given list or {@code null} if the list is null. */
+    public static <T> @Nullable List<T> copyOrNull(@Nullable List<T> list) {
+        if (list == null) {
+            return null;
+        }
+
+        return List.copyOf(list);
+    }
+
+    /** Returns immutable copy of the given set or {@code null} if the set is null. */
+    public static <T> @Nullable Set<T> copyOrNull(@Nullable Set<T> set) {
+        if (set == null) {
+            return null;
+        }
+
+        return Set.copyOf(set);
+    }
+
+    /**
+     * Maps iterable via provided mapper function.
+     *
+     * @param iterable Basic iterable.
+     * @param mapper Conversion function.
+     * @param predicate Predicate to apply to each element of basic iterable.
+     * @param <T1> Base type of the iterable.
+     * @param <T2> Type for view.
+     * @return Mapped iterable.
+     */
+    public static <T1, T2> Iterable<T2> mapIterable(
+            @Nullable Iterable<? extends T1> iterable,
+            @Nullable Function<? super T1, ? extends T2> mapper,
+            @Nullable Predicate<? super T1> predicate
+    ) {
+        if (iterable == null) {
+            return Collections.emptyList();
+        }
+
+        if (mapper == null && predicate == null) {
+            return (Iterable<T2>) iterable;
+        }
+
+        return new Iterable<>() {
+            @Override
+            public Iterator<T2> iterator() {
+                Iterator<? extends T1> innerIterator = iterable.iterator();
+                return new Iterator<>() {
+                    @Nullable
+                    T1 current = advance();
+
+                    /** {@inheritDoc} */
+                    @Override
+                    public boolean hasNext() {
+                        return current != NO_NEXT_ELEMENT;
+                    }
+
+                    /** {@inheritDoc} */
+                    @Override
+                    public T2 next() {
+                        T1 current = this.current;
+
+                        if (current == NO_NEXT_ELEMENT) {
+                            throw new NoSuchElementException();
+                        }
+
+                        this.current = advance();
+
+                        return mapper == null ? (T2) current : mapper.apply(current);
+                    }
+
+                    private @Nullable T1 advance() {
+                        while (innerIterator.hasNext()) {
+                            T1 next = innerIterator.next();
+
+                            if (predicate == null || predicate.test(next)) {
+                                return next;
+                            }
+                        }
+
+                        return (T1) NO_NEXT_ELEMENT;
+                    }
+                };
+            }
+        };
+    }
+
+    /**
+     * Creates a view of the original list without copying it with another type from the map function.
+     *
+     * @param list Original list.
+     * @param mapper Map function.
+     * @param <T> Type of the input elements.
+     * @param <R> Output type of the value mapping function.
+     */
+    public static <T, R> List<R> view(List<T> list, Function<? super T, ? extends R> mapper) {
+        if (list.isEmpty()) {
+            return List.of();
+        }
+
+        return new AbstractList<>() {
+            @Override
+            public R get(int index) {
+                return mapper.apply(list.get(index));
+            }
+
+            @Override
+            public int size() {
+                return list.size();
+            }
+        };
     }
 }

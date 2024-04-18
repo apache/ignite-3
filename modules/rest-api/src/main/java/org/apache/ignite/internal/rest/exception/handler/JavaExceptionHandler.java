@@ -41,7 +41,7 @@ public class JavaExceptionHandler implements ExceptionHandler<Exception, HttpRes
     public HttpResponse<? extends Problem> handle(HttpRequest request, Exception exception) {
         LOG.error("Unhandled exception", exception);
         return HttpProblemResponse.from(
-                Problem.fromHttpCode(HttpCode.INTERNAL_ERROR)
+                Problem.fromHttpCode(HttpCode.INTERNAL_SERVER_ERROR)
                         .detail(exception.getMessage())
         );
     }

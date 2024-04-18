@@ -18,7 +18,21 @@
 package org.apache.ignite.internal.schema;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.BitSet;
+import java.util.List;
+import java.util.UUID;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleFormatException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.type.DecimalNativeType;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -181,7 +195,38 @@ public class BinaryTupleSchema {
      * @return Tuple schema.
      */
     public static BinaryTupleSchema createKeySchema(SchemaDescriptor descriptor) {
-        return createSchema(descriptor, 0, descriptor.keyColumns().length());
+        List<Column> columns = descriptor.keyColumns();
+        Element[] elements = new Element[columns.size()];
+
+        for (int i = 0; i < columns.size(); i++) {
+            Column column = columns.get(i);
+            elements[i] = new Element(column.type(), column.nullable());
+        }
+
+        // Key schema can be converted into a key-only tuple, so this schema should be have convertible = true
+        return new DenseRowSchema(elements, 0, true);
+    }
+
+    /**
+     * Creates a schema for binary tuples that should be used to place key columns into a row.
+     * Unlike {@link #createKeySchema(SchemaDescriptor)} this schema is not convertible, because
+     * key columns might be located at arbitrary positions and in non-consecutive manner.
+     *
+     * @param descriptor Row schema.
+     * @return Tuple schema.
+     */
+    public static BinaryTupleSchema createDestinationKeySchema(SchemaDescriptor descriptor) {
+        List<Column> columns = descriptor.keyColumns();
+        Element[] elements = new Element[columns.size()];
+        int[] positions = new int[columns.size()];
+
+        for (int i = 0; i < columns.size(); i++) {
+            Column column = columns.get(i);
+            elements[i] = new Element(column.type(), column.nullable());
+            positions[i] = column.positionInRow();
+        }
+
+        return new SparseRowSchema(elements, positions);
     }
 
     /**
@@ -191,7 +236,7 @@ public class BinaryTupleSchema {
      * @return Tuple schema.
      */
     public static BinaryTupleSchema createValueSchema(SchemaDescriptor descriptor) {
-        return createSchema(descriptor, descriptor.keyColumns().length(), descriptor.length());
+        return createSchema(descriptor, descriptor.keyColumns().size(), descriptor.length());
     }
 
     /**
@@ -213,7 +258,7 @@ public class BinaryTupleSchema {
         }
 
         boolean fullSize = (colBegin == 0
-                && (colEnd == descriptor.length() || colEnd == descriptor.keyColumns().length()));
+                && (colEnd == descriptor.length() || colEnd == descriptor.keyColumns().size()));
 
         return new DenseRowSchema(elements, colBegin, fullSize);
     }
@@ -287,7 +332,7 @@ public class BinaryTupleSchema {
      * @param index Field index to read.
      * @return An Object representation of the value.
      */
-    public Object value(BinaryTupleReader tuple, int index) {
+    public Object value(InternalTuple tuple, int index) {
         Element element = element(index);
 
         switch (element.typeSpec) {
@@ -308,6 +353,47 @@ public class BinaryTupleSchema {
             case TIME: return tuple.timeValue(index);
             case DATETIME: return tuple.dateTimeValue(index);
             case TIMESTAMP: return tuple.timestampValue(index);
+            default: throw new InvalidTypeException("Unknown element type: " + element.typeSpec);
+        }
+    }
+
+    /**
+     * Helper method that adds value to the binary tuple builder.
+     *
+     * @param builder Binary tuple builder.
+     * @param index Field index to write.
+     * @param value Value to add.
+     * @return Binary tuple builder.
+     */
+    public BinaryTupleBuilder appendValue(BinaryTupleBuilder builder, int index, @Nullable Object value) {
+        Element element = element(index);
+
+        if (value == null) {
+            if (!element.nullable()) {
+                throw new BinaryTupleFormatException("NULL value for non-nullable column in binary tuple builder.");
+            }
+
+            return builder.appendNull();
+        }
+
+        switch (element.typeSpec()) {
+            case BOOLEAN: return builder.appendBoolean((boolean) value);
+            case INT8: return builder.appendByte((byte) value);
+            case INT16: return builder.appendShort((short) value);
+            case INT32: return builder.appendInt((int) value);
+            case INT64: return builder.appendLong((long) value);
+            case FLOAT: return builder.appendFloat((float) value);
+            case DOUBLE: return builder.appendDouble((double) value);
+            case NUMBER: return builder.appendNumberNotNull((BigInteger) value);
+            case DECIMAL: return builder.appendDecimalNotNull((BigDecimal) value, element.decimalScale());
+            case UUID: return builder.appendUuidNotNull((UUID) value);
+            case BYTES: return builder.appendBytesNotNull((byte[]) value);
+            case STRING: return builder.appendStringNotNull((String) value);
+            case BITMASK: return builder.appendBitmaskNotNull((BitSet) value);
+            case DATE: return builder.appendDateNotNull((LocalDate) value);
+            case TIME: return builder.appendTimeNotNull((LocalTime) value);
+            case DATETIME: return builder.appendDateTimeNotNull((LocalDateTime) value);
+            case TIMESTAMP: return builder.appendTimestampNotNull((Instant) value);
             default: throw new InvalidTypeException("Unknown element type: " + element.typeSpec);
         }
     }

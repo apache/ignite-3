@@ -23,22 +23,42 @@ import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCreate;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlOperator;
-import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Parse tree for {@code CREATE INDEX} statement.
  */
 public class IgniteSqlCreateIndex extends SqlCreate {
+
+    /** CREATE INDEX operator. */
+    protected static class Operator extends IgniteDdlOperator {
+
+        private final IgniteSqlIndexType indexType;
+
+        /** Constructor. */
+        protected Operator(IgniteSqlIndexType indexType, boolean existFlag) {
+            super("CREATE INDEX", SqlKind.CREATE_INDEX, existFlag);
+            this.indexType = indexType;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos, @Nullable SqlNode... operands) {
+            return new IgniteSqlCreateIndex(pos, existFlag(), (SqlIdentifier) operands[0], (SqlIdentifier) operands[1],
+                    indexType, (SqlNodeList) operands[2]);
+        }
+    }
+
     /** Idx name. */
     private final SqlIdentifier idxName;
 
-    /** Table name.  */
+    /** Table name. */
     private final SqlIdentifier tblName;
 
     private final IgniteSqlIndexType type;
@@ -46,14 +66,11 @@ public class IgniteSqlCreateIndex extends SqlCreate {
     /** Columns involved. */
     private final SqlNodeList columnList;
 
-    /** SqlOperator type. */
-    private static final SqlOperator OPERATOR =
-            new SqlSpecialOperator("CREATE INDEX", SqlKind.CREATE_INDEX);
 
     /** Creates a SqlCreateIndex. */
     public IgniteSqlCreateIndex(SqlParserPos pos, boolean ifNotExists, SqlIdentifier idxName, SqlIdentifier tblName,
             IgniteSqlIndexType type, SqlNodeList columnList) {
-        super(OPERATOR, pos, false, ifNotExists);
+        super(new Operator(type, ifNotExists), pos, false, ifNotExists);
         this.idxName = Objects.requireNonNull(idxName, "index name");
         this.tblName = Objects.requireNonNull(tblName, "table name");
         this.type = Objects.requireNonNull(type, "type");
@@ -61,17 +78,25 @@ public class IgniteSqlCreateIndex extends SqlCreate {
     }
 
     /** {@inheritDoc} */
-    @Override public List<SqlNode> getOperandList() {
+    @Override
+    public IgniteDdlOperator getOperator() {
+        return (IgniteDdlOperator) super.getOperator();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<SqlNode> getOperandList() {
         return ImmutableNullableList.of(idxName, tblName, columnList);
     }
 
     /** {@inheritDoc} */
-    @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
+    @Override
+    public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword("CREATE");
 
         writer.keyword("INDEX");
 
-        if (ifNotExists) {
+        if (ifNotExists()) {
             writer.keyword("IF NOT EXISTS");
         }
 
@@ -81,7 +106,7 @@ public class IgniteSqlCreateIndex extends SqlCreate {
 
         tblName.unparse(writer, 0, 0);
 
-        if (type != IgniteSqlIndexType.IMPLICIT_TREE) {
+        if (type != IgniteSqlIndexType.IMPLICIT_SORTED) {
             writer.keyword("USING");
 
             writer.keyword(type.name());
@@ -126,6 +151,7 @@ public class IgniteSqlCreateIndex extends SqlCreate {
     }
 
     public boolean ifNotExists() {
-        return ifNotExists;
+        Operator operator = (Operator) getOperator();
+        return operator.existFlag();
     }
 }

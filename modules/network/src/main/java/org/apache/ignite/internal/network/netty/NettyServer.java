@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -25,18 +27,20 @@ import io.netty.channel.ServerChannel;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslContext;
 import java.net.SocketAddress;
+import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkView;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.NettyBootstrapFactory;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -135,11 +139,26 @@ public class NettyServer {
                     });
 
             int port = configuration.port();
-            int portRange = configuration.portRange();
+            String address = configuration.listenAddress();
 
             var bindFuture = new CompletableFuture<Channel>();
 
-            tryBind(bootstrap, port, port + portRange, port, bindFuture);
+            ChannelFuture channelFuture = address.isEmpty() ? bootstrap.bind(port) : bootstrap.bind(address, port);
+
+            channelFuture.addListener((ChannelFuture future) -> {
+                if (future.isSuccess()) {
+                    bindFuture.complete(future.channel());
+                } else if (future.isCancelled()) {
+                    bindFuture.cancel(true);
+                } else {
+                    bindFuture.completeExceptionally(
+                            new IllegalStateException(address.isEmpty()
+                                    ? "Port " + port + " is not available."
+                                    : String.format("Address %s:%d is not available", address, port)
+                            )
+                    );
+                }
+            });
 
             serverStartFuture = bindFuture
                     .handle((channel, err) -> {
@@ -155,7 +174,7 @@ public class NettyServer {
 
                                 return CompletableFuture.<Void>failedFuture(stopErr);
                             } else {
-                                return CompletableFuture.<Void>completedFuture(null);
+                                return CompletableFutures.<Void>nullCompletedFuture();
                             }
                         }
                     })
@@ -166,37 +185,12 @@ public class NettyServer {
     }
 
     /**
-     * Try bind this server to a port.
-     *
-     * @param bootstrap Bootstrap.
-     * @param port      Target port.
-     * @param endPort   Last port that server can be bound to.
-     * @param startPort Start port.
-     * @param fut       Future.
-     */
-    private void tryBind(ServerBootstrap bootstrap, int port, int endPort, int startPort, CompletableFuture<Channel> fut) {
-        if (port > endPort) {
-            fut.completeExceptionally(new IllegalStateException("No available port in range [" + startPort + "-" + endPort + ']'));
-        }
-
-        bootstrap.bind(port).addListener((ChannelFuture future) -> {
-            if (future.isSuccess()) {
-                fut.complete(future.channel());
-            } else if (future.isCancelled()) {
-                fut.cancel(true);
-            } else {
-                tryBind(bootstrap, port + 1, endPort, startPort, fut);
-            }
-        });
-    }
-
-    /**
      * Returns gets the local address of the server.
      *
      * @return Gets the local address of the server.
      */
     public SocketAddress address() {
-        return channel.localAddress();
+        return Objects.requireNonNull(channel, "Not started yet").localAddress();
     }
 
     /**
@@ -207,13 +201,13 @@ public class NettyServer {
     public CompletableFuture<Void> stop() {
         synchronized (startStopLock) {
             if (stopped) {
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
 
             stopped = true;
 
             if (serverStartFuture == null) {
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
 
             var serverCloseFuture0 = serverCloseFuture;
@@ -223,7 +217,7 @@ public class NettyServer {
                     channel.close();
                 }
 
-                return serverCloseFuture0 == null ? CompletableFuture.<Void>completedFuture(null) : serverCloseFuture0;
+                return serverCloseFuture0 == null ? CompletableFutures.<Void>nullCompletedFuture() : serverCloseFuture0;
             }).thenCompose(Function.identity());
         }
     }

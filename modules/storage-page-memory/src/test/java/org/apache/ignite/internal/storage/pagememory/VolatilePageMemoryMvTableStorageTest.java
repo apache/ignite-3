@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -30,8 +30,8 @@ import static org.mockito.Mockito.verify;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -39,29 +39,25 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
-import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for {@link VolatilePageMemoryTableStorage}.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorageTest {
     private final PageEvictionTracker pageEvictionTracker = spy(PageEvictionTrackerNoOp.INSTANCE);
 
@@ -70,17 +66,18 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     @BeforeEach
     void setUp(
             @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig
+            @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
+            StorageConfiguration storageConfiguration
     ) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, ioRegistry, pageEvictionTracker);
+        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfiguration, ioRegistry, pageEvictionTracker);
 
         engine.start();
 
-        initialize(tablesConfig);
+        initialize();
     }
 
     @AfterEach
@@ -94,8 +91,8 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     @Override
     protected MvTableStorage createMvTableStorage() {
         return engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(tablesConfig)
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
+                indexDescriptorSupplier
         );
     }
 

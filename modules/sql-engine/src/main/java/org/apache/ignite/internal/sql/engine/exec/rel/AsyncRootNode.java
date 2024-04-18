@@ -28,9 +28,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import org.apache.ignite.internal.sql.engine.AsyncCursor;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
-import org.apache.ignite.sql.CursorClosedException;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.lang.CursorClosedException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An async iterator over the execution tree.
@@ -55,6 +56,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     private final AtomicBoolean taskScheduled = new AtomicBoolean();
 
     private final Queue<PendingRequest<OutRowT>> pendingRequests = new ConcurrentLinkedQueue<>();
+
+    private final CompletableFuture<Void> prefetchFut = new CompletableFuture<>();
 
     private volatile boolean closed = false;
 
@@ -84,6 +87,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
         buff.add(converter.apply(row));
 
         if (--waiting == 0) {
+            completePrefetchFuture(null);
+
             flush();
         }
     }
@@ -94,6 +99,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
         assert waiting > 0 : waiting;
 
         waiting = -1;
+
+        completePrefetchFuture(null);
 
         flush();
     }
@@ -148,14 +155,16 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
                 if (!closed) {
                     Throwable th = ex.get();
 
-                    if (th == null) {
-                        th = new ExecutionCancelledException();
+                    if (!pendingRequests.isEmpty()) {
+                        if (th == null) {
+                            th = new QueryCancelledException();
+                        }
+
+                        Throwable th0 = th;
+
+                        pendingRequests.forEach(req -> req.fut.completeExceptionally(th0));
+                        pendingRequests.clear();
                     }
-
-                    Throwable th0 = th;
-
-                    pendingRequests.forEach(req -> req.fut.completeExceptionally(th0));
-                    pendingRequests.clear();
 
                     source.context().execute(() -> {
                         try {
@@ -169,6 +178,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
                         }
                     }, source::onError);
 
+                    completePrefetchFuture(th);
+
                     closed = true;
                 }
             }
@@ -181,8 +192,10 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
      * Starts the execution of the fragment and keeps the result in the intermediate buffer.
      *
      * <p>Note: this method must be called by the same thread that will execute the whole fragment.
+     *
+     * @return Future representing pending completion of the prefetch operation.
      */
-    public void prefetch() {
+    public CompletableFuture<Void> startPrefetch() {
         assert source.context().description().prefetch();
 
         if (waiting == 0) {
@@ -192,6 +205,12 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
                 onError(ex);
             }
         }
+
+        return prefetchFut;
+    }
+
+    public boolean isClosed() {
+        return cancelFut.isDone();
     }
 
     private void flush() throws Exception {
@@ -231,6 +250,21 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     private void scheduleTask() {
         if (!pendingRequests.isEmpty() && taskScheduled.compareAndSet(false, true)) {
             source.context().execute(this::flush, source::onError);
+        }
+    }
+
+    /**
+     * Completes prefetch future if it has not already been completed.
+     *
+     * @param ex Exceptional completion cause or {@code null} if the future must complete successfully.
+     */
+    private void completePrefetchFuture(@Nullable Throwable ex) {
+        if (!prefetchFut.isDone()) {
+            if (ex != null) {
+                prefetchFut.completeExceptionally(ex);
+            } else {
+                prefetchFut.complete(null);
+            }
         }
     }
 

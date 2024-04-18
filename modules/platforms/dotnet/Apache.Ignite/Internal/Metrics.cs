@@ -30,7 +30,7 @@ using System.Threading;
     Justification = "Meter should be private and comes before metrics.")]
 internal static class Metrics
 {
-    private static readonly Meter Meter = new(name: "Apache.Ignite", version: "3.0.0");
+    private static readonly Meter Meter = new(name: MetricNames.MeterName, version: MetricNames.MeterVersion);
 
     private static int _connectionsActive;
 
@@ -43,17 +43,17 @@ internal static class Metrics
     /// <summary>
     /// Currently active connections.
     /// </summary>
-    public static readonly ObservableCounter<int> ConnectionsActive = Meter.CreateObservableCounter(
-        name: "connections-active",
+    public static readonly ObservableGauge<int> ConnectionsActive = Meter.CreateObservableGauge(
+        name: MetricNames.ConnectionsActive,
         observeValue: () => Interlocked.CompareExchange(ref _connectionsActive, 0, 0),
         unit: "connections",
-        description: "Currently active connections");
+        description: "Total number of currently active connections");
 
     /// <summary>
     /// Total number of connections established.
     /// </summary>
     public static readonly Counter<long> ConnectionsEstablished = Meter.CreateCounter<long>(
-        name: "connections-established",
+        name: MetricNames.ConnectionsEstablished,
         unit: "connections",
         description: "Total number of established connections");
 
@@ -61,7 +61,7 @@ internal static class Metrics
     /// Total number of connections lost.
     /// </summary>
     public static readonly Counter<long> ConnectionsLost = Meter.CreateCounter<long>(
-        name: "connections-lost",
+        name: MetricNames.ConnectionsLost,
         unit: "connections",
         description: "Total number of lost connections");
 
@@ -69,7 +69,7 @@ internal static class Metrics
     /// Total number of connections lost due to timeout.
     /// </summary>
     public static readonly Counter<long> ConnectionsLostTimeout = Meter.CreateCounter<long>(
-        name: "connections-lost-timeout",
+        name: MetricNames.ConnectionsLostTimeout,
         unit: "connections",
         description: "Total number of lost connections due to network timeout");
 
@@ -77,32 +77,32 @@ internal static class Metrics
     /// Handshakes failed.
     /// </summary>
     public static readonly Counter<long> HandshakesFailed = Meter.CreateCounter<long>(
-        name: "handshakes-failed",
+        name: MetricNames.HandshakesFailed,
         unit: "handshakes",
-        description: "Total number of failed handshakes (due to version mismatch, auth failure, etc)");
+        description: "Total number of failed handshakes (due to version mismatch, auth failure, or other problems)");
 
     /// <summary>
     /// Handshakes failed due to a timeout.
     /// </summary>
     public static readonly Counter<long> HandshakesFailedTimeout = Meter.CreateCounter<long>(
-        name: "handshakes-failed-timeout",
+        name: MetricNames.HandshakesFailedTimeout,
         unit: "handshakes",
-        description: "Total number of failed handshakes due to network timeout");
+        description: "Total number of failed handshakes due to a network timeout");
 
     /// <summary>
     /// Currently active requests (request sent, waiting for response).
     /// </summary>
-    public static readonly ObservableCounter<int> RequestsActive = Meter.CreateObservableCounter(
-        name: "requests-active",
+    public static readonly ObservableGauge<int> RequestsActive = Meter.CreateObservableGauge(
+        name: MetricNames.RequestsActive,
         observeValue: () => Interlocked.CompareExchange(ref _requestsActive, 0, 0),
         unit: "requests",
-        description: "Currently active requests (request sent, waiting for response)");
+        description: "Currently active requests (requests being sent to the socket or waiting for response)");
 
     /// <summary>
     /// Requests sent.
     /// </summary>
     public static readonly Counter<long> RequestsSent = Meter.CreateCounter<long>(
-        name: "requests-sent",
+        name: MetricNames.RequestsSent,
         unit: "requests",
         description: "Total number of requests sent");
 
@@ -110,31 +110,31 @@ internal static class Metrics
     /// Requests completed (response received).
     /// </summary>
     public static readonly Counter<long> RequestsCompleted = Meter.CreateCounter<long>(
-        name: "requests-completed",
+        name: MetricNames.RequestsCompleted,
         unit: "requests",
         description: "Total number of requests completed (response received)");
 
     /// <summary>
-    /// Total number of request retries.
+    /// Total number of retried requests.
     /// </summary>
     public static readonly Counter<long> RequestsRetried = Meter.CreateCounter<long>(
-        name: "requests-retried",
+        name: MetricNames.RequestsRetried,
         unit: "requests",
-        description: "Total number of request retries");
+        description: "Total number of retried requests");
 
     /// <summary>
     /// Requests failed.
     /// </summary>
     public static readonly Counter<long> RequestsFailed = Meter.CreateCounter<long>(
-        name: "requests-failed",
+        name: MetricNames.RequestsFailed,
         unit: "requests",
-        description: "Total number of failed requests (failed to send, or completed with error)");
+        description: "Total number of failed requests (completed with error or failed to send)");
 
     /// <summary>
     /// Bytes sent.
     /// </summary>
     public static readonly Counter<long> BytesSent = Meter.CreateCounter<long>(
-        name: "bytes-sent",
+        name: MetricNames.BytesSent,
         unit: "bytes",
         description: "Total number of bytes sent");
 
@@ -142,7 +142,7 @@ internal static class Metrics
     /// Bytes received.
     /// </summary>
     public static readonly Counter<long> BytesReceived = Meter.CreateCounter<long>(
-        name: "bytes-received",
+        name: MetricNames.BytesReceived,
         unit: "bytes",
         description: "Total number of bytes received");
 
@@ -150,7 +150,7 @@ internal static class Metrics
     /// Data streamer batches sent.
     /// </summary>
     public static readonly Counter<long> StreamerBatchesSent = Meter.CreateCounter<long>(
-        name: "streamer-batches-sent",
+        name: MetricNames.StreamerBatchesSent,
         unit: "batches",
         description: "Total number of data streamer batches sent.");
 
@@ -158,15 +158,15 @@ internal static class Metrics
     /// Data streamer items sent.
     /// </summary>
     public static readonly Counter<long> StreamerItemsSent = Meter.CreateCounter<long>(
-        name: "streamer-items-sent",
+        name: MetricNames.StreamerItemsSent,
         unit: "batches",
         description: "Total number of data streamer items sent.");
 
     /// <summary>
     /// Data streamer batches active.
     /// </summary>
-    public static readonly ObservableCounter<int> StreamerBatchesActive = Meter.CreateObservableCounter(
-        name: "streamer-batches-active",
+    public static readonly ObservableGauge<int> StreamerBatchesActive = Meter.CreateObservableGauge(
+        name: MetricNames.StreamerBatchesActive,
         observeValue: () => Interlocked.CompareExchange(ref _streamerBatchesActive, 0, 0),
         unit: "batches",
         description: "Total number of existing data streamer batches.");
@@ -174,9 +174,9 @@ internal static class Metrics
     /// <summary>
     /// Data streamer items (rows) queued.
     /// </summary>
-    public static readonly ObservableCounter<int> StreamerItemsQueued = Meter.CreateObservableCounter(
-        name: "streamer-items-queued",
-        observeValue: () => Interlocked.CompareExchange(ref _streamerItemsQueued, 0, 0),
+    public static readonly ObservableGauge<int> StreamerItemsQueued = Meter.CreateObservableGauge(
+        name: MetricNames.StreamerItemsQueued,
+        observeValue: () => new Measurement<int>(Interlocked.CompareExchange(ref _streamerItemsQueued, 0, 0)),
         unit: "items",
         description: "Total number of queued data streamer items (rows).");
 

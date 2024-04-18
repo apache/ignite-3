@@ -17,6 +17,10 @@
 
 package org.apache.ignite.lang;
 
+import java.util.UUID;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.jetbrains.annotations.Nullable;
+
 /**
  * This exception is caused by a failure to marshall or unmarshall a value.
  *  The failure can be due to a value not matching the a schema or to another reason.
@@ -28,6 +32,18 @@ public class MarshallerException extends IgniteException {
      * @param cause Non-null throwable cause.
      */
     public MarshallerException(Throwable cause) {
-        super(cause);
+        super(Common.INTERNAL_ERR, cause);
+    }
+
+    /**
+     * Creates an exception with the given trace ID, error code, detailed message, and cause.
+     *
+     * @param traceId Unique identifier of the exception.
+     * @param code Full error code.
+     * @param message Detailed message.
+     * @param cause Optional nested exception (can be {@code null}).
+     */
+    public MarshallerException(UUID traceId, int code, String message, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
     }
 }

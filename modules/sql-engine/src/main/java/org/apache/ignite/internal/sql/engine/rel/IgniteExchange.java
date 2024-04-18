@@ -38,6 +38,8 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
  * Relational expression that imposes a particular distribution on its input without otherwise changing its content.
  */
 public class IgniteExchange extends Exchange implements IgniteRel {
+    private static final String REL_TYPE_NAME = "Exchange";
+
     /**
      * Creates an Exchange.
      *
@@ -102,5 +104,11 @@ public class IgniteExchange extends Exchange implements IgniteRel {
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteExchange(cluster, getTraitSet(), sole(inputs), distribution);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

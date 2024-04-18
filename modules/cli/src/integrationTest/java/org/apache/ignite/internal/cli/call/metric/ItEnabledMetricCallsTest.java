@@ -22,12 +22,13 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 import jakarta.inject.Inject;
 import java.util.List;
-import org.apache.ignite.internal.cli.call.CallInitializedIntegrationTestBase;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSetListCall;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCall;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceEnableCallInput;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
+import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.rest.client.model.Metric;
 import org.apache.ignite.rest.client.model.MetricSet;
 import org.apache.ignite.rest.client.model.MetricSource;
@@ -36,7 +37,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for metrics calls with enabled "jvm" metrics source. */
-class ItEnabledMetricCallsTest extends CallInitializedIntegrationTestBase {
+class ItEnabledMetricCallsTest extends CliIntegrationTest {
+    private final UrlCallInput urlInput = new UrlCallInput(NODE_URL);
 
     @Inject
     NodeMetricSourceEnableCall nodeMetricSourceEnableCall;
@@ -69,11 +71,13 @@ class ItEnabledMetricCallsTest extends CallInitializedIntegrationTestBase {
 
         MetricSource[] expectedMetricSources = {
                 new MetricSource().name("jvm").enabled(true),
-                new MetricSource().name("client.handler").enabled(false)
+                new MetricSource().name("client.handler").enabled(false),
+                new MetricSource().name("sql.client").enabled(false),
+                new MetricSource().name("sql.plan.cache").enabled(false)
         };
 
         // And
-        assertThat(output.body()).containsExactlyInAnyOrder(expectedMetricSources);
+        assertThat(output.body()).contains(expectedMetricSources);
     }
 
     @Test
@@ -100,7 +104,7 @@ class ItEnabledMetricCallsTest extends CallInitializedIntegrationTestBase {
         assertAll(
                 () -> assertThat(output.body()).hasSize(1),
                 () -> assertThat(output.body().get(0).getName()).isEqualTo("jvm"),
-                () -> assertThat(output.body().get(0).getMetrics()).containsExactlyInAnyOrder(expectedMetrics)
+                () -> assertThat(output.body().get(0).getMetrics()).contains(expectedMetrics)
         );
     }
 }

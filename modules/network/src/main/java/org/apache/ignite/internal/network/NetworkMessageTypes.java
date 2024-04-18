@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.network;
 
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.network.message.ClassDescriptorListMessage;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
+import org.apache.ignite.internal.network.message.ClusterNodeMessage;
 import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
 import org.apache.ignite.internal.network.message.InvokeResponse;
@@ -28,7 +30,7 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessag
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
 
 /**
  * Message types for the network module.
@@ -89,4 +91,14 @@ public class NetworkMessageTypes {
      * Type for {@link ClassDescriptorListMessage}.
      */
     public static final short CLASS_DESCRIPTOR_LIST_MESSAGE = 10;
+
+    /**
+     * Type for {@link ClusterNodeMessage}.
+     */
+    public static final short CLUSTER_NODE_MESSAGE = 11;
+
+    /**
+     * Type for {@link ProbeMessage}.
+     */
+    public static final short PROBE_MESSAGE = 12;
 }

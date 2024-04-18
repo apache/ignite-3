@@ -23,6 +23,8 @@
 #include "ignite/odbc/system/odbc_constants.h"
 #include "ignite/odbc/type_traits.h"
 
+#include <cstring>
+
 namespace ignite {
 
 #define DBG_STR_CASE(x)                                                                                                \
@@ -97,16 +99,6 @@ SQLLEN nullability_to_sql(nullability value) {
 
     assert(false);
     return SQL_NULLABLE_UNKNOWN;
-}
-
-void column_meta::read(protocol::reader &reader, const protocol_version &) {
-    m_schema_name = reader.read_string();
-    m_table_name = reader.read_string();
-    m_column_name = reader.read_string();
-    m_data_type = ignite_type(reader.read_int8());
-    m_precision = reader.read_int32();
-    m_scale = reader.read_int32();
-    m_nullability = nullability_from_int(reader.read_int8());
 }
 
 bool column_meta::get_attribute(uint16_t field_id, std::string &value) const {
@@ -231,6 +223,7 @@ bool column_meta::get_attribute(uint16_t field_id, SQLLEN &value) const {
             break;
         }
 
+        case SQL_COLUMN_NULLABLE:
         case SQL_DESC_NULLABLE: {
             value = nullability_to_sql(m_nullability);
 
@@ -290,16 +283,61 @@ bool column_meta::get_attribute(uint16_t field_id, SQLLEN &value) const {
     return true;
 }
 
-void read_column_meta_vector(protocol::reader &reader, column_meta_vector &meta, const protocol_version &ver) {
-    std::int32_t meta_num = reader.read_int32();
+column_meta_vector read_result_set_meta(protocol::reader &reader) {
+    auto size = reader.read_int32();
 
-    meta.clear();
-    meta.reserve(static_cast<size_t>(meta_num));
+    column_meta_vector columns;
+    columns.reserve(size);
 
-    for (std::int32_t i = 0; i < meta_num; ++i) {
-        meta.emplace_back();
-        meta.back().read(reader, ver);
+    for (std::int32_t column_idx = 0; column_idx < size; ++column_idx) {
+        auto fields_cnt = reader.read_int32();
+
+        assert(fields_cnt >= 6); // Expect at least six fields.
+
+        auto name = reader.read_string();
+        auto nullable = reader.read_bool();
+        auto typ = ignite_type(reader.read_int32());
+        auto scale = reader.read_int32();
+        auto precision = reader.read_int32();
+
+        bool origin_present = reader.read_bool();
+
+        if (!origin_present) {
+            columns.emplace_back("", "", std::move(name), typ, precision, scale, nullable);
+            continue;
+        }
+
+        assert(fields_cnt >= 9); // Expect at least three more fields.
+        auto origin_name = reader.read_string_nullable();
+        auto origin_schema_id = reader.try_read_int32();
+        std::string origin_schema;
+        if (origin_schema_id) {
+            if (*origin_schema_id >= std::int32_t(columns.size())) {
+                throw ignite_error("Origin schema ID is too large: " + std::to_string(*origin_schema_id)
+                    + ", id=" + std::to_string(column_idx));
+            }
+            origin_schema = columns[*origin_schema_id].get_schema_name();
+        } else {
+            origin_schema = reader.read_string();
+        }
+
+        auto origin_table_id = reader.try_read_int32();
+        std::string origin_table;
+        if (origin_table_id) {
+            if (*origin_table_id >= std::int32_t(columns.size())) {
+                throw ignite_error("Origin table ID is too large: " + std::to_string(*origin_table_id)
+                    + ", id=" + std::to_string(column_idx));
+            }
+            origin_table = columns[*origin_table_id].get_table_name();
+        } else {
+            origin_table = reader.read_string();
+        }
+
+        columns.emplace_back(
+            std::move(origin_schema), std::move(origin_table), std::move(name), typ, precision, scale, nullable);
     }
+
+    return columns;
 }
 
 } // namespace ignite

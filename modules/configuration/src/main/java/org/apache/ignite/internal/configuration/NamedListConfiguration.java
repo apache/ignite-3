@@ -102,7 +102,7 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
     public T get(UUID internalId) {
         var value = (NamedListNode<?>) value();
 
-        return (T) members.get(value.keyByInternalId(internalId));
+        return get(value.keyByInternalId(internalId));
     }
 
     /**
@@ -196,7 +196,7 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable Class<?>[] internalConfigTypes() {
+    public Class<?> @Nullable [] extensionConfigTypes() {
         throw new UnsupportedOperationException("Not supported.");
     }
 

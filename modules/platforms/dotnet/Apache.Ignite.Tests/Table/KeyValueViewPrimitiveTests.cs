@@ -51,6 +51,70 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestGetNullableValueType()
+    {
+        var table = await Client.Tables.GetTableAsync(TableInt64Name);
+        var recView = table!.RecordBinaryView;
+        var view = table.GetKeyValueView<long, long?>();
+
+        // Put as tuple, read as primitive.
+        await recView.UpsertAsync(null, new IgniteTuple { ["KEY"] = 1L, ["VAL"] = 1L });
+        await recView.UpsertAsync(null, new IgniteTuple { ["KEY"] = 2L, ["VAL"] = null });
+        await recView.DeleteAsync(null, new IgniteTuple { ["KEY"] = 3L });
+
+        // Row present, value present.
+        var res1 = await view.GetAsync(null, 1);
+        Assert.IsTrue(res1.HasValue);
+        Assert.AreEqual(1, res1.Value);
+
+        // Row present, column value is null.
+        var res2 = await view.GetAsync(null, 2);
+        Assert.IsTrue(res2.HasValue);
+        Assert.AreEqual(null, res2.Value);
+
+        // Row is not present.
+        var res3 = await view.GetAsync(null, 3);
+        Assert.IsFalse(res3.HasValue);
+    }
+
+    [Test]
+    public async Task TestPutNullableValueType()
+    {
+        var table = await Client.Tables.GetTableAsync(TableInt64Name);
+        var recView = table!.RecordBinaryView;
+        var view = table.GetKeyValueView<long, long?>();
+
+        // Put as primitive, read as tuple.
+        await view.PutAsync(null, 4L, 4L);
+        await view.PutAsync(null, 5L, null);
+        await view.RemoveAsync(null, 6L);
+
+        // Row present, value present.
+        var res1 = await recView.GetAsync(null, new IgniteTuple { ["KEY"] = 4L });
+        Assert.IsTrue(res1.HasValue);
+        Assert.AreEqual(4L, res1.Value["VAL"]);
+
+        // Row present, column value is null.
+        var res2 = await recView.GetAsync(null, new IgniteTuple { ["KEY"] = 5L });
+        Assert.IsTrue(res2.HasValue);
+        Assert.AreEqual(null, res2.Value["VAL"]);
+
+        // Row is not present.
+        var res3 = await recView.GetAsync(null, new IgniteTuple { ["KEY"] = 6L });
+        Assert.IsFalse(res3.HasValue);
+    }
+
+    [Test]
+    public async Task TestPutGetNullableTypeMismatch()
+    {
+        var table = await Client.Tables.GetTableAsync(TableInt64Name);
+        var view = table!.GetKeyValueView<long, long>();
+
+        var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await view.GetAsync(null, 2));
+        Assert.AreEqual("Can't map 'System.Int64' to column 'VAL' - column is nullable, but field is not.", ex!.Message);
+    }
+
+    [Test]
     public async Task TestGetNonExistentKeyReturnsEmptyOption()
     {
         (string res, bool hasRes) = await KvView.GetAsync(null, -111L);
@@ -76,10 +140,11 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     }
 
     [Test]
-    public void TestPutNullThrowsArgumentException()
+    public void TestPutNullKeyThrowsArgumentException()
     {
-        var valEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await KvView.PutAsync(null, 1L, null!));
-        Assert.AreEqual("Value cannot be null. (Parameter 'val')", valEx!.Message);
+        var view = Table.GetKeyValueView<object, string>();
+        var keyEx = Assert.ThrowsAsync<ArgumentNullException>(async () => await view.PutAsync(null, null!, null!));
+        Assert.AreEqual("Value cannot be null. (Parameter 'key')", keyEx!.Message);
     }
 
     [Test]
@@ -100,7 +165,7 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         await KvView.PutAllAsync(null, new Dictionary<long, string>());
         await KvView.PutAllAsync(
             null,
-            Enumerable.Range(-1, 7).Select(x => new KeyValuePair<long, string>(x, "v" + x)));
+            Enumerable.Range(-1, 7).Select(x => new KeyValuePair<long, string>(x, x == 3 ? null! : "v" + x)));
 
         IDictionary<long, string> res = await KvView.GetAllAsync(null, Enumerable.Range(-10, 20).Select(x => (long)x));
 
@@ -109,7 +174,15 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         for (int i = -1; i < 6; i++)
         {
             string val = res[i];
-            Assert.AreEqual("v" + i, val);
+
+            if (i == 3)
+            {
+                Assert.IsNull(val);
+            }
+            else
+            {
+                Assert.AreEqual("v" + i, val);
+            }
         }
     }
 
@@ -190,15 +263,20 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     public async Task TestRemoveAllExact()
     {
         await KvView.PutAsync(null, 1, "1");
+        await KvView.PutAsync(null, 2, "1");
+        await KvView.PutAsync(null, 3, null!);
+        await KvView.PutAsync(null, 4, null!);
 
         IList<long> res1 = await KvView.RemoveAllAsync(
             null,
-            Enumerable.Range(-1, 8).Select(x => new KeyValuePair<long, string>(x, x.ToString())));
+            Enumerable.Range(-1, 8).Select(x => new KeyValuePair<long, string>(x, x == 3 ? null! : x.ToString())));
 
         bool res2 = await KvView.ContainsAsync(null, 1);
+        bool res3 = await KvView.ContainsAsync(null, 3);
 
-        Assert.AreEqual(new[] { -1, 0, 2, 3, 4, 5, 6 }, res1.OrderBy(x => x));
+        Assert.AreEqual(new[] { -1, 0, 2, 4, 5, 6 }, res1.OrderBy(x => x));
         Assert.IsFalse(res2);
+        Assert.IsFalse(res3);
     }
 
     [Test]
@@ -284,20 +362,31 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     [Test]
     public async Task TestAllTypes()
     {
-        await TestKey((sbyte)1, TableInt8Name);
-        await TestKey((short)1, TableInt16Name);
-        await TestKey(1, TableInt32Name);
-        await TestKey(1L, TableInt64Name);
-        await TestKey(1.1f, TableFloatName);
-        await TestKey(1.1d, TableDoubleName);
-        await TestKey(1.234m, TableDecimalName);
-        await TestKey("foo", TableStringName);
-        await TestKey(new LocalDateTime(2022, 10, 13, 8, 4, 42), TableDateTimeName);
-        await TestKey(new LocalTime(3, 4, 5), TableTimeName);
-        await TestKey(Instant.FromUnixTimeMilliseconds(123456789101112), TableTimestampName);
-        await TestKey(new BigInteger(123456789101112), TableNumberName);
-        await TestKey(new byte[] { 1, 2, 3 }, TableBytesName);
-        await TestKey(new BitArray(new[] { byte.MaxValue }), TableBitmaskName);
+        await TestKey((sbyte)1, (sbyte?)1, TableInt8Name);
+        await TestKey((short)1, (short?)1, TableInt16Name);
+        await TestKey(1, (int?)1, TableInt32Name);
+        await TestKey(1L, (long?)1L, TableInt64Name);
+        await TestKey(1.1f, (float?)1.1f, TableFloatName);
+        await TestKey(1.1d, (double?)1.1d, TableDoubleName);
+        await TestKey(1.234m, (decimal?)1.234m, TableDecimalName);
+        await TestKey("foo", "foo", TableStringName);
+
+        var localDateTime = new LocalDateTime(2022, 10, 13, 8, 4, 42);
+        await TestKey(localDateTime, (LocalDateTime?)localDateTime, TableDateTimeName);
+
+        var localTime = new LocalTime(3, 4, 5);
+        await TestKey(localTime, (LocalTime?)localTime, TableTimeName);
+
+        var instant = Instant.FromUnixTimeMilliseconds(123456789101112);
+        await TestKey(instant, (Instant?)instant, TableTimestampName);
+
+        var bigInteger = new BigInteger(123456789101112);
+        await TestKey(bigInteger, (BigInteger?)bigInteger, TableNumberName);
+
+        await TestKey(new byte[] { 1, 2, 3 }, new byte[] { 1, 2, 3, 4 }, TableBytesName);
+
+        var bitArray = new BitArray(new[] { byte.MaxValue });
+        await TestKey(bitArray, bitArray, TableBitmaskName);
     }
 
     [Test]
@@ -306,29 +395,29 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
         StringAssert.StartsWith("KeyValueView`2[Int64, String] { Table = Table { Name = TBL1, Id =", KvView.ToString());
     }
 
-    private static async Task TestKey<T>(T val, IKeyValueView<T, T> kvView)
-        where T : notnull
+    private static async Task TestKey<TK, TV>(TK key, TV val, IKeyValueView<TK, TV> kvView)
+        where TK : notnull
     {
         // Tests EmitKvWriter.
-        await kvView.PutAsync(null, val, val);
+        await kvView.PutAsync(null, key, val);
 
         // Tests EmitKvValuePartReader.
-        var (getRes, _) = await kvView.GetAsync(null, val);
+        var (getRes, _) = await kvView.GetAsync(null, key);
 
         // Tests EmitKvReader.
-        var getAllRes = await kvView.GetAllAsync(null, new[] { val });
+        var getAllRes = await kvView.GetAllAsync(null, new[] { key });
 
         Assert.AreEqual(val, getRes);
         Assert.AreEqual(val, getAllRes.Single().Value);
     }
 
-    private async Task TestKey<T>(T val, string tableName)
-        where T : notnull
+    private async Task TestKey<TK, TV>(TK key, TV val, string tableName)
+        where TK : notnull
     {
         var table = await Client.Tables.GetTableAsync(tableName);
 
         Assert.IsNotNull(table, tableName);
 
-        await TestKey(val, table!.GetKeyValueView<T, T>());
+        await TestKey(key, val, table!.GetKeyValueView<TK, TV>());
     }
 }

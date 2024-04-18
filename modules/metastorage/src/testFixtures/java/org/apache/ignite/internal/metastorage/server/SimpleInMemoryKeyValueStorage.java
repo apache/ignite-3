@@ -40,6 +40,7 @@ import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -97,7 +98,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     private @Nullable LongConsumer recoveryRevisionListener;
 
     public SimpleInMemoryKeyValueStorage(String nodeName) {
-        this.watchProcessor = new WatchProcessor(nodeName, this::get);
+        this.watchProcessor = new WatchProcessor(nodeName, this::get, new NoOpFailureProcessor(nodeName));
     }
 
     @Override
@@ -887,5 +888,16 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     @Override
     public CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision) {
         return watchProcessor.notifyUpdateRevisionListeners(newRevision);
+    }
+
+    @Override
+    public void advanceSafeTime(HybridTimestamp newSafeTime) {
+        synchronized (mux) {
+            if (!areWatchesEnabled) {
+                return;
+            }
+
+            watchProcessor.advanceSafeTime(newSafeTime);
+        }
     }
 }

@@ -18,8 +18,8 @@
 #pragma once
 
 #include "ignite/odbc/common_types.h"
-#include "ignite/odbc/protocol_version.h"
 #include "ignite/odbc/utility.h"
+#include "ignite/protocol/protocol_version.h"
 
 #include "ignite/common/ignite_type.h"
 #include "ignite/protocol/reader.h"
@@ -95,11 +95,18 @@ public:
         , m_nullability(nullable ? nullability::NULLABLE : nullability::NO_NULL) {}
 
     /**
-     * Read using reader.
-     * @param reader Reader.
-     * @param ver Server version.
+     * Constructor.
+     *
+     * @param schema_name Schema name.
+     * @param table_name Table name.
+     * @param column_name Column name.
+     * @param data_type Data type.
      */
-    void read(protocol::reader &reader, const protocol_version &ver);
+    column_meta(std::string schema_name, std::string table_name, std::string column_name, ignite_type data_type)
+        : m_schema_name(std::move(schema_name))
+        , m_table_name(std::move(table_name))
+        , m_column_name(std::move(column_name))
+        , m_data_type(data_type) {}
 
     /**
      * Get schema name.
@@ -173,7 +180,7 @@ private:
     std::string m_column_name;
 
     /** Data type. */
-    ignite_type m_data_type{0};
+    ignite_type m_data_type{ignite_type::UNDEFINED};
 
     /** Column precision. */
     std::int32_t m_precision{-1};
@@ -189,12 +196,11 @@ private:
 typedef std::vector<column_meta> column_meta_vector;
 
 /**
- * Read columns metadata collection.
+ * Reads result set metadata.
  *
  * @param reader Reader.
- * @param meta Collection.
- * @param ver Server protocol version.
+ * @return Result set meta columns.
  */
-void read_column_meta_vector(protocol::reader &reader, column_meta_vector &meta, const protocol_version &ver);
+column_meta_vector read_result_set_meta(protocol::reader &reader);
 
 } // namespace ignite

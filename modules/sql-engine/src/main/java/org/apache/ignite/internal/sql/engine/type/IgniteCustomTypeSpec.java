@@ -21,12 +21,12 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.Objects;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 

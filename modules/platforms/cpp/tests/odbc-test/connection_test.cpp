@@ -17,8 +17,10 @@
 
 #include "odbc_suite.h"
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#include <regex>
 #include <string>
 
 using namespace ignite;
@@ -26,37 +28,35 @@ using namespace ignite;
 /**
  * Test suite.
  */
-class connection_test : public ignite::odbc_suite {};
+class connection_test : public odbc_suite {};
 
-TEST_F(connection_test, connection_success) {
-    odbc_connect(get_basic_connection_string());
+TEST_F(connection_test, dbms_version) {
+    EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string()));
+
+    SQLCHAR buffer[ODBC_BUFFER_SIZE];
+    SQLSMALLINT resLen = 0;
+
+    SQLRETURN ret = SQLGetInfo(m_conn, SQL_DBMS_VER, buffer, ODBC_BUFFER_SIZE, &resLen);
+
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_DBC, m_conn));
+
+    // Format: XX.XX.XXXX PATCH PRE_RELEASE
+    EXPECT_TRUE(std::regex_match(
+        std::string(reinterpret_cast<char *>(buffer)), std::regex(R"((\d\d\.\d\d\.\d\d\d\d)(\s\d+)?(\s[a-zA-Z]+)?)")));
 }
 
-TEST_F(connection_test, odbc3_supported) {
-    // Allocate an environment handle
-    SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &m_env);
-    
-    EXPECT_TRUE(m_env != SQL_NULL_HANDLE);
+TEST_F(connection_test, dbms_cluster_name) {
+    EXPECT_NO_THROW(odbc_connect_throw(get_basic_connection_string()));
 
-    // We want ODBC 3.8 support
-    SQLSetEnvAttr(m_env, SQL_ATTR_ODBC_VERSION, reinterpret_cast<void *>(SQL_OV_ODBC3), 0);
+    SQLCHAR buffer[ODBC_BUFFER_SIZE];
+    SQLSMALLINT resLen = 0;
 
-    // Allocate a connection handle
-    SQLAllocHandle(SQL_HANDLE_DBC, m_env, &m_conn);
+    SQLRETURN ret = SQLGetInfo(m_conn, SQL_SERVER_NAME, buffer, ODBC_BUFFER_SIZE, &resLen);
 
-    EXPECT_TRUE(m_conn != SQL_NULL_HANDLE);
+    if (!SQL_SUCCEEDED(ret))
+        FAIL() << (get_odbc_error_message(SQL_HANDLE_DBC, m_conn));
 
-    // Connect string
-    auto connect_str0 = to_sqlchar(get_basic_connection_string());
-    
-    SQLCHAR out_str[ODBC_BUFFER_SIZE];
-    SQLSMALLINT out_str_len;
-
-    // Connecting to ODBC server.
-    SQLRETURN ret = SQLDriverConnect(m_conn, nullptr, &connect_str0[0], static_cast<SQLSMALLINT>(connect_str0.size()),
-        out_str, sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
-
-    if (!SQL_SUCCEEDED(ret)) {
-        FAIL() << get_odbc_error_message(SQL_HANDLE_DBC, m_conn);
-    }
+    // Test cluster name: see PlatformTestNodeRunner.
+    EXPECT_EQ(std::string("cluster"), std::string(reinterpret_cast<char *>(buffer)));
 }

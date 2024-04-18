@@ -31,9 +31,9 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
+import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
-import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * Class for generating Builder interfaces for Network Messages.

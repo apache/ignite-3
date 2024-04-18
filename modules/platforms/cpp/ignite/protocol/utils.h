@@ -113,6 +113,16 @@ template<>
  * @throw ignite_error if the object is not a number.
  */
 template<>
+[[nodiscard]] std::uint64_t unpack_object(const msgpack_object &object);
+
+/**
+ * Unpack number.
+ *
+ * @param object MsgPack object.
+ * @return Number.
+ * @throw ignite_error if the object is not a number.
+ */
+template<>
 [[nodiscard]] std::int32_t unpack_object(const msgpack_object &object);
 
 /**
@@ -133,7 +143,27 @@ template<>
  * @throw ignite_error if the object is not a number.
  */
 template<>
+[[nodiscard]] std::uint16_t unpack_object(const msgpack_object &object);
+
+/**
+ * Unpack number.
+ *
+ * @param object MsgPack object.
+ * @return Number.
+ * @throw ignite_error if the object is not a number.
+ */
+template<>
 [[nodiscard]] std::int8_t unpack_object(const msgpack_object &object);
+
+/**
+ * Unpack number.
+ *
+ * @param object MsgPack object.
+ * @return Number.
+ * @throw ignite_error if the object is not a number.
+ */
+template<>
+[[nodiscard]] std::uint8_t unpack_object(const msgpack_object &object);
 
 /**
  * Unpack string.
@@ -166,21 +196,6 @@ template<>
 [[nodiscard]] bool unpack_object(const msgpack_object &object);
 
 /**
- * Get array size.
- *
- * @param object Object.
- * @return Array size.
- */
-[[nodiscard]] std::uint32_t unpack_array_size(const msgpack_object &object);
-
-/**
- * Unpack array.
- *
- * @param object Object.
- */
-void unpack_array_raw(const msgpack_object &object, const std::function<void(const msgpack_object &)> &read_func);
-
-/**
  * Get binary data.
  *
  * @param object Object.
@@ -201,7 +216,15 @@ void unpack_array_raw(const msgpack_object &object, const std::function<void(con
  * @param reader reader.
  * @return Error if there is any.
  */
-[[nodiscard]] std::optional<ignite_error> read_error(protocol::reader &reader);
+[[nodiscard]] std::optional<ignite_error> try_read_error(protocol::reader &reader);
+
+/**
+ * Read error core.
+ *
+ * @param reader reader.
+ * @return Error.
+ */
+[[nodiscard]] ignite_error read_error(protocol::reader &reader);
 
 /**
  * Claim type and scale header for a value written in binary tuple.

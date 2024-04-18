@@ -18,7 +18,8 @@
 package org.apache.ignite.internal.causality;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -311,13 +312,7 @@ class BaseVersionedValue<T> implements VersionedValue<T> {
         assert from.isDone();
         assert !to.isDone();
 
-        from.whenComplete((v, t) -> {
-            if (t != null) {
-                to.completeExceptionally(t);
-            } else {
-                to.complete(v);
-            }
-        });
+        from.whenComplete(copyStateTo(to));
     }
 
     @Override

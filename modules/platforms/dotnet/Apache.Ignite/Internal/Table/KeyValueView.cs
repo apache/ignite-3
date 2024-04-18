@@ -36,7 +36,6 @@ using Serialization;
 /// <typeparam name="TV">Value type.</typeparam>
 internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     where TK : notnull
-    where TV : notnull
 {
     /** Record view. */
     private readonly RecordView<KvPair<TK, TV>> _recordView;
@@ -103,7 +102,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     /// <inheritdoc/>
     public async Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<TK> keys)
     {
-        IgniteArgumentCheck.NotNull(keys, nameof(keys));
+        IgniteArgumentCheck.NotNull(keys);
 
         return await _recordView.DeleteAllAsync(
             transaction,
@@ -118,7 +117,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     /// <inheritdoc/>
     public async Task<IList<TK>> RemoveAllAsync(ITransaction? transaction, IEnumerable<KeyValuePair<TK, TV>> pairs)
     {
-        IgniteArgumentCheck.NotNull(pairs, nameof(pairs));
+        IgniteArgumentCheck.NotNull(pairs);
 
         return await _recordView.DeleteAllAsync(
             transaction,
@@ -159,7 +158,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public async Task StreamDataAsync(
-        IAsyncEnumerable<KeyValuePair<TK, TV>> data,
+        IAsyncEnumerable<DataStreamerItem<KeyValuePair<TK, TV>>> data,
         DataStreamerOptions? options = null,
         CancellationToken cancellationToken = default) =>
         await _recordView.StreamDataAsync(ToKv(data), options, cancellationToken).ConfigureAwait(false);
@@ -172,32 +171,31 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     private static KvPair<TK, TV> ToKv(KeyValuePair<TK, TV> x)
     {
-        IgniteArgumentCheck.NotNull(x.Key, "key");
-        IgniteArgumentCheck.NotNull(x.Value, "val");
+        IgniteArgumentCheck.NotNull(x.Key);
 
         return new(x.Key, x.Value);
     }
 
-    private static KvPair<TK, TV> ToKv(TK k)
+    private static KvPair<TK, TV> ToKv(TK key)
     {
-        IgniteArgumentCheck.NotNull(k, "key");
+        IgniteArgumentCheck.NotNull(key);
 
-        return new(k);
+        return new(key);
     }
 
-    private static KvPair<TK, TV> ToKv(TK k, TV v)
+    private static KvPair<TK, TV> ToKv(TK key, TV val)
     {
-        IgniteArgumentCheck.NotNull(k, "key");
-        IgniteArgumentCheck.NotNull(v, "val");
+        IgniteArgumentCheck.NotNull(key);
 
-        return new(k, v);
+        return new(key, val);
     }
 
-    private static async IAsyncEnumerable<KvPair<TK, TV>> ToKv(IAsyncEnumerable<KeyValuePair<TK, TV>> pairs)
+    private static async IAsyncEnumerable<DataStreamerItem<KvPair<TK, TV>>> ToKv(
+        IAsyncEnumerable<DataStreamerItem<KeyValuePair<TK, TV>>> pairs)
     {
         await foreach (var pair in pairs)
         {
-            yield return ToKv(pair);
+            yield return DataStreamerItem.Create(ToKv(pair.Data), pair.OperationType);
         }
     }
 }

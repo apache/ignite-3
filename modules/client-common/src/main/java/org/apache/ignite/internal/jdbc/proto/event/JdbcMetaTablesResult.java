@@ -59,7 +59,7 @@ public class JdbcMetaTablesResult extends Response {
             return;
         }
 
-        packer.packArrayHeader(meta.size());
+        packer.packInt(meta.size());
 
         for (JdbcTableMeta m : meta) {
             m.writeBinary(packer);
@@ -75,7 +75,7 @@ public class JdbcMetaTablesResult extends Response {
             return;
         }
 
-        int size = unpacker.unpackArrayHeader();
+        int size = unpacker.unpackInt();
 
         meta = new ArrayList<>(size);
 

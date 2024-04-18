@@ -25,12 +25,6 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.index.IndexValidatorImpl;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexConfigurationSchema;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-schema.
@@ -44,34 +38,21 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
 
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(
-                TablesConfiguration.KEY,
-                GcConfiguration.KEY
-        );
+        return List.of(GcConfiguration.KEY, StorageUpdateConfiguration.KEY);
     }
 
     @Override
     public Set<Validator<?, ?>> validators() {
-        return Set.of(
-                TableValidatorImpl.INSTANCE,
-                ColumnTypeValidatorImpl.INSTANCE,
-                IndexValidatorImpl.INSTANCE
-        );
+        return Set.of();
     }
 
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of(
-                ConstantValueDefaultConfigurationSchema.class,
-                FunctionCallDefaultConfigurationSchema.class,
-                NullValueDefaultConfigurationSchema.class,
-                HashIndexConfigurationSchema.class,
-                SortedIndexConfigurationSchema.class
-        );
+        return List.of();
     }
 
     @Override
-    public Collection<Class<?>> internalSchemaExtensions() {
-        return List.of(ExtendedTableConfigurationSchema.class);
+    public Collection<Class<?>> schemaExtensions() {
+        return List.of();
     }
 }

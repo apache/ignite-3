@@ -42,6 +42,7 @@ dependencies {
 
     testFixturesImplementation project(':ignite-core')
 
+    integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation project(':ignite-network')
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-raft-api')
@@ -53,6 +54,8 @@ dependencies {
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-affinity')
     integrationTestImplementation project(':ignite-replicator')
+    integrationTestImplementation project(':ignite-transactions')
+    integrationTestImplementation project(':ignite-catalog')
 
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-network')))
@@ -60,11 +63,16 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-vault')))
     integrationTestImplementation(testFixtures(project(':ignite-metastorage')))
     integrationTestImplementation(testFixtures(project(':ignite-storage-api')))
+    integrationTestImplementation(testFixtures(project(':ignite-distribution-zones')))
+    integrationTestImplementation(testFixtures(project(':ignite-runner')))
+    integrationTestImplementation(testFixtures(project(':ignite-replicator')))
 
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation(testFixtures(project(':ignite-vault')))
     testImplementation libs.hamcrest.core
+    testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
 }
 
 description = 'ignite-placement-driver'

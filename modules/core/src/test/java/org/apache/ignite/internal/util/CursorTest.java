@@ -27,9 +27,10 @@ import static org.mockito.Mockito.when;
 
 import java.util.Iterator;
 import java.util.List;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
-class CursorTest {
+class CursorTest extends BaseIgniteAbstractTest {
     @Test
     void bareIteratorAdapterProvidesDataFromIterator() throws Exception {
         try (Cursor<Integer> cursor = Cursor.fromBareIterator(List.of(1, 2).iterator())) {

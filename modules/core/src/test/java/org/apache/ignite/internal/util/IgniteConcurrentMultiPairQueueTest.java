@@ -33,8 +33,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

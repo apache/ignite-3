@@ -47,15 +47,18 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <returns>Key hash when <paramref name="computeHash"/> is <c>true</c>; 0 otherwise.</returns>
         int Write(ref MsgPackWriter writer, Schema schema, T record, bool keyOnly = false, bool computeHash = false)
         {
-            var columns = schema.Columns;
-            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+            var count = keyOnly ? schema.KeyColumns.Length : schema.Columns.Length;
             var noValueSet = writer.WriteBitSet(count);
 
-            var tupleBuilder = new BinaryTupleBuilder(count, hashedColumnsPredicate: computeHash ? schema : null);
+            var hashedColumnsPredicate = computeHash
+                ? schema.GetHashedColumnIndexProviderFor(keyOnly)
+                : null;
+
+            var tupleBuilder = new BinaryTupleBuilder(count, hashedColumnsPredicate: hashedColumnsPredicate);
 
             try
             {
-                Write(ref tupleBuilder, record, schema, count, noValueSet);
+                Write(ref tupleBuilder, record, schema, keyOnly, noValueSet);
 
                 var binaryTupleMemory = tupleBuilder.Build();
                 writer.Write(binaryTupleMemory.Span);
@@ -74,13 +77,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <param name="tupleBuilder">Tuple builder.</param>
         /// <param name="record">Record.</param>
         /// <param name="schema">Schema.</param>
-        /// <param name="columnCount">Column count.</param>
+        /// <param name="keyOnly">Key only part.</param>
         /// <param name="noValueSet">No-value set.</param>
         void Write(
             ref BinaryTupleBuilder tupleBuilder,
             T record,
             Schema schema,
-            int columnCount,
+            bool keyOnly,
             Span<byte> noValueSet);
     }
 }

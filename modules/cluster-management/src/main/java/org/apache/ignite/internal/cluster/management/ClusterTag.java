@@ -21,8 +21,8 @@ import java.io.Serializable;
 import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Cluster tag that is used to uniquely identify a cluster.

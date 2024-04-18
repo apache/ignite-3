@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -31,7 +33,6 @@ import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -85,32 +86,34 @@ public interface PartitionAccess {
     @Nullable RaftGroupConfiguration committedGroupConfiguration();
 
     /**
-     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id. In details: - if there is no
+     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID. In details: - if there is no
      * uncommitted version, a new uncommitted version is added - if there is an uncommitted version belonging to the same transaction, it
      * gets replaced by the given version - if there is an uncommitted version belonging to a different transaction,
      * {@link TxIdMismatchException} is thrown
      *
-     * @param rowId Row id.
+     * @param rowId Row ID.
      * @param row Table row to update. Key only row means value removal.
-     * @param txId Transaction id.
-     * @param commitTableId Commit table id.
+     * @param txId Transaction ID.
+     * @param commitTableId Commit table ID.
      * @param commitPartitionId Commit partitionId.
-     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
+     * @param catalogVersion Catalog version of the incoming partition snapshot.
+     * @throws TxIdMismatchException If there's another pending update associated with different transaction ID.
      * @throws StorageException If failed to write data.
      */
-    void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId);
+    void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId, int catalogVersion);
 
     /**
      * Creates a committed version. In details: - if there is no uncommitted version, a new committed version is added - if there is an
      * uncommitted version, this method may fail with a system exception (this method should not be called if there is already something
      * uncommitted for the given row).
      *
-     * @param rowId Row id.
+     * @param rowId Row ID.
      * @param row Table row to update. Key only row means value removal.
      * @param commitTimestamp Timestamp to associate with committed value.
+     * @param catalogVersion Catalog version of the incoming partition snapshot.
      * @throws StorageException If failed to write data.
      */
-    void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp);
+    void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp, int catalogVersion);
 
     /**
      * Returns the minimum applied index of the partition storages.
@@ -147,8 +150,8 @@ public interface PartitionAccess {
      *         <li>{@link #maxLastAppliedTerm()};</li>
      *         <li>{@link #committedGroupConfiguration()};</li>
      *         <li>{@link #addTxMeta(UUID, TxMeta)};</li>
-     *         <li>{@link #addWrite(RowId, BinaryRow, UUID, int, int)};</li>
-     *         <li>{@link #addWriteCommitted(RowId, BinaryRow, HybridTimestamp)}.</li>
+     *         <li>{@link #addWrite(RowId, BinaryRow, UUID, int, int, int)};</li>
+     *         <li>{@link #addWriteCommitted(RowId, BinaryRow, HybridTimestamp, int)}.</li>
      *     </ul></li>
      * </ul>
      *
@@ -195,4 +198,27 @@ public interface PartitionAccess {
      * @throws StorageRebalanceException If there are errors when trying to finish rebalancing.
      */
     CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig);
+
+    /**
+     * Returns the row ID for which the index needs to be built, {@code null} means that the index building has completed.
+     *
+     * @param indexId Index ID of interest.
+     * @throws StorageException If failed to get the row ID.
+     */
+    @Nullable RowId getNextRowIdToBuildIndex(int indexId);
+
+    /**
+     * Sets the row ID for which the index needs to be built.
+     *
+     * @param nextRowIdToBuildByIndexId Mapping: Index ID -> row ID.
+     * @throws StorageException If failed to set the row ID.
+     */
+    void setNextRowIdToBuildIndex(Map<Integer, RowId> nextRowIdToBuildByIndexId);
+
+    /**
+     * Updates the low watermark if it is higher than the current one.
+     *
+     * @param newLowWatermark Candidate for update.
+     */
+    void updateLowWatermark(HybridTimestamp newLowWatermark);
 }

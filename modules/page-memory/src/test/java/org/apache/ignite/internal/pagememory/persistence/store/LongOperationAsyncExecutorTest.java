@@ -30,10 +30,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.pagememory.persistence.store.LongOperationAsyncExecutor.RunnableX;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.Test;
 
 /**

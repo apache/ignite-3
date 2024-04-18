@@ -26,6 +26,7 @@ import static org.mockito.Mockito.when;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
@@ -34,7 +35,6 @@ import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.lang.ByteArray;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
@@ -67,7 +67,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
     /** {@inheritDoc} */
     @Override
     public ConfigurationStorage getStorage() {
-        return new DistributedConfigurationStorage(metaStorageManager);
+        return new DistributedConfigurationStorage("test", metaStorageManager);
     }
 
     /**
@@ -86,11 +86,10 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
             return CompletableFuture.completedFuture(invokeResult);
         });
 
-        when(mock.range(any(), any())).thenAnswer(invocation -> {
-            ByteArray keyFrom = invocation.getArgument(0);
-            ByteArray keyTo = invocation.getArgument(1);
+        when(mock.prefix(any())).thenAnswer(invocation -> {
+            ByteArray prefix = invocation.getArgument(0);
 
-            return fromCursor(metaStorage.range(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes()));
+            return fromCursor(metaStorage.range(prefix.bytes(), metaStorage.nextKey(prefix.bytes())));
         });
 
         return mock;

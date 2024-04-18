@@ -20,8 +20,6 @@ package org.apache.ignite.internal.fileio;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.WritableByteChannel;
 
 /**
  * Decorator class for {@link FileIo}.
@@ -121,17 +119,5 @@ public class FileIoDecorator extends AbstractFileIo {
     @Override
     public void close() throws IOException {
         delegate.close();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long transferTo(long position, long count, WritableByteChannel target) throws IOException {
-        return delegate.transferTo(position, count, target);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long transferFrom(ReadableByteChannel src, long position, long count) throws IOException {
-        return delegate.transferFrom(src, position, count);
     }
 }

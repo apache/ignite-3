@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.storage.snapshot.remote;
 
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.core.TimerManager;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -34,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(MockitoExtension.class)
-public class RemoteFileCopierTest {
+public class RemoteFileCopierTest extends BaseIgniteAbstractTest {
     private RemoteFileCopier copier;
     @Mock
     private RaftClientService rpcService;

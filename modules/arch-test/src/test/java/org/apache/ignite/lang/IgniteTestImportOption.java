@@ -25,11 +25,13 @@ import java.util.regex.Pattern;
  * Provide the ability to evaluate every class location, to determine if the class should be treated as a test class.
  */
 public class IgniteTestImportOption implements ImportOption {
-    private final Pattern integrationTestPattern = Pattern.compile(".*/build/classes/([^/]+/)integrationTest/.*");
+    private static final Pattern INTEGRATION_TEST_PATTERN = Pattern.compile(".*/build/classes/[^/]+/integrationTest/.*");
+    private static final Pattern TEST_FIXTURES_PATTERN = Pattern.compile(".*/build/classes/[^/]+/testFixtures/.*");
 
-    /** {@inheritDoc} */
     @Override
     public boolean includes(Location location) {
-        return Predefined.ONLY_INCLUDE_TESTS.includes(location) || location.matches(integrationTestPattern);
+        return Predefined.ONLY_INCLUDE_TESTS.includes(location)
+                || location.matches(INTEGRATION_TEST_PATTERN)
+                || location.matches(TEST_FIXTURES_PATTERN);
     }
 }

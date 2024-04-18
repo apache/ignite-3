@@ -33,7 +33,7 @@ namespace Apache.Ignite
         /// <returns>Started client.</returns>
         public static async Task<IIgniteClient> StartAsync(IgniteClientConfiguration configuration)
         {
-            IgniteArgumentCheck.NotNull(configuration, nameof(configuration));
+            IgniteArgumentCheck.NotNull(configuration);
 
             var socket = await ClientFailoverSocket.ConnectAsync(configuration).ConfigureAwait(false);
 

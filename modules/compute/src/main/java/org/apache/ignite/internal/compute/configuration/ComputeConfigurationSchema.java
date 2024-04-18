@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute.configuration;
 
 import static java.lang.Math.max;
 
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
@@ -39,4 +40,18 @@ public class ComputeConfigurationSchema {
     @Range(min = 1)
     @Value(hasDefault = true)
     public final long threadPoolStopTimeoutMillis = 10_000;
+
+    /**
+     * Job queue max size.
+     */
+    @Range(min = 1)
+    @Value(hasDefault = true)
+    public final int queueMaxSize = Integer.MAX_VALUE;
+
+    /**
+     * The lifetime of job states in milliseconds after the Compute job finishes.
+     */
+    @Range(min = 0)
+    @Value(hasDefault = true)
+    public final long statesLifetimeMillis = TimeUnit.MINUTES.toMillis(1);
 }

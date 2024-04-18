@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwStorageE
 
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -28,11 +29,12 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCursor {
     protected final AbstractPageMemoryMvPartitionStorage storage;
+
+    private final VersionChainTree versionChainTree;
 
     private @Nullable Cursor<ReadResult> cursor;
 
@@ -44,6 +46,7 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
 
     AbstractPartitionTimestampCursor(AbstractPageMemoryMvPartitionStorage storage) {
         this.storage = storage;
+        this.versionChainTree = storage.renewableState.versionChainTree();
     }
 
     @Override
@@ -150,7 +153,7 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
         }
 
         try {
-            cursor = storage.versionChainTree.find(null, null, new TreeRowMapClosure<>() {
+            cursor = versionChainTree.find(null, null, new TreeRowMapClosure<>() {
                 @Override
                 public ReadResult map(VersionChain treeRow) {
                     return findRowVersion(treeRow);

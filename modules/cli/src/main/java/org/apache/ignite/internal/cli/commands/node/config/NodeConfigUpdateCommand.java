@@ -22,11 +22,11 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigUpdateCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigUpdateCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
+import org.apache.ignite.internal.cli.commands.SpacedParameterMixin;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Parameters;
 
 /**
  * Command that updates node configuration.
@@ -38,8 +38,8 @@ public class NodeConfigUpdateCommand extends BaseCommand implements Callable<Int
     private NodeUrlProfileMixin nodeUrl;
 
     /** Configuration that will be updated. */
-    @Parameters(index = "0")
-    private String config;
+    @Mixin
+    private SpacedParameterMixin config;
 
     @Inject
     private NodeConfigUpdateCall call;
@@ -59,7 +59,7 @@ public class NodeConfigUpdateCommand extends BaseCommand implements Callable<Int
     private NodeConfigUpdateCallInput buildCallInput() {
         return NodeConfigUpdateCallInput.builder()
                 .nodeUrl(nodeUrl.getNodeUrl())
-                .config(config)
+                .config(config.toString())
                 .build();
     }
 }

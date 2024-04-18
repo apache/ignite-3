@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.jdbc;
 
+import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -24,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
@@ -44,10 +44,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.TreeSet;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,7 +58,7 @@ import org.mockito.Mockito;
 /**
  * Unit tests for PreparedStatement methods.
  */
-public class PreparedStatementParamsTest {
+public class PreparedStatementParamsTest extends BaseIgniteAbstractTest {
 
     /** Values for supported JDBC types. */
     private static final Map<JDBCType, Object> SUPPORTED_TYPES = new HashMap<>();
@@ -88,11 +87,8 @@ public class PreparedStatementParamsTest {
     private JdbcConnection conn;
 
     @BeforeEach
-    public void initConnection() throws SQLException {
-        JdbcQueryEventHandler handler = Mockito.mock(JdbcQueryEventHandler.class);
-        when(handler.connect()).thenReturn(CompletableFuture.completedFuture(new JdbcConnectResult(1)));
-
-        conn = new JdbcConnection(handler, new ConnectionPropertiesImpl());
+    public void initConnection() {
+        conn = new JdbcConnection(Mockito.mock(JdbcQueryEventHandler.class), new ConnectionPropertiesImpl());
     }
 
     /** {@link PreparedStatement#clearParameters()} clears parameter list. */
@@ -263,7 +259,7 @@ public class PreparedStatementParamsTest {
         UUID uuid = new UUID(0, 0);
         SQLType sqlType = Mockito.mock(SQLType.class);
 
-        SQLException err = checkSetParameterFails((s) -> s.setObject(1, uuid, sqlType, 1));
+        SQLException err = checkSetParameterFails("setObject not implemented", (s) -> s.setObject(1, uuid, sqlType, 1));
         assertInstanceOf(SQLFeatureNotSupportedException.class, err);
     }
 
@@ -296,12 +292,12 @@ public class PreparedStatementParamsTest {
     public void testSetNullForNotSupportedTypes(JDBCType jdbcType) {
         int typeCode = jdbcType.getVendorTypeNumber();
 
-        SQLException err = checkSetParameterFails((s) -> s.setNull(1, typeCode));
+        SQLException err = checkSetParameterFails("Type is not supported", (s) -> s.setNull(1, typeCode));
         assertInstanceOf(SQLFeatureNotSupportedException.class, err);
         assertThat(err.getMessage(), containsString("Type is not supported"));
 
         // setNull with typename
-        SQLException err2 = checkSetParameterFails((s) -> s.setNull(1, typeCode, jdbcType.getName()));
+        SQLException err2 = checkSetParameterFails("Type is not supported", (s) -> s.setNull(1, typeCode, jdbcType.getName()));
         assertInstanceOf(SQLFeatureNotSupportedException.class, err2);
         assertThat(err2.getMessage(), containsString("Type is not supported"));
     }
@@ -334,12 +330,14 @@ public class PreparedStatementParamsTest {
     }
 
     /** Expects that the given action that uses {@code PreparedStatement} throws an {@link SQLException}. */
-    private SQLException checkSetParameterFails(StatementConsumer action) {
-        return Assertions.assertThrows(SQLException.class, () -> {
-            try (PreparedStatement pstmt = conn.prepareStatement("SELECT ?")) {
-                action.consume(pstmt);
-            }
-        });
+    private SQLException checkSetParameterFails(String expectedErrorMessage, StatementConsumer action) {
+        return assertThrowsSqlException(
+                expectedErrorMessage,
+                () -> {
+                    try (PreparedStatement pstmt = conn.prepareStatement("SELECT ?")) {
+                        action.consume(pstmt);
+                    }
+                });
     }
 
     /**

@@ -21,10 +21,10 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.annotations.WithSetter;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.network.annotations.WithSetter;
+import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 
 /** Base meta storage write command. */
 public interface MetaStorageWriteCommand extends WriteCommand {
@@ -44,7 +44,7 @@ public interface MetaStorageWriteCommand extends WriteCommand {
      * This is a dirty hack. This time is set by the leader node to disseminate new safe time across
      * followers and learners. Leader of the ms group reads {@link #initiatorTime()}, adjusts its clock
      * and sets safeTime as {@link HybridClock#now()} as safeTime here. This must be done before
-     * command is saved into the Raft log (see {@link RaftGroupListener#onBeforeApply(Command)}.
+     * command is saved into the Raft log (see {@link BeforeApplyHandler#onBeforeApply(Command)}.
      */
     @WithSetter
     long safeTimeLong();

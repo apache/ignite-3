@@ -19,8 +19,8 @@ package org.apache.ignite.internal.cluster.management.raft.commands;
 
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Command for initializing the CMG state. If the state has already been initialized, the sender node will be validated against the

@@ -19,8 +19,9 @@ package org.apache.ignite.internal.network.handshake;
 
 import io.netty.channel.ChannelHandlerContext;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.netty.NettySender;
-import org.apache.ignite.network.NetworkMessage;
 
 /**
  * Handshake operation manager.
@@ -48,9 +49,20 @@ public interface HandshakeManager {
     void onMessage(NetworkMessage message);
 
     /**
-     * Returns future that represents the handshake operation.
+     * Returns local future that represents the handshake operation. This is the future that
+     * gets completed when the handshake itself terminates either successfully or with an exception.
+     * This is used to complete the current handshake; to get the final outcome of the connection attempt
+     * please use {@link #finalHandshakeFuture()}.
      *
-     * @return Future that represents the handshake operation.
+     * @return Local future that represents the handshake operation.
      */
-    CompletableFuture<NettySender> handshakeFuture();
+    CompletableFuture<NettySender> localHandshakeFuture();
+
+    /**
+     * Returns final future that represents the handshake operation. This represents completion of either
+     * current handshake or the inverse handshake if it wins (and the current one loses).
+     *
+     * @return Final future that represents the handshake operation.
+     */
+    CompletionStage<NettySender> finalHandshakeFuture();
 }

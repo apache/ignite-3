@@ -4,10 +4,10 @@ schema-defined rows.
 ### Schema definition
 
 Schema is defined as a set of columns which are split into keys and values columns chunks.
-Each column is defined by a name, nullability flag (for value columns only), and a `org.apache.ignite.internal.schema.NativeType`.
-Type is a thin wrapper over the `org.apache.ignite.internal.schema.NativeTypeSpec` to provide differentiation
+Each column is defined by a name, nullability flag (for value columns only), and a `org.apache.ignite.internal.type.NativeType`.
+Type is a thin wrapper over the `org.apache.ignite.internal.type.NativeTypeSpec` to provide differentiation
 between types of one kind with different size (an example of such differentiation is bitmask(n) or number(n)).
-`org.apache.ignite.internal.schema.NativeTypeSpec` provides necessary indirection to read a column as a
+`org.apache.ignite.internal.type.NativeTypeSpec` provides necessary indirection to read a column as a
 `java.lang.Object` without needing to switch over the column type.
 
 `NativeType` defines one of the following types: 

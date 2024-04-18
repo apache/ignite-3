@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl.core;
 
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
@@ -39,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.withSettings;
 
-public class NodeRequestProcessorTest {
+public class NodeRequestProcessorTest extends BaseIgniteAbstractTest {
     private static class MockRequestProcessor extends NodeRequestProcessor<PingRequest> {
         private String peerId;
         private String groupId;

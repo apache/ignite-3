@@ -27,7 +27,7 @@ import org.jline.reader.UserInterruptException;
 public class UserInterruptExceptionHandler implements ExceptionHandler<UserInterruptException> {
     @Override
     public int handle(ExceptionWriter err, UserInterruptException e) {
-        //NOOP
+        // NOOP
         return 1;
     }
 

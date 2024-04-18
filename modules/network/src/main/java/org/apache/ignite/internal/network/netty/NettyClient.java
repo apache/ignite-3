@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
@@ -30,12 +32,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.future.OrderingFuture;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.configuration.SslView;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -146,7 +149,7 @@ public class NettyClient {
                             } else if (throwable != null) {
                                 return CompletableFuture.<NettySender>failedFuture(throwable);
                             } else {
-                                return handshakeManager.handshakeFuture();
+                                return handshakeManager.finalHandshakeFuture();
                             }
                         }
                     })
@@ -176,19 +179,19 @@ public class NettyClient {
     public CompletableFuture<Void> stop() {
         synchronized (startStopLock) {
             if (stopped) {
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
 
             stopped = true;
 
             if (senderFuture == null) {
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
 
             return channelFuture
                     .handle((sender, throwable) ->
                             channel == null
-                                    ? CompletableFuture.<Void>completedFuture(null) : NettyUtils.toCompletableFuture(channel.close()))
+                                    ? CompletableFutures.<Void>nullCompletedFuture() : NettyUtils.toCompletableFuture(channel.close()))
                     .thenCompose(Function.identity());
         }
     }

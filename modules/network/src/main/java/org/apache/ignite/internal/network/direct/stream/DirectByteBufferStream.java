@@ -23,10 +23,10 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageReader;
-import org.apache.ignite.network.serialization.MessageWriter;
+import org.apache.ignite.internal.lang.IgniteUuid;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.serialization.MessageReader;
+import org.apache.ignite.internal.network.serialization.MessageWriter;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.jetbrains.annotations.Nullable;
 

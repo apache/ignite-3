@@ -20,11 +20,11 @@ package org.apache.ignite.internal.storage.pagememory.index.freelist;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.io.IndexColumnsDataIo;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**

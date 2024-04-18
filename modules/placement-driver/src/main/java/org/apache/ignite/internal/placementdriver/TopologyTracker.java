@@ -26,6 +26,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The class tracks a logical topology.
@@ -89,7 +90,7 @@ public class TopologyTracker {
      * @param consistentId Node consistent id.
      * @return Cluster node or {@code null} if topology has no a node with the consistent id.
      */
-    public ClusterNode nodeByConsistentId(String consistentId) {
+    public @Nullable ClusterNode nodeByConsistentId(String consistentId) {
         LogicalTopologySnapshot logicalTopologySnap0 = topologySnapRef.get();
 
         if (logicalTopologySnap0 == null || CollectionUtils.nullOrEmpty(logicalTopologySnap0.nodes())) {
@@ -103,6 +104,10 @@ public class TopologyTracker {
         }
 
         return null;
+    }
+
+    LogicalTopologySnapshot currentTopologySnapshot() {
+        return topologySnapRef.get();
     }
 
     /**
@@ -141,15 +146,6 @@ public class TopologyTracker {
             } while (!topologySnapRef.compareAndSet(logicalTopologySnap0, topologySnap));
 
             LOG.debug("Logical topology updated for placement driver [topologySnap={}]", topologySnap);
-
-            triggerToRenewLeases();
         }
-    }
-
-    /**
-     * Triggers to renew leases forcibly. The method wakes up the monitor of {@link LeaseUpdater}.
-     */
-    private void triggerToRenewLeases() {
-        //TODO: IGNITE-18879 Implement lease maintenance.
     }
 }

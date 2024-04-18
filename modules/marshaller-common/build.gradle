@@ -18,6 +18,7 @@
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 description = 'ignite-marshaller-common'
 
@@ -25,11 +26,16 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-api')
     implementation libs.jetbrains.annotations
+    implementation libs.caffeine
 
     testAnnotationProcessor libs.jmh.annotation.processor
+
     testImplementation project(':ignite-core')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation libs.junit5.params
     testImplementation libs.mockito.junit
     testImplementation libs.jmh.core
+
+    testFixturesApi project(':ignite-api')
+    testFixturesImplementation testFixtures(project(':ignite-core'))
 }

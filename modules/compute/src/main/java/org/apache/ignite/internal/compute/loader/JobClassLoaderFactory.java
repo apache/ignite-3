@@ -25,15 +25,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.ErrorGroups.Compute;
-import org.apache.ignite.lang.IgniteException;
 
 /**
  * Creates a class loader for a job.
@@ -48,16 +50,21 @@ public class JobClassLoaderFactory {
      * @return The class loader.
      */
     public JobClassLoader createClassLoader(List<DisposableDeploymentUnit> units) {
-        URL[] classpath = units.stream()
-                .map(DisposableDeploymentUnit::path)
-                .flatMap(JobClassLoaderFactory::collectClasspath)
-                .toArray(URL[]::new);
+        return AccessController.doPrivileged(new PrivilegedAction<>() {
+            @Override
+            public JobClassLoader run() {
+                URL[] classpath = units.stream()
+                        .map(DisposableDeploymentUnit::path)
+                        .flatMap(JobClassLoaderFactory::collectClasspath)
+                        .toArray(URL[]::new);
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Created class loader with classpath: {}", Arrays.toString(classpath));
-        }
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Created class loader with classpath: {}", Arrays.toString(classpath));
+                }
 
-        return new JobClassLoader(units, classpath, getClass().getClassLoader());
+                return new JobClassLoader(units, classpath, getClass().getClassLoader());
+            }
+        });
     }
 
     private static Stream<URL> collectClasspath(Path unitDir) {
@@ -75,7 +82,7 @@ public class JobClassLoaderFactory {
             Files.walkFileTree(unitDir, classpathCollector);
             return classpathCollector.classpathAsStream();
         } catch (IOException e) {
-            throw new IgniteException(
+            throw new ComputeException(
                     Compute.CLASS_PATH_ERR,
                     "Failed to construct classpath for job: " + unitDir,
                     e

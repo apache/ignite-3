@@ -44,6 +44,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         // Use only nullable variants for reference types (string, bitmask). Use separate methods for value types.
         private static readonly MethodInfo AppendByte = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendByte))!;
         private static readonly MethodInfo AppendByteNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendByteNullable))!;
+        private static readonly MethodInfo AppendBool = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBool))!;
+        private static readonly MethodInfo AppendBoolNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBoolNullable))!;
         private static readonly MethodInfo AppendShort = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendShort))!;
         private static readonly MethodInfo AppendShortNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendShortNullable))!;
         private static readonly MethodInfo AppendInt = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendInt))!;
@@ -75,8 +77,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private static readonly MethodInfo GetByte = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetByte))!;
         private static readonly MethodInfo GetByteNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetByteNullable))!;
-        private static readonly MethodInfo GetByteAsBool = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetByteAsBool))!;
-        private static readonly MethodInfo GetByteAsBoolNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetByteAsBoolNullable))!;
+        private static readonly MethodInfo GetBool = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBool))!;
+        private static readonly MethodInfo GetBoolNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetBoolNullable))!;
         private static readonly MethodInfo GetShort = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetShort))!;
         private static readonly MethodInfo GetShortNullable = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetShortNullable))!;
         private static readonly MethodInfo GetInt = typeof(BinaryTupleReader).GetMethod(nameof(BinaryTupleReader.GetInt))!;
@@ -110,6 +112,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(string), AppendString },
             { typeof(sbyte), AppendByte },
             { typeof(sbyte?), AppendByteNullable },
+            { typeof(bool), AppendBool },
+            { typeof(bool?), AppendBoolNullable },
             { typeof(short), AppendShort },
             { typeof(short?), AppendShortNullable },
             { typeof(int), AppendInt },
@@ -143,8 +147,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(string), GetString },
             { typeof(sbyte), GetByte },
             { typeof(sbyte?), GetByteNullable },
-            { typeof(bool), GetByteAsBool },
-            { typeof(bool?), GetByteAsBoolNullable },
+            { typeof(bool), GetBool },
+            { typeof(bool?), GetBoolNullable },
             { typeof(short), GetShort },
             { typeof(short?), GetShortNullable },
             { typeof(int), GetInt },

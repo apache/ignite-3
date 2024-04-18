@@ -26,8 +26,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
@@ -55,10 +54,7 @@ import org.mockito.stubbing.Answer;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class ReplicatorGroupTest {
-
-    static final IgniteLogger LOG = Loggers.forClass(ReplicatorGroupTest.class);
-
+public class ReplicatorGroupTest extends BaseIgniteAbstractTest {
     private TimerManager timerManager;
     private ReplicatorGroupImpl replicatorGroup;
     @Mock
@@ -175,19 +171,19 @@ public class ReplicatorGroupTest {
     class UserReplicatorStateListener implements Replicator.ReplicatorStateListener {
         @Override
         public void onCreated(final PeerId peer) {
-            LOG.info("Replicator has created");
+            log.info("Replicator has created");
             ReplicatorGroupTest.this.startedCounter.incrementAndGet();
         }
 
         @Override
         public void onError(final PeerId peer, final Status status) {
-            LOG.info("Replicator has errors");
+            log.info("Replicator has errors");
             ReplicatorGroupTest.this.errorCounter.incrementAndGet();
         }
 
         @Override
         public void onDestroyed(final PeerId peer) {
-            LOG.info("Replicator has been destroyed");
+            log.info("Replicator has been destroyed");
             ReplicatorGroupTest.this.stoppedCounter.incrementAndGet();
         }
     }

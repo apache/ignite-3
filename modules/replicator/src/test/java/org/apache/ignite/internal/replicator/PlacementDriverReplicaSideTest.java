@@ -21,6 +21,7 @@ import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,11 +32,17 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
@@ -43,20 +50,24 @@ import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test for placement driver messages processing on replica side.
  */
-public class PlacementDriverReplicaSideTest {
+public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
     private static final ReplicationGroupId GRP_ID = new TestReplicationGroupId("group_1");
 
-    private static final ClusterNode LOCAL_NODE = new ClusterNode("id0", "name0", new NetworkAddress("localhost", 1234));
-    private static final ClusterNode ANOTHER_NODE = new ClusterNode("id1", "name`", new NetworkAddress("localhost", 2345));
+    private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("id0", "name0", new NetworkAddress("localhost", 1234));
+    private static final ClusterNode ANOTHER_NODE = new ClusterNodeImpl("id1", "name`", new NetworkAddress("localhost", 2345));
 
     private static final PlacementDriverMessagesFactory MSG_FACTORY = new PlacementDriverMessagesFactory();
 
@@ -72,6 +83,10 @@ public class PlacementDriverReplicaSideTest {
 
     private int countOfTimeoutExceptionsOnReadIndexToThrow = 0;
 
+    private final ExecutorService executor = Executors.newSingleThreadExecutor(
+            NamedThreadFactory.create("common", "replica", log)
+    );
+
     private Replica startReplica() {
         TopologyAwareRaftGroupService raftClient = mock(TopologyAwareRaftGroupService.class);
 
@@ -79,14 +94,14 @@ public class PlacementDriverReplicaSideTest {
             LeaderElectionListener callback = invocationOnMock.getArgument(0);
             callbackHolder.set(callback);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
 
         when(raftClient.transferLeadership(any())).thenAnswer(invocationOnMock -> {
             Peer peer = invocationOnMock.getArgument(0);
             currentLeader = peer;
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         });
 
         when(raftClient.readIndex()).thenAnswer(invocationOnMock -> {
@@ -98,16 +113,18 @@ public class PlacementDriverReplicaSideTest {
             }
         });
 
-        Replica replica = new Replica(
+        when(raftClient.run(any())).thenAnswer(invocationOnMock -> completedFuture(null));
+
+        return new Replica(
                 GRP_ID,
-                completedFuture(null),
                 mock(ReplicaListener.class),
                 storageIndexTracker,
                 raftClient,
-                LOCAL_NODE
+                LOCAL_NODE,
+                executor,
+                new TestPlacementDriver(LOCAL_NODE),
+                new TestClockService(new HybridClockImpl())
         );
-
-        return replica;
     }
 
     @BeforeEach
@@ -117,6 +134,11 @@ public class PlacementDriverReplicaSideTest {
         currentLeader = null;
         countOfTimeoutExceptionsOnReadIndexToThrow = 0;
         replica = startReplica();
+    }
+
+    @AfterEach
+    void tearDown() {
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
     /**

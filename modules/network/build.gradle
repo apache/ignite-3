@@ -30,6 +30,8 @@ dependencies {
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-core')
     implementation project(':ignite-vault')
+    implementation project(':ignite-workers')
+    implementation project(':ignite-failure-handler')
     implementation libs.jetbrains.annotations
     implementation libs.scalecube.cluster
     implementation libs.fastutil.core
@@ -60,24 +62,25 @@ dependencies {
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
     testImplementation libs.javapoet
-    testImplementation libs.slf4j.jdk14
     testImplementation libs.bytebuddy
     testImplementation libs.compileTesting
     testImplementation libs.awaitility
+    testImplementation libs.bouncycastle.bcpkix.jdk18on;
 
     testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
     testFixturesImplementation project(':ignite-configuration')
+    testFixturesImplementation project(':ignite-failure-handler')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-configuration')))
-    testFixturesImplementation libs.classgraph
+    testFixturesImplementation(testFixtures(project(':ignite-workers')))
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.scalecube.cluster
     testFixturesImplementation libs.jetbrains.annotations
-
     integrationTestAnnotationProcessor project(":ignite-network-annotation-processor")
 
     integrationTestAnnotationProcessor project(":ignite-network-annotation-processor")
     integrationTestImplementation project(':ignite-network-annotation-processor')
+    integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
@@ -85,5 +88,5 @@ dependencies {
     integrationTestImplementation libs.netty.handler
     integrationTestImplementation libs.scalecube.cluster
     integrationTestImplementation libs.javapoet
-    integrationTestImplementation libs.classgraph
+    integrationTestImplementation libs.jetbrains.annotations
 }

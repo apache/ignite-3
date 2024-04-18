@@ -30,6 +30,8 @@ import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_KEY_STORE_PATH;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PATH;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.SQL_MULTILINE;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.SYNTAX_HIGHLIGHTING;
 import static org.apache.ignite.internal.cli.config.ConfigConstants.CURRENT_PROFILE;
 
 import java.io.File;
@@ -46,8 +48,8 @@ import org.apache.ignite.internal.cli.config.exception.ConfigInitializationExcep
 import org.apache.ignite.internal.cli.config.exception.ProfileNotFoundException;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
-import org.apache.ignite.internal.cli.util.OperatingSystem;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.util.OperatingSystem;
 
 /**
  * Implementation of {@link ConfigManager} based on {@link IniFile}.
@@ -136,9 +138,7 @@ public class IniConfigManager implements ConfigManager {
             throw new ProfileNotFoundException(profile);
         }
 
-        IniSection secretSection = secretConfigFile.getSection(profile) == null
-                ? secretConfigFile.createSection(profile)
-                : secretConfigFile.getSection(profile);
+        IniSection secretSection = secretConfigFile.getOrCreateSection(profile);
 
         IniConfig config = new IniConfig(section, configFile::store);
         IniConfig secretConfig = new IniConfig(secretSection, secretConfigFile::store);
@@ -182,6 +182,8 @@ public class IniConfigManager implements ConfigManager {
             IniSection defaultSection = ini.createSection(DEFAULT_PROFILE_NAME);
             defaultSection.setProperty(CLUSTER_URL.value(), "http://localhost:10300");
             defaultSection.setProperty(JDBC_URL.value(), "jdbc:ignite:thin://127.0.0.1:10800");
+            defaultSection.setProperty(SQL_MULTILINE.value(), "true");
+            defaultSection.setProperty(SYNTAX_HIGHLIGHTING.value(), "true");
             ini.store();
             return ini;
         } catch (IOException e) {

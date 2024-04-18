@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,7 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class DeploymentUnitAcquiredWaiterTest {
+class DeploymentUnitAcquiredWaiterTest extends BaseIgniteAbstractTest {
     private static final int DELAY_IN_MILLIS = 500;
 
     private final Set<DeploymentUnit> removingUnits = new CopyOnWriteArraySet<>();
@@ -133,6 +134,8 @@ class DeploymentUnitAcquiredWaiterTest {
         // check unit2 is still not removed.
         await().during(DELAY_IN_MILLIS * 4, TimeUnit.MILLISECONDS)
                 .until(() -> removingUnits.contains(unit2), isEqual(false));
+
+        deploymentUnit2.release();
     }
 
     @Test

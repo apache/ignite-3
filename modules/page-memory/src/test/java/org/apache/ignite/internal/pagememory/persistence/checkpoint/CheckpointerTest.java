@@ -61,8 +61,11 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -75,7 +78,7 @@ import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -85,7 +88,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * For {@link Checkpointer} testing.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class CheckpointerTest {
+public class CheckpointerTest extends BaseIgniteAbstractTest {
     private static final int PAGE_SIZE = 1024;
 
     private static PageIoRegistry ioRegistry;
@@ -111,11 +114,13 @@ public class CheckpointerTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 createCheckpointWorkflow(EMPTY),
                 createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         );
 
         assertNull(checkpointer.runner());
@@ -143,11 +148,13 @@ public class CheckpointerTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         ));
 
         assertNull(checkpointer.lastCheckpointProgress());
@@ -246,11 +253,13 @@ public class CheckpointerTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         );
 
         CompletableFuture<?> waitCheckpointEventFuture = runAsync(checkpointer::waitCheckpointEvent);
@@ -274,11 +283,13 @@ public class CheckpointerTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 createCheckpointWorkflow(EMPTY),
                 createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         ));
 
         ((CheckpointProgressImpl) checkpointer.scheduledProgress())
@@ -348,7 +359,7 @@ public class CheckpointerTest {
 
         partitionMetaManager.addMeta(
                 new GroupPartitionId(0, 0),
-                new PartitionMeta(null, 0, 0, 0, 0, 0, 0, 0, 0, 3)
+                new PartitionMeta(null, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0)
         );
 
         FilePageStore filePageStore = mock(FilePageStore.class);
@@ -357,15 +368,19 @@ public class CheckpointerTest {
 
         Compactor compactor = mock(Compactor.class);
 
+        LogSyncer mockLogSyncer = mock(LogSyncer.class);
+
         Checkpointer checkpointer = spy(new Checkpointer(
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 createCheckpointWorkflow(dirtyPages),
                 createCheckpointPagesWriterFactory(partitionMetaManager),
                 createFilePageStoreManager(Map.of(new GroupPartitionId(0, 0), filePageStore)),
                 compactor,
-                checkpointConfig
+                checkpointConfig,
+                mockLogSyncer
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
@@ -373,6 +388,7 @@ public class CheckpointerTest {
         verify(dirtyPages, times(1)).toDirtyPageIdQueue();
         verify(checkpointer, times(1)).startCheckpointProgress();
         verify(compactor, times(1)).triggerCompaction();
+        verify(mockLogSyncer, times(1)).sync();
 
         assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 3);
 
@@ -389,11 +405,13 @@ public class CheckpointerTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 createCheckpointWorkflow(dirtyPages),
                 createCheckpointPagesWriterFactory(new PartitionMetaManager(ioRegistry, PAGE_SIZE)),
                 createFilePageStoreManager(Map.of()),
                 compactor,
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
@@ -413,11 +431,13 @@ public class CheckpointerTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         );
 
         // Checks case 0 deviation.
@@ -453,11 +473,13 @@ public class CheckpointerTest {
                 "test",
                 null,
                 null,
+                mock(FailureProcessor.class),
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         );
 
         GroupPartitionId groupPartitionId = new GroupPartitionId(0, 0);

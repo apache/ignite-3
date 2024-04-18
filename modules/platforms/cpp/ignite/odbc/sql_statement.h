@@ -280,7 +280,7 @@ public:
      *
      * @return Number of rows affected by the statement.
      */
-    std::int64_t affected_rows();
+    [[nodiscard]] std::int64_t affected_rows();
 
     /**
      * Set rows fetched buffer pointer.
@@ -623,12 +623,7 @@ private:
         std::int16_t *decimal_digits, std::int16_t *nullable);
 
     /**
-     * Make request to data source to update m_parameters metadata.
-     */
-    sql_result update_params_meta();
-
-    /**
-     * Convert SQLRESULT to SQL_ROW_RESULT.
+     * Convert sql_result to SQL_ROW_RESULT.
      *
      * @return Operation result.
      */

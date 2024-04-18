@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
-import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
 
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;

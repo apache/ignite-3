@@ -312,4 +312,11 @@ public interface KeyValueStorage extends ManuallyCloseable {
 
     /** Explicitly notifies revision update listeners. */
     CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision);
+
+    /**
+     * Advances MetaStorage Safe Time to a new value without creating a new revision.
+     *
+     * @param newSafeTime New Safe Time value.
+     */
+    void advanceSafeTime(HybridTimestamp newSafeTime);
 }

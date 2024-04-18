@@ -20,8 +20,6 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.io.PrintWriter;
 import java.io.Reader;
@@ -31,6 +29,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.RelOptCluster;
@@ -62,12 +61,18 @@ import org.apache.calcite.rex.RexCorrelVariable;
 import org.apache.calcite.rex.RexExecutor;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
+import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlDataTypeSpec;
+import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperatorTable;
+import org.apache.calcite.sql.SqlOrderBy;
+import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
+import org.apache.calcite.sql.validate.SqlNonNullableAccessors;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
@@ -128,6 +133,13 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
 
     private RelOptCluster cluster;
 
+    /** Start planning timestamp in millis. */
+    private final long startTs;
+
+    static {
+        warmup();
+    }
+
     /**
      * Constructor.
      *
@@ -149,7 +161,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         rexExecutor = frameworkCfg.getExecutor();
         traitDefs = frameworkCfg.getTraitDefs();
 
-        rexBuilder = new IgniteRexBuilder(typeFactory);
+        rexBuilder = IgniteRexBuilder.INSTANCE;
+        startTs = FastTimestamps.coarseCurrentTimeMillis();
     }
 
     /** {@inheritDoc} */
@@ -175,18 +188,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     /** {@inheritDoc} */
     @Override
     public SqlNode parse(Reader reader) throws SqlParseException {
+        // This method is only used in tests.
         StatementParseResult parseResult = IgniteSqlParser.parse(reader, StatementParseResult.MODE);
-        Object[] parameters = ctx.parameters();
-
-        // Parse method is only used in tests.
-        if (parameters.length != parseResult.dynamicParamsCount()) {
-            String message = format(
-                    "Unexpected number of query parameters. Provided {} but there is only {} dynamic parameter(s).",
-                    parameters.length, parseResult.dynamicParamsCount()
-            );
-
-            throw new SqlException(STMT_VALIDATION_ERR, message);
-        }
 
         return parseResult.statement();
     }
@@ -203,9 +206,11 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     public Pair<SqlNode, RelDataType> validateAndGetType(SqlNode sqlNode) {
         SqlNode validatedNode = validator().validate(sqlNode);
         RelDataType type = validator().getValidatedNodeType(validatedNode);
+        this.validatedSqlNode = validatedNode;
         return Pair.of(validatedNode, type);
     }
 
+    /** {@inheritDoc} */
     @Override
     public RelDataType getParameterRowType() {
         return requireNonNull(validator, "validator")
@@ -231,17 +236,102 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     }
 
     /**
-     * Validates a SQL statement.
+     * Preload some classes so that the time spent is not taken
+     * into account when measuring query planning timeout.
+     */
+    static void warmup() {
+        //noinspection ResultOfMethodCallIgnored
+        PlannerPhase.values();
+    }
+
+    /**
+     * Validates a SQL statement and tries to build aliases for appropriate column names.
      *
      * @param sqlNode Root node of the SQL parse tree.
      * @return Validated node, its validated type and type's origins.
      */
-    public ValidationResult validateAndGetTypeMetadata(SqlNode sqlNode) {
+    ValidationResult validateAndGetTypeMetadata(SqlNode sqlNode) {
+        List<SqlNode> selectItems = null;
+        List<SqlNode> selectItemsNoStar = null;
+        SqlNode sqlNode0 = sqlNode instanceof SqlOrderBy ? ((SqlOrderBy) sqlNode).query : sqlNode;
+
+        boolean starFound = false;
+
+        if (sqlNode0 instanceof SqlSelect) {
+            selectItems = SqlNonNullableAccessors.getSelectList((SqlSelect) sqlNode0);
+            selectItemsNoStar = new ArrayList<>(selectItems.size());
+
+            for (SqlNode node : selectItems) {
+                if (node instanceof SqlIdentifier) {
+                    SqlIdentifier id = (SqlIdentifier) node;
+                    if (id.isStar()) {
+                        starFound = true;
+                    }
+                } else {
+                    if (node instanceof SqlBasicCall) {
+                        SqlBasicCall node0 = (SqlBasicCall) node;
+                        if (!identAsIdent(node0)) {
+                            selectItemsNoStar.add(node);
+                        }
+                    } else {
+                        selectItemsNoStar.add(node);
+                    }
+                }
+            }
+        }
+
         SqlNode validatedNode = validator().validate(sqlNode);
         RelDataType type = validator().getValidatedNodeType(validatedNode);
         List<List<String>> origins = validator().getFieldOrigins(validatedNode);
 
-        return new ValidationResult(validatedNode, type, origins);
+        List<String> derived = null;
+        if (validatedNode instanceof SqlSelect && selectItems != null && !selectItemsNoStar.isEmpty()) {
+            derived = new ArrayList<>(selectItems.size());
+
+            if (starFound) {
+                SqlNodeList expandedItems = ((SqlSelect) validatedNode).getSelectList();
+
+                int resolved = 0;
+                for (SqlNode node : expandedItems) {
+                    if (node instanceof SqlIdentifier) {
+                        derived.add(null);
+
+                        continue;
+                    }
+
+                    if (node instanceof SqlBasicCall) {
+                        SqlBasicCall node0 = (SqlBasicCall) node;
+
+                        // case like: "select *, *" second star columns will be transformed into SqlBasicCall and AS
+                        if (identAsIdent(node0)) {
+                            derived.add(null);
+
+                            continue;
+                        }
+                    }
+
+                    Objects.checkIndex(resolved, selectItemsNoStar.size());
+                    derived.add(validator().deriveAlias(selectItemsNoStar.get(resolved), resolved));
+                    ++resolved;
+                }
+            } else {
+                int cnt = 0;
+
+                for (SqlNode node : selectItems) {
+                    derived.add(validator().deriveAlias(node, cnt++));
+                }
+            }
+        }
+
+        this.validatedSqlNode = validatedNode;
+
+        return new ValidationResult(validatedNode, type, origins, derived == null ? List.of() : derived);
+    }
+
+    private boolean identAsIdent(SqlBasicCall node) {
+        return node.operandCount() == 2 && node.getKind() == SqlKind.AS
+                && node.operand(0) instanceof SqlIdentifier
+                && node.operand(1) instanceof SqlIdentifier;
     }
 
     /** {@inheritDoc} */
@@ -304,7 +394,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
 
     private RelOptPlanner planner() {
         if (planner == null) {
-            VolcanoPlannerExt planner = new VolcanoPlannerExt(frameworkCfg.getCostFactory(), ctx);
+            VolcanoPlannerExt planner = new VolcanoPlannerExt(frameworkCfg.getCostFactory(), ctx, startTs);
             planner.setExecutor(rexExecutor);
             this.planner = planner;
 
@@ -541,9 +631,13 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     private static class VolcanoPlannerExt extends VolcanoPlanner {
         private static final IgniteLogger LOG = Loggers.forClass(IgnitePlanner.class);
 
-        protected VolcanoPlannerExt(RelOptCostFactory costFactory, Context externalCtx) {
+        private final long startTs;
+
+        protected VolcanoPlannerExt(RelOptCostFactory costFactory, Context externalCtx, long startTs) {
             super(costFactory, externalCtx);
             setTopDownOpt(true);
+
+            this.startTs = startTs;
         }
 
         /** {@inheritDoc} */
@@ -560,8 +654,6 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
             long timeout = ctx.plannerTimeout();
 
             if (timeout > 0) {
-                long startTs = ctx.startTs();
-
                 if (FastTimestamps.coarseCurrentTimeMillis() - startTs > timeout) {
                     LOG.debug("Planning of a query aborted due to planner timeout threshold is reached [timeout={}, query={}]",
                             timeout,

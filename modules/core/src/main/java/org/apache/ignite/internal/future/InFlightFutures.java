@@ -52,6 +52,17 @@ public class InFlightFutures implements Iterable<CompletableFuture<?>> {
         }
     }
 
+    /**
+     * Fails all in-flight futures (that is, the futures that are not yet completed).
+     *
+     * @param cause Exception with which to fail the inflight futures.
+     */
+    public void failInFlightFutures(Exception cause) {
+        for (CompletableFuture<?> future : this) {
+            future.completeExceptionally(cause);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public Iterator<CompletableFuture<?>> iterator() {

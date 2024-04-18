@@ -53,6 +53,11 @@ public:
     // Default.
     configuration() = default;
 
+    // With auth.
+    configuration(std::string identity, std::string secret)
+        : m_auth_identity{std::move(identity), true}
+        , m_auth_secret{std::move(secret), true} {}
+
     /**
      * Get addresses.
      *
@@ -75,6 +80,27 @@ public:
     [[nodiscard]] const value_with_default<std::string> &get_schema() const { return m_schema; }
 
     /**
+     * Get authentication type.
+     *
+     * @return Authentication type.
+     */
+    [[nodiscard]] const std::string &get_auth_type() const { return TYPE; };
+
+    /**
+     * Get identity.
+     *
+     * @return Identity.
+     */
+    [[nodiscard]] const value_with_default<std::string> &get_auth_identity() const { return m_auth_identity; };
+
+    /**
+     * Get secret.
+     *
+     * @return Secret.
+     */
+    [[nodiscard]] const value_with_default<std::string> &get_auth_secret() const { return m_auth_secret; };
+
+    /**
      * Fill from configuration params.
      *
      * @throw odbc_error On parsing error.
@@ -83,6 +109,9 @@ public:
     void from_config_map(const config_map &config_params);
 
 private:
+    /** Type constant. */
+    inline static const std::string TYPE{"basic"};
+
     /** Request and response page size. */
     value_with_default<std::int32_t> m_page_size{default_value::page_size, false};
 
@@ -91,6 +120,12 @@ private:
 
     /** Schema. */
     value_with_default<std::string> m_schema{default_value::schema, false};
+
+    /** Identity. */
+    value_with_default<std::string> m_auth_identity{"", false};
+
+    /** Secret. */
+    value_with_default<std::string> m_auth_secret{"", false};
 };
 
 } // namespace ignite

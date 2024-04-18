@@ -19,31 +19,23 @@ package org.apache.ignite.internal.table;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
-import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
-import org.mockito.Mockito;
 
 /**
  * Checks if data compliant with the schema, otherwise the correct exception is thrown.
  */
-public class SchemaValidationTest {
+public class SchemaValidationTest extends TableKvOperationsTestBase {
 
     @Test
     public void columnNotExist() {
@@ -53,7 +45,7 @@ public class SchemaValidationTest {
                 new Column[]{new Column("val", NativeTypes.INT64, true)}
         );
 
-        RecordView<Tuple> recView = createTableImpl(schema).recordView();
+        RecordView<Tuple> recView = createTable(schema).recordView();
 
         assertThrowsWithCause(SchemaMismatchException.class,
                 () -> recView.insert(null, Tuple.create().set("id", 0L).set("invalidCol", 0)));
@@ -70,7 +62,7 @@ public class SchemaValidationTest {
                 new Column[]{new Column("val", NativeTypes.INT64, true)}
         );
 
-        Table tbl = createTableImpl(schema);
+        Table tbl = createTable(schema);
 
         assertThrowsWithCause(SchemaMismatchException.class,
                 () -> tbl.recordView().get(null, Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)));
@@ -105,7 +97,7 @@ public class SchemaValidationTest {
                 }
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         // Check not-nullable column.
         assertThrowsWithCause(IllegalArgumentException.class, () -> tbl.insert(null, Tuple.create().set("id", null)));
@@ -129,7 +121,7 @@ public class SchemaValidationTest {
                 }
         );
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         Tuple tuple = Tuple.create().set("id", 1L);
 
@@ -153,7 +145,7 @@ public class SchemaValidationTest {
                         new Column("valLimited", NativeTypes.blobOf(2), true)
                 });
 
-        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
 
         Tuple tuple = Tuple.create().set("id", 1L);
 
@@ -165,26 +157,6 @@ public class SchemaValidationTest {
 
         assertThrowsWithCause(InvalidTypeException.class, () -> tbl.insert(null, tuple.set("valLimited", new byte[3])));
 
-    }
-
-    private static TableImpl createTableImpl(SchemaDescriptor schema) {
-        return new TableImpl(createTable(schema), new DummySchemaManagerImpl(schema), new HeapLockManager());
-    }
-
-    /**
-     * Creates a table for tests.
-     *
-     * @return The test table.
-     */
-    private static InternalTable createTable(SchemaDescriptor schema) {
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
-
-        DummyInternalTableImpl table = new DummyInternalTableImpl(Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema);
-
-        Mockito.when(clusterService.messagingService()).thenReturn(Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS));
-
-        return table;
     }
 
     private <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {

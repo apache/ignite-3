@@ -19,10 +19,10 @@ package org.apache.ignite.internal.pagememory.util;
 
 import static java.lang.Boolean.FALSE;
 
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -263,7 +263,7 @@ public interface PageHandler<X, R> {
      * @return Handler result.
      * @throws IgniteInternalCheckedException If failed.
      */
-    //TODO IGNITE-16350 Consider splitting into two separate methods for init and regular locking.
+    // TODO IGNITE-16350 Consider splitting into two separate methods for init and regular locking.
     static <X, R> R writePage(
             PageMemory pageMem,
             int groupId,

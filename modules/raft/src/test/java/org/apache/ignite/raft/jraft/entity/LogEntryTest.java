@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.entity;
 
 import java.nio.ByteBuffer;
+import java.nio.ReadOnlyBufferException;
 import java.util.Arrays;
 import org.apache.ignite.raft.jraft.entity.codec.DefaultLogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
@@ -27,9 +28,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class LogEntryTest {
     @Test
@@ -121,5 +124,38 @@ public class LogEntryTest {
         entry.setData(ByteBuffer.wrap("hEllo".getBytes(UTF_8)));
         assertNotEquals(c, entry.checksum());
         assertTrue(entry.isCorrupted());
+    }
+
+    @Test
+    public void testSliceReadOnlyData() {
+        ByteBuffer buf = ByteBuffer.wrap("hello".getBytes());
+        LogEntry entry = new LogEntry(EnumOutter.EntryType.ENTRY_TYPE_NO_OP);
+        entry.setData(buf);
+        assertSame(buf, entry.getData());
+        final ByteBuffer slice = entry.sliceData();
+        assertNotSame(buf, slice);
+        assertEquals(5, slice.remaining());
+        assertEquals("hello", new String(slice.array()));
+        slice.position(4);
+        assertEquals(4, slice.position());
+        assertEquals(0, entry.getData().position());
+        slice.put((byte) 'a');
+        assertEquals(97, slice.get(4));
+        assertEquals("hella", new String(entry.getData().array()));
+
+        ByteBuffer readOnly = entry.getReadOnlyData();
+        assertNotSame(buf, readOnly);
+        assertEquals(5, readOnly.remaining());
+        byte[] bs = new byte[5];
+        readOnly.get(bs);
+        assertEquals("hella", new String(bs));
+
+        try {
+            readOnly.position(4);
+            readOnly.put((byte) 1);
+            fail();
+        } catch (ReadOnlyBufferException e) {
+
+        }
     }
 }

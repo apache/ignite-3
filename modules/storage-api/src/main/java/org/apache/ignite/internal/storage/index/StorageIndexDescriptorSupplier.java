@@ -17,52 +17,15 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toIndexDescriptor;
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findIndexView;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
-
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Index descriptor supplier.
- */
+/** Index descriptor supplier. */
 // TODO: IGNITE-19717 Get rid of it
-public class StorageIndexDescriptorSupplier {
-    private final TablesConfiguration tablesConfig;
-
-    /**
-     * Constructor.
-     *
-     * @param tablesConfig Tables configuration.
-     */
-    public StorageIndexDescriptorSupplier(TablesConfiguration tablesConfig) {
-        this.tablesConfig = tablesConfig;
-    }
-
+public interface StorageIndexDescriptorSupplier {
     /**
      * Returns an index descriptor by its ID, {@code null} if absent.
      *
-     * @param id Index ID.
+     * @param indexId Index ID.
      */
-    @Nullable
-    public StorageIndexDescriptor get(int id) {
-        TablesView tablesView = tablesConfig.value();
-
-        TableIndexView indexView = findIndexView(tablesView, id);
-
-        if (indexView == null) {
-            return null;
-        }
-
-        TableView tableView = findTableView(tablesView, indexView.tableId());
-
-        assert tableView != null : "tableId=" + indexView.tableId() + " ,indexId=" + id;
-
-        return StorageIndexDescriptor.create(toTableDescriptor(tableView), toIndexDescriptor(indexView));
-    }
+    @Nullable StorageIndexDescriptor get(int indexId);
 }

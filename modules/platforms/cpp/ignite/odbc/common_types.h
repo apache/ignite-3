@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "ignite/common/error_codes.h"
 #include "ignite/odbc/system/odbc_constants.h"
 
 #include <cstdint>
@@ -71,7 +72,7 @@ enum class sql_state {
     /** Restricted data type attribute violation. */
     S07006_RESTRICTION_VIOLATION,
 
-    /** Indicator needed but not suplied. */
+    /** Indicator needed but not supplied. */
     S22002_INDICATOR_NEEDED,
 
     /** String data, length mismatch. */
@@ -396,5 +397,13 @@ environment_attribute environment_attribute_to_internal(std::int32_t attr);
  * @return SQL state.
  */
 sql_state response_status_to_sql_state(std::int32_t status);
+
+/**
+ * Convert internal error code to SQL state.
+ *
+ * @param status error code.
+ * @return SQL state.
+ */
+sql_state error_code_to_sql_state(error::code code);
 
 } // namespace ignite

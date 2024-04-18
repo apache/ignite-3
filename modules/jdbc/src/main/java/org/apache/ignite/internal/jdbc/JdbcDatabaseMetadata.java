@@ -32,7 +32,6 @@ import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -400,7 +399,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     /** {@inheritDoc} */
     @Override
     public boolean supportsANSI92EntryLevelSQL() {
-        //TODO IGNITE-15527
+        // TODO IGNITE-15527
         return true;
     }
 
@@ -901,7 +900,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     public ResultSet getSchemas(String catalog, String schemaPtrn) throws SQLException {
         conn.ensureNotClosed();
 
-        final List<JdbcColumnMeta> meta = asList(
+        List<JdbcColumnMeta> meta = asList(
                 new JdbcColumnMeta("TABLE_SCHEM", String.class),
                 new JdbcColumnMeta("TABLE_CATALOG", String.class)
         );
@@ -1186,7 +1185,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     public ResultSet getTypeInfo() throws SQLException {
         List<List<Object>> types = new ArrayList<>(21);
 
-        types.add(Arrays.asList("BOOLEAN", Types.BOOLEAN, 1, null, null, null,
+        types.add(asList("BOOLEAN", Types.BOOLEAN, 1, null, null, null,
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "BOOLEAN", 0, 0,
                 Types.BOOLEAN, 0, 10));
 
@@ -1581,7 +1580,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
         ));
     }
 
-    //TODO IGNITE-15529 List all supported functions
+    // TODO IGNITE-15529 List all supported functions
 
     /** {@inheritDoc} */
     @Override

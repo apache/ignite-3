@@ -24,7 +24,6 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-binary-tuple')
     implementation libs.msgpack.core
-    implementation libs.msgpack.jackson
     implementation libs.netty.common
     implementation libs.netty.buffer
     implementation libs.netty.codec

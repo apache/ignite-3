@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -31,14 +35,20 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -47,9 +57,14 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -57,20 +72,19 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -85,6 +99,9 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
+
+    @InjectConfiguration
+    private static StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
@@ -129,15 +146,22 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+            var clusterInitializer = new ClusterInitializer(
+                    clusterService,
+                    hocon -> hocon,
+                    new TestConfigurationValidator()
+            );
+
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
+                    clusterInitializer,
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
                     cmgConfiguration,
-                    nodeAttributes,
-                    new TestConfigurationValidator());
+                    new NodeAttributesCollector(nodeAttributes, storageConfiguration)
+            );
 
             components.add(cmgManager);
 
@@ -151,12 +175,11 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             );
 
             this.metaStorageManager = new MetaStorageManagerImpl(
-                    vaultManager,
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
-                    new RocksDbKeyValueStorage(name(), basePath.resolve("storage")),
+                    new RocksDbKeyValueStorage(name(), basePath.resolve("storage"), new NoOpFailureProcessor(name())),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     metaStorageConfiguration
@@ -234,7 +257,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
                 latch.countDown();
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -254,7 +277,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
                 latch.countDown();
 
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             @Override
@@ -278,7 +301,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
                     latch.countDown();
 
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 }
 
                 @Override
@@ -336,7 +359,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
                     exactLatch.countDown();
 
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 }
 
                 @Override
@@ -350,18 +373,18 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                 public CompletableFuture<Void> onUpdate(WatchEvent event) {
                     List<String> keys = event.entryEvents().stream()
                             .map(e -> new String(e.newEntry().key(), StandardCharsets.UTF_8))
-                            .collect(Collectors.toList());
+                            .collect(toList());
 
                     List<String> values = event.entryEvents().stream()
                             .map(e -> new String(e.newEntry().value(), StandardCharsets.UTF_8))
-                            .collect(Collectors.toList());
+                            .collect(toList());
 
                     assertThat(keys, containsInAnyOrder("bar", "baz"));
                     assertThat(values, containsInAnyOrder("one", "two"));
 
                     prefixLatch.countDown();
 
-                    return completedFuture(null);
+                    return nullCompletedFuture();
                 }
 
                 @Override
@@ -394,5 +417,88 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
         assertTrue(exactLatch.await(10, TimeUnit.SECONDS));
         assertTrue(prefixLatch.await(10, TimeUnit.SECONDS));
+    }
+
+    /**
+     * Tests that missed metastorage events are replayed with correct timestamps.
+     */
+    @Test
+    void updatesAreReplayedWithCorrectTimestamps() throws Exception {
+        int numNodes = 3;
+
+        startCluster(numNodes);
+
+        List<RevisionAndTimestamp> seenRevisionsAndTimestamps = new CopyOnWriteArrayList<>();
+
+        for (Node node : nodes) {
+            node.metaStorageManager.registerPrefixWatch(new ByteArray("prefix"), new WatchListener() {
+                @Override
+                public CompletableFuture<Void> onUpdate(WatchEvent event) {
+                    seenRevisionsAndTimestamps.add(new RevisionAndTimestamp(event.revision(), event.timestamp()));
+
+                    return nullCompletedFuture();
+                }
+
+                @Override
+                public void onError(Throwable e) {
+                    fail();
+                }
+            });
+        }
+
+        MetaStorageManager metaStorageManager0 = nodes.get(0).metaStorageManager;
+
+        ByteArray key1 = new ByteArray("prefix.1");
+        ByteArray key2 = new ByteArray("prefix.2");
+
+        assertThat(metaStorageManager0.put(key1, new byte[0]), willCompleteSuccessfully());
+        assertThat(metaStorageManager0.put(key2, new byte[0]), willCompleteSuccessfully());
+
+        nodes.forEach(node -> assertThat("Watches were not deployed", node.metaStorageManager.deployWatches(), willCompleteSuccessfully()));
+
+        waitForCondition(() -> seenRevisionsAndTimestamps.size() == numNodes * 2, TimeUnit.SECONDS.toMillis(10));
+
+        // Each revision must be accompanied with the same timestamp on each node.
+        Set<RevisionAndTimestamp> revsAndTssSet = new HashSet<>(seenRevisionsAndTimestamps);
+        assertThat(revsAndTssSet, hasSize(2));
+
+        Map<Long, HybridTimestamp> revToTs = revsAndTssSet.stream()
+                .collect(toMap(rvAndTs -> rvAndTs.revision, rvAndTs -> rvAndTs.timestamp));
+
+        assertThat(revToTs.values().stream().distinct().count(), is(2L));
+
+        // Make sure that timestamps from WatchEvents are same as in the storage.
+        Entry entry1 = metaStorageManager0.getLocally(key1, Long.MAX_VALUE);
+        Entry entry2 = metaStorageManager0.getLocally(key2, Long.MAX_VALUE);
+
+        assertThat(revToTs.get(entry1.revision()), is(metaStorageManager0.timestampByRevision(entry1.revision())));
+        assertThat(revToTs.get(entry2.revision()), is(metaStorageManager0.timestampByRevision(entry2.revision())));
+    }
+
+    private static class RevisionAndTimestamp {
+        private final long revision;
+        private final HybridTimestamp timestamp;
+
+        private RevisionAndTimestamp(long revision, HybridTimestamp timestamp) {
+            this.revision = revision;
+            this.timestamp = timestamp;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            RevisionAndTimestamp that = (RevisionAndTimestamp) o;
+            return revision == that.revision && Objects.equals(timestamp, that.timestamp);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(revision, timestamp);
+        }
     }
 }

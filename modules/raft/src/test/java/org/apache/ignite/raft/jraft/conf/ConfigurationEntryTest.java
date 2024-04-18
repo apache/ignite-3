@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.conf;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.Test;
@@ -26,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class ConfigurationEntryTest {
+public class ConfigurationEntryTest extends BaseIgniteAbstractTest {
     @Test
     public void testStuffMethods() {
         ConfigurationEntry entry = TestUtils.getConfEntry("localhost-8081,localhost-8082,localhost-8083", null);

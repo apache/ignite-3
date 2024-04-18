@@ -44,7 +44,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<double> AverageAsync(this IQueryable<int> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<int>, double>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -67,7 +67,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, int>> selector)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, int>>, double>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -86,7 +86,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<double?> AverageAsync(this IQueryable<int?> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<int?>, double?>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -109,7 +109,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, int?>> selector)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, int?>>, double?>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -128,7 +128,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<double> AverageAsync(this IQueryable<long> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<long>, double>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -151,7 +151,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, long>> selector)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, long>>, double>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -170,7 +170,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<double?> AverageAsync(this IQueryable<long?> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<long?>, double?>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -193,7 +193,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, long?>> selector)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, long?>>, double?>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -212,7 +212,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<double> AverageAsync(this IQueryable<double> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<double>, double>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -235,7 +235,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, double>> selector)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, double>>, double>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -254,7 +254,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<double?> AverageAsync(this IQueryable<double?> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<double?>, double?>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -277,7 +277,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, double?>> selector)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, double?>>, double?>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -296,7 +296,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<float> AverageAsync(this IQueryable<float> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<float>, float>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -319,7 +319,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, float>> selector)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, float>>, float>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -338,7 +338,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<float?> AverageAsync(this IQueryable<float?> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<float?>, float?>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -361,7 +361,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, float?>> selector)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, float?>>, float?>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -380,7 +380,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<decimal> AverageAsync(this IQueryable<decimal> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<decimal>, decimal>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -403,7 +403,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, decimal>> selector)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, decimal>>, decimal>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));
@@ -422,7 +422,7 @@ public static partial class IgniteQueryableExtensions
     [DynamicDependency("Average`1", typeof(Queryable))]
     public static async Task<decimal?> AverageAsync(this IQueryable<decimal?> queryable)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<decimal?>, decimal?>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression);
@@ -445,7 +445,7 @@ public static partial class IgniteQueryableExtensions
         this IQueryable<TSource> queryable,
         Expression<Func<TSource, decimal?>> selector)
     {
-        IgniteArgumentCheck.NotNull(queryable, nameof(queryable));
+        IgniteArgumentCheck.NotNull(queryable);
 
         var method = new Func<IQueryable<TSource>, Expression<Func<TSource, decimal?>>, decimal?>(Queryable.Average).GetMethodInfo();
         var expression = Expression.Call(null, method, queryable.Expression, Expression.Quote(selector));

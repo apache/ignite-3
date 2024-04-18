@@ -19,6 +19,9 @@ package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
+import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
+
+import org.jetbrains.annotations.Nullable;
 
 /** Helper class which provides node configuration template for SSL. */
 public class NodeConfig {
@@ -31,52 +34,81 @@ public class NodeConfig {
     public static final String keyStorePassword = "changeit";
     public static final String trustStorePassword = "changeit";
 
-    /** Node bootstrap configuration pattern with SSL enabled. */
-    public static final String REST_SSL_BOOTSTRAP_CONFIG = "{\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    },\n"
-            + "  },\n"
-            + "  clientConnector.port: {} ,\n"
-            + "  rest: {"
-            + "    ssl: {\n"
-            + "      enabled: true,\n"
-            + "      keyStore: {\n"
-            + "        path: \"" +  escapeWindowsPath(resolvedKeystorePath) + "\",\n"
-            + "        password: " + keyStorePassword + "\n"
-            + "      }, \n"
-            + "      trustStore: {\n"
-            + "        path: \"" + escapeWindowsPath(resolvedTruststorePath) + "\",\n"
-            + "        password: " + trustStorePassword + "\n"
-            + "      }\n"
-            + "    }\n"
-            + "  }\n"
-            + "}";
+    /** Node bootstrap configuration pattern with REST SSL enabled. */
+    public static final String REST_SSL_BOOTSTRAP_CONFIG = restSslBootstrapConfig(null);
 
-    public static final String CLIENT_CONNECTOR_SSL_BOOTSTRAP_CONFIG = "{\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    },\n"
-            + "  },\n"
-            + "  clientConnector: {"
-            + "    port: {},\n"
-            + "    ssl: {\n"
-            + "      enabled: true,\n"
-            + "      clientAuth: require,\n"
-            + "      keyStore: {\n"
-            + "        path: \"" + escapeWindowsPath(resolvedKeystorePath) + "\",\n"
-            + "        password: " + keyStorePassword + "\n"
-            + "      }, \n"
-            + "      trustStore: {\n"
-            + "        type: JKS,\n"
-            + "        path: \"" + escapeWindowsPath(resolvedTruststorePath) + "\",\n"
-            + "        password: " + trustStorePassword + "\n"
-            + "      }\n"
-            + "    }\n"
-            + "  }\n"
-            + "}";
+    /**
+     *  Node bootstrap configuration pattern with REST SSL enabled.
+     *
+     * @param ciphers Custom ciphers suites.
+     * @return Config pattern.
+     */
+    public static String restSslBootstrapConfig(@Nullable String ciphers) {
+        return "{\n"
+                + "  network: {\n"
+                + "    port: {},\n"
+                + "    nodeFinder: {\n"
+                + "      netClusterNodes: [ {} ]\n"
+                + "    },\n"
+                + "  },\n"
+                + "  clientConnector.port: {} ,\n"
+                + "  rest: {\n"
+                + "    port: {}\n"
+                + "    ssl: {\n"
+                + "      port: {},\n"
+                + "      enabled: true,\n"
+                + "      keyStore: {\n"
+                + "        path: \"" + escapeWindowsPath(resolvedKeystorePath) + "\",\n"
+                + "        password: " + keyStorePassword + "\n"
+                + "      }, \n"
+                + "      trustStore: {\n"
+                + "        path: \"" + escapeWindowsPath(resolvedTruststorePath) + "\",\n"
+                + "        password: " + trustStorePassword + "\n"
+                + "      },\n"
+                + (nullOrBlank(ciphers) ? "" : "      ciphers: \"" + ciphers + "\"")
+                + "    }\n"
+                + "  }\n"
+                + "}";
+    }
+
+    /** Node bootstrap configuration pattern with client SSL enabled. */
+    public static final String CLIENT_CONNECTOR_SSL_BOOTSTRAP_CONFIG = clientConnectorSslBootstrapConfig(null);
+
+    /**
+     *  Node bootstrap configuration pattern with client SSL enabled.
+     *
+     * @param ciphers Custom ciphers suites.
+     * @return Config pattern.
+     */
+    public static String clientConnectorSslBootstrapConfig(@Nullable String ciphers) {
+        return "{\n"
+                + "  network: {\n"
+                + "    port: {},\n"
+                + "    nodeFinder: {\n"
+                + "      netClusterNodes: [ {} ]\n"
+                + "    },\n"
+                + "  },\n"
+                + "  clientConnector: {"
+                + "    port: {},\n"
+                + "    ssl: {\n"
+                + "      enabled: true,\n"
+                + "      clientAuth: require,\n"
+                + "      keyStore: {\n"
+                + "        path: \"" + escapeWindowsPath(resolvedKeystorePath) + "\",\n"
+                + "        password: " + keyStorePassword + "\n"
+                + "      }, \n"
+                + "      trustStore: {\n"
+                + "        type: JKS,\n"
+                + "        path: \"" + escapeWindowsPath(resolvedTruststorePath) + "\",\n"
+                + "        password: " + trustStorePassword + "\n"
+                + "      },\n"
+                + (nullOrBlank(ciphers) ? "" : "      ciphers: \"" + ciphers + "\"")
+                + "    }\n"
+                + "  },\n"
+                + "  rest: {\n"
+                + "    port: {},\n"
+                + "    ssl.port: {}\n"
+                + "  }\n"
+                + "}";
+    }
 }

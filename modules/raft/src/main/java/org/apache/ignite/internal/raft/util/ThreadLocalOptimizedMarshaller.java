@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.raft.util;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.raft.jraft.util.Marshaller;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.raft.Marshaller;
+import org.apache.ignite.internal.raft.util.OptimizedMarshaller.ByteBuffersPool;
 
 /**
  * Thread-safe variant of {@link OptimizedMarshaller}.
@@ -28,13 +29,16 @@ public class ThreadLocalOptimizedMarshaller implements Marshaller {
     /** Thread-local optimized marshaller holder. Not static, because it depends on serialization registry. */
     private final ThreadLocal<Marshaller> marshaller;
 
+    /** Shared pool of byte buffers for all thread-local instances. */
+    private final ByteBuffersPool pool = new DefaultByteBuffersPool(Runtime.getRuntime().availableProcessors());
+
     /**
      * Constructor.
      *
      * @param serializationRegistry Serialization registry.
      */
     public ThreadLocalOptimizedMarshaller(MessageSerializationRegistry serializationRegistry) {
-        marshaller = ThreadLocal.withInitial(() -> new OptimizedMarshaller(serializationRegistry));
+        marshaller = ThreadLocal.withInitial(() -> new OptimizedMarshaller(serializationRegistry, pool));
     }
 
     @Override

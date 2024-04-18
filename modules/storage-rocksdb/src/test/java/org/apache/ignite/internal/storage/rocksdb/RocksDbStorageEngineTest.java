@@ -17,26 +17,20 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.storage.BaseMvStoragesTest.getOrCreateMvPartition;
-import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
-import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -44,9 +38,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class RocksDbStorageEngineTest {
+public class RocksDbStorageEngineTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
-    private RocksDbStorageEngineConfiguration engineConfig;
+    RocksDbStorageEngineConfiguration engineConfig;
+
+    @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\"}")
+    StorageConfiguration storageConfiguration;
 
     private RocksDbStorageEngine engine;
 
@@ -54,7 +51,7 @@ public class RocksDbStorageEngineTest {
 
     @BeforeEach
     void setUp(@WorkDirectory Path workDir) {
-        engine = new RocksDbStorageEngine("test", engineConfig, workDir);
+        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
 
         engine.start();
     }
@@ -65,37 +62,5 @@ public class RocksDbStorageEngineTest {
                 table,
                 engine == null ? null : engine::stop
         );
-    }
-
-    @Test
-    void testCreateTableWithDefaultDataRegion(@InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig) {
-        table = engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(tablesConfig)
-        );
-
-        table.start();
-
-        getOrCreateMvPartition(table, 1);
-    }
-
-    @Test
-    void testCreateTableWithDynamicCustomDataRegion(@InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig) {
-        String customRegionName = "foobar";
-
-        CompletableFuture<Void> engineConfigChangeFuture = engineConfig.regions()
-                .change(c -> c.create(customRegionName, rocksDbDataRegionChange -> {
-                }));
-
-        assertThat(engineConfigChangeFuture, willCompleteSuccessfully());
-
-        table = engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, customRegionName),
-                new StorageIndexDescriptorSupplier(tablesConfig)
-        );
-
-        table.start();
-
-        getOrCreateMvPartition(table, 1);
     }
 }

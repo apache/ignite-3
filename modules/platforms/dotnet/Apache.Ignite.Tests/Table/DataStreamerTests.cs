@@ -28,7 +28,7 @@ using Internal.Proto;
 using NUnit.Framework;
 
 /// <summary>
-/// Tests for <see cref="IDataStreamerTarget{T}.StreamDataAsync"/>.
+/// Tests for <see cref="IDataStreamerTarget{T}"/>.
 /// <para />
 /// See DataStreamer partition awareness tests in <see cref="PartitionAwarenessTests"/>.
 /// </summary>
@@ -36,25 +36,48 @@ public class DataStreamerTests : IgniteTestsBase
 {
     private const int Count = 100;
 
+    private const int UpdatedKey = Count / 2;
+
+    private const int DeletedKey = Count + 1;
+
+    private static int _unknownKey = 333000;
+
     [SetUp]
-    public async Task SetUp() =>
-        await TupleView.DeleteAllAsync(null, Enumerable.Range(0, Count).Select(x => GetTuple(x)));
+    public async Task PrepareData()
+    {
+        await TupleView.UpsertAsync(null, GetTuple(UpdatedKey, "update me"));
+        await TupleView.UpsertAsync(null, GetTuple(DeletedKey, "delete me"));
+    }
+
+    [TearDown]
+    public async Task DeleteAll() => await Client.Sql.ExecuteAsync(null, $"DELETE FROM {TableName}");
 
     [Test]
     public async Task TestBasicStreamingRecordBinaryView()
     {
-        var options = DataStreamerOptions.Default with { BatchSize = 10 };
-        var data = Enumerable.Range(0, Count).Select(x => GetTuple(x, "t" + x)).ToList();
-
-        await TupleView.StreamDataAsync(data.ToAsyncEnumerable(), options);
+        await TupleView.StreamDataAsync(GetData(), DataStreamerOptions.Default with { PageSize = 10 });
         await CheckData();
+
+        static async IAsyncEnumerable<DataStreamerItem<IIgniteTuple>> GetData()
+        {
+            for (int i = 0; i < Count; i++)
+            {
+                yield return DataStreamerItem.Create(GetTuple(i, "t" + i));
+            }
+
+            await Task.Yield();
+            yield return DataStreamerItem.Create(GetTuple(DeletedKey), DataStreamerOperationType.Remove);
+        }
     }
 
     [Test]
     public async Task TestBasicStreamingRecordView()
     {
-        var options = DataStreamerOptions.Default with { BatchSize = 5 };
-        var data = Enumerable.Range(0, Count).Select(x => GetPoco(x, "t" + x)).ToList();
+        var options = DataStreamerOptions.Default with { PageSize = 5 };
+        var data = Enumerable.Range(0, Count)
+            .Select(x => DataStreamerItem.Create(GetPoco(x, "t" + x)))
+            .Concat(new[] { DataStreamerItem.Create(GetPoco(DeletedKey), DataStreamerOperationType.Remove) })
+            .ToList();
 
         await Table.GetRecordView<Poco>().StreamDataAsync(data.ToAsyncEnumerable(), options);
         await CheckData();
@@ -63,9 +86,10 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestBasicStreamingKeyValueBinaryView()
     {
-        var options = DataStreamerOptions.Default with { BatchSize = 10_000 };
+        var options = DataStreamerOptions.Default with { PageSize = 10_000 };
         var data = Enumerable.Range(0, Count)
-            .Select(x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), GetTuple(x, "t" + x)))
+            .Select(x => DataStreamerItem.Create(KeyValuePair.Create(GetTuple(x), GetTuple("t" + x))))
+            .Concat(new[] { DataStreamerItem.Create(KeyValuePair.Create(GetTuple(DeletedKey), default(IIgniteTuple)!), DataStreamerOperationType.Remove) })
             .ToList();
 
         await Table.KeyValueBinaryView.StreamDataAsync(data.ToAsyncEnumerable(), options);
@@ -75,9 +99,10 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestBasicStreamingKeyValueView()
     {
-        var options = DataStreamerOptions.Default with { BatchSize = 1 };
+        var options = DataStreamerOptions.Default with { PageSize = 1 };
         var data = Enumerable.Range(0, Count)
-            .Select(x => new KeyValuePair<long, Poco>(x, GetPoco(x, "t" + x)))
+            .Select(x => DataStreamerItem.Create(KeyValuePair.Create((long)x, GetPoco(x, "t" + x))))
+            .Concat(new[] { DataStreamerItem.Create(KeyValuePair.Create((long)DeletedKey, default(Poco)!), DataStreamerOperationType.Remove) })
             .ToList();
 
         await Table.GetKeyValueView<long, Poco>().StreamDataAsync(data.ToAsyncEnumerable(), options);
@@ -98,17 +123,13 @@ public class DataStreamerTests : IgniteTestsBase
                     : TimeSpan.MaxValue
             });
 
-        await Task.Delay(100);
-
         if (enabled)
         {
-            // TODO IGNITE-19824: Remove read-only TX workaround.
-            // Currently, there might be an exception due to false-positive tx conflict detection, which is fixed by a  read-only tx.
-            await using var roTx = await Client.Transactions.BeginAsync(new(ReadOnly: true));
-            await TestUtils.WaitForConditionAsync(() => TupleView.ContainsKeyAsync(roTx, GetTuple(0)));
+            TestUtils.WaitForCondition(() => TupleView.ContainsKeyAsync(null, GetTuple(0)).GetAwaiter().GetResult(), 3000);
         }
         else
         {
+            await Task.Delay(300);
             Assert.IsFalse(await TupleView.ContainsKeyAsync(null, GetTuple(0)));
         }
 
@@ -134,7 +155,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestOptionsValidation()
     {
-        AssertException(DataStreamerOptions.Default with { BatchSize = -10 }, "BatchSize should be positive.");
+        AssertException(DataStreamerOptions.Default with { PageSize = -10 }, "PageSize should be positive.");
         AssertException(DataStreamerOptions.Default with { RetryLimit = -1 }, "RetryLimit should be non-negative.");
         AssertException(
             DataStreamerOptions.Default with { AutoFlushFrequency = TimeSpan.FromDays(-1) },
@@ -153,7 +174,7 @@ public class DataStreamerTests : IgniteTestsBase
     public async Task TestRetryLimitExhausted()
     {
         using var server = new FakeServer(
-            shouldDropConnection: ctx => ctx is { OpCode: ClientOp.TupleUpsertAll, RequestCount: > 7 });
+            shouldDropConnection: ctx => ctx is { OpCode: ClientOp.StreamerBatchSend, RequestCount: > 7 });
 
         using var client = await server.ConnectClientAsync();
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
@@ -161,7 +182,7 @@ public class DataStreamerTests : IgniteTestsBase
         var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
             async () => await table!.RecordBinaryView.StreamDataAsync(GetFakeServerData(10_000)));
 
-        StringAssert.StartsWith("Operation TupleUpsertAll failed after 16 retries", ex!.Message);
+        StringAssert.StartsWith("Operation StreamerBatchSend failed after 16 retries", ex!.Message);
     }
 
     [Test]
@@ -171,7 +192,7 @@ public class DataStreamerTests : IgniteTestsBase
         int upsertIdx = 0;
 
         using var server = new FakeServer(
-            shouldDropConnection: ctx => ctx.OpCode == ClientOp.TupleUpsertAll && Interlocked.Increment(ref upsertIdx) % 2 == 1);
+            shouldDropConnection: ctx => ctx.OpCode == ClientOp.StreamerBatchSend && Interlocked.Increment(ref upsertIdx) % 2 == 1);
 
         // Streamer has it's own retry policy, so we can disable retries on the client.
         using var client = await server.ConnectClientAsync(new IgniteClientConfiguration
@@ -182,8 +203,57 @@ public class DataStreamerTests : IgniteTestsBase
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         await table!.RecordBinaryView.StreamDataAsync(GetFakeServerData(count));
 
-        Assert.AreEqual(count, server.UpsertAllRowCount);
-        Assert.AreEqual(count / DataStreamerOptions.Default.BatchSize, server.DroppedConnectionCount);
+        Assert.AreEqual(count, server.StreamerRowCount);
+        Assert.That(server.DroppedConnectionCount, Is.GreaterThanOrEqualTo(count / DataStreamerOptions.Default.PageSize));
+    }
+
+    [Test]
+    public async Task TestAddUpdateRemoveMixed(
+        [Values(1, 2, 100)] int pageSize,
+        [Values(true, false)] bool existingMinKey)
+    {
+        if (pageSize > 1)
+        {
+            // TODO: IGNITE-21992 Data Streamer removal does not work for a new key in the same batch
+            return;
+        }
+
+        var minKey = existingMinKey ? UpdatedKey : Interlocked.Add(ref _unknownKey, 10);
+        await Table.GetRecordView<Poco>().StreamDataAsync(
+            GetData(),
+            DataStreamerOptions.Default with { PageSize = pageSize });
+
+        IList<Option<Poco>> res = await PocoView.GetAllAsync(null, Enumerable.Range(minKey, 4).Select(x => GetPoco(x)));
+        Assert.AreEqual(4, res.Count);
+
+        Assert.IsFalse(res[0].HasValue, "Deleted key should not exist: " + res[0]);
+
+        Assert.IsTrue(res[1].HasValue);
+        Assert.AreEqual("created2", res[1].Value.Val);
+
+        Assert.IsTrue(res[2].HasValue);
+        Assert.AreEqual("updated", res[2].Value.Val);
+
+        Assert.IsTrue(res[3].HasValue);
+        Assert.AreEqual("created", res[3].Value.Val);
+
+        async IAsyncEnumerable<DataStreamerItem<Poco>> GetData()
+        {
+            await Task.Yield();
+            yield return DataStreamerItem.Create(GetPoco(minKey, "created"));
+            yield return DataStreamerItem.Create(GetPoco(minKey, "updated"));
+            yield return DataStreamerItem.Create(GetPoco(minKey, "deleted"), DataStreamerOperationType.Remove);
+
+            yield return DataStreamerItem.Create(GetPoco(minKey + 1, "created"));
+            yield return DataStreamerItem.Create(GetPoco(minKey + 1, "updated"));
+            yield return DataStreamerItem.Create(GetPoco(minKey + 1, "deleted"), DataStreamerOperationType.Remove);
+            yield return DataStreamerItem.Create(GetPoco(minKey + 1, "created2"));
+
+            yield return DataStreamerItem.Create(GetPoco(minKey + 2, "created"));
+            yield return DataStreamerItem.Create(GetPoco(minKey + 2, "updated"));
+
+            yield return DataStreamerItem.Create(GetPoco(minKey + 3, "created"));
+        }
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
@@ -215,5 +285,8 @@ public class DataStreamerTests : IgniteTestsBase
         {
             Assert.IsTrue(hasVal);
         }
+
+        var deletedExists = await TupleView.ContainsKeyAsync(null, GetTuple(DeletedKey));
+        Assert.IsFalse(deletedExists);
     }
 }

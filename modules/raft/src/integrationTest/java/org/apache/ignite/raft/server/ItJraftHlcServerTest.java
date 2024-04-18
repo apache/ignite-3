@@ -20,6 +20,7 @@ package org.apache.ignite.raft.server;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
@@ -34,18 +35,18 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.server.counter.CounterListener;
 import org.junit.jupiter.api.AfterEach;
@@ -130,16 +131,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
         cons.accept(opts);
 
-        JraftServerImpl server = new JraftServerImpl(service, workDir.resolve("node" + idx), opts, new RaftGroupEventsClientListener()) {
-            @Override
-            public void stop() throws Exception {
-                servers.remove(this);
-
-                super.stop();
-
-                service.stop();
-            }
-        };
+        JraftServerImpl server = jraftServer(servers, idx, service, opts);
 
         server.start();
 
@@ -157,6 +149,8 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
      */
     @Test
     public void testHlcOneInstancePerIgniteNode() {
+        ThreadLocalOptimizedMarshaller commandsMarshaller = new ThreadLocalOptimizedMarshaller(defaultSerializationRegistry());
+
         startServer(0, raftServer -> {
             String localNodeName = raftServer.clusterService().topologyService().localMember().name();
 
@@ -164,7 +158,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
             var nodeId = new RaftNodeId(new TestReplicationGroupId("test_raft_group"), localNode);
 
-            raftServer.startRaftNode(nodeId, initialConf, listenerFactory.get(), defaults());
+            raftServer.startRaftNode(nodeId, initialConf, listenerFactory.get(), defaults().commandsMarshaller(commandsMarshaller));
         }, opts -> {});
 
         servers.forEach(srv -> {
@@ -175,7 +169,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
             for (int i = 0; i < 5; i++) {
                 var nodeId = new RaftNodeId(new TestReplicationGroupId("test_raft_group_" + i), localNode);
 
-                srv.startRaftNode(nodeId, initialConf, listenerFactory.get(), defaults());
+                srv.startRaftNode(nodeId, initialConf, listenerFactory.get(), defaults().commandsMarshaller(commandsMarshaller));
             }
         });
 

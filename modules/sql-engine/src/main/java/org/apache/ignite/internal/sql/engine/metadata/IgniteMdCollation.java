@@ -92,11 +92,11 @@ public class IgniteMdCollation implements MetadataHandler<BuiltInMetadata.Collat
     public static final RelMetadataProvider SOURCE =
             ReflectiveRelMetadataProvider.reflectiveSource(new IgniteMdCollation(), BuiltInMetadata.Collation.Handler.class);
 
-    //~ Constructors -----------------------------------------------------------
+    //--- Constructors -----------------------------------------------------------
     private IgniteMdCollation() {
     }
 
-    //~ Methods ----------------------------------------------------------------
+    //--- Methods ----------------------------------------------------------------
 
     /** {@inheritDoc} */
     @Override

@@ -1,0 +1,97 @@
+N1
+SELECT /*+ DISABLE_RULE('ColocatedHashAggregateConverterRule')*/ * FROM
+  (SELECT * FROM t1_n1 UNION SELECT * FROM t2_n1)
+---
+Fragment#0 root
+  executionNodes: [N1]
+  remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1]}
+  tree:
+    ReduceHashAggregate
+      Receiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#1
+  targetNodes: [N1]
+  executionNodes: [N1]
+  tables: [T1_N1, T2_N1]
+  partitions: {N1=[0:1]}
+  tree:
+    Sender(targetFragment=0, exchange=1, distribution=single)
+      MapHashAggregate
+        UnionAll
+          TableScan(name=PUBLIC.T1_N1, source=2, partitions=1, distribution=affinity[table: T1_N1, columns: [ID]])
+          TableScan(name=PUBLIC.T2_N1, source=3, partitions=1, distribution=affinity[table: T2_N1, columns: [ID]])
+---
+
+N1
+SELECT /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule')*/ * FROM
+  (SELECT * FROM t1_n1 UNION SELECT * FROM t2_n1)
+---
+Fragment#0 root
+  executionNodes: [N1]
+  remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1]}
+  tree:
+    Receiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#1
+  targetNodes: [N1]
+  executionNodes: [N1]
+  tables: [T1_N1, T2_N1]
+  partitions: {N1=[0:1]}
+  tree:
+    Sender(targetFragment=0, exchange=1, distribution=single)
+      ColocatedHashAggregate
+        UnionAll
+          TableScan(name=PUBLIC.T1_N1, source=2, partitions=1, distribution=affinity[table: T1_N1, columns: [ID]])
+          TableScan(name=PUBLIC.T2_N1, source=3, partitions=1, distribution=affinity[table: T2_N1, columns: [ID]])
+---
+
+N1
+SELECT /*+ DISABLE_RULE('ColocatedHashAggregateConverterRule')*/ * FROM
+  (SELECT * FROM t1_n1n2 UNION SELECT * FROM t2_n1n2)
+---
+Fragment#0 root
+  executionNodes: [N1]
+  remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1, N2]}
+  tree:
+    ReduceHashAggregate
+      Receiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#1
+  targetNodes: [N1]
+  executionNodes: [N1, N2]
+  tables: [T1_N1N2, T2_N1N2]
+  partitions: {N1=[0:2], N2=[1:2]}
+  tree:
+    Sender(targetFragment=0, exchange=1, distribution=single)
+      MapHashAggregate
+        UnionAll
+          TableScan(name=PUBLIC.T1_N1N2, source=2, partitions=2, distribution=affinity[table: T1_N1N2, columns: [ID]])
+          TableScan(name=PUBLIC.T2_N1N2, source=3, partitions=2, distribution=affinity[table: T2_N1N2, columns: [ID]])
+---
+
+N1
+SELECT /*+ DISABLE_RULE('MapReduceHashAggregateConverterRule')*/ * FROM
+  (SELECT * FROM t1_n1n2 UNION SELECT * FROM t2_n1n2)
+---
+Fragment#0 root
+  executionNodes: [N1]
+  remoteFragments: [1]
+  exchangeSourceNodes: {1=[N1, N2]}
+  tree:
+    Receiver(sourceFragment=1, exchange=1, distribution=single)
+
+Fragment#1
+  targetNodes: [N1]
+  executionNodes: [N1, N2]
+  tables: [T1_N1N2, T2_N1N2]
+  partitions: {N1=[0:2], N2=[1:2]}
+  tree:
+    Sender(targetFragment=0, exchange=1, distribution=single)
+      ColocatedHashAggregate
+        UnionAll
+          TableScan(name=PUBLIC.T1_N1N2, source=2, partitions=2, distribution=affinity[table: T1_N1N2, columns: [ID]])
+          TableScan(name=PUBLIC.T2_N1N2, source=3, partitions=2, distribution=affinity[table: T2_N1N2, columns: [ID]])
+---

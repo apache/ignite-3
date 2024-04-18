@@ -1,4 +1,4 @@
-#
+
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -16,95 +16,109 @@
 #
 
 [versions]
-assertj = "3.22.0"
-asm = "9.1"
-compileTesting = "0.19"
-fliptables = "1.1.0"
-jackson = "2.14.1"
+assertj = "3.25.3"
+asm = "9.7"
+bouncycastle = "1.76"
+compileTesting = "0.21.0"
+fliptables = "1.1.1"
+fmpp = "0.9.16"
+jackson = "2.17.0"
 jakarta = "2.0.0"
-jansi = "2.4.0"
-netty = "4.1.87.Final"
+jansi = "2.4.1"
+netty = "4.1.108.Final"
 javapoet = "1.13.0"
 javax = "1.3.2"
-jetbrainsAnnotations = "20.1.0"
-jline = "3.21.0"
-jmh = "1.35"
-junit5 = "5.9.1"
-junitPioneer = "2.0.1"
+jetbrainsAnnotations = "24.1.0"
+jline = "3.25.1"
+jmh = "1.37"
+junit5 = "5.10.2"
+junitPioneer = "2.2.0"
 jsr305 = "3.0.2"
-okhttp = "4.9.1"
-gson = "2.8.9"
-gsonFire = "1.8.5"
-threetenbp = "1.5.2"
-micronaut = "3.8.5"
-micronautPicocli = "4.3.0"
-micronautJunit5 = "3.9.0"
-micronautSecurity="3.9.2"
-micronautReactor="2.5.0"
-mockito = "4.3.1"
-picocli = "4.7.0"
-slf4j = "2.0.7"
-spoon = "8.4.0-beta-18"
-swagger = "2.2.8"
-swaggerLegacy = "1.6.4"
-typesafe = "1.4.1"
+okhttp = "4.12.0"
+gson = "2.10.1"
+gsonFire = "1.9.0"
+threetenbp = "1.6.8"
+micronaut = "3.10.3"
+micronautPicocli = "4.4.0"
+micronautJunit5 = "3.9.2"
+micronautSecurity="3.11.1"
+micronautReactor="2.6.0"
+mockito = "5.11.0"
+picocli = "4.7.5"
+slf4j = "2.0.12"
+log4j = "2.23.0"
+spoon = "10.4.3-beta-20"
+swagger = "2.2.20"
+swaggerLegacy = "1.6.14"
+typesafe = "1.4.3"
 hamcrest = "2.2"
 hamcrestOptional = "2.0.0"
 hamcrestPath = "1.0.1"
+hamcrestJson = "0.3"
 scalecube = "2.6.15"
-calcite = "1.34.0"
-value = "2.8.8"
-janino = "3.1.9"
-avatica = "1.23.0"
-jsonpath = "2.4.0"
-classgraph = "4.8.110"
-javassist = "3.28.0-GA"
-rocksdb = "7.9.2"
-disruptor = "3.3.7"
-metrics = "4.0.2"
-jctools = "3.3.0"
-msgpack = "0.8.21"
+calcite = "1.36.0"
+value = "2.10.1"
+janino = "3.1.12"
+avatica = "1.24.0"
+jsonpath = "2.9.0"
+javassist = "3.30.2-GA"
+rocksdb = "8.11.3"
+disruptor = "4.0.0"
+metrics = "4.2.25"
+jctools = "4.0.3"
+msgpack = "0.8.24"
 caffeine = "3.0.4"
-fastutil = "8.5.6"
-kryo = "4.0.1"
-bytebuddy = "1.12.8"
-mockServer = "5.13.2"
-archunit = "1.0.1"
-testkit = "1.8.2"
-openapi = "4.8.6"
-autoService = "1.0.1"
-awaitility = "4.2.0"
+fastutil = "8.5.13"
+kryo = "5.6.0"
+bytebuddy = "1.14.12"
+mockServer = "5.15.0"
+archunit = "1.2.1"
+testkit = "1.10.2"
+openapi = "4.10.0"
+autoService = "1.1.1"
+awaitility = "4.2.1"
 progressBar = "0.9.4"
+guava = "33.1.0-jre"
+jna = "5.14.0"
+tree-sitter = "0.22.2"
+tree-sitter-json = "0.20.1"
+tree-sitter-sql = "gh-pages"
 
 #Tools
 pmdTool = "6.55.0"
 checkstyleTool = "10.3.3"
-jacocoTool = "0.8.8"
+jacocoTool = "0.8.11"
+spotbugsTool = "4.8.3"
 
 [plugins]
-openapiGenerator = "org.openapi.generator:5.4.0"
+openapiGenerator = "org.openapi.generator:7.4.0"
 javacc = "com.intershop.gradle.javacc:4.1.3"
 shadow = "com.github.johnrengelman.shadow:7.1.2"
 cmake = "net.freudasoft.gradle-cmake-plugin:0.0.4"
-modernizer = "com.github.andygoossens.modernizer:1.6.2"
-nebula = "nebula.ospackage:9.1.1"
-docker = "com.palantir.docker:0.34.0"
+nebula = "com.netflix.nebula.ospackage:11.8.1"
+docker = "com.palantir.docker:0.36.0"
 checksum = "org.gradle.crypto.checksum:1.4.0"
-setupbuilder = "de.inetsoftware.setupbuilder:7.2.13"
-aggregateJavadoc = "io.freefair.aggregate-javadoc:6.5.1"
+setupbuilder = "de.inetsoftware.setupbuilder:7.2.21"
+aggregateJavadoc = "io.freefair.aggregate-javadoc:6.6.3"
+ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.1.8"
+spotbugs = "com.github.spotbugs:6.0.8"
+
 
 [libraries]
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+
+bouncycastle-bcprov-jdk18on = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+bouncycastle-bcpkix-jdk18on = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
 
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrainsAnnotations" }
 
 hamcrest-core = { module = "org.hamcrest:hamcrest", version.ref = "hamcrest" }
 hamcrest-optional = { module = "com.github.npathai:hamcrest-optional", version.ref = "hamcrestOptional" }
 hamcrest-path = { module = "ca.seinesoftware:hamcrest-path", version.ref = "hamcrestPath" }
+hamcrest-json = { module = "uk.co.datumedge:hamcrest-json", version.ref = "hamcrestJson" }
 
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 mockito-junit = { module = "org.mockito:mockito-junit-jupiter", version.ref = "mockito" }
-mockito-inline = { module = "org.mockito:mockito-inline", version.ref = "mockito" }
 
 asm-core = { module = "org.ow2.asm:asm", version.ref = "asm" }
 asm-tree = { module = "org.ow2.asm:asm-tree", version.ref = "asm" }
@@ -123,6 +137,9 @@ junit-testkit = { module = "org.junit.platform:junit-platform-testkit", version.
 
 #junit-pioneer
 junit-pioneer = { module = "org.junit-pioneer:junit-pioneer", version.ref = "junitPioneer" }
+
+#guava
+guava = { module = "com.google.guava:guava", version.ref = "guava" }
 
 #Micronaut
 micronaut-inject = { module = "io.micronaut:micronaut-inject", version.ref = "micronaut" }
@@ -154,7 +171,13 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations", version.ref = "jackson" }
 
 typesafe-config = { module = "com.typesafe:config", version.ref = "typesafe" }
+
 slf4j-jdk14 = { module = "org.slf4j:slf4j-jdk14", version.ref = "slf4j" }
+slf4j-log4j = { module = "org.apache.logging.log4j:log4j-slf4j2-impl", version.ref = "log4j" }
+
+log4j-api = { module = "org.apache.logging.log4j:log4j-api", version.ref = "log4j" }
+log4j-core = { module = "org.apache.logging.log4j:log4j-core", version.ref = "log4j" }
+log4j-bridge = { module = "org.apache.logging.log4j:log4j-jpl", version.ref = "log4j" }
 
 gson-core = { module = "com.google.code.gson:gson", version.ref = "gson" }
 gson-fire = { module = "io.gsonfire:gson-fire", version.ref = "gsonFire" }
@@ -173,7 +196,6 @@ mock-server-netty = { module = "org.mock-server:mockserver-netty", version.ref =
 mock-server-junit = { module = "org.mock-server:mockserver-junit-jupiter", version.ref = "mockServer" }
 
 msgpack-core = { module = "org.msgpack:msgpack-core", version.ref = "msgpack" }
-msgpack-jackson = { module = "org.msgpack:jackson-dataformat-msgpack", version.ref = "msgpack" }
 
 netty-common = { module = "io.netty:netty-common", version.ref = "netty" }
 netty-buffer = { module = "io.netty:netty-buffer", version.ref = "netty" }
@@ -186,8 +208,6 @@ archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref
 
 jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
 jmh-annotation-processor = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
-
-classgraph = { module = "io.github.classgraph:classgraph", version.ref = "classgraph" }
 
 javapoet = { module = "com.squareup:javapoet", version.ref = "javapoet" }
 
@@ -224,6 +244,7 @@ caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "c
 calcite-core = { module = "org.apache.calcite:calcite-core", version.ref = "calcite" }
 calcite-linq4j = { module = "org.apache.calcite:calcite-linq4j", version.ref = "calcite" }
 calcite-avatica = { module = "org.apache.calcite.avatica:avatica-core", version.ref = "avatica" }
+fmpp = { module = "net.sourceforge.fmpp:fmpp", version.ref = "fmpp" }
 
 value-annotations = { module = "org.immutables:value-annotations", version.ref = "value" }
 value-annotation-processor = { module = "org.immutables:value", version.ref = "value" }
@@ -239,3 +260,9 @@ auto-service-annotations = { module = "com.google.auto.service:auto-service-anno
 awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
 
 progressBar = { module = "me.tongfei:progressbar", version.ref = "progressBar" }
+
+jna = { module = "net.java.dev.jna:jna", version.ref = "jna"}
+
+tree-sitter = { module = "io.github.bonede:tree-sitter", version.ref = "tree-sitter" }
+tree-sitter-json = { module = "io.github.bonede:tree-sitter-json", version.ref = "tree-sitter-json" }
+tree-sitter-sql = { module = "io.github.bonede:tree-sitter-sql", version.ref = "tree-sitter-sql" }

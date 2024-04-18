@@ -29,8 +29,8 @@ public class MinusExecutionTest extends AbstractSetOpExecutionTest {
     /** {@inheritDoc} */
     @Override
     protected AbstractSetOpNode<Object[]> setOpNodeFactory(ExecutionContext<Object[]> ctx,
-            AggregateType type, boolean all, int inputsCnt) {
-        return new MinusNode<>(ctx, type, all, rowFactory());
+            AggregateType type, int columnCount, boolean all, int inputsCnt) {
+        return new MinusNode<>(ctx, columnCount, type, all, rowFactory());
     }
 
     /** {@inheritDoc} */

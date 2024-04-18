@@ -24,10 +24,11 @@ import java.net.URL;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.ReplManager;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
+import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.converters.UrlConverter;
+import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 
@@ -41,6 +42,9 @@ public class ConnectCommand extends BaseCommand implements Callable<Integer> {
     @Parameters(description = NODE_URL_OPTION_DESC, converter = UrlConverter.class)
     private URL nodeUrl;
 
+    @ArgGroup(exclusive = false)
+    private ConnectOptions connectOptions;
+
     @Inject
     private ConnectCall connectCall;
 
@@ -51,7 +55,7 @@ public class ConnectCommand extends BaseCommand implements Callable<Integer> {
     @Override
     public Integer call() {
         int exitCode = CallExecutionPipeline.builder(connectCall)
-                .inputProvider(() -> new UrlCallInput(nodeUrl.toString()))
+                .inputProvider(this::connectCallInput)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .verbose(verbose)
@@ -61,5 +65,13 @@ public class ConnectCommand extends BaseCommand implements Callable<Integer> {
             replManager.startReplMode();
         }
         return exitCode;
+    }
+
+    private ConnectCallInput connectCallInput() {
+        return ConnectCallInput.builder()
+                .url(nodeUrl.toString())
+                .username(connectOptions != null ? connectOptions.username() : null)
+                .password(connectOptions != null ? connectOptions.password() : null)
+                .build();
     }
 }

@@ -22,13 +22,13 @@ import com.typesafe.config.ConfigFactory;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
-import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeConfigRegistry;
+import org.apache.ignite.internal.cli.event.ConnectionEventListener;
 
 /** Implementation of {@link NodeConfigRegistry}. */
 @Singleton
-public class NodeConfigRegistryImpl implements NodeConfigRegistry, AsyncSessionEventListener {
+public class NodeConfigRegistryImpl implements NodeConfigRegistry, ConnectionEventListener {
 
     private final NodeConfigShowCall nodeConfigShowCall;
 

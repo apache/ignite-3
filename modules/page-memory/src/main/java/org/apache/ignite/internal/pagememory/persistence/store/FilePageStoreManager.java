@@ -20,13 +20,13 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createFile;
 import static java.nio.file.Files.delete;
+import static java.nio.file.Files.exists;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
-import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
-import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.deleteIfExistsThrowable;
 
 import java.io.File;
 import java.io.IOException;
@@ -34,25 +34,26 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager;
 import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.LongOperationAsyncExecutor.RunnableX;
-import org.apache.ignite.internal.util.IgniteStripedLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -98,22 +99,17 @@ public class FilePageStoreManager implements PageReadWriteManager {
     /** Starting directory for all file page stores, for example: 'db/group-123/index.bin'. */
     private final Path dbDir;
 
-    /** Page size in bytes. */
-    private final int pageSize;
-
     /** Executor to disallow running code that modifies data in {@link #groupPageStores} concurrently with cleanup of file page store. */
     private final LongOperationAsyncExecutor cleanupAsyncExecutor;
 
     /** Mapping: group ID -> group page stores. */
     private final GroupPageStoresMap<FilePageStore> groupPageStores;
 
-    /** Striped lock for partition initialization. */
-    private final IgniteStripedLock initPartitionStripedLock = new IgniteStripedLock(
-            Math.max(Runtime.getRuntime().availableProcessors(), 8)
-    );
-
     /** {@link FilePageStore} factory. */
     private final FilePageStoreFactory filePageStoreFactory;
+
+    /** Failure processor. */
+    private final FailureProcessor failureProcessor;
 
     /**
      * Constructor.
@@ -122,17 +118,18 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param storagePath Storage path.
      * @param filePageStoreFileIoFactory {@link FileIo} factory for file page store.
      * @param pageSize Page size in bytes.
-     * @throws IgniteInternalCheckedException If failed.
+     * @param failureProcessor Failure processor that is used to handler critical errors.
      */
     public FilePageStoreManager(
             String igniteInstanceName,
             Path storagePath,
             FileIoFactory filePageStoreFileIoFactory,
             // TODO: IGNITE-17017 Move to common config
-            int pageSize
-    ) throws IgniteInternalCheckedException {
+            int pageSize,
+            FailureProcessor failureProcessor
+    ) {
         this.dbDir = storagePath.resolve("db");
-        this.pageSize = pageSize;
+        this.failureProcessor = failureProcessor;
 
         cleanupAsyncExecutor = new LongOperationAsyncExecutor(igniteInstanceName, LOG);
 
@@ -229,7 +226,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             pageStore.read(pageId, pageBuf, keepCrc);
         } catch (IgniteInternalCheckedException e) {
-            // TODO: IGNITE-16899 By analogy with 2.0, fail a node
+            failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
 
             throw e;
         }
@@ -249,7 +246,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             return pageStore;
         } catch (IgniteInternalCheckedException e) {
-            // TODO: IGNITE-16899 By analogy with 2.0, fail a node
+            failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
 
             throw e;
         }
@@ -266,58 +263,16 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             return pageId(partId, flags, pageIdx);
         } catch (IgniteInternalCheckedException e) {
-            // TODO: IGNITE-16899 By analogy with 2.0, fail a node
+            failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
 
             throw e;
-        }
-    }
-
-    /**
-     * Initialization of the page storage for the group partition.
-     *
-     * @param groupPartitionId Pair of group ID with partition ID.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    public void initialize(GroupPartitionId groupPartitionId) throws IgniteInternalCheckedException {
-        initPartitionStripedLock.lock(groupPartitionId.hashCode());
-
-        try {
-            if (!groupPageStores.contains(groupPartitionId)) {
-                Path tableWorkDir = ensureGroupWorkDir(groupPartitionId.getGroupId());
-
-                ByteBuffer buffer = allocateBuffer(pageSize);
-
-                try {
-                    Path partFilePath = tableWorkDir.resolve(String.format(PART_FILE_TEMPLATE, groupPartitionId.getPartitionId()));
-
-                    Path[] partDeltaFiles = findPartitionDeltaFiles(tableWorkDir, groupPartitionId.getPartitionId());
-
-                    FilePageStore filePageStore = filePageStoreFactory.createPageStore(buffer.rewind(), partFilePath, partDeltaFiles);
-
-                    FilePageStore previous = groupPageStores.put(groupPartitionId, filePageStore);
-
-                    assert previous == null : IgniteStringFormatter.format(
-                            "Parallel creation is not allowed: [tableId={}, partitionId={}]",
-                            groupPartitionId.getGroupId(),
-                            groupPartitionId.getPartitionId()
-                    );
-                } finally {
-                    freeBuffer(buffer);
-                }
-            }
-        } catch (IgniteInternalCheckedException e) {
-            // TODO: IGNITE-16899 By analogy with 2.0, fail a node
-
-            throw e;
-        } finally {
-            initPartitionStripedLock.unlock(groupPartitionId.hashCode());
         }
     }
 
     /**
      * Returns view for all page stores of all groups.
      */
-    public Collection<GroupPartitionPageStore<FilePageStore>> allPageStores() {
+    public Stream<GroupPartitionPageStore<FilePageStore>> allPageStores() {
         return groupPageStores.getAll();
     }
 
@@ -325,7 +280,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * Returns partition file page store for the corresponding parameters.
      *
      * @param groupPartitionId Pair of group ID with partition ID.
-     * @return Partition file page, {@code null} if not initialized or has been removed.
+     * @return Partition file page store, {@code null} if not initialized or has been removed.
      */
     public @Nullable FilePageStore getStore(GroupPartitionId groupPartitionId) {
         return groupPageStores.get(groupPartitionId);
@@ -357,7 +312,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param cleanFiles Delete files.
      */
     void stopAllGroupFilePageStores(boolean cleanFiles) {
-        List<FilePageStore> partitionPageStores = groupPageStores.getAll().stream()
+        List<FilePageStore> partitionPageStores = groupPageStores.getAll()
                 .map(GroupPartitionPageStore::pageStore)
                 .collect(toList());
 
@@ -398,7 +353,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
     }
 
     private Path ensureGroupWorkDir(int groupId) throws IgniteInternalCheckedException {
-        Path groupWorkDir = dbDir.resolve(GROUP_DIR_PREFIX + groupId);
+        Path groupWorkDir = groupDir(groupId);
 
         try {
             createDirectories(groupWorkDir);
@@ -439,7 +394,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param index Index of the delta file page store.
      */
     public Path tmpDeltaFilePageStorePath(int groupId, int partitionId, int index) {
-        return dbDir.resolve(GROUP_DIR_PREFIX + groupId).resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, partitionId, index));
+        return groupDir(groupId).resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, partitionId, index));
     }
 
     /**
@@ -450,7 +405,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param index Index of the delta file page store.
      */
     public Path deltaFilePageStorePath(int groupId, int partitionId, int index) {
-        return dbDir.resolve(GROUP_DIR_PREFIX + groupId).resolve(String.format(PART_DELTA_FILE_TEMPLATE, partitionId, index));
+        return groupDir(groupId).resolve(String.format(PART_DELTA_FILE_TEMPLATE, partitionId, index));
     }
 
     /**
@@ -480,7 +435,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
         return cleanupAsyncExecutor.async((RunnableX) () -> {
             Path partitionDeleteFilePath = createFile(
-                    dbDir.resolve(GROUP_DIR_PREFIX + groupPartitionId.getGroupId())
+                    groupDir(groupPartitionId.getGroupId())
                             .resolve(String.format(DEL_PART_FILE_TEMPLATE, groupPartitionId.getPartitionId()))
             );
 
@@ -488,5 +443,65 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             delete(partitionDeleteFilePath);
         }, "destroy-group-" + groupPartitionId.getGroupId() + "-partition-" + groupPartitionId.getPartitionId());
+    }
+
+    /**
+     * Reads a partition file page store from the file system with its delta files if it exists, otherwise creates a new one but without
+     * saving it to the file system.
+     *
+     * <p>Also does not initialize the storage, i.e. does not call {@link FilePageStore#ensure()}.</p>
+     *
+     * @param groupPartitionId Pair of group ID with partition ID.
+     * @param readBuffer Buffer for reading file headers and other supporting information from files.
+     */
+    public FilePageStore readOrCreateStore(
+            GroupPartitionId groupPartitionId,
+            ByteBuffer readBuffer
+    ) throws IgniteInternalCheckedException {
+        Path tableWorkDir = ensureGroupWorkDir(groupPartitionId.getGroupId());
+
+        Path partFilePath = tableWorkDir.resolve(String.format(PART_FILE_TEMPLATE, groupPartitionId.getPartitionId()));
+
+        Path[] partDeltaFiles = findPartitionDeltaFiles(tableWorkDir, groupPartitionId.getPartitionId());
+
+        return filePageStoreFactory.createPageStore(readBuffer.rewind(), partFilePath, partDeltaFiles);
+    }
+
+    /**
+     * Adds a partition file page storage.
+     *
+     * <p>It is expected that the storage has not been added previously and is also ready to be used by other components such as checkpoint
+     * or delta file compactor.</p>
+     *
+     * @param groupPartitionId Pair of group ID with partition ID.
+     * @param filePageStore Partition file page store.
+     */
+    public void addStore(GroupPartitionId groupPartitionId, FilePageStore filePageStore) {
+        groupPageStores.compute(groupPartitionId, oldFilePageStore -> {
+            assert oldFilePageStore == null : groupPartitionId;
+
+            return filePageStore;
+        });
+    }
+
+    /**
+     * Destroys the group directory with all sub-directories and files if it exists.
+     *
+     * @throws IOException If there was an I/O error when deleting a directory.
+     */
+    public void destroyGroupIfExists(int groupId) throws IOException {
+        Path groupDir = groupDir(groupId);
+
+        try {
+            if (exists(groupDir)) {
+                deleteIfExistsThrowable(groupDir);
+            }
+        } catch (IOException e) {
+            throw new IOException("Failed to delete group directory: " + groupDir, e);
+        }
+    }
+
+    private Path groupDir(int groupId) {
+        return dbDir.resolve(GROUP_DIR_PREFIX + groupId);
     }
 }

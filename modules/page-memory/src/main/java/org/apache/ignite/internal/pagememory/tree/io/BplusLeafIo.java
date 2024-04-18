@@ -52,7 +52,7 @@ public abstract class BplusLeafIo<L> extends BplusIo<L> {
 
         assertPageType(dstPageAddr);
 
-        copyMemory(srcPageAddr, offset(srcIdx), dstPageAddr, offset(dstIdx), cnt * getItemSize());
+        copyMemory(srcPageAddr, offset(srcIdx), dstPageAddr, offset(dstIdx), cnt * (long) getItemSize());
     }
 
     @Override

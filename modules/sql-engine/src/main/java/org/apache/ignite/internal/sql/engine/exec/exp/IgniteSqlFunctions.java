@@ -20,18 +20,19 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static org.apache.calcite.runtime.SqlFunctions.charLength;
-import static org.apache.calcite.runtime.SqlFunctions.octetLength;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.NUMERIC_FIELD_OVERFLOW_ERROR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
 import java.math.RoundingMode;
-import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.ResolverStyle;
+import java.util.TimeZone;
 import java.util.UUID;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
@@ -44,12 +45,15 @@ import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.linq4j.function.NonDeterministic;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.schema.ScannableTable;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -61,7 +65,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class IgniteSqlFunctions {
     private static final DateTimeFormatter ISO_LOCAL_DATE_TIME_EX;
-    private static final String NUMERIC_FIELD_OVERFLOW_ERROR = "Numeric field overflow";
+    private static final RoundingMode roundingMode = RoundingMode.HALF_UP;
+
+    private static final BigDecimal MAX_INT = new BigDecimal(Integer.MAX_VALUE);
+    private static final BigDecimal MIN_INT = new BigDecimal(Integer.MIN_VALUE);
 
     static {
         ISO_LOCAL_DATE_TIME_EX = new DateTimeFormatterBuilder()
@@ -93,16 +100,8 @@ public class IgniteSqlFunctions {
      * Otherwise need to fix {@code DateTimeUtils#unixTimestampToString} usage additionally.
      */
     public static long timestampStringToNumeric(String dtStr) {
-        try {
-            return timestampStringToNumeric0(dtStr);
-        } catch (DateTimeException e) {
-            throw new SqlException(RUNTIME_ERR, e.getMessage());
-        }
-    }
-
-    private static long timestampStringToNumeric0(String dtStr) {
         dtStr = dtStr.trim();
-        //"YYYY-MM-dd HH:mm:ss.ninenanos"
+        // "YYYY-MM-dd HH:mm:ss.ninenanos"
         if (dtStr.length() > 29) {
             dtStr = dtStr.substring(0, 29);
         }
@@ -124,12 +123,267 @@ public class IgniteSqlFunctions {
 
     /** LENGTH(VARBINARY|VARCHAR). */
     public static int length(Object b) {
-        return b instanceof ByteString ? octetLength((ByteString) b) : charLength((String) b);
+        return b instanceof ByteString ? SqlFunctions.octetLength((ByteString) b) : charLength((String) b);
     }
 
-    private static BigDecimal setScale(int precision, int scale, BigDecimal decimal) {
-        return precision == IgniteTypeSystem.INSTANCE.getDefaultPrecision(SqlTypeName.DECIMAL)
-            ? decimal : decimal.setScale(scale, RoundingMode.HALF_UP);
+    /** OCTET_LENGTH(VARBINARY). */
+    public static int octetLength(ByteString s) {
+        return s.length();
+    }
+
+    /** OCTET_LENGTH(VARCHAR). */
+    public static int octetLength(String s) {
+        return s.getBytes().length;
+    }
+
+    // SQL ROUND function
+
+    /** SQL {@code ROUND} operator applied to byte values. */
+    public static byte sround(byte b0) {
+        return (byte) sround(b0, 0);
+    }
+
+    /** SQL {@code ROUND} operator applied to byte values. */
+    public static byte sround(byte b0, int b1) {
+        return (byte) sround((int) b0, b1);
+    }
+
+    /** SQL {@code ROUND} operator applied to short values. */
+    public static byte sround(short b0) {
+        return (byte) sround(b0, 0);
+    }
+
+    /** SQL {@code ROUND} operator applied to short values. */
+    public static short sround(short b0, int b1) {
+        return (short) sround((int) b0, b1);
+    }
+
+    /** SQL {@code ROUND} operator applied to int values. */
+    public static int sround(int b0) {
+        return sround(b0, 0);
+    }
+
+    /** SQL {@code ROUND} operator applied to int values. */
+    public static int sround(int b0, int b1) {
+        if (b1 == 0) {
+            return b0;
+        } else if (b1 > 0) {
+            return b0;
+        } else {
+            return (int) sround((long) b0, b1);
+        }
+    }
+
+    /** SQL {@code ROUND} operator applied to long values. */
+    public static long sround(long b0) {
+        return sround(b0, 0);
+    }
+
+    /** SQL {@code ROUND} operator applied to long values. */
+    public static long sround(long b0, int b1) {
+        if (b1 == 0) {
+            return b0;
+        } else if (b1 > 0) {
+            return b0;
+        } else {
+            long abs = (long) Math.pow(10, Math.abs(b1));
+            return divide(b0, abs, RoundingMode.HALF_UP) * abs;
+        }
+    }
+
+    /** SQL {@code ROUND} operator applied to double values. */
+    public static double sround(double b0) {
+        return sround(BigDecimal.valueOf(b0)).doubleValue();
+    }
+
+    /** SQL {@code ROUND} operator applied to double values. */
+    public static double sround(double b0, int b1) {
+        return sround(BigDecimal.valueOf(b0), b1).doubleValue();
+    }
+
+    /** SQL {@code ROUND} operator applied to float values. */
+    public static float sround(float b0) {
+        return sround(BigDecimal.valueOf(b0)).floatValue();
+    }
+
+    /** SQL {@code ROUND} operator applied to float values. */
+    public static float sround(float b0, int b1) {
+        return sround(BigDecimal.valueOf(b0), b1).floatValue();
+    }
+
+    /** SQL {@code ROUND} operator applied to BigDecimal values. */
+    public static BigDecimal sround(BigDecimal b0) {
+        return b0.setScale(0, RoundingMode.HALF_UP);
+    }
+
+    /** SQL {@code ROUND} operator applied to BigDecimal values. */
+    public static BigDecimal sround(BigDecimal b0, int b1) {
+        int originalScale = b0.scale();
+
+        if (b1 >= originalScale) {
+            return b0;
+        }
+
+        BigDecimal roundedValue = b0.setScale(b1, RoundingMode.HALF_UP);
+        // Pad with zeros to match the original scale
+        return roundedValue.setScale(originalScale, RoundingMode.UNNECESSARY);
+    }
+
+    /** Returns {@link Integer} bounded value. */
+    private static int normalizeRegardingInt(BigDecimal num) {
+        int res;
+
+        if (num.compareTo(MAX_INT) >= 0) {
+            res = Integer.MAX_VALUE;
+        } else if (num.compareTo(MIN_INT) <= 0) {
+            res = Integer.MIN_VALUE;
+        } else {
+            res = num.intValue();
+        }
+
+        return res;
+    }
+
+    /** SQL SUBSTRING(string FROM ...) function. */
+    public static String substring(String c, int s) {
+        if (s <= 1) {
+            return c;
+        }
+
+        return SqlFunctions.substring(c, s);
+    }
+
+    /** SQL SUBSTRING(string FROM ...) function. */
+    public static String substring(String c, BigDecimal s) {
+        if (s.compareTo(BigDecimal.ONE) <= 0) {
+            return c;
+        }
+
+        int s0 = normalizeRegardingInt(s);
+        return SqlFunctions.substring(c, s0);
+    }
+
+    /** SQL SUBSTRING(string FROM ...) function. */
+    public static String substring(String c, int s, int l) {
+        return SqlFunctions.substring(c, s, l);
+    }
+
+    /** SQL SUBSTRING(string FROM ...) function. */
+    public static String substring(String c, int s, BigDecimal l) {
+        if (s < 0) {
+            if (l.signum() > 0) {
+                l = l.add(BigDecimal.valueOf(s));
+                return substring(c, 0, l);
+            }
+        }
+        int l0 = normalizeRegardingInt(l);
+        return SqlFunctions.substring(c, s, l0);
+    }
+
+    /** SQL SUBSTRING(string FROM ...) function. */
+    public static String substring(String c, BigDecimal s, BigDecimal l) {
+        if (s.signum() < 0) {
+            if (l.signum() > 0) {
+                l = l.add(s);
+                return substring(c, 0, l);
+            }
+        }
+        int s0 = normalizeRegardingInt(s);
+        int l0 = normalizeRegardingInt(l);
+        return SqlFunctions.substring(c, s0, l0);
+    }
+
+    // TRUNCATE function
+
+    /** SQL {@code TRUNCATE} operator applied to byte values. */
+    public static byte struncate(byte b0) {
+        return (byte) struncate(b0, 0);
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to byte values. */
+    public static byte struncate(byte b0, int b1) {
+        return (byte) struncate((int) b0, b1);
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to short values. */
+    public static byte struncate(short b0) {
+        return (byte) struncate(b0, 0);
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to short values. */
+    public static short struncate(short b0, int b1) {
+        return (short) struncate((int) b0, b1);
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to int values. */
+    public static int struncate(int b0) {
+        return sround(b0, 0);
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to int values. */
+    public static int struncate(int b0, int b1) {
+        if (b1 == 0) {
+            return b0;
+        } else if (b1 > 0) {
+            return b0;
+        } else {
+            return (int) struncate((long) b0, b1);
+        }
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to long values. */
+    public static long struncate(long b0) {
+        return sround(b0, 0);
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to long values. */
+    public static long struncate(long b0, int b1) {
+        if (b1 == 0) {
+            return b0;
+        } else if (b1 > 0) {
+            return b0;
+        } else {
+            long abs = (long) Math.pow(10, Math.abs(b1));
+            return divide(b0, abs, RoundingMode.DOWN) * abs;
+        }
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to double values. */
+    public static double struncate(double b0) {
+        return struncate(BigDecimal.valueOf(b0)).doubleValue();
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to double values. */
+    public static double struncate(double b0, int b1) {
+        return struncate(BigDecimal.valueOf(b0), b1).doubleValue();
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to float values. */
+    public static float struncate(float b0) {
+        return struncate(BigDecimal.valueOf(b0)).floatValue();
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to float values. */
+    public static float struncate(float b0, int b1) {
+        return struncate(BigDecimal.valueOf(b0), b1).floatValue();
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to BigDecimal values. */
+    public static BigDecimal struncate(BigDecimal b0) {
+        return b0.setScale(0, RoundingMode.DOWN);
+    }
+
+    /** SQL {@code TRUNCATE} operator applied to BigDecimal values. */
+    public static BigDecimal struncate(BigDecimal b0, int b1) {
+        int originalScale = b0.scale();
+
+        if (b1 >= originalScale) {
+            return b0;
+        }
+
+        BigDecimal roundedValue = b0.setScale(b1, RoundingMode.DOWN);
+        // Pad with zeros to match the original scale
+        return roundedValue.setScale(originalScale, RoundingMode.UNNECESSARY);
     }
 
     /** CAST(DOUBLE AS DECIMAL). */
@@ -145,25 +399,25 @@ public class IgniteSqlFunctions {
     /** CAST(java long AS DECIMAL). */
     public static BigDecimal toBigDecimal(long val, int precision, int scale) {
         BigDecimal decimal = BigDecimal.valueOf(val);
-        return convertDecimal(decimal, precision, scale);
+        return toBigDecimal(decimal, precision, scale);
     }
 
     /** CAST(INT AS DECIMAL). */
     public static BigDecimal toBigDecimal(int val, int precision, int scale) {
         BigDecimal decimal = new BigDecimal(val);
-        return convertDecimal(decimal, precision, scale);
+        return toBigDecimal(decimal, precision, scale);
     }
 
     /** CAST(java short AS DECIMAL). */
     public static BigDecimal toBigDecimal(short val, int precision, int scale) {
         BigDecimal decimal = new BigDecimal(val);
-        return convertDecimal(decimal, precision, scale);
+        return toBigDecimal(decimal, precision, scale);
     }
 
     /** CAST(java byte AS DECIMAL). */
     public static BigDecimal toBigDecimal(byte val, int precision, int scale) {
         BigDecimal decimal = new BigDecimal(val);
-        return convertDecimal(decimal, precision, scale);
+        return toBigDecimal(decimal, precision, scale);
     }
 
     /** CAST(BOOL AS DECIMAL). */
@@ -177,29 +431,7 @@ public class IgniteSqlFunctions {
             return null;
         }
         BigDecimal decimal = new BigDecimal(s.trim());
-        return convertDecimal(decimal, precision, scale);
-    }
-
-    /** CAST(REAL AS DECIMAL). */
-    public static BigDecimal toBigDecimal(Number num, int precision, int scale) {
-        if (num == null) {
-            return null;
-        }
-
-        BigDecimal dec;
-        if (num instanceof Float) {
-            dec = new BigDecimal(num.floatValue());
-        } else if (num instanceof Double) {
-            dec = new BigDecimal(num.doubleValue());
-        } else if (num instanceof BigDecimal) {
-            dec = (BigDecimal) num;
-        } else if (num instanceof BigInteger) {
-            dec = new BigDecimal((BigInteger) num);
-        } else {
-            dec = new BigDecimal(num.longValue());
-        }
-
-        return convertDecimal(dec, precision, scale);
+        return toBigDecimal(decimal, precision, scale);
     }
 
     /** Cast object depending on type to DECIMAL. */
@@ -213,40 +445,96 @@ public class IgniteSqlFunctions {
         }
 
         return o instanceof Number ? toBigDecimal((Number) o, precision, scale)
-               : toBigDecimal(o.toString(), precision, scale);
+                : toBigDecimal(o.toString(), precision, scale);
     }
 
     /**
-     * Converts the given {@code BigDecimal} to a decimal with the given {@code precision} and {@code scale}
+     * Converts the given {@code Number} to a decimal with the given {@code precision} and {@code scale}
      * according to SQL spec for CAST specification: General Rules, 8.
      */
-    public static BigDecimal convertDecimal(BigDecimal value, int precision, int scale) {
+    public static BigDecimal toBigDecimal(Number value, int precision, int scale) {
         assert precision > 0 : "Invalid precision: " + precision;
 
+        if (value == null) {
+            return null;
+        }
+
         int defaultPrecision = IgniteTypeSystem.INSTANCE.getDefaultPrecision(SqlTypeName.DECIMAL);
+
         if (precision == defaultPrecision) {
+            BigDecimal dec = convertToBigDecimal(value);
             // This branch covers at least one known case: access to dynamic parameter from context.
             // In this scenario precision = DefaultTypePrecision, because types for dynamic params
             // are created by toSql(createType(param.class)).
-            return value;
+            return dec;
         }
 
-        boolean nonZero = !value.unscaledValue().equals(BigInteger.ZERO);
+        if (value.longValue() == 0) {
+            return processFractionData(value, precision, scale);
+        } else {
+            return processValueWithIntegralPart(value, precision, scale);
+        }
+    }
 
-        if (nonZero) {
-            if (scale > precision) {
+    /**
+     * Division function for REDUCE phase of AVG aggregate. Precision and scale is only used by type inference
+     * (see {@link IgniteSqlOperatorTable#DECIMAL_DIVIDE}, their values are ignored at runtime.
+     */
+    public static BigDecimal decimalDivide(BigDecimal sum, BigDecimal cnt, int p, int s) {
+        return sum.divide(cnt, MathContext.DECIMAL64);
+    }
+
+    private static BigDecimal processValueWithIntegralPart(Number value, int precision, int scale) {
+        BigDecimal dec = convertToBigDecimal(value);
+
+        if (scale > precision) {
+            throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+        } else {
+            int currentSignificantDigits = dec.precision() - dec.scale();
+            int expectedSignificantDigits = precision - scale;
+
+            if (currentSignificantDigits > expectedSignificantDigits) {
                 throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
-            } else {
-                int currentSignificantDigits = value.precision() - value.scale();
-                int expectedSignificantDigits = precision - scale;
-
-                if (currentSignificantDigits > expectedSignificantDigits) {
-                    throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
-                }
             }
         }
 
-        return value.setScale(scale, RoundingMode.HALF_UP);
+        return dec.setScale(scale, roundingMode);
+    }
+
+    private static BigDecimal processFractionData(Number value, int precision, int scale) {
+        BigDecimal num = convertToBigDecimal(value);
+
+        if (num.unscaledValue().equals(BigInteger.ZERO)) {
+            return num.setScale(scale, RoundingMode.UNNECESSARY);
+        }
+
+        // skip all fractional part after scale
+        BigDecimal num0 = num.movePointRight(scale).setScale(0, RoundingMode.DOWN);
+
+        int numPrecision = Math.min(num0.precision(), scale);
+
+        if (numPrecision > precision) {
+            throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+        }
+
+        return num.setScale(scale, roundingMode);
+    }
+
+    private static BigDecimal convertToBigDecimal(Number value) {
+        BigDecimal dec;
+        if (value instanceof Float) {
+            dec = new BigDecimal(value.floatValue());
+        } else if (value instanceof Double) {
+            dec = new BigDecimal(value.doubleValue());
+        } else if (value instanceof BigDecimal) {
+            dec = (BigDecimal) value;
+        } else if (value instanceof BigInteger) {
+            dec = new BigDecimal((BigInteger) value);
+        } else {
+            dec = new BigDecimal(value.longValue());
+        }
+
+        return dec;
     }
 
     /** CAST(VARCHAR AS VARBINARY). */
@@ -277,6 +565,83 @@ public class IgniteSqlFunctions {
     /** Returns the second argument and ignores the first. */
     public static Object consumeFirstArgument(Object args0, Object args1) {
         return args1;
+    }
+
+    /** Returns the timestamp value minus the offset of the specified timezone. */
+    public static Long subtractTimeZoneOffset(long timestamp, TimeZone timeZone) {
+        // A second offset calculation is required to handle DST transition period correctly.
+        int offset = timeZone.getOffset(timestamp - timeZone.getOffset(timestamp));
+
+        return timestamp - offset;
+    }
+
+    /**
+     * Helper for CAST({timestamp} AS VARCHAR(n)).
+     *
+     * <p>Note: this method is a copy of the avatica {@link DateTimeUtils#unixTimestampToString(long, int)} method,
+     *          with the only difference being that it does not add trailing zeros.
+     */
+    public static String unixTimestampToString(long timestamp, int precision) {
+        IgniteStringBuilder buf = new IgniteStringBuilder(17);
+        int date = (int) (timestamp / DateTimeUtils.MILLIS_PER_DAY);
+        int time = (int) (timestamp % DateTimeUtils.MILLIS_PER_DAY);
+
+        if (time < 0) {
+            --date;
+
+            time += (int) DateTimeUtils.MILLIS_PER_DAY;
+        }
+
+        buf.app(DateTimeUtils.unixDateToString(date)).app(' ');
+
+        unixTimeToString(buf, time, precision);
+
+        return buf.toString();
+    }
+
+    /**
+     * Helper for CAST({time} AS VARCHAR(n)).
+     *
+     * <p>Note: this method is a copy of the avatica {@link DateTimeUtils#unixTimestampToString(long, int)} method,
+     *          with the only difference being that it does not add trailing zeros.
+     */
+    public static String unixTimeToString(int time, int precision) {
+        IgniteStringBuilder buf = new IgniteStringBuilder(8 + (precision > 0 ? 1 + precision : 0));
+
+        unixTimeToString(buf, time, precision);
+
+        return buf.toString();
+    }
+
+    private static void unixTimeToString(IgniteStringBuilder buf, int time, int precision) {
+        int h = time / 3600000;
+        int time2 = time % 3600000;
+        int m = time2 / 60000;
+        int time3 = time2 % 60000;
+        int s = time3 / 1000;
+        int ms = time3 % 1000;
+
+        buf.app((char) ('0' + (h / 10) % 10))
+                .app((char) ('0' + h % 10))
+                .app(':')
+                .app((char) ('0' + (m / 10) % 10))
+                .app((char) ('0' + m % 10))
+                .app(':')
+                .app((char) ('0' + (s / 10) % 10))
+                .app((char) ('0' + s % 10));
+
+        if (precision == 0 || ms == 0) {
+            return;
+        }
+
+        buf.app('.');
+        do {
+            buf.app((char) ('0' + (ms / 100)));
+
+            ms = ms % 100;
+            ms = ms * 10;
+            --precision;
+        } while (ms > 0 && precision > 0);
     }
 
     private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {
@@ -406,5 +771,35 @@ public class IgniteSqlFunctions {
                 SqlNode parent, CalciteConnectionConfig cfg) {
             return true;
         }
+    }
+
+    private static long divide(long p, long q, RoundingMode mode) {
+        // Stripped down version of guava's LongMath::divide.
+
+        long div = p / q; // throws if q == 0
+        long rem = p - q * div; // equals p % q
+
+        int signum = 1 | (int) ((p ^ q) >> (Long.SIZE - 1));
+        boolean increment;
+        switch (mode) {
+            case HALF_DOWN:
+            case HALF_UP:
+                long absRem = Math.abs(rem);
+                long cmpRemToHalfDivisor = absRem - (Math.abs(q) - absRem);
+
+                if (cmpRemToHalfDivisor == 0) { // exactly on the half mark
+                    increment = mode == RoundingMode.HALF_UP;
+                } else {
+                    increment = cmpRemToHalfDivisor > 0; // closer to the UP value
+                }
+                break;
+            case DOWN:
+                increment = false;
+                break;
+            default:
+                throw new AssertionError();
+        }
+
+        return increment ? div + signum : div;
     }
 }

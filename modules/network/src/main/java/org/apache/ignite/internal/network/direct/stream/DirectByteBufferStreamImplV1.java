@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.direct.stream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.network.NetworkMessage.NULL_GROUP_TYPE;
 import static org.apache.ignite.internal.util.ArrayUtils.BOOLEAN_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.CHAR_ARRAY;
@@ -45,21 +46,22 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.RandomAccess;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.IgniteUuid;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.serialization.MessageDeserializer;
+import org.apache.ignite.internal.network.serialization.MessageReader;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.network.serialization.MessageWriter;
 import org.apache.ignite.internal.util.ArrayFactory;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.serialization.MessageDeserializer;
-import org.apache.ignite.network.serialization.MessageReader;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.network.serialization.MessageSerializer;
-import org.apache.ignite.network.serialization.MessageWriter;
 import org.apache.ignite.plugin.extensions.communication.MessageCollectionItemType;
 import org.jetbrains.annotations.Nullable;
 
@@ -75,6 +77,15 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     /** Flag that indicates that byte buffer has Big Endinan order. */
     protected static final byte BYTE_BUFFER_BIG_ENDIAN_FLAG = 2;
+
+    /** {@code Short.SIZE / 7} rounded up. */
+    private static final int MAX_VAR_SHORT_BYTES = 3;
+
+    /** {@code Integer.SIZE / 7} rounded up. */
+    private static final int MAX_VAR_INT_BYTES = 5;
+
+    /** {@code Long.SIZE / 7} rounded up. */
+    private static final int MAX_VAR_LONG_BYTES = 10;
 
     /** Message serialization registry. */
     private final MessageSerializationRegistry serializationRegistry;
@@ -176,7 +187,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      * @param serializationRegistry Serialization service.       .
      */
     public DirectByteBufferStreamImplV1(MessageSerializationRegistry serializationRegistry) {
-        this.serializationRegistry = serializationRegistry;
+        this.serializationRegistry = Objects.requireNonNull(serializationRegistry, "serializationRegistry");
     }
 
     /** {@inheritDoc} */
@@ -236,27 +247,15 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public void writeShort(short val) {
-        lastFinished = buf.remaining() >= 2;
+        lastFinished = buf.remaining() >= MAX_VAR_SHORT_BYTES;
 
-        if (lastFinished) {
-            int pos = buf.position();
-
-            long off = baseOff + pos;
-
-            if (IS_BIG_ENDIAN) {
-                GridUnsafe.putShortLittleEndian(heapArr, off, val);
-            } else {
-                GridUnsafe.putShort(heapArr, off, val);
-            }
-
-            buf.position(pos + 2);
-        }
+        writeVarInt(Short.toUnsignedLong((short) (val + 1)));
     }
 
     @Override
     public void writeBoxedShort(@Nullable Short val) {
         if (val != null) {
-            lastFinished = buf.remaining() >= 1 + 2;
+            lastFinished = buf.remaining() >= 1 + MAX_VAR_SHORT_BYTES;
 
             if (lastFinished) {
                 writeBoolean(true);
@@ -271,31 +270,15 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public void writeInt(int val) {
-        lastFinished = buf.remaining() >= 5;
+        lastFinished = buf.remaining() >= MAX_VAR_INT_BYTES;
 
-        if (lastFinished) {
-            val++;
-
-            int pos = buf.position();
-
-            while ((val & 0xFFFF_FF80) != 0) {
-                byte b = (byte) (val | 0x80);
-
-                GridUnsafe.putByte(heapArr, baseOff + pos++, b);
-
-                val >>>= 7;
-            }
-
-            GridUnsafe.putByte(heapArr, baseOff + pos++, (byte) val);
-
-            buf.position(pos);
-        }
+        writeVarInt(Integer.toUnsignedLong(val + 1));
     }
 
     @Override
     public void writeBoxedInt(@Nullable Integer val) {
         if (val != null) {
-            lastFinished = buf.remaining() >= 1 + 5;
+            lastFinished = buf.remaining() >= 1 + MAX_VAR_INT_BYTES;
 
             if (lastFinished) {
                 writeBoolean(true);
@@ -310,11 +293,28 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public void writeLong(long val) {
-        lastFinished = buf.remaining() >= 10;
+        lastFinished = buf.remaining() >= MAX_VAR_LONG_BYTES;
 
+        writeVarInt(val + 1);
+    }
+
+    @Override
+    public void writeBoxedLong(@Nullable Long val) {
+        if (val != null) {
+            lastFinished = buf.remaining() >= 1 + MAX_VAR_LONG_BYTES;
+
+            if (lastFinished) {
+                writeBoolean(true);
+
+                writeLong(val);
+            }
+        } else {
+            writeBoolean(false);
+        }
+    }
+
+    private void writeVarInt(long val) {
         if (lastFinished) {
-            val++;
-
             int pos = buf.position();
 
             while ((val & 0xFFFF_FFFF_FFFF_FF80L) != 0) {
@@ -328,21 +328,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             GridUnsafe.putByte(heapArr, baseOff + pos++, (byte) val);
 
             buf.position(pos);
-        }
-    }
-
-    @Override
-    public void writeBoxedLong(@Nullable Long val) {
-        if (val != null) {
-            lastFinished = buf.remaining() >= 1 + 10;
-
-            if (lastFinished) {
-                writeBoolean(true);
-
-                writeLong(val);
-            }
-        } else {
-            writeBoolean(false);
         }
     }
 
@@ -796,7 +781,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 lastFinished = false;
             }
         } else {
-            writeShort(Short.MIN_VALUE);
+            writeShort(NULL_GROUP_TYPE);
         }
     }
 
@@ -1010,19 +995,38 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public short readShort() {
-        lastFinished = buf.remaining() >= 2;
+        lastFinished = false;
 
-        if (lastFinished) {
-            int pos = buf.position();
+        short val = 0;
 
-            buf.position(pos + 2);
+        int pos = buf.position();
 
-            long off = baseOff + pos;
+        int limit = buf.limit();
 
-            return IS_BIG_ENDIAN ? GridUnsafe.getShortLittleEndian(heapArr, off) : GridUnsafe.getShort(heapArr, off);
-        } else {
-            return 0;
+        while (pos < limit) {
+            byte b = GridUnsafe.getByte(heapArr, baseOff + pos);
+
+            pos++;
+
+            prim |= ((long) b & 0x7F) << (7 * primShift);
+
+            if ((b & 0x80) == 0) {
+                lastFinished = true;
+
+                val = (short) (prim - 1);
+
+                prim = 0;
+                primShift = 0;
+
+                break;
+            } else {
+                primShift++;
+            }
         }
+
+        buf.position(pos);
+
+        return val;
     }
 
     @Override
@@ -1441,9 +1445,9 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     @Nullable
     public <T extends NetworkMessage> T readMessage(MessageReader reader) {
-        // if the deserialzer is null then we haven't finished reading the message header
+        // If the deserializer is null then we haven't finished reading the message header.
         if (msgDeserializer == null) {
-            // read the message group type
+            // Read the message group type.
             if (!msgGroupTypeRead) {
                 msgGroupType = readShort();
 
@@ -1451,16 +1455,16 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                     return null;
                 }
 
-                // message group type will be equal to Short.MIN_VALUE if a nested message is null
-                if (msgGroupType == Short.MIN_VALUE) { // lastFinished is "true" here, so no further parsing will be required
+                // Message group type will be equal to NetworkMessage.NULL_GROUP_TYPE if a nested message is null.
+                if (msgGroupType == NULL_GROUP_TYPE) { // "lastFinished" is "true" here, so no further parsing will be required.
                     return null;
                 }
 
-                // save current progress, because we can read the header in two chunks
+                // Save current progress, because we can read the header in two chunks.
                 msgGroupTypeRead = true;
             }
 
-            // read the message type
+            // Read the message type.
             short msgType = readShort();
 
             if (!lastFinished) {
@@ -1470,8 +1474,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             msgDeserializer = serializationRegistry.createDeserializer(msgGroupType, msgType);
         }
 
-        // if the deserializer is not null then we have definitely finished parsing the header and can read the message
-        // body
+        // If the deserializer is not null then we have definitely finished parsing the header and can read the message
+        // body.
         reader.beforeInnerMessageRead();
 
         try {
@@ -2046,17 +2050,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 break;
 
             case MSG:
-                try {
-                    if (val != null) {
-                        writer.beforeInnerMessageWrite();
-                    }
-
-                    writeMessage((NetworkMessage) val, writer);
-                } finally {
-                    if (val != null) {
-                        writer.afterInnerMessageWrite(lastFinished);
-                    }
-                }
+                writeMessage((NetworkMessage) val, writer);
 
                 break;
 

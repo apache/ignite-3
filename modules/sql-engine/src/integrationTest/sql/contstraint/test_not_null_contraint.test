@@ -1,0 +1,175 @@
+# name: test/sql/etc/test_not_null_constraint.test
+# description: SQL Feature E141-01 (NOT NULL constraints)
+# group: [constraint]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE t1 (id INTEGER PRIMARY KEY, bool_col BOOLEAN NOT NULL, tinyint_col TINYINT NOT NULL, smallint_col SMALLINT NOT NULL, int_col INTEGER NOT NULL, bigint_col BIGINT NOT NULL, real_col REAL NOT NULL, double_col DOUBLE NOT NULL, decimal_col DECIMAL(4,2) NOT NULL, char_col CHAR(4) NOT NULL, varchar_col VARCHAR(4) NOT NULL, binary_col BINARY(4) NOT NULL, varbinary_col VARBINARY(4) NOT NULL, date_col DATE NOT NULL, time_col TIME NOT NULL, uuid_col UUID NOT NULL)
+
+# INSERT
+
+statement error: Column 'BOOL_COL' does not allow NULLs
+INSERT INTO t1 VALUES(1, NULL, 2, 3, 4, 5, 6, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID);
+
+statement error: Column 'TINYINT_COL' does not allow NULLs
+INSERT INTO t1 VALUES(1, true, NULL, 3, 4, 5, 6, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID);
+
+statement error: Column 'SMALLINT_COL' does not allow NULLs
+INSERT INTO t1 VALUES(1, true, 2, NULL, 4, 5, 6, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID);
+
+statement error: Column 'INT_COL' does not allow NULLs
+INSERT INTO t1 VALUES(1, true, 2, 3, NULL, 5, 6, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID);
+
+statement error: Column 'BIGINT_COL' does not allow NULLs
+INSERT INTO t1 VALUES(1, true, 2, 3, 4, NULL, 6, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID);
+
+statement error: Column 'REAL_COL' does not allow NULLs
+INSERT INTO t1 VALUES(1, true, 2, 3, 4, 5, NULL, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID);
+
+statement error: Column 'DOUBLE_COL' does not allow NULLs
+INSERT INTO t1 VALUES(1, true, 2, 3, 4, 5, 6, NULL, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID);
+
+statement error: Column 'DECIMAL_COL' does not allow NULLs
+INSERT INTO t1 VALUES(1, true, 2, 3, 4, 5, 6, 7, NULL, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID);
+
+statement error: Column 'CHAR_COL' does not allow NULLs
+INSERT INTO t1 VALUES(1, true, 2, 3, 4, 5, 6, 7, 8, NULL, '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID);
+
+statement error: Column 'VARCHAR_COL' does not allow NULLs
+INSERT INTO t1 VALUES(1, true, 2, 3, 4, 5, 6, 7, 8, '9999', NULL, x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID);
+
+statement error: Column 'BINARY_COL' does not allow NULLs
+INSERT INTO t1 VALUES(1, true, 2, 3, 4, 5, 6, 7, 8, '9999', '1010', NULL, x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID);
+
+statement error: Column 'VARBINARY_COL' does not allow NULLs
+INSERT INTO t1 VALUES(1, true, 2, 3, 4, 5, 6, 7, 8, '9999', '1010', x'1111', NULL, '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID);
+
+statement error: Column 'DATE_COL' does not allow NULLs
+INSERT INTO t1 VALUES(1, true, 2, 3, 4, 5, 6, 7, 8, '9999', '1010', x'1111', x'1212', NULL, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID);
+
+statement error: Column 'TIME_COL' does not allow NULLs
+INSERT INTO t1 VALUES(1, true, 2, 3, 4, 5, 6, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, NULL, '00112233-4455-6677-8899-aabbccddeeff'::UUID);
+
+statement error: Column 'UUID_COL' does not allow NULLs
+INSERT INTO t1 VALUES(1, true, 2, 3, 4, 5, 6, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, NULL);
+
+
+# INSERT INTO ... SELECT
+
+statement error: Column 'BOOL_COL' does not allow NULLs
+INSERT INTO t1 SELECT 1, NULL, 2, 3, 4, 5, 6, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID
+
+statement error: Column 'TINYINT_COL' does not allow NULLs
+INSERT INTO t1 SELECT 1, true, NULL, 3, 4, 5, 6, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID
+
+statement error: Column 'SMALLINT_COL' does not allow NULLs
+INSERT INTO t1 SELECT 1, true, 2, NULL, 4, 5, 6, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID
+
+statement error: Column 'INT_COL' does not allow NULLs
+INSERT INTO t1 SELECT 1, true, 2, 3, NULL, 5, 6, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID
+
+statement error: Column 'BIGINT_COL' does not allow NULLs
+INSERT INTO t1 SELECT 1, true, 2, 3, 4, NULL, 6, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID
+
+statement error: Column 'REAL_COL' does not allow NULLs
+INSERT INTO t1 SELECT 1, true, 2, 3, 4, 5, NULL, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID
+
+statement error: Column 'DOUBLE_COL' does not allow NULLs
+INSERT INTO t1 SELECT 1, true, 2, 3, 4, 5, 6, NULL, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID
+
+statement error: Column 'DECIMAL_COL' does not allow NULLs
+INSERT INTO t1 SELECT 1, true, 2, 3, 4, 5, 6, 7, NULL, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID
+
+statement error: Column 'CHAR_COL' does not allow NULLs
+INSERT INTO t1 SELECT 1, true, 2, 3, 4, 5, 6, 7, 8, NULL, '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22015
+statement error: Column 'VARCHAR_COL' does not allow NULLs
+INSERT INTO t1 SELECT 1, true, 2, 3, 4, 5, 6, 7, 8, '9999', NULL, x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID
+
+statement error: Column 'BINARY_COL' does not allow NULLs
+INSERT INTO t1 SELECT 1, true, 2, 3, 4, 5, 6, 7, 8, '9999', '1010', NULL, x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID
+
+statement error: Column 'VARBINARY_COL' does not allow NULLs
+INSERT INTO t1 SELECT 1, true, 2, 3, 4, 5, 6, 7, 8, '9999', '1010', x'1111', NULL, '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID
+
+statement error: Column 'DATE_COL' does not allow NULLs
+INSERT INTO t1 SELECT 1, true, 2, 3, 4, 5, 6, 7, 8, '9999', '1010', x'1111', x'1212', NULL, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID
+
+statement error: Column 'TIME_COL' does not allow NULLs
+INSERT INTO t1 SELECT 1, true, 2, 3, 4, 5, 6, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, NULL, '00112233-4455-6677-8899-aabbccddeeff'::UUID
+
+statement error: Column 'UUID_COL' does not allow NULLs
+INSERT INTO t1 SELECT 1, true, 2, 3, 4, 5, 6, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, NULL
+
+# UPDATE 
+
+# No data, nothing to enforce
+statement ok
+UPDATE t1 SET bool_col = NULL
+
+# insert some data
+statement ok
+INSERT INTO t1 VALUES(1, true, 2, 3, 4, 5, 6, 7, 8, '9999', '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID);
+
+statement error: Column 'BOOL_COL' does not allow NULLs
+UPDATE t1 SET bool_col = NULL 
+
+statement error: Column 'TINYINT_COL' does not allow NULLs
+UPDATE t1 SET tinyint_col = NULL
+
+statement error: Column 'SMALLINT_COL' does not allow NULLs
+UPDATE t1 SET smallint_col = NULL
+
+statement error: Column 'INT_COL' does not allow NULLs
+UPDATE t1 SET int_col = NULL
+
+statement error: Column 'BIGINT_COL' does not allow NULLs
+UPDATE t1 SET bigint_col = NULL
+
+statement error: Column 'REAL_COL' does not allow NULLs
+UPDATE t1 SET real_col = NULL
+
+statement error: Column 'DOUBLE_COL' does not allow NULLs
+UPDATE t1 SET double_col = NULL
+
+statement error: Column 'DECIMAL_COL' does not allow NULLs
+UPDATE t1 SET decimal_col = NULL
+
+statement error: Column 'CHAR_COL' does not allow NULLs
+UPDATE t1 SET char_col = NULL
+
+statement error: Column 'VARCHAR_COL' does not allow NULLs
+UPDATE t1 SET varchar_col = NULL
+
+statement error: Column 'BINARY_COL' does not allow NULLs
+UPDATE t1 SET binary_col = NULL
+
+statement error: Column 'VARBINARY_COL' does not allow NULLs
+UPDATE t1 SET varbinary_col = NULL
+
+statement error: Column 'DATE_COL' does not allow NULLs
+UPDATE t1 SET date_col = NULL
+
+statement error: Column 'TIME_COL' does not allow NULLs
+UPDATE t1 SET time_col = NULL
+
+statement error: Column 'UUID_COL' does not allow NULLs
+UPDATE t1 SET uuid_col = NULL
+
+# MERGE 
+
+statement ok
+CREATE TABLE t2 (id INTEGER PRIMARY KEY, val INTEGER NOT NULL)
+
+statement error: Column 'VAL' does not allow NULLs
+MERGE INTO t2 dst USING t1 src ON dst.id = src.id WHEN NOT MATCHED THEN INSERT (id, val) VALUES (src.id, NULL)
+
+statement ok
+INSERT INTO t2 VALUES(1, 42)
+
+statement error: Column 'VAL' does not allow NULLs
+MERGE INTO t2 dst USING t1 src ON dst.id = src.id WHEN MATCHED THEN UPDATE SET val = NULL

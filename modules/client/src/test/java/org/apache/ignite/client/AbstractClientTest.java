@@ -29,6 +29,9 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
+import org.apache.ignite.internal.client.ClientClusterNode;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
@@ -39,7 +42,7 @@ import org.junit.jupiter.api.BeforeEach;
 /**
  * Base class for client tests.
  */
-public abstract class AbstractClientTest {
+public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
     protected static final String DEFAULT_TABLE = "default_test_table";
 
     protected static TestServer testServer;
@@ -73,11 +76,10 @@ public abstract class AbstractClientTest {
      */
     @AfterAll
     public static void afterAll() throws Exception {
-        client.close();
-        testServer.close();
+        IgniteUtils.closeAll(client, testServer);
 
         // Force GC to detect Netty buffer leaks.
-        // noinspection CallToSystemGC
+        //noinspection CallToSystemGC
         System.gc();
     }
 
@@ -193,7 +195,7 @@ public abstract class AbstractClientTest {
      */
     public static Set<ClusterNode> getClusterNodes(String... names) {
         return Arrays.stream(names)
-                .map(s -> new ClusterNode("id", s, new NetworkAddress("127.0.0.1", 8080)))
+                .map(s -> new ClientClusterNode("id", s, new NetworkAddress("127.0.0.1", 8080)))
                 .collect(Collectors.toSet());
     }
 }

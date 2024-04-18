@@ -28,34 +28,28 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Function;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 
 /**
- * Represents a full table schema: that is, the definition of the table and all objects (indexes, constraints, etc)
- * that belong to the table.
+ * Represents a full table schema: that is, the definition of the table and all objects (constraints, etc)
+ * that belong to the table *that might affect schema compatibility* (so, indices are not included as they
+ * don't affect such compatibility).
  */
 public class FullTableSchema {
     private final int schemaVersion;
     private final int tableId;
+    private final String tableName;
 
     private final List<CatalogTableColumnDescriptor> columns;
-
-    private final List<CatalogIndexDescriptor> indexes;
 
     /**
      * Constructor.
      */
-    public FullTableSchema(
-            int schemaVersion,
-            int tableId,
-            List<CatalogTableColumnDescriptor> columns,
-            List<CatalogIndexDescriptor> indexes
-    ) {
+    public FullTableSchema(int schemaVersion, int tableId, String tableName, List<CatalogTableColumnDescriptor> columns) {
         this.schemaVersion = schemaVersion;
         this.tableId = tableId;
-        this.columns = columns;
-        this.indexes = indexes;
+        this.tableName = tableName;
+        this.columns = List.copyOf(columns);
     }
 
     /**
@@ -77,21 +71,19 @@ public class FullTableSchema {
     }
 
     /**
+     * Returns name of the table.
+     */
+    public String tableName() {
+        return tableName;
+    }
+
+    /**
      * Returns definitions of the columns of the table.
      *
      * @return Definitions of the columns of the table.
      */
     public List<CatalogTableColumnDescriptor> columns() {
         return columns;
-    }
-
-    /**
-     * Returns definitions of indexes belonging to the table.
-     *
-     * @return Definitions of indexes belonging to the table.
-     */
-    public List<CatalogIndexDescriptor> indexes() {
-        return indexes;
     }
 
     /**
@@ -118,13 +110,15 @@ public class FullTableSchema {
             }
         }
 
-        Map<String, CatalogIndexDescriptor> prevIndexesByName = toMapByName(prevSchema.indexes, CatalogIndexDescriptor::name);
-        Map<String, CatalogIndexDescriptor> thisIndexesByName = toMapByName(this.indexes, CatalogIndexDescriptor::name);
-
-        List<CatalogIndexDescriptor> addedIndexes = subtractKeyed(thisIndexesByName, prevIndexesByName);
-        List<CatalogIndexDescriptor> removedIndexes = subtractKeyed(prevIndexesByName, thisIndexesByName);
-
-        return new TableDefinitionDiff(addedColumns, removedColumns, changedColumns, addedIndexes, removedIndexes);
+        return new TableDefinitionDiff(
+                prevSchema.schemaVersion(),
+                this.schemaVersion,
+                prevSchema.tableName(),
+                this.tableName(),
+                addedColumns,
+                removedColumns,
+                changedColumns
+        );
     }
 
     private static <T> Map<String, T> toMapByName(List<T> elements, Function<T, String> nameExtractor) {

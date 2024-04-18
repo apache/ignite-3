@@ -95,7 +95,7 @@ public:
             add_status_record(err);
             return false;
         } catch (const ignite_error &err) {
-            add_status_record(sql_state::SHY000_GENERAL_ERROR, err.what_str());
+            add_status_record(error_code_to_sql_state(err.get_status_code()), err.what_str());
             return false;
         }
 

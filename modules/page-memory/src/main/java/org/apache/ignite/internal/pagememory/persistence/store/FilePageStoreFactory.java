@@ -26,12 +26,12 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 
 /**
  * Factory for creating {@link FilePageStore}.
  */
-class FilePageStoreFactory {
+public class FilePageStoreFactory {
     private final FileIoFactory fileIoFactory;
 
     private final int pageSize;

@@ -19,9 +19,10 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Threading.Tasks;
+using Compute;
 using Ignite.Compute;
 using NUnit.Framework;
-using Security;
+using Security.Exception;
 
 /// <summary>
 /// Tests for <see cref="BasicAuthenticator"/>.
@@ -30,15 +31,10 @@ public class BasicAuthenticatorTests : IgniteTestsBase
 {
     private const string EnableAuthnJob = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner$EnableAuthenticationJob";
 
-    private bool _authnEnabled;
+    private volatile bool _authnEnabled;
 
     [TearDown]
-    public async Task DisableAuthenticationAfterTest()
-    {
-        await EnableAuthn(false);
-
-        Assert.DoesNotThrowAsync(async () => await Client.Tables.GetTablesAsync());
-    }
+    public async Task DisableAuthenticationAfterTest() => await EnableAuthn(false);
 
     [Test]
     public async Task TestAuthnOnClientNoAuthnOnServer()
@@ -62,10 +58,10 @@ public class BasicAuthenticatorTests : IgniteTestsBase
         await EnableAuthn(true);
 
         var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await IgniteClient.StartAsync(GetConfig()));
-        var inner = (AuthenticationException)ex!.InnerException!;
+        var invalidCredentialsException = (InvalidCredentialsException)ex!.InnerException!;
 
-        StringAssert.Contains("Authentication failed", inner.Message);
-        Assert.AreEqual(ErrorGroups.Authentication.CommonAuthentication, inner.Code);
+        Assert.AreEqual("Authentication failed", invalidCredentialsException.Message);
+        Assert.AreEqual(ErrorGroups.Authentication.InvalidCredentials, invalidCredentialsException.Code);
     }
 
     [Test]
@@ -103,7 +99,7 @@ public class BasicAuthenticatorTests : IgniteTestsBase
 
         try
         {
-            await client.Compute.ExecuteAsync<object>(nodes, Array.Empty<DeploymentUnit>(), EnableAuthnJob, enable ? 1 : 0);
+            await client.Compute.SubmitAsync<object>(nodes, Array.Empty<DeploymentUnit>(), EnableAuthnJob, enable ? 1 : 0);
         }
         catch (IgniteClientConnectionException)
         {
@@ -111,9 +107,32 @@ public class BasicAuthenticatorTests : IgniteTestsBase
             // As a result of this call, the client may be disconnected from the server due to authn config change.
         }
 
-        // Wait for the server to apply the configuration change and drop the client connection.
-        // ReSharper disable once AccessToDisposedClosure
-        TestUtils.WaitForCondition(() => client.GetConnections().Count == 0, 3000);
+        if (enable)
+        {
+            // Wait for the server to apply the configuration change and drop the client connection.
+            client.WaitForConnections(0, 3000);
+        }
+        else
+        {
+            await TestUtils.WaitForConditionAsync(async () =>
+            {
+                try
+                {
+                    // Ensure that all servers have applied the configuration change.
+                    foreach (var endpoint in GetConfig().Endpoints)
+                    {
+                        var cfg = new IgniteClientConfiguration(endpoint);
+                        using var client2 = await IgniteClient.StartAsync(cfg);
+                    }
+
+                    return true;
+                }
+                catch (Exception)
+                {
+                    return false;
+                }
+            });
+        }
 
         _authnEnabled = enable;
     }

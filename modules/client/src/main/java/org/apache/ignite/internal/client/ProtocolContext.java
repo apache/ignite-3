@@ -44,6 +44,9 @@ public class ProtocolContext {
     /** Cluster id. */
     private final UUID clusterId;
 
+    /** Cluster name. */
+    private final String clusterName;
+
     /**
      * Constructor.
      *
@@ -51,18 +54,23 @@ public class ProtocolContext {
      * @param features Supported features.
      * @param serverIdleTimeout Server idle timeout.
      * @param clusterNode Cluster node.
+     * @param clusterId Cluster id.
+     * @param clusterName Cluster name.
      */
     public ProtocolContext(
             ProtocolVersion ver,
             EnumSet<ProtocolBitmaskFeature> features,
             long serverIdleTimeout,
             ClusterNode clusterNode,
-            UUID clusterId) {
+            UUID clusterId,
+            String clusterName
+    ) {
         this.ver = ver;
         this.features = Collections.unmodifiableSet(features != null ? features : EnumSet.noneOf(ProtocolBitmaskFeature.class));
         this.serverIdleTimeout = serverIdleTimeout;
         this.clusterNode = clusterNode;
         this.clusterId = clusterId;
+        this.clusterName = clusterName;
     }
 
     /**
@@ -83,7 +91,7 @@ public class ProtocolContext {
      */
     public void checkFeatureSupported(ProtocolBitmaskFeature feature) throws IgniteClientFeatureNotSupportedByServerException {
         if (!isFeatureSupported(feature)) {
-            throw new IgniteClientFeatureNotSupportedByServerException(feature);
+            throw new IgniteClientFeatureNotSupportedByServerException(feature.name());
         }
     }
 
@@ -130,5 +138,14 @@ public class ProtocolContext {
      */
     public UUID clusterId() {
         return clusterId;
+    }
+
+    /**
+     * Returns cluster name.
+     *
+     * @return Cluster name.
+     */
+    public String clusterName() {
+        return clusterName;
     }
 }

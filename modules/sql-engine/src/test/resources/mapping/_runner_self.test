@@ -1,0 +1,31 @@
+# Start at node N1
+# Query: S1 S1
+# Fragments: F1
+
+N1
+S1
+ S1
+---
+Fragment#1
+F1
+---
+
+N1
+S2
+---
+Fragment#1
+F2
+
+---
+
+N2
+S3
+---
+Fragment#1
+F1
+
+Fragment#2
+F2
+
+
+

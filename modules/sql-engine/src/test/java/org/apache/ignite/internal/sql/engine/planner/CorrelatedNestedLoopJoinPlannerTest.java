@@ -23,62 +23,35 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.function.UnaryOperator;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexFieldAccess;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * CorrelatedNestedLoopJoinPlannerTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
 public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
     /**
      * Check equi-join. CorrelatedNestedLoopJoinTest is applicable for it.
      */
     @Test
     public void testValidIndexExpressions() throws Exception {
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteTypeFactory f = Commons.typeFactory();
-
-        publicSchema.addTable(
-                new TestTable(
-                        new RelDataTypeFactory.Builder(f)
-                                .add("ID", f.createJavaType(Integer.class))
-                                .add("JID", f.createJavaType(Integer.class))
-                                .add("VAL", f.createJavaType(String.class))
-                                .build(), "T0") {
-
-                    @Override
-                    public IgniteDistribution distribution() {
-                        return IgniteDistributions.broadcast();
-                    }
-                }
-        );
-
-        publicSchema.addTable(
-                new TestTable(
-                        new RelDataTypeFactory.Builder(f)
-                                .add("ID", f.createJavaType(Integer.class))
-                                .add("JID", f.createJavaType(Integer.class))
-                                .add("VAL", f.createJavaType(String.class))
-                                .build(), "T1") {
-
-                    @Override
-                    public IgniteDistribution distribution() {
-                        return IgniteDistributions.broadcast();
-                    }
-                }
-                        .addIndex("t1_jid_idx", 1, 0)
+        IgniteSchema publicSchema = createSchemaFrom(
+                tableA("T0"),
+                tableA("T1").andThen(addSortIndex("JID", "ID"))
         );
 
         String sql = "select * "
@@ -112,51 +85,29 @@ public class CorrelatedNestedLoopJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInvalidIndexExpressions() throws Exception {
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-        IgniteTypeFactory f = Commons.typeFactory();
-
-        publicSchema.addTable(
-                new TestTable(
-                        new RelDataTypeFactory.Builder(f)
-                                .add("ID", f.createJavaType(Integer.class))
-                                .add("JID", f.createJavaType(Integer.class))
-                                .add("VAL", f.createJavaType(String.class))
-                                .build(), "T0") {
-
-                    @Override
-                    public IgniteDistribution distribution() {
-                        return IgniteDistributions.broadcast();
-                    }
-                }
-                        .addIndex("t0_jid_idx", 1, 0)
-        );
-
-        publicSchema.addTable(
-                new TestTable(
-                        new RelDataTypeFactory.Builder(f)
-                                .add("ID", f.createJavaType(Integer.class))
-                                .add("JID", f.createJavaType(Integer.class))
-                                .add("VAL", f.createJavaType(String.class))
-                                .build(), "T1") {
-
-                    @Override
-                    public IgniteDistribution distribution() {
-                        return IgniteDistributions.broadcast();
-                    }
-                }
-                        .addIndex("t1_jid_idx", 1, 0)
+        IgniteSchema publicSchema = createSchemaFrom(
+                tableA("T0").andThen(addHashIndex("JID", "ID")),
+                tableA("T1").andThen(addHashIndex("JID", "ID"))
         );
 
         String sql = "select * "
                 + "from t0 "
                 + "join t1 on t0.jid + 2 > t1.jid * 2";
 
-        IgniteRel phys = physicalPlan(
+        assertPlan(
                 sql,
                 publicSchema,
+                Objects::nonNull,
                 "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeRule"
         );
+    }
 
-        assertNotNull(phys);
+    private static UnaryOperator<TableBuilder> tableA(String tableName) {
+        return tableBuilder -> tableBuilder
+                .name(tableName)
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("JID", NativeTypes.INT32)
+                .addColumn("VAL", NativeTypes.STRING)
+                .distribution(IgniteDistributions.broadcast());
     }
 }

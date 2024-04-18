@@ -41,7 +41,9 @@ import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_E
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.STARTING_STORAGE_ERR;
 import static org.rocksdb.util.SizeUnit.MB;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -61,6 +63,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -231,10 +234,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @param nodeName Node name.
      * @param dbPath RocksDB path.
      */
-    public RocksDbKeyValueStorage(String nodeName, Path dbPath) {
+    public RocksDbKeyValueStorage(String nodeName, Path dbPath, FailureProcessor failureProcessor) {
         this.dbPath = dbPath;
 
-        this.watchProcessor = new WatchProcessor(nodeName, this::get);
+        this.watchProcessor = new WatchProcessor(nodeName, this::get, failureProcessor);
 
         this.snapshotExecutor = Executors.newFixedThreadPool(2, NamedThreadFactory.create(nodeName, "metastorage-snapshot-executor", LOG));
     }
@@ -246,7 +249,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             destroyRocksDb();
 
             createDb();
-        } catch (RocksDBException e) {
+        } catch (IOException | RocksDBException e) {
             throw new MetaStorageException(STARTING_STORAGE_ERR, "Failed to start the storage", e);
         }
     }
@@ -331,16 +334,15 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     /**
-     * Clear the RocksDB instance. The major difference with directly deleting the DB directory manually is that destroyDB() will take care
-     * of the case where the RocksDB database is stored in multiple directories. For instance, a single DB can be configured to store its
-     * data in multiple directories by specifying different paths to DBOptions::db_paths, DBOptions::db_log_dir, and DBOptions::wal_dir.
+     * Clear the RocksDB instance.
      *
-     * @throws RocksDBException If failed.
+     * @throws IOException If failed.
      */
-    protected void destroyRocksDb() throws RocksDBException {
-        try (Options opt = new Options()) {
-            RocksDB.destroyDB(dbPath.toString(), opt);
-        }
+    protected void destroyRocksDb() throws IOException {
+        // For unknown reasons, RocksDB#destroyDB(String, Options) throws RocksDBException with ".../LOCK: No such file or directory".
+        IgniteUtils.deleteIfExists(dbPath);
+
+        Files.createDirectories(dbPath);
     }
 
     @Override
@@ -1029,9 +1031,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     public void compact(HybridTimestamp lowWatermark) {
         rwLock.writeLock().lock();
 
-        byte[] tsBytes = hybridTsToArray(lowWatermark);
 
         try (WriteBatch batch = new WriteBatch()) {
+            byte[] tsBytes = hybridTsToArray(lowWatermark);
             long maxRevision;
 
             // Find a revision with timestamp lesser or equal to the watermark.
@@ -1534,12 +1536,15 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                         watchProcessor.notifyWatches(updatedEntriesCopy, ts);
 
                         updatedEntries.clear();
+
+                        ts = timestampByRevision(revision);
                     }
 
                     lastSeenRevision = revision;
                 }
 
                 if (ts == null) {
+                    // This will only execute on first iteration.
                     ts = timestampByRevision(revision);
                 }
 
@@ -1548,7 +1553,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             RocksUtils.checkIterator(it);
 
-            // Notify about the events left after finishing the cycle above.
+            // Notify about the events left after finishing the loop above.
             if (!updatedEntries.isEmpty()) {
                 assert ts != null;
 
@@ -1663,5 +1668,18 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     @Override
     public CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision) {
         return watchProcessor.notifyUpdateRevisionListeners(newRevision);
+    }
+
+    @Override
+    public void advanceSafeTime(HybridTimestamp newSafeTime) {
+        rwLock.writeLock().lock();
+
+        try {
+            if (recoveryStatus.get() == RecoveryStatus.DONE) {
+                watchProcessor.advanceSafeTime(newSafeTime);
+            }
+        } finally {
+            rwLock.writeLock().unlock();
+        }
     }
 }

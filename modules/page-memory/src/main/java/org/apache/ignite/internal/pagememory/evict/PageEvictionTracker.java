@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.evict;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 
 /**
  * Entry point for per-page eviction. Accepts information about touching data pages, capable of evicting "the least needed" page (according

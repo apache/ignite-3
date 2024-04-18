@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayDeque;
@@ -24,11 +25,12 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 
 /**
  * MergeJoinNode.
@@ -210,7 +212,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
      * Create.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    @NotNull
     public static <RowT> MergeJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType leftRowType,
             RelDataType rightRowType, JoinRelType joinType, Comparator<RowT> comp) {
         switch (joinType) {
@@ -218,20 +219,24 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                 return new InnerJoin<>(ctx, comp);
 
             case LEFT: {
-                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightRowType);
+                RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
+                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
 
                 return new LeftJoin<>(ctx, comp, rightRowFactory);
             }
 
             case RIGHT: {
-                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), leftRowType);
+                RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
+                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
 
                 return new RightJoin<>(ctx, comp, leftRowFactory);
             }
 
             case FULL: {
-                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), leftRowType);
-                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rightRowType);
+                RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
+                RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
+                RowHandler.RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
+                RowHandler.RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
 
                 return new FullOuterJoin<>(ctx, comp, leftRowFactory, rightRowFactory);
             }

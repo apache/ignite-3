@@ -17,10 +17,11 @@
 
 #pragma once
 
-#include "ignite/protocol/client_operation.h"
-#include <ignite/client/detail/protocol_context.h>
+#include "ignite/protocol/protocol_context.h"
+#include <ignite/client/detail/connection_event_handler.h>
 #include <ignite/client/detail/response_handler.h>
 #include <ignite/client/ignite_client_configuration.h>
+#include <ignite/protocol/client_operation.h>
 
 #include <ignite/common/utils.h>
 #include <ignite/network/async_client_pool.h>
@@ -63,13 +64,16 @@ public:
      *
      * @param id Connection ID.
      * @param pool Connection pool.
+     * @param event_handler Event handler.
      * @param logger Logger.
      * @param cfg Configuration.
      * @return New instance.
      */
-    static std::shared_ptr<node_connection> make_new(uint64_t id, std::shared_ptr<network::async_client_pool> pool,
-        std::shared_ptr<ignite_logger> logger, const ignite_client_configuration &cfg) {
-        return std::shared_ptr<node_connection>(new node_connection(id, std::move(pool), std::move(logger), cfg));
+    static std::shared_ptr<node_connection> make_new(std::uint64_t id, std::shared_ptr<network::async_client_pool> pool,
+        std::weak_ptr<connection_event_handler> event_handler, std::shared_ptr<ignite_logger> logger,
+        const ignite_client_configuration &cfg) {
+        return std::shared_ptr<node_connection>(
+            new node_connection(id, std::move(pool), std::move(event_handler), std::move(logger), cfg));
     }
 
     /**
@@ -77,7 +81,7 @@ public:
      *
      * @return ID.
      */
-    [[nodiscard]] uint64_t id() const { return m_id; }
+    [[nodiscard]] std::uint64_t id() const { return m_id; }
 
     /**
      * Check whether handshake complete.
@@ -95,35 +99,35 @@ public:
      * @param handler response handler.
      * @return @c true on success and @c false otherwise.
      */
-    bool perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
+    bool perform_request(protocol::client_operation op, const std::function<void(protocol::writer &)> &wr,
         std::shared_ptr<response_handler> handler) {
-        auto reqId = generate_request_id();
+        auto req_id = generate_request_id();
         std::vector<std::byte> message;
         {
             protocol::buffer_adapter buffer(message);
             buffer.reserve_length_header();
 
             protocol::writer writer(buffer);
-            writer.write(int32_t(op));
-            writer.write(reqId);
+            writer.write(std::int32_t(op));
+            writer.write(req_id);
             wr(writer);
 
             buffer.write_length_header();
         }
 
         {
-            std::lock_guard<std::mutex> lock(m_request_handlers_mutex);
-            m_request_handlers[reqId] = std::move(handler);
+            std::lock_guard<std::recursive_mutex> lock(m_request_handlers_mutex);
+            m_request_handlers[req_id] = std::move(handler);
         }
 
         if (m_logger->is_debug_enabled()) {
             m_logger->log_debug(
-                "Performing request: op=" + std::to_string(int(op)) + ", req_id=" + std::to_string(reqId));
+                "Performing request: op=" + std::to_string(int(op)) + ", req_id=" + std::to_string(req_id));
         }
 
         bool sent = m_pool->send(m_id, std::move(message));
         if (!sent) {
-            get_and_remove_handler(reqId);
+            get_and_remove_handler(req_id);
             return false;
         }
         return true;
@@ -140,7 +144,7 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    bool perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
+    bool perform_request(protocol::client_operation op, const std::function<void(protocol::writer &)> &wr,
         std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
         return perform_request(op, wr, std::move(handler));
@@ -157,7 +161,7 @@ public:
      */
     template<typename T>
     void perform_request_wr(
-        client_operation op, const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
+        protocol::client_operation op, const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
         perform_request<T>(
             op, wr, [](protocol::reader &) {}, std::move(callback));
     }
@@ -188,7 +192,7 @@ public:
      *
      * @return Protocol context.
      */
-    const protocol_context &get_protocol_context() const { return m_protocol_context; }
+    const protocol::protocol_context &get_protocol_context() const { return m_protocol_context; }
 
 private:
     /**
@@ -196,18 +200,20 @@ private:
      *
      * @param id Connection ID.
      * @param pool Connection pool.
+     * @param event_handler Event handler.
      * @param logger Logger.
      * @param cfg Configuration.
      */
-    node_connection(uint64_t id, std::shared_ptr<network::async_client_pool> pool,
-        std::shared_ptr<ignite_logger> logger, const ignite_client_configuration &cfg);
+    node_connection(std::uint64_t id, std::shared_ptr<network::async_client_pool> pool,
+        std::weak_ptr<connection_event_handler> event_handler, std::shared_ptr<ignite_logger> logger,
+        const ignite_client_configuration &cfg);
 
     /**
      * Generate next request ID.
      *
      * @return New request ID.
      */
-    [[nodiscard]] int64_t generate_request_id() { return m_req_id_gen.fetch_add(1, std::memory_order_relaxed); }
+    [[nodiscard]] std::int64_t generate_request_id() { return m_req_id_gen.fetch_add(1, std::memory_order_relaxed); }
 
     /**
      * Get and remove request handler.
@@ -215,28 +221,40 @@ private:
      * @param reqId Request ID.
      * @return Handler.
      */
-    std::shared_ptr<response_handler> get_and_remove_handler(int64_t req_id);
+    std::shared_ptr<response_handler> get_and_remove_handler(std::int64_t req_id);
+
+    /**
+     * Find handler by ID.
+     * @warning Warning: m_request_handlers_mutex should be locked.
+     *
+     * @param reqId Request ID.
+     * @return Handler.
+     */
+    std::shared_ptr<response_handler> find_handler_unsafe(std::int64_t req_id);
 
     /** Handshake complete. */
     bool m_handshake_complete{false};
 
     /** Protocol context. */
-    protocol_context m_protocol_context;
+    protocol::protocol_context m_protocol_context;
 
     /** Connection ID. */
-    uint64_t m_id{0};
+    std::uint64_t m_id{0};
 
     /** Connection pool. */
     std::shared_ptr<network::async_client_pool> m_pool;
+
+    /** Connection event handler. */
+    std::weak_ptr<connection_event_handler> m_event_handler;
 
     /** Request ID generator. */
     std::atomic_int64_t m_req_id_gen{0};
 
     /** Pending request handlers. */
-    std::unordered_map<int64_t, std::shared_ptr<response_handler>> m_request_handlers;
+    std::unordered_map<std::int64_t, std::shared_ptr<response_handler>> m_request_handlers;
 
     /** Handlers map mutex. */
-    std::mutex m_request_handlers_mutex;
+    std::recursive_mutex m_request_handlers_mutex;
 
     /** Logger. */
     std::shared_ptr<ignite_logger> m_logger;

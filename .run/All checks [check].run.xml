@@ -1,10 +1,10 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="All checks [check]" type="GradleRunConfiguration" factoryName="Gradle" folderName="Checks">
+  <configuration default="false" name="All checks [check]" type="GradleRunConfiguration" factoryName="Gradle" folderName="Tests">
     <ExternalSystemSettings>
       <option name="executionName" />
       <option name="externalProjectPath" value="$PROJECT_DIR$" />
       <option name="externalSystemIdString" value="GRADLE" />
-      <option name="scriptParameters" value="" />
+      <option name="scriptParameters" value="--continue" />
       <option name="taskDescriptions">
         <list />
       </option>

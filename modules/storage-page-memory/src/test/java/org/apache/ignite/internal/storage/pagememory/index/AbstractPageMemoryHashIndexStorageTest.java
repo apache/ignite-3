@@ -23,26 +23,21 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 
-import java.util.Random;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.AbstractHashIndexStorageTest;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
 /**
  * Base class for testing {@link HashIndexStorage} based on {@link PageMemory}.
  */
 abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTest {
-    protected BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig;
-
-    private final Random random = new Random();
+    protected int pageSize;
 
     /**
      * Initializes the internal structures needed for tests.
@@ -51,17 +46,16 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
      */
     final void initialize(
             MvTableStorage tableStorage,
-            TablesConfiguration tablesCfg,
-            BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig
+            int pageSize
     ) {
-        this.baseEngineConfig = baseEngineConfig;
+        this.pageSize = pageSize;
 
-        initialize(tableStorage, tablesCfg);
+        initialize(tableStorage);
     }
 
     @Test
     void testWithStringsLargerThanMaximumInlineSize() {
-        HashIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.string());
+        HashIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
         var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
 
         IndexRow indexRow0 = createIndexRow(serializer, new RowId(TEST_PARTITION), 1, randomString(random, MAX_BINARY_TUPLE_INLINE_SIZE));
@@ -78,11 +72,11 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
 
     @Test
     void testFragmentedIndexColumns() {
-        HashIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.string());
+        HashIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
         var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
 
-        String longString0 = randomString(random, baseEngineConfig.pageSize().value() * 2);
-        String longString1 = randomString(random, baseEngineConfig.pageSize().value() * 2);
+        String longString0 = randomString(random, pageSize * 2);
+        String longString1 = randomString(random, pageSize * 2);
 
         IndexRow indexRow0 = createIndexRow(serializer, new RowId(TEST_PARTITION), 1, longString0);
         IndexRow indexRow1 = createIndexRow(serializer, new RowId(TEST_PARTITION), 1, longString1);

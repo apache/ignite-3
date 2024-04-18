@@ -20,8 +20,10 @@ package org.apache.ignite.internal.table.distributed;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tx.Lock;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A decorator interface to hide all tx-protocol-related things.
@@ -33,11 +35,20 @@ public interface IndexLocker {
     int id();
 
     /**
-     * Acquires the lock for lookup operation.
+     * Acquires the lock for a lookup operation.
      *
-     * @param txId An identifier of the transaction in which the row is read.
-     * @param tableRow A table row to lookup.
-     * @return A future representing a result.
+     * @param txId Identifier of the transaction in which the row is read.
+     * @param key Index key to lookup.
+     * @return Future representing the state of the operation.
+     */
+    CompletableFuture<Void> locksForLookupByKey(UUID txId, BinaryTuple key);
+
+    /**
+     * Acquires the lock for a lookup operation.
+     *
+     * @param txId Identifier of the transaction in which the row is read.
+     * @param tableRow Table row to lookup.
+     * @return Future representing the state of the operation.
      */
     CompletableFuture<Void> locksForLookup(UUID txId, BinaryRow tableRow);
 
@@ -48,9 +59,9 @@ public interface IndexLocker {
      * @param txId An identifier of the transaction in which the row is inserted.
      * @param tableRow A table row to insert.
      * @param rowId An identifier of the row in the main storage.
-     * @return A future representing a result.
+     * @return A future representing a result (the result might be {@code null} if no lock has been acquired).
      */
-    CompletableFuture<Lock> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId);
+    CompletableFuture<@Nullable Lock> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId);
 
     /**
      * Acquires the lock for remove operation.

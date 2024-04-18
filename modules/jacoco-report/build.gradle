@@ -22,7 +22,6 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 dependencies {
     implementation project(':ignite-affinity')
     implementation project(':ignite-api')
-    implementation project(':ignite-baseline')
     implementation project(':ignite-bytecode')
     implementation project(':ignite-compute')
     implementation project(':ignite-sql-engine')

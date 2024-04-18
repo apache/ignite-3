@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -48,24 +49,38 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
 
     private final BinaryTupleSchema binaryTupleSchema;
 
+    private final boolean keyOnly;
+
     /** Cached colocation hash value. */
     private int colocationHash;
 
-    /**
-     * Constructor.
-     *
-     * @param schema Schema.
-     * @param row    Binary row representation.
-     */
-    public Row(SchemaDescriptor schema, BinaryRow row) {
-        super(row.hasValue() ? schema.length() : schema.keyColumns().length(), row.tupleSlice());
+    protected Row(boolean keyOnly, SchemaDescriptor schema, BinaryTupleSchema binaryTupleSchema, BinaryRow row) {
+        super(binaryTupleSchema.elementCount(), row.tupleSlice());
 
+        this.keyOnly = keyOnly;
         this.row = row;
         this.schema = schema;
+        this.binaryTupleSchema = binaryTupleSchema;
+    }
 
-        binaryTupleSchema = row.hasValue()
-                ? BinaryTupleSchema.createRowSchema(schema)
-                : BinaryTupleSchema.createKeySchema(schema);
+    /**
+     * Creates a row from a given {@code BinaryRow}.
+     *
+     * @param schema Schema.
+     * @param binaryRow Binary row.
+     */
+    public static Row wrapBinaryRow(SchemaDescriptor schema, BinaryRow binaryRow) {
+        return new Row(false, schema, BinaryTupleSchema.createRowSchema(schema), binaryRow);
+    }
+
+    /**
+     * Creates a row from a given {@code BinaryRow} that only contains the key component.
+     *
+     * @param schema Schema.
+     * @param binaryRow Binary row.
+     */
+    public static Row wrapKeyOnlyBinaryRow(SchemaDescriptor schema, BinaryRow binaryRow) {
+        return new Row(true, schema, BinaryTupleSchema.createKeySchema(schema), binaryRow);
     }
 
     /**
@@ -76,16 +91,13 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
         return schema;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public boolean hasValue() {
-        return row.hasValue();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int elementCount() {
-        return schema.length();
+    /**
+     * Gets a value indicating whether the row contains only key columns.
+     *
+     * @return {@code true} if the row contains only key columns.
+     */
+    public boolean keyOnly() {
+        return keyOnly;
     }
 
     /**
@@ -114,11 +126,6 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
     }
 
     @Override
-    public ByteBuffer byteBuffer() {
-        return row.byteBuffer();
-    }
-
-    @Override
     public int tupleSliceLength() {
         return row.tupleSliceLength();
     }
@@ -131,8 +138,14 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
         if (h0 == 0) {
             HashCalculator hashCalc = new HashCalculator();
 
-            for (Column c : schema().colocationColumns()) {
-                ColocationUtils.append(hashCalc, value(c.schemaIndex()), c.type());
+            for (Column c : schema.colocationColumns()) {
+                int idx = keyOnly
+                        ? c.positionInKey()
+                        : c.positionInRow();
+
+                assert idx >= 0 : c;
+
+                ColocationUtils.append(hashCalc, value(idx), c.type());
             }
 
             colocationHash = h0 = hashCalc.hash();
@@ -144,6 +157,10 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
     @Override
     public BinaryTuple binaryTuple() {
         return new BinaryTuple(binaryTupleSchema.elementCount(), row.tupleSlice());
+    }
+
+    public BinaryTupleSchema binaryTupleSchema() {
+        return binaryTupleSchema;
     }
 
     @Override

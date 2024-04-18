@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -29,15 +31,18 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
-import org.apache.ignite.internal.schema.NativeType;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
+import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -45,7 +50,10 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.util.Pair;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -89,7 +97,6 @@ import org.opentest4j.AssertionFailedError;
  * </pre>
  *
  * <p><b>Schema initialization</b>
- * Tables can be added to schema via {@code table} methods and initial schema can be set via {@link #withSchema(Consumer)} method.
  *
  * <pre>
  *     new StatementChecker()
@@ -112,13 +119,15 @@ public class StatementChecker {
 
     private final SqlPrepare sqlPrepare;
 
-    private final Map<String, Function<TestBuilders.TableBuilder, TestTable>> testTables = new HashMap<>();
+    private final Map<String, Function<TestBuilders.TableBuilder, IgniteTable>> testTables = new HashMap<>();
 
     private boolean dumpPlan;
 
-    private Consumer<IgniteSchema> initSchema = (schema) -> {};
+    private String[] rulesToDisable = new String[0];
 
     private Consumer<StatementChecker> setup = (checker) -> {};
+
+    private List<RelDataType> expectedParameterTypes;
 
     private BiFunction<String, RelNode, String> planToString = (header, plan) -> {
         return RelOptUtil.dumpPlan(
@@ -140,8 +149,11 @@ public class StatementChecker {
          * @param schema A schema.
          * @param sql An SQL statement.
          * @param params A list of dynamic parameters.
+         * @param rulesToDisable A list of rules to exclude from optimisation.
          */
-        RelNode prepare(IgniteSchema schema, String sql, List<Object> params) throws Exception;
+        Pair<IgniteRel, IgnitePlanner> prepare(
+                IgniteSchema schema, String sql, List<Object> params, String... rulesToDisable
+        ) throws Exception;
     }
 
     /** Sets a function that is going to be called prior to test run. */
@@ -150,9 +162,10 @@ public class StatementChecker {
         return this;
     }
 
-    /** Sets a function that initializes initial schema. */
-    public StatementChecker withSchema(Consumer<IgniteSchema> initSchema) {
-        this.initSchema = initSchema;
+    /** Sets rules to exclude from optimisation. */
+    public StatementChecker disableRules(String... rulesToDisable) {
+        this.rulesToDisable = rulesToDisable;
+
         return this;
     }
 
@@ -173,7 +186,7 @@ public class StatementChecker {
     /**
      * Updates schema to include a table with 1 column.
      */
-    public StatementChecker table(String tableName, Function<TestBuilders.TableBuilder, TestTable> table) {
+    public StatementChecker table(String tableName, Function<TestBuilders.TableBuilder, IgniteTable> table) {
         testTables.put(tableName, table);
 
         return this;
@@ -232,9 +245,33 @@ public class StatementChecker {
         return this;
     }
 
+    /** Specifies expected types of dynamic parameters. Use {@code null} to represent {@link SqlTypeName#NULL}. */
+    public StatementChecker parameterTypes(NativeType... types) {
+        this.expectedParameterTypes = Arrays.stream(types)
+                .map(t -> {
+                    if (t == null) {
+                        return Commons.typeFactory().createSqlType(SqlTypeName.NULL);
+                    } else {
+                        return TypeUtils.native2relationalType(Commons.typeFactory(), t);
+                    }
+                }).collect(Collectors.toList());
+        return this;
+    }
+
+    public StatementChecker parameterTypes(RelDataType... types) {
+        this.expectedParameterTypes = Arrays.asList(types);
+        return this;
+    }
+
     /** Expect that validation succeeds. */
     public DynamicTest ok() {
-        return ok((node) -> {});
+        return ok((node) -> {}, true);
+    }
+
+    /** Expect that validation succeeds. */
+    // TODO: remote relCheck param after https://issues.apache.org/jira/browse/IGNITE-20170
+    public DynamicTest ok(boolean relCheck) {
+        return ok((node) -> {}, relCheck);
     }
 
     /**
@@ -245,7 +282,18 @@ public class StatementChecker {
         // Capture current stacktrace to show error location.
         AssertionError exception = new AssertionError("Statement check failed");
 
-        return shouldPass(name, exception, check);
+        return shouldPass(name, exception, check, true);
+    }
+
+    /**
+     * Expects that the provided validation function won't throw an exception.
+     */
+    public DynamicTest ok(Consumer<IgniteRel> check, boolean relCheck) {
+        String name = testName(true);
+        // Capture current stacktrace to show error location.
+        AssertionError exception = new AssertionError("Statement check failed");
+
+        return shouldPass(name, exception, check, relCheck);
     }
 
     /** Validation is expected to fail with an error that contains a the given message. */
@@ -277,6 +325,9 @@ public class StatementChecker {
         return shouldFail(name, exception, new TypeSafeMatcher<Throwable>() {
             @Override
             protected boolean matchesSafely(Throwable t) {
+                if (t.getMessage() == null) {
+                    return false;
+                }
                 return t.getMessage().contains(errorMessage);
             }
 
@@ -354,31 +405,38 @@ public class StatementChecker {
     }
 
     /** Executes default checks. Runs before a check provide by {@link StatementChecker#ok(Consumer)}. */
-    protected void checkRel(IgniteRel igniteRel, IgniteSchema schema) {
+    protected void checkRel(IgniteRel igniteRel, IgnitePlanner planner, IgniteSchema schema) {
 
     }
 
     private IgniteSchema createSchema() {
-        IgniteSchema schema = new IgniteSchema("PUBLIC");
-        this.initSchema.accept(schema);
-        for (Map.Entry<String, Function<TestBuilders.TableBuilder, TestTable>> entry : testTables.entrySet()) {
+        List<IgniteTable> tables = new ArrayList<>();
+        for (Map.Entry<String, Function<TestBuilders.TableBuilder, IgniteTable>> entry : testTables.entrySet()) {
             String tableName = entry.getKey();
-            Function<TableBuilder, TestTable> addTable = entry.getValue();
+            Function<TableBuilder, IgniteTable> addTable = entry.getValue();
 
-            TestTable table = addTable.apply(TestBuilders.table().name(tableName));
-            schema.addTable(table);
+            IgniteTable table = addTable.apply(TestBuilders.table().name(tableName));
+
+            tables.add(table);
         }
-        return schema;
+
+        return new IgniteSchema(DEFAULT_SCHEMA_NAME, 0, tables);
     }
 
-    private DynamicTest shouldPass(String name, Throwable exception, Consumer<IgniteRel> check) {
+    private DynamicTest shouldPass(String name, Throwable exception, Consumer<IgniteRel> check, boolean relCheck) {
         return DynamicTest.dynamicTest(name, () -> {
             IgniteSchema schema = initSchema(exception);
             IgniteRel root;
+            IgnitePlanner planner;
 
             try {
-                root = (IgniteRel) sqlPrepare.prepare(schema, sqlStatement, dynamicParams);
-                checkRel(root, schema);
+                Pair<IgniteRel, IgnitePlanner> result = sqlPrepare.prepare(schema, sqlStatement, dynamicParams, rulesToDisable);
+                root = result.getFirst();
+                planner = result.getSecond();
+
+                if (relCheck) {
+                    checkRel(root, planner, schema);
+                }
             } catch (Throwable e) {
                 String message = format("Failed to validate:\n{}\n", formatSqlStatementForErrorMessage());
                 RuntimeException error = new RuntimeException(message, e);
@@ -391,6 +449,8 @@ public class StatementChecker {
 
             try {
                 check.accept(root);
+
+                checkParameterTypes(planner);
             } catch (Throwable e) {
                 String planDump = buildPlanInfo(root);
                 String mismatchDescription = format("Plan does not match:\n\n{}", planDump);
@@ -429,7 +489,8 @@ public class StatementChecker {
             Throwable err = null;
             IgniteRel unexpectedPlan = null;
             try {
-                unexpectedPlan = (IgniteRel) sqlPrepare.prepare(schema, sqlStatement, dynamicParams);
+                Pair<IgniteRel, ?> unexpected = sqlPrepare.prepare(schema, sqlStatement, dynamicParams, rulesToDisable);
+                unexpectedPlan = unexpected.getFirst();
             } catch (Throwable t) {
                 err = t;
             }
@@ -437,7 +498,7 @@ public class StatementChecker {
             if (err != null) {
                 if (!matcher.matches(err)) {
                     StringDescription desc = new StringDescription();
-                    matcher.describeTo(desc);
+                    matcher.describeMismatch(err, desc);
 
                     AssertionFailedError error = AssertionFailureBuilder.assertionFailure()
                             .reason("Error does not match")
@@ -505,6 +566,24 @@ public class StatementChecker {
         String projectionString = projection != null ? projection.toString() : null;
 
         assertEquals(expected, projectionString, "Projection list does not match");
+    }
+
+    private void checkParameterTypes(IgnitePlanner planner) {
+        if (expectedParameterTypes != null) {
+            RelDataType parameterRowType = planner.getParameterRowType();
+            // Compare string representation because that representation includes nullability attribute.
+
+            List<String> actualTypes = parameterRowType.getFieldList().stream()
+                    .map(RelDataTypeField::getType)
+                    .map(RelDataType::getFullTypeString)
+                    .collect(Collectors.toList());
+
+            List<String> expectedTypes = expectedParameterTypes.stream()
+                    .map(RelDataType::getFullTypeString)
+                    .collect(Collectors.toList());
+
+            assertEquals(expectedTypes, actualTypes, "Parameters do not match");
+        }
     }
 }
 

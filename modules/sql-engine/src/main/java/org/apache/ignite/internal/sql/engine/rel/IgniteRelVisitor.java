@@ -77,6 +77,11 @@ public interface IgniteRelVisitor<T> {
     /**
      * See {@link IgniteRelVisitor#visit(IgniteRel)}.
      */
+    T visit(IgniteSystemViewScan rel);
+
+    /**
+     * See {@link IgniteRelVisitor#visit(IgniteRel)}.
+     */
     T visit(IgniteReceiver rel);
 
     /**
@@ -163,6 +168,16 @@ public interface IgniteRelVisitor<T> {
      * See {@link IgniteRelVisitor#visit(IgniteRel)}.
      */
     T visit(IgniteTableFunctionScan rel);
+
+    /**
+     * See {@link IgniteRelVisitor#visit(IgniteRel)}.
+     */
+    T visit(IgniteKeyValueGet rel);
+
+    /**
+     * See {@link IgniteRelVisitor#visit(IgniteRel)}.
+     */
+    T visit(IgniteKeyValueModify rel);
 
     /**
      * Visits a relational node and calculates a result on the basis of node meta information.

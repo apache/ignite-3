@@ -23,6 +23,8 @@ import org.apache.ignite.internal.cli.core.CallExecutionPipelineProvider;
 import org.apache.ignite.internal.cli.core.repl.prompt.PromptProvider;
 import org.apache.ignite.internal.cli.core.repl.terminal.TerminalCustomizer;
 import org.jline.reader.Completer;
+import org.jline.reader.Highlighter;
+import org.jline.reader.Parser;
 import picocli.CommandLine.IDefaultValueProvider;
 
 /**
@@ -53,6 +55,12 @@ public class ReplBuilder {
 
     private Runnable onStart = () -> {};
 
+    private EventListeningActivationPoint eventListeningActivationPoint;
+
+    private Highlighter highlighter;
+
+    private Parser parser;
+
     /**
      * Build methods.
      *
@@ -70,7 +78,10 @@ public class ReplBuilder {
                 historyFileName,
                 tailTipWidgetsEnabled,
                 autosuggestionsWidgetsEnabled,
-                onStart
+                onStart,
+                eventListeningActivationPoint,
+                highlighter,
+                parser
         );
     }
 
@@ -150,6 +161,27 @@ public class ReplBuilder {
 
     public ReplBuilder withAutosuggestionsWidgets() {
         this.autosuggestionsWidgetsEnabled = true;
+        return this;
+    }
+
+    /**
+     * Builder setter of {@code eventListeningActivationPoint} field.
+     *
+     * @param eventListeningActivationPoint event listening activation point.
+     * @return invoked builder instance {@link ReplBuilder}.
+     */
+    public ReplBuilder withEventSubscriber(EventListeningActivationPoint eventListeningActivationPoint) {
+        this.eventListeningActivationPoint = eventListeningActivationPoint;
+        return this;
+    }
+
+    public ReplBuilder withHighlighter(Highlighter highlighter) {
+        this.highlighter = highlighter;
+        return this;
+    }
+
+    public ReplBuilder withParser(Parser parser) {
+        this.parser = parser;
         return this;
     }
 }

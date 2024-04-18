@@ -52,8 +52,18 @@ public class TestLoggerFactory implements LoggerFactory {
                 () -> "Log does not contain expected message '" + msg + "': " +  log());
     }
 
+    void waitForLogMatches(String regex, long timeoutMillis) throws InterruptedException {
+        assertTrue(
+                IgniteTestUtils.waitForCondition(() -> logLineMatches(regex), timeoutMillis),
+                () -> "Log does not match expected pattern '" + regex + "': " +  log());
+    }
+
     private boolean logContains(String msg) {
         return logger.entries().stream().anyMatch(x -> x.contains(msg));
+    }
+
+    private boolean logLineMatches(String regex) {
+        return logger.entries().stream().anyMatch(x -> x.matches(regex));
     }
 
     private String log() {

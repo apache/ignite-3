@@ -19,11 +19,9 @@ package org.apache.ignite.internal.deployunit;
 
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.SYNC;
-import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -58,8 +56,15 @@ public class FileDeployerService {
     private Path unitsFolder;
 
 
-    private final ExecutorService executor = Executors.newFixedThreadPool(
-            DEPLOYMENT_EXECUTOR_SIZE, new NamedThreadFactory("deployment", LOG));
+    private final ExecutorService executor;
+
+    /** Constructor. */
+    public FileDeployerService(String nodeName) {
+        executor = Executors.newFixedThreadPool(
+                DEPLOYMENT_EXECUTOR_SIZE,
+                NamedThreadFactory.create(nodeName, "deployment", LOG)
+        );
+    }
 
     public void initUnitsFolder(Path unitsFolder) {
         this.unitsFolder = unitsFolder;
@@ -70,21 +75,21 @@ public class FileDeployerService {
      *
      * @param id Deploy unit identifier.
      * @param version Deploy unit version.
-     * @param unitContent Map of deploy unit file names to file content.
+     * @param deploymentUnit Deployment unit.
      * @return Future with deploy result.
      */
-    public CompletableFuture<Boolean> deploy(String id, Version version, UnitContent unitContent) {
+    public CompletableFuture<Boolean> deploy(String id, Version version, DeploymentUnit deploymentUnit) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 Path unitFolder = unitPath(id, version);
 
                 Files.createDirectories(unitFolder);
 
-                for (Entry<String, byte[]> entry : unitContent) {
+                for (Entry<String, InputStream> entry : deploymentUnit.content().entrySet()) {
                     String fileName = entry.getKey();
                     Path unitPath = unitFolder.resolve(fileName);
                     Path unitPathTmp = unitFolder.resolve(fileName + TMP_SUFFIX);
-                    Files.write(unitPathTmp, entry.getValue(), CREATE, SYNC, TRUNCATE_EXISTING);
+                    Files.copy(entry.getValue(), unitPathTmp, REPLACE_EXISTING);
                     Files.move(unitPathTmp, unitPath, ATOMIC_MOVE, REPLACE_EXISTING);
                 }
                 return true;

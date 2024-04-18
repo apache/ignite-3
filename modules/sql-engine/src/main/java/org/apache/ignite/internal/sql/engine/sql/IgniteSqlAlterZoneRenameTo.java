@@ -19,22 +19,41 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
 import java.util.Objects;
+import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Parse tree for {@code ALTER ZONE RENAME TO} statement.
  */
 public class IgniteSqlAlterZoneRenameTo extends IgniteAbstractSqlAlterZone {
 
+    /** ALTER ZONE RENAME TO operator. */
+    protected static class Operator extends IgniteDdlOperator {
+
+        /** Constructor. */
+        protected Operator(boolean existsFlag) {
+            super("ALTER ZONE", SqlKind.OTHER_DDL, existsFlag);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos, @Nullable SqlNode... operands) {
+            return new IgniteSqlAlterZoneRenameTo(pos, (SqlIdentifier) operands[0], (SqlIdentifier) operands[1], existFlag());
+        }
+    }
+
     private final SqlIdentifier newName;
 
     /** Constructor. */
     public IgniteSqlAlterZoneRenameTo(SqlParserPos pos, SqlIdentifier name, SqlIdentifier newName, boolean ifExists) {
-        super(pos, name, ifExists);
+        super(new Operator(ifExists), pos, name);
         this.newName = Objects.requireNonNull(newName, "newName");
     }
 

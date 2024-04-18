@@ -19,11 +19,11 @@ package org.apache.ignite.internal.cli.config.ini;
 
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Collection;
 import java.util.Map;
 import org.apache.ignite.internal.cli.config.exception.ConfigStoringException;
@@ -50,7 +50,7 @@ public class IniFile {
         this.file = file;
     }
 
-    public IniSection getSection(String name) {
+    public synchronized IniSection getSection(String name) {
         return content.get(name);
     }
 
@@ -63,11 +63,11 @@ public class IniFile {
         return topLevelSection;
     }
 
-    public Collection<String> getSectionNames() {
+    public synchronized Collection<String> getSectionNames() {
         return content.keySet();
     }
 
-    public Collection<IniSection> getSections() {
+    public synchronized Collection<IniSection> getSections() {
         return content.values();
     }
 
@@ -75,7 +75,7 @@ public class IniFile {
      * Store current INI file to FS file.
      */
     public void store() {
-        try (OutputStream os = new FileOutputStream(file)) {
+        try (OutputStream os = Files.newOutputStream(file.toPath())) {
             store(os);
         } catch (IOException e) {
             throw new ConfigStoringException("Can't store cli config file " + file.getAbsolutePath(), e);
@@ -115,12 +115,22 @@ public class IniFile {
      * @param name of section.
      * @return new section.
      */
-    public IniSection createSection(String name) {
+    public synchronized IniSection createSection(String name) {
         if (content.containsKey(name)) {
             throw new SectionAlreadyExistsException(name);
         }
         IniSection iniSection = new IniSection(name);
         content.put(name, iniSection);
         return iniSection;
+    }
+
+    /**
+     * Returns existing or creates a new {@link IniSection} with provided name.
+     *
+     * @param name Section name.
+     * @return Existing or new section.
+     */
+    public synchronized IniSection getOrCreateSection(String name) {
+        return content.computeIfAbsent(name, IniSection::new);
     }
 }

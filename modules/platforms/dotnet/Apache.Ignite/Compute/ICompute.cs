@@ -28,68 +28,76 @@ using Table;
 public interface ICompute
 {
     /// <summary>
-    /// Executes a compute job represented by the given class on one of the specified nodes.
+    /// Submits a compute job represented by the given class for an execution on one of the specified nodes.
     /// </summary>
     /// <param name="nodes">Nodes to use for the job execution.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="jobClassName">Java class name of the job to execute.</param>
+    /// <param name="options">Job execution options.</param>
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task<T> ExecuteAsync<T>(
+    Task<IJobExecution<T>> SubmitAsync<T>(
         IEnumerable<IClusterNode> nodes,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
+        JobExecutionOptions options,
         params object?[]? args);
 
     /// <summary>
-    /// Executes a job represented by the given class on one node where the given key is located.
+    /// Submits a compute job represented by the given class for an execution on one of the nodes where the given key is located.
     /// </summary>
     /// <param name="tableName">Name of the table to be used with <paramref name="key"/> to determine target node.</param>
     /// <param name="key">Table key to be used to determine the target node for job execution.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="jobClassName">Java class name of the job to execute.</param>
+    /// <param name="options">Job execution options.</param>
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task<T> ExecuteColocatedAsync<T>(
+    Task<IJobExecution<T>> SubmitColocatedAsync<T>(
         string tableName,
         IIgniteTuple key,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
+        JobExecutionOptions options,
         params object?[]? args);
 
     /// <summary>
-    /// Executes a job represented by the given class on one node where the given key is located.
+    /// Submits a compute job represented by the given class for an execution on one of the nodes where the given key is located.
     /// </summary>
     /// <param name="tableName">Name of the table to be used with <paramref name="key"/> to determine target node.</param>
     /// <param name="key">Table key to be used to determine the target node for job execution.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="jobClassName">Java class name of the job to execute.</param>
+    /// <param name="options">Job execution options.</param>
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <typeparam name="TKey">Key type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task<T> ExecuteColocatedAsync<T, TKey>(
+    Task<IJobExecution<T>> SubmitColocatedAsync<T, TKey>(
         string tableName,
         TKey key,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
+        JobExecutionOptions options,
         params object?[]? args)
         where TKey : notnull;
 
     /// <summary>
-    /// Executes a compute job represented by the given class on all of the specified nodes.
+    /// Submits a compute job represented by the given class for an execution on all of the specified nodes.
     /// </summary>
     /// <param name="nodes">Nodes to use for the job execution.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="jobClassName">Java class name of the job to execute.</param>
+    /// <param name="options">Job execution options.</param>
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <returns>A map of <see cref="Task"/> representing the asynchronous operation for every node.</returns>
-    IDictionary<IClusterNode, Task<T>> BroadcastAsync<T>(
+    IDictionary<IClusterNode, Task<IJobExecution<T>>> SubmitBroadcast<T>(
         IEnumerable<IClusterNode> nodes,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
+        JobExecutionOptions options,
         params object?[]? args);
 }

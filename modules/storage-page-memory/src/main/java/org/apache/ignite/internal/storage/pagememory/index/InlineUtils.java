@@ -31,11 +31,11 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.VarlenNativeType;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageColumnDescriptor;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.VarlenNativeType;
 
 /**
  * Helper class for index inlining.
@@ -83,6 +83,8 @@ public class InlineUtils {
                 return Math.min(MAX_VARLEN_INLINE_SIZE, ((VarlenNativeType) nativeType).length());
 
             case DECIMAL:
+                return Short.BYTES + BIG_NUMBER_INLINE_SIZE;
+
             case NUMBER:
                 return BIG_NUMBER_INLINE_SIZE;
 

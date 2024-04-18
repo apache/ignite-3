@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.processor.messages;
 
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -48,15 +49,16 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Marshallable;
+import org.apache.ignite.internal.network.annotations.WithSetter;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
 import org.apache.ignite.internal.network.processor.ProcessingException;
 import org.apache.ignite.internal.network.processor.TypeUtils;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.WithSetter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -131,8 +133,19 @@ public class MessageImplGenerator {
             }
 
             FieldSpec.Builder fieldBuilder = FieldSpec.builder(getterReturnType, getterName)
-                    .addAnnotation(IgniteToStringInclude.class)
                     .addModifiers(Modifier.PRIVATE);
+
+            if (getter.getAnnotation(IgniteToStringExclude.class) == null) {
+                IgniteToStringInclude includeAnnotation = getter.getAnnotation(IgniteToStringInclude.class);
+
+                AnnotationSpec includeAnnotationSpec = includeAnnotation == null
+                        ? AnnotationSpec.builder(IgniteToStringInclude.class).build()
+                        : AnnotationSpec.get(includeAnnotation);
+
+                fieldBuilder.addAnnotation(includeAnnotationSpec);
+            } else {
+                fieldBuilder.addAnnotation(IgniteToStringExclude.class);
+            }
 
             boolean generateSetter = getter.getAnnotation(WithSetter.class) != null;
 
@@ -187,6 +200,7 @@ public class MessageImplGenerator {
         TypeSpec.Builder messageImpl = TypeSpec.classBuilder(messageImplClassName)
                 .addModifiers(Modifier.PUBLIC)
                 .addSuperinterface(message.className())
+                .addSuperinterface(Cloneable.class)
                 .addFields(fields)
                 .addMethods(methodImpls)
                 .addMethod(constructor(fields, notNullFieldNames, marshallableFieldNames));
@@ -208,7 +222,6 @@ public class MessageImplGenerator {
 
         messageImpl.addMethod(groupTypeMethod);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17591
         MethodSpec toStringMethod = MethodSpec.methodBuilder("toString")
                 .addAnnotation(Override.class)
                 .addModifiers(Modifier.PUBLIC)
@@ -237,6 +250,24 @@ public class MessageImplGenerator {
 
         // equals and hashCode
         generateEqualsAndHashCode(messageImpl, message);
+
+        // generate clone
+        MethodSpec cloneMethod = MethodSpec.methodBuilder("clone")
+                .addAnnotation(Override.class)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(messageImplClassName)
+                .addCode(CodeBlock.builder()
+                        .beginControlFlow("try")
+                        .addStatement("return ($T) super.clone()", messageImplClassName)
+                        .endControlFlow()
+                        .beginControlFlow("catch (CloneNotSupportedException e)")
+                        .addStatement("// Never expected to be thrown because whole message class hierarchy implements clone()")
+                        .addStatement("throw new AssertionError(e)")
+                        .endControlFlow()
+                        .build())
+                .build();
+
+        messageImpl.addMethod(cloneMethod);
 
         var builderName = ClassName.get(message.packageName(), builderInterface.name);
 

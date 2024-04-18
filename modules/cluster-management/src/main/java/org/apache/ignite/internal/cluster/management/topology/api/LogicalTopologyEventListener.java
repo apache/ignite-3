@@ -30,7 +30,7 @@ package org.apache.ignite.internal.cluster.management.topology.api;
  * for a future has to be done, this should be offloaded to another thread.
  *
  * <p>While an event listener is registered, it is guaranteed to get all logical topology events, in the correct order.
- * While an event listener is NOT registereed (for instance, when its node is restarting), events are skipped. This
+ * While an event listener is NOT registered (for instance, when its node is restarting), events are skipped. This
  * means that, if an Ignite node is restarting, it might miss some logical topology events.
  * {@link LogicalTopologyService#logicalTopologyOnLeader()} should be used to catch up.
  */

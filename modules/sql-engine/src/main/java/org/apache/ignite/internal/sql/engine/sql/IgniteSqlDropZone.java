@@ -19,40 +19,63 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
 import java.util.Objects;
+import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlDrop;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlOperator;
-import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.ImmutableNullableList;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Parse tree for {@code DROP ZONE} statement.
  */
 public class IgniteSqlDropZone extends SqlDrop {
+
+    /** DROP ZONE operator. */
+    protected static class Operator extends IgniteDdlOperator {
+
+        /** Constructor. */
+        protected Operator(boolean existFlag) {
+            super("DROP ZONE", SqlKind.OTHER_DDL, existFlag);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos,
+                @Nullable SqlNode... operands) {
+            return new IgniteSqlDropZone(pos, existFlag(), (SqlIdentifier) operands[0]);
+        }
+    }
+
     /** Zone name. */
     private final SqlIdentifier name;
 
-    /** Sql operator. */
-    private static final SqlOperator OPERATOR = new SqlSpecialOperator("DROP ZONE", SqlKind.OTHER_DDL);
-
     /** Constructor. */
     public IgniteSqlDropZone(SqlParserPos pos, boolean ifExists, SqlIdentifier name) {
-        super(OPERATOR, pos, ifExists);
+        super(new Operator(ifExists), pos, ifExists);
 
         this.name = Objects.requireNonNull(name, "zone name");
     }
 
     /** {@inheritDoc} */
-    @Override public List<SqlNode> getOperandList() {
+    @Override
+    public IgniteDdlOperator getOperator() {
+        return (IgniteDdlOperator) super.getOperator();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<SqlNode> getOperandList() {
         return ImmutableNullableList.of(name);
     }
 
     /** {@inheritDoc} */
-    @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
+    @Override
+    public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword(getOperator().getName()); // "DROP ..."
 
         if (ifExists) {
@@ -67,6 +90,7 @@ public class IgniteSqlDropZone extends SqlDrop {
     }
 
     public boolean ifExists() {
-        return ifExists;
+        Operator operator = (Operator) getOperator();
+        return operator.existFlag();
     }
 }

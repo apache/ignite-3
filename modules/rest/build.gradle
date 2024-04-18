@@ -37,7 +37,9 @@ dependencies {
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metrics')
     implementation project(':ignite-code-deployment')
-    implementation project(':ignite-security')
+    implementation project(':ignite-security-api')
+    implementation project(':ignite-compute')
+    implementation project(':ignite-eventlog')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.http.server.netty
@@ -55,9 +57,9 @@ dependencies {
     testAnnotationProcessor libs.micronaut.inject.annotation.processor
 
     testImplementation project(':ignite-configuration')
+    testImplementation project(':ignite-security')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
-    testImplementation libs.slf4j.jdk14
     testImplementation libs.micronaut.junit5
     testImplementation libs.micronaut.http.client
     testImplementation libs.mockito.core
@@ -74,9 +76,11 @@ dependencies {
     integrationTestImplementation project(':ignite-code-deployment')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(":ignite-api"))
+    integrationTestImplementation testFixtures(project(":ignite-rest"))
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.micronaut.junit5
     integrationTestImplementation libs.micronaut.test
@@ -84,4 +88,14 @@ dependencies {
     integrationTestImplementation libs.micronaut.http.server.netty
     integrationTestImplementation libs.typesafe.config
     integrationTestImplementation libs.swaggerv3.annotations
+    integrationTestImplementation(libs.jsonpath.assert) {
+        //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
+        //So, exclude asm-core transitive dependency to protect of jar-hell.
+        exclude group: 'org.ow2.asm', module: 'asm'
+    }
+
+    testFixturesImplementation(project(":ignite-rest-api"))
+    testFixturesImplementation testFixtures(project(":ignite-core"))
+    testFixturesImplementation libs.hamcrest.core
+    testFixturesImplementation libs.micronaut.http.core
 }

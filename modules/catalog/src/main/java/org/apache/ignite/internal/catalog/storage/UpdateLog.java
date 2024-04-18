@@ -19,8 +19,8 @@ package org.apache.ignite.internal.catalog.storage;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Distributed log of catalog updates.
@@ -42,6 +42,15 @@ public interface UpdateLog extends IgniteComponent {
     CompletableFuture<Boolean> append(VersionedUpdate update);
 
     /**
+     * Saves a snapshot entry and drop updates of previous versions from the log, if supported, otherwise do nothing.
+     *
+     * @param snapshotEntry An entry, which represents a result of merging updates of previous versions.
+     * @return A {@code true} if snapshot has been successfully written, {@code false} otherwise
+     *      if a snapshot with the same or greater version already exists.
+     */
+    CompletableFuture<Boolean> saveSnapshot(SnapshotEntry snapshotEntry);
+
+    /**
      * Registers a handler to keep track of appended updates.
      *
      * @param handler A handler to notify when new update was appended.
@@ -54,14 +63,13 @@ public interface UpdateLog extends IgniteComponent {
      * <p>Log replay is a part of a component start up process, thus the handler must
      * be registered prior to start is invoked, otherwise exception will be thrown.
      *
+     * @return Completable future.
      * @throws IgniteInternalException If no handler has been registered.
      */
-    @Override void start() throws IgniteInternalException;
+    @Override
+    CompletableFuture<Void> start() throws IgniteInternalException;
 
-    /**
-     * An interface describing a handler that will receive notification
-     * when a new update is added to the log.
-     */
+    /** An interface describing a handler that will receive notification when a new update is added to the log. */
     @FunctionalInterface
     interface OnUpdateHandler {
         /**
@@ -70,7 +78,8 @@ public interface UpdateLog extends IgniteComponent {
          * @param update A new update.
          * @param metaStorageUpdateTimestamp Timestamp assigned to the update by the Metastorage.
          * @param causalityToken Causality token.
+         * @return Handler future.
          */
-        void handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken);
+        CompletableFuture<Void> handle(UpdateLogEvent update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken);
     }
 }

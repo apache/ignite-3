@@ -29,16 +29,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SharedState;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox.RemoteSource.State;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -52,6 +54,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     private final Collection<String> srcNodeNames;
     private final @Nullable Comparator<RowT> comp;
     private final Map<String, RemoteSource<RowT>> perNodeBuffers;
+    private final RowFactory<RowT> rowFactory;
 
     private @Nullable List<RemoteSource<RowT>> remoteSources;
     private int requested;
@@ -63,6 +66,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
      * @param ctx Execution context.
      * @param exchange Exchange service.
      * @param registry Mailbox registry.
+     * @param rowFactory Incoming row factory.
      * @param exchangeId Exchange ID.
      * @param srcFragmentId Source fragment ID.
      */
@@ -72,6 +76,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             MailboxRegistry registry,
             Collection<String> srcNodeNames,
             @Nullable Comparator<RowT> comp,
+            RowFactory<RowT> rowFactory,
             long exchangeId,
             long srcFragmentId
     ) {
@@ -83,6 +88,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         this.registry = registry;
         this.srcNodeNames = srcNodeNames;
         this.comp = comp;
+        this.rowFactory = rowFactory;
 
         this.srcFragmentId = srcFragmentId;
         this.exchangeId = exchangeId;
@@ -157,12 +163,18 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
      * @param last Last batch flag.
      * @param rows Rows.
      */
-    public void onBatchReceived(String srcNodeName, int batchId, boolean last, List<RowT> rows) throws Exception {
+    public void onBatchReceived(String srcNodeName, int batchId, boolean last, List<BinaryTupleMessage> rows) throws Exception {
         RemoteSource<RowT> source = perNodeBuffers.get(srcNodeName);
 
         boolean waitingBefore = source.check() == State.WAITING;
 
-        source.onBatchReceived(batchId, last, rows);
+        List<RowT> rows0 = new ArrayList<>(rows.size());
+
+        for (BinaryTupleMessage row : rows) {
+            rows0.add(rowFactory.create(row.asBinaryTuple()));
+        }
+
+        source.onBatchReceived(batchId, last, rows0);
 
         if (requested > 0 && waitingBefore && source.check() != State.WAITING) {
             push();
@@ -337,7 +349,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         exchange.request(nodeName, queryId(), srcFragmentId, exchangeId, cnt, state)
                 .whenComplete((ignored, ex) -> {
                     if (ex != null) {
-                        IgniteInternalException wrapperEx = ExceptionUtils.withCauseAndCode(
+                        IgniteInternalException wrapperEx = ExceptionUtils.withCause(
                                 IgniteInternalException::new,
                                 Common.INTERNAL_ERR,
                                 "Unable to request next batch: " + ex.getMessage(),

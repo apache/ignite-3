@@ -27,7 +27,6 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -68,11 +67,13 @@ public class ClientTransactions implements IgniteTransactions {
 
         return ch.serviceAsync(
                 ClientOp.TX_BEGIN,
-                w -> w.out().packBoolean(readOnly),
+                w -> {
+                    w.out().packBoolean(readOnly);
+                    w.out().packLong(ch.observableTimestamp());
+                },
                 r -> readTx(r, readOnly));
     }
 
-    @NotNull
     private static ClientTransaction readTx(PayloadInputChannel r, boolean isReadOnly) {
         ClientMessageUnpacker in = r.in();
 

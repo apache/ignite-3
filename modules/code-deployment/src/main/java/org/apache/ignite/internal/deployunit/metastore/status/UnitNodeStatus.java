@@ -18,11 +18,16 @@
 package org.apache.ignite.internal.deployunit.metastore.status;
 
 import static org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils.checkElement;
+import static org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils.decode;
+import static org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils.deserializeStatus;
+import static org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils.deserializeUuid;
+import static org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils.deserializeVersion;
 
+import java.util.UUID;
 import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.compute.version.VersionParseException;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.UnitStatus;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Deployment unit node status.
@@ -39,7 +44,7 @@ public class UnitNodeStatus extends UnitStatus {
      * @param opId Deployment unit operation identifier.
      * @param nodeId Node consistent id.
      */
-    public UnitNodeStatus(String id, Version version, DeploymentStatus status, long opId, String nodeId) {
+    public UnitNodeStatus(String id, Version version, DeploymentStatus status, UUID opId, String nodeId) {
         super(id, version, status, opId);
         this.nodeId = nodeId;
     }
@@ -94,30 +99,18 @@ public class UnitNodeStatus extends UnitStatus {
      * @param value Serialized deployment unit node status.
      * @return Deserialized deployment unit node status.
      */
-    public static UnitNodeStatus deserialize(byte[] value) {
+    public static UnitNodeStatus deserialize(byte @Nullable [] value) {
         if (value == null || value.length == 0) {
-            return new UnitNodeStatus(null, null, null, 0, null);
+            return new UnitNodeStatus(null, null, null, null, null);
         }
 
         String[] values = SerializeUtils.deserialize(value);
 
-        String id = checkElement(values, 0) ? SerializeUtils.decode(values[0]) : null;
-        Version version;
-        try {
-            version = checkElement(values, 1) ? Version.parseVersion(SerializeUtils.decode(values[1])) : null;
-        } catch (VersionParseException e) {
-            version = null;
-        }
-        DeploymentStatus status;
-        try {
-            status = checkElement(values, 2) ? DeploymentStatus.valueOf(SerializeUtils.decode(values[2])) : null;
-        } catch (IllegalArgumentException e) {
-            status = null;
-        }
-
-        long opId = checkElement(values, 3) ? Long.parseLong(SerializeUtils.decode(values[3])) : 0;
-
-        String nodeId = checkElement(values, 4) ? SerializeUtils.decode(values[4]) : null;
+        String id = checkElement(values, 0) ? decode(values[0]) : null;
+        Version version = deserializeVersion(values, 1);
+        DeploymentStatus status = deserializeStatus(values, 2);
+        UUID opId = deserializeUuid(values, 3);
+        String nodeId = checkElement(values, 4) ? decode(values[4]) : null;
 
         return new UnitNodeStatus(id, version, status, opId, nodeId);
     }

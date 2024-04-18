@@ -15,29 +15,18 @@
  * limitations under the License.
  */
 
-buildscript {
-    repositories {
-        maven {
-            url "https://plugins.gradle.org/m2/"
-        }
-    }
-    dependencies {
-        classpath 'net.sourceforge.fmpp:fmpp:0.9.16'
-    }
-}
-
-import fmpp.setting.Settings
-
 apply plugin: "com.intershop.gradle.javacc"
 apply plugin: 'idea'
 
 
 configurations {
     calcite
+    fmpp
 }
 
 dependencies {
     calcite(libs.calcite.core)
+    fmpp(libs.fmpp)
 }
 
 pmdMain {
@@ -55,29 +44,39 @@ task copyFmppResources(type: Copy) {
 task extractParserTemplate(type: Copy) {
     from({ zipTree(configurations.calcite.files[0]) }) {
         include 'codegen/templates/Parser.jj'
+        include 'codegen/default_config.fmpp'
     }
     into("${buildDir}")
+
+    // TODO: IGNITE-21638 - remove this.
+    if (System.getProperty("os.name").toLowerCase().contains("windows"))
+        doNotTrackState("IGNITE-21638 - do not track state in extractParserTemplate on Windows")
 }
 
 task generateFmppSources() {
     doLast {
-        Settings settings = new Settings(temporaryDir)
-        settings.set("sourceRoot", file("${buildDir}/codegen/templates").absolutePath)
-        settings.set("outputRoot", file("$buildDir/generated-sources/fmpp").absolutePath)
+        ant.taskdef(name: "fmpp", classname: "fmpp.tools.AntTask", classpath: configurations.fmpp.asPath)
 
-        settings.load(file("${buildDir}/codegen/config.fmpp"))
-        settings.execute()
+        // Configuration info from http://fmpp.sourceforge.net/ant.html
+        ant.fmpp(configuration: "$buildDir/codegen/config.fmpp",
+                sourceRoot: "$buildDir/codegen/templates",
+                data: "tdd($buildDir/codegen/config.fmpp), " +
+                        "default: tdd($buildDir/codegen/default_config.fmpp)",
+                outputRoot: "$buildDir/generated-sources/fmpp")
     }
 }
 
 
 javacc {
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20227
+    javaCCVersion = '4.0'
+
     configs {
         template {
             inputFile = file("${buildDir}/generated-sources/fmpp/javacc/Parser.jj")
             outputDir = file("${buildDir}/generated-sources/javacc")
             packageName = 'org.apache.ignite.internal.generated.query.calcite.sql'
-            lookahead = 2
+            lookahead = 1
             staticParam = false
         }
     }

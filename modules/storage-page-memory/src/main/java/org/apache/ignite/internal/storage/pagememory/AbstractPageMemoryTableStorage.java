@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.List;
@@ -53,7 +53,7 @@ import org.jetbrains.annotations.Nullable;
  * Abstract table storage implementation based on {@link PageMemory}.
  */
 public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
-    private volatile MvPartitionStorages<AbstractPageMemoryMvPartitionStorage> mvPartitionStorages;
+    private final MvPartitionStorages<AbstractPageMemoryMvPartitionStorage> mvPartitionStorages;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -78,6 +78,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     ) {
         this.tableDescriptor = tableDescriptor;
         this.indexDescriptorSupplier = indexDescriptorSupplier;
+        this.mvPartitionStorages = new MvPartitionStorages<>(tableDescriptor.getId(), tableDescriptor.getPartitions());
     }
 
     /**
@@ -93,37 +94,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     public abstract DataRegion<?> dataRegion();
 
     @Override
-    public void start() throws StorageException {
-        busy(() -> {
-            mvPartitionStorages = new MvPartitionStorages<>(getTableId(), tableDescriptor.getPartitions());
-
-            return null;
-        });
-    }
-
-    @Override
-    public void stop() throws StorageException {
-        if (!stopGuard.compareAndSet(false, true)) {
-            return;
-        }
-
-        busyLock.block();
-
-        try {
-            CompletableFuture<List<AbstractPageMemoryMvPartitionStorage>> allForCloseOrDestroy
-                    = mvPartitionStorages.getAllForCloseOrDestroy();
-
-            // 10 seconds is taken by analogy with shutdown of thread pool, in general this should be fairly fast.
-            IgniteUtils.closeAllManually(allForCloseOrDestroy.get(10, TimeUnit.SECONDS).stream());
-        } catch (Exception e) {
-            throw new StorageException("Failed to stop PageMemory table storage: " + getTableId(), e);
-        }
-    }
-
-    @Override
     public CompletableFuture<Void> destroy() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return completedFuture(null);
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -207,12 +180,44 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> destroyIndex(int indexId) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        if (!busyLock.enterBusy()) {
+            return nullCompletedFuture();
+        }
+
+        try {
+            List<AbstractPageMemoryMvPartitionStorage> storages = mvPartitionStorages.getAll();
+
+            var destroyFutures = new CompletableFuture[storages.size()];
+
+            for (int i = 0; i < storages.size(); i++) {
+                AbstractPageMemoryMvPartitionStorage storage = storages.get(i);
+
+                destroyFutures[i] = storage.runConsistently(locker -> storage.destroyIndex(indexId));
+            }
+
+            return allOf(destroyFutures);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     @Override
     public void close() throws StorageException {
-        stop();
+        if (!stopGuard.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
+        try {
+            CompletableFuture<List<AbstractPageMemoryMvPartitionStorage>> allForCloseOrDestroy
+                    = mvPartitionStorages.getAllForCloseOrDestroy();
+
+            // 10 seconds is taken by analogy with shutdown of thread pool, in general this should be fairly fast.
+            IgniteUtils.closeAllManually(allForCloseOrDestroy.get(10, TimeUnit.SECONDS).stream());
+        } catch (Exception e) {
+            throw new StorageException("Failed to stop PageMemory table storage: " + getTableId(), e);
+        }
     }
 
     private <V> V busy(Supplier<V> supplier) {
@@ -269,7 +274,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
             mvPartitionStorage.completeRebalance();
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }));
     }
 

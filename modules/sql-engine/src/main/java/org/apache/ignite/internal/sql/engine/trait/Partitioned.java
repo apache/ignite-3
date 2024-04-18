@@ -17,41 +17,39 @@
 
 package org.apache.ignite.internal.sql.engine.trait;
 
-import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory.RowHashFunction;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.sql.engine.exec.RowPartitionExtractor;
 
 /**
  * Partitioned.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public final class Partitioned<RowT> implements Destination<RowT> {
-    private final List<List<String>> assignments;
+    private final Map<Integer, String> assignments;
 
-    private final RowHashFunction<RowT> partFun;
+    private final RowPartitionExtractor<RowT> calc;
 
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public Partitioned(List<List<String>> assignments, RowHashFunction<RowT> partFun) {
+    public Partitioned(Map<Integer, String> assignments, RowPartitionExtractor<RowT> calc) {
+        this.calc = calc;
         this.assignments = assignments;
-        this.partFun = partFun;
     }
 
     /** {@inheritDoc} */
     @Override
     public List<String> targets(RowT row) {
-        return assignments.get(IgniteUtils.safeAbs(partFun.hashOf(row) % assignments.size()));
+        int part = calc.partition(row);
+        return List.of(assignments.get(part));
     }
 
     /** {@inheritDoc} */
     @Override
     public List<String> targets() {
-        return assignments.stream()
-                .flatMap(Collection::stream)
-                .distinct().collect(Collectors.toList());
+        return assignments.values().stream().distinct().collect(Collectors.toUnmodifiableList());
     }
 }

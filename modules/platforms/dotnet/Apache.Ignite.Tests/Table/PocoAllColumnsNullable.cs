@@ -44,5 +44,6 @@ namespace Apache.Ignite.Tests.Table
         LocalDateTime? DateTime = null,
         Instant? Timestamp = null,
         byte[]? Blob = null,
-        decimal? Decimal = null);
+        decimal? Decimal = null,
+        bool? Boolean = null);
 }

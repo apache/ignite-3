@@ -28,11 +28,19 @@ public static class PocoEnums
 {
     public record PocoIntEnum(long Key, IntEnum Int32);
 
+    public record PocoIntEnumNullable(long Key, IntEnum? Int32);
+
     public record PocoShortEnum(long Key, ShortEnum Int16);
+
+    public record PocoShortEnumNullable(long Key, ShortEnum? Int16);
 
     public record PocoLongEnum(long Key, LongEnum Int64);
 
+    public record PocoLongEnumNullable(long Key, LongEnum? Int64);
+
     public record PocoByteEnum(long Key, ByteEnum Int8);
+
+    public record PocoByteEnumNullable(long Key, ByteEnum? Int8);
 
     public record PocoUnsignedByteEnum(long Key, UnsignedByteEnum Int8);
 

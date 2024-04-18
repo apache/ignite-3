@@ -17,6 +17,8 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -28,15 +30,16 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.UUID;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -45,6 +48,8 @@ import org.junit.jupiter.api.Test;
 public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     /** SQL query. */
     private static final String SQL = "select * from PERSON where age > 30";
+
+    private int populateStmtCnt = 10;
 
     @BeforeAll
     public static void beforeClass() throws Exception {
@@ -56,9 +61,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     @BeforeEach
     public void beforeEach() throws Exception {
         try (Statement statement = conn.createStatement()) {
-            int stmtCnt = 10;
-
-            for (int i = 0; i < stmtCnt; ++i) {
+            for (int i = 0; i < populateStmtCnt; ++i) {
                 statement.executeUpdate("insert into TEST (ID, NAME) values (" + i + ", 'name_" + i + "'); ");
             }
         }
@@ -164,6 +167,30 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    public void executeQueryWithNullColTypes() throws Exception {
+        ResultSet rs = stmt.executeQuery("SELECT LOWER(NULL), UPPER(NULL), SUBSTRING(NULL FROM 1 FOR 2)");
+        rs.next();
+        assertNull(rs.getString(1));
+        assertNull(rs.getString(2));
+        assertNull(rs.getString(3));
+
+        ResultSetMetaData meta = rs.getMetaData();
+        assertEquals(ColumnType.NULL.toString(), meta.getColumnTypeName(1));
+        assertEquals(ColumnType.NULL.toString(), meta.getColumnTypeName(2));
+        assertEquals(ColumnType.NULL.toString(), meta.getColumnTypeName(3));
+
+        stmt.executeUpdate("DELETE FROM TEST");
+        stmt.executeUpdate("insert into TEST (ID, NAME) values (1, null)");
+
+        rs = stmt.executeQuery("SELECT LOWER(NAME) FROM TEST");
+        rs.next();
+        assertNull(rs.getObject(1));
+
+        meta = rs.getMetaData();
+        assertEquals("VARCHAR", meta.getColumnTypeName(1));
+    }
+
+    @Test
     public void testExecuteAndFetch() throws Exception {
         try (Statement statement = conn.createStatement()) {
             statement.setFetchSize(2);
@@ -184,7 +211,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     @Test
     public void testExecuteWrongFetchCount() throws Exception {
         try (Statement statement = conn.createStatement()) {
-            assertThrows(SQLException.class, () -> statement.setFetchSize(-2));
+            assertThrowsSqlException("Fetch size must be greater than zero.", () -> statement.setFetchSize(-2));
         }
     }
 
@@ -346,7 +373,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16960")
     public void testExecuteQueryMultipleOnlyResultSets() throws Exception {
         assertTrue(conn.getMetaData().supportsMultipleResultSets());
 
@@ -380,7 +406,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16276")
     public void testExecuteQueryMultipleOnlyDml() throws Exception {
         Statement stmt0 = conn.createStatement();
 
@@ -405,7 +430,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertEquals(0, stmt0.getUpdateCount());
 
         for (int i = 0; i < stmtCnt; ++i) {
-            assertTrue(stmt0.getMoreResults());
+            assertFalse(stmt0.getMoreResults());
 
             assertNull(stmt0.getResultSet());
             assertEquals(1, stmt0.getUpdateCount());
@@ -415,7 +440,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16276")
     public void testExecuteQueryMultipleMixed() throws Exception {
         int stmtCnt = 10;
 
@@ -435,19 +459,20 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         assertNull(stmt.getResultSet());
         assertEquals(0, stmt.getUpdateCount());
 
-        assertTrue(stmt.getMoreResults(), "Result set doesn't have more results.");
+        // DROP TABLE
+        assertFalse(stmt.getMoreResults(), "Result set doesn't have more results.");
 
         // CREATE TABLE statement
         assertNull(stmt.getResultSet());
         assertEquals(0, stmt.getUpdateCount());
 
         for (int i = 0; i < stmtCnt; ++i) {
-            assertTrue(stmt.getMoreResults());
-
             if (i % 2 == 0) {
+                assertFalse(stmt.getMoreResults());
                 assertNull(stmt.getResultSet());
                 assertEquals(1, stmt.getUpdateCount());
             } else {
+                assertTrue(stmt.getMoreResults());
                 assertEquals(-1, stmt.getUpdateCount());
 
                 ResultSet rs = stmt.getResultSet();
@@ -461,8 +486,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
                 assertEquals((i + 1) / 2, rowsCnt);
             }
         }
-
-        assertFalse(stmt.getMoreResults());
     }
 
     @Test
@@ -480,14 +503,14 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public void testExecuteUpdateProducesResultSet() {
         final String sqlText = "select * from TEST;";
 
-        assertThrows(SQLException.class, () -> stmt.executeUpdate(sqlText),
-                "Given statement type does not match that declared by JDBC driver"
-        );
+        assertThrowsSqlException(
+                "Invalid SQL statement type",
+                () -> stmt.executeUpdate(sqlText));
     }
 
     @Test
     public void testExecuteUpdateOnDdl() throws SQLException {
-        String tableName = "\"test_" + UUID.randomUUID().toString() + "\"";
+        String tableName = ("\"test_" + UUID.randomUUID() + "\"");
 
         stmt.executeUpdate("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, val VARCHAR)");
 
@@ -499,7 +522,9 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
         stmt.executeUpdate("DROP TABLE " + tableName);
 
-        assertThrows(SQLException.class, () -> stmt.executeQuery("SELECT COUNT(*) FROM " + tableName));
+        assertThrowsSqlException(
+                "Failed to validate query",
+                () -> stmt.executeQuery("SELECT COUNT(*) FROM " + tableName));
     }
 
     @Test
@@ -526,8 +551,10 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public void testGetSetMaxFieldSizeUnsupported() throws Exception {
         assertEquals(0, stmt.getMaxFieldSize());
 
-        assertThrows(SQLFeatureNotSupportedException.class, () -> stmt.setMaxFieldSize(100),
-                "Field size limitation is not supported");
+        assertThrowsSqlException(
+                SQLFeatureNotSupportedException.class,
+                "Field size limitation is not supported",
+                () -> stmt.setMaxFieldSize(100));
 
         assertEquals(0, stmt.getMaxFieldSize());
 
@@ -544,8 +571,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public void testGetSetMaxRows() throws Exception {
         assertEquals(0, stmt.getMaxRows());
 
-        assertThrows(SQLException.class, () -> stmt.setMaxRows(-1),
-                "Invalid max rows value");
+        assertThrowsSqlException("Invalid max rows value", () -> stmt.setMaxRows(-1));
 
         assertEquals(0, stmt.getMaxRows());
 
@@ -560,14 +586,14 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         ResultSet rs = stmt.executeQuery(sqlText);
 
         assertTrue(rs.next());
-        assertFalse(rs.next()); //max rows reached
+        assertFalse(rs.next()); // Max rows reached.
 
         stmt.close();
 
-        // Call on a closed statement
+        // Call on a closed statement.
         checkStatementClosed(() -> stmt.getMaxRows());
 
-        // Call on a closed statement
+        // Call on a closed statement.
         checkStatementClosed(() -> stmt.setMaxRows(maxRows));
     }
 
@@ -575,8 +601,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public void testGetSetQueryTimeout() throws Exception {
         assertEquals(0, stmt.getQueryTimeout());
 
-        assertThrows(SQLException.class, () -> stmt.setQueryTimeout(-1),
-                "Invalid timeout value");
+        assertThrowsSqlException("Invalid timeout value", () -> stmt.setQueryTimeout(-1));
 
         assertEquals(0, stmt.getQueryTimeout());
 
@@ -599,8 +624,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public void testMaxFieldSize() throws Exception {
         assertTrue(stmt.getMaxFieldSize() >= 0);
 
-        assertThrows(SQLException.class, () -> stmt.setMaxFieldSize(-1),
-                "Invalid field limit");
+        assertThrowsSqlException("Invalid field limit", () -> stmt.setMaxFieldSize(-1));
 
         checkNotSupported(() -> stmt.setMaxFieldSize(100));
     }
@@ -628,9 +652,9 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
         stmt.close();
 
-        checkStatementClosed(() -> stmt.getWarnings());
+        checkStatementClosed(stmt::getWarnings);
 
-        checkStatementClosed(() -> stmt.clearWarnings());
+        checkStatementClosed(stmt::clearWarnings);
     }
 
     @Test
@@ -708,10 +732,10 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public void testFetchDirection() throws Exception {
         assertEquals(ResultSet.FETCH_FORWARD, stmt.getFetchDirection());
 
-        assertThrows(
+        assertThrowsSqlException(
                 SQLFeatureNotSupportedException.class,
-                () -> stmt.setFetchDirection(ResultSet.FETCH_REVERSE),
-                "Only forward direction is supported."
+                "Only forward direction is supported.",
+                () -> stmt.setFetchDirection(ResultSet.FETCH_REVERSE)
         );
 
         stmt.close();
@@ -722,17 +746,15 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    public void testAutogenerated() throws Exception {
-        assertThrows(
-                SQLException.class,
-                () -> stmt.executeUpdate("select 1", -1),
-                "Invalid autoGeneratedKeys value"
+    public void testAutogenerated() {
+        assertThrowsSqlException(
+                "Invalid autoGeneratedKeys value",
+                () -> stmt.executeUpdate("select 1", -1)
         );
 
-        assertThrows(
-                SQLException.class,
-                () -> stmt.execute("select 1", -1),
-                "Invalid autoGeneratedKeys value"
+        assertThrowsSqlException(
+                "Invalid autoGeneratedKeys value",
+                () -> stmt.execute("select 1", -1)
         );
 
         //        assertFalse(conn.getMetaData().supportsGetGeneratedKeys());
@@ -757,10 +779,9 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         // Put query to cache.
         stmt.executeQuery("select 1;");
 
-        assertThrows(
-                SQLException.class,
-                () -> stmt.executeUpdate("select 1;"),
-                "Given statement type does not match that declared by JDBC driver"
+        assertThrowsSqlException(
+                "Invalid SQL statement type",
+                () -> stmt.executeUpdate("select 1;")
         );
 
         assertNull(stmt.getResultSet(), "Not results expected. Last statement is executed with exception");
@@ -768,10 +789,9 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
     @Test
     public void testStatementTypeMismatchUpdate() throws Exception {
-        assertThrows(
-                SQLException.class,
-                () -> stmt.executeQuery("update TEST set NAME='28' where ID=1"),
-                "Given statement type does not match that declared by JDBC driver"
+        assertThrowsSqlException(
+                "Invalid SQL statement type",
+                () -> stmt.executeQuery("update TEST set NAME='28' where ID=1")
         );
 
         ResultSet rs = stmt.executeQuery("select NAME from TEST where ID=1");
@@ -784,5 +804,33 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
                 "The data must not be updated. "
                         + "Because update statement is executed via 'executeQuery' method."
                         + " Data [val=" + rs.getString(1) + ']');
+    }
+
+    @Test
+    public void testOpenCursorsPureQuery() throws Exception {
+        stmt.execute("SELECT 1; SELECT 2;");
+        ResultSet rs = stmt.getResultSet();
+        stmt.execute("SELECT 3;");
+        assertTrue(rs.isClosed());
+
+        assertTrue(populateStmtCnt < 100);
+        // More than one fetch request.
+        for (int i = populateStmtCnt; i < stmt.getMaxRows() + 100; ++i) {
+            stmt.execute(String.format("INSERT INTO TEST VALUES (%d, '1')", i));
+        }
+
+        stmt.close();
+        assertTrue(waitForCondition(() -> openCursors() == 0, 5_000));
+    }
+
+    @Test
+    public void testOpenCursorsWithDdl() throws Exception {
+        stmt.execute("CREATE TABLE T1(ID INT PRIMARY KEY, AGE INT, NAME VARCHAR)");
+        stmt.getResultSet();
+        stmt.execute("SELECT 3;");
+        stmt.execute("DROP TABLE T1");
+        stmt.getResultSet();
+
+        assertTrue(waitForCondition(() -> openCursors() == 0, 5_000));
     }
 }

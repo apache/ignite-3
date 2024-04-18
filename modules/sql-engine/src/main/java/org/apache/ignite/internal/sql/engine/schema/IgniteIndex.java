@@ -21,16 +21,26 @@ import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relati
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
+import org.apache.calcite.plan.Convention;
+import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.RelFieldCollation;
+import org.apache.calcite.rel.RelFieldCollation.Direction;
+import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.ignite.internal.index.ColumnCollation;
-import org.apache.ignite.internal.index.Index;
-import org.apache.ignite.internal.index.SortedIndex;
-import org.apache.ignite.internal.index.SortedIndexDescriptor;
+import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Schema object representing an Index.
@@ -65,126 +75,177 @@ public class IgniteIndex {
      * Type of the index.
      */
     public enum Type {
-        HASH, SORTED
+        HASH, SORTED;
     }
 
-    private final List<String> columns;
+    private final int id;
 
-    private final @Nullable List<Collation> collations;
+    private final String name;
 
-    private final Index<?> index;
+    private final IgniteDistribution tableDistribution;
+
+    private final RelCollation collation;
 
     private final Type type;
 
-    /**
-     * Constructs the Index object.
-     *
-     * @param index A data access object to wrap.
-     */
-    public IgniteIndex(Index<?> index) {
-        this.index = Objects.requireNonNull(index, "index");
+    private final boolean primaryKey;
 
-        this.columns = index.descriptor().columns();
-        this.collations = deriveCollations(index);
-        this.type = index instanceof SortedIndex ? Type.SORTED : Type.HASH;
+    private RelDataType rowType;
+
+    public IgniteIndex(int id, String name, Type type, IgniteDistribution tableDistribution, RelCollation collation) {
+        this(id, name, type, tableDistribution, collation, false);
     }
 
-    /**
-     * Constructs the Index object.
-     */
-    @TestOnly
-    public IgniteIndex(Type type, List<String> columns, @Nullable List<Collation> collations) {
-        assert type == Type.SORTED ^ collations == null;
-
-        this.columns = columns;
-        this.collations = collations;
+    /** Constructor. */
+    public IgniteIndex(int id, String name, Type type, IgniteDistribution tableDistribution, RelCollation collation, boolean primaryKey) {
+        this.id = id;
+        this.name = name;
         this.type = type;
-
-        index = null;
+        this.tableDistribution = tableDistribution;
+        this.collation = collation;
+        this.primaryKey = primaryKey;
     }
 
-    /** Returns a list of names of indexed columns. */
-    public List<String> columns() {
-        return columns;
-    }
-
-    /**
-     * Returns a list of collations.
-     *
-     * <p>The size of the collations list is guaranteed to match the size of indexed columns. The i-th
-     * collation is related to an i-th column.
-     *
-     * @return The list of collations or {@code null} if not applicable.
-     */
-    public @Nullable List<Collation> collations() {
-        return collations;
-    }
-
-    /** Returns the name of a current index. */
-    public String name() {
-        return index.name();
-    }
-
-    /** Returns an object providing access to a data. */
-    public Index<?> index() {
-        return index;
-    }
-
-    /** Returns id of this index. */
+    /** Returns an id of the index. */
     public int id() {
-        return index.id();
+        return id;
     }
 
-    public int tableId() {
-        return index.tableId();
+    /** Returns the name of this index. */
+    public String name() {
+        return name;
     }
 
+    /** Returns the type of this index. */
     public Type type() {
         return type;
     }
 
-    //TODO: cache rowType as it can't be changed.
+    /** Returns the collation of this index. */
+    public RelCollation collation() {
+        return collation;
+    }
 
-    /** Returns index row type.
+    /** Returns whether the index is being considered as primary key for a table or not. */
+    public boolean primaryKey() {
+        return primaryKey;
+    }
+
+    /** Returns index row type. */
+    public RelDataType rowType(IgniteTypeFactory factory, TableDescriptor tableDescriptor) {
+        if (rowType == null) {
+            rowType = createRowType(factory, tableDescriptor, collation);
+        }
+        return rowType;
+    }
+
+    /**
+     * Translates this index into relational operator.
+     */
+    public IgniteLogicalIndexScan toRel(
+            RelOptCluster cluster,
+            RelOptTable relOptTable,
+            List<RexNode> proj,
+            RexNode condition,
+            ImmutableBitSet requiredCols
+    ) {
+        RelTraitSet traitSet = cluster.traitSetOf(Convention.Impl.NONE)
+                .replace(tableDistribution)
+                .replace(type() == Type.HASH ? RelCollations.EMPTY : collation);
+
+        return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTable, name, proj, condition, requiredCols);
+    }
+
+    static RelCollation createIndexCollation(CatalogIndexDescriptor descriptor, TableDescriptor tableDescriptor) {
+        if (descriptor instanceof CatalogSortedIndexDescriptor) {
+            CatalogSortedIndexDescriptor sortedIndexDescriptor = (CatalogSortedIndexDescriptor) descriptor;
+            List<CatalogIndexColumnDescriptor> columns = sortedIndexDescriptor.columns();
+            List<RelFieldCollation> fieldCollations = new ArrayList<>(columns.size());
+
+            for (int i = 0; i < columns.size(); i++) {
+                CatalogIndexColumnDescriptor column = columns.get(i);
+                ColumnDescriptor columnDesc = tableDescriptor.columnDescriptor(column.name());
+                int fieldIndex = columnDesc.logicalIndex();
+
+                RelFieldCollation fieldCollation;
+                switch (column.collation()) {
+                    case ASC_NULLS_FIRST:
+                        fieldCollation = new RelFieldCollation(fieldIndex, Direction.ASCENDING, NullDirection.FIRST);
+                        break;
+                    case ASC_NULLS_LAST:
+                        fieldCollation = new RelFieldCollation(fieldIndex, Direction.ASCENDING, NullDirection.LAST);
+                        break;
+                    case DESC_NULLS_FIRST:
+                        fieldCollation = new RelFieldCollation(fieldIndex, Direction.DESCENDING, NullDirection.FIRST);
+                        break;
+                    case DESC_NULLS_LAST:
+                        fieldCollation = new RelFieldCollation(fieldIndex, Direction.DESCENDING, NullDirection.LAST);
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unexpected collation: " + column.collation());
+                }
+
+                fieldCollations.add(fieldCollation);
+            }
+
+            return RelCollations.of(fieldCollations);
+        } else if (descriptor instanceof CatalogHashIndexDescriptor) {
+            CatalogHashIndexDescriptor hashIndexDescriptor = (CatalogHashIndexDescriptor) descriptor;
+            List<String> columns = hashIndexDescriptor.columns();
+            List<RelFieldCollation> fieldCollations = new ArrayList<>(columns.size());
+
+            for (String columnName : columns) {
+                ColumnDescriptor columnDesc = tableDescriptor.columnDescriptor(columnName);
+
+                fieldCollations.add(new RelFieldCollation(columnDesc.logicalIndex(), Direction.CLUSTERED, NullDirection.UNSPECIFIED));
+            }
+
+            return RelCollations.of(fieldCollations);
+        } else {
+            throw new IllegalArgumentException("Unexpected index type: " + descriptor);
+        }
+    }
+
+    // TODO: cache rowType as it can't be changed.
+
+    /**
+     * Returns index row type.
      *
      * <p>This is a struct type whose fields describe the names and types of indexed columns.</p>
      *
      * <p>The implementer must use the type factory provided. This ensures that
-     * the type is converted into a canonical form; other equal types in the same
-     * query will use the same object.</p>
+     * the type is converted into a canonical form; other equal types in the same query will use the same object.</p>
      *
      * @param typeFactory Type factory with which to create the type
      * @param tableDescriptor Table descriptor.
+     * @param collation Index collation.
      * @return Row type.
      */
-    public RelDataType getRowType(IgniteTypeFactory typeFactory, TableDescriptor tableDescriptor) {
+    public static RelDataType createRowType(IgniteTypeFactory typeFactory, TableDescriptor tableDescriptor, RelCollation collation) {
         RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(typeFactory);
 
-        for (String colName : columns) {
-            ColumnDescriptor colDesc = tableDescriptor.columnDescriptor(colName);
-            b.add(colName, native2relationalType(typeFactory, colDesc.physicalType(), colDesc.nullable()));
+        for (RelFieldCollation field : collation.getFieldCollations()) {
+            ColumnDescriptor colDesc = tableDescriptor.columnDescriptor(field.getFieldIndex());
+            b.add(colDesc.name(), native2relationalType(typeFactory, colDesc.physicalType(), colDesc.nullable()));
         }
 
         return b.build();
     }
 
-    private static @Nullable List<Collation> deriveCollations(Index<?> index) {
-        if (index.descriptor() instanceof SortedIndexDescriptor) {
-            SortedIndexDescriptor descriptor = (SortedIndexDescriptor) index.descriptor();
+    /**
+     * Creates {@link RelCollation} for search row from given index collation.
+     *
+     * @param indexCollation Original index collation.
+     * @return a {@link RelCollation} object.
+     */
+    public static RelCollation createSearchRowCollation(RelCollation indexCollation) {
+        List<RelFieldCollation> collations = indexCollation.getFieldCollations();
+        List<RelFieldCollation> result = new ArrayList<>(collations.size());
 
-            List<Collation> orders = new ArrayList<>(descriptor.columns().size());
-
-            for (var column : descriptor.columns()) {
-                ColumnCollation collation = descriptor.collation(column);
-
-                assert collation != null;
-
-                orders.add(Collation.of(collation.asc(), collation.nullsFirst()));
-            }
-
-            return List.copyOf(orders);
+        for (int i = 0; i < collations.size(); i++) {
+            result.add(collations.get(i).withFieldIndex(i));
         }
 
-        return null;
+        return RelCollations.of(result);
     }
 }

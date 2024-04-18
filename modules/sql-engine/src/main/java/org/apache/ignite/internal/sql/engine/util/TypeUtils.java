@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
@@ -30,6 +29,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashSet;
@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -46,23 +47,29 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.SqlFunctions;
+import org.apache.calcite.sql.type.BasicSqlType;
+import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
-import org.apache.ignite.internal.schema.DecimalNativeType;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.NumberNativeType;
-import org.apache.ignite.internal.schema.TemporalNativeType;
-import org.apache.ignite.internal.schema.VarlenNativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
+import org.apache.ignite.internal.sql.engine.exec.row.RowType;
+import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.internal.type.BitmaskNativeType;
+import org.apache.ignite.internal.type.DecimalNativeType;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.type.NumberNativeType;
+import org.apache.ignite.internal.type.TemporalNativeType;
+import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.sql.ColumnType;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -70,6 +77,8 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TypeUtils {
+    public static final BiFunction<Integer, Object, Object> BI_FUNCTION_IDENTITY_SECOND_ARGUMENT = (idx, r) -> r;
+
     private static final Set<SqlTypeName> CONVERTABLE_TYPES = EnumSet.of(
             SqlTypeName.DATE,
             SqlTypeName.TIME,
@@ -97,7 +106,7 @@ public class TypeUtils {
         static final Set<Class<?>> supportedParamClasses;
 
         static {
-            supportedParamClasses = Arrays.stream(ColumnType.values()).map(ColumnType::columnTypeToClass).collect(Collectors.toSet());
+            supportedParamClasses = Arrays.stream(ColumnType.values()).map(ColumnType::javaClass).collect(Collectors.toSet());
             supportedParamClasses.add(boolean.class);
             supportedParamClasses.add(byte.class);
             supportedParamClasses.add(short.class);
@@ -113,7 +122,7 @@ public class TypeUtils {
     }
 
     /** Return {@code true} if supplied object is suitable as dynamic parameter. */
-    public static boolean supportParamInstance(Object param) {
+    public static boolean supportParamInstance(@Nullable Object param) {
         return param == null || supportedParamClasses().contains(param.getClass());
     }
 
@@ -143,28 +152,9 @@ public class TypeUtils {
         return builder.build();
     }
 
-    /**
-     * CreateRowType.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    @NotNull
-    public static RelDataType createRowType(@NotNull IgniteTypeFactory typeFactory, @NotNull Class<?>... fields) {
-        List<RelDataType> types = Arrays.stream(fields)
-                .map(typeFactory::createJavaType)
-                .collect(Collectors.toList());
-
-        return createRowType(typeFactory, types, "$F");
-    }
-
-    /**
-     * CreateRowType.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    @NotNull
-    public static RelDataType createRowType(@NotNull IgniteTypeFactory typeFactory, @NotNull RelDataType... fields) {
-        List<RelDataType> types = Arrays.asList(fields);
-
-        return createRowType(typeFactory, types, "$F");
+    /** Assembly output type from input types. */
+    public static RelDataType createRowType(IgniteTypeFactory typeFactory, List<RelDataType> fields) {
+        return createRowType(typeFactory, fields, "$F");
     }
 
     private static RelDataType createRowType(IgniteTypeFactory typeFactory, List<RelDataType> fields, String namePreffix) {
@@ -176,29 +166,29 @@ public class TypeUtils {
     }
 
     /**
-     * Function.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Provide a function to convert internal representation of sql results into external types.
+     *
+     * @param ectx SQL execution context.
+     * @param resultType Type of result.
+     * @return Function for two arguments. First argument is an index of column to convert. Second argument is a value to be converted
      */
-    public static <RowT> Function<RowT, RowT> resultTypeConverter(ExecutionContext<RowT> ectx, RelDataType resultType) {
+    public static BiFunction<Integer, Object, Object> resultTypeConverter(ExecutionContext<?> ectx, RelDataType resultType) {
         assert resultType.isStruct();
 
         if (hasConvertableFields(resultType)) {
-            RowHandler<RowT> handler = ectx.rowHandler();
             List<RelDataType> types = RelOptUtil.getFieldTypeList(resultType);
-            RowHandler.RowFactory<RowT> factory = handler.factory(ectx.getTypeFactory(), types);
-            List<Function<Object, Object>> converters = transform(types, t -> fieldConverter(ectx, t));
-            return r -> {
-                RowT newRow = factory.create();
-                assert handler.columnCount(newRow) == converters.size();
-                assert handler.columnCount(r) == converters.size();
-                for (int i = 0; i < converters.size(); i++) {
-                    handler.set(i, newRow, converters.get(i).apply(handler.get(i, r)));
-                }
-                return newRow;
+            Function<Object, Object>[] converters = (Function<Object, Object>[]) new Function[types.size()];
+            for (int i = 0; i < types.size(); i++) {
+                converters[i] = fieldConverter(ectx, types.get(i));
+            }
+
+            return (idx, r) -> {
+                assert idx >= 0 && idx < converters.length;
+                return converters[idx].apply(r);
             };
         }
 
-        return Function.identity();
+        return BI_FUNCTION_IDENTITY_SECOND_ARGUMENT;
     }
 
     private static Function<Object, Object> fieldConverter(ExecutionContext<?> ectx, RelDataType fieldType) {
@@ -220,27 +210,19 @@ public class TypeUtils {
     }
 
     private static boolean hasConvertableFields(RelDataType resultType) {
-        return RelOptUtil.getFieldTypeList(resultType).stream()
-                .anyMatch(TypeUtils::isConvertableType);
+        for (RelDataTypeField field : resultType.getFieldList()) {
+            if (isConvertableType(field.getType())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
-     * ToInternal. Converts the given value to its presentation used by the execution engine.
-     *
-     * @deprecated The implementation of this method is incorrect because it relies on the assumption that
-     *      {@code val.getClass() == storageType(val)} is always true, which sometimes is not the case.
-     *      Use {@link #toInternal(Object, Type)} that provides type information instead.
+     * Converts the given value to its presentation used by the execution engine.
      */
-    @Deprecated
-    public static @Nullable Object toInternal(Object val) {
-        return val == null ? null : toInternal(val, val.getClass());
-    }
-
-    /**
-     * ToInternal.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static @Nullable Object toInternal(Object val, Type storageType) {
+    public static @Nullable Object toInternal(@Nullable Object val, Type storageType) {
         if (val == null) {
             return null;
         } else if (storageType == LocalDate.class) {
@@ -295,7 +277,7 @@ public class TypeUtils {
      * FromInternal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static @Nullable Object fromInternal(@Nullable  Object val, Type storageType) {
+    public static @Nullable Object fromInternal(@Nullable Object val, Type storageType) {
         if (val == null) {
             return null;
         } else if (storageType == LocalDate.class && val instanceof Integer) {
@@ -303,8 +285,7 @@ public class TypeUtils {
         } else if (storageType == LocalTime.class && val instanceof Integer) {
             return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(Long.valueOf((Integer) val)));
         } else if (storageType == LocalDateTime.class && (val instanceof Long)) {
-            return LocalDateTime.ofEpochSecond(TimeUnit.MILLISECONDS.toSeconds((Long) val),
-                    (int) TimeUnit.MILLISECONDS.toNanos((Long) val % 1000), ZoneOffset.UTC);
+            return LocalDateTime.ofInstant(Instant.ofEpochMilli((long) val), ZoneOffset.UTC);
         } else if (storageType == Instant.class && val instanceof Long) {
             return Instant.ofEpochMilli((long) val);
         } else if (storageType == Duration.class && val instanceof Long) {
@@ -390,18 +371,6 @@ public class TypeUtils {
     }
 
     /**
-     * Converts a {@link NativeType native type} to {@link RelDataType relational type} with respect to the nullability flag.
-     *
-     * @param factory Type factory.
-     * @param nativeType A native type to convert.
-     * @param nullable A flag that specify whether the resulting type should be nullable or not.
-     * @return Relational type.
-     */
-    public static RelDataType native2relationalType(RelDataTypeFactory factory, NativeType nativeType, boolean nullable) {
-        return factory.createTypeWithNullability(native2relationalType(factory, nativeType), nullable);
-    }
-
-    /**
      * Converts a {@link NativeType native type} to {@link RelDataType relational type}.
      *
      * @param factory Type factory.
@@ -448,8 +417,12 @@ public class TypeUtils {
                 return factory.createSqlType(SqlTypeName.VARBINARY, varlen.length());
             }
             case BITMASK:
+                assert nativeType instanceof BitmaskNativeType;
+
+                var bitmask = (BitmaskNativeType) nativeType;
+
                 // TODO IGNITE-18431.
-                throw new AssertionError("BITMASK is not supported yet");
+                return factory.createSqlType(SqlTypeName.VARBINARY, bitmask.sizeInBytes());
             case NUMBER:
                 assert nativeType instanceof NumberNativeType;
 
@@ -481,8 +454,31 @@ public class TypeUtils {
         }
     }
 
+    /**
+     * Converts a {@link NativeType native type} to {@link RelDataType relational type} with respect to the nullability flag.
+     *
+     * @param factory Type factory.
+     * @param nativeType A native type to convert.
+     * @param nullable A flag that specify whether the resulting type should be nullable or not.
+     * @return Relational type.
+     */
+    public static RelDataType native2relationalType(RelDataTypeFactory factory, NativeType nativeType, boolean nullable) {
+        return factory.createTypeWithNullability(native2relationalType(factory, nativeType), nullable);
+    }
+
+    /**
+     * Converts a {@link NativeType native types} to {@link RelDataType relational types}.
+     *
+     * @param factory Type factory.
+     * @param nativeTypes A native types to convert.
+     * @return Relational types.
+     */
+    public static List<RelDataType> native2relationalTypes(RelDataTypeFactory factory, NativeType... nativeTypes) {
+        return Arrays.stream(nativeTypes).map(t -> native2relationalType(factory, t)).collect(Collectors.toList());
+    }
+
     /** Converts {@link ColumnType} to corresponding {@link NativeType}. */
-    public static NativeType columnType2NativeType(ColumnType columnType, int precision, int scale) {
+    public static NativeType columnType2NativeType(ColumnType columnType, int precision, int scale, int length) {
         switch (columnType) {
             case BOOLEAN:
                 return NativeTypes.BOOLEAN;
@@ -511,14 +507,14 @@ public class TypeUtils {
             case UUID:
                 return NativeTypes.UUID;
             case BITMASK:
-                return NativeTypes.bitmaskOf(precision);
+                return NativeTypes.bitmaskOf(length);
             case STRING:
-                return NativeTypes.stringOf(precision);
+                return NativeTypes.stringOf(length);
             case BYTE_ARRAY:
-                return NativeTypes.blobOf(precision);
+                return NativeTypes.blobOf(length);
             case NUMBER:
                 return NativeTypes.numberOf(precision);
-                // fallthrough
+            // fallthrough
             case PERIOD:
             case DURATION:
             case NULL:
@@ -529,6 +525,11 @@ public class TypeUtils {
 
     /** Checks whether cast operation is necessary in {@code SearchBound}. */
     public static boolean needCastInSearchBounds(IgniteTypeFactory typeFactory, RelDataType fromType, RelDataType toType) {
+        // Checks for character and binary types should allow comparison
+        // between types with precision, types w/o precision, and varying non-varying length variants.
+        // Otherwise the optimizer wouldn't pick an index for conditions such as
+        // col (VARCHAR(M)) = CAST(s AS VARCHAR(N) (M != N) , col (VARCHAR) = CAST(s AS VARCHAR(N))
+
         // No need to cast between char and varchar.
         if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
             return false;
@@ -572,8 +573,8 @@ public class TypeUtils {
     }
 
     /**
-     * Checks that {@code toType} and {@code fromType} have compatible type families taking into account custom data types.
-     * Types {@code T1} and {@code T2} have compatible type families if {@code T1} can be assigned to {@code T2} and vice-versa.
+     * Checks that {@code toType} and {@code fromType} have compatible type families taking into account custom data types. Types {@code T1}
+     * and {@code T2} have compatible type families if {@code T1} can be assigned to {@code T2} and vice-versa.
      *
      * @see SqlTypeUtil#canAssignFrom(RelDataType, RelDataType)
      */
@@ -600,6 +601,63 @@ public class TypeUtils {
             return SqlTypeUtil.canAssignFrom(fromType, toType);
         } else {
             return false;
+        }
+    }
+
+    /** Creates an instance of {@link RowSchema} from a list of the given {@link RelDataType}s. */
+    public static RowSchema rowSchemaFromRelTypes(List<RelDataType> types) {
+        RowSchema.Builder fieldTypes = RowSchema.builder();
+
+        for (RelDataType relType : types) {
+            TypeSpec typeSpec = convertToTypeSpec(relType);
+            fieldTypes.addField(typeSpec);
+        }
+
+        return fieldTypes.build();
+    }
+
+    private static TypeSpec convertToTypeSpec(RelDataType type) {
+        boolean simpleType = type instanceof BasicSqlType;
+        boolean nullable = type.isNullable();
+
+        if (type instanceof IgniteCustomType) {
+            NativeType nativeType = IgniteTypeFactory.relDataTypeToNative(type);
+            return RowSchemaTypes.nativeTypeWithNullability(nativeType, nullable);
+        } else if (SqlTypeName.ANY == type.getSqlTypeName()) {
+            // TODO Some JSON functions that return ANY as well : https://issues.apache.org/jira/browse/IGNITE-20163
+            return new BaseTypeSpec(null, nullable);
+        } else if (SqlTypeUtil.isNull(type)) {
+            return RowSchemaTypes.NULL;
+        } else if (simpleType) {
+            NativeType nativeType = IgniteTypeFactory.relDataTypeToNative(type);
+            return RowSchemaTypes.nativeTypeWithNullability(nativeType, nullable);
+        } else if (type instanceof IntervalSqlType) {
+            IntervalSqlType intervalType = (IntervalSqlType) type;
+            boolean yearMonth = intervalType.getIntervalQualifier().isYearMonth();
+
+            if (yearMonth) {
+                // YEAR MONTH interval is stored as number of days in ints.
+                return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.INT32, nullable);
+            } else {
+                // DAY interval is stored as time as long.
+                return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.INT64, nullable);
+            }
+        } else if (SqlTypeUtil.isRow(type)) {
+            List<TypeSpec> fields = new ArrayList<>();
+
+            for (RelDataTypeField field : type.getFieldList()) {
+                TypeSpec fieldTypeSpec = convertToTypeSpec(field.getType());
+                fields.add(fieldTypeSpec);
+            }
+
+            return new RowType(fields, type.isNullable());
+
+        } else if (SqlTypeUtil.isMap(type) || SqlTypeUtil.isMultiset(type) || SqlTypeUtil.isArray(type)) {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-20162
+            //  Add collection types support
+            throw new IllegalArgumentException("Collection types is not supported: " + type);
+        } else {
+            throw new IllegalArgumentException("Unexpected type: " + type);
         }
     }
 }

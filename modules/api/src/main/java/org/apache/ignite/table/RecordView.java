@@ -20,8 +20,9 @@ package org.apache.ignite.table;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Mapped record type.
  * @see org.apache.ignite.table.mapper.Mapper
  */
-public interface RecordView<R> extends DataStreamerTarget<R> {
+public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySource<R> {
     /**
      * Gets a record with the same key column values as the given one from a table.
      *
@@ -38,7 +39,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
      * @return Record with all columns filled from the table.
      */
-    R get(@Nullable Transaction tx, @NotNull R keyRec);
+    R get(@Nullable Transaction tx, R keyRec);
 
     /**
      * Asynchronously gets a record with the same key column values as the given one from a table.
@@ -47,7 +48,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
-    @NotNull CompletableFuture<R> getAsync(@Nullable Transaction tx, @NotNull R keyRec);
+    CompletableFuture<R> getAsync(@Nullable Transaction tx, R keyRec);
 
     /**
      * Gets records from a table.
@@ -72,12 +73,32 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
     CompletableFuture<List<R>> getAllAsync(@Nullable Transaction tx, Collection<R> keyRecs);
 
     /**
+     * Determines whether a table contains an entry for the specified key.
+     *
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param keyRec A record with key columns set. The key cannot be {@code null}.
+     * @return {@code True} if a value exists for the specified key, {@code false} otherwise.
+     * @throws MarshallerException if the key doesn't match the schema.
+     */
+    boolean contains(@Nullable Transaction tx, R keyRec);
+
+    /**
+     * Determines whether a table contains an entry for the specified key.
+     *
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param keyRec A record with key columns set. The key cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
+     * @throws MarshallerException if the key doesn't match the schema.
+     */
+    CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, R keyRec);
+
+    /**
      * Inserts a record into a table, if it does not exist, or replaces an existing one.
      *
      * @param tx  Transaction or {@code null} to auto-commit.
      * @param rec Record to insert into the table. The record cannot be {@code null}.
      */
-    void upsert(@Nullable Transaction tx, @NotNull R rec);
+    void upsert(@Nullable Transaction tx, R rec);
 
     /**
      * Asynchronously inserts a record into a table, if it does not exist, or replaces the existing one.
@@ -86,7 +107,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param rec Record to insert into the table. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
-    @NotNull CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, @NotNull R rec);
+    CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, R rec);
 
     /**
      * Inserts records into a table, if they do not exist, or replaces the existing ones.
@@ -94,7 +115,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param tx   Transaction or {@code null} to auto-commit.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
      */
-    void upsertAll(@Nullable Transaction tx, @NotNull Collection<R> recs);
+    void upsertAll(@Nullable Transaction tx, Collection<R> recs);
 
     /**
      * Asynchronously inserts a record into a table, if it does not exist, or replaces the existing one.
@@ -103,7 +124,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param recs Records to insert into the table. The records cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
-    @NotNull CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, @NotNull Collection<R> recs);
+    CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, Collection<R> recs);
 
     /**
      * Inserts a record into a table, or replaces an existing record and returns the replaced record.
@@ -112,7 +133,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param rec A record to insert into the table. The record cannot be {@code null}.
      * @return Replaced record or {@code null} if it did not exist.
      */
-    R getAndUpsert(@Nullable Transaction tx, @NotNull R rec);
+    R getAndUpsert(@Nullable Transaction tx, R rec);
 
     /**
      * Asynchronously inserts a record into a table, or replaces an existing record and returns the replaced record.
@@ -121,7 +142,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param rec Record to insert into the table. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
-    @NotNull CompletableFuture<R> getAndUpsertAsync(@Nullable Transaction tx, @NotNull R rec);
+    CompletableFuture<R> getAndUpsertAsync(@Nullable Transaction tx, R rec);
 
     /**
      * Inserts a record into a table if it does not exists.
@@ -130,7 +151,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param rec Record to insert into the table. The record cannot be {@code null}.
      * @return {@code True} if successful, {@code false} otherwise.
      */
-    boolean insert(@Nullable Transaction tx, @NotNull R rec);
+    boolean insert(@Nullable Transaction tx, R rec);
 
     /**
      * Asynchronously inserts a record into a table if it does not exists.
@@ -139,25 +160,28 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param rec Record to insert into the table. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, @NotNull R rec);
+    CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, R rec);
 
     /**
      * Inserts into a table records that do not exist, skips those that exist.
      *
-     * @param tx   Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
-     * @return Skipped records.
+     * @return Skipped records. The order of collection elements is guaranteed to be the same as the order of {@code recs}. If a record is
+     *         inserted, the element will be excluded from the collection result.
      */
-    Collection<R> insertAll(@Nullable Transaction tx, @NotNull Collection<R> recs);
+    List<R> insertAll(@Nullable Transaction tx, Collection<R> recs);
 
     /**
      * Asynchronously inserts into a table records that do not exist, skips those that exist.
      *
-     * @param tx   Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param recs Records to insert into the table. The records cannot be {@code null}.
-     * @return Future representing pending completion of the operation.
+     * @return Future representing pending completion of the operation, with rejected rows for insertion in the result. The order of
+     *         collection elements is guaranteed to be the same as the order of {@code recs}. If a record is inserted, the element will be
+     *         excluded from the collection result.
      */
-    @NotNull CompletableFuture<Collection<R>> insertAllAsync(@Nullable Transaction tx, @NotNull Collection<R> recs);
+    CompletableFuture<List<R>> insertAllAsync(@Nullable Transaction tx, Collection<R> recs);
 
     /**
      * Replaces an existing record associated with the same key column values as the given record.
@@ -166,7 +190,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param rec Record to replace with. The record cannot be {@code null}.
      * @return {@code True} if a record was found and replaced successfully, {@code false} otherwise.
      */
-    boolean replace(@Nullable Transaction tx, @NotNull R rec);
+    boolean replace(@Nullable Transaction tx, R rec);
 
     /**
      * Replaces an expected record in the table with the given new one.
@@ -176,7 +200,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param newRec Record to replace with. The record cannot be {@code null}.
      * @return {@code True} if a record was replaced successfully, {@code false} otherwise.
      */
-    boolean replace(@Nullable Transaction tx, @NotNull R oldRec, @NotNull R newRec);
+    boolean replace(@Nullable Transaction tx, R oldRec, R newRec);
 
     /**
      * Asynchronously replaces an existing record associated with the same key columns values as the given record.
@@ -185,7 +209,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param rec Record to replace with. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull R rec);
+    CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R rec);
 
     /**
      * Asynchronously replaces an existing record in the table with the given new one.
@@ -195,7 +219,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param newRec Record to replace with. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull R oldRec, @NotNull R newRec);
+    CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R oldRec, R newRec);
 
     /**
      * Gets an existing record associated with the same key columns values as the given one, then replaces it with the given one.
@@ -204,7 +228,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param rec Record to replace with. The record cannot be {@code null}.
      * @return Replaced record or {@code null} if it did not exist.
      */
-    R getAndReplace(@Nullable Transaction tx, @NotNull R rec);
+    R getAndReplace(@Nullable Transaction tx, R rec);
 
     /**
      * Asynchronously gets an existing record associated with the same key column values as the given one,
@@ -214,7 +238,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param rec Record to replace with. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
-    @NotNull CompletableFuture<R> getAndReplaceAsync(@Nullable Transaction tx, @NotNull R rec);
+    CompletableFuture<R> getAndReplaceAsync(@Nullable Transaction tx, R rec);
 
     /**
      * Deletes a record with the same key column values as the given one from a table.
@@ -223,7 +247,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
      * @return {@code True} if removed successfully, {@code false} otherwise.
      */
-    boolean delete(@Nullable Transaction tx, @NotNull R keyRec);
+    boolean delete(@Nullable Transaction tx, R keyRec);
 
     /**
      * Asynchronously deletes a record with the same key column values as the given one from a table.
@@ -232,7 +256,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, @NotNull R keyRec);
+    CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, R keyRec);
 
     /**
      * Deletes the given record from a table.
@@ -241,7 +265,7 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param rec Record to delete. The record cannot be {@code null}.
      * @return {@code True} if removed successfully, {@code false} otherwise.
      */
-    boolean deleteExact(@Nullable Transaction tx, @NotNull R rec);
+    boolean deleteExact(@Nullable Transaction tx, R rec);
 
     /**
      * Asynchronously deletes the given record from a table.
@@ -250,16 +274,16 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param rec Record to delete. The record cannot be {@code null}.
      * @return Future tha represents the pending completion of the operation.
      */
-    @NotNull CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, @NotNull R rec);
+    CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, R rec);
 
     /**
      * Gets and deletes from a table a record with the same key column values as the given one.
      *
      * @param tx     Transaction or {@code null} to auto-commit.
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
-     * @return Removed record or {@code null} if it dod not exist.
+     * @return Removed record or {@code null} if it did not exist.
      */
-    R getAndDelete(@Nullable Transaction tx, @NotNull R keyRec);
+    R getAndDelete(@Nullable Transaction tx, R keyRec);
 
     /**
      * Asynchronously gets and deletes from a table a record with the same key columns values as the given one.
@@ -268,41 +292,47 @@ public interface RecordView<R> extends DataStreamerTarget<R> {
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
      * @return Future that represents the pending completion of the operation.
      */
-    @NotNull CompletableFuture<R> getAndDeleteAsync(@Nullable Transaction tx, @NotNull R keyRec);
+    CompletableFuture<R> getAndDeleteAsync(@Nullable Transaction tx, R keyRec);
 
     /**
      * Removes from a table records with the same key column values as the given one.
      *
-     * @param tx      Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
-     * @return Records with the key columns set that did not exist.
+     * @return Records with the key columns set that did not exist. The order of collection elements is guaranteed to be the same as the
+     *         order of {@code keyRecs}. If a record is removed, the element will be excluded from the collection result.
      */
-    Collection<R> deleteAll(@Nullable Transaction tx, @NotNull Collection<R> keyRecs);
+    List<R> deleteAll(@Nullable Transaction tx, Collection<R> keyRecs);
 
     /**
      * Asynchronously removes from a table records with the same key column values as the given one.
      *
-     * @param tx      Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param keyRecs Records with the key columns set. The records cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
+     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
+     *         collection elements is guaranteed to be the same as the order of {@code keyRecs}. If a record is removed, the element will be
+     *         excluded from the collection result.
      */
-    @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs);
+    CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs);
 
     /**
      * Remove the given records from a table.
      *
-     * @param tx   Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param recs Records to delete. The records cannot be {@code null}.
-     * @return Records that were not deleted.
+     * @return Records that were not deleted. The order of collection elements is guaranteed to be the same as the order of {@code recs}. If
+     *         a record is removed, the element will be excluded from the collection result.
      */
-    Collection<R> deleteAllExact(@Nullable Transaction tx, @NotNull Collection<R> recs);
+    List<R> deleteAllExact(@Nullable Transaction tx, Collection<R> recs);
 
     /**
      * Asynchronously removes the given records from a table.
      *
-     * @param tx   Transaction or {@code null} to auto-commit.
+     * @param tx Transaction or {@code null} to auto-commit.
      * @param recs Records to delete. The records cannot be {@code null}.
-     * @return Future that represents the pending completion of the operation.
+     * @return Future represents the pending completion of the operation, with rejected rows for deletion in the result. The order of
+     *         collection elements is guaranteed to be the same as the order of {@code recs}. If a record is removed, the element will be
+     *         excluded from the collection result.
      */
-    @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@Nullable Transaction tx, @NotNull Collection<R> recs);
+    CompletableFuture<List<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> recs);
 }

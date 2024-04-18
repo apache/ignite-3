@@ -41,9 +41,7 @@ public class RequestBalancingTests
         };
 
         using var client = await IgniteClient.StartAsync(clientCfg);
-
-        // ReSharper disable once AccessToDisposedClosure
-        TestUtils.WaitForCondition(() => client.GetConnections().Count == 3, 5000);
+        client.WaitForConnections(3);
 
         for (var i = 0; i < 10; i++)
         {

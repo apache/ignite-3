@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import java.util.Collections;
 import java.util.Set;
 
 /**
@@ -29,7 +28,7 @@ public class AlterTableDropCommand extends AbstractTableDdlCommand {
     private Set<String> cols;
 
     public Set<String> columns() {
-        return Collections.unmodifiableSet(cols);
+        return cols;
     }
 
     /**

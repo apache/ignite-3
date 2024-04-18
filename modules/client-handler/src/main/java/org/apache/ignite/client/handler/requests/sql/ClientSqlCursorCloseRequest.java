@@ -19,8 +19,10 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 
 /**
  * Client SQL cursor close request.
@@ -29,15 +31,27 @@ public class ClientSqlCursorCloseRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
+     * @param in Unpacker.
+     * @param out Packer.
      * @param resources Resources.
+     * @param transactions Transactional facade. Used to acquire last observed time to propagate to client in response.
+     * @return Future representing result of operation.
      */
-    public static CompletableFuture<Void> process(ClientMessageUnpacker in, ClientResourceRegistry resources)
-            throws IgniteInternalCheckedException {
+    public static CompletableFuture<Void> process(
+            ClientMessageUnpacker in,
+            ClientMessagePacker out,
+            ClientResourceRegistry resources,
+            IgniteTransactionsImpl transactions
+    ) throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
 
         ClientSqlResultSet asyncResultSet = resources.remove(resourceId).get(ClientSqlResultSet.class);
 
-        return asyncResultSet.closeAsync();
+        return asyncResultSet.closeAsync()
+                .thenApply(ignored -> {
+                    out.meta(transactions.observableTimestamp());
+
+                    return null;
+                });
     }
 }

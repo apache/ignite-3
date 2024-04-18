@@ -18,24 +18,56 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import org.apache.ignite.internal.metastorage.Entry;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Condition tests an entry's value is tombstone in meta storage. Entry is tombstone if it is not empty and doesn't exists.
  */
 public class TombstoneCondition extends AbstractSimpleCondition {
+    /** Condition type. */
+    private final TombstoneCondition.Type type;
+
     /**
      * Constructs a condition with the given entry key.
      *
+     * @param type Condition type. Can't be {@code null}.
      * @param key Key identifies an entry which the condition will applied to.
      */
-    public TombstoneCondition(@NotNull byte[] key) {
+    public TombstoneCondition(TombstoneCondition.Type type, byte[] key) {
         super(key);
+
+        this.type = type;
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean test(@NotNull Entry e) {
-        return e.tombstone();
+    public boolean test(Entry e) {
+        return type.test(e.tombstone());
+    }
+
+    /** Defines tombstone condition types. */
+    public enum Type {
+        /** Tombstone condition type. */
+        TOMBSTONE {
+            @Override
+            public boolean test(boolean res) {
+                return res;
+            }
+        },
+
+        /** Not tombstone condition type. */
+        NOT_TOMBSTONE {
+            @Override
+            public boolean test(boolean res) {
+                return !res;
+            }
+        };
+
+        /**
+         * Interprets comparison result.
+         *
+         * @param res The result of comparison.
+         * @return The interpretation of the comparison result.
+         */
+        public abstract boolean test(boolean res);
     }
 }

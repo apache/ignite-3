@@ -17,7 +17,7 @@
 
 package org.apache.ignite.table.mapper;
 
-import org.jetbrains.annotations.NotNull;
+import java.util.Collection;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,12 +35,19 @@ public interface PojoMapper<T> extends Mapper<T> {
      * @return Field name or {@code null} if no field is mapped to the column.
      * @throws IllegalStateException If the entire object is mapped to a single column.
      */
-    @Nullable String fieldForColumn(@NotNull String columnName);
+    @Nullable String fieldForColumn(String columnName);
+
+    /**
+     * Returns all fields that should be mapped to columns.
+     *
+     * @return Field names.
+     */
+    Collection<String> fields();
 
     /**
      * Returns a type converter for a given column.
      *
      * @return Type converter or {@code null} if not set.
      */
-    <FieldT, ColumnT> TypeConverter<FieldT, ColumnT> converterForColumn(@NotNull String columnName);
+    <FieldT, ColumnT> TypeConverter<FieldT, ColumnT> converterForColumn(String columnName);
 }

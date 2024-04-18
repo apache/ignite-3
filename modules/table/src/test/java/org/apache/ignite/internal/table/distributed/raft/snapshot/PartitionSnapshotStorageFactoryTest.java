@@ -21,12 +21,16 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.junit.jupiter.api.Test;
@@ -38,7 +42,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * For testing {@link PartitionSnapshotStorageFactory}.
  */
 @ExtendWith(MockitoExtension.class)
-public class PartitionSnapshotStorageFactoryTest {
+public class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest {
     @Mock
     private PartitionAccess partitionAccess;
 
@@ -50,10 +54,16 @@ public class PartitionSnapshotStorageFactoryTest {
 
         when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
+        CatalogService catalogService = mock(CatalogService.class);
+        when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of());
+
+        when(partitionAccess.partitionKey()).thenReturn(new PartitionKey(1, 1));
+
         PartitionSnapshotStorageFactory partitionSnapshotStorageFactory = new PartitionSnapshotStorageFactory(
                 mock(TopologyService.class),
                 mock(OutgoingSnapshotsManager.class),
                 partitionAccess,
+                catalogService,
                 mock(Executor.class)
         );
 
@@ -69,6 +79,7 @@ public class PartitionSnapshotStorageFactoryTest {
                 mock(TopologyService.class),
                 mock(OutgoingSnapshotsManager.class),
                 partitionAccess,
+                mock(CatalogService.class),
                 mock(Executor.class)
         );
 

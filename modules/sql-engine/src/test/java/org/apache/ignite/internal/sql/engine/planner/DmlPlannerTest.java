@@ -20,26 +20,26 @@ package org.apache.ignite.internal.sql.engine.planner;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests to verify DML plans.
+ * Tests to verify multi-step versions of DML plans.
  */
 public class DmlPlannerTest extends AbstractPlannerTest {
-
     /**
      * Test for INSERT .. VALUES when table has a single distribution.
      */
@@ -50,7 +50,9 @@ public class DmlPlannerTest extends AbstractPlannerTest {
 
         // There should be no exchanges and other operations.
         assertPlan("INSERT INTO TEST1 (C1, C2) VALUES(1, 2)", schema,
-                isInstanceOf(IgniteTableModify.class).and(input(isInstanceOf(IgniteValues.class))));
+                isInstanceOf(IgniteTableModify.class).and(input(isInstanceOf(IgniteValues.class))),
+                DISABLE_KEY_VALUE_MODIFY_RULES
+        );
     }
 
     /**
@@ -67,7 +69,8 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                 nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
                         .and(e -> e.distribution().equals(IgniteDistributions.single())))
                         .and(nodeOrAnyChild(isInstanceOf(IgniteTableModify.class))
-                                .and(hasChildThat(isInstanceOf(IgniteExchange.class).and(e -> distribution.equals(e.distribution())))))
+                                .and(hasChildThat(isInstanceOf(IgniteTrimExchange.class).and(e -> distribution.equals(e.distribution()))))),
+                DISABLE_KEY_VALUE_MODIFY_RULES
         );
     }
 
@@ -145,11 +148,51 @@ public class DmlPlannerTest extends AbstractPlannerTest {
         );
     }
 
+    @ParameterizedTest
+    @MethodSource("distributionsForDelete")
+    public void testDelete(IgniteDistribution distribution) throws Exception {
+        IgniteTable test1 = TestBuilders.table()
+                .name("TEST1")
+                .addColumn("C1", NativeTypes.INT32)
+                .addKeyColumn("KEY1", NativeTypes.INT32)
+                .addColumn("C2", NativeTypes.INT32)
+                .addKeyColumn("KEY2", NativeTypes.INT32)
+                .distribution(distribution)
+                .build();
+
+        IgniteSchema schema = createSchema(test1);
+
+        // There should be no exchange between the modify node and the scan node.
+        assertPlan("DELETE FROM TEST1 WHERE KEY1 = 1 and KEY2 = 2", schema,
+                nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                        .and(e -> e.distribution().equals(IgniteDistributions.single())))
+                        .and(nodeOrAnyChild(isInstanceOf(IgniteTableModify.class)
+                                .and(input(isTableScan("TEST1")))))
+        );
+    }
+
     private static Stream<IgniteDistribution> distributions() {
         return Stream.of(
                 IgniteDistributions.single(),
                 IgniteDistributions.hash(List.of(0, 1)),
-                IgniteDistributions.affinity(0, 2, "0")
+                IgniteDistributions.affinity(0, 2, "0"),
+                IgniteDistributions.identity(0)
+        );
+    }
+
+    /**
+     * Creates a list of non-single distributions with keys corresponding to the indexes of the key columns of the table.
+     *
+     * @return Distributions to test DELETE operation.
+     */
+    private static Stream<IgniteDistribution> distributionsForDelete() {
+        return Stream.of(
+                IgniteDistributions.hash(List.of(1, 3)),
+                IgniteDistributions.affinity(1, 2, "0"),
+                IgniteDistributions.affinity(3, 2, "0"),
+                IgniteDistributions.affinity(List.of(1, 3), 2, "0"),
+                IgniteDistributions.affinity(List.of(3, 1), 2, "0"),
+                IgniteDistributions.identity(1)
         );
     }
 
@@ -163,29 +206,57 @@ public class DmlPlannerTest extends AbstractPlannerTest {
         IgniteTestUtils.assertThrowsWithCause(
                 () -> physicalPlan(query, createSchema(newTestTable("TEST", IgniteDistributions.single()))),
                 SqlValidatorException.class,
-                "Object 'UNKNOWN' not found"
+                "Object 'UNKNOWN_T' not found"
         );
     }
 
     private static Stream<String> basicStatements() {
         return Stream.of(
-                "SELECT * FROM unknown",
-                "INSERT INTO unknown VALUES(1)",
-                "UPDATE unknown SET ID=1",
-                "DELETE FROM unknown",
-                "MERGE INTO unknown DST USING test SRC ON DST.C1 = SRC.C1"
+                "SELECT * FROM unknown_t",
+                "INSERT INTO unknown_t VALUES(1)",
+                "UPDATE unknown_t SET ID=1",
+                "DELETE FROM unknown_t",
+                "MERGE INTO unknown_t DST USING test SRC ON DST.C1 = SRC.C1"
                         + " WHEN MATCHED THEN UPDATE SET C2 = SRC.C2"
                         + " WHEN NOT MATCHED THEN INSERT (C1, C2) VALUES (SRC.C1, SRC.C2)",
-                "MERGE INTO test DST USING unknown SRC ON DST.C1 = SRC.C1"
+                "MERGE INTO test DST USING unknown_t SRC ON DST.C1 = SRC.C1"
                         + " WHEN MATCHED THEN UPDATE SET C2 = SRC.C2"
                         + " WHEN NOT MATCHED THEN INSERT (C1, C2) VALUES (SRC.C1, SRC.C2)"
         );
     }
 
-    // Class name is fully-qualified because AbstractPlannerTest defines a class with the same name.
-    private static org.apache.ignite.internal.sql.engine.framework.TestTable newTestTable(
-            String tableName, IgniteDistribution distribution) {
+    /**
+     * Tests that primary key columns are not modifiable.
+     */
+    @ParameterizedTest
+    @MethodSource("updatePrimaryKey")
+    public void testDoNotAllowToModifyPrimaryKeyColumns(String query) {
+        IgniteTable test = TestBuilders.table()
+                .name("TEST")
+                .addKeyColumn("ID", NativeTypes.INT32)
+                .addColumn("VAL", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
 
+        IgniteSchema schema = createSchema(test);
+
+        IgniteTestUtils.assertThrowsWithCause(
+                () ->  physicalPlan(query, schema),
+                SqlValidatorException.class,
+                "Primary key columns are not modifiable"
+        );
+    }
+
+    private static Stream<String> updatePrimaryKey() {
+        return Stream.of(
+                "UPDATE TEST SET ID = ID + 1",
+                "MERGE INTO test DST USING test SRC ON DST.VAL = SRC.VAL"
+                        + " WHEN MATCHED THEN UPDATE SET ID = SRC.ID + 1"
+        );
+    }
+
+    // Class name is fully-qualified because AbstractPlannerTest defines a class with the same name.
+    private static IgniteTable newTestTable(String tableName, IgniteDistribution distribution) {
         return TestBuilders.table()
                 .name(tableName)
                 .addColumn("C1", NativeTypes.INT32)

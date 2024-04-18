@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.configuration.processor.internal;
 
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 
 /**
- * Class cannot have {@link InternalConfiguration} and {@link Config}.
+ * Class cannot have {@link ConfigurationExtension} and {@link Config}.
  */
-@InternalConfiguration
+@ConfigurationExtension(internal = true)
 @Config
 public class ErrorInternal0ConfigurationSchema {
 }

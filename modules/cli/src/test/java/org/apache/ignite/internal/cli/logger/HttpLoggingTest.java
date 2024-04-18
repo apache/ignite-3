@@ -27,18 +27,28 @@ import java.io.StringWriter;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient.Builder;
 import org.apache.ignite.rest.client.invoker.ApiClient;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class HttpLoggingTest {
 
+    private static final PrintWriter WRITER = new PrintWriter(new StringWriter());
+
+    private ApiClient client;
+
+    private HttpLogging logger;
+
+    @BeforeEach
+    void setUp() {
+        client = new ApiClient();
+        logger = new HttpLogging(client);
+    }
+
     @Test
     void startAndStopLogging() {
-        ApiClient client = new ApiClient();
         assertThat(client.getHttpClient().interceptors(), empty());
 
-        HttpLogging logger = new HttpLogging(client);
-
-        logger.startHttpLogging(new PrintWriter(new StringWriter()));
+        logger.startHttpLogging(WRITER);
         assertThat(client.getHttpClient().interceptors(), not(empty()));
 
         logger.stopHttpLogging();
@@ -46,16 +56,27 @@ class HttpLoggingTest {
     }
 
     @Test
+    void restartLogging() {
+        assertThat(client.getHttpClient().interceptors(), empty());
+
+        logger.startHttpLogging(WRITER);
+        assertThat(client.getHttpClient().interceptors(), not(empty()));
+
+        logger.stopHttpLogging();
+        assertThat(client.getHttpClient().interceptors(), empty());
+
+        logger.startHttpLogging(WRITER);
+        assertThat(client.getHttpClient().interceptors(), not(empty()));
+    }
+
+    @Test
     void stopLoggingRemoveOnlyOneInterceptor() {
-        ApiClient client = new ApiClient();
         Interceptor interceptor = chain -> chain.proceed(chain.request());
         Builder builder = client.getHttpClient().newBuilder();
         builder.interceptors().add(interceptor);
         client.setHttpClient(builder.build());
 
-        HttpLogging logger = new HttpLogging(client);
-
-        logger.startHttpLogging(new PrintWriter(new StringWriter()));
+        logger.startHttpLogging(WRITER);
         logger.stopHttpLogging();
 
         assertThat(client.getHttpClient().interceptors(), contains(interceptor));

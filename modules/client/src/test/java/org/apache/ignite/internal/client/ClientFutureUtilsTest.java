@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -34,7 +35,7 @@ import org.junit.jupiter.api.Test;
 public class ClientFutureUtilsTest {
     @Test
     public void testGetNowSafe() {
-        assertNull(ClientFutureUtils.getNowSafe(CompletableFuture.completedFuture(null)));
+        assertNull(ClientFutureUtils.getNowSafe(nullCompletedFuture()));
         assertNull(ClientFutureUtils.getNowSafe(CompletableFuture.failedFuture(new Exception("fail"))));
         assertNull(ClientFutureUtils.getNowSafe(new CompletableFuture<>()));
         assertEquals("test", ClientFutureUtils.getNowSafe(CompletableFuture.completedFuture("test")));

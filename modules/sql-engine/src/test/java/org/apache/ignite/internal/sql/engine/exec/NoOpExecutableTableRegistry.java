@@ -18,14 +18,15 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 
 /** Stub implementation for {@link ExecutableTableRegistry}. */
 public final class NoOpExecutableTableRegistry implements ExecutableTableRegistry {
-
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int tableId, TableDescriptor tableDescriptor) {
+    public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId) {
         return CompletableFuture.completedFuture(new NoOpExecutableTable(tableId));
     }
 
@@ -47,6 +48,17 @@ public final class NoOpExecutableTableRegistry implements ExecutableTableRegistr
         @Override
         public UpdatableTable updatableTable() {
             throw noDependency();
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public TableDescriptor tableDescriptor() {
+            throw noDependency();
+        }
+
+        @Override
+        public Supplier<PartitionCalculator> partitionCalculator() {
+            throw new UnsupportedOperationException();
         }
 
         private IllegalStateException noDependency() {

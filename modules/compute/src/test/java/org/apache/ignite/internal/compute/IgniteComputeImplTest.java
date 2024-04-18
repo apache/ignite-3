@@ -18,25 +18,45 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.Collections.singleton;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.contains;
+import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,7 +65,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class IgniteComputeImplTest {
+class IgniteComputeImplTest extends BaseIgniteAbstractTest {
+    private static final String JOB_CLASS_NAME = "org.example.SimpleJob";
+
     @Mock
     private TopologyService topologyService;
 
@@ -53,89 +75,185 @@ class IgniteComputeImplTest {
     private IgniteTablesInternal igniteTables;
 
     @Mock
-    private ComputeComponent computeComponent;
+    private ComputeComponentImpl computeComponent;
+
+    @Mock
+    private LogicalTopologyService logicalTopologyService;
+
+    @Mock
+    private PlacementDriver placementDriver;
+
+    @Mock
+    private HybridClock clock;
 
     @InjectMocks
     private IgniteComputeImpl compute;
 
     @Mock
-    private TableImpl table;
+    private TableViewInternal table;
 
-    private final ClusterNode localNode = new ClusterNode("local", "local", new NetworkAddress("local-host", 1));
+    private final ClusterNode localNode = new ClusterNodeImpl("local", "local", new NetworkAddress("local-host", 1));
 
-    private final ClusterNode remoteNode = new ClusterNode("remote", "remote", new NetworkAddress("remote-host", 1));
+    private final ClusterNode remoteNode = new ClusterNodeImpl("remote", "remote", new NetworkAddress("remote-host", 1));
 
     private final List<DeploymentUnit> testDeploymentUnits = List.of(new DeploymentUnit("test", "1.0.0"));
 
     @BeforeEach
     void setupMocks() {
         lenient().when(topologyService.localMember()).thenReturn(localNode);
+        lenient().when(topologyService.getByConsistentId(localNode.name())).thenReturn(localNode);
+        lenient().when(topologyService.getByConsistentId(remoteNode.name())).thenReturn(remoteNode);
     }
 
     @Test
-    void whenNodeIsLocalThenExecutesLocally() throws Exception {
-        when(computeComponent.executeLocally(testDeploymentUnits, "org.example.SimpleJob", "a", 42))
-                .thenReturn(CompletableFuture.completedFuture("jobResponse"));
+    void whenNodeIsLocalThenExecutesLocally() {
+        respondWhenExecutingSimpleJobLocally(ExecutionOptions.DEFAULT);
 
-        String result = compute.<String>executeAsync(singleton(localNode), testDeploymentUnits, "org.example.SimpleJob", "a", 42).get();
+        assertThat(
+                compute.executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42),
+                willBe("jobResponse")
+        );
 
-        assertThat(result, is("jobResponse"));
-
-        verify(computeComponent).executeLocally(testDeploymentUnits, "org.example.SimpleJob", "a", 42);
+        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
     }
 
     @Test
-    void whenNodeIsRemoteThenExecutesRemotely() throws Exception {
-        respondWhenExecutingSimpleJobRemotely();
+    void whenNodeIsRemoteThenExecutesRemotely() {
+        respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
 
-        String result = compute.<String>executeAsync(singleton(remoteNode), testDeploymentUnits, "org.example.SimpleJob", "a", 42).get();
+        assertThat(
+                compute.executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42),
+                willBe("remoteResponse")
+        );
 
-        assertThat(result, is("remoteResponse"));
-
-        verify(computeComponent).executeRemotely(remoteNode, testDeploymentUnits, "org.example.SimpleJob", "a", 42);
-    }
-
-    private void respondWhenExecutingSimpleJobRemotely() {
-        when(computeComponent.executeRemotely(remoteNode, testDeploymentUnits, "org.example.SimpleJob", "a", 42))
-                .thenReturn(CompletableFuture.completedFuture("remoteResponse"));
+        verifyExecuteRemotelyWithFailover(ExecutionOptions.DEFAULT);
     }
 
     @Test
-    void executesColocatedOnLeaderNodeOfPartitionCorrespondingToTupleKey() throws Exception {
-        respondWhenExecutingSimpleJobRemotely();
+    void whenNodeIsLocalThenExecutesLocallyWithOptions() {
+        ExecutionOptions expectedOptions = ExecutionOptions.builder().priority(1).maxRetries(2).build();
+        respondWhenExecutingSimpleJobLocally(expectedOptions);
 
-        when(igniteTables.tableImplAsync("TEST")).thenReturn(CompletableFuture.completedFuture(table));
-        doReturn(42).when(table).partition(any());
-        doReturn(remoteNode).when(table).leaderAssignment(42);
+        JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
+        assertThat(
+                compute.executeAsync(singleton(localNode), testDeploymentUnits, JOB_CLASS_NAME, options, "a", 42),
+                willBe("jobResponse")
+        );
 
-        String result = compute.<String>executeColocatedAsync(
-                "test",
-                Tuple.create(Map.of("k", 1)),
-                testDeploymentUnits,
-                "org.example.SimpleJob",
-                "a", 42
-        ).get();
-
-        assertThat(result, is("remoteResponse"));
+        verify(computeComponent).executeLocally(expectedOptions, testDeploymentUnits, JOB_CLASS_NAME, "a", 42);
     }
 
     @Test
-    void executesColocatedOnLeaderNodeOfPartitionCorrespondingToMappedKey() throws Exception {
-        respondWhenExecutingSimpleJobRemotely();
+    void whenNodeIsRemoteThenExecutesRemotelyWithOptions() {
+        ExecutionOptions expectedOptions = ExecutionOptions.builder().priority(1).maxRetries(2).build();
+        respondWhenExecutingSimpleJobRemotely(expectedOptions);
 
-        when(igniteTables.tableImplAsync("TEST")).thenReturn(CompletableFuture.completedFuture(table));
-        doReturn(42).when(table).partition(any(), any());
-        doReturn(remoteNode).when(table).leaderAssignment(42);
+        JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
 
-        String result = compute.<Integer, String>executeColocatedAsync(
-                "test",
-                1,
-                Mapper.of(Integer.class),
-                testDeploymentUnits,
-                "org.example.SimpleJob",
-                "a", 42
-        ).get();
+        assertThat(
+                compute.executeAsync(singleton(remoteNode), testDeploymentUnits, JOB_CLASS_NAME, options, "a", 42),
+                willBe("remoteResponse")
+        );
 
-        assertThat(result, is("remoteResponse"));
+        verifyExecuteRemotelyWithFailover(expectedOptions);
+    }
+
+    @Test
+    void executesColocatedOnLeaderNodeOfPartitionCorrespondingToTupleKey() {
+        respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
+        respondWhenAskForPrimaryReplica();
+
+        assertThat(
+                compute.executeColocatedAsync(
+                        "test",
+                        Tuple.create(Map.of("k", 1)),
+                        testDeploymentUnits,
+                        JOB_CLASS_NAME,
+                        "a", 42
+                ),
+                willBe("remoteResponse")
+        );
+    }
+
+    @Test
+    void executesColocatedOnLeaderNodeOfPartitionCorrespondingToMappedKey() {
+        respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
+        respondWhenAskForPrimaryReplica();
+
+        assertThat(
+                compute.executeColocatedAsync(
+                        "test",
+                        1,
+                        Mapper.of(Integer.class),
+                        testDeploymentUnits,
+                        JOB_CLASS_NAME,
+                        "a", 42
+                ),
+                willBe("remoteResponse")
+        );
+    }
+
+    @Test
+    void executeBroadcastAsync() {
+        respondWhenExecutingSimpleJobLocally(ExecutionOptions.DEFAULT);
+        respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
+
+        CompletableFuture<Map<ClusterNode, String>> future = compute.executeBroadcastAsync(
+                Set.of(localNode, remoteNode), testDeploymentUnits, JOB_CLASS_NAME, "a", 42
+        );
+
+        assertThat(future, willBe(aMapWithSize(2)));
+        assertThat(future.join().keySet(), contains(localNode, remoteNode));
+        assertThat(future.join().values(), contains("jobResponse", "remoteResponse"));
+    }
+
+    private void respondWhenAskForPrimaryReplica() {
+        when(igniteTables.tableViewAsync("TEST")).thenReturn(completedFuture(table));
+        ReplicaMeta replicaMeta = mock(ReplicaMeta.class);
+        doReturn("").when(replicaMeta).getLeaseholderId();
+        CompletableFuture<ReplicaMeta> toBeReturned = completedFuture(replicaMeta);
+        doReturn(toBeReturned).when(placementDriver).awaitPrimaryReplica(any(), any(), anyLong(), any());
+        doReturn(remoteNode).when(topologyService).getById(any());
+    }
+
+    private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions) {
+        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, "a", 42))
+                .thenReturn(completedExecution("jobResponse"));
+    }
+
+    private void respondWhenExecutingSimpleJobRemotely(ExecutionOptions options) {
+        when(computeComponent.executeRemotelyWithFailover(
+                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), aryEq(new Object[]{"a", 42})
+        )).thenReturn(completedExecution("remoteResponse"));
+    }
+
+    private void verifyExecuteRemotelyWithFailover(ExecutionOptions options) {
+        verify(computeComponent).executeRemotelyWithFailover(
+                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), aryEq(new Object[]{"a", 42})
+        );
+    }
+
+    private static <R> JobExecution<R> completedExecution(R result) {
+        return new JobExecution<>() {
+            @Override
+            public CompletableFuture<R> resultAsync() {
+                return completedFuture(result);
+            }
+
+            @Override
+            public CompletableFuture<@Nullable JobStatus> statusAsync() {
+                return nullCompletedFuture();
+            }
+
+            @Override
+            public CompletableFuture<@Nullable Boolean> cancelAsync() {
+                return trueCompletedFuture();
+            }
+
+            @Override
+            public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
+                return nullCompletedFuture();
+            }
+        };
     }
 }

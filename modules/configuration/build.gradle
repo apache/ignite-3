@@ -25,6 +25,7 @@ description = 'ignite-configuration'
 dependencies {
     api project(':ignite-configuration-api')
 
+    implementation project(':ignite-api')
     implementation project(':ignite-bytecode')
     implementation project(':ignite-core')
     implementation libs.jetbrains.annotations

@@ -17,29 +17,27 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.status;
 
+import static java.util.stream.Collectors.joining;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
-import org.junit.jupiter.api.BeforeAll;
+import java.util.Arrays;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Tests for {@link ClusterStatusCommand} for the cluster that is initialized.
  */
-class ItClusterStatusCommandInitializedTest extends CliCommandTestInitializedIntegrationBase {
-
-    String metaStorageNodeName;
-
-    @BeforeAll
-    void setUpMsNodeName(TestInfo testInfo) {
-        metaStorageNodeName = metaStorageNodeName(testInfo);
-    }
-
+class ItClusterStatusCommandInitializedTest extends CliIntegrationTest {
     @Test
     @DisplayName("Should print status when valid cluster url is given but cluster is initialized")
     void printStatus() {
+        String cmgNodes = Arrays.stream(cmgMetastoreNodes())
+                .mapToObj(CLUSTER::node)
+                .map(IgniteImpl::name)
+                .collect(joining(", ", "[", "]"));
+
         execute("cluster", "status", "--cluster-endpoint-url", NODE_URL);
 
         assertAll(
@@ -48,8 +46,8 @@ class ItClusterStatusCommandInitializedTest extends CliCommandTestInitializedInt
                 () -> assertOutputContains("name: cluster"),
                 () -> assertOutputContains("nodes: 3"),
                 () -> assertOutputContains("status: active"),
-                () -> assertOutputContains("cmgNodes: [" + metaStorageNodeName + "]"),
-                () -> assertOutputContains("msNodes: [" + metaStorageNodeName + "]")
+                () -> assertOutputContains("cmgNodes: " + cmgNodes),
+                () -> assertOutputContains("msNodes: " + cmgNodes)
         );
     }
 }

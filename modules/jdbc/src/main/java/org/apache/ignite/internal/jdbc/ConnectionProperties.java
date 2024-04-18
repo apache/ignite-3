@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.jdbc;
 
 import java.sql.SQLException;
+import java.time.ZoneId;
 import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.internal.client.HostAndPort;
 
@@ -231,26 +232,40 @@ public interface ConnectionProperties {
      *
      * @return Basic authentication username.
      */
-    String getBasicAuthenticationUsername();
+    String getUsername();
 
     /**
-     * Set basic authentication username.
+     * Set username.
      *
-     * @param username Basic authentication username.
+     * @param username Username.
      */
-    void setBasicAuthenticationUsername(String username);
+    void setUsername(String username);
 
     /**
-     * Basic authentication password.
+     * Password.
      *
-     * @return Basic authentication password.
+     * @return Password.
      */
-    String getBasicAuthenticationPassword();
+    String getPassword();
 
     /**
-     * Set basic authentication password.
+     * Set password.
      *
-     * @param password Basic authentication password.
+     * @param password Password.
      */
-    void setBasicAuthenticationPassword(String password);
+    void setPassword(String password);
+
+    /**
+     * Get connection time zone ID.
+     *
+     * @return Connection time zone ID.
+     */
+    ZoneId getConnectionTimeZone();
+
+    /**
+     * Set connection time zone ID.
+     *
+     * @param timeZoneId Connection time zone ID.
+     */
+    void setConnectionTimeZone(ZoneId timeZoneId);
 }

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.metastorage.command;
 
 import java.util.List;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Put all command for MetaStorageCommandListener that inserts or updates entries with given keys and given values.

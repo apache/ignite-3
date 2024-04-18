@@ -23,7 +23,8 @@ import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
-import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
+import org.apache.ignite.internal.sql.engine.util.tpch.TpchHelper;
+import org.apache.ignite.internal.sql.engine.util.tpch.TpchTables;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -48,12 +49,12 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
-@Fork(3)
+@Fork(1)
 @State(Scope.Benchmark)
 public class TpchPrepareBenchmark {
 
     /**
-     * Identifiers of TPC-H queries. See {@link TpchQueries#getQuery(String)}.
+     * Identifiers of TPC-H queries. See {@link TpchHelper#getQuery(String)}.
      */
     @Param({
             "1", "2", "3", "4", "5", "6", "7", "8", "8v", "9", "10", "11", "12", "12v",
@@ -70,16 +71,18 @@ public class TpchPrepareBenchmark {
     /** Starts the cluster and prepares the plan of the query. */
     @Setup
     public void setUp() {
-        var clusterBuilder = TestBuilders.cluster().nodes("N1");
-        TpchSchema.registerTables(clusterBuilder, 1, 10);
-
-        testCluster = clusterBuilder.build();
+        testCluster = TestBuilders.cluster().nodes("N1").build();
 
         testCluster.start();
+
         gatewayNode = testCluster.node("N1");
 
-        String query = TpchQueries.getQuery(queryId);
-        parsedResult = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE).parse(query);
+        for (TpchTables table : TpchTables.values()) {
+            gatewayNode.initSchema(table.ddlScript());
+        }
+
+        String query = TpchHelper.getQuery(queryId);
+        parsedResult = new ParserServiceImpl().parse(query);
     }
 
     /** Stops the cluster. */
@@ -106,7 +109,7 @@ public class TpchPrepareBenchmark {
      */
     public static void main(String[] args) throws Exception {
         Options build = new OptionsBuilder()
-                //.addProfiler("gc")
+                // .addProfiler("gc")
                 .include(TpchPrepareBenchmark.class.getName())
                 .build();
 

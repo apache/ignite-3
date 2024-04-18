@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.gc;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +25,6 @@ import org.junit.jupiter.api.BeforeEach;
 class TestGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
     @BeforeEach
     void setUp() {
-        initialize(new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT));
+        initialize(new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT));
     }
 }

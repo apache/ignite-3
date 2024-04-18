@@ -20,7 +20,7 @@ package org.apache.ignite.internal.placementdriver.message;
 import static org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup.GROUP_NAME;
 import static org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup.GROUP_TYPE;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.internal.network.annotations.MessageGroup;
 
 /**
  * Message group for placement driver messages.

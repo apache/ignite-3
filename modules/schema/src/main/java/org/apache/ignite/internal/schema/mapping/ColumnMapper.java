@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.schema.mapping;
 
 import org.apache.ignite.internal.schema.Column;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Column mapper interface.
@@ -30,7 +29,7 @@ public interface ColumnMapper {
      * @param col Column descriptor.
      * @return {@code this} for chaining.
      */
-    public ColumnMapper add(@NotNull Column col);
+    public ColumnMapper add(Column col);
 
     /**
      * Remap column with new index.

@@ -31,14 +31,61 @@ class ConnectCommandTest extends CliCommandTestBase {
     }
 
     @Test
-    @DisplayName("Should throw error if provided an unknown node name")
-    void unknownNodeName() {
+    void invalidNodeUrl() {
         execute("nodeName");
 
         assertAll(
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Node nodeName not found. Provide valid name or use URL")
+                () -> assertErrOutputContains("Invalid URL 'nodeName' (no protocol: nodeName)")
+        );
+    }
+
+    @Test
+    @DisplayName("Should throw error if only username provided")
+    void usernameOnly() {
+        execute("http://localhost:1111 --username user ");
+
+        assertAll(
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Error: Missing required argument(s): --password=<password>")
+        );
+    }
+
+    @Test
+    @DisplayName("Should throw error if only short username provided")
+    void shortUsernameOnly() {
+        execute("http://localhost:1111 -u user ");
+
+        assertAll(
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Error: Missing required argument(s): --password=<password>")
+        );
+    }
+
+    @Test
+    @DisplayName("Should throw error if only password provided")
+    void passwordOnly() {
+        execute("http://localhost:1111 --password password");
+
+        assertAll(
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Error: Missing required argument(s): --username=<username>")
+        );
+    }
+
+    @Test
+    @DisplayName("Should throw error if only short password provided")
+    void shortPasswordOnly() {
+        execute("http://localhost:1111 -p password");
+
+        assertAll(
+                () -> assertExitCodeIs(2),
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("Error: Missing required argument(s): --username=<username>")
         );
     }
 }

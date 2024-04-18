@@ -22,12 +22,13 @@ import static org.apache.ignite.internal.configuration.validation.TestValidation
 import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.configuration.validation.PowerOfTwo;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * For {@link PowerOfTwoValidator} testing.
  */
-public class PowerOfTwoValidatorTest {
+public class PowerOfTwoValidatorTest extends BaseIgniteAbstractTest {
     @Test
     void testValidationSuccess() {
         PowerOfTwo powerOfTwo = mock(PowerOfTwo.class);

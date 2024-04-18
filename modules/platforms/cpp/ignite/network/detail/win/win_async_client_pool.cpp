@@ -46,7 +46,7 @@ win_async_client_pool::~win_async_client_pool() {
 
 void win_async_client_pool::start(std::vector<tcp_range> addrs, uint32_t connLimit) {
     if (!m_stopping)
-        throw ignite_error(status_code::GENERIC, "Client pool is already started");
+        throw ignite_error(error::code::CONNECTION, "Client pool is already started");
 
     m_stopping = false;
 
@@ -180,14 +180,8 @@ void win_async_client_pool::close_and_release(uint64_t id, std::optional<ignite_
     if (closed) {
         m_connecting_thread.notify_free_address(client->get_range());
 
-        ignite_error err0(client->get_close_error());
-        if (err0.get_status_code() == status_code::SUCCESS)
-            err0 = ignite_error(status_code::NETWORK, "Connection closed by server");
-
-        if (!err)
-            err = std::move(err0);
-
-        handle_connection_closed(id, std::move(err));
+        err = client->get_close_error();
+        handle_connection_closed(id, err);
     }
 }
 

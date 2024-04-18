@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
  * Entry point for obtaining physical cluster topology information.
  */
 // TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
-public interface TopologyService {
+public interface TopologyService extends ClusterNodeResolver {
     /**
      * Returns information about the current node.
      *
@@ -53,12 +53,4 @@ public interface TopologyService {
      * @return The node object; {@code null} if the node has not been discovered or is offline.
      */
     @Nullable ClusterNode getByAddress(NetworkAddress addr);
-
-    /**
-     * Returns a cluster node specified by its consistent ID.
-     *
-     * @param consistentId Consistent ID.
-     * @return The node object; {@code null} if the node has not been discovered or is offline.
-     */
-    @Nullable ClusterNode getByConsistentId(String consistentId);
 }

@@ -50,6 +50,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -59,14 +60,13 @@ import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
-import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
@@ -75,7 +75,6 @@ import org.apache.ignite.raft.server.counter.GetValueCommand;
 import org.apache.ignite.raft.server.counter.IncrementAndGetCommand;
 import org.apache.ignite.raft.server.snasphot.SnapshotInMemoryStorageFactory;
 import org.apache.ignite.raft.server.snasphot.UpdateCountRaftListener;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -91,6 +90,12 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
      * Counter group name 1.
      */
     private static final TestReplicationGroupId COUNTER_GROUP_1 = new TestReplicationGroupId("counter1");
+
+    /** Amount of stripes for disruptors that are used by JRAFT. */
+    private static final int RAFT_STRIPES = 3;
+
+    /** Amount of stripes for disruptors that are used by the log service for JRAFT. */
+    private static final int RAFT_LOG_STRIPES = 1;
 
     /**
      * Listener factory.
@@ -109,11 +114,13 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
                 Peer serverPeer = initialMembersConf.peer(localNodeName);
 
+                RaftGroupOptions groupOptions = groupOptions(raftServer);
+
                 raftServer.startRaftNode(
-                        new RaftNodeId(COUNTER_GROUP_0, serverPeer), initialMembersConf, listenerFactory.get(), defaults()
+                        new RaftNodeId(COUNTER_GROUP_0, serverPeer), initialMembersConf, listenerFactory.get(), groupOptions
                 );
                 raftServer.startRaftNode(
-                        new RaftNodeId(COUNTER_GROUP_1, serverPeer), initialMembersConf, listenerFactory.get(), defaults()
+                        new RaftNodeId(COUNTER_GROUP_1, serverPeer), initialMembersConf, listenerFactory.get(), groupOptions
                 );
             }, opts -> {});
         }
@@ -132,8 +139,12 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
             var nodeId = new RaftNodeId(new TestReplicationGroupId("test_raft_group"), initialMembersConf.peer(localNodeName));
 
-            raftServer.startRaftNode(nodeId, initialMembersConf, listenerFactory.get(), defaults());
-        }, opts -> {});
+            raftServer.startRaftNode(nodeId, initialMembersConf, listenerFactory.get(), groupOptions(raftServer));
+        }, opts -> {
+            opts.setStripes(RAFT_STRIPES);
+            opts.setLogStripesCount(RAFT_LOG_STRIPES);
+            opts.setLogYieldStrategy(true);
+        });
 
         Set<Thread> threads = getAllDisruptorCurrentThreads();
 
@@ -141,7 +152,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         Set<String> threadNamesBefore = threads.stream().map(Thread::getName).collect(toSet());
 
-        assertEquals(NodeOptions.DEFAULT_STRIPES * 4/*services*/, threadsBefore, "Started thread names: " + threadNamesBefore);
+        assertEquals(RAFT_STRIPES * 3/* services */ + RAFT_LOG_STRIPES, threadsBefore, "Started thread names: " + threadNamesBefore);
 
         servers.forEach(srv -> {
             String localNodeName = srv.clusterService().topologyService().localMember().name();
@@ -151,7 +162,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
             for (int i = 0; i < 10; i++) {
                 var nodeId = new RaftNodeId(new TestReplicationGroupId("test_raft_group_" + i), serverPeer);
 
-                srv.startRaftNode(nodeId, initialMembersConf, listenerFactory.get(), defaults());
+                srv.startRaftNode(nodeId, initialMembersConf, listenerFactory.get(), groupOptions(srv));
             }
         });
 
@@ -171,7 +182,6 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
      *
      * @return Set of Disruptor threads.
      */
-    @NotNull
     private Set<Thread> getAllDisruptorCurrentThreads() {
         return Thread.getAllStackTraces().keySet().stream().filter(t ->
                         t.getName().contains("JRaft-FSMCaller-Disruptor")
@@ -537,7 +547,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
                         Peer serverPeer = initialMembersConf.peer(localNodeName);
 
-                        srv.startRaftNode(new RaftNodeId(groupId, serverPeer), initialMembersConf, listenerFactory.get(), defaults());
+                        RaftGroupOptions groupOptions = groupOptions(srv);
+                        srv.startRaftNode(new RaftNodeId(groupId, serverPeer), initialMembersConf, listenerFactory.get(), groupOptions);
                     }
                 }));
             }
@@ -594,7 +605,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
                 var listener = new UpdateCountRaftListener(counter, snapshotDataStorage);
 
-                RaftGroupOptions opts = defaults().snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage));
+                RaftGroupOptions opts = groupOptions(raftServer)
+                        .snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage));
 
                 raftServer.startRaftNode(new RaftNodeId(grpId, serverPeer), initialMembersConf, listener, opts);
             }, opts -> {});
@@ -656,16 +668,15 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
                 var listener = new UpdateCountRaftListener(counter, snapshotDataStorage);
 
-                RaftGroupOptions opts = defaults().snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage));
+                RaftGroupOptions opts = groupOptions(raftServer)
+                        .snapshotStorageFactory(new SnapshotInMemoryStorageFactory(snapshotMetaStorage));
 
                 raftServer.startRaftNode(new RaftNodeId(grpId, serverPeer), initialMembersConf, listener, opts);
-
-                raftServer.raftNodeReadyFuture(grpId).join();
             }, opts -> {});
         }
 
         for (AtomicInteger counter : counters.values()) {
-            assertEquals(3, counter.get());
+            assertTrue(waitForCondition(() -> counter.get() == 3, 10_000));
         }
     }
 
@@ -791,8 +802,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
             Peer serverPeer = initialMembersConf.peer(localNodeName);
 
-            r.startRaftNode(new RaftNodeId(COUNTER_GROUP_0, serverPeer), initialMembersConf, listenerFactory.get(), defaults());
-            r.startRaftNode(new RaftNodeId(COUNTER_GROUP_1, serverPeer), initialMembersConf, listenerFactory.get(), defaults());
+            r.startRaftNode(new RaftNodeId(COUNTER_GROUP_0, serverPeer), initialMembersConf, listenerFactory.get(), groupOptions(r));
+            r.startRaftNode(new RaftNodeId(COUNTER_GROUP_1, serverPeer), initialMembersConf, listenerFactory.get(), groupOptions(r));
         }, opts -> {});
 
         waitForCondition(() -> validateStateMachine(sum(20), svc2, COUNTER_GROUP_0), 5_000);
@@ -810,8 +821,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
             Peer serverPeer = initialMembersConf.peer(localNodeName);
 
-            r.startRaftNode(new RaftNodeId(COUNTER_GROUP_0, serverPeer), initialMembersConf, listenerFactory.get(), defaults());
-            r.startRaftNode(new RaftNodeId(COUNTER_GROUP_1, serverPeer), initialMembersConf, listenerFactory.get(), defaults());
+            r.startRaftNode(new RaftNodeId(COUNTER_GROUP_0, serverPeer), initialMembersConf, listenerFactory.get(), groupOptions(r));
+            r.startRaftNode(new RaftNodeId(COUNTER_GROUP_1, serverPeer), initialMembersConf, listenerFactory.get(), groupOptions(r));
         }, opts -> {});
 
         waitForCondition(() -> validateStateMachine(sum(20), svc3, COUNTER_GROUP_0), 5_000);
@@ -827,7 +838,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
      * @return The counter value.
      * @throws Exception If failed.
      */
-    private static long applyIncrements(RaftGroupService client, int start, int stop) throws Exception {
+    private long applyIncrements(RaftGroupService client, int start, int stop) throws Exception {
         long val = 0;
 
         for (int i = start; i <= stop; i++) {
@@ -865,5 +876,17 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         var fsm0 = (JraftServerImpl.DelegatingStateMachine) svc.getRaftNode().getOptions().getFsm();
 
         return expected == ((CounterListener) fsm0.getListener()).value();
+    }
+
+    @Test
+    public void testReadIndex() throws Exception {
+        startCluster();
+        long index = clients.get(0).readIndex().join();
+        clients.get(0).<Long>run(incrementAndGetCommand(1)).get();
+        assertEquals(index + 1, clients.get(0).readIndex().join());
+    }
+
+    private static RaftGroupOptions groupOptions(RaftServer raftServer) {
+        return defaults().commandsMarshaller(new ThreadLocalOptimizedMarshaller(raftServer.clusterService().serializationRegistry()));
     }
 }

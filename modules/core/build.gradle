@@ -15,10 +15,6 @@
  * limitations under the License.
  */
 
-plugins {
-    alias(libs.plugins.shadow)
-}
-
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
@@ -29,25 +25,33 @@ description = 'ignite-core'
 dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
+    implementation project(':ignite-api')
+
+    testAnnotationProcessor libs.auto.service
+
+    testImplementation libs.auto.service.annotations
     testImplementation libs.hamcrest.core
     testImplementation libs.junit.testkit
     testImplementation libs.mockito.core
-    testImplementation libs.mockito.inline
     testImplementation libs.mockito.junit
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
 
     testFixturesAnnotationProcessor libs.auto.service
+    testFixturesAnnotationProcessor libs.micronaut.inject.annotation.processor
 
+    testFixturesImplementation project(":ignite-api")
+    testFixturesImplementation libs.auto.service.annotations
     testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation libs.mockito.core
-    testFixturesImplementation libs.junit.testkit
     testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation libs.junit.testkit
     testFixturesImplementation libs.junit5.api
     testFixturesImplementation libs.junit5.impl
     testFixturesImplementation libs.junit5.params
+    testFixturesImplementation libs.micronaut.junit5
     testFixturesImplementation libs.mockito.core
-    testFixturesImplementation libs.auto.service.annotations
+    testFixturesImplementation libs.mockito.core
+    testFixturesImplementation libs.typesafe.config
 }
 
 test {
@@ -56,13 +60,4 @@ test {
         excludeTestsMatching "*VariableSourceTest\$*"
         excludeTestsMatching "*WorkDirectoryExtensionTest\$*"
     }
-}
-
-shadowJar {
-    archiveAppendix.set('shaded')
-    archiveClassifier.set('shaded')
-
-    minimize()
-
-    relocate('it.unimi.dsi.fastutil', 'it.unimi.dsi.shaded.fastutil')
 }

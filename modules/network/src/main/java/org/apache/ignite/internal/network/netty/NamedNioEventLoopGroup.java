@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static java.util.Collections.emptySet;
+
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.netty.util.concurrent.FastThreadLocalThread;
+import java.util.Set;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.thread.ThreadAttributes;
+import org.apache.ignite.internal.thread.ThreadOperation;
 
 /**
  * Named netty event loop.
@@ -59,7 +64,9 @@ public class NamedNioEventLoopGroup extends NioEventLoopGroup {
     /**
      * Marker class for network threads. Basically is just a {@link FastThreadLocalThread}.
      */
-    public static class NetworkThread extends FastThreadLocalThread {
+    public static class NetworkThread extends FastThreadLocalThread implements ThreadAttributes {
+        private static final Set<ThreadOperation> ALLOWED_OPERATIONS = emptySet();
+
         /**
          * Constructor.
          *
@@ -69,6 +76,11 @@ public class NamedNioEventLoopGroup extends NioEventLoopGroup {
          */
         public NetworkThread(ThreadGroup group, Runnable target, String name) {
             super(group, target, name);
+        }
+
+        @Override
+        public Set<ThreadOperation> allowedOperations() {
+            return ALLOWED_OPERATIONS;
         }
     }
 }

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.client;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Client.CLUSTER_ID_MISMATCH_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONFIGURATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
@@ -35,7 +38,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -53,6 +58,8 @@ import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -102,12 +109,18 @@ public final class ReliableChannel implements AutoCloseable {
     /** Cache addresses returned by {@code ThinClientAddressFinder}. */
     private volatile String[] prevHostAddrs;
 
-    /** Local topology assignment version. Instead of using event handlers to notify all tables about assignment change,
-     * the table will compare its version with channel version to detect an update. */
-    private final AtomicLong assignmentVersion = new AtomicLong();
+    /** Latest known partition assignment timestamp (for any table). */
+    private final AtomicLong partitionAssignmentTimestamp = new AtomicLong();
+
+    /** Observable timestamp, or causality token. Sent by the server with every response, and required by some requests. */
+    private final AtomicLong observableTimestamp = new AtomicLong();
 
     /** Cluster id from the first handshake. */
     private final AtomicReference<UUID> clusterId = new AtomicReference<>();
+
+    /** Scheduled executor for streamer flush. */
+    @Nullable
+    private ScheduledExecutorService streamerFlushExecutor;
 
     /**
      * Constructor.
@@ -130,18 +143,21 @@ public final class ReliableChannel implements AutoCloseable {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void close() {
+    public synchronized void close() throws Exception {
         closed = true;
 
         List<ClientChannelHolder> holders = channels;
 
-        if (holders != null) {
-            for (ClientChannelHolder hld : holders) {
-                hld.close();
-            }
-        }
-
-        connMgr.stop();
+        IgniteUtils.closeAllManually(
+                () -> {
+                    if (holders != null) {
+                        for (ClientChannelHolder hld : holders) {
+                            hld.close();
+                        }
+                    }
+                },
+                connMgr::stop,
+                () -> shutdownAndAwaitTermination(streamerFlushExecutor, 10, TimeUnit.SECONDS));
     }
 
     /**
@@ -180,6 +196,10 @@ public final class ReliableChannel implements AutoCloseable {
         return clientCfg;
     }
 
+    public long observableTimestamp() {
+        return observableTimestamp.get();
+    }
+
     /**
      * Sends request and handles response asynchronously.
      *
@@ -194,14 +214,15 @@ public final class ReliableChannel implements AutoCloseable {
      */
     public <T> CompletableFuture<T> serviceAsync(
             int opCode,
-            PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader,
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader,
             @Nullable String preferredNodeName,
-            @Nullable RetryPolicy retryPolicyOverride
+            @Nullable RetryPolicy retryPolicyOverride,
+            boolean expectNotifications
     ) {
         return ClientFutureUtils.doWithRetryAsync(
                 () -> getChannelAsync(preferredNodeName)
-                        .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, ch)),
+                        .thenCompose(ch -> serviceAsyncInternal(opCode, payloadWriter, payloadReader, expectNotifications, ch)),
                 null,
                 ctx -> shouldRetry(opCode, ctx, retryPolicyOverride));
     }
@@ -218,9 +239,9 @@ public final class ReliableChannel implements AutoCloseable {
     public <T> CompletableFuture<T> serviceAsync(
             int opCode,
             PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader
+            @Nullable PayloadReader<T> payloadReader
     ) {
-        return serviceAsync(opCode, payloadWriter, payloadReader, null, null);
+        return serviceAsync(opCode, payloadWriter, payloadReader, null, null, false);
     }
 
     /**
@@ -232,15 +253,16 @@ public final class ReliableChannel implements AutoCloseable {
      * @return Future for the operation.
      */
     public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader) {
-        return serviceAsync(opCode, null, payloadReader, null, null);
+        return serviceAsync(opCode, null, payloadReader, null, null, false);
     }
 
     private <T> CompletableFuture<T> serviceAsyncInternal(
             int opCode,
-            PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader,
+            @Nullable PayloadWriter payloadWriter,
+            @Nullable PayloadReader<T> payloadReader,
+            boolean expectNotifications,
             ClientChannel ch) {
-        return ch.serviceAsync(opCode, payloadWriter, payloadReader).whenComplete((res, err) -> {
+        return ch.serviceAsync(opCode, payloadWriter, payloadReader, expectNotifications).whenComplete((res, err) -> {
             if (err != null && unwrapConnectionException(err) != null) {
                 onChannelFailure(ch);
             }
@@ -255,7 +277,7 @@ public final class ReliableChannel implements AutoCloseable {
             if (holder != null) {
                 return holder.getOrCreateChannelAsync().thenCompose(ch -> {
                     if (ch != null) {
-                        return CompletableFuture.completedFuture(ch);
+                        return completedFuture(ch);
                     } else {
                         return getDefaultChannelAsync();
                     }
@@ -267,7 +289,7 @@ public final class ReliableChannel implements AutoCloseable {
         ClientChannel nextCh = getNextChannelWithoutReconnect();
 
         if (nextCh != null) {
-            return CompletableFuture.completedFuture(nextCh);
+            return completedFuture(nextCh);
         }
 
         // 3. Default connection (with reconnect if necessary).
@@ -380,7 +402,6 @@ public final class ReliableChannel implements AutoCloseable {
             String[] hostAddrs = clientCfg.addressesFinder().getAddresses();
 
             if (hostAddrs.length == 0) {
-                //noinspection NonPrivateFieldAccessedInSynchronizedContext
                 throw new IgniteException(CONFIGURATION_ERR, "Empty addresses");
             }
 
@@ -479,7 +500,7 @@ public final class ReliableChannel implements AutoCloseable {
     CompletableFuture<ClientChannel> channelsInitAsync() {
         // Do not establish connections if interrupted.
         if (!initChannelHolders()) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         // Establish default channel connection.
@@ -547,11 +568,11 @@ public final class ReliableChannel implements AutoCloseable {
             var hld = channels.get(defaultChIdx);
 
             if (hld == null) {
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
 
             CompletableFuture<ClientChannel> fut = hld.getOrCreateChannelAsync();
-            return fut == null ? CompletableFuture.completedFuture(null) : fut;
+            return fut == null ? nullCompletedFuture() : fut;
         } finally {
             curChannelsGuard.readLock().unlock();
         }
@@ -649,25 +670,37 @@ public final class ReliableChannel implements AutoCloseable {
         }
     }
 
-    private void onTopologyAssignmentChanged(ClientChannel clientChannel) {
-        // NOTE: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
-        // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
-        // So we only react to updates from the default channel. When no user-initiated operations are performed on the default
-        // channel, heartbeat messages will trigger updates.
-        CompletableFuture<ClientChannel> ch = channels.get(defaultChIdx).chFut;
+    private void onObservableTimestampReceived(long newTs) {
+        observableTimestamp.updateAndGet(curTs -> Math.max(curTs, newTs));
+    }
 
-        if (ch != null && clientChannel == ClientFutureUtils.getNowSafe(ch)) {
-            assignmentVersion.incrementAndGet();
-        }
+    private void onPartitionAssignmentChanged(long timestamp) {
+        partitionAssignmentTimestamp.updateAndGet(curTs -> Math.max(curTs, timestamp));
     }
 
     /**
-     * Gets the local partition assignment version.
+     * Gets the last known primary replica start time (for any table).
      *
-     * @return Assignment version.
+     * @return Primary replica max start time.
      */
-    public long partitionAssignmentVersion() {
-        return assignmentVersion.get();
+    public long partitionAssignmentTimestamp() {
+        return partitionAssignmentTimestamp.get();
+    }
+
+    /**
+     * Gets the data streamer flush scheduled executor.
+     *
+     * @return Streamer flush executor.
+     */
+    public synchronized ScheduledExecutorService streamerFlushExecutor() {
+        if (streamerFlushExecutor == null) {
+            streamerFlushExecutor = Executors.newSingleThreadScheduledExecutor(
+                    new NamedThreadFactory(
+                            "client-data-streamer-flush-" + hashCode(),
+                            ClientUtils.logger(clientCfg, ReliableChannel.class)));
+        }
+
+        return streamerFlushExecutor;
     }
 
     @Nullable
@@ -752,7 +785,7 @@ public final class ReliableChannel implements AutoCloseable {
          */
         private CompletableFuture<ClientChannel> getOrCreateChannelAsync(boolean ignoreThrottling) {
             if (close) {
-                return CompletableFuture.completedFuture(null);
+                return nullCompletedFuture();
             }
 
             var chFut0 = chFut;
@@ -763,7 +796,7 @@ public final class ReliableChannel implements AutoCloseable {
 
             synchronized (this) {
                 if (close) {
-                    return CompletableFuture.completedFuture(null);
+                    return nullCompletedFuture();
                 }
 
                 chFut0 = chFut;
@@ -792,7 +825,8 @@ public final class ReliableChannel implements AutoCloseable {
                                 "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + ch.protocolContext().clusterId());
                     }
 
-                    ch.addTopologyAssignmentChangeListener(ReliableChannel.this::onTopologyAssignmentChanged);
+                    ch.addPartitionAssignmentChangeListener(ReliableChannel.this::onPartitionAssignmentChanged);
+                    ch.addObservableTimestampListener(ReliableChannel.this::onObservableTimestampReceived);
 
                     ClusterNode newNode = ch.protocolContext().clusterNode();
 

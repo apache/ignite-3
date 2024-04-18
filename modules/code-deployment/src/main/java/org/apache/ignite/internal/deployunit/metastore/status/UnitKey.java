@@ -23,7 +23,7 @@ import java.util.Base64;
 import java.util.Base64.Encoder;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.internal.lang.ByteArray;
 
 /**
  * Helper for deployment units metastore keys generation.

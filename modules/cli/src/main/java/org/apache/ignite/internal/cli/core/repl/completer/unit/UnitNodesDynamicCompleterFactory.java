@@ -20,11 +20,11 @@ package org.apache.ignite.internal.cli.core.repl.completer.unit;
 import jakarta.inject.Singleton;
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.ignite.internal.cli.commands.cluster.unit.NodesAlias;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactory;
 import org.apache.ignite.internal.cli.core.repl.completer.StringDynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
-import org.apache.ignite.rest.client.model.DeployMode;
 
 /** Factory for --nodes option completer. */
 @Singleton
@@ -39,8 +39,8 @@ public class UnitNodesDynamicCompleterFactory implements DynamicCompleterFactory
     @Override
     public DynamicCompleter getDynamicCompleter(String[] words) {
         Set<String> values = new HashSet<>(nodeNameRegistry.names());
-        for (DeployMode mode : DeployMode.values()) {
-            values.add(mode.getValue());
+        for (NodesAlias alias : NodesAlias.values()) {
+            values.add(alias.name());
         }
 
         return new StringDynamicCompleter(values);

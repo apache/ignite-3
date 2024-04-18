@@ -17,54 +17,65 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toUnmodifiableMap;
+import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
+import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.TableOptionEnum.PRIMARY_ZONE;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.TableOptionEnum.STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.AFFINITY_FUNCTION;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_FILTER;
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_STORAGE_ENGINE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.PARTITIONS;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.REPLICAS;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.STORAGE_PROFILES;
+import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToByteExact;
+import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToIntExact;
+import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToShortExact;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.fromInternal;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneOffset;
-import java.util.AbstractMap.SimpleEntry;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlIntervalLiteral;
+import org.apache.calcite.sql.SqlIntervalLiteral.IntervalValue;
+import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlUnknownLiteral;
+import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlDdlNodes;
-import org.apache.calcite.sql.ddl.SqlDropTable;
-import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.parser.SqlParserUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.DateString;
 import org.apache.calcite.util.TimeString;
@@ -73,21 +84,27 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand.Type;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand.PrimaryKeyIndexType;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneRenameTo;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSet;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSetDefault;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyConstraint;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.sql.ColumnType;
@@ -99,20 +116,8 @@ import org.jetbrains.annotations.Nullable;
  */
 // TODO: IGNITE-15859 Add documentation
 public class DdlSqlToCommandConverter {
-    private final Supplier<String> defaultDataStorageSupplier;
-
-    /**
-     * Mapping: Data storage ID -> data storage name.
-     *
-     * <p>Example for "rocksdb": {@code Map.of("ROCKSDB", "rocksdb")}.
-     */
-    private final Map<String, String> dataStorageNames;
-
     /** Mapping: Table option ID -> DDL option info. */
-    private final Map<String, DdlOptionInfo<CreateTableCommand, ?>> tableOptionInfos;
-
-    /** Like {@link #tableOptionInfos}, but for each data storage name. */
-    private final Map<String, Map<String, DdlOptionInfo<CreateZoneCommand, ?>>> dataStorageOptionInfos;
+    private final Map<TableOptionEnum, DdlOptionInfo<CreateTableCommand, ?>> tableOptionInfos;
 
     /** Mapping: Zone option ID -> DDL option info. */
     private final Map<ZoneOptionEnum, DdlOptionInfo<CreateZoneCommand, ?>> zoneOptionInfos;
@@ -125,37 +130,17 @@ public class DdlSqlToCommandConverter {
 
     /**
      * Constructor.
-     *
-     * @param dataStorageFields Data storage fields. Mapping: Data storage name -> field name -> field type.
-     * @param defaultDataStorageSupplier Default data storage supplier.
      */
-    public DdlSqlToCommandConverter(
-            Map<String, Map<String, Class<?>>> dataStorageFields,
-            Supplier<String> defaultDataStorageSupplier
-    ) {
-        this.defaultDataStorageSupplier = defaultDataStorageSupplier;
-
+    public DdlSqlToCommandConverter() {
         knownZoneOptionNames = EnumSet.allOf(ZoneOptionEnum.class)
                 .stream()
                 .map(Enum::name)
                 .collect(Collectors.toSet());
 
-        this.dataStorageNames = collectDataStorageNames(dataStorageFields.keySet());
-
-        this.tableOptionInfos = Map.of(
-                "PRIMARY_ZONE", new DdlOptionInfo<>(String.class, null, CreateTableCommand::zone)
-        );
-
-        this.dataStorageOptionInfos = dataStorageFields.entrySet()
-                .stream()
-                .collect(toUnmodifiableMap(
-                        Entry::getKey,
-                        e0 -> e0.getValue().entrySet().stream()
-                                .map(this::dataStorageFieldOptionInfo)
-                                .collect(toUnmodifiableMap(k -> k.getKey().toUpperCase(), Entry::getValue))
-                ));
-
-        dataStorageOptionInfos.values().forEach(v -> checkDuplicates(v.keySet(), tableOptionInfos.keySet()));
+        this.tableOptionInfos = new EnumMap<>(Map.of(
+                PRIMARY_ZONE, new DdlOptionInfo<>(String.class, null, CreateTableCommand::zone),
+                STORAGE_PROFILE, new DdlOptionInfo<>(String.class, this::checkEmptyString, CreateTableCommand::storageProfile)
+        ));
 
         // CREATE ZONE options.
         zoneOptionInfos = new EnumMap<>(Map.of(
@@ -163,14 +148,13 @@ public class DdlSqlToCommandConverter {
                 PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::partitions),
                 AFFINITY_FUNCTION, new DdlOptionInfo<>(String.class, null, CreateZoneCommand::affinity),
                 DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, CreateZoneCommand::nodeFilter),
-
                 DATA_NODES_AUTO_ADJUST,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjust),
                 DATA_NODES_AUTO_ADJUST_SCALE_UP,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleUp),
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommand::dataNodesAutoAdjustScaleDown),
-                DATA_STORAGE_ENGINE, new DdlOptionInfo<>(String.class, null, CreateZoneCommand::dataStorage)
+                STORAGE_PROFILES, new DdlOptionInfo<>(String.class, this::checkEmptyString, CreateZoneCommand::storageProfiles)
         ));
 
         // ALTER ZONE options.
@@ -178,7 +162,6 @@ public class DdlSqlToCommandConverter {
                 REPLICAS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::replicas),
                 PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::partitions),
                 DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, AlterZoneSetCommand::nodeFilter),
-
                 DATA_NODES_AUTO_ADJUST,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneSetCommand::dataNodesAutoAdjust),
                 DATA_NODES_AUTO_ADJUST_SCALE_UP,
@@ -199,8 +182,8 @@ public class DdlSqlToCommandConverter {
             return convertCreateTable((IgniteSqlCreateTable) ddlNode, ctx);
         }
 
-        if (ddlNode instanceof SqlDropTable) {
-            return convertDropTable((SqlDropTable) ddlNode, ctx);
+        if (ddlNode instanceof IgniteSqlDropTable) {
+            return convertDropTable((IgniteSqlDropTable) ddlNode, ctx);
         }
 
         if (ddlNode instanceof IgniteSqlAlterTableAddColumn) {
@@ -235,6 +218,10 @@ public class DdlSqlToCommandConverter {
             return convertAlterZoneSet((IgniteSqlAlterZoneSet) ddlNode, ctx);
         }
 
+        if (ddlNode instanceof IgniteSqlAlterZoneSetDefault) {
+            return convertAlterZoneSetDefault((IgniteSqlAlterZoneSetDefault) ddlNode, ctx);
+        }
+
         if (ddlNode instanceof IgniteSqlDropZone) {
             return convertDropZone((IgniteSqlDropZone) ddlNode, ctx);
         }
@@ -266,26 +253,27 @@ public class DdlSqlToCommandConverter {
 
                 String optionKey = option.key().getSimple().toUpperCase();
 
-                DdlOptionInfo<CreateTableCommand, ?> tblOptionInfo = tableOptionInfos.get(optionKey);
+                try {
+                    DdlOptionInfo<CreateTableCommand, ?> tblOptionInfo = tableOptionInfos.get(TableOptionEnum.valueOf(optionKey));
 
-                if (tblOptionInfo != null) {
-                    updateCommandOption("Table", optionKey, (SqlLiteral) option.value(), tblOptionInfo, ctx.query(), createTblCmd);
-                } else {
+                    updateCommandOption("Table", optionKey, option.value(), tblOptionInfo, ctx.query(), createTblCmd);
+                } catch (IllegalArgumentException ignored) {
                     throw new SqlException(
                             STMT_VALIDATION_ERR, String.format("Unexpected table option [option=%s, query=%s]", optionKey, ctx.query()));
                 }
             }
         }
 
-        List<SqlKeyConstraint> pkConstraints = createTblNode.columnList().getList().stream()
-                .filter(SqlKeyConstraint.class::isInstance)
-                .map(SqlKeyConstraint.class::cast)
+        List<IgniteSqlPrimaryKeyConstraint> pkConstraints = createTblNode.columnList().getList().stream()
+                .filter(IgniteSqlPrimaryKeyConstraint.class::isInstance)
+                .map(IgniteSqlPrimaryKeyConstraint.class::cast)
                 .collect(Collectors.toList());
 
         if (pkConstraints.isEmpty() && Commons.implicitPkEnabled()) {
             SqlIdentifier colName = new SqlIdentifier(Commons.IMPLICIT_PK_COL_NAME, SqlParserPos.ZERO);
 
-            pkConstraints.add(SqlKeyConstraint.primary(SqlParserPos.ZERO, null, SqlNodeList.of(colName)));
+            pkConstraints.add(new IgniteSqlPrimaryKeyConstraint(SqlParserPos.ZERO, null, SqlNodeList.of(colName),
+                    IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH));
 
             SqlDataTypeSpec type = new SqlDataTypeSpec(new SqlBasicTypeNameSpec(SqlTypeName.VARCHAR, SqlParserPos.ZERO), SqlParserPos.ZERO);
             SqlNode col = SqlDdlNodes.column(SqlParserPos.ZERO, colName, type, null, ColumnStrategy.DEFAULT);
@@ -296,23 +284,25 @@ public class DdlSqlToCommandConverter {
         if (nullOrEmpty(pkConstraints)) {
             throw new SqlException(STMT_VALIDATION_ERR, "Table without PRIMARY KEY is not supported");
         } else if (pkConstraints.size() > 1) {
-            throw new SqlException(STMT_VALIDATION_ERR, "Unexpected amount of primary key constraints ["
+            throw new SqlException(STMT_VALIDATION_ERR, "Unexpected number of primary key constraints ["
                     + "expected at most one, but was " + pkConstraints.size() + "; "
                     + "querySql=\"" + ctx.query() + "\"]");
         }
 
-        Set<String> dedupSetPk = new HashSet<>();
+        IgniteSqlPrimaryKeyConstraint pkConstraint = pkConstraints.get(0);
+        SqlNodeList columnNodes = pkConstraint.getColumnList();
 
-        List<String> pkCols = pkConstraints.stream()
-                .map(pk -> pk.getOperandList().get(1))
-                .map(SqlNodeList.class::cast)
-                .flatMap(l -> l.getList().stream())
-                .map(SqlIdentifier.class::cast)
-                .map(SqlIdentifier::getSimple)
-                .filter(dedupSetPk::add)
-                .collect(Collectors.toList());
+        List<String> pkColumns = new ArrayList<>(columnNodes.size());
+        List<Collation> pkCollations = new ArrayList<>(columnNodes.size());
 
-        createTblCmd.primaryKeyColumns(pkCols);
+        PrimaryKeyIndexType pkIndexType = convertPrimaryIndexType(pkConstraint.getIndexType());
+        boolean supportCollation = pkIndexType == PrimaryKeyIndexType.SORTED;
+
+        parseColumnList(pkConstraint.getColumnList(), pkColumns, pkCollations, supportCollation);
+
+        createTblCmd.primaryIndexType(pkIndexType);
+        createTblCmd.primaryKeyColumns(pkColumns);
+        createTblCmd.primaryKeyCollations(pkCollations);
 
         List<String> colocationCols = createTblNode.colocationColumns() == null
                 ? null
@@ -341,25 +331,10 @@ public class DdlSqlToCommandConverter {
 
             String name = col.name.getSimple();
 
-            if (col.dataType.getNullable() != null && col.dataType.getNullable() && dedupSetPk.contains(name)) {
-                throw new SqlException(STMT_VALIDATION_ERR, "Primary key cannot contain nullable column [col=" + name + "]");
-            }
+            RelDataType relType = planner.convert(col.dataType, !pkColumns.contains(name));
 
-            RelDataType relType = planner.convert(col.dataType, !dedupSetPk.contains(name));
-
-            dedupSetPk.remove(name);
-
-            DefaultValueDefinition dflt = convertDefault(col.expression, relType);
-            if (dflt.type() == DefaultValueDefinition.Type.FUNCTION_CALL && !pkCols.contains(name)) {
-                throw new SqlException(STMT_VALIDATION_ERR,
-                        "Functional defaults are not supported for non-primary key columns [col=" + name + "]");
-            }
-
+            DefaultValueDefinition dflt = convertDefault(col.expression, relType, name);
             cols.add(new ColumnDefinition(name, relType, dflt));
-        }
-
-        if (!dedupSetPk.isEmpty()) {
-            throw new SqlException(STMT_VALIDATION_ERR, "Primary key constraint contains undefined columns: [cols=" + dedupSetPk + "]");
         }
 
         createTblCmd.columns(cols);
@@ -389,10 +364,10 @@ public class DdlSqlToCommandConverter {
 
             assert col.name.isSimple();
 
-            RelDataType relType = ctx.planner().convert(col.dataType, true);
-            DefaultValueDefinition dflt = convertDefault(col.expression, relType);
-
+            Boolean nullable = col.dataType.getNullable();
+            RelDataType relType = ctx.planner().convert(col.dataType, nullable != null ? nullable : true);
             String name = col.name.getSimple();
+            DefaultValueDefinition dflt = convertDefault(col.expression, relType, name);
 
             cols.add(new ColumnDefinition(name, relType, dflt));
         }
@@ -402,18 +377,20 @@ public class DdlSqlToCommandConverter {
         return alterTblCmd;
     }
 
-    private DefaultValueDefinition convertDefault(SqlNode expression, RelDataType relType) {
-        if (expression instanceof SqlIdentifier) {
+    private static DefaultValueDefinition convertDefault(@Nullable SqlNode expression, RelDataType relType, String name) {
+        if (expression == null) {
+            return DefaultValueDefinition.constant(null);
+        } else if (expression instanceof SqlIdentifier) {
             return DefaultValueDefinition.functionCall(((SqlIdentifier) expression).getSimple());
+        } else if (expression instanceof SqlLiteral) {
+            ColumnType columnType = TypeUtils.columnType(relType);
+            assert columnType != null : "RelType to columnType conversion should not return null";
+
+            Object val = fromLiteral(columnType, name, (SqlLiteral) expression, relType.getPrecision(), relType.getScale());
+            return DefaultValueDefinition.constant(val);
+        } else {
+            throw new IllegalArgumentException("Unsupported default expression: " + expression.getKind());
         }
-
-        Object val = null;
-
-        if (expression instanceof SqlLiteral) {
-            val = fromLiteral(relType, (SqlLiteral) expression);
-        }
-
-        return DefaultValueDefinition.constant(val);
     }
 
     private AlterColumnCommand convertAlterColumn(IgniteSqlAlterColumn alterColumnNode, PlanningContext ctx) {
@@ -437,10 +414,16 @@ public class DdlSqlToCommandConverter {
 
             Function<ColumnType, DefaultValue> resolveDfltFunc;
 
+            @Nullable RelDataType relType = cmd.type();
+
+            int precision = relType == null ? PRECISION_NOT_SPECIFIED : relType.getPrecision();
+            int scale = relType == null ? SCALE_NOT_SPECIFIED : relType.getScale();
+            String name = alterColumnNode.columnName().getSimple();
+
             if (expr instanceof SqlLiteral) {
-                resolveDfltFunc = type -> DefaultValue.constant(fromLiteral(type, (SqlLiteral) expr));
+                resolveDfltFunc = type -> DefaultValue.constant(fromLiteral(type, name, (SqlLiteral) expr, precision, scale));
             } else {
-                throw new IllegalStateException("Invalid expression type " + expr.getClass().getName());
+                throw new IllegalStateException("Invalid expression type " + expr.getKind());
             }
 
             cmd.defaultValueResolver(resolveDfltFunc);
@@ -476,11 +459,11 @@ public class DdlSqlToCommandConverter {
      * @param dropTblNode Root node of the given AST.
      * @param ctx Planning context.
      */
-    private DropTableCommand convertDropTable(SqlDropTable dropTblNode, PlanningContext ctx) {
+    private DropTableCommand convertDropTable(IgniteSqlDropTable dropTblNode, PlanningContext ctx) {
         DropTableCommand dropTblCmd = new DropTableCommand();
 
-        dropTblCmd.schemaName(deriveSchemaName(dropTblNode.name, ctx));
-        dropTblCmd.tableName(deriveObjectName(dropTblNode.name, ctx, "tableName"));
+        dropTblCmd.schemaName(deriveSchemaName(dropTblNode.name(), ctx));
+        dropTblCmd.tableName(deriveObjectName(dropTblNode.name(), ctx, "tableName"));
         dropTblCmd.ifTableExists(dropTblNode.ifExists);
 
         return dropTblCmd;
@@ -497,10 +480,28 @@ public class DdlSqlToCommandConverter {
         createIdxCmd.indexName(sqlCmd.indexName().getSimple());
         createIdxCmd.type(convertIndexType(sqlCmd.type()));
 
-        List<String> columns = new ArrayList<>(sqlCmd.columnList().size());
-        List<Collation> collations = new ArrayList<>(sqlCmd.columnList().size());
+        SqlNodeList columnList = sqlCmd.columnList();
+        List<String> columns = new ArrayList<>(columnList.size());
+        List<Collation> collations = new ArrayList<>(columnList.size());
+        boolean supportCollation = createIdxCmd.type() == Type.SORTED;
 
-        for (SqlNode col : sqlCmd.columnList().getList()) {
+        parseColumnList(columnList, columns, collations, supportCollation);
+
+        createIdxCmd.columns(columns);
+        createIdxCmd.collations(collations);
+
+        createIdxCmd.ifNotExists(sqlCmd.ifNotExists());
+
+        return createIdxCmd;
+    }
+
+    private static void parseColumnList(
+            SqlNodeList columnList,
+            List<String> columns,
+            List<Collation> collations,
+            boolean supportCollation
+    ) {
+        for (SqlNode col : columnList.getList()) {
             boolean desc = false;
 
             if (col.getKind() == SqlKind.DESCENDING) {
@@ -509,19 +510,12 @@ public class DdlSqlToCommandConverter {
                 desc = true;
             }
 
-            columns.add(((SqlIdentifier) col).getSimple());
-            collations.add(desc ? Collation.DESC_NULLS_FIRST : Collation.ASC_NULLS_LAST);
+            String columnName = ((SqlIdentifier) col).getSimple();
+            columns.add(columnName);
+            if (supportCollation) {
+                collations.add(desc ? Collation.DESC_NULLS_FIRST : Collation.ASC_NULLS_LAST);
+            }
         }
-
-        createIdxCmd.columns(columns);
-
-        if (createIdxCmd.type() == Type.SORTED) {
-            createIdxCmd.collations(collations);
-        }
-
-        createIdxCmd.ifNotExists(sqlCmd.ifNotExists());
-
-        return createIdxCmd;
     }
 
     /**
@@ -548,18 +542,14 @@ public class DdlSqlToCommandConverter {
      */
     private CreateZoneCommand convertCreateZone(IgniteSqlCreateZone createZoneNode, PlanningContext ctx) {
         CreateZoneCommand createZoneCmd = new CreateZoneCommand();
-        String dataStorageName = deriveDataStorage(createZoneNode.engineName(), ctx);
 
         createZoneCmd.schemaName(deriveSchemaName(createZoneNode.name(), ctx));
         createZoneCmd.zoneName(deriveObjectName(createZoneNode.name(), ctx, "zoneName"));
         createZoneCmd.ifNotExists(createZoneNode.ifNotExists());
-        createZoneCmd.dataStorage(dataStorageName);
 
         if (createZoneNode.createOptionList() == null) {
-            return createZoneCmd;
+            throw new SqlException(STMT_VALIDATION_ERR, STORAGE_PROFILES + " option cannot be null");
         }
-
-        Map<String, DdlOptionInfo<CreateZoneCommand, ?>> dsOptInfos = dataStorageOptionInfos.get(dataStorageName);
 
         Set<String> remainingKnownOptions = new HashSet<>(knownZoneOptionNames);
 
@@ -570,14 +560,12 @@ public class DdlSqlToCommandConverter {
 
             String optionName = option.key().getSimple().toUpperCase();
 
-            DdlOptionInfo<CreateZoneCommand, ?> zoneOptionInfo;
+            DdlOptionInfo<CreateZoneCommand, ?> zoneOptionInfo = null;
 
             if (remainingKnownOptions.remove(optionName)) {
                 zoneOptionInfo = zoneOptionInfos.get(ZoneOptionEnum.valueOf(optionName));
             } else if (knownZoneOptionNames.contains(optionName)) {
                 throw duplicateZoneOption(ctx, optionName);
-            } else {
-                zoneOptionInfo = dsOptInfos != null ? dsOptInfos.get(optionName) : null;
             }
 
             if (zoneOptionInfo == null) {
@@ -585,6 +573,10 @@ public class DdlSqlToCommandConverter {
             }
 
             updateCommandOption("Zone", optionName, (SqlLiteral) option.value(), zoneOptionInfo, ctx.query(), createZoneCmd);
+        }
+
+        if (createZoneCmd.storageProfiles() == null) {
+            throw new SqlException(STMT_VALIDATION_ERR, STORAGE_PROFILES + " option cannot be null");
         }
 
         return createZoneCmd;
@@ -625,6 +617,22 @@ public class DdlSqlToCommandConverter {
         }
 
         return alterZoneCmd;
+    }
+
+    /**
+     * Converts the given {@link IgniteSqlAlterZoneSetDefault} AST node to a {@link AlterZoneSetDefaultCommand}.
+     *
+     * @param alterZoneSetDefault Root node of the given AST.
+     * @param ctx Planning context.
+     */
+    private DdlCommand convertAlterZoneSetDefault(IgniteSqlAlterZoneSetDefault alterZoneSetDefault, PlanningContext ctx) {
+        AlterZoneSetDefaultCommand cmd = new AlterZoneSetDefaultCommand();
+
+        cmd.schemaName(deriveSchemaName(alterZoneSetDefault.name(), ctx));
+        cmd.zoneName(deriveObjectName(alterZoneSetDefault.name(), ctx, "zoneName"));
+        cmd.ifExists(alterZoneSetDefault.ifExists());
+
+        return cmd;
     }
 
     /**
@@ -706,18 +714,6 @@ public class DdlSqlToCommandConverter {
     }
 
     /**
-     * Collects a mapping of the ID of the data storage to a name.
-     *
-     * <p>Example: {@code collectDataStorageNames(Set.of("rocksdb"))} -> {@code Map.of("ROCKSDB", "rocksdb")}.
-     *
-     * @param dataStorages Names of the data storages.
-     * @throws IllegalStateException If there is a duplicate ID.
-     */
-    static Map<String, String> collectDataStorageNames(Set<String> dataStorages) {
-        return dataStorages.stream().collect(toUnmodifiableMap(String::toUpperCase, identity()));
-    }
-
-    /**
      * Checks that there are no ID duplicates.
      *
      * @param set0 Set of string identifiers.
@@ -732,64 +728,77 @@ public class DdlSqlToCommandConverter {
         }
     }
 
-    private String deriveDataStorage(@Nullable SqlIdentifier engineName, PlanningContext ctx) {
-        if (engineName == null) {
-            String defaultDataStorage = defaultDataStorageSupplier.get();
-
-            return defaultDataStorage;
-        }
-
-        assert engineName.isSimple() : engineName;
-
-        String dataStorage = engineName.getSimple().toUpperCase();
-
-        if (!dataStorageNames.containsKey(dataStorage)) {
-            throw new SqlException(STMT_VALIDATION_ERR, String.format(
-                    "Unexpected data storage engine [engine=%s, expected=%s, query=%s]",
-                    dataStorage, dataStorageNames, ctx.query()
-            ));
-        }
-
-        return dataStorageNames.get(dataStorage);
-    }
-
     private <S, T> void updateCommandOption(
             String sqlObjName,
             Object optId,
-            SqlLiteral value,
+            SqlNode value,
             DdlOptionInfo<S, T> optInfo,
             String query,
             S target
     ) {
-        T value0;
+        T expectedValue = extractValueForUpdateCommandOption(sqlObjName, optId, value, optInfo, query);
+        validateValue(sqlObjName, optId, optInfo, query, expectedValue);
+        optInfo.setter.accept(target, expectedValue);
+    }
+
+    private static <T, S> T extractValueForUpdateCommandOption(
+            String sqlObjName,
+            Object optId,
+            SqlNode value,
+            DdlOptionInfo<S, T> optInfo,
+            String query
+    ) {
+        SqlKind valueKind = value.getKind();
+        switch (valueKind) {
+            case IDENTIFIER:
+                return (T) ((SqlIdentifier) value).getSimple();
+            case LITERAL:
+                return valueFromLiteralAccordingToOptionType(sqlObjName, optId, optInfo, query, (SqlLiteral) value);
+            default:
+                String msg = String.format(
+                        "Invalid %s value kind [kind=%s, expectedKind=(IDENTIFIER, LITERAL), query=%s]",
+                        sqlObjName.toLowerCase(),
+                        valueKind,
+                        query);
+                throw new SqlException(STMT_VALIDATION_ERR, msg);
+        }
+    }
+
+    private static <S, T> void validateValue(String sqlObjName, Object optId, DdlOptionInfo<S, T> optInfo, String query, T expectedValue) {
+        if (optInfo.validator == null) {
+            return;
+        }
 
         try {
-            value0 = value.getValueAs(optInfo.type);
+            optInfo.validator.accept(expectedValue);
         } catch (Throwable e) {
-            throw new SqlException(STMT_VALIDATION_ERR, String.format(
+            String msg = String.format(
+                    "%s option validation failed [option=%s, err=%s, query=%s]",
+                    sqlObjName,
+                    optId,
+                    e.getMessage(),
+                    query);
+            throw new SqlException(STMT_VALIDATION_ERR, msg, e);
+        }
+    }
+
+    private static <T, S> T valueFromLiteralAccordingToOptionType(
+            String sqlObjName,
+            Object optId,
+            DdlOptionInfo<S, T> optInfo,
+            String query,
+            SqlLiteral literalValue) {
+        try {
+            return literalValue.getValueAs(optInfo.type);
+        } catch (Throwable cause) {
+            String msg = String.format(
                     "Invalid %s option type [option=%s, expectedType=%s, query=%s]",
                     sqlObjName.toLowerCase(),
                     optId,
                     optInfo.type.getSimpleName(),
-                    query)
-            );
+                    query);
+            throw new SqlException(STMT_VALIDATION_ERR, msg, cause);
         }
-
-        if (optInfo.validator != null) {
-            try {
-                optInfo.validator.accept(value0);
-            } catch (Throwable e) {
-                throw new SqlException(STMT_VALIDATION_ERR, String.format(
-                        "%s option validation failed [option=%s, err=%s, query=%s]",
-                        sqlObjName,
-                        optId,
-                        e.getMessage(),
-                        query
-                ), e);
-            }
-        }
-
-        optInfo.setter.accept(target, value0);
     }
 
     private void checkPositiveNumber(int num) {
@@ -798,17 +807,16 @@ public class DdlSqlToCommandConverter {
         }
     }
 
-    private Entry<String, DdlOptionInfo<CreateZoneCommand, ?>> dataStorageFieldOptionInfo(Entry<String, Class<?>> e) {
-        return new SimpleEntry<>(
-                e.getKey(),
-                new DdlOptionInfo<>(e.getValue(), null, (cmd, o) -> cmd.addDataStorageOption(e.getKey(), o))
-        );
+    private void checkEmptyString(String string) {
+        if (string.isEmpty()) {
+            throw new SqlException(STMT_VALIDATION_ERR, "String cannot be empty");
+        }
     }
 
     private Type convertIndexType(IgniteSqlIndexType type) {
         switch (type) {
-            case TREE:
-            case IMPLICIT_TREE:
+            case SORTED:
+            case IMPLICIT_SORTED:
                 return Type.SORTED;
             case HASH:
                 return Type.HASH;
@@ -817,109 +825,150 @@ public class DdlSqlToCommandConverter {
         }
     }
 
-    /**
-     * Creates a value of required type from the literal.
-     */
-    private static Object fromLiteral(RelDataType columnType, SqlLiteral literal) {
-        try {
-            SqlTypeName sqlColumnType = columnType.getSqlTypeName();
-
-            switch (sqlColumnType) {
-                case VARCHAR:
-                case CHAR:
-                    return literal.getValueAs(String.class);
-                case DATE: {
-                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(sqlColumnType);
-                    return LocalDate.ofEpochDay(literal0.getValueAs(DateString.class).getDaysSinceEpoch());
-                }
-                case TIME: {
-                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(sqlColumnType);
-                    return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(literal0.getValueAs(TimeString.class).getMillisOfDay()));
-                }
-                case TIMESTAMP: {
-                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(sqlColumnType);
-                    var tsString = literal0.getValueAs(TimestampString.class);
-
-                    return LocalDateTime.ofEpochSecond(
-                            TimeUnit.MILLISECONDS.toSeconds(tsString.getMillisSinceEpoch()),
-                            (int) (TimeUnit.MILLISECONDS.toNanos(tsString.getMillisSinceEpoch() % 1000)),
-                            ZoneOffset.UTC
-                    );
-                }
-                case TIMESTAMP_WITH_LOCAL_TIME_ZONE: {
-                    // TODO: IGNITE-17376
-                    throw new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-17376");
-                }
-                case INTEGER:
-                    return literal.getValueAs(Integer.class);
-                case BIGINT:
-                    return literal.getValueAs(Long.class);
-                case SMALLINT:
-                    return literal.getValueAs(Short.class);
-                case TINYINT:
-                    return literal.getValueAs(Byte.class);
-                case DECIMAL:
-                    return literal.getValueAs(BigDecimal.class);
-                case DOUBLE:
-                    return literal.getValueAs(Double.class);
-                case REAL:
-                case FLOAT:
-                    return literal.getValueAs(Float.class);
-                case BINARY:
-                case VARBINARY:
-                    return literal.getValueAs(byte[].class);
-                case BOOLEAN:
-                    return literal.getValueAs(Boolean.class);
-                default:
-                    throw new IllegalStateException("Unknown type [type=" + columnType + ']');
-            }
-        } catch (Throwable th) {
-            // catch throwable here because literal throws an AssertionError when unable to cast value to a given class
-            throw new SqlException(STMT_VALIDATION_ERR, "Unable co convert literal", th);
+    private PrimaryKeyIndexType convertPrimaryIndexType(IgniteSqlPrimaryKeyIndexType type) {
+        switch (type) {
+            case SORTED:
+                return PrimaryKeyIndexType.SORTED;
+            case HASH:
+            case IMPLICIT_HASH:
+                return PrimaryKeyIndexType.HASH;
+            default:
+                throw new AssertionError("Unknown index type [type=" + type + "]");
         }
     }
 
-    private static @Nullable Object fromLiteral(ColumnType columnType, SqlLiteral literal) {
+    /**
+     * Creates a value of required type from the literal.
+     */
+    private static @Nullable Object fromLiteral(ColumnType columnType, String name, SqlLiteral literal, int precision, int scale) {
+        if (literal.getValue() == null) {
+            return null;
+        }
+
         try {
             switch (columnType) {
-                case NULL:
-                    return null;
-                case STRING:
-                    return literal.getValueAs(String.class);
+                case PERIOD: {
+                    if (!(literal instanceof SqlIntervalLiteral)) {
+                        throw new SqlException(STMT_VALIDATION_ERR,
+                                "Default expression is not belongs to interval type");
+                    }
+
+                    String strValue = Objects.requireNonNull(literal.toValue());
+                    SqlNumericLiteral numLiteral = SqlLiteral.createExactNumeric(strValue, literal.getParserPosition());
+                    int val = numLiteral.intValue(true);
+                    SqlIntervalLiteral literal0 = (SqlIntervalLiteral) literal;
+                    SqlIntervalQualifier qualifier = ((IntervalValue) literal0.getValue()).getIntervalQualifier();
+                    if (qualifier.typeName() == SqlTypeName.INTERVAL_YEAR) {
+                        val = val * 12;
+                    }
+                    return fromInternal(val, Period.class);
+                }
+                case DURATION: {
+                    if (!(literal instanceof SqlIntervalLiteral)) {
+                        throw new SqlException(STMT_VALIDATION_ERR,
+                                "Default expression is not belongs to interval type");
+                    }
+                    String strValue = Objects.requireNonNull(literal.toValue());
+                    SqlNumericLiteral numLiteral = SqlLiteral.createExactNumeric(strValue, literal.getParserPosition());
+                    long val = numLiteral.longValue(true);
+                    SqlIntervalLiteral literal0 = (SqlIntervalLiteral) literal;
+                    SqlIntervalQualifier qualifier = ((IntervalValue) literal0.getValue()).getIntervalQualifier();
+                    if (qualifier.typeName() == SqlTypeName.INTERVAL_DAY) {
+                        val = Duration.ofDays(val).toMillis();
+                    } else if (qualifier.typeName() == SqlTypeName.INTERVAL_HOUR) {
+                        val = Duration.ofHours(val).toMillis();
+                    } else if (qualifier.typeName() == SqlTypeName.INTERVAL_MINUTE) {
+                        val = Duration.ofMinutes(val).toMillis();
+                    } else if (qualifier.typeName() == SqlTypeName.INTERVAL_SECOND) {
+                        val = Duration.ofSeconds(val).toMillis();
+                    }
+                    return fromInternal(val, Duration.class);
+                }
+                case STRING: {
+                    String val = literal.toValue();
+                    // varchar without limitation
+                    if (precision != PRECISION_NOT_SPECIFIED && Objects.requireNonNull(val).length() > precision) {
+                        throw new SqlException(STMT_VALIDATION_ERR,
+                                format("Value too long for type character({})", precision));
+                    }
+                    return val;
+                }
+                case UUID:
+                    return UUID.fromString(Objects.requireNonNull(literal.toValue()));
                 case DATE: {
-                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(SqlTypeName.DATE);
-                    return LocalDate.ofEpochDay(literal0.getValueAs(DateString.class).getDaysSinceEpoch());
+                    try {
+                        literal = SqlParserUtil.parseDateLiteral(literal.getValueAs(String.class), literal.getParserPosition());
+                        int val = literal.getValueAs(DateString.class).getDaysSinceEpoch();
+                        return fromInternal(val, LocalDate.class);
+                    } catch (CalciteContextException e) {
+                        literal = SqlParserUtil.parseTimestampLiteral(literal.getValueAs(String.class), literal.getParserPosition());
+                        TimestampString tsString = literal.getValueAs(TimestampString.class);
+                        int val = convertToIntExact(TimeUnit.MILLISECONDS.toDays(tsString.getMillisSinceEpoch()));
+                        return fromInternal(val, LocalDate.class);
+                    }
                 }
                 case TIME: {
-                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(SqlTypeName.TIME);
-                    return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(literal0.getValueAs(TimeString.class).getMillisOfDay()));
+                    String strLiteral = literal.getValueAs(String.class).trim();
+                    int pos = strLiteral.indexOf(' ');
+                    if (pos != -1) {
+                        strLiteral = strLiteral.substring(pos);
+                    }
+                    literal = SqlParserUtil.parseTimeLiteral(strLiteral, literal.getParserPosition());
+                    int val = literal.getValueAs(TimeString.class).getMillisOfDay();
+                    return fromInternal(val, LocalTime.class);
                 }
-                case TIMESTAMP: {
-                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(SqlTypeName.TIMESTAMP);
-                    var tsString = literal0.getValueAs(TimestampString.class);
+                case DATETIME: {
+                    literal = SqlParserUtil.parseTimestampLiteral(literal.getValueAs(String.class), literal.getParserPosition());
+                    var tsString = literal.getValueAs(TimestampString.class);
 
-                    return LocalDateTime.ofEpochSecond(
-                            TimeUnit.MILLISECONDS.toSeconds(tsString.getMillisSinceEpoch()),
-                            (int) (TimeUnit.MILLISECONDS.toNanos(tsString.getMillisSinceEpoch() % 1000)),
-                            ZoneOffset.UTC
-                    );
+                    return fromInternal(tsString.getMillisSinceEpoch(), LocalDateTime.class);
                 }
-                case INT32:
-                    return literal.getValueAs(Integer.class);
-                case INT64:
-                    return literal.getValueAs(Long.class);
-                case INT16:
-                    return literal.getValueAs(Short.class);
-                case INT8:
-                    return literal.getValueAs(Byte.class);
+                case TIMESTAMP:
+                    // TODO: IGNITE-17376
+                    throw new UnsupportedOperationException("Type is not supported: " + columnType);
+                case INT32: {
+                    acceptNumericLiteral(literal, columnType);
+                    long val = literal.longValue(true);
+                    return convertToIntExact(val);
+                }
+                case INT64: {
+                    acceptNumericLiteral(literal, columnType);
+                    BigDecimal val = literal.bigDecimalValue();
+                    return Objects.requireNonNull(val).longValueExact();
+                }
+                case INT16: {
+                    acceptNumericLiteral(literal, columnType);
+                    long val = literal.longValue(true);
+                    return convertToShortExact(val);
+                }
+                case INT8: {
+                    acceptNumericLiteral(literal, columnType);
+                    long val = literal.longValue(true);
+                    return convertToByteExact(val);
+                }
                 case DECIMAL:
-                    return literal.getValueAs(BigDecimal.class);
+                    acceptNumericLiteral(literal, columnType);
+                    BigDecimal val = literal.getValueAs(BigDecimal.class);
+                    val = val.setScale(scale, RoundingMode.HALF_UP);
+                    if (val.precision() > precision) {
+                        throw new SqlException(STMT_VALIDATION_ERR, format("Numeric field overflow for type decimal({}, {})",
+                                precision, scale));
+                    }
+                    return val;
                 case DOUBLE:
+                    acceptNumericLiteral(literal, columnType);
                     return literal.getValueAs(Double.class);
                 case FLOAT:
+                    acceptNumericLiteral(literal, columnType);
                     return literal.getValueAs(Float.class);
                 case BYTE_ARRAY:
-                    return literal.getValueAs(byte[].class);
+                    byte[] arr = literal.getValueAs(byte[].class);
+                    // varbinary without limitation
+                    if (precision != PRECISION_NOT_SPECIFIED && Objects.requireNonNull(arr).length > precision) {
+                        throw new SqlException(STMT_VALIDATION_ERR,
+                                format("Value too long for type binary({})", precision));
+                    }
+                    return arr;
                 case BOOLEAN:
                     return literal.getValueAs(Boolean.class);
                 default:
@@ -927,7 +976,13 @@ public class DdlSqlToCommandConverter {
             }
         } catch (Throwable th) {
             // catch throwable here because literal throws an AssertionError when unable to cast value to a given class
-            throw new SqlException(STMT_VALIDATION_ERR, "Unable co convert literal", th);
+            throw new SqlException(STMT_VALIDATION_ERR, format("Invalid default value for column '{}'", name), th);
+        }
+    }
+
+    private static void acceptNumericLiteral(SqlLiteral literal, ColumnType columnType) {
+        if (!(literal instanceof SqlNumericLiteral)) {
+            throw new SqlException(STMT_VALIDATION_ERR, "Default expression can`t be applied to type " + columnType);
         }
     }
 

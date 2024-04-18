@@ -19,12 +19,13 @@ package org.apache.ignite.internal.table.distributed;
 
 import java.util.BitSet;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
+import org.apache.ignite.internal.tostring.S;
 
-/**
- * {@link BitSet} implementation of the {@link PartitionSet}.
- */
+/** {@link BitSet} implementation of the {@link PartitionSet}. */
 public class BitSetPartitionSet implements PartitionSet {
     /** Backing BitSet. */
+    @IgniteToStringExclude
     private final BitSet backingSet;
 
     public BitSetPartitionSet() {
@@ -38,6 +39,11 @@ public class BitSetPartitionSet implements PartitionSet {
     @Override
     public void set(int partitionId) {
         backingSet.set(partitionId);
+    }
+
+    @Override
+    public void clear(int partitionId) {
+        backingSet.clear(partitionId);
     }
 
     @Override
@@ -82,5 +88,10 @@ public class BitSetPartitionSet implements PartitionSet {
     @Override
     public int hashCode() {
         return getHashCode();
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(BitSetPartitionSet.class, this, "partitionIds=", backingSet.stream().toArray());
     }
 }

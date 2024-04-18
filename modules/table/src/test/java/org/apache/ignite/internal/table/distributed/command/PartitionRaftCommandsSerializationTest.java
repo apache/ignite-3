@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
@@ -32,18 +33,19 @@ import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.Command;
-import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -51,14 +53,14 @@ import org.junit.jupiter.api.Test;
  * Test for partition RAFT commands serialization.
  */
 public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
+    /** Hybrid clock. */
+    private final HybridClockImpl clock = new HybridClockImpl();
+
     /** Key-value marshaller for tests. */
-    protected static KvMarshaller<TestKey, TestValue> kvMarshaller;
+    private static KvMarshaller<TestKey, TestValue> kvMarshaller;
 
     /** Message factory to create messages - RAFT commands. */
-    private TableMessagesFactory msgFactory = new TableMessagesFactory();
-
-    /** Factory for replica messages. */
-    private ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
+    private final TableMessagesFactory msgFactory = new TableMessagesFactory();
 
     @BeforeAll
     static void beforeAll() {
@@ -84,15 +86,16 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                         .build()
                 )
                 .rowUuid(UUID.randomUUID())
-                .rowBuffer(byteBufferFromBinaryRow(1))
+                .messageRowToUpdate(msgFactory.timedBinaryRowMessage()
+                                .binaryRowMessage(binaryRowMessage(1))
+                                .build())
                 .txId(TestTransactionIds.newTransactionId())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
 
         UpdateCommand readCmd = copyCommand(cmd);
 
-        assertEquals(cmd.txId(), readCmd.txId());
-        assertEquals(cmd.rowUuid(), readCmd.rowUuid());
-        assertEquals(cmd.rowBuffer(), readCmd.rowBuffer());
+        assertEquals(cmd, readCmd);
     }
 
     @Test
@@ -105,21 +108,28 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 )
                 .rowUuid(UUID.randomUUID())
                 .txId(TestTransactionIds.newTransactionId())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
 
         UpdateCommand readCmd = copyCommand(cmd);
 
         assertEquals(cmd.txId(), readCmd.txId());
         assertEquals(cmd.rowUuid(), readCmd.rowUuid());
-        assertNull(readCmd.rowBuffer());
+        assertNull(readCmd.rowToUpdate());
     }
 
     @Test
     public void testUpdateAllCommand() throws Exception {
-        Map<UUID, ByteBuffer> rowsToUpdate = new HashMap<>();
+        Map<UUID, TimedBinaryRowMessage> rowsToUpdate = new HashMap<>();
 
         for (int i = 0; i < 10; i++) {
-            rowsToUpdate.put(TestTransactionIds.newTransactionId(), byteBufferFromBinaryRow(i));
+            rowsToUpdate.put(
+                    TestTransactionIds.newTransactionId(),
+                    msgFactory.timedBinaryRowMessage()
+                            .binaryRowMessage(binaryRowMessage(i))
+                            .timestamp(i % 2 == 0 ? clock.nowLong() : NULL_HYBRID_TIMESTAMP)
+                            .build()
+            );
         }
 
         var cmd = msgFactory.updateAllCommand()
@@ -128,30 +138,37 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                         .partitionId(1)
                         .build()
                 )
-                .rowsToUpdate(rowsToUpdate)
+                .messageRowsToUpdate(rowsToUpdate)
                 .txId(UUID.randomUUID())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
 
         UpdateAllCommand readCmd = copyCommand(cmd);
 
         assertEquals(cmd.txId(), readCmd.txId());
 
-        for (Map.Entry<UUID, ByteBuffer> entry : cmd.rowsToUpdate().entrySet()) {
+        for (Map.Entry<UUID, TimedBinaryRowMessage> entry : cmd.messageRowsToUpdate().entrySet()) {
             assertTrue(readCmd.rowsToUpdate().containsKey(entry.getKey()));
 
-            var readVal = readCmd.rowsToUpdate().get(entry.getKey());
-            var val = entry.getValue();
+            var readVal = readCmd.rowsToUpdate().get(entry.getKey()).binaryRow();
+            var val = entry.getValue().binaryRow();
 
             assertEquals(val, readVal);
+
+            var readTs = readCmd.rowsToUpdate().get(entry.getKey()).commitTimestamp();
+            var ts = nullableHybridTimestamp(entry.getValue().timestamp());
+
+            assertEquals(ts, readTs);
         }
     }
 
     @Test
     public void testRemoveAllCommand() throws Exception {
-        Map<UUID, ByteBuffer> rowsToRemove = new HashMap<>();
+        Map<UUID, TimedBinaryRowMessage> rowsToRemove = new HashMap<>();
 
         for (int i = 0; i < 10; i++) {
-            rowsToRemove.put(TestTransactionIds.newTransactionId(), null);
+            rowsToRemove.put(TestTransactionIds.newTransactionId(), msgFactory.timedBinaryRowMessage()
+                    .build());
         }
 
         var cmd = msgFactory.updateAllCommand()
@@ -160,17 +177,18 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                         .partitionId(1)
                         .build()
                 )
-                .rowsToUpdate(rowsToRemove)
+                .messageRowsToUpdate(rowsToRemove)
                 .txId(UUID.randomUUID())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
 
         UpdateAllCommand readCmd = copyCommand(cmd);
 
         assertEquals(cmd.txId(), readCmd.txId());
 
-        for (UUID uuid : cmd.rowsToUpdate().keySet()) {
+        for (UUID uuid : cmd.messageRowsToUpdate().keySet()) {
             assertTrue(readCmd.rowsToUpdate().containsKey(uuid));
-            assertNull(readCmd.rowsToUpdate().get(uuid));
+            assertNull(readCmd.rowsToUpdate().get(uuid).binaryRow());
         }
     }
 
@@ -178,13 +196,13 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     public void testTxCleanupCommand() throws Exception {
         HybridClock clock = new HybridClockImpl();
 
-        TxCleanupCommand cmd = msgFactory.txCleanupCommand()
+        WriteIntentSwitchCommand cmd = msgFactory.writeIntentSwitchCommand()
                 .txId(UUID.randomUUID())
                 .commit(true)
                 .commitTimestampLong(clock.nowLong())
                 .build();
 
-        TxCleanupCommand readCmd = copyCommand(cmd);
+        WriteIntentSwitchCommand readCmd = copyCommand(cmd);
 
         assertEquals(cmd.txId(), readCmd.txId());
         assertEquals(cmd.commit(), readCmd.commit());
@@ -207,7 +225,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .txId(UUID.randomUUID())
                 .commit(true)
                 .commitTimestampLong(clock.nowLong())
-                .tablePartitionIds(grps)
+                .partitionIds(grps)
                 .build();
 
         FinishTxCommand readCmd = copyCommand(cmd);
@@ -215,7 +233,6 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         assertEquals(cmd.txId(), readCmd.txId());
         assertEquals(cmd.commit(), readCmd.commit());
         assertEquals(cmd.commitTimestamp(), readCmd.commitTimestamp());
-        assertEquals(cmd.tablePartitionIds(), readCmd.tablePartitionIds());
     }
 
     private <T extends Command> T copyCommand(T cmd) {
@@ -227,16 +244,16 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
             return (T) msgFactory.finishTxCommand()
                     .txId(finishTxCommand.txId())
                     .commit(finishTxCommand.commit())
-                    .tablePartitionIds(finishTxCommand.tablePartitionIds())
+                    .partitionIds(finishTxCommand.partitionIds())
                     .commitTimestampLong(finishTxCommand.commitTimestampLong())
                     .build();
-        } else if (cmd instanceof TxCleanupCommand) {
-            TxCleanupCommand txCleanupCommand = (TxCleanupCommand) cmd;
+        } else if (cmd instanceof WriteIntentSwitchCommand) {
+            WriteIntentSwitchCommand writeIntentSwitchCommand = (WriteIntentSwitchCommand) cmd;
 
-            return (T) msgFactory.txCleanupCommand()
-                    .txId(txCleanupCommand.txId())
-                    .commit(txCleanupCommand.commit())
-                    .commitTimestampLong(txCleanupCommand.commitTimestampLong())
+            return (T) msgFactory.writeIntentSwitchCommand()
+                    .txId(writeIntentSwitchCommand.txId())
+                    .commit(writeIntentSwitchCommand.commit())
+                    .commitTimestampLong(writeIntentSwitchCommand.commitTimestampLong())
                     .build();
         } else if (cmd instanceof UpdateCommand) {
             UpdateCommand updateCommand = (UpdateCommand) cmd;
@@ -245,15 +262,17 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .txId(updateCommand.txId())
                     .rowUuid(updateCommand.rowUuid())
                     .tablePartitionId(updateCommand.tablePartitionId())
-                    .rowBuffer(updateCommand.rowBuffer())
+                    .messageRowToUpdate(updateCommand.messageRowToUpdate())
+                    .txCoordinatorId(updateCommand.txCoordinatorId())
                     .build();
         } else if (cmd instanceof UpdateAllCommand) {
             UpdateAllCommand updateCommand = (UpdateAllCommand) cmd;
 
             return (T) msgFactory.updateAllCommand()
                     .txId(updateCommand.txId())
-                    .rowsToUpdate(updateCommand.rowsToUpdate())
+                    .messageRowsToUpdate(updateCommand.messageRowsToUpdate())
                     .tablePartitionId(updateCommand.tablePartitionId())
+                    .txCoordinatorId(updateCommand.txCoordinatorId())
                     .build();
         } else {
             fail(cmd.toString());
@@ -262,8 +281,16 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         }
     }
 
-    private static ByteBuffer byteBufferFromBinaryRow(int id) throws Exception {
-        return kvMarshaller.marshal(new TestKey(id, String.valueOf(id)), new TestValue(id, String.valueOf(id))).byteBuffer();
+    private BinaryRowMessage binaryRowMessage(int id) throws Exception {
+        Row row = kvMarshaller.marshal(
+                new TestKey(id, String.valueOf(id)),
+                new TestValue(id, String.valueOf(id))
+        );
+
+        return msgFactory.binaryRowMessage()
+                .binaryTuple(row.tupleSlice())
+                .schemaVersion(row.schemaVersion())
+                .build();
     }
 
     /**

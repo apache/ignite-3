@@ -156,6 +156,24 @@ public:
      * @param value Value.
      * @return Conversion result.
      */
+    conversion_result put_string(const std::optional<std::string> &value) {
+        return value ? put_string(*value) : put_null();
+    }
+
+    /**
+     * Put in buffer value of type string.
+     *
+     * @param value Value.
+     * @return Conversion result.
+     */
+    conversion_result put_string(const char *value) { return put_string(std::string(value)); }
+
+    /**
+     * Put in buffer value of type string.
+     *
+     * @param value Value.
+     * @return Conversion result.
+     */
     conversion_result put_string(const std::string &value);
 
     /**
@@ -522,6 +540,6 @@ private:
 };
 
 /** Column binging map type alias. */
-typedef std::map<uint16_t, application_data_buffer> column_binding_map;
+typedef std::map<std::uint16_t, application_data_buffer> column_binding_map;
 
 } // namespace ignite

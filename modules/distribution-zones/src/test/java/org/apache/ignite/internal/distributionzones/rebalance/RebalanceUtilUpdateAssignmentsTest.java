@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.affinity.Assignments.toBytes;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -38,14 +38,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.affinity.Assignments;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -56,17 +53,15 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,23 +74,28 @@ import org.mockito.quality.Strictness;
 /**
  * Tests for updating assignment in the meta storage.
  */
-@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
+@ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(RebalanceUtilUpdateAssignmentsTest.class);
 
     private SimpleInMemoryKeyValueStorage keyValueStorage;
 
-    private ConfigurationTreeGenerator generator;
-
-    private ConfigurationManager clusterCfgMgr;
-
     private ClusterService clusterService;
 
     private MetaStorageManager metaStorageManager;
 
-    @InjectConfiguration(name = "table1")
-    private TableConfiguration tableConfig;
+    private final CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
+            1,
+            -1,
+            -1,
+            "table1",
+            0,
+            List.of(new CatalogTableColumnDescriptor("k1", ColumnType.INT32, false, 0, 0, 0, null)),
+            List.of("k1"),
+            null,
+            DEFAULT_STORAGE_PROFILE
+    );
 
     private static final int partNum = 2;
     private static final int replicas = 2;
@@ -112,23 +112,9 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void setUp() {
-        generator = new ConfigurationTreeGenerator(
-                List.of(DistributionZonesConfiguration.KEY),
-                List.of(),
-                List.of(PersistentPageMemoryDataStorageConfigurationSchema.class)
-        );
-        clusterCfgMgr = new ConfigurationManager(
-                List.of(DistributionZonesConfiguration.KEY),
-                new TestConfigurationStorage(DISTRIBUTED),
-                generator,
-                new TestConfigurationValidator()
-        );
-
         clusterService = mock(ClusterService.class);
 
         metaStorageManager = mock(MetaStorageManager.class);
-
-        clusterCfgMgr.start();
 
         AtomicLong raftIndex = new AtomicLong();
 
@@ -152,19 +138,16 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                     CompletableFuture<Serializable> res = new CompletableFuture<>();
 
                     CommandClosure<WriteCommand> clo = new CommandClosure<>() {
-                        /** {@inheritDoc} */
                         @Override
                         public long index() {
                             return commandIndex;
                         }
 
-                        /** {@inheritDoc} */
                         @Override
                         public WriteCommand command() {
                             return (WriteCommand) cmd;
                         }
 
-                        /** {@inheritDoc} */
                         @Override
                         public void result(@Nullable Serializable r) {
                             if (r instanceof Throwable) {
@@ -203,12 +186,8 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     }
 
     @AfterEach
-    public void tearDown() throws Exception {
-        clusterCfgMgr.stop();
-
+    public void tearDown() {
         keyValueStorage.close();
-
-        generator.close();
     }
 
     /**
@@ -509,7 +488,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         }
 
         RebalanceUtil.updatePendingAssignmentsKeys(
-                tableConfig.value(), tablePartitionId, nodesForNewAssignments,
+                tableDescriptor, tablePartitionId, nodesForNewAssignments,
                 replicas, 1, metaStorageManager, partNum, tableCfgAssignments
         );
 
@@ -517,21 +496,21 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         Set<Assignment> actualStableAssignments = null;
 
         if (actualStableBytes != null) {
-            actualStableAssignments = ByteUtils.fromBytes(actualStableBytes);
+            actualStableAssignments = Assignments.fromBytes(actualStableBytes).nodes();
         }
 
         byte[] actualPendingBytes = keyValueStorage.get(RebalanceUtil.pendingPartAssignmentsKey(tablePartitionId).bytes()).value();
         Set<Assignment> actualPendingAssignments = null;
 
         if (actualPendingBytes != null) {
-            actualPendingAssignments = ByteUtils.fromBytes(actualPendingBytes);
+            actualPendingAssignments = Assignments.fromBytes(actualPendingBytes).nodes();
         }
 
         byte[] actualPlannedBytes = keyValueStorage.get(RebalanceUtil.plannedPartAssignmentsKey(tablePartitionId).bytes()).value();
         Set<Assignment> actualPlannedAssignments = null;
 
         if (actualPlannedBytes != null) {
-            actualPlannedAssignments = ByteUtils.fromBytes(actualPlannedBytes);
+            actualPlannedAssignments = Assignments.fromBytes(actualPlannedBytes).nodes();
         }
 
         LOG.info("stableAssignments " + actualStableAssignments);

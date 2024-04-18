@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -35,7 +36,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests client request balancing.
  */
-public class RequestBalancingTest {
+public class RequestBalancingTest extends BaseIgniteAbstractTest {
     /** Test server 1. */
     private TestServer server1;
 
@@ -64,8 +65,8 @@ public class RequestBalancingTest {
             assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000));
 
             // Execute on unknown node to fall back to balancing.
-            List<String> res = IntStream.range(0, 5)
-                    .mapToObj(i -> client.compute().<String>executeAsync(getClusterNodes("s123"), List.of(), "job").join())
+            List<Object> res = IntStream.range(0, 5)
+                    .mapToObj(i -> client.compute().<String>execute(getClusterNodes("s123"), List.of(), "job"))
                     .collect(Collectors.toList());
 
             assertEquals(5, res.size());

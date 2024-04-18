@@ -22,27 +22,30 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
-import java.util.List;
+import java.util.function.UnaryOperator;
 import org.apache.calcite.plan.RelOptPlanner.CannotPlanException;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests to verify hash index support.
  */
 public class HashIndexPlannerTest extends AbstractPlannerTest {
+    private static final String HASH_INDEX_NAME = "VAL_HASH_IDX";
+
     @Test
     public void hashIndexIsAppliedForEquiCondition() throws Exception {
-        var indexName = "VAL_HASH_IDX";
-
         IgniteSchema schema = makeCommonSchema();
 
         String sql = "SELECT id FROM test_tbl WHERE val = 10";
@@ -54,7 +57,7 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
         assertThat(invalidPlanMsg, scan, notNullValue());
-        assertThat(invalidPlanMsg, scan.indexName(), equalTo(indexName));
+        assertThat(invalidPlanMsg, scan.indexName(), equalTo(HASH_INDEX_NAME));
     }
 
     @Test
@@ -103,44 +106,13 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
         assertThat("Invalid plan:\n" + RelOptUtil.toString(phys), idxScan, notNullValue());
     }
 
-    private IgniteSchema makeCommonSchema() {
-        var indexName = "VAL_HASH_IDX";
-
-        TestTable tbl = createTable(
-                "TEST_TBL",
-                someAffinity(),
-                "ID", Integer.class,
-                "VAL", Integer.class
-        );
-
-        tbl.addIndex(new IgniteIndex(TestHashIndex.create(List.of("VAL"), indexName)));
-
-        return createSchema(tbl);
-    }
-
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
     public void hashIndexIsAppliedForComplexConditions() throws Exception {
-        var indexName = "VAL_HASH_IDX";
-
-        TestTable leftTable = createTable(
-                "LEFT_TBL",
-                IgniteDistributions.single(),
-                "ID", Integer.class,
-                "VAL0", Integer.class,
-                "VAL1", Integer.class
+        IgniteSchema schema = createSchemaFrom(
+                tableB("LEFT_TBL"),
+                tableB("RIGHT_TBL").andThen(addHashIndex("VAL0", "VAL1"))
         );
-
-        TestTable rightTable = createTable(
-                "RIGHT_TBL",
-                IgniteDistributions.single(),
-                "ID", Integer.class,
-                "VAL0", Integer.class,
-                "VAL1", Integer.class
-        );
-
-        rightTable.addIndex(new IgniteIndex(TestHashIndex.create(List.of("VAL0", "VAL1"), indexName)));
-
-        IgniteSchema schema = createSchema(leftTable, rightTable);
 
         String sql = "SELECT l.*, r.* FROM left_tbl l JOIN right_tbl r ON l.val0 = r.val0 AND l.val1 = r.val1";
 
@@ -151,32 +123,16 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
         assertThat(invalidPlanMsg, scan, notNullValue());
-        assertThat(invalidPlanMsg, scan.indexName(), equalTo(indexName));
+        assertThat(invalidPlanMsg, scan.indexName(), equalTo("IDX_VAL0_VAL1"));
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
     public void hashIndexIsNotAppliedForPartialCoveredConditions() throws Exception {
-        var indexName = "VAL_HASH_IDX";
-
-        TestTable leftTable = createTable(
-                "LEFT_TBL",
-                IgniteDistributions.single(),
-                "ID", Integer.class,
-                "VAL0", Integer.class,
-                "VAL1", Integer.class
+        IgniteSchema schema = createSchemaFrom(
+                tableB("LEFT_TBL"),
+                tableB("RIGHT_TBL").andThen(addHashIndex("VAL0", "VAL1"))
         );
-
-        TestTable rightTable = createTable(
-                "RIGHT_TBL",
-                IgniteDistributions.single(),
-                "ID", Integer.class,
-                "VAL0", Integer.class,
-                "VAL1", Integer.class
-        );
-
-        rightTable.addIndex(new IgniteIndex(TestHashIndex.create(List.of("VAL0", "VAL1"), indexName)));
-
-        IgniteSchema schema = createSchema(leftTable, rightTable);
 
         String sql = "SELECT l.id FROM left_tbl l JOIN right_tbl r ON l.val0 = r.val0";
 
@@ -187,5 +143,27 @@ public class HashIndexPlannerTest extends AbstractPlannerTest {
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
         assertThat(invalidPlanMsg, scan, nullValue());
+    }
+
+    private static IgniteSchema makeCommonSchema() {
+        return createSchema(TestBuilders.table()
+                .name("TEST_TBL")
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("VAL", NativeTypes.INT32)
+                .distribution(someAffinity())
+                .hashIndex()
+                .name(HASH_INDEX_NAME)
+                .addColumn("VAL")
+                .end()
+                .build());
+    }
+
+    private static UnaryOperator<TableBuilder> tableB(String tableName) {
+        return tableBuilder -> tableBuilder
+                .name(tableName)
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("VAL0", NativeTypes.INT32)
+                .addColumn("VAL1", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single());
     }
 }

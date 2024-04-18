@@ -50,11 +50,13 @@ public class PartitionAwarenessRealClusterTests : IgniteTestsBase
         {
             var keyTuple = new IgniteTuple { ["KEY"] = key };
 
-            var primaryNodeName = await client.Compute.ExecuteColocatedAsync<string>(
+            var primaryNodeNameExec = await client.Compute.SubmitColocatedAsync<string>(
                 TableName,
                 keyTuple,
                 Array.Empty<DeploymentUnit>(),
                 ComputeTests.NodeNameJob);
+
+            var primaryNodeName = await primaryNodeNameExec.GetResultAsync();
 
             if (primaryNodeName.EndsWith("_3", StringComparison.Ordinal) || primaryNodeName.EndsWith("_4", StringComparison.Ordinal))
             {

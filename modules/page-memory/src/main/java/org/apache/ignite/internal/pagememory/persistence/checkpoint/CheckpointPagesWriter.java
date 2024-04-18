@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.pagememory.persistence.PartitionMeta.pa
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.TRY_AGAIN_TAG;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.flag;
 import static org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.EMPTY;
-import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
+import static org.apache.ignite.internal.util.StringUtils.hexLong;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -38,6 +38,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
@@ -52,7 +53,6 @@ import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue;
 import org.apache.ignite.internal.util.IgniteConcurrentMultiPairQueue.Result;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -228,6 +228,11 @@ public class CheckpointPagesWriter implements Runnable {
                         pageMemory,
                         pm -> createPageStoreWriter(pm, pageIdsToRetry)
                 );
+
+                if (fullId.pageIdx() == 0) {
+                    // Skip meta-pages, they are written by "writePartitionMeta".
+                    continue;
+                }
 
                 // Should also be done for partitions that will be destroyed to remove their pages from the data region.
                 pageMemory.checkpointWritePage(fullId, tmpWriteBuf, pageStoreWriter, tracker);

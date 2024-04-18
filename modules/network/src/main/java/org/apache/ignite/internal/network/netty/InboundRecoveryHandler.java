@@ -20,12 +20,11 @@ package org.apache.ignite.internal.network.netty;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.Collections;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.OutNetworkObject;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Inbound handler that handles incoming acknowledgement messages and sends acknowledgement messages for other messages.
@@ -72,7 +71,7 @@ public class InboundRecoveryHandler extends ChannelInboundHandlerAdapter {
     }
 
     @Override
-    public void channelInactive(@NotNull ChannelHandlerContext ctx) throws Exception {
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         descriptor.release(ctx);
 
         super.channelInactive(ctx);

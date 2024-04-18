@@ -24,6 +24,9 @@ plugins {
 import org.gradle.crypto.checksum.Checksum
 
 configurations {
+    cppClient
+    cppClientHeaders
+    dotNet
     odbc
 }
 
@@ -57,11 +60,11 @@ task copyNativeLibs(type: Copy) {
 cmake {
     workingFolder=file("$buildDir/cpp")
     sourceFolder=file("$projectDir/cpp")
-    generator='Unix Makefiles'
     buildConfig='Release'
     buildTarget='install'
     getDef().CMAKE_INSTALL_PREFIX="$buildDir/install"
     getDef().CMAKE_BUILD_TYPE='Release'
+    getDef().CMAKE_CONFIGURATION_TYPES='Release'
 }
 
 task cmakeConfigureClient(type: net.freudasoft.CMakeConfigureTask) {
@@ -96,6 +99,15 @@ task buildNuGet(type: Exec) {
             "--include-source",
             "--output", "$buildDir/nupkg"
             "/p:Version=${project.version}"
+}
+
+task buildDotNet(type: Exec) {
+    workingDir "$rootDir/modules/platforms/dotnet"
+
+    commandLine "dotnet", "build", "Apache.Ignite",
+            "--configuration", "Release",
+            "--output", "$buildDir/dotnet"
+    "/p:Version=${project.version}"
 }
 
 task zipNuGet(type: Zip) {
@@ -152,7 +164,24 @@ if (project.hasProperty('prepareRelease')) {
 }
 
 artifacts {
-    odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
-        builtBy cmakeBuildOdbc
+    if (project.hasProperty('platforms.enable')) {
+        dotNet(file("$buildDir/dotnet")) {
+            builtBy buildDotNet
+        }
+        cppClientHeaders(file("$buildDir/install/include")) {
+            builtBy cmakeBuildClient
+        }
+        cppClient(file("$buildDir/cpp/lib/libignite-client.so.3")) {
+            builtBy cmakeBuildClient
+        }
+        cppClient(file("$buildDir/cpp/lib/libignite-client.so")) {
+            builtBy cmakeBuildClient
+        }
+        odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
+            builtBy cmakeBuildOdbc
+        }
+        odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.3")) {
+            builtBy cmakeBuildOdbc
+        }
     }
 }

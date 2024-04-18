@@ -17,14 +17,15 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.internal.util.ExceptionUtils.getOrCreateTraceId;
 import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
-import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
-import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
+import static org.apache.ignite.lang.ErrorGroups.errorGroupByCode;
+import static org.apache.ignite.lang.ErrorGroups.extractGroupCode;
+import static org.apache.ignite.lang.util.TraceIdUtils.getOrCreateTraceId;
 
 import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * General Ignite exception. Used to indicate any error condition within a node.
@@ -102,7 +103,7 @@ public class IgniteCheckedException extends Exception implements TraceableExcept
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteCheckedException(int code, Throwable cause) {
+    public IgniteCheckedException(int code, @Nullable Throwable cause) {
         this(getOrCreateTraceId(cause), code, cause);
     }
 
@@ -113,7 +114,7 @@ public class IgniteCheckedException extends Exception implements TraceableExcept
      * @param code Full error code.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteCheckedException(UUID traceId, int code, Throwable cause) {
+    public IgniteCheckedException(UUID traceId, int code, @Nullable Throwable cause) {
         super((cause != null) ? cause.getLocalizedMessage() : null, cause);
 
         this.traceId = traceId;
@@ -128,7 +129,7 @@ public class IgniteCheckedException extends Exception implements TraceableExcept
      * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteCheckedException(int code, String message, Throwable cause) {
+    public IgniteCheckedException(int code, String message, @Nullable Throwable cause) {
         this(getOrCreateTraceId(cause), code, message, cause);
     }
 
@@ -140,7 +141,7 @@ public class IgniteCheckedException extends Exception implements TraceableExcept
      * @param message Detailed message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteCheckedException(UUID traceId, int code, String message, Throwable cause) {
+    public IgniteCheckedException(UUID traceId, int code, String message, @Nullable Throwable cause) {
         super(message, cause);
 
         this.traceId = traceId;

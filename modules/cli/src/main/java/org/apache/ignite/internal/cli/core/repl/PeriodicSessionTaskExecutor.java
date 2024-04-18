@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.cli.event.ConnectionEventListener;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -31,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Executes tasks periodically while the session is connected. */
 @Singleton
-public class PeriodicSessionTaskExecutor implements AsyncSessionEventListener {
+public class PeriodicSessionTaskExecutor implements ConnectionEventListener {
     private static final IgniteLogger LOG = CliLoggers.forClass(PeriodicSessionTaskExecutor.class);
 
     @Nullable

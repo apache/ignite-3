@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest;
 
 import static io.micronaut.context.env.Environment.BARE_METAL;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.http.server.exceptions.ServerStartupException;
@@ -31,7 +32,9 @@ import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -41,7 +44,6 @@ import org.apache.ignite.internal.rest.configuration.RestSslView;
 import org.apache.ignite.internal.rest.configuration.RestView;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -51,6 +53,11 @@ import org.jetbrains.annotations.Nullable;
  * resources for the example.
  */
 public class RestComponent implements IgniteComponent {
+    /**
+     * Lock for micronaut server startup.
+     * TODO: remove when fix https://github.com/micronaut-projects/micronaut-core/issues/10091
+     */
+    private static final Object SHARED_STARTUP_LOCK = new Object();
 
     /** Unavailable port. */
     private static final int UNAVAILABLE_PORT = -1;
@@ -64,98 +71,115 @@ public class RestComponent implements IgniteComponent {
     /** Factories that produce beans needed for REST controllers. */
     private final List<Supplier<RestFactory>> restFactories;
 
+    /** Rest configuration. */
     private final RestConfiguration restConfiguration;
+
+    /** Rest manager. */
+    private final RestManager restManager;
 
     /** Micronaut application context. */
     private volatile ApplicationContext context;
 
     /** Server port. */
-    private int httpPort = UNAVAILABLE_PORT;
+    private volatile int httpPort = UNAVAILABLE_PORT;
 
     /** Server SSL port. */
-    private int httpsPort = UNAVAILABLE_PORT;
+    private volatile int httpsPort = UNAVAILABLE_PORT;
 
     /**
      * Creates a new instance of REST module.
      */
-    public RestComponent(List<Supplier<RestFactory>> restFactories, RestConfiguration restConfiguration) {
+    public RestComponent(
+            List<Supplier<RestFactory>> restFactories,
+            RestManager restManager,
+            RestConfiguration restConfiguration
+    ) {
         this.restFactories = restFactories;
         this.restConfiguration = restConfiguration;
+        this.restManager = restManager;
     }
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> start() {
         RestView restConfigurationView = restConfiguration.value();
         RestSslView sslConfigurationView = restConfigurationView.ssl();
 
         boolean sslEnabled = sslConfigurationView.enabled();
         boolean dualProtocol = restConfiguration.dualProtocol().value();
-        int desiredHttpPort = restConfigurationView.port();
-        int portRange = restConfigurationView.portRange();
-        int desiredHttpsPort = sslConfigurationView.port();
-        int httpsPortRange = sslConfigurationView.portRange();
-        int httpPortCandidate = desiredHttpPort;
-        int httpsPortCandidate = desiredHttpsPort;
 
-        while (httpPortCandidate <= desiredHttpPort + portRange
-                && httpsPortCandidate <= desiredHttpsPort + httpsPortRange) {
-            if (startServer(httpPortCandidate, httpsPortCandidate)) {
-                return;
-            }
-
-            LOG.debug("Got exception during node start, going to try again [httpPort={}, httpsPort={}]",
-                    httpPortCandidate,
-                    httpsPortCandidate);
-
-            if (sslEnabled && dualProtocol) {
-                httpPortCandidate++;
-                httpsPortCandidate++;
-            } else if (sslEnabled) {
-                httpsPortCandidate++;
-            } else {
-                httpPortCandidate++;
-            }
+        if (startServer(restConfigurationView.port(), sslConfigurationView.port(), sslEnabled, dualProtocol)) {
+            return nullCompletedFuture();
         }
-
-        LOG.debug("Unable to start REST endpoint."
-                        + " Couldn't find available port for HTTP or HTTPS"
-                        + " [HTTP ports=[{}, {}]],"
-                        + " [HTTPS ports=[{}, {}]]",
-                desiredHttpPort, (desiredHttpPort + portRange),
-                desiredHttpsPort, (desiredHttpsPort + httpsPortRange));
 
         String msg = "Cannot start REST endpoint."
                 + " Couldn't find available port for HTTP or HTTPS"
-                + " [HTTP ports=[" + desiredHttpPort + ", " + desiredHttpPort + portRange + "]],"
-                + " [HTTPS ports=[" + desiredHttpsPort + ", " + desiredHttpsPort + httpsPortRange + "]]";
+                + " [HTTP port=" + httpPort + "],"
+                + " [HTTPS port=" + httpsPort + "]";
+
+        LOG.error(msg);
 
         throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, msg);
+    }
+
+    /**
+     * Disable REST component.
+     */
+    public void disable() {
+        restManager.setState(RestState.INITIALIZATION);
+    }
+
+    /**
+     * Enable REST component.
+     */
+    public void enable() {
+        restManager.setState(RestState.INITIALIZED);
     }
 
     /** Starts Micronaut application using the provided ports.
      *
      * @param httpPortCandidate HTTP port candidate.
      * @param httpsPortCandidate HTTPS port candidate.
+     * @param sslEnabled SSL enabled flag.
+     * @param dualProtocol Dual protocol flag.
      * @return {@code True} if server was started successfully, {@code False} if couldn't bind one of the ports.
      */
-    private boolean startServer(int httpPortCandidate, int httpsPortCandidate) {
-        try {
-            httpPort = httpPortCandidate;
-            httpsPort = httpsPortCandidate;
-            context = buildMicronautContext(httpPortCandidate, httpsPortCandidate)
-                    .deduceEnvironment(false)
-                    .environments(BARE_METAL)
-                    .start();
-            LOG.info("REST protocol started successfully");
-            return true;
-        } catch (ApplicationStartupException e) {
-            BindException bindException = findBindException(e);
-            if (bindException != null) {
-                return false;
+    private boolean startServer(int httpPortCandidate, int httpsPortCandidate, boolean sslEnabled, boolean dualProtocol) {
+        // Workaround to avoid micronaut race condition on startup.
+        synchronized (SHARED_STARTUP_LOCK) {
+            try {
+                httpPort = httpPortCandidate;
+                httpsPort = httpsPortCandidate;
+
+                context = buildMicronautContext(httpPortCandidate, httpsPortCandidate)
+                        .deduceEnvironment(false)
+                        .environments(BARE_METAL)
+                        .start();
+
+                logSuccessRestStart(sslEnabled, dualProtocol);
+                return true;
+            } catch (ApplicationStartupException e) {
+                BindException bindException = findBindException(e);
+                if (bindException != null) {
+                    return false;
+                }
+                throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, e);
             }
-            throw new IgniteException(Common.COMPONENT_NOT_STARTED_ERR, e);
         }
+    }
+
+    private void logSuccessRestStart(boolean sslEnabled, boolean dualProtocol) {
+        String successReportMsg;
+
+        if (sslEnabled && dualProtocol) {
+            successReportMsg = "[httpPort=" + httpPort + "], [httpsPort=" + httpsPort + "]";
+        } else if (sslEnabled) {
+            successReportMsg = "[httpsPort=" + httpsPort + "]";
+        } else {
+            successReportMsg = "[httpPort=" + httpPort + "]";
+        }
+
+        LOG.info("REST server started successfully: " + successReportMsg);
     }
 
     @Nullable
@@ -174,12 +198,8 @@ public class RestComponent implements IgniteComponent {
         Micronaut micronaut = Micronaut.build("");
         setFactories(micronaut);
 
-        Map<String, Object> properties = new HashMap<>();
-        properties.putAll(serverProperties(portCandidate, sslPortCandidate));
-        properties.putAll(authProperties());
-
         return micronaut
-                .properties(properties)
+                .properties(serverProperties(portCandidate, sslPortCandidate))
                 .banner(false)
                 // -1 forces the micronaut to throw an ApplicationStartupException instead of doing System.exit
                 .mapError(ServerStartupException.class, ex -> -1)
@@ -198,7 +218,10 @@ public class RestComponent implements IgniteComponent {
 
         Map<String, Object> result = new HashMap<>();
         result.put("micronaut.server.port", port);
-        result.put("ignite.endpoints.filter-non-initialized", "true");
+        result.put("micronaut.server.cors.enabled", "true");
+        result.put("micronaut.server.cors.configurations.web.allowed-headers", "Authorization");
+        result.put("micronaut.security.intercept-url-map[0].pattern", "/**");
+        result.put("micronaut.security.intercept-url-map[0].access", "isAuthenticated()");
 
         if (sslEnabled) {
             KeyStoreView keyStore = restSslView.keyStore();
@@ -229,12 +252,6 @@ public class RestComponent implements IgniteComponent {
         }
 
         return result;
-    }
-
-    private Map<String, Object> authProperties() {
-        return Map.of("micronaut.security.enabled", true,
-                        "micronaut.security.intercept-url-map[1].pattern", "/**",
-                        "micronaut.security.intercept-url-map[1].access", "isAuthenticated()");
     }
 
     private static String toMicronautClientAuth(ClientAuth clientAuth) {
@@ -286,18 +303,18 @@ public class RestComponent implements IgniteComponent {
     }
 
     /**
-     * Returns server host.
+     * Returns server host name.
      *
      * @return host.
      * @throws IgniteInternalException if the component has not been started yet.
      */
-    public String host() {
+    public String hostName() {
         if (context == null) {
             throw new IgniteInternalException("RestComponent has not been started");
         }
 
         try {
-            return InetAddress.getLocalHost().getHostAddress();
+            return InetAddress.getLocalHost().getHostName();
         } catch (UnknownHostException e) {
             return LOCALHOST;
         }

@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.hlc;
 
+import static org.apache.ignite.internal.lang.JavaLoggerFormatter.DATE_FORMATTER;
+
 import java.io.Serializable;
-import org.apache.ignite.internal.tostring.S;
+import java.time.Instant;
+import java.time.ZoneId;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -48,12 +51,6 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
 
     /** The constant holds the minimum value which {@code HybridTimestamp} might formally have. */
     public static final HybridTimestamp MIN_VALUE = new HybridTimestamp(0L, 1);
-
-    /**
-     * Cluster cLock skew. The constant determines the undefined inclusive interval to compares timestamp from various nodes.
-     * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
-     */
-    public static final long CLOCK_SKEW = 7L;
 
     /** Long time value, that consists of physical time in higher 6 bytes and logical time in lower 2 bytes. */
     private final long time;
@@ -187,42 +184,6 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
         return Long.hashCode(time);
     }
 
-    /**
-     * Compares two timestamps with the clock skew.
-     * t1, t2 comparable if t1 is not contained on [t2 - CLOCK_SKEW; t2 + CLOCK_SKEW].
-     * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
-     *
-     * @param anotherTimestamp Another timestamp.
-     * @return Result of comparison can be positive or negative, or {@code 0} if timestamps are not comparable.
-     */
-    private int compareWithClockSkew(HybridTimestamp anotherTimestamp) {
-        if (getPhysical() - CLOCK_SKEW <= anotherTimestamp.getPhysical() && getPhysical() + CLOCK_SKEW >= anotherTimestamp.getPhysical()) {
-            return 0;
-        }
-
-        return compareTo(anotherTimestamp);
-    }
-
-    /**
-     * Defines whether this timestamp is strictly before the given one, taking the clock skew into account.
-     *
-     * @param anotherTimestamp Another timestamp.
-     * @return Whether this timestamp is before the given one or not.
-     */
-    public boolean before(HybridTimestamp anotherTimestamp) {
-        return compareWithClockSkew(anotherTimestamp) < 0;
-    }
-
-    /**
-     * Defines whether this timestamp is strictly after the given one, taking the clock skew into account.
-     *
-     * @param anotherTimestamp Another timestamp.
-     * @return Whether this timestamp is after the given one or not.
-     */
-    public boolean after(HybridTimestamp anotherTimestamp) {
-        return compareWithClockSkew(anotherTimestamp) > 0;
-    }
-
     @Override
     public int compareTo(HybridTimestamp other) {
         return Long.compare(this.time, other.time);
@@ -230,25 +191,52 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
 
     @Override
     public String toString() {
-        return S.toString(HybridTimestamp.class, this, "physical", getPhysical(), "logical", getLogical());
+        String formattedTime = DATE_FORMATTER.format(Instant.ofEpochMilli(getPhysical()).atZone(ZoneId.systemDefault()));
+
+        return String.format("HybridTimestamp [physical=%s, logical=%d, composite=%d]", formattedTime, getLogical(), time);
     }
 
     /**
      * Returns a new hybrid timestamp with incremented physical component.
      */
-    public HybridTimestamp addPhysicalTime(long mills) {
-        if (mills >= (1L << PHYSICAL_TIME_BITS_SIZE)) {
-            throw new IllegalArgumentException("Physical time is out of bounds: " + mills);
+    public HybridTimestamp addPhysicalTime(long millis) {
+        if (millis >= (1L << PHYSICAL_TIME_BITS_SIZE)) {
+            throw new IllegalArgumentException("Physical time is out of bounds: " + millis);
         }
 
-        return new HybridTimestamp(time + (mills << LOGICAL_TIME_BITS_SIZE));
+        return new HybridTimestamp(time + (millis << LOGICAL_TIME_BITS_SIZE));
     }
 
     /**
-     * Returns max clock skew for the cluster (in millis).
+     * Returns a new {@link HybridTimestamp} that is greater than current by 1 logical tick.
+     *
+     * @return New {@link HybridTimestamp} that is greater than current by 1 logical tick.
      */
-    // TODO: IGNITE-19809 - Convert this to a cluster-wide config property.
-    public static long maxClockSkew() {
-        return CLOCK_SKEW;
+    public HybridTimestamp tick() {
+        return hybridTimestamp(time + 1);
+    }
+
+    /**
+     * Returns a new hybrid timestamp with decremented physical component.
+     */
+    public HybridTimestamp subtractPhysicalTime(long millis) {
+        if (millis >= (1L << PHYSICAL_TIME_BITS_SIZE)) {
+            throw new IllegalArgumentException("Physical time is out of bounds: " + millis);
+        }
+
+        return new HybridTimestamp(time - (millis << LOGICAL_TIME_BITS_SIZE));
+    }
+
+    /**
+     * Returns a result of rounding this timestamp up 'to its physical part': that is, if the logical part is zero, the timestamp is
+     * returned as is; if it's non-zero, a new timestamp is returned that has physical part equal to the physical part of this
+     * timestamp plus one, and the logical part is zero.
+     */
+    public HybridTimestamp roundUpToPhysicalTick() {
+        if (getLogical() == 0) {
+            return this;
+        } else {
+            return new HybridTimestamp(getPhysical() + 1, 0);
+        }
     }
 }

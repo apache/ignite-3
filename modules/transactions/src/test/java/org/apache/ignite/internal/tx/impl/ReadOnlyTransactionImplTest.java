@@ -23,6 +23,8 @@ import static org.hamcrest.Matchers.is;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,7 +32,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class ReadOnlyTransactionImplTest {
+class ReadOnlyTransactionImplTest extends BaseIgniteAbstractTest {
     @Mock
     private TxManagerImpl txManager;
 
@@ -39,7 +41,13 @@ class ReadOnlyTransactionImplTest {
         HybridTimestamp readTimestamp = new HybridClockImpl().now();
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(readTimestamp);
 
-        var tx = new ReadOnlyTransactionImpl(txManager, txId, readTimestamp);
+        var tx = new ReadOnlyTransactionImpl(
+                txManager,
+                new HybridTimestampTracker(),
+                txId,
+                "localId",
+                readTimestamp
+        );
 
         assertThat(tx.startTimestamp(), is(readTimestamp));
     }

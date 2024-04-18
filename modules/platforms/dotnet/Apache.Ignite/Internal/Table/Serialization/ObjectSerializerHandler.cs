@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Linq;
     using System.Reflection;
     using System.Reflection.Emit;
+    using Common;
     using Ignite.Sql;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
@@ -34,9 +35,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
     /// Object serializer handler.
     /// </summary>
     /// <typeparam name="T">Object type.</typeparam>
-    internal class ObjectSerializerHandler<T> : IRecordSerializerHandler<T>
+    internal sealed class ObjectSerializerHandler<T> : IRecordSerializerHandler<T>
     {
-        private readonly ConcurrentDictionary<(int, int), WriteDelegate<T>> _writers = new();
+        private readonly ConcurrentDictionary<(int, bool), WriteDelegate<T>> _writers = new();
 
         private readonly ConcurrentDictionary<(int, bool), ReadDelegate<T>> _readers = new();
 
@@ -55,7 +56,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 ? w
                 : _readers.GetOrAdd(cacheKey, EmitReader(schema, keyOnly));
 
-            var columnCount = keyOnly ? schema.KeyColumnCount : schema.Columns.Count;
+            var columnCount = keyOnly ? schema.KeyColumns.Length : schema.Columns.Length;
 
             var binaryTupleReader = new BinaryTupleReader(reader.ReadBinary(), columnCount);
 
@@ -63,18 +64,18 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <inheritdoc/>
-        public void Write(ref BinaryTupleBuilder tupleBuilder, T record, Schema schema, int columnCount, Span<byte> noValueSet)
+        public void Write(ref BinaryTupleBuilder tupleBuilder, T record, Schema schema, bool keyOnly, Span<byte> noValueSet)
         {
-            var cacheKey = (schema.Version, columnCount);
+            var cacheKey = (schema.Version, keyOnly);
 
             var writeDelegate = _writers.TryGetValue(cacheKey, out var w)
                 ? w
-                : _writers.GetOrAdd(cacheKey, EmitWriter(schema, columnCount));
+                : _writers.GetOrAdd(cacheKey, EmitWriter(schema, keyOnly));
 
             writeDelegate(ref tupleBuilder, noValueSet, record);
         }
 
-        private static WriteDelegate<T> EmitWriter(Schema schema, int count)
+        private static WriteDelegate<T> EmitWriter(Schema schema, bool keyOnly)
         {
             var type = typeof(T);
 
@@ -87,12 +88,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>))
             {
-                return EmitKvWriter(schema, count, method);
+                return EmitKvWriter(schema, keyOnly, method);
             }
 
             var il = method.GetILGenerator();
 
-            var columns = schema.Columns;
+            var columns = schema.GetColumnsFor(keyOnly);
+            var columnMap = type.GetFieldsByColumnName();
 
             if (BinaryTupleMethods.GetWriteMethodOrNull(type) is { } directWriteMethod)
             {
@@ -114,7 +116,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                 il.Emit(OpCodes.Call, directWriteMethod);
 
-                for (var index = 1; index < count; index++)
+                for (var index = 1; index < columns.Length; index++)
                 {
                     il.Emit(OpCodes.Ldarg_0); // writer
                     il.Emit(OpCodes.Ldarg_1); // noValueSet
@@ -128,10 +130,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             int mappedCount = 0;
 
-            for (var index = 0; index < count; index++)
+            foreach (var col in columns)
             {
-                var col = columns[index];
-                var fieldInfo = type.GetFieldByColumnName(col.Name);
+                var fieldInfo = columnMap.TryGetValue(col.Name, out var columnInfo) ? columnInfo.Field : null;
 
                 if (fieldInfo == null)
                 {
@@ -162,38 +163,35 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
             }
 
-            ValidateMappedCount(mappedCount, type, columns);
+            ValidateMappedCount(mappedCount, type, schema, keyOnly);
 
             il.Emit(OpCodes.Ret);
 
             return (WriteDelegate<T>)method.CreateDelegate(typeof(WriteDelegate<T>));
         }
 
-        private static WriteDelegate<T> EmitKvWriter(Schema schema, int count, DynamicMethod method)
+        private static WriteDelegate<T> EmitKvWriter(Schema schema, bool keyOnly, DynamicMethod method)
         {
-            var type = typeof(T);
-            var (keyType, valType, keyField, valField) = GetKeyValTypes();
+            var (keyType, valType, keyField, valField, keyColumnMap, valColumnMap) = GetKeyValTypes();
 
             var keyWriteMethod = BinaryTupleMethods.GetWriteMethodOrNull(keyType);
             var valWriteMethod = BinaryTupleMethods.GetWriteMethodOrNull(valType);
 
             var il = method.GetILGenerator();
 
-            var columns = schema.Columns;
+            var columns = schema.GetColumnsFor(keyOnly);
 
             int mappedCount = 0;
 
-            for (var index = 0; index < count; index++)
+            foreach (var col in columns)
             {
-                var col = columns[index];
-
                 FieldInfo? fieldInfo;
 
-                if (keyWriteMethod != null && index == 0)
+                if (keyWriteMethod != null && col.IsKey)
                 {
                     fieldInfo = keyField;
                 }
-                else if (valWriteMethod != null && index == schema.KeyColumnCount)
+                else if (valWriteMethod != null && !col.IsKey)
                 {
                     fieldInfo = valField;
                 }
@@ -203,7 +201,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
-                    fieldInfo = (col.IsKey ? keyType : valType).GetFieldByColumnName(col.Name);
+                    fieldInfo = (col.IsKey ? keyColumnMap : valColumnMap).TryGetValue(col.Name, out var columnInfo)
+                        ? columnInfo.Field
+                        : null;
                 }
 
                 if (fieldInfo == null)
@@ -215,10 +215,22 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 else
                 {
                     ValidateFieldType(fieldInfo, col);
+
+                    var field = col.IsKey ? keyField : valField;
+
+                    if (field != fieldInfo)
+                    {
+                        // POCO mapping: emit null check (nulls are allowed for single-column simple type mapping like KvPair<int, long?>).
+                        il.Emit(OpCodes.Ldarg_2); // record
+                        il.Emit(OpCodes.Ldfld, field);
+                        il.Emit(OpCodes.Ldstr, field == keyField ? "key" : "val");
+
+                        il.Emit(OpCodes.Call, IgniteArgumentCheck.NotNullMethod.MakeGenericMethod(field.FieldType));
+                    }
+
                     il.Emit(OpCodes.Ldarg_0); // writer
                     il.Emit(OpCodes.Ldarg_2); // record
 
-                    var field = index < schema.KeyColumnCount ? keyField : valField;
                     il.Emit(OpCodes.Ldfld, field);
 
                     if (field != fieldInfo)
@@ -242,7 +254,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
             }
 
-            ValidateMappedCount(mappedCount, type, columns);
+            ValidateKvMappedCount(
+                mappedCount,
+                keyWriteMethod != null ? null : keyType,
+                valWriteMethod != null ? null : valType,
+                schema,
+                keyOnly);
 
             il.Emit(OpCodes.Ret);
 
@@ -286,15 +303,15 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var local = il.DeclareAndInitLocal(type);
 
-            var columns = schema.Columns;
-            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+            var columns = schema.GetColumnsFor(keyOnly);
+            var columnMap = type.GetFieldsByColumnName();
 
-            for (var i = 0; i < count; i++)
+            foreach (var col in columns)
             {
-                var col = columns[i];
-                var fieldInfo = type.GetFieldByColumnName(col.Name);
+                var fieldInfo = columnMap.TryGetValue(col.Name, out var columnInfo) ? columnInfo.Field : null;
+                var idx = col.GetBinaryTupleIndex(keyOnly);
 
-                EmitFieldRead(fieldInfo, il, col, i, local);
+                EmitFieldRead(fieldInfo, il, col, idx, local);
             }
 
             il.Emit(OpCodes.Ldloc_0); // res
@@ -308,7 +325,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var type = typeof(T);
 
             var il = method.GetILGenerator();
-            var (keyType, valType, keyField, valField) = GetKeyValTypes();
+            var (keyType, valType, keyField, valField, keyColumnMap, valColumnMap) = GetKeyValTypes();
 
             var keyMethod = BinaryTupleMethods.GetReadMethodOrNull(keyType);
             var valMethod = BinaryTupleMethods.GetReadMethodOrNull(valType);
@@ -317,34 +334,37 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var keyLocal = keyMethod == null ? il.DeclareAndInitLocal(keyType) : null;
             var valLocal = valMethod == null ? il.DeclareAndInitLocal(valType) : null;
 
-            var columns = schema.Columns;
-            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+            var columns = schema.GetColumnsFor(keyOnly);
 
-            for (var i = 0; i < count; i++)
+            foreach (var col in columns)
             {
-                var col = columns[i];
                 FieldInfo? fieldInfo;
                 LocalBuilder? local;
 
-                if (i == 0 && keyMethod != null)
+                if (col.IsKey && keyMethod != null)
                 {
                     fieldInfo = keyField;
                     local = kvLocal;
+                    ValidateSingleFieldMappingType(keyType, col);
                 }
-                else if (i == schema.KeyColumnCount && valMethod != null)
+                else if (!col.IsKey && valMethod != null)
                 {
                     fieldInfo = valField;
                     local = kvLocal;
+                    ValidateSingleFieldMappingType(valType, col);
                 }
                 else
                 {
                     local = col.IsKey ? keyLocal : valLocal;
                     fieldInfo = local == null
                         ? null
-                        : (col.IsKey ? keyType : valType).GetFieldByColumnName(col.Name);
+                        : (col.IsKey ? keyColumnMap : valColumnMap).TryGetValue(col.Name, out var columnInfo)
+                            ? columnInfo.Field
+                            : null;
                 }
 
-                EmitFieldRead(fieldInfo, il, col, i, local);
+                var idx = col.GetBinaryTupleIndex(keyOnly);
+                EmitFieldRead(fieldInfo, il, col, idx, local);
             }
 
             // Copy Key to KvPair.
@@ -396,14 +416,29 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static void ValidateFieldType(FieldInfo fieldInfo, Column column)
         {
             var columnType = column.Type.ToClrType();
+            var type = fieldInfo.FieldType;
 
-            var fieldType = Nullable.GetUnderlyingType(fieldInfo.FieldType) ?? fieldInfo.FieldType;
-            fieldType = fieldType.UnwrapEnum();
+            bool typeIsNullable = !type.IsValueType;
+            if (!typeIsNullable && Nullable.GetUnderlyingType(type) is {} nullableType)
+            {
+                typeIsNullable = true;
+                type = nullableType;
+            }
 
-            if (fieldType != columnType)
+            type = type.UnwrapEnum();
+
+            if (type != columnType)
             {
                 var message = $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldInfo.FieldType}' " +
                               $"to column '{column.Name}' of type '{columnType}' - types do not match.";
+
+                throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
+            }
+
+            if (column.IsNullable && !typeIsNullable)
+            {
+                var message = $"Can't map field '{fieldInfo.DeclaringType?.Name}.{fieldInfo.Name}' of type '{fieldInfo.FieldType}' " +
+                              $"to column '{column.Name}' - column is nullable, but field is not.";
 
                 throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
             }
@@ -413,29 +448,113 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var columnType = column.Type.ToClrType();
 
+            bool typeIsNullable = !type.IsValueType;
+            if (!typeIsNullable && Nullable.GetUnderlyingType(type) is {} nullableType)
+            {
+                typeIsNullable = true;
+                type = nullableType;
+            }
+
             if (type != columnType)
             {
                 var message = $"Can't map '{type}' to column '{column.Name}' of type '{columnType}' - types do not match.";
 
                 throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
             }
+
+            if (column.IsNullable && !typeIsNullable)
+            {
+                var message = $"Can't map '{type}' to column '{column.Name}' - column is nullable, but field is not.";
+
+                throw new IgniteClientException(ErrorGroups.Client.Configuration, message);
+            }
         }
 
-        private static void ValidateMappedCount(int mappedCount, Type type, IEnumerable<Column> columns)
+        private static void ValidateMappedCount(int mappedCount, Type type, Schema schema, bool keyOnly)
         {
-            if (mappedCount > 0)
+            if (mappedCount == 0)
             {
+                var columnStr = schema.Columns.Select(x => x.Type + " " + x.Name).StringJoin();
+                throw new ArgumentException($"Can't map '{type}' to columns '{columnStr}'. Matching fields not found.");
+            }
+
+            if (keyOnly)
+            {
+                // Key-only mode - skip "all fields are mapped" validation.
+                // It will be performed anyway when using the whole schema.
                 return;
             }
 
-            var columnStr = string.Join(", ", columns.Select(x => x.Type + " " + x.Name));
+            var fields = type.GetColumns();
 
-            throw new IgniteClientException(
-                ErrorGroups.Client.Configuration,
-                $"Can't map '{type}' to columns '{columnStr}'. Matching fields not found.");
+            if (fields.Count > mappedCount)
+            {
+                var extraColumns = new HashSet<string>(fields.Count, StringComparer.OrdinalIgnoreCase);
+
+                foreach (var field in fields)
+                {
+                    extraColumns.Add(field.Name);
+                }
+
+                foreach (var column in schema.GetColumnsFor(keyOnly))
+                {
+                    extraColumns.Remove(column.Name);
+                }
+
+                throw SerializerExceptionExtensions.GetUnmappedColumnsException($"Record of type {type}", schema, extraColumns);
+            }
         }
 
-        private static (Type KeyType, Type ValType, FieldInfo KeyField, FieldInfo ValField) GetKeyValTypes()
+        private static void ValidateKvMappedCount(int mappedCount, Type? keyType, Type? valType, Schema schema, bool keyOnly)
+        {
+            if (mappedCount == 0)
+            {
+                var columnStr = schema.Columns.Select(x => x.Type + " " + x.Name).StringJoin();
+                throw new ArgumentException($"Can't map '{keyType}' and '{valType}' to columns '{columnStr}'. Matching fields not found.");
+            }
+
+            var keyFields = keyType?.GetColumns() ?? Array.Empty<ReflectionUtils.ColumnInfo>();
+            var valFields = valType != null && !keyOnly
+                ? valType.GetColumns()
+                : Array.Empty<ReflectionUtils.ColumnInfo>();
+
+            if (keyFields.Count + valFields.Count > mappedCount)
+            {
+                var extraColumns = new HashSet<string>(keyFields.Count + valFields.Count, StringComparer.OrdinalIgnoreCase);
+
+                foreach (var field in keyFields)
+                {
+                    extraColumns.Add(field.Name);
+                }
+
+                foreach (var field in valFields)
+                {
+                    if (extraColumns.Contains(field.Name))
+                    {
+                        throw new ArgumentException(
+                            $"Duplicate field in Value portion of KeyValue pair ({keyType}, {valType}): " + field.Name);
+                    }
+
+                    extraColumns.Add(field.Name);
+                }
+
+                foreach (var column in schema.GetColumnsFor(keyOnly))
+                {
+                    extraColumns.Remove(column.Name);
+                }
+
+                throw SerializerExceptionExtensions.GetUnmappedColumnsException(
+                    $"KeyValue pair of type ({keyType}, {valType})", schema, extraColumns);
+            }
+        }
+
+        private static (
+            Type KeyType,
+            Type ValType,
+            FieldInfo KeyField,
+            FieldInfo ValField,
+            IReadOnlyDictionary<string, ReflectionUtils.ColumnInfo> KeyColumnMap,
+            IReadOnlyDictionary<string, ReflectionUtils.ColumnInfo> ValColumnMap) GetKeyValTypes()
         {
             var type = typeof(T);
             Debug.Assert(
@@ -443,8 +562,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 "type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>)");
 
             var keyValTypes = type.GetGenericArguments();
+            var keyColumnMap = keyValTypes[0].GetFieldsByColumnName();
+            var valColumnMap = keyValTypes[1].GetFieldsByColumnName();
+            var columnMap = type.GetFieldsByColumnName();
 
-            return (keyValTypes[0], keyValTypes[1], type.GetFieldByColumnName("Key")!, type.GetFieldByColumnName("Val")!);
+            return (keyValTypes[0], keyValTypes[1], columnMap["Key"].Field, columnMap["Val"].Field, keyColumnMap, valColumnMap);
         }
     }
 }

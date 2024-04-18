@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.marshaller.BinaryMode.STRING;
 import static org.apache.ignite.internal.marshaller.BinaryMode.TIME;
 import static org.apache.ignite.internal.marshaller.BinaryMode.TIMESTAMP;
 import static org.apache.ignite.internal.marshaller.BinaryMode.UUID;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -45,9 +46,12 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Objects;
 import java.util.Random;
+import org.apache.ignite.internal.marshaller.FieldAccessor.IdentityAccessor;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.marshaller.testobjects.TestSimpleObject;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,7 +62,7 @@ import org.mockito.stubbing.Answer;
 /**
  * Check field accessor correctness.
  */
-public class FieldAccessorTest {
+public class FieldAccessorTest extends BaseIgniteAbstractTest {
     /** Random. */
     private Random rnd;
 
@@ -82,7 +86,7 @@ public class FieldAccessorTest {
      */
     @Test
     public void fieldAccessor() throws Exception {
-        MarshallerColumn[] cols = new MarshallerColumn[]{
+        MarshallerColumn[] cols = {
                 new MarshallerColumn("primitiveBooleanCol", BOOLEAN),
                 new MarshallerColumn("primitiveByteCol", BYTE),
                 new MarshallerColumn("primitiveShortCol", SHORT),
@@ -112,25 +116,25 @@ public class FieldAccessorTest {
                 new MarshallerColumn("decimalCol", DECIMAL),
         };
 
-        final Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
+        Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
 
-        final MarshallerWriter writer = mocks.getFirst();
-        final MarshallerReader reader = mocks.getSecond();
+        MarshallerWriter writer = mocks.getFirst();
+        MarshallerReader reader = mocks.getSecond();
 
-        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
 
         for (int i = 0; i < cols.length; i++) {
             FieldAccessor accessor = FieldAccessor
-                    .create(TestObjectWithAllTypes.class, cols[i].name(), cols[i], i);
+                    .create(TestObjectWithAllTypes.class, cols[i].name(), cols[i], i, null);
 
             accessor.write(writer, obj);
         }
 
-        final TestObjectWithAllTypes restoredObj = new TestObjectWithAllTypes();
+        TestObjectWithAllTypes restoredObj = new TestObjectWithAllTypes();
 
         for (int i = 0; i < cols.length; i++) {
             FieldAccessor accessor = FieldAccessor
-                    .create(TestObjectWithAllTypes.class, cols[i].name(), cols[i], i);
+                    .create(TestObjectWithAllTypes.class, cols[i].name(), cols[i], i, null);
 
             accessor.read(reader, restoredObj);
         }
@@ -146,7 +150,7 @@ public class FieldAccessorTest {
      */
     @Test
     public void nullableFieldsAccessor() throws Exception {
-        MarshallerColumn[] cols = new MarshallerColumn[]{
+        MarshallerColumn[] cols = {
                 new MarshallerColumn("intCol", INT),
                 new MarshallerColumn("longCol", LONG),
 
@@ -154,25 +158,71 @@ public class FieldAccessorTest {
                 new MarshallerColumn("bytesCol", BYTE_ARR),
         };
 
-        final Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
+        Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
 
-        final MarshallerWriter writer = mocks.getFirst();
-        final MarshallerReader reader = mocks.getSecond();
+        MarshallerWriter writer = mocks.getFirst();
+        MarshallerReader reader = mocks.getSecond();
 
-        final TestSimpleObject obj = TestSimpleObject.randomObject(rnd);
+        TestSimpleObject obj = TestSimpleObject.randomObject(rnd);
 
         for (int i = 0; i < cols.length; i++) {
             FieldAccessor accessor = FieldAccessor
-                    .create(TestSimpleObject.class, cols[i].name(), cols[i], i);
+                    .create(TestSimpleObject.class, cols[i].name(), cols[i], i, null);
 
             accessor.write(writer, obj);
         }
 
-        final TestSimpleObject restoredObj = new TestSimpleObject();
+        TestSimpleObject restoredObj = new TestSimpleObject();
 
         for (int i = 0; i < cols.length; i++) {
             FieldAccessor accessor = FieldAccessor
-                    .create(TestSimpleObject.class, cols[i].name(), cols[i], i);
+                    .create(TestSimpleObject.class, cols[i].name(), cols[i], i, null);
+
+            accessor.read(reader, restoredObj);
+        }
+
+        assertEquals(obj, restoredObj);
+    }
+
+    /**
+     * Fields binding with converter.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void fieldsAccessorWithConverter() throws Exception {
+        MarshallerColumn[] cols = { new MarshallerColumn("data", BYTE_ARR) };
+
+        Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
+
+        MarshallerWriter writer = mocks.getFirst();
+        MarshallerReader reader = mocks.getSecond();
+
+        TestObjectWrapper obj = new TestObjectWrapper();
+        obj.data = TestSimpleObject.randomObject(rnd);
+
+        for (int i = 0; i < cols.length; i++) {
+            FieldAccessor accessor = FieldAccessor.create(
+                    TestObjectWrapper.class,
+                    cols[i].name(),
+                    cols[i],
+                    i,
+                    new SerializingConverter<>()
+            );
+
+            accessor.write(writer, obj);
+        }
+
+        TestObjectWrapper restoredObj = new TestObjectWrapper();
+
+        for (int i = 0; i < cols.length; i++) {
+            FieldAccessor accessor = FieldAccessor.create(
+                    TestObjectWrapper.class,
+                    cols[i].name(),
+                    cols[i],
+                    i,
+                    new SerializingConverter<>()
+            );
 
             accessor.read(reader, restoredObj);
         }
@@ -188,17 +238,43 @@ public class FieldAccessorTest {
      */
     @Test
     public void identityAccessor() throws Exception {
-        final FieldAccessor accessor = FieldAccessor.createIdentityAccessor(
-                "col0",
-                0,
-                STRING);
+        IdentityAccessor accessor = FieldAccessor.createIdentityAccessor(
+                new MarshallerColumn("col0", STRING), 0, null
+        );
 
         assertEquals("Some string", accessor.value("Some string"));
 
-        final Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
+        Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
 
         accessor.write(mocks.getFirst(), "Other string");
         assertEquals("Other string", accessor.read(mocks.getSecond()));
+    }
+
+    /**
+     * Identity binding with converter.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void identityAccessorWithConverter() throws Exception {
+        IdentityAccessor accessor = FieldAccessor.createIdentityAccessor(
+                new MarshallerColumn("val", BYTE_ARR),
+                0,
+                new SerializingConverter<TestSimpleObject>()
+        );
+
+        Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
+
+        MarshallerWriter writer = mocks.getFirst();
+        MarshallerReader reader = mocks.getSecond();
+
+        TestSimpleObject obj = TestSimpleObject.randomObject(rnd);
+
+        accessor.write(writer, obj);
+
+        Object restoredObj = accessor.read(reader);
+
+        assertEquals(obj, restoredObj);
     }
 
     /**
@@ -207,19 +283,43 @@ public class FieldAccessorTest {
      */
     @Test
     public void wrongIdentityAccessor() {
-        final FieldAccessor accessor = FieldAccessor.createIdentityAccessor(
-                "col0",
-                42,
-                UUID);
+        FieldAccessor accessor = FieldAccessor.createIdentityAccessor(
+                new MarshallerColumn("col0", UUID), 42, null
+        );
 
         assertEquals("Some string", accessor.value("Some string"));
 
-        final Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
+        Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
 
-        assertThrows(
-                MarshallerException.class,
+        assertThrowsWithCause(
                 () -> accessor.write(mocks.getFirst(), "Other string"),
+                MarshallerException.class,
                 "Failed to write field [id=42]"
+        );
+    }
+
+    @Test
+    public void wrongAccessor() {
+        // Incompatible types.
+        assertThrows(
+                ClassCastException.class,
+                () -> FieldAccessor.create(
+                        TestObjectWrapper.class,
+                        "data",
+                        new MarshallerColumn("val", UUID),
+                        0,
+                        null)
+        );
+
+        // Implicit serialization is not supported yet.
+        assertThrows(
+                ClassCastException.class,
+                () -> FieldAccessor.create(
+                        TestObjectWrapper.class,
+                        "data",
+                        new MarshallerColumn("val", BYTE_ARR),
+                        0,
+                        null)
         );
     }
 
@@ -228,26 +328,23 @@ public class FieldAccessorTest {
      *
      * @return Pair of mocks.
      */
-    private Pair<MarshallerWriter, MarshallerReader> createMocks() {
-        final ArrayList<Object> vals = new ArrayList<>();
+    private static Pair<MarshallerWriter, MarshallerReader> createMocks() {
+        ArrayList<Object> vals = new ArrayList<>();
 
-        final MarshallerWriter mockedAsm = Mockito.mock(MarshallerWriter.class);
-        final MarshallerReader mockedRow = Mockito.mock(MarshallerReader.class);
+        MarshallerWriter mockedAsm = Mockito.mock(MarshallerWriter.class);
+        MarshallerReader mockedRow = Mockito.mock(MarshallerReader.class);
 
-        final Answer<Void> asmAnswer = new Answer<>() {
-            @Override
-            public Void answer(InvocationOnMock invocation) {
-                if ("writeNull".equals(invocation.getMethod().getName())) {
-                    vals.add(null);
-                } else {
-                    vals.add(invocation.getArguments()[0]);
-                }
-
-                return null;
+        Answer<Void> asmAnswer = invocation -> {
+            if ("writeNull".equals(invocation.getMethod().getName())) {
+                vals.add(null);
+            } else {
+                vals.add(invocation.getArguments()[0]);
             }
+
+            return null;
         };
 
-        final Answer<Object> rowAnswer = new Answer<>() {
+        Answer<Object> rowAnswer = new Answer<>() {
             int idx;
 
             @Override
@@ -305,5 +402,29 @@ public class FieldAccessorTest {
         Mockito.doAnswer(rowAnswer).when(mockedRow).readBigDecimal(0);
 
         return new Pair<>(mockedAsm, mockedRow);
+    }
+
+    /**
+     * Object wrapper.
+     */
+    private static class TestObjectWrapper {
+        TestSimpleObject data;
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TestObjectWrapper that = (TestObjectWrapper) o;
+            return Objects.equals(data, that.data);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(data);
+        }
     }
 }

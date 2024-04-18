@@ -19,8 +19,8 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
-using Log;
 using NUnit.Framework;
 
 /// <summary>
@@ -53,14 +53,14 @@ public class SocketTimeoutTest
             HeartbeatDelay = TimeSpan.FromMilliseconds(100)
         };
 
-        var log = new ListLogger(new ConsoleLogger { MinLevel = LogLevel.Trace });
+        var log = new ListLoggerFactory();
 
         var cfg = new IgniteClientConfiguration
         {
             SocketTimeout = TimeSpan.FromMilliseconds(50),
             HeartbeatInterval = TimeSpan.FromMilliseconds(100),
             RetryPolicy = new RetryNonePolicy(),
-            Logger = log
+            LoggerFactory = log
         };
 
         using var client = await server.ConnectClientAsync(cfg);
@@ -70,5 +70,24 @@ public class SocketTimeoutTest
         Assert.IsTrue(
             condition: log.Entries.Any(e => e.Message.Contains(expectedLog) && e.Exception is TimeoutException),
             message: string.Join(Environment.NewLine, log.Entries));
+    }
+
+    [Test]
+    public void TestInfiniteTimeout()
+    {
+        using var server = new FakeServer
+        {
+            HandshakeDelay = TimeSpan.FromMilliseconds(300)
+        };
+
+        var cfg = new IgniteClientConfiguration
+        {
+            SocketTimeout = Timeout.InfiniteTimeSpan
+        };
+
+        Assert.DoesNotThrowAsync(async () =>
+        {
+            using var client = await server.ConnectClientAsync(cfg);
+        });
     }
 }

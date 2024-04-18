@@ -19,9 +19,8 @@ package org.apache.ignite.internal.table.distributed;
 
 import java.util.Map;
 
-/**
- * Supplier table index storages.
- */
+/** Supplier table index storages. */
+@FunctionalInterface
 public interface TableIndexStoragesSupplier {
     /**
      * Returns indexes by their ID.
@@ -29,11 +28,4 @@ public interface TableIndexStoragesSupplier {
      * <p>Waits for the primary key index and all other registered indexes to be created.
      */
     Map<Integer, TableSchemaAwareIndexStorage> get();
-
-    /**
-     * Adds index creation waits if it hasn't been created yet.
-     *
-     * @param indexId Index ID.
-     */
-    void addIndexToWaitIfAbsent(int indexId);
 }

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage.index;
 
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.EQUALITY_FLAG;
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FLAG;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -29,8 +29,8 @@ import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 
 /**
  * Comparator implementation for comparing {@link BinaryTuple}s on a per-column basis.
@@ -141,10 +141,10 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
                 return tuple1.stringValue(index).compareTo(tuple2.stringValue(index));
 
             case NUMBER:
-            case DECIMAL:
-                // Floating point position is irrelevant during comparison.
-                // The only real requirement is that it matches in both arguments, and it does.
                 return tuple1.numberValue(index).compareTo(tuple2.numberValue(index));
+
+            case DECIMAL:
+                return tuple1.decimalValue(index, Integer.MIN_VALUE).compareTo(tuple2.decimalValue(index, Integer.MIN_VALUE));
 
             case TIMESTAMP:
                 return tuple1.timestampValue(index).compareTo(tuple2.timestampValue(index));

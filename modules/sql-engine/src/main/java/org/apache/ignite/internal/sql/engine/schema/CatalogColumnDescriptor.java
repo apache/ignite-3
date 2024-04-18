@@ -19,8 +19,8 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.Objects;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,6 +49,8 @@ public final class CatalogColumnDescriptor implements ColumnDescriptor {
 
     private final int scale;
 
+    private final int length;
+
     private NativeType nativeType;
 
     /**
@@ -59,8 +61,9 @@ public final class CatalogColumnDescriptor implements ColumnDescriptor {
      * @param nullable If {@code true}, this column will be considered as a nullable.
      * @param index A 0-based index in a schema defined by a user.
      * @param columnType An SQL type of this column.
-     * @param precision  Precision of this type, if applicable.
-     * @param scale  Scale of this type, if applicable.
+     * @param precision Precision of this type, if applicable.
+     * @param scale Scale of this type, if applicable.
+     * @param length Length of this type, if applicable.
      * @param defaultStrategy A strategy to follow when generating value for column not specified in the INSERT statement.
      * @param dfltVal A value generator to use when generating value for column not specified in the INSERT statement.
      *               If {@link #defaultStrategy} is {@link DefaultValueStrategy#DEFAULT_NULL DEFAULT_NULL} then the passed supplier will
@@ -74,6 +77,7 @@ public final class CatalogColumnDescriptor implements ColumnDescriptor {
             ColumnType columnType,
             int precision,
             int scale,
+            int length,
             @Nullable DefaultValueStrategy defaultStrategy,
             @Nullable Supplier<Object> dfltVal
     ) {
@@ -85,6 +89,7 @@ public final class CatalogColumnDescriptor implements ColumnDescriptor {
         this.columnType = columnType;
         this.precision = precision;
         this.scale = scale;
+        this.length = length;
 
         if (defaultStrategy != null) {
             this.dfltVal = defaultStrategy == DefaultValueStrategy.DEFAULT_NULL
@@ -93,6 +98,12 @@ public final class CatalogColumnDescriptor implements ColumnDescriptor {
         } else {
             this.dfltVal = NULL_SUPPLIER;
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean hidden() {
+        return false;
     }
 
     /** {@inheritDoc} */
@@ -127,15 +138,9 @@ public final class CatalogColumnDescriptor implements ColumnDescriptor {
 
     /** {@inheritDoc} */
     @Override
-    public int physicalIndex() {
-        return index;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public NativeType physicalType() {
         if (nativeType == null) {
-            nativeType = TypeUtils.columnType2NativeType(columnType, precision, scale);
+            nativeType = TypeUtils.columnType2NativeType(columnType, precision, scale, length);
         }
         return nativeType;
     }

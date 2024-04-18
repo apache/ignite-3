@@ -24,7 +24,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystemImpl;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.schema.TemporalNativeType;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 
 /**
  * Ignite type system.
@@ -35,16 +35,14 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
     /** {@inheritDoc} */
     @Override
     public int getMaxNumericScale() {
-        return Short.MAX_VALUE;
+        return CatalogUtils.MAX_DECIMAL_SCALE;
     }
 
     /** {@inheritDoc} */
     @Override
     public int getMaxNumericPrecision() {
-        return Short.MAX_VALUE;
+        return CatalogUtils.MAX_DECIMAL_PRECISION;
     }
-
-
 
     /** {@inheritDoc} */
     @Override
@@ -54,7 +52,7 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
             case TIME_WITH_LOCAL_TIME_ZONE:
             case TIMESTAMP:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return TemporalNativeType.MAX_TIME_PRECISION;
+                return CatalogUtils.MAX_TIME_PRECISION;
             default:
                 return super.getMaxPrecision(typeName);
         }
@@ -66,7 +64,8 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
         switch (typeName) {
             case TIMESTAMP: // DATETIME
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE: // TIMESTAMP
-                return TemporalNativeType.DEFAULT_TIMESTAMP_PRECISION;
+                // SQL`16 part 2 section 6.1 syntax rule 36
+                return 6;
             case FLOAT:
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-18556
                 // Fixes leastRestrictive(FLOAT, DOUBLE) != leastRestrictive(DOUBLE, FLOAT).
@@ -147,5 +146,4 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
 
         return typeFactory.createTypeWithNullability(sumType, argumentType.isNullable());
     }
-
 }

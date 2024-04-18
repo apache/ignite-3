@@ -19,11 +19,11 @@ package org.apache.ignite.internal.cli.core.repl.executor;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterRegistry;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.CompleterFilter;
 import org.jline.builtins.Options.HelpException;
@@ -31,7 +31,6 @@ import org.jline.console.ArgDesc;
 import org.jline.console.CmdDesc;
 import org.jline.console.CommandRegistry;
 import org.jline.reader.Candidate;
-import org.jline.reader.Completer;
 import org.jline.reader.LineReader;
 import org.jline.reader.ParsedLine;
 import org.jline.reader.impl.completer.ArgumentCompleter;
@@ -126,7 +125,7 @@ public class IgnitePicocliCommands implements CommandRegistry {
             return null;
         }
         CommandSpec spec = sub.getCommandSpec();
-        Help cmdhelp = new picocli.CommandLine.Help(spec);
+        Help cmdhelp = new Help(spec);
         List<AttributedString> main = new ArrayList<>();
         Map<String, List<AttributedString>> options = new HashMap<>();
         String synopsis = AttributedString.stripAnsi(spec.usageMessage().sectionMap().get("synopsis").render(cmdhelp));
@@ -140,7 +139,7 @@ public class IgnitePicocliCommands implements CommandRegistry {
                 val.add(new AttributedString(d));
             }
             if (o.arity().max() > 0) {
-                key += "=" + o.paramLabel();
+                key += "=" + o.paramLabel(); // NOPMD
             }
             options.put(key, val);
         }
@@ -151,7 +150,7 @@ public class IgnitePicocliCommands implements CommandRegistry {
     @Override
     public List<String> commandInfo(String command) {
         CommandSpec spec = cmd.getSubcommands().get(command).getCommandSpec();
-        Help cmdhelp = new picocli.CommandLine.Help(spec);
+        Help cmdhelp = new Help(spec);
         String description = AttributedString.stripAnsi(spec.usageMessage().sectionMap().get("description").render(cmdhelp));
         return new ArrayList<>(Arrays.asList(description.split("\\r?\\n")));
     }
@@ -179,7 +178,7 @@ public class IgnitePicocliCommands implements CommandRegistry {
         return aliasCommand;
     }
 
-    private class IgnitePicocliCompleter extends ArgumentCompleter implements Completer {
+    private class IgnitePicocliCompleter extends ArgumentCompleter {
 
         public IgnitePicocliCompleter() {
             super(NullCompleter.INSTANCE);
@@ -199,35 +198,31 @@ public class IgnitePicocliCommands implements CommandRegistry {
                     0,
                     commandLine.cursor(),
                     cs);
-            String[] staticCandidates = cs.stream()
-                    .map(CharSequence::toString)
-                    .toArray(String[]::new);
 
-            List<DynamicCompleter> completers = completerRegistry.findCompleters(words);
-            if (!completers.isEmpty()) {
-                try {
-                    completers.stream()
-                            .map(c -> c.complete(words))
-                            .flatMap(List::stream)
-                            .map(this::dynamicCandidate)
-                            .forEach(candidates::add);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
+            try {
+                completerRegistry.findCompleters(words).stream()
+                        .map(c -> c.complete(words))
+                        .flatMap(List::stream)
+                        .map(this::dynamicCandidate)
+                        .forEach(candidates::add);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
+            if (candidates.isEmpty()) {
+                String[] filteredCandidates = cs.stream()
+                        .map(CharSequence::toString)
+                        .toArray(String[]::new);
+                for (CompleterFilter filter : completerFilters) {
+                    filteredCandidates = filter.filter(words, filteredCandidates);
+                }
+
+                for (String c : filteredCandidates) {
+                    candidates.add(staticCandidate(c));
                 }
             }
 
-            if (!candidates.isEmpty()) {
-                return;
-            }
-
-            String[] filteredCandidates = staticCandidates;
-            for (CompleterFilter filter : completerFilters) {
-                filteredCandidates = filter.filter(words, filteredCandidates);
-            }
-
-            for (String c : filteredCandidates) {
-                candidates.add(staticCandidate(c));
-            }
+            sortCandidates(candidates);
         }
 
         private Candidate dynamicCandidate(String one) {
@@ -240,6 +235,37 @@ public class IgnitePicocliCommands implements CommandRegistry {
 
         private Candidate staticCandidate(String one) {
             return new Candidate(one, one, null, null, null, null, true, 10);
+        }
+
+        /**
+         * When custom sort order is used, sort candidates list and reassign sort order according to candidates order.
+         * TODO https://issues.apache.org/jira/browse/IGNITE-21824
+         *
+         * @param candidates List of candidates.
+         */
+        private void sortCandidates(List<Candidate> candidates) {
+            boolean customOrder = candidates.stream().anyMatch(c -> c.sort() != 0);
+            if (!customOrder) {
+                return;
+            }
+            Collections.sort(candidates);
+            List<Candidate> newCandidates = new ArrayList<>(candidates.size());
+            for (int i = 0; i < candidates.size(); i++) {
+                Candidate candidate = candidates.get(i);
+                Candidate newCandidate = new Candidate(
+                        candidate.value(),
+                        candidate.displ(),
+                        candidate.group(),
+                        candidate.descr(),
+                        candidate.suffix(),
+                        candidate.key(),
+                        candidate.complete(),
+                        i // override sort order
+                );
+                newCandidates.add(newCandidate);
+            }
+            candidates.clear();
+            candidates.addAll(newCandidates);
         }
     }
 }

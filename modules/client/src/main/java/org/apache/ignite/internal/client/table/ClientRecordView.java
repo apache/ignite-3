@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -26,25 +27,29 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.marshaller.Marshaller;
+import org.apache.ignite.internal.marshaller.MarshallerException;
+import org.apache.ignite.internal.marshaller.TupleReader;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.SqlRowProjection;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Client record view implementation.
  */
-public class ClientRecordView<R> implements RecordView<R> {
-    /** Underlying table. */
-    private final ClientTable tbl;
-
+public class ClientRecordView<R> extends AbstractClientView<R> implements RecordView<R> {
     /** Serializer. */
     private final ClientRecordSerializer<R> ser;
 
@@ -52,28 +57,30 @@ public class ClientRecordView<R> implements RecordView<R> {
      * Constructor.
      *
      * @param tbl Underlying table.
+     * @param sql Sql.
      * @param recMapper Mapper.
      */
-    ClientRecordView(ClientTable tbl, Mapper<R> recMapper) {
-        this.tbl = tbl;
+    ClientRecordView(ClientTable tbl, ClientSql sql, Mapper<R> recMapper) {
+        super(tbl, sql);
+
         ser = new ClientRecordSerializer<>(tbl.tableId(), recMapper);
     }
 
     /** {@inheritDoc} */
     @Override
-    public R get(@Nullable Transaction tx, @NotNull R keyRec) {
+    public R get(@Nullable Transaction tx, R keyRec) {
         return sync(getAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<R> getAsync(@Nullable Transaction tx, @NotNull R keyRec) {
+    public CompletableFuture<R> getAsync(@Nullable Transaction tx, R keyRec) {
         Objects.requireNonNull(keyRec);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeRec(tx, keyRec, s, w, TuplePart.KEY),
-                (s, r) -> ser.readValRec(keyRec, s, r),
+                (s, r) -> ser.readValRec(keyRec, s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRec));
     }
@@ -88,13 +95,13 @@ public class ClientRecordView<R> implements RecordView<R> {
         Objects.requireNonNull(keyRecs);
 
         if (keyRecs.isEmpty()) {
-            return completedFuture(Collections.emptyList());
+            return emptyListCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
                 (s, w) -> ser.writeRecs(tx, keyRecs, s, w, TuplePart.KEY),
-                (s, r) -> ser.readRecs(s, r, true, TuplePart.KEY_AND_VAL),
+                (s, r) -> ser.readRecs(s, r.in(), true, TuplePart.KEY_AND_VAL),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRecs.iterator().next())
         );
@@ -102,13 +109,31 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public void upsert(@Nullable Transaction tx, @NotNull R rec) {
+    public boolean contains(@Nullable Transaction tx, R key) {
+        return sync(containsAsync(tx, key));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, R key) {
+        Objects.requireNonNull(key);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_CONTAINS_KEY,
+                (s, w) -> ser.writeRec(tx, key, s, w, TuplePart.KEY),
+                r -> r.in().unpackBoolean(),
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), key));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void upsert(@Nullable Transaction tx, R rec) {
         sync(upsertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, @NotNull R rec) {
+    public CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, R rec) {
         Objects.requireNonNull(rec);
 
         return tbl.doSchemaOutOpAsync(
@@ -120,17 +145,17 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public void upsertAll(@Nullable Transaction tx, @NotNull Collection<R> recs) {
+    public void upsertAll(@Nullable Transaction tx, Collection<R> recs) {
         sync(upsertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, @NotNull Collection<R> recs) {
+    public CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, Collection<R> recs) {
         Objects.requireNonNull(recs);
 
         if (recs.isEmpty()) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return tbl.doSchemaOutOpAsync(
@@ -142,224 +167,224 @@ public class ClientRecordView<R> implements RecordView<R> {
 
     /** {@inheritDoc} */
     @Override
-    public R getAndUpsert(@Nullable Transaction tx, @NotNull R rec) {
+    public R getAndUpsert(@Nullable Transaction tx, R rec) {
         return sync(getAndUpsertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<R> getAndUpsertAsync(@Nullable Transaction tx, @NotNull R rec) {
+    public CompletableFuture<R> getAndUpsertAsync(@Nullable Transaction tx, R rec) {
         Objects.requireNonNull(rec);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
-                (s, r) -> ser.readValRec(rec, s, r),
+                (s, r) -> ser.readValRec(rec, s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean insert(@Nullable Transaction tx, @NotNull R rec) {
+    public boolean insert(@Nullable Transaction tx, R rec) {
         return sync(insertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, @NotNull R rec) {
+    public CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, R rec) {
         Objects.requireNonNull(rec);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> insertAll(@Nullable Transaction tx, @NotNull Collection<R> recs) {
+    public List<R> insertAll(@Nullable Transaction tx, Collection<R> recs) {
         return sync(insertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> insertAllAsync(@Nullable Transaction tx, @NotNull Collection<R> recs) {
+    public CompletableFuture<List<R>> insertAllAsync(@Nullable Transaction tx, Collection<R> recs) {
         Objects.requireNonNull(recs);
 
         if (recs.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
+            return emptyListCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_INSERT_ALL,
                 (s, w) -> ser.writeRecs(tx, recs, s, w, TuplePart.KEY_AND_VAL),
-                (s, r) -> ser.readRecs(s, r, false, TuplePart.KEY_AND_VAL),
+                (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY_AND_VAL),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), recs.iterator().next()));
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@Nullable Transaction tx, @NotNull R rec) {
+    public boolean replace(@Nullable Transaction tx, R rec) {
         return sync(replaceAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@Nullable Transaction tx, @NotNull R oldRec, @NotNull R newRec) {
+    public boolean replace(@Nullable Transaction tx, R oldRec, R newRec) {
         return sync(replaceAsync(tx, oldRec, newRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull R rec) {
+    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R rec) {
         Objects.requireNonNull(rec);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull R oldRec, @NotNull R newRec) {
+    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R oldRec, R newRec) {
         Objects.requireNonNull(oldRec);
         Objects.requireNonNull(newRec);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
                 (s, w) -> ser.writeRecs(tx, oldRec, newRec, s, w, TuplePart.KEY_AND_VAL),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), oldRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public R getAndReplace(@Nullable Transaction tx, @NotNull R rec) {
+    public R getAndReplace(@Nullable Transaction tx, R rec) {
         return sync(getAndReplaceAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<R> getAndReplaceAsync(@Nullable Transaction tx, @NotNull R rec) {
+    public CompletableFuture<R> getAndReplaceAsync(@Nullable Transaction tx, R rec) {
         Objects.requireNonNull(rec);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
-                (s, r) -> ser.readValRec(rec, s, r),
+                (s, r) -> ser.readValRec(rec, s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean delete(@Nullable Transaction tx, @NotNull R keyRec) {
+    public boolean delete(@Nullable Transaction tx, R keyRec) {
         return sync(deleteAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, @NotNull R keyRec) {
+    public CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, R keyRec) {
         Objects.requireNonNull(keyRec);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> ser.writeRec(tx, keyRec, s, w, TuplePart.KEY),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean deleteExact(@Nullable Transaction tx, @NotNull R rec) {
+    public boolean deleteExact(@Nullable Transaction tx, R rec) {
         return sync(deleteExactAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, @NotNull R rec) {
+    public CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, R rec) {
         Objects.requireNonNull(rec);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> ser.writeRec(tx, rec, s, w, TuplePart.KEY_AND_VAL),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public R getAndDelete(@Nullable Transaction tx, @NotNull R keyRec) {
+    public R getAndDelete(@Nullable Transaction tx, R keyRec) {
         return sync(getAndDeleteAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<R> getAndDeleteAsync(@Nullable Transaction tx, @NotNull R keyRec) {
+    public CompletableFuture<R> getAndDeleteAsync(@Nullable Transaction tx, R keyRec) {
         Objects.requireNonNull(keyRec);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> ser.writeRec(tx, keyRec, s, w, TuplePart.KEY),
-                (s, r) -> ser.readValRec(keyRec, s, r),
+                (s, r) -> ser.readValRec(keyRec, s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> deleteAll(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
+    public List<R> deleteAll(@Nullable Transaction tx, Collection<R> keyRecs) {
         return sync(deleteAllAsync(tx, keyRecs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
+    public CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
         if (keyRecs.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
+            return emptyListCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> ser.writeRecs(tx, keyRecs, s, w, TuplePart.KEY),
-                (s, r) -> ser.readRecs(s, r, false, TuplePart.KEY),
+                (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRecs.iterator().next()));
     }
 
     /** {@inheritDoc} */
     @Override
-    public Collection<R> deleteAllExact(@Nullable Transaction tx, @NotNull Collection<R> recs) {
+    public List<R> deleteAllExact(@Nullable Transaction tx, Collection<R> recs) {
         return sync(deleteAllExactAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@Nullable Transaction tx, @NotNull Collection<R> recs) {
+    public CompletableFuture<List<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> recs) {
         Objects.requireNonNull(recs);
 
         if (recs.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
+            return emptyListCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL_EXACT,
                 (s, w) -> ser.writeRecs(tx, recs, s, w, TuplePart.KEY_AND_VAL),
-                (s, r) -> ser.readRecs(s, r, false, TuplePart.KEY_AND_VAL),
+                (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY_AND_VAL),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), recs.iterator().next()));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> streamData(Publisher<R> publisher, @Nullable DataStreamerOptions options) {
+    public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<R>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
         var provider = new PojoStreamerPartitionAwarenessProvider<>(tbl, ser.mapper());
@@ -367,13 +392,28 @@ public class ClientRecordView<R> implements RecordView<R> {
 
         // Partition-aware (best effort) sender with retries.
         // The batch may go to a different node when a direct connection is not available.
-        StreamerBatchSender<R, String> batchSender = (nodeId, items) -> tbl.doSchemaOutOpAsync(
-                ClientOp.TUPLE_UPSERT_ALL,
-                (s, w) -> ser.writeRecs(null, items, s, w, TuplePart.KEY_AND_VAL),
+        StreamerBatchSender<R, Integer> batchSender = (partition, items, deleted) -> tbl.doSchemaOutOpAsync(
+                ClientOp.STREAMER_BATCH_SEND,
+                (s, w) -> ser.writeStreamerRecs(partition, items, deleted, s, w),
                 r -> null,
-                PartitionAwarenessProvider.of(nodeId),
+                PartitionAwarenessProvider.of(partition),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected Function<SqlRow, R> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
+        String[] cols = columnNames(schema.columns());
+        Marshaller marsh = schema.getMarshaller(ser.mapper(), TuplePart.KEY_AND_VAL, true);
+
+        return (row) -> {
+            try {
+                return (R) marsh.readObject(new TupleReader(new SqlRowProjection(row, meta, cols)), null);
+            } catch (MarshallerException e) {
+                throw new org.apache.ignite.lang.MarshallerException(e);
+            }
+        };
     }
 }

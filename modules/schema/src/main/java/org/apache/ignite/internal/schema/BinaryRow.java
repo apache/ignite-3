@@ -18,36 +18,15 @@
 package org.apache.ignite.internal.schema;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
-/**
- * Binary row interface. Data layout is described in packages' {@code README.md}.
- */
+/** Binary row interface. Data layout is described in packages' {@code README.md}. */
 public interface BinaryRow {
-    ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
-
-    /** Size of schema version field. */
-    int SCHEMA_VERSION_FLD_LEN = Short.BYTES;
-
-    /** Row schema version field offset. */
-    int SCHEMA_VERSION_OFFSET = 0;
-
-    /** Row binary tuple field offset. */
-    int TUPLE_OFFSET = SCHEMA_VERSION_OFFSET + SCHEMA_VERSION_FLD_LEN;
-
     /** Get row schema version. */
     int schemaVersion();
-
-    /** Get has value flag: {@code true} if row has non-null value, {@code false} otherwise. */
-    boolean hasValue();
 
     /** Length of the {@link #tupleSlice}. */
     int tupleSliceLength();
 
     /** Get ByteBuffer slice representing the binary tuple. */
     ByteBuffer tupleSlice();
-
-    /** Returns the representation of this row as a Byte Buffer. */
-    // TODO: remove this method, see https://issues.apache.org/jira/browse/IGNITE-19937
-    ByteBuffer byteBuffer();
 }

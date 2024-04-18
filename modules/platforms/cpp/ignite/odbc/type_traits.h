@@ -20,6 +20,7 @@
 #include <ignite/common/ignite_type.h>
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 namespace ignite {
@@ -109,57 +110,6 @@ enum class odbc_native_type {
 };
 
 /**
- * SQL type name constants.
- *
- * TODO: Replace with inline constants.
- */
-namespace sql_type_name {
-
-/** VARCHAR SQL type name constant. */
-const std::string VARCHAR("VARCHAR");
-
-/** SMALLINT SQL type name constant. */
-const std::string SMALLINT("SMALLINT");
-
-/** INTEGER SQL type name constant. */
-const std::string INTEGER("INTEGER");
-
-/** DECIMAL SQL type name constant. */
-const std::string DECIMAL("DECIMAL");
-
-/** FLOAT SQL type name constant. */
-const std::string FLOAT("FLOAT");
-
-/** DOUBLE SQL type name constant. */
-const std::string DOUBLE("DOUBLE");
-
-/** BIT SQL type name constant. */
-const std::string BIT("BIT");
-
-/** TINYINT SQL type name constant. */
-const std::string TINYINT("TINYINT");
-
-/** BIGINT SQL type name constant. */
-const std::string BIGINT("BIGINT");
-
-/** BINARY SQL type name constant. */
-const std::string BINARY("VARBINARY");
-
-/** DATE SQL type name constant. */
-const std::string DATE("DATE");
-
-/** TIMESTAMP SQL type name constant. */
-const std::string TIMESTAMP("TIMESTAMP");
-
-/** TIME SQL type name constant. */
-const std::string TIME("TIME");
-
-/** GUID SQL type name constant. */
-const std::string GUID("GUID");
-
-}; // namespace sql_type_name
-
-/**
  * Get SQL type name for the ignite type.
  *
  * @param typ Ignite type.
@@ -173,7 +123,7 @@ const std::string &ignite_type_to_sql_type_name(ignite_type typ);
  * @param type Application type.
  * @return True if the type is supported.
  */
-bool is_sql_type_supported(int16_t type);
+bool is_sql_type_supported(std::int16_t type);
 
 /**
  * Get corresponding binary type for ODBC SQL type.
@@ -181,7 +131,7 @@ bool is_sql_type_supported(int16_t type);
  * @param sql_type SQL type.
  * @return Binary type.
  */
-ignite_type sql_type_to_ignite_type(int16_t sql_type);
+ignite_type sql_type_to_ignite_type(std::int16_t sql_type);
 
 /**
  * Convert ODBC type to driver type alias.
@@ -189,7 +139,7 @@ ignite_type sql_type_to_ignite_type(int16_t sql_type);
  * @param type ODBC type;
  * @return Internal driver type.
  */
-odbc_native_type to_driver_type(int16_t type);
+odbc_native_type to_driver_type(std::int16_t type);
 
 /**
  * Convert Ignite data type to SQL data type.
@@ -197,7 +147,7 @@ odbc_native_type to_driver_type(int16_t type);
  * @param typ Data type.
  * @return SQL data type.
  */
-int16_t ignite_type_to_sql_type(ignite_type typ);
+std::int16_t ignite_type_to_sql_type(ignite_type typ);
 
 /**
  * Get Ignite type SQL nullability.
@@ -208,7 +158,7 @@ int16_t ignite_type_to_sql_type(ignite_type typ);
  *         SQL_NULLABLE_UNKNOWN if it is not known whether the
  *         column accepts NULL values.
  */
-int16_t ignite_type_nullability(ignite_type typ);
+std::int16_t ignite_type_nullability(ignite_type typ);
 
 /**
  * Get SQL type display size.
@@ -216,7 +166,7 @@ int16_t ignite_type_nullability(ignite_type typ);
  * @param type SQL type.
  * @return Display size.
  */
-int32_t sql_type_display_size(int16_t type);
+std::int32_t sql_type_display_size(std::int16_t type);
 
 /**
  * Get Ignite type display size.
@@ -224,7 +174,7 @@ int32_t sql_type_display_size(int16_t type);
  * @param typ Ignite type.
  * @return Display size.
  */
-int32_t ignite_type_display_size(ignite_type typ);
+std::int32_t ignite_type_display_size(ignite_type typ);
 
 /**
  * Get SQL type column size.
@@ -232,7 +182,7 @@ int32_t ignite_type_display_size(ignite_type typ);
  * @param type SQL type.
  * @return Column size.
  */
-int32_t sql_type_column_size(int16_t type);
+std::int32_t sql_type_column_size(std::int16_t type);
 
 /**
  * Get Ignite type column size.
@@ -240,7 +190,7 @@ int32_t sql_type_column_size(int16_t type);
  * @param typ Ignite type.
  * @return Column size.
  */
-int32_t ignite_type_column_size(ignite_type typ);
+std::int32_t ignite_type_max_column_size(ignite_type typ);
 
 /**
  * Get SQL type transfer octet length.
@@ -248,7 +198,7 @@ int32_t ignite_type_column_size(ignite_type typ);
  * @param type SQL type.
  * @return Transfer octet length.
  */
-int32_t sql_type_transfer_length(int16_t type);
+std::int32_t sql_type_transfer_length(std::int16_t type);
 
 /**
  * Get Ignite type transfer octet length.
@@ -256,7 +206,7 @@ int32_t sql_type_transfer_length(int16_t type);
  * @param typ Ignite type.
  * @return Transfer octet length.
  */
-int32_t ignite_type_transfer_length(ignite_type typ);
+std::int32_t ignite_type_transfer_length(ignite_type typ);
 
 /**
  * Get SQL type numeric precision radix.
@@ -264,7 +214,7 @@ int32_t ignite_type_transfer_length(ignite_type typ);
  * @param type SQL type.
  * @return Numeric precision radix.
  */
-int32_t sql_type_num_precision_radix(int8_t type);
+std::int32_t sql_type_num_precision_radix(int8_t type);
 
 /**
  * Get Ignite type numeric precision radix.
@@ -272,23 +222,25 @@ int32_t sql_type_num_precision_radix(int8_t type);
  * @param typ Ignite type.
  * @return Numeric precision radix.
  */
-int32_t ignite_type_num_precision_radix(ignite_type typ);
+std::int32_t ignite_type_num_precision_radix(ignite_type typ);
 
 /**
  * Get SQL type decimal digits.
  *
  * @param type SQL type.
+ * @param scale Scale if applies. Negative value means scale is not available.
  * @return big_decimal digits.
  */
-int32_t sql_type_decimal_digits(int16_t type);
+std::int32_t sql_type_decimal_digits(std::int16_t type, std::int32_t scale);
 
 /**
  * Get Ignite type decimal digits.
  *
  * @param typ Ignite type.
+ * @param scale Scale if applies. Negative value means scale is not available.
  * @return big_decimal digits.
  */
-int32_t ignite_type_decimal_digits(ignite_type typ);
+std::int32_t ignite_type_decimal_digits(ignite_type typ, std::int32_t scale);
 
 /**
  * Checks if the SQL type is unsigned.
@@ -296,7 +248,7 @@ int32_t ignite_type_decimal_digits(ignite_type typ);
  * @param type SQL type.
  * @return True if unsigned or non-numeric.
  */
-bool is_sql_type_unsigned(int16_t type);
+bool is_sql_type_unsigned(std::int16_t type);
 
 /**
  * Checks if the Ignite type is unsigned.
@@ -305,5 +257,21 @@ bool is_sql_type_unsigned(int16_t type);
  * @return True if unsigned or non-numeric.
  */
 bool is_ignite_type_unsigned(ignite_type typ);
+
+/**
+ * Get literal prefix for an ignite type.
+ *
+ * @param typ Type.
+ * @return Prefix.
+ */
+std::optional<std::string> ignite_type_literal_prefix(ignite_type typ);
+
+/**
+ * Get literal suffix for an ignite type.
+ *
+ * @param typ Type.
+ * @return Suffix.
+ */
+std::optional<std::string> ignite_type_literal_suffix(ignite_type typ);
 
 } // namespace ignite

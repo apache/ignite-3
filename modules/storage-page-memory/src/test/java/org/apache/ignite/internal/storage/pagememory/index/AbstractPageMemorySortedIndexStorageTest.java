@@ -23,28 +23,21 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 
-import java.util.Random;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType.ColumnTypeSpec;
-import org.apache.ignite.internal.schema.testutils.definition.index.SortedIndexDefinition;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.AbstractSortedIndexStorageTest;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
 /**
  * Base class for testing {@link SortedIndexStorage} based on {@link PageMemory}.
  */
 abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIndexStorageTest {
-    protected BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig;
-
-    private final Random random = new Random();
+    protected int pageSize;
 
     /**
      * Initializes the internal structures needed for tests.
@@ -53,22 +46,16 @@ abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIn
      */
     final void initialize(
             MvTableStorage tableStorage,
-            TablesConfiguration tablesCfg,
-            BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig
+            int pageSize
     ) {
-        this.baseEngineConfig = baseEngineConfig;
+        this.pageSize = pageSize;
 
-        initialize(tableStorage, tablesCfg);
+        initialize(tableStorage);
     }
 
     @Test
-    void testWithStringsLargerThanMaximumInlineSize() throws Exception {
-        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
-                .addIndexColumn(ColumnTypeSpec.INT32.name()).asc().done()
-                .addIndexColumn(ColumnTypeSpec.STRING.name()).asc().done()
-                .build();
-
-        SortedIndexStorage index = createIndexStorage(indexDefinition);
+    void testWithStringsLargerThanMaximumInlineSize() {
+        SortedIndexStorage index = createIndexStorage("TEST_INDEX", ColumnType.INT32, ColumnType.STRING);
 
         var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
 
@@ -89,17 +76,10 @@ abstract class AbstractPageMemorySortedIndexStorageTest extends AbstractSortedIn
     }
 
     @Test
-    void testFragmentedIndexColumns() throws Exception {
-        SortedIndexDefinition indexDefinition = SchemaBuilders.sortedIndex("TEST_INDEX")
-                .addIndexColumn(ColumnTypeSpec.INT32.name()).asc().done()
-                .addIndexColumn(ColumnTypeSpec.STRING.name()).asc().done()
-                .build();
-
-        SortedIndexStorage index = createIndexStorage(indexDefinition);
+    void testFragmentedIndexColumns() {
+        SortedIndexStorage index = createIndexStorage("TEST_INDEX", ColumnType.INT32, ColumnType.STRING);
 
         var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
-
-        int pageSize = baseEngineConfig.pageSize().value();
 
         IndexRow indexRow0 = createIndexRow(serializer, new RowId(TEST_PARTITION), 10, randomString(random, pageSize * 2));
         IndexRow indexRow1 = createIndexRow(serializer, new RowId(TEST_PARTITION), 10, randomString(random, pageSize * 2));

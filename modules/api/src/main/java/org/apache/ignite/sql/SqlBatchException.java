@@ -18,8 +18,8 @@
 package org.apache.ignite.sql;
 
 import java.util.UUID;
-import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.internal.util.ExceptionUtils;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Subclass of {@link SqlException} is thrown when an error occurs during a batch update operation. In addition to the
@@ -30,18 +30,23 @@ import org.apache.ignite.internal.util.ExceptionUtils;
  *
  */
 public class SqlBatchException extends SqlException {
+    /** Empty array of long. */
+    private static final long[] LONG_EMPTY_ARRAY = new long[0];
+
     private final long[] updCntrs;
 
     /**
      * Creates a grid exception with the given throwable as a cause and source of error message.
      *
+     * @param traceId Unique identifier of the exception.
+     * @param code Full error code.
      * @param updCntrs Array that describes the outcome of a batch execution.
      * @param cause Non-null throwable cause.
      */
-    public SqlBatchException(int code, long[] updCntrs, Throwable cause) {
-        super(code, cause.getMessage(), cause);
+    public SqlBatchException(UUID traceId, int code, long[] updCntrs, Throwable cause) {
+        super(traceId, code, cause.getMessage(), cause);
 
-        this.updCntrs = updCntrs != null ? updCntrs : ArrayUtils.LONG_EMPTY_ARRAY;
+        this.updCntrs = updCntrs != null ? updCntrs : LONG_EMPTY_ARRAY;
     }
 
     /**
@@ -55,7 +60,9 @@ public class SqlBatchException extends SqlException {
     public SqlBatchException(UUID traceId, int code, String message, Throwable cause) {
         super(traceId, code, message, cause);
 
-        cause = ExceptionUtils.unwrapCause(cause);
+        while ((cause instanceof CompletionException || cause instanceof ExecutionException) && cause.getCause() != null) {
+            cause = cause.getCause();
+        }
 
         updCntrs = cause instanceof SqlBatchException ? ((SqlBatchException) cause).updCntrs : null;
     }

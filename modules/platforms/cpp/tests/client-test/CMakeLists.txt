@@ -21,6 +21,7 @@ set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
     basic_authenticator_test.cpp
+    column_order_test.cpp
     compute_test.cpp
     gtest_logger.h
     ignite_client_test.cpp
@@ -30,6 +31,7 @@ set(SOURCES
     main.cpp
     record_binary_view_test.cpp
     record_view_test.cpp
+    schema_synchronization_test.cpp
     sql_test.cpp
     tables_test.cpp
     transactions_test.cpp

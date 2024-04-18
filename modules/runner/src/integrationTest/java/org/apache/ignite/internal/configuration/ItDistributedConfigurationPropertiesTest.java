@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -37,7 +38,9 @@ import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -55,19 +58,21 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -79,7 +84,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class ItDistributedConfigurationPropertiesTest {
+public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstractTest {
     /** Test distributed configuration schema. */
     @ConfigurationRoot(rootName = "root", type = ConfigurationType.DISTRIBUTED)
     public static class DistributedConfigurationSchema {
@@ -95,6 +100,9 @@ public class ItDistributedConfigurationPropertiesTest {
 
     @InjectConfiguration
     private static NodeAttributesConfiguration nodeAttributes;
+
+    @InjectConfiguration
+    private static StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
@@ -150,15 +158,22 @@ public class ItDistributedConfigurationPropertiesTest {
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
+            var clusterInitializer = new ClusterInitializer(
+                    clusterService,
+                    hocon -> hocon,
+                    new TestConfigurationValidator()
+            );
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
+                    clusterInitializer,
                     raftManager,
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    nodeAttributes,
-                    new TestConfigurationValidator());
+                    new NodeAttributesCollector(nodeAttributes, storageConfiguration)
+            );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
@@ -170,7 +185,6 @@ public class ItDistributedConfigurationPropertiesTest {
             );
 
             metaStorageManager = new MetaStorageManagerImpl(
-                    vaultManager,
                     clusterService,
                     cmgManager,
                     logicalTopologyService,
@@ -184,7 +198,7 @@ public class ItDistributedConfigurationPropertiesTest {
             deployWatchesFut = metaStorageManager.deployWatches();
 
             // create a custom storage implementation that is able to "lose" some storage updates
-            var distributedCfgStorage = new DistributedConfigurationStorage(metaStorageManager) {
+            var distributedCfgStorage = new DistributedConfigurationStorage("test", metaStorageManager) {
                 /** {@inheritDoc} */
                 @Override
                 public synchronized void registerConfigurationListener(ConfigurationStorageListener listener) {
@@ -192,7 +206,7 @@ public class ItDistributedConfigurationPropertiesTest {
                         if (receivesUpdates) {
                             return listener.onEntriesChanged(changedEntries);
                         } else {
-                            return CompletableFuture.completedFuture(null);
+                            return nullCompletedFuture();
                         }
                     });
                 }

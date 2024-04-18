@@ -28,6 +28,7 @@ namespace Apache.Ignite.Tests
     using Ignite.Compute;
     using Ignite.Sql;
     using Internal.Buffers;
+    using Internal.Common;
     using Internal.Network;
     using Internal.Proto;
     using Internal.Proto.BinaryTuple;
@@ -94,7 +95,7 @@ namespace Apache.Ignite.Tests
 
         public string[] PartitionAssignment { get; set; }
 
-        public bool PartitionAssignmentChanged { get; set; }
+        public long PartitionAssignmentTimestamp { get; set; }
 
         public TimeSpan HandshakeDelay { get; set; }
 
@@ -112,13 +113,19 @@ namespace Apache.Ignite.Tests
 
         public long? LastSqlTxId { get; set; }
 
-        public long UpsertAllRowCount { get; set; }
+        public Dictionary<string, object?> LastSqlScriptProps { get; private set; } = new();
+
+        public long StreamerRowCount { get; set; }
 
         public long DroppedConnectionCount { get; set; }
 
         public bool SendInvalidMagic { get; set; }
 
         public int RequestCount { get; set; }
+
+        public long ObservableTimestamp { get; set; }
+
+        public long LastClientObservableTimestamp { get; set; }
 
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
@@ -159,7 +166,7 @@ namespace Apache.Ignite.Tests
             handshakeWriter.Write(Node.Name); // Node name (consistent id).
             handshakeWriter.Write(ClusterId);
             handshakeWriter.WriteBinaryHeader(0); // Features.
-            handshakeWriter.WriteMapHeader(0); // Extensions.
+            handshakeWriter.Write(0); // Extensions.
 
             var handshakeMem = handshakeBufferWriter.GetWrittenMemory();
             handler.Send(new byte[] { 0, 0, 0, (byte)handshakeMem.Length }); // Size.
@@ -191,8 +198,8 @@ namespace Apache.Ignite.Tests
                 switch (opCode)
                 {
                     case ClientOp.TablesGet:
-                        // Empty map.
-                        Send(handler, requestId, new byte[] { 128 }.AsMemory());
+                        // Zero tables.
+                        Send(handler, requestId, new byte[] { 0 }.AsMemory());
                         continue;
 
                     case ClientOp.TableGet:
@@ -228,7 +235,9 @@ namespace Apache.Ignite.Tests
                     {
                         using var arrayBufferWriter = new PooledArrayBuffer();
                         var writer = new MsgPackWriter(arrayBufferWriter);
-                        writer.WriteArrayHeader(PartitionAssignment.Length);
+                        writer.Write(PartitionAssignment.Length);
+                        writer.Write(true); // Assignment available.
+                        writer.Write(DateTime.UtcNow.Ticks); // Timestamp
 
                         foreach (var nodeId in PartitionAssignment)
                         {
@@ -272,22 +281,34 @@ namespace Apache.Ignite.Tests
                             Thread.Sleep(MultiRowOperationDelayPerRow * count);
                         }
 
-                        if (opCode == ClientOp.TupleUpsertAll)
-                        {
-                            UpsertAllRowCount += count;
-                        }
-
                         Send(handler, requestId, new byte[] { 1, 0 }.AsMemory());
                         continue;
 
                     case ClientOp.TxBegin:
+                        reader.Skip(); // Read only.
+                        LastClientObservableTimestamp = reader.ReadInt64();
+
                         Send(handler, requestId, new byte[] { 0 }.AsMemory());
                         continue;
 
                     case ClientOp.ComputeExecute:
+                    case ClientOp.ComputeExecuteColocated:
                     {
-                        using var pooledArrayBuffer = ComputeExecute(reader);
-                        Send(handler, requestId, pooledArrayBuffer);
+                        using var pooledArrayBuffer = ComputeExecute(reader, colocated: opCode == ClientOp.ComputeExecuteColocated);
+
+                        using var resWriter = new PooledArrayBuffer();
+
+                        var rw = resWriter.MessageWriter;
+                        if (opCode == ClientOp.ComputeExecuteColocated)
+                        {
+                            // Schema version.
+                            rw.Write(1);
+                        }
+
+                        rw.Write(Guid.NewGuid());
+
+                        Send(handler, requestId, resWriter);
+                        Send(handler, requestId, pooledArrayBuffer, isNotification: true);
                         continue;
                     }
 
@@ -299,17 +320,22 @@ namespace Apache.Ignite.Tests
                         SqlCursorNextPage(handler, requestId);
                         continue;
 
+                    case ClientOp.SqlExecScript:
+                        SqlExecScript(reader);
+                        Send(handler, requestId, Array.Empty<byte>());
+                        continue;
+
                     case ClientOp.Heartbeat:
                         Thread.Sleep(HeartbeatDelay);
                         Send(handler, requestId, Array.Empty<byte>());
                         continue;
 
-                    case ClientOp.ComputeExecuteColocated:
-                    {
-                        using var pooledArrayBuffer = ComputeExecute(reader, colocated: true);
-                        Send(handler, requestId, pooledArrayBuffer);
+                    case ClientOp.StreamerBatchSend:
+                        reader.Skip(4);
+                        StreamerRowCount += reader.ReadInt32();
+
+                        Send(handler, requestId, Array.Empty<byte>());
                         continue;
-                    }
                 }
 
                 // Fake error message for any other op code.
@@ -320,6 +346,7 @@ namespace Apache.Ignite.Tests
                 w.Write("org.foo.bar.BazException");
                 w.Write(Err);
                 w.WriteNil(); // Stack trace.
+                w.WriteNil(); // Error extensions.
 
                 Send(handler, requestId, errWriter, isError: true);
             }
@@ -327,22 +354,32 @@ namespace Apache.Ignite.Tests
             handler.Disconnect(true);
         }
 
-        private void Send(Socket socket, long requestId, PooledArrayBuffer writer, bool isError = false)
-            => Send(socket, requestId, writer.GetWrittenMemory(), isError);
+        private void Send(Socket socket, long requestId, PooledArrayBuffer writer, bool isError = false, bool isNotification = false)
+            => Send(socket, requestId, writer.GetWrittenMemory(), isError, isNotification);
 
-        private void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, bool isError = false)
+        private void Send(Socket socket, long requestId, ReadOnlyMemory<byte> payload, bool isError = false, bool isNotification = false)
         {
             using var header = new PooledArrayBuffer();
             var writer = new MsgPackWriter(header);
 
-            writer.Write(0); // Message type.
             writer.Write(requestId);
-            writer.Write(PartitionAssignmentChanged ? (int)ResponseFlags.PartitionAssignmentChanged : 0);
 
-            if (!isError)
+            var flags = (int)ResponseFlags.PartitionAssignmentChanged;
+
+            if (isError)
             {
-                writer.WriteNil(); // Success.
+                flags |= (int)ResponseFlags.Error;
             }
+
+            if (isNotification)
+            {
+                flags |= (int)ResponseFlags.Notification;
+            }
+
+            writer.Write(flags);
+            writer.Write(PartitionAssignmentTimestamp);
+
+            writer.Write(ObservableTimestamp); // Observable timestamp.
 
             var headerMem = header.GetWrittenMemory();
             var size = BitConverter.GetBytes(IPAddress.HostToNetworkOrder(headerMem.Length + payload.Length));
@@ -361,7 +398,7 @@ namespace Apache.Ignite.Tests
             using var arrayBufferWriter = new PooledArrayBuffer();
             var writer = new MsgPackWriter(arrayBufferWriter);
 
-            writer.WriteArrayHeader(500); // Page size.
+            writer.Write(500); // Page size.
             for (int i = 0; i < 500; i++)
             {
                 using var tuple = new BinaryTupleBuilder(1);
@@ -409,6 +446,17 @@ namespace Apache.Ignite.Tests
             var sql = reader.ReadString();
             props["sql"] = sql;
 
+            if (!reader.TryReadNil())
+            {
+                var argCount = reader.ReadInt32();
+                if (argCount > 0)
+                {
+                    reader.Skip();
+                }
+            }
+
+            LastClientObservableTimestamp = reader.ReadInt64();
+
             LastSql = sql;
             LastSqlPageSize = pageSize;
             LastSqlTimeoutMs = timeoutMs;
@@ -426,9 +474,9 @@ namespace Apache.Ignite.Tests
                 writer.Write(false); // WasApplied.
                 writer.Write(0); // AffectedRows.
 
-                writer.WriteArrayHeader(2); // Meta.
+                writer.Write(2); // Meta.
 
-                writer.WriteArrayHeader(6); // Column props.
+                writer.Write(6); // Column props.
                 writer.Write("NAME"); // Column name.
                 writer.Write(false); // Nullable.
                 writer.Write((int)ColumnType.String);
@@ -436,7 +484,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(0); // Precision.
                 writer.Write(false); // No origin.
 
-                writer.WriteArrayHeader(6); // Column props.
+                writer.Write(6); // Column props.
                 writer.Write("VAL"); // Column name.
                 writer.Write(false); // Nullable.
                 writer.Write((int)ColumnType.String);
@@ -444,7 +492,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(0); // Precision.
                 writer.Write(false); // No origin.
 
-                writer.WriteArrayHeader(props.Count); // Page size.
+                writer.Write(props.Count); // Page size.
                 foreach (var (key, val) in props)
                 {
                     using var tuple = new BinaryTupleBuilder(2);
@@ -460,8 +508,8 @@ namespace Apache.Ignite.Tests
                 writer.Write(false); // WasApplied.
                 writer.Write(0); // AffectedRows.
 
-                writer.WriteArrayHeader(1); // Meta.
-                writer.WriteArrayHeader(6); // Column props.
+                writer.Write(1); // Meta.
+                writer.Write(6); // Column props.
                 writer.Write("ID"); // Column name.
                 writer.Write(false); // Nullable.
                 writer.Write((int)ColumnType.Int32);
@@ -469,7 +517,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(0); // Precision.
                 writer.Write(false); // No origin.
 
-                writer.WriteArrayHeader(512); // Page size.
+                writer.Write(512); // Page size.
                 for (int i = 0; i < 512; i++)
                 {
                     using var tuple = new BinaryTupleBuilder(1);
@@ -481,22 +529,52 @@ namespace Apache.Ignite.Tests
             Send(handler, requestId, arrayBufferWriter);
         }
 
+        private void SqlExecScript(MsgPackReader reader)
+        {
+            var props = new Dictionary<string, object?>
+            {
+                ["schema"] = reader.TryReadNil() ? null : reader.ReadString(),
+                ["pageSize"] = reader.TryReadNil() ? null : reader.ReadInt32(),
+                ["timeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64(),
+                ["sessionTimeoutMs"] = reader.TryReadNil() ? null : reader.ReadInt64()
+            };
+
+            var propCount = reader.ReadInt32();
+            var propTuple = new BinaryTupleReader(reader.ReadBinary(), propCount * 4);
+
+            for (int i = 0; i < propCount; i++)
+            {
+                var idx = i * 4;
+
+                var name = propTuple.GetString(idx);
+                var type = (ColumnType)propTuple.GetInt(idx + 1);
+                var scale = propTuple.GetInt(idx + 2);
+
+                props[name] = propTuple.GetObject(idx + 3, type, scale);
+            }
+
+            var sql = reader.ReadString();
+            props["sql"] = sql;
+
+            LastSqlScriptProps = props;
+        }
+
         private void GetSchemas(MsgPackReader reader, Socket handler, long requestId)
         {
             var tableId = reader.ReadInt32();
 
             using var arrayBufferWriter = new PooledArrayBuffer();
             var writer = new MsgPackWriter(arrayBufferWriter);
-            writer.WriteMapHeader(1);
+            writer.Write(1);
             writer.Write(1); // Version.
 
             if (tableId == ExistingTableId)
             {
-                writer.WriteArrayHeader(1); // Columns.
-                writer.WriteArrayHeader(7); // Column props.
+                writer.Write(1); // Columns.
+                writer.Write(7); // Column props.
                 writer.Write("ID");
                 writer.Write((int)ColumnType.Int32);
-                writer.Write(true); // Key.
+                writer.Write(0); // Key index.
                 writer.Write(false); // Nullable.
                 writer.Write(0); // Colocation index.
                 writer.Write(0); // Scale.
@@ -504,21 +582,21 @@ namespace Apache.Ignite.Tests
             }
             else if (tableId == CompositeKeyTableId)
             {
-                writer.WriteArrayHeader(2); // Columns.
+                writer.Write(2); // Columns.
 
-                writer.WriteArrayHeader(7); // Column props.
+                writer.Write(7); // Column props.
                 writer.Write("IdStr");
                 writer.Write((int)ColumnType.String);
-                writer.Write(true); // Key.
+                writer.Write(0); // Key index.
                 writer.Write(false); // Nullable.
                 writer.Write(0); // Colocation index.
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
 
-                writer.WriteArrayHeader(7); // Column props.
+                writer.Write(7); // Column props.
                 writer.Write("IdGuid");
                 writer.Write((int)ColumnType.Uuid);
-                writer.Write(true); // Key.
+                writer.Write(1); // Key index.
                 writer.Write(false); // Nullable.
                 writer.Write(1); // Colocation index.
                 writer.Write(0); // Scale.
@@ -526,21 +604,21 @@ namespace Apache.Ignite.Tests
             }
             else if (tableId == CustomColocationKeyTableId)
             {
-                writer.WriteArrayHeader(2); // Columns.
+                writer.Write(2); // Columns.
 
-                writer.WriteArrayHeader(7); // Column props.
+                writer.Write(7); // Column props.
                 writer.Write("IdStr");
                 writer.Write((int)ColumnType.String);
-                writer.Write(true); // Key.
+                writer.Write(0); // Key index.
                 writer.Write(false); // Nullable.
                 writer.Write(0); // Colocation index.
                 writer.Write(0); // Scale.
                 writer.Write(0); // Precision.
 
-                writer.WriteArrayHeader(7); // Column props.
+                writer.Write(7); // Column props.
                 writer.Write("IdGuid");
                 writer.Write((int)ColumnType.Uuid);
-                writer.Write(true); // Key.
+                writer.Write(1); // Key index.
                 writer.Write(false); // Nullable.
                 writer.Write(-1); // Colocation index.
                 writer.Write(0); // Scale.
@@ -553,10 +631,21 @@ namespace Apache.Ignite.Tests
         private PooledArrayBuffer ComputeExecute(MsgPackReader reader, bool colocated = false)
         {
             // Colocated: table id, schema version, key.
-            // Else: node name.
-            reader.Skip(colocated ? 4 : 1);
+            // Else: node names.
+            if (colocated)
+            {
+                reader.Skip(4);
+            }
+            else
+            {
+                var namesCount = reader.ReadInt32();
+                for (int i = 0; i < namesCount; i++)
+                {
+                    reader.ReadString();
+                }
+            }
 
-            var unitsCount = reader.TryReadNil() ? 0 : reader.ReadArrayHeader();
+            var unitsCount = reader.TryReadNil() ? 0 : reader.ReadInt32();
             var units = new List<DeploymentUnit>(unitsCount);
             for (int i = 0; i < unitsCount; i++)
             {
@@ -564,13 +653,17 @@ namespace Apache.Ignite.Tests
             }
 
             var jobClassName = reader.ReadString();
+            var priority = reader.ReadInt32();
+            var maxRetries = reader.ReadInt64();
 
             object? resObj = jobClassName == GetDetailsJob
                 ? new
                 {
                     NodeName = Node.Name,
-                    Units = string.Join(", ", units.Select(u => $"{u.Name}|{u.Version}")),
-                    jobClassName
+                    Units = units.Select(u => $"{u.Name}|{u.Version}").StringJoin(),
+                    jobClassName,
+                    priority,
+                    maxRetries
                 }.ToString()
                 : Node.Name;
 
@@ -580,12 +673,15 @@ namespace Apache.Ignite.Tests
             var arrayBufferWriter = new PooledArrayBuffer();
             var writer = new MsgPackWriter(arrayBufferWriter);
 
-            if (colocated)
-            {
-                writer.Write(1); // Latest schema.
-            }
-
             writer.Write(builder.Build().Span);
+
+            // Status
+            writer.Write(Guid.NewGuid());
+            writer.Write(0); // State.
+            writer.Write(0L); // Create time.
+            writer.Write(0);
+            writer.WriteNil(); // Start time.
+            writer.WriteNil(); // Finish time.
 
             return arrayBufferWriter;
         }

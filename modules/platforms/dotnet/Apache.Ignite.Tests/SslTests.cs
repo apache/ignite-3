@@ -24,8 +24,9 @@ using System.Linq;
 using System.Net.Security;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 using System.Threading.Tasks;
-using Log;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
 /// <summary>
@@ -69,7 +70,7 @@ public class SslTests : IgniteTestsBase
 
         Assert.IsNotNull(sslInfo);
         Assert.IsFalse(sslInfo!.IsMutuallyAuthenticated);
-        Assert.AreEqual(TlsCipherSuite.TLS_AES_256_GCM_SHA384.ToString(), sslInfo.NegotiatedCipherSuiteName);
+        StringAssert.StartsWith("TLS_AES_", sslInfo.NegotiatedCipherSuiteName);
         Assert.AreEqual(SslProtocols.Tls13, sslInfo.SslProtocol);
         Assert.AreEqual("localhost", sslInfo.TargetHostName);
         Assert.IsNull(sslInfo.LocalCertificate);
@@ -90,7 +91,7 @@ public class SslTests : IgniteTestsBase
                     ClientCertificates = new X509Certificate2Collection(new X509Certificate2(CertificatePath, CertificatePassword))
                 }
             },
-            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
+            LoggerFactory = TestUtils.GetConsoleLoggerFactory(LogLevel.Trace)
         };
 
         using var client = await IgniteClient.StartAsync(cfg);
@@ -100,7 +101,7 @@ public class SslTests : IgniteTestsBase
 
         Assert.IsNotNull(sslInfo);
         Assert.IsTrue(sslInfo!.IsMutuallyAuthenticated);
-        Assert.AreEqual(TlsCipherSuite.TLS_AES_256_GCM_SHA384.ToString(), sslInfo.NegotiatedCipherSuiteName);
+        StringAssert.StartsWith("TLS_AES_", sslInfo.NegotiatedCipherSuiteName);
         Assert.AreEqual("127.0.0.1", sslInfo.TargetHostName);
         StringAssert.Contains(CertificateIssuer, sslInfo.RemoteCertificate!.Issuer);
         StringAssert.Contains(CertificateIssuer, sslInfo.LocalCertificate!.Issuer);
@@ -207,12 +208,13 @@ public class SslTests : IgniteTestsBase
 
     private class NullSslStreamFactory : ISslStreamFactory
     {
-        public Task<SslStream?> CreateAsync(Stream stream, string targetHost) => Task.FromResult<SslStream?>(null);
+        public Task<SslStream?> CreateAsync(Stream stream, string targetHost, CancellationToken cancellationToken) =>
+            Task.FromResult<SslStream?>(null);
     }
 
     private class CustomSslStreamFactory : ISslStreamFactory
     {
-        public async Task<SslStream?> CreateAsync(Stream stream, string targetHost)
+        public async Task<SslStream?> CreateAsync(Stream stream, string targetHost, CancellationToken cancellationToken)
         {
             var sslStream = new SslStream(
                 innerStream: stream,

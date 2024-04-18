@@ -23,9 +23,9 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetFactory;
 import org.apache.ignite.raft.jraft.core.LogStorageBudgetsModule;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -127,6 +127,11 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
     /** {@inheritDoc} */
     @Override
     public void close() {
+        // No-op.
+    }
+
+    @Override
+    public void sync() {
         // No-op.
     }
 }

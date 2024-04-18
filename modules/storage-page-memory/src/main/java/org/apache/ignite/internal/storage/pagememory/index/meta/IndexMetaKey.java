@@ -38,4 +38,23 @@ public class IndexMetaKey {
     public int indexId() {
         return indexId;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        IndexMetaKey that = (IndexMetaKey) o;
+
+        return indexId == that.indexId;
+    }
+
+    @Override
+    public int hashCode() {
+        return indexId;
+    }
 }

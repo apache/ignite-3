@@ -17,52 +17,44 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_FILTER;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
+import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVault;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributesVault;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
-import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
-import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Consumer;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.dsl.Conditions;
-import org.apache.ignite.internal.metastorage.dsl.Iif;
-import org.apache.ignite.internal.metastorage.dsl.Operations;
-import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -71,85 +63,154 @@ import org.jetbrains.annotations.Nullable;
  * Utils to manage distribution zones inside tests.
  */
 public class DistributionZonesTestUtil {
-
     /**
-     * Creates distribution zone.
+     * Creates distribution zone in the catalog.
      *
-     * @param zoneManager Zone manager.
+     * @param catalogManager Catalog manager.
      * @param zoneName Zone name.
      * @param partitions Zone number of partitions.
      * @param replicas Zone number of replicas.
-     * @param dataStorageChangeConsumer Consumer of {@link DataStorageChange}, which sets the right data storage options.
-     * @return A future, which will be completed, when create operation finished.
+     * @param storageProfile Data storage, {@code null} if not set.
      */
-    public static CompletableFuture<Integer> createZone(
-            DistributionZoneManager zoneManager,
+    public static void createZoneWithStorageProfile(
+            CatalogManager catalogManager,
             String zoneName,
             int partitions,
             int replicas,
-            Consumer<DataStorageChange> dataStorageChangeConsumer) {
-        var distributionZoneCfgBuilder = new Builder(zoneName)
-                .replicas(replicas)
-                .partitions(partitions)
-                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE);
-
-        if (dataStorageChangeConsumer != null) {
-            distributionZoneCfgBuilder
-                    .dataStorageChangeConsumer(dataStorageChangeConsumer);
-        }
-
-        return zoneManager.createZone(distributionZoneCfgBuilder.build());
+            @Nullable String storageProfile
+    ) {
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, storageProfile);
     }
 
     /**
-     * Creates distribution zone.
+     * Creates distribution zone in the catalog.
      *
-     * @param zoneManager Zone manager.
+     * @param catalogManager Catalog manager.
      * @param zoneName Zone name.
      * @param partitions Zone number of partitions.
      * @param replicas Zone number of replicas.
-     * @return A future, which will be completed, when create operation finished.
      */
-    public static CompletableFuture<Integer> createZone(
-            DistributionZoneManager zoneManager, String zoneName,
-            int partitions, int replicas) {
-        return createZone(zoneManager, zoneName, partitions, replicas, null);
+    public static void createZone(CatalogManager catalogManager, String zoneName, int partitions, int replicas) {
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, DEFAULT_STORAGE_PROFILE);
     }
 
     /**
-     * Alter the number of zone replicas.
+     * Creates a distribution zone in the catalog.
      *
-     * @param zoneManager Zone manager.
+     * @param catalogManager Catalog manager.
      * @param zoneName Zone name.
-     * @param replicas The new number of zone replicas.
-     * @return A future, which will be completed, when update operation finished.
+     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param filter Nodes filter, {@code null} if not set.
      */
-    public static CompletableFuture<Void> alterZoneReplicas(DistributionZoneManager zoneManager, String zoneName, int replicas) {
-        var distributionZoneCfgBuilder = new Builder(zoneName)
-                .replicas(replicas)
-                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE);
-
-        return zoneManager.alterZone(zoneName, distributionZoneCfgBuilder.build());
+    public static void createZone(
+            CatalogManager catalogManager,
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        createZone(
+                catalogManager,
+                zoneName,
+                null,
+                null,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter,
+                DEFAULT_STORAGE_PROFILE
+        );
     }
 
     /**
-     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)}.
+     * Creates a distribution zone in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param filter Nodes filter, {@code null} if not set.
+     * @param storageProfiles Storage profiles.
+     */
+    public static void createZone(
+            CatalogManager catalogManager,
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter,
+            String storageProfiles
+    ) {
+        createZone(
+                catalogManager,
+                zoneName,
+                null,
+                null,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter,
+                storageProfiles
+        );
+    }
+
+    private static void createZone(
+            CatalogManager catalogManager,
+            String zoneName,
+            @Nullable Integer partitions,
+            @Nullable Integer replicas,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter,
+            String storageProfiles
+    ) {
+        CreateZoneCommandBuilder builder = CreateZoneCommand.builder().zoneName(zoneName);
+
+        if (partitions != null) {
+            builder.partitions(partitions);
+        }
+
+        if (replicas != null) {
+            builder.replicas(replicas);
+        }
+
+        if (dataNodesAutoAdjustScaleUp != null) {
+            builder.dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp);
+        }
+
+        if (dataNodesAutoAdjustScaleDown != null) {
+            builder.dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown);
+        }
+
+        if (filter != null) {
+            builder.filter(filter);
+        }
+
+        assertNotNull(storageProfiles);
+
+        builder.storageProfilesParams(parseStorageProfiles(storageProfiles));
+
+        assertThat(catalogManager.execute(builder.build()), willCompleteSuccessfully());
+    }
+
+    /**
+     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)} in storage with set of LogicalNodes as input.
      *
      * @param zoneId Zone id.
      * @param clusterNodes Data nodes.
      * @param keyValueStorage Key-value storage.
      * @throws InterruptedException If thread was interrupted.
      */
-    public static void assertDataNodesForZone(
+    public static void assertDataNodesFromLogicalNodesInStorage(
             int zoneId,
             @Nullable Set<LogicalNode> clusterNodes,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
         Set<Node> nodes = clusterNodes == null
                 ? null
-                : clusterNodes.stream().map(n -> new Node(n.name(), n.id())).collect(Collectors.toSet());
+                : clusterNodes.stream().map(n -> new Node(n.name(), n.id())).collect(toSet());
 
         assertValueInStorage(
                 keyValueStorage,
@@ -161,35 +222,17 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)}.
+     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)} in storage.
      *
      * @param zoneId Zone id.
      * @param nodes Data nodes.
      * @param keyValueStorage Key-value storage.
      * @throws InterruptedException If thread was interrupted.
      */
-    public static void assertDataNodesForZoneWithAttributes(
+    public static void assertDataNodesInStorage(
             int zoneId,
             @Nullable Set<Node> nodes,
             KeyValueStorage keyValueStorage
-    ) throws InterruptedException {
-        assertDataNodesForZoneWithAttributes(zoneId, nodes, keyValueStorage, DEFAULT_FILTER);
-    }
-
-    /**
-     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)} and with provided {@code filter}.
-     *
-     * @param zoneId Zone id.
-     * @param nodes Data nodes.
-     * @param keyValueStorage Key-value storage.
-     * @param filter Filter for data nodes.
-     * @throws InterruptedException If thread was interrupted.
-     */
-    public static void assertDataNodesForZoneWithAttributes(
-            int zoneId,
-            @Nullable Set<Node> nodes,
-            KeyValueStorage keyValueStorage,
-            String filter
     ) throws InterruptedException {
         assertValueInStorage(
                 keyValueStorage,
@@ -245,28 +288,6 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Asserts {@link DistributionZonesUtil#zonesChangeTriggerKey(int)} revision.
-     *
-     * @param revision Revision.
-     * @param zoneId Zone id.
-     * @param keyValueStorage Key-value storage.
-     * @throws InterruptedException If thread was interrupted.
-     */
-    public static void assertZonesChangeTriggerKey(
-            long revision,
-            int zoneId,
-            KeyValueStorage keyValueStorage
-    ) throws InterruptedException {
-        assertValueInStorage(
-                keyValueStorage,
-                zonesChangeTriggerKey(zoneId).bytes(),
-                ByteUtils::bytesToLong,
-                revision,
-                1000
-        );
-    }
-
-    /**
      * Asserts {@link DistributionZonesUtil#zonesLogicalTopologyKey()} value.
      *
      * @param clusterNodes Expected cluster nodes.
@@ -279,11 +300,37 @@ public class DistributionZonesTestUtil {
     ) throws InterruptedException {
         Set<NodeWithAttributes> nodes = clusterNodes == null
                 ? null
-                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes())).collect(Collectors.toSet());
+                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes())).collect(toSet());
 
         assertValueInStorage(
                 keyValueStorage,
                 zonesLogicalTopologyKey().bytes(),
+                ByteUtils::fromBytes,
+                nodes,
+                1000
+        );
+    }
+
+    /**
+     * Asserts {@link DistributionZonesUtil#zonesLogicalTopologyKey()} value in Meta Storage.
+     *
+     * @param clusterNodes Expected cluster nodes.
+     * @param metaStorageManager Meta Storage manager.
+     * @throws InterruptedException If thread was interrupted.
+     */
+    public static void assertLogicalTopologyInMetastorage(
+            @Nullable Set<LogicalNode> clusterNodes,
+            MetaStorageManager metaStorageManager
+    ) throws InterruptedException {
+        Set<NodeWithAttributes> nodes = clusterNodes == null
+                ? null
+                : clusterNodes.stream()
+                        .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
+                        .collect(toSet());
+
+        assertValueInStorage(
+                metaStorageManager,
+                zonesLogicalTopologyKey(),
                 ByteUtils::fromBytes,
                 nodes,
                 1000
@@ -305,74 +352,6 @@ public class DistributionZonesTestUtil {
                 topVer,
                 1000
         );
-    }
-
-    /**
-     * This method is used to initialize the meta storage revision before starting the distribution zone manager.
-     * TODO: IGNITE-19403 Watch listeners must be deployed after the zone manager starts.
-     *
-     * @param metaStorageManager Meta storage manager.
-     * @throws InterruptedException If thread was interrupted.
-     */
-    public static void deployWatchesAndUpdateMetaStorageRevision(MetaStorageManager metaStorageManager) throws InterruptedException {
-        // Watches are deployed before distributionZoneManager start in order to update Meta Storage revision before
-        // distributionZoneManager's recovery.
-        CompletableFuture<Void> deployWatchesFut = metaStorageManager.deployWatches();
-
-        // Bump Meta Storage applied revision by modifying a fake key. DistributionZoneManager breaks on start if Vault is not empty, but
-        // Meta Storage revision is equal to 0.
-        var fakeKey = new ByteArray("foobar");
-
-        CompletableFuture<Boolean> invokeFuture = deployWatchesFut.thenCompose(unused -> metaStorageManager.invoke(
-                Conditions.notExists(fakeKey),
-                Operations.put(fakeKey, fakeKey.bytes()),
-                Operations.noop()
-        ));
-
-        assertThat(invokeFuture, willBe(true));
-
-        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() > 0, 10_000));
-    }
-
-    /**
-     * Sets logical topology to Vault.
-     *
-     * @param nodes Logical topology
-     * @param vaultMgr Vault manager
-     */
-    public static void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes, VaultManager vaultMgr, long appliedRevision) {
-        Set<NodeWithAttributes> nodesWithAttributes = nodes.stream()
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes()))
-                .collect(Collectors.toSet());
-
-        byte[] newLogicalTopology = toBytes(nodesWithAttributes);
-
-        Map<String, Map<String, String>> nodesAttributes = new ConcurrentHashMap<>();
-        nodesWithAttributes.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
-        assertThat(vaultMgr.put(zonesNodesAttributesVault(), toBytes(nodesAttributes)), willCompleteSuccessfully());
-
-        assertThat(vaultMgr.put(zonesLogicalTopologyVault(), newLogicalTopology), willCompleteSuccessfully());
-
-        assertThat(vaultMgr.put(zonesGlobalStateRevision(), longToBytes(appliedRevision)), willCompleteSuccessfully());
-    }
-
-    /**
-     * Sets logical topology to Meta Storage.
-     *
-     * @param nodes Logical topology
-     * @param topVer Topology version
-     * @param metaStorageManager Meta Storage manager.
-     */
-    public static void setLogicalTopologyInMetaStorage(Set<LogicalNode> nodes, long topVer, MetaStorageManager metaStorageManager) {
-        Iif iff = iif(
-                Conditions.exists(zonesLogicalTopologyKey()),
-                updateLogicalTopologyAndVersion(nodes, topVer),
-                ops().yield(false)
-        );
-
-        CompletableFuture<Boolean> invokeFuture = metaStorageManager.invoke(iff).thenApply(StatementResult::getAsBoolean);
-
-        assertThat(invokeFuture, willBe(true));
     }
 
     /**
@@ -465,25 +444,155 @@ public class DistributionZonesTestUtil {
      */
     public static void assertDataNodesFromManager(
             DistributionZoneManager distributionZoneManager,
+            Supplier<Long> causalityToken,
+            Supplier<Integer> catalogVersion,
             int zoneId,
             @Nullable Set<LogicalNode> expectedValue,
             long timeoutMillis
-    ) throws InterruptedException {
+    ) throws InterruptedException, ExecutionException, TimeoutException {
         Set<String> expectedValueNames =
-                expectedValue == null ? null : expectedValue.stream().map(ClusterNode::name).collect(Collectors.toSet());
+                expectedValue == null ? null : expectedValue.stream().map(ClusterNode::name).collect(toSet());
 
         boolean success = waitForCondition(() -> {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 change this to the causality versioned call to dataNodes.
-            Set<String> dataNodes = distributionZoneManager.dataNodes(zoneId);
+            Set<String> dataNodes = null;
+            try {
+                dataNodes = distributionZoneManager.dataNodes(causalityToken.get(), catalogVersion.get(), zoneId).get(5, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                // Ignore
+            }
 
             return Objects.equals(dataNodes, expectedValueNames);
         }, timeoutMillis);
 
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {
-            Set<String> dataNodes = distributionZoneManager.dataNodes(zoneId);
+            Set<String> dataNodes = distributionZoneManager.dataNodes(causalityToken.get(), catalogVersion.get(), zoneId)
+                    .get(5, TimeUnit.SECONDS);
 
             assertThat(dataNodes, is(expectedValueNames));
         }
+    }
+
+    /**
+     * Alters a distribution zone in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param filter Nodes filter, {@code null} if not set.
+     */
+    public static void alterZone(
+            CatalogManager catalogManager,
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        alterZone(catalogManager, zoneName, null, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter);
+    }
+
+    /**
+     * Alters a distribution zone in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @param replicas New number of zone replicas.
+     */
+    public static void alterZone(CatalogManager catalogManager, String zoneName, int replicas) {
+        alterZone(catalogManager, zoneName, replicas, null, null, null);
+    }
+
+    private static void alterZone(
+            CatalogManager catalogManager,
+            String zoneName,
+            @Nullable Integer replicas,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        AlterZoneCommandBuilder builder = AlterZoneCommand.builder().zoneName(zoneName);
+
+        if (replicas != null) {
+            builder.replicas(replicas);
+        }
+
+        if (dataNodesAutoAdjustScaleUp != null) {
+            builder.dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp);
+        }
+
+        if (dataNodesAutoAdjustScaleDown != null) {
+            builder.dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown);
+        }
+
+        if (filter != null) {
+            builder.filter(filter);
+        }
+
+        assertThat(catalogManager.execute(builder.build()), willCompleteSuccessfully());
+    }
+
+    /**
+     * Drops a distribution zone from the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     */
+    public static void dropZone(CatalogManager catalogManager, String zoneName) {
+        CatalogCommand dropCommand = DropZoneCommand.builder()
+                .zoneName(zoneName)
+                .build();
+        assertThat(catalogManager.execute(dropCommand), willCompleteSuccessfully());
+    }
+
+    /**
+     * Returns distributed zone by ID from catalog, {@code null} if zone is absent.
+     *
+     * @param catalogService Catalog service.
+     * @param zoneId Zone ID.
+     * @param timestamp Timestamp.
+     */
+    public static @Nullable CatalogZoneDescriptor getZoneById(CatalogService catalogService, int zoneId, long timestamp) {
+        return catalogService.zone(zoneId, timestamp);
+    }
+
+    /**
+     * Returns distributed zone ID form catalog, {@code null} if zone is absent.
+     *
+     * @param catalogService Catalog service.
+     * @param zoneName Distributed zone name.
+     * @param timestamp Timestamp.
+     */
+    public static @Nullable Integer getZoneId(CatalogService catalogService, String zoneName, long timestamp) {
+        CatalogZoneDescriptor zone = catalogService.zone(zoneName, timestamp);
+
+        return zone == null ? null : zone.id();
+    }
+
+    /** Returns default distribution zone. */
+    public static CatalogZoneDescriptor getDefaultZone(CatalogService catalogService, long timestamp) {
+        Catalog catalog = catalogService.catalog(catalogService.activeCatalogVersion(timestamp));
+
+        Objects.requireNonNull(catalog);
+
+        return catalog.defaultZone();
+    }
+
+    /**
+     * Returns distributed zone ID form catalog.
+     *
+     * @param catalogService Catalog service.
+     * @param zoneName Distributed zone name.
+     * @param timestamp Timestamp.
+     * @throws AssertionError If zone is absent.
+     */
+    public static int getZoneIdStrict(CatalogService catalogService, String zoneName, long timestamp) {
+        Integer zoneId = getZoneId(catalogService, zoneName, timestamp);
+
+        assertNotNull(zoneId, "zoneName=" + zoneName + ", timestamp=" + timestamp);
+
+        return zoneId;
     }
 }

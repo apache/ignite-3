@@ -17,64 +17,70 @@
 
 package org.apache.ignite.internal.table.distributed.gc;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryStorageEngineLocalConfigurationModule.DEFAULT_PROFILE_NAME;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
-@ExtendWith(ConfigurationExtension.class)
 class PersistentPageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
     @WorkDirectory
     private Path workDir;
 
     private PersistentPageMemoryStorageEngine engine;
 
-    private PersistentPageMemoryTableStorage table;
+    private MvTableStorage table;
 
     @BeforeEach
     void setUp(
+            TestInfo testInfo,
             @InjectConfiguration PersistentPageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.tables.foo{}") TablesConfiguration tablesConfig
+            @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
+            StorageConfiguration storageConfiguration
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        String nodeName = "test";
+        String nodeName = testNodeName(testInfo, 0);
 
         engine = new PersistentPageMemoryStorageEngine(
                 nodeName,
                 engineConfig,
+                storageConfiguration,
                 ioRegistry,
                 workDir,
-                new LongJvmPauseDetector(nodeName)
+                new LongJvmPauseDetector(nodeName),
+                mock(FailureProcessor.class),
+                mock(LogSyncer.class)
         );
 
         engine.start();
 
         table = engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(tablesConfig)
+                new StorageTableDescriptor(TABLE_ID, DEFAULT_PARTITION_COUNT, DEFAULT_PROFILE_NAME),
+                mock(StorageIndexDescriptorSupplier.class)
         );
-
-        table.start();
 
         initialize(table);
     }

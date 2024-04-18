@@ -32,8 +32,12 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
+import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * HashAggregateExecutionTest.
@@ -112,11 +116,21 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         aggMap.register(scan);
 
+        ImmutableBitSet grpSet = grpSets.get(0);
+        Mapping reduceMapping = Commons.trimmingMapping(grpSet.length(), grpSet);
+        MapReduceAgg mapReduceAgg = MapReduceAggregates.createMapReduceAggCall(
+                Commons.cluster(),
+                call,
+                reduceMapping.getTargetCount(),
+                inRowType,
+                true
+        );
+
         HashAggregateNode<Object[]> aggRdc = new HashAggregateNode<>(
                 ctx,
                 REDUCE,
                 grpSets,
-                accFactory(ctx, call, REDUCE, aggRowType),
+                accFactory(ctx, mapReduceAgg.getReduceCall(), REDUCE, aggRowType),
                 rowFactory
         );
 

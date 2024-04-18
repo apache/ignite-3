@@ -38,17 +38,18 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageColumnDescriptor;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 
 /**
  * For {@link InlineUtils} testing.
  */
-public class InlineUtilsTest {
+public class InlineUtilsTest extends BaseIgniteAbstractTest {
     @Test
     void testInlineSizeForNativeType() {
         EnumSet<NativeTypeSpec> nativeTypeSpecs = EnumSet.allOf(NativeTypeSpec.class);
@@ -87,21 +88,21 @@ public class InlineUtilsTest {
         assertEquals(3, inlineSize(nativeType = NativeTypes.DATE));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(4, inlineSize(nativeType = NativeTypes.time()));
+        assertEquals(4, inlineSize(nativeType = NativeTypes.time(0)));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(9, inlineSize(nativeType = NativeTypes.datetime()));
+        assertEquals(9, inlineSize(nativeType = NativeTypes.datetime(6)));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(12, inlineSize(nativeType = NativeTypes.timestamp()));
+        assertEquals(12, inlineSize(nativeType = NativeTypes.timestamp(6)));
         nativeTypeSpecs.remove(nativeType.spec());
 
         // Variable length type checking.
 
-        assertEquals(BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.decimalOf(1, 1)));
+        assertEquals(2 + BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.decimalOf(1, 1)));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.decimalOf(100, 1)));
+        assertEquals(2 + BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.decimalOf(100, 1)));
         nativeTypeSpecs.remove(nativeType.spec());
 
         assertEquals(7, inlineSize(nativeType = NativeTypes.stringOf(7)));

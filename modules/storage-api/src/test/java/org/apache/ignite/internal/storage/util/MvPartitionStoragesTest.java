@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.storage.util;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -41,14 +41,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.function.Executable;
 
 /**
  * Class for testing {@link MvPartitionStorages}.
  */
-public class MvPartitionStoragesTest {
+public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
     private static final int PARTITIONS = 10;
 
     private MvPartitionStorages<MvPartitionStorage> mvPartitionStorages;
@@ -90,7 +90,7 @@ public class MvPartitionStoragesTest {
 
         assertThat(startCreateMvStorageFuture, willCompleteSuccessfully());
 
-        assertThrowsWithMessage(StorageException.class, () -> createMvStorage(1), "Storage is in process of being created");
+        assertThrowsWithCause(() -> createMvStorage(1), StorageException.class, "Storage is in process of being created");
 
         finishCreateMvStorageFuture.complete(null);
 
@@ -103,7 +103,7 @@ public class MvPartitionStoragesTest {
 
         assertThat(createMvStorage(0), willCompleteSuccessfully());
 
-        assertThrowsWithMessage(StorageException.class, () -> createMvStorage(0), "Storage already exists");
+        assertThrowsWithCause(() -> createMvStorage(0), StorageException.class, "Storage already exists");
 
         // What if there is an error during the operation?
 
@@ -135,7 +135,8 @@ public class MvPartitionStoragesTest {
 
         CompletableFuture<MvPartitionStorage> reCreateMvStorageFuture = createMvStorage(0);
 
-        assertThrowsWithMessage(StorageException.class, () -> createMvStorage(0),
+        assertThrowsWithCause(() -> createMvStorage(0),
+                StorageException.class,
                 "Creation of the storage after its destruction is already planned"
         );
 
@@ -205,12 +206,12 @@ public class MvPartitionStoragesTest {
 
         assertThat(startDestroyMvStorageFuture, willCompleteSuccessfully());
 
-        assertThrowsWithMessage(StorageException.class, () -> destroyMvStorage(0), "Storage does not exist");
-        assertThrowsWithMessage(StorageException.class, () -> clearMvStorage(0), "Storage does not exist");
+        assertThrowsWithCause(() -> destroyMvStorage(0), StorageException.class, "Storage does not exist");
+        assertThrowsWithCause(() -> clearMvStorage(0), StorageException.class, "Storage does not exist");
 
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> startRebalanceMvStorage(0), "Storage does not exist");
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> abortRebalanceMvStorage(0), "Storage does not exist");
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> finishRebalanceMvStorage(0), "Storage does not exist");
+        assertThrowsWithCause(() -> startRebalanceMvStorage(0), StorageRebalanceException.class, "Storage does not exist");
+        assertThrowsWithCause(() -> abortRebalanceMvStorage(0), StorageRebalanceException.class, "Storage does not exist");
+        assertThrowsWithCause(() -> finishRebalanceMvStorage(0), StorageRebalanceException.class, "Storage does not exist");
 
         finishDestroyMvStorageFuture.complete(null);
 
@@ -225,7 +226,7 @@ public class MvPartitionStoragesTest {
     void testDestroyError() {
         assertThrows(IllegalArgumentException.class, () -> destroyMvStorage(getPartitionIdOutOfConfig()));
 
-        assertThrowsWithMessage(StorageException.class, () -> destroyMvStorage(0), "Storage does not exist");
+        assertThrowsWithCause(() -> destroyMvStorage(0), StorageException.class, "Storage does not exist");
 
         assertThat(createMvStorage(0), willCompleteSuccessfully());
 
@@ -238,7 +239,7 @@ public class MvPartitionStoragesTest {
 
         assertNull(getMvStorage(0));
 
-        assertThrowsWithMessage(StorageException.class, () -> destroyMvStorage(0), "Storage does not exist");
+        assertThrowsWithCause(() -> destroyMvStorage(0), StorageException.class, "Storage does not exist");
     }
 
     @Test
@@ -260,14 +261,17 @@ public class MvPartitionStoragesTest {
 
         assertThat(startCleanupMvStorageFuture, willCompleteSuccessfully());
 
-        assertThrowsWithMessage(StorageException.class, () -> destroyMvStorage(0), "Storage is in process of being cleaned up");
-        assertThrowsWithMessage(StorageException.class, () -> clearMvStorage(0), "Storage is in process of being cleaned up");
+        assertThrowsWithCause(() -> destroyMvStorage(0), StorageException.class, "Storage is in process of being cleaned up");
+        assertThrowsWithCause(() -> clearMvStorage(0), StorageException.class, "Storage is in process of being cleaned up");
 
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> startRebalanceMvStorage(0),
+        assertThrowsWithCause(() -> startRebalanceMvStorage(0),
+                StorageRebalanceException.class,
                 "Storage is in process of being cleaned up");
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> abortRebalanceMvStorage(0),
+        assertThrowsWithCause(() -> abortRebalanceMvStorage(0),
+                StorageRebalanceException.class,
                 "Storage is in process of being cleaned up");
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> finishRebalanceMvStorage(0),
+        assertThrowsWithCause(() -> finishRebalanceMvStorage(0),
+                StorageRebalanceException.class,
                 "Storage is in process of being cleaned up");
 
         finishCleanupMvStorageFuture.complete(null);
@@ -283,7 +287,7 @@ public class MvPartitionStoragesTest {
     void testClearError() {
         assertThrows(IllegalArgumentException.class, () -> clearMvStorage(getPartitionIdOutOfConfig()));
 
-        assertThrowsWithMessage(StorageException.class, () -> clearMvStorage(0), "Storage does not exist");
+        assertThrowsWithCause(() -> clearMvStorage(0), StorageException.class, "Storage does not exist");
 
         assertThat(createMvStorage(0), willCompleteSuccessfully());
 
@@ -314,13 +318,15 @@ public class MvPartitionStoragesTest {
 
         assertThat(startStartRebalanceMvStorage, willCompleteSuccessfully());
 
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> startRebalanceMvStorage(0),
+        assertThrowsWithCause(() -> startRebalanceMvStorage(0),
+                StorageRebalanceException.class,
                 "Storage in the process of starting a rebalance");
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> finishRebalanceMvStorage(0),
+        assertThrowsWithCause(() -> finishRebalanceMvStorage(0),
+                StorageRebalanceException.class,
                 "Storage in the process of starting a rebalance");
 
-        assertThrowsWithMessage(StorageException.class, () -> destroyMvStorage(0), "Storage in the process of starting a rebalance");
-        assertThrowsWithMessage(StorageException.class, () -> clearMvStorage(0), "Storage in the process of starting a rebalance");
+        assertThrowsWithCause(() -> destroyMvStorage(0), StorageException.class, "Storage in the process of starting a rebalance");
+        assertThrowsWithCause(() -> clearMvStorage(0), StorageException.class, "Storage in the process of starting a rebalance");
 
         finishStartRebalanceMvStorage.complete(null);
 
@@ -338,7 +344,7 @@ public class MvPartitionStoragesTest {
     void testStartRebalanceError() {
         assertThrows(IllegalArgumentException.class, () -> startRebalanceMvStorage(getPartitionIdOutOfConfig()));
 
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> startRebalanceMvStorage(0), "Storage does not exist");
+        assertThrowsWithCause(() -> startRebalanceMvStorage(0), StorageRebalanceException.class, "Storage does not exist");
 
         assertThat(createMvStorage(0), willCompleteSuccessfully());
 
@@ -357,7 +363,10 @@ public class MvPartitionStoragesTest {
 
         assertThat(startRebalanceMvStorage(0), willCompleteSuccessfully());
 
-        assertThrows(StorageRebalanceException.class, () -> startRebalanceMvStorage(0), "Storage in the process of rebalance");
+        assertThrowsWithCause(
+                () -> startRebalanceMvStorage(0),
+                StorageRebalanceException.class,
+                "Storage in the process of rebalance");
     }
 
     @Test
@@ -379,15 +388,18 @@ public class MvPartitionStoragesTest {
 
         assertThat(startAbortRebalanceFuture, willCompleteSuccessfully());
 
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> startRebalanceMvStorage(0),
+        assertThrowsWithCause(() -> startRebalanceMvStorage(0),
+                StorageRebalanceException.class,
                 "Storage in the process of aborting a rebalance");
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> abortRebalanceMvStorage(0),
+        assertThrowsWithCause(() -> abortRebalanceMvStorage(0),
+                StorageRebalanceException.class,
                 "Storage in the process of aborting a rebalance");
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> finishRebalanceMvStorage(0),
+        assertThrowsWithCause(() -> finishRebalanceMvStorage(0),
+                StorageRebalanceException.class,
                 "Storage in the process of aborting a rebalance");
 
-        assertThrowsWithMessage(StorageException.class, () -> destroyMvStorage(0), "Storage in the process of aborting a rebalance");
-        assertThrowsWithMessage(StorageException.class, () -> clearMvStorage(0), "Storage in the process of aborting a rebalance");
+        assertThrowsWithCause(() -> destroyMvStorage(0), StorageException.class, "Storage in the process of aborting a rebalance");
+        assertThrowsWithCause(() -> clearMvStorage(0), StorageException.class, "Storage in the process of aborting a rebalance");
 
         finishAbortRebalanceFuture.complete(null);
 
@@ -402,7 +414,7 @@ public class MvPartitionStoragesTest {
         assertThat(mvPartitionStorages.abortRebalance(0, mvStorage -> {
             invokeAbortFunction.set(true);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }), willCompleteSuccessfully());
 
         assertFalse(invokeAbortFunction.get());
@@ -419,7 +431,7 @@ public class MvPartitionStoragesTest {
         assertThat(mvPartitionStorages.abortRebalance(0, mvStorage -> {
             invokeAbortFunction.set(true);
 
-            return completedFuture(null);
+            return nullCompletedFuture();
         }), willCompleteSuccessfully());
 
         assertTrue(invokeAbortFunction.get());
@@ -429,7 +441,7 @@ public class MvPartitionStoragesTest {
     void testAbortRebalanceError() {
         assertThrows(IllegalArgumentException.class, () -> abortRebalanceMvStorage(getPartitionIdOutOfConfig()));
 
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> abortRebalanceMvStorage(0), "Storage does not exist");
+        assertThrowsWithCause(() -> abortRebalanceMvStorage(0), StorageRebalanceException.class, "Storage does not exist");
 
         assertThat(createMvStorage(0), willCompleteSuccessfully());
 
@@ -462,15 +474,18 @@ public class MvPartitionStoragesTest {
 
         assertThat(startFinishRebalanceFuture, willCompleteSuccessfully());
 
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> startRebalanceMvStorage(0),
+        assertThrowsWithCause(() -> startRebalanceMvStorage(0),
+                StorageRebalanceException.class,
                 "Storage in the process of finishing a rebalance");
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> abortRebalanceMvStorage(0),
+        assertThrowsWithCause(() -> abortRebalanceMvStorage(0),
+                StorageRebalanceException.class,
                 "Storage in the process of finishing a rebalance");
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> finishRebalanceMvStorage(0),
+        assertThrowsWithCause(() -> finishRebalanceMvStorage(0),
+                StorageRebalanceException.class,
                 "Storage in the process of finishing a rebalance");
 
-        assertThrowsWithMessage(StorageException.class, () -> destroyMvStorage(0), "Storage in the process of finishing a rebalance");
-        assertThrowsWithMessage(StorageException.class, () -> clearMvStorage(0), "Storage in the process of finishing a rebalance");
+        assertThrowsWithCause(() -> destroyMvStorage(0), StorageException.class, "Storage in the process of finishing a rebalance");
+        assertThrowsWithCause(() -> clearMvStorage(0), StorageException.class, "Storage in the process of finishing a rebalance");
 
         finishFinishRebalanceFuture.complete(null);
 
@@ -483,11 +498,11 @@ public class MvPartitionStoragesTest {
     void testFinishRebalanceError() {
         assertThrows(IllegalArgumentException.class, () -> finishRebalanceMvStorage(getPartitionIdOutOfConfig()));
 
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> finishRebalanceMvStorage(0), "Storage does not exist");
+        assertThrowsWithCause(() -> finishRebalanceMvStorage(0), StorageRebalanceException.class, "Storage does not exist");
 
         assertThat(createMvStorage(0), willCompleteSuccessfully());
 
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> finishRebalanceMvStorage(0), "Storage rebalancing did not start");
+        assertThrowsWithCause(() -> finishRebalanceMvStorage(0), StorageRebalanceException.class, "Storage rebalancing did not start");
 
         assertThat(startRebalanceMvStorage(0), willCompleteSuccessfully());
 
@@ -547,12 +562,12 @@ public class MvPartitionStoragesTest {
         );
 
         // What happens if we try to perform operations on storages?
-        assertThrowsWithMessage(StorageException.class, () -> createMvStorage(6), "Storage is in the process of closing");
-        assertThrowsWithMessage(StorageException.class, () -> destroyMvStorage(0), "Storage does not exist");
-        assertThrows(StorageException.class, () -> clearMvStorage(0), "Storage does not exist");
-        assertThrows(StorageException.class, () -> startRebalanceMvStorage(0), "Storage does not exist");
-        assertThrows(StorageException.class, () -> abortRebalanceMvStorage(0), "Storage does not exist");
-        assertThrows(StorageException.class, () -> finishRebalanceMvStorage(0), "Storage does not exist");
+        assertThrowsWithCause(() -> createMvStorage(6), StorageException.class, "Storage is in the process of closing");
+        assertThrowsWithCause(() -> destroyMvStorage(0), StorageException.class, "Storage does not exist");
+        assertThrowsWithCause(() -> clearMvStorage(0), StorageException.class, "Storage does not exist");
+        assertThrowsWithCause(() -> startRebalanceMvStorage(0), StorageException.class, "Storage does not exist");
+        assertThrowsWithCause(() -> abortRebalanceMvStorage(0), StorageException.class, "Storage does not exist");
+        assertThrowsWithCause(() -> finishRebalanceMvStorage(0), StorageException.class, "Storage does not exist");
     }
 
     @Test
@@ -660,7 +675,7 @@ public class MvPartitionStoragesTest {
         assertThat(startAbortRebalanceFuture, willTimeoutFast());
 
         // You can't abort rebalancing a second time.
-        assertThrowsWithMessage(StorageRebalanceException.class, () -> abortRebalanceMvStorage(0), "Rebalance abort is already planned");
+        assertThrowsWithCause(() -> abortRebalanceMvStorage(0), StorageRebalanceException.class, "Rebalance abort is already planned");
 
         rebalanceFuture.complete(null);
 
@@ -684,36 +699,26 @@ public class MvPartitionStoragesTest {
     }
 
     private CompletableFuture<Void> destroyMvStorage(int partitionId) {
-        return mvPartitionStorages.destroy(partitionId, mvStorage -> completedFuture(null));
+        return mvPartitionStorages.destroy(partitionId, mvStorage -> nullCompletedFuture());
     }
 
     private CompletableFuture<Void> clearMvStorage(int partitionId) {
-        return mvPartitionStorages.clear(partitionId, mvStorage -> completedFuture(null));
+        return mvPartitionStorages.clear(partitionId, mvStorage -> nullCompletedFuture());
     }
 
     private CompletableFuture<Void> startRebalanceMvStorage(int partitionId) {
-        return mvPartitionStorages.startRebalance(partitionId, mvStorage -> completedFuture(null));
+        return mvPartitionStorages.startRebalance(partitionId, mvStorage -> nullCompletedFuture());
     }
 
     private CompletableFuture<Void> abortRebalanceMvStorage(int partitionId) {
-        return mvPartitionStorages.abortRebalance(partitionId, mvStorage -> completedFuture(null));
+        return mvPartitionStorages.abortRebalance(partitionId, mvStorage -> nullCompletedFuture());
     }
 
     private CompletableFuture<Void> finishRebalanceMvStorage(int partitionId) {
-        return mvPartitionStorages.finishRebalance(partitionId, mvStorage -> completedFuture(null));
+        return mvPartitionStorages.finishRebalance(partitionId, mvStorage -> nullCompletedFuture());
     }
 
     private int getPartitionIdOutOfConfig() {
         return PARTITIONS;
-    }
-
-    private static <T extends Throwable> void assertThrowsWithMessage(
-            Class<T> expectedType,
-            Executable executable,
-            String expectedErrorMessageSubString
-    ) {
-        T throwable = assertThrows(expectedType, executable);
-
-        assertThat(throwable.getMessage(), containsString(expectedErrorMessageSubString));
     }
 }

@@ -17,20 +17,21 @@
 
 package org.apache.ignite.internal.replicator;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromConsistentIds;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -40,13 +41,29 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lang.IgniteTriConsumer;
+import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NetworkMessageHandler;
+import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverActorMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
@@ -59,20 +76,19 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageTestGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TestReplicaMessagesFactory;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.topology.LogicalTopologyServiceTestImpl;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.IgniteTriConsumer;
-import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.network.NetworkMessageHandler;
-import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
-import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -84,7 +100,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
-    public static final int BASE_PORT = 1234;
+    private static final int BASE_PORT = 1234;
 
     private static final TestReplicationGroupId GROUP_ID = new TestReplicationGroupId("group_1");
 
@@ -95,7 +111,10 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     @InjectConfiguration("mock {retryTimeout=2000, responseTimeout=1000}")
     private RaftConfiguration raftConfiguration;
 
-    private HybridClock clock = new HybridClockImpl();
+    @InjectConfiguration
+    private ReplicationConfiguration replicationConfiguration;
+
+    private final HybridClock clock = new HybridClockImpl();
 
     private Set<String> placementDriverNodeNames;
     private Set<String> nodeNames;
@@ -106,15 +125,26 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     /** Cluster service by node name. */
     private Map<String, ClusterService> clusterServices;
 
-    private Map<String, ReplicaManager> replicaManagers = new HashMap<>();
-    private Map<String, Loza> raftManagers = new HashMap<>();
-    private Map<String, TopologyAwareRaftGroupServiceFactory> raftClientFactory = new HashMap<>();
+    private final Map<String, ReplicaManager> replicaManagers = new HashMap<>();
+    private final Map<String, Loza> raftManagers = new HashMap<>();
+    private final Map<String, TopologyAwareRaftGroupServiceFactory> raftClientFactory = new HashMap<>();
+
+    private ExecutorService partitionOperationsExecutor;
 
     /** List of services to have to close before the test will be completed. */
-    private List<Closeable> servicesToClose = new ArrayList<>();
+    private final List<Closeable> servicesToClose = new ArrayList<>();
+
+    private BiFunction<ReplicaRequest, String, CompletableFuture<ReplicaResult>> replicaListener = null;
 
     @BeforeEach
     public void beforeTest(TestInfo testInfo) {
+        partitionOperationsExecutor = new ThreadPoolExecutor(
+                0, 20,
+                0, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                NamedThreadFactory.create("test", "partition-operations", log)
+        );
+
         placementDriverNodeNames = IntStream.range(BASE_PORT, BASE_PORT + 3).mapToObj(port -> testNodeName(testInfo, port))
                 .collect(toSet());
         nodeNames = IntStream.range(BASE_PORT, BASE_PORT + 5).mapToObj(port -> testNodeName(testInfo, port))
@@ -126,8 +156,10 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(placementDriverNodeNames));
 
+        Supplier<ClusterNode> primaryReplicaSupplier = () -> first(clusterServices.values()).topologyService().localMember();
+
         for (String nodeName : nodeNames) {
-            var clusterService = clusterServices.get(nodeName);
+            ClusterService clusterService = clusterServices.get(nodeName);
 
             RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 
@@ -151,10 +183,14 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             raftClientFactory.put(nodeName, topologyAwareRaftGroupServiceFactory);
 
             var replicaManager = new ReplicaManager(
+                    nodeName,
                     clusterService,
                     cmgManager,
-                    clock,
-                    Set.of(ReplicaMessageTestGroup.class)
+                    new TestClockService(clock),
+                    Set.of(ReplicaMessageTestGroup.class),
+                    new TestPlacementDriver(primaryReplicaSupplier),
+                    partitionOperationsExecutor,
+                    new NoOpFailureProcessor()
             );
 
             replicaManagers.put(nodeName, replicaManager);
@@ -176,14 +212,16 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     log.info("Fail to stop services [node={}]", e, nodeName);
                 }
             });
+
+            servicesToClose.add(() -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS));
         }
     }
 
     @AfterEach
     public void afterTest() throws Exception {
-        for (Closeable cl : servicesToClose) {
-            cl.close();
-        }
+        IgniteUtils.closeAll(servicesToClose);
+
+        replicaListener = null;
     }
 
     /**
@@ -229,13 +267,13 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     ((StopLeaseProlongationMessage) msg).redirectProposal());
 
             if (denyLeaseHandler != null) {
-                denyLeaseHandler.accept((StopLeaseProlongationMessage) msg, sender, handlerNode.name());
+                denyLeaseHandler.accept((StopLeaseProlongationMessage) msg, sender.name(), handlerNode.name());
             }
         };
     }
 
     @Test
-    public void testNotificationToPlacementDriverAboutChangeLeader() throws Exception {
+    public void testNotificationToPlacementDriverAboutConnectivityProblem() throws Exception {
         Set<String> grpNodes = chooseRandomNodes(3);
 
         log.info("Replication group is based on {}", grpNodes);
@@ -248,17 +286,11 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         var leaderNodeName = raftClient.leader().consistentId();
 
-        var newLeaderNodeName = grpNodes.stream().filter(n -> !n.equals(leaderNodeName)).findAny().get();
-
-        log.info("Leader is moving form {} to {}", leaderNodeName, newLeaderNodeName);
-
         ConcurrentHashMap<String, String> nodesToReceivedDeclineMsg = new ConcurrentHashMap<>();
 
         denyLeaseHandler = (msg, from, to) -> {
             nodesToReceivedDeclineMsg.put(to, from);
         };
-
-        raftClient.transferLeadership(new Peer(newLeaderNodeName)).get();
 
         var anyNode = randomNode(Set.of());
 
@@ -266,9 +298,16 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         var clusterService = clusterServices.get(anyNode);
 
-        new ReplicaService(clusterService.messagingService(), clock).invoke(
+        replicaListener = (request, sender) -> failedFuture(new IOException("test"));
+
+        new ReplicaService(
+                clusterService.messagingService(),
+                clock,
+                replicationConfiguration
+        ).invoke(
                 clusterService.topologyService().getByConsistentId(leaderNodeName),
                 TEST_REPLICA_MESSAGES_FACTORY.primaryReplicaTestRequest()
+                        .enlistmentConsistencyToken(1L)
                         .groupId(GROUP_ID)
                         .build()
         );
@@ -325,9 +364,14 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         var clusterService = clusterServices.get(anyNode);
 
-        new ReplicaService(clusterService.messagingService(), clock).invoke(
+        new ReplicaService(
+                clusterService.messagingService(),
+                clock,
+                replicationConfiguration
+        ).invoke(
                 clusterService.topologyService().getByConsistentId(leaderNodeName),
                 TEST_REPLICA_MESSAGES_FACTORY.primaryReplicaTestRequest()
+                        .enlistmentConsistencyToken(1L)
                         .groupId(GROUP_ID)
                         .build()
         );
@@ -413,6 +457,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     ) throws Exception {
         var res = new CompletableFuture<TopologyAwareRaftGroupService>();
 
+        List<CompletableFuture<?>> serviceFutures = new ArrayList<>(nodes.size() * 2);
+
         for (String nodeName : nodes) {
             var replicaManager = replicaManagers.get(nodeName);
             var raftManager = raftManagers.get(nodeName);
@@ -432,28 +478,41 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     RaftGroupOptions.defaults(),
                     raftClientFactory.get(nodeName)
             );
+            serviceFutures.add(raftClientFut);
 
-            raftClientFut.thenAccept(raftClient -> {
+            CompletableFuture<Replica> replicaFuture = raftClientFut.thenCompose(raftClient -> {
                 try {
-                    if (!res.isDone()) {
-                        res.complete(raftClient);
-                    }
-
-                    replicaManager.startReplica(
+                    return replicaManager.startReplica(
                             groupId,
-                            allOf(raftManager.raftNodeReadyFuture(groupId)),
-                            request -> {
+                            (request, senderId) -> {
                                 log.info("Handle request [type={}]", request.getClass().getSimpleName());
 
-                                return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().build());
+                                return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().build())
+                                        .thenCompose(ignored -> {
+                                            if (replicaListener == null) {
+                                                return completedFuture(new ReplicaResult(null, null));
+                                            } else {
+                                                return replicaListener.apply(request, senderId);
+                                            }
+                                        });
                             },
                             raftClient,
                             new PendingComparableValuesTracker<>(Long.MAX_VALUE));
                 } catch (NodeStoppingException e) {
-                    fail("Can not start replica [groupId=" + groupId + ']');
+                    throw new RuntimeException(e);
                 }
             });
+            serviceFutures.add(replicaFuture);
         }
+
+        CompletableFuture.allOf(serviceFutures.toArray(new CompletableFuture[0]))
+                .thenRun(() -> {
+                    try {
+                        res.complete((TopologyAwareRaftGroupService) serviceFutures.get(0).get());
+                    } catch (InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
 
         return res;
     }

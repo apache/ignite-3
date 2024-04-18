@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.cli.call.configuration;
 
+import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
+
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
+import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
@@ -51,7 +54,8 @@ public class NodeConfigUpdateCall implements Call<NodeConfigUpdateCallInput, Str
     private DefaultCallOutput<String> updateNodeConfig(NodeConfigurationApi api, NodeConfigUpdateCallInput input)
             throws ApiException {
         api.updateNodeConfiguration(input.getConfig());
-        return DefaultCallOutput.success("Node configuration was updated successfully");
+        return DefaultCallOutput.success("Node configuration updated. "
+                + fg(Color.YELLOW).mark("Restart the node to apply changes."));
     }
 
     private NodeConfigurationApi createApiClient(NodeConfigUpdateCallInput input) {

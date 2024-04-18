@@ -25,6 +25,8 @@ import org.apache.ignite.internal.cli.core.repl.executor.RegistryCommandExecutor
 import org.apache.ignite.internal.cli.core.repl.prompt.PromptProvider;
 import org.apache.ignite.internal.cli.core.repl.terminal.TerminalCustomizer;
 import org.jline.reader.Completer;
+import org.jline.reader.Highlighter;
+import org.jline.reader.Parser;
 import org.jline.terminal.Terminal;
 import picocli.CommandLine.IDefaultValueProvider;
 
@@ -55,6 +57,12 @@ public class Repl {
 
     private final Runnable onStart;
 
+    private final EventListeningActivationPoint eventListeningActivationPoint;
+
+    private final Parser parser;
+
+    private Highlighter higilighter;
+
     /**
      * Constructor.
      *
@@ -68,6 +76,8 @@ public class Repl {
      * @param historyFileName file name for storing commands history.
      * @param tailTipWidgetsEnabled whether tailtip widgets are enabled.
      * @param onStart callback that will run when REPL is started.
+     * @param eventListeningActivationPoint event listening activation point
+     * @param highlighter syntax highilighter.
      */
     public Repl(PromptProvider promptProvider,
             Class<?> commandClass,
@@ -79,8 +89,10 @@ public class Repl {
             String historyFileName,
             boolean tailTipWidgetsEnabled,
             boolean autosuggestionsWidgetsEnabled,
-            Runnable onStart
-    ) {
+            Runnable onStart,
+            EventListeningActivationPoint eventListeningActivationPoint,
+            Highlighter highlighter,
+            Parser parser) {
         this.promptProvider = promptProvider;
         this.commandClass = commandClass;
         this.defaultValueProvider = defaultValueProvider;
@@ -92,6 +104,9 @@ public class Repl {
         this.tailTipWidgetsEnabled = tailTipWidgetsEnabled;
         this.autosuggestionsWidgetsEnabled = autosuggestionsWidgetsEnabled;
         this.onStart = onStart;
+        this.eventListeningActivationPoint = eventListeningActivationPoint;
+        this.higilighter = highlighter;
+        this.parser = parser;
     }
 
     /**
@@ -161,7 +176,19 @@ public class Repl {
         return autosuggestionsWidgetsEnabled;
     }
 
+    public Highlighter getHighlighter() {
+        return higilighter;
+    }
+
     public void onStart() {
         onStart.run();
+    }
+
+    public EventListeningActivationPoint getEventListeningActivationPoint() {
+        return eventListeningActivationPoint;
+    }
+
+    public Parser getParser() {
+        return parser;
     }
 }

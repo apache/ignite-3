@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cli.call.connect;
 
-import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
@@ -25,19 +24,34 @@ import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.EmptyCallInput;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
+import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
+import org.apache.ignite.internal.cli.event.EventPublisher;
+import org.apache.ignite.internal.cli.event.Events;
 
 /**
  * Call for disconnect.
  */
 @Singleton
 public class DisconnectCall implements Call<EmptyCallInput, String> {
-    @Inject
     private final Session session;
 
-    public DisconnectCall(Session session) {
+    private final EventPublisher eventPublisher;
+
+    private final ApiClientFactory clientFactory;
+
+    /**
+     * Creates Disconnect call.
+     *
+     * @param session session
+     * @param eventPublisher event publisher
+     * @param clientFactory client factory
+     */
+    public DisconnectCall(Session session, EventPublisher eventPublisher, ApiClientFactory clientFactory) {
         this.session = session;
+        this.eventPublisher = eventPublisher;
+        this.clientFactory = clientFactory;
     }
 
     @Override
@@ -45,7 +59,8 @@ public class DisconnectCall implements Call<EmptyCallInput, String> {
         SessionInfo sessionInfo = session.info();
         if (sessionInfo != null) {
             String nodeUrl = sessionInfo.nodeUrl();
-            session.disconnect();
+            clientFactory.setSessionSettings(null);
+            eventPublisher.publish(Events.disconnect());
             return DefaultCallOutput.success(
                     MessageUiComponent.fromMessage("Disconnected from %s", UiElements.url(nodeUrl)).render()
             );

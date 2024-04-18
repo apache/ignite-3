@@ -22,7 +22,10 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
+    annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor project(":ignite-network-annotation-processor")
+    annotationProcessor libs.auto.service
+
     implementation project(':ignite-core')
     implementation project(':ignite-raft')
     implementation project(':ignite-raft-api')
@@ -31,8 +34,10 @@ dependencies {
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-network-api')
     implementation project(':ignite-placement-driver-api')
+    implementation project(':ignite-failure-handler')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
+    implementation libs.auto.service.annotations
 
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-raft-api')
@@ -41,12 +46,14 @@ dependencies {
     integrationTestImplementation project(':ignite-cluster-management')
     integrationTestImplementation testFixtures(project)
     integrationTestImplementation testFixtures(project(':ignite-core'))
-    integrationTestImplementation testFixtures(project(':ignite-configuration:'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(':ignite-network'))
+    integrationTestImplementation testFixtures(project(':ignite-placement-driver-api'))
+    integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
 
     testImplementation testFixtures(project(':ignite-core'))
-    testImplementation testFixtures(project(':ignite-network'))
-    testImplementation testFixtures(project(':ignite-configuration:'))
+    testImplementation testFixtures(project(':ignite-placement-driver-api'))
+    testImplementation(testFixtures(project(':ignite-failure-handler')))
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
@@ -57,6 +64,10 @@ dependencies {
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-cluster-management')
+    testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-network'))
+    testFixturesImplementation testFixtures(project(':ignite-configuration:'))
+    testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.jetbrains.annotations
 }
 

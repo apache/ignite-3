@@ -20,16 +20,24 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static java.lang.Thread.currentThread;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.MUST_TRIGGER;
+import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.lang.ErrorGroups.CriticalWorkers.SYSTEM_CRITICAL_OPERATION_TIMEOUT_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -38,11 +46,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.NodeStoppingException;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -50,9 +59,7 @@ import org.junit.jupiter.api.Test;
 /**
  * For {@link CheckpointTimeoutLock} testing.
  */
-public class CheckpointTimeoutLockTest {
-    private final IgniteLogger log = Loggers.forClass(CheckpointTimeoutLockTest.class);
-
+public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
     @Nullable
     private CheckpointTimeoutLock timeoutLock;
 
@@ -67,7 +74,8 @@ public class CheckpointTimeoutLockTest {
 
     @Test
     void testCheckpointReadLockTimeout() {
-        timeoutLock = new CheckpointTimeoutLock(newReadWriteLock(), Long.MAX_VALUE, () -> true, mock(Checkpointer.class));
+        timeoutLock = new CheckpointTimeoutLock(
+                newReadWriteLock(), Long.MAX_VALUE, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
 
         timeoutLock.start();
 
@@ -80,8 +88,10 @@ public class CheckpointTimeoutLockTest {
 
     @Test
     void testCheckpointReadLock() throws Exception {
-        CheckpointTimeoutLock timeoutLock0 = new CheckpointTimeoutLock(newReadWriteLock(), 0, () -> true, mock(Checkpointer.class));
-        CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(newReadWriteLock(), 1_000, () -> true, mock(Checkpointer.class));
+        var timeoutLock0 = new CheckpointTimeoutLock(
+                newReadWriteLock(), 0, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
+        var timeoutLock1 = new CheckpointTimeoutLock(
+                newReadWriteLock(), 1_000, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
 
         try {
             timeoutLock0.start();
@@ -106,7 +116,8 @@ public class CheckpointTimeoutLockTest {
     void testCheckpointReadLockWithWriteLockHeldByCurrentThread() {
         CheckpointReadWriteLock readWriteLock = newReadWriteLock();
 
-        timeoutLock = new CheckpointTimeoutLock(readWriteLock, 1_000, () -> true, mock(Checkpointer.class));
+        timeoutLock = new CheckpointTimeoutLock(
+                readWriteLock, 1_000, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
 
         timeoutLock.start();
 
@@ -125,7 +136,8 @@ public class CheckpointTimeoutLockTest {
 
     @Test
     void testCheckpointReadLockFailOnNodeStop() {
-        timeoutLock = new CheckpointTimeoutLock(newReadWriteLock(), Long.MAX_VALUE, () -> true, mock(Checkpointer.class));
+        timeoutLock = new CheckpointTimeoutLock(
+                newReadWriteLock(), Long.MAX_VALUE, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
 
         timeoutLock.stop();
 
@@ -139,8 +151,13 @@ public class CheckpointTimeoutLockTest {
         CheckpointReadWriteLock readWriteLock0 = newReadWriteLock();
         CheckpointReadWriteLock readWriteLock1 = newReadWriteLock();
 
-        CheckpointTimeoutLock timeoutLock0 = new CheckpointTimeoutLock(readWriteLock0, 0, () -> true, mock(Checkpointer.class));
-        CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(readWriteLock1, 100, () -> true, mock(Checkpointer.class));
+        FailureProcessor failureProcessor = mock(FailureProcessor.class);
+        doAnswer(invocation -> true).when(failureProcessor).process(any());
+
+        var timeoutLock0 = new CheckpointTimeoutLock(
+                readWriteLock0, 0, () -> NOT_REQUIRED, mock(Checkpointer.class), failureProcessor);
+        var timeoutLock1 = new CheckpointTimeoutLock(
+                readWriteLock1, 100, () -> NOT_REQUIRED, mock(Checkpointer.class), failureProcessor);
 
         try {
             timeoutLock0.start();
@@ -161,7 +178,50 @@ public class CheckpointTimeoutLockTest {
 
             ExecutionException exception = assertThrows(ExecutionException.class, () -> readLockFuture1.get(1_000, MILLISECONDS));
 
-            assertThat(exception.getCause(), instanceOf(CheckpointReadLockTimeoutException.class));
+            assertThat(exception.getCause(), instanceOf(IgniteInternalException.class));
+
+            IgniteInternalException cause = (IgniteInternalException) exception.getCause();
+
+            assertThat(cause.code(), is(SYSTEM_CRITICAL_OPERATION_TIMEOUT_ERR));
+        } finally {
+            writeUnlock(readWriteLock0);
+            writeUnlock(readWriteLock1);
+
+            closeAll(timeoutLock0::stop, timeoutLock1::stop);
+        }
+    }
+
+    @Test
+    void testCheckpointReadLockTimeoutFail2() throws Exception {
+        CheckpointReadWriteLock readWriteLock0 = newReadWriteLock();
+        CheckpointReadWriteLock readWriteLock1 = newReadWriteLock();
+
+        var timeoutLock0 = new CheckpointTimeoutLock(
+                readWriteLock0, 0, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
+        var timeoutLock1 = new CheckpointTimeoutLock(
+                readWriteLock1, 100, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
+
+        try {
+            timeoutLock0.start();
+            timeoutLock1.start();
+
+            readWriteLock0.writeLock();
+            readWriteLock1.writeLock();
+
+            CountDownLatch startThreadLatch = new CountDownLatch(2);
+
+            CompletableFuture<?> readLockFuture0 = runAsync(() -> checkpointReadLock(startThreadLatch, timeoutLock0));
+            CompletableFuture<?> readLockFuture1 = runAsync(() -> checkpointReadLock(startThreadLatch, timeoutLock1));
+
+            assertTrue(startThreadLatch.await(1_000, MILLISECONDS));
+
+            // For the Windows case, getting a read lock can take up to 100 ms.
+            assertThrows(TimeoutException.class, () -> readLockFuture0.get(500, MILLISECONDS));
+            assertThrows(TimeoutException.class, () -> readLockFuture1.get(500, MILLISECONDS));
+
+            writeUnlock(readWriteLock1);
+
+            assertThat(readLockFuture1, willSucceedIn(1, SECONDS));
         } finally {
             writeUnlock(readWriteLock0);
             writeUnlock(readWriteLock1);
@@ -175,8 +235,10 @@ public class CheckpointTimeoutLockTest {
         CheckpointReadWriteLock readWriteLock0 = newReadWriteLock();
         CheckpointReadWriteLock readWriteLock1 = newReadWriteLock();
 
-        CheckpointTimeoutLock timeoutLock0 = new CheckpointTimeoutLock(readWriteLock0, 0, () -> true, mock(Checkpointer.class));
-        CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(readWriteLock1, 100, () -> true, mock(Checkpointer.class));
+        var timeoutLock0 = new CheckpointTimeoutLock(
+                readWriteLock0, 0, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
+        var timeoutLock1 = new CheckpointTimeoutLock(
+                readWriteLock1, 100, () -> NOT_REQUIRED, mock(Checkpointer.class), mock(FailureProcessor.class));
 
         try {
             timeoutLock0.start();
@@ -213,9 +275,7 @@ public class CheckpointTimeoutLockTest {
             // For the Windows case, getting a read lock can take up to 100 ms.
             assertThrows(TimeoutException.class, () -> readLockFuture0.get(1_000, MILLISECONDS));
 
-            ExecutionException exception = assertThrows(ExecutionException.class, () -> readLockFuture1.get(1_000, MILLISECONDS));
-
-            assertThat(exception.getCause(), instanceOf(CheckpointReadLockTimeoutException.class));
+            assertThrows(TimeoutException.class, () -> readLockFuture1.get(1_000, MILLISECONDS));
 
             writeUnlock(readWriteLock0);
             writeUnlock(readWriteLock1);
@@ -243,9 +303,10 @@ public class CheckpointTimeoutLockTest {
 
         Checkpointer checkpointer = newCheckpointer(currentThread(), lockRealiseFuture);
 
-        AtomicBoolean safeToUpdate = new AtomicBoolean();
+        AtomicReference<CheckpointUrgency> urgency = new AtomicReference<>(MUST_TRIGGER);
 
-        timeoutLock = new CheckpointTimeoutLock(newReadWriteLock(), 0, safeToUpdate::get, checkpointer);
+        timeoutLock = new CheckpointTimeoutLock(
+                newReadWriteLock(), 0, urgency::get, checkpointer, mock(FailureProcessor.class));
 
         timeoutLock.start();
 
@@ -257,7 +318,7 @@ public class CheckpointTimeoutLockTest {
 
         assertTrue(latch.await(100, MILLISECONDS));
 
-        safeToUpdate.set(true);
+        urgency.set(NOT_REQUIRED);
 
         readLockFuture.get(100, MILLISECONDS);
     }
@@ -266,7 +327,8 @@ public class CheckpointTimeoutLockTest {
     void testFailureLockReleasedFuture() {
         Checkpointer checkpointer = newCheckpointer(currentThread(), failedFuture(new Exception("test")));
 
-        timeoutLock = new CheckpointTimeoutLock(newReadWriteLock(), 0, () -> false, checkpointer);
+        timeoutLock = new CheckpointTimeoutLock(
+                newReadWriteLock(), 0, () -> MUST_TRIGGER, checkpointer, mock(FailureProcessor.class));
 
         timeoutLock.start();
 
@@ -284,7 +346,8 @@ public class CheckpointTimeoutLockTest {
 
         Checkpointer checkpointer = newCheckpointer(currentThread(), future);
 
-        timeoutLock = new CheckpointTimeoutLock(newReadWriteLock(), 0, () -> false, checkpointer);
+        timeoutLock = new CheckpointTimeoutLock(
+                newReadWriteLock(), 0, () -> MUST_TRIGGER, checkpointer, mock(FailureProcessor.class));
 
         timeoutLock.start();
 

@@ -35,7 +35,7 @@ namespace Apache.Ignite.Tests.Transactions
         [TearDown]
         public async Task CleanTable()
         {
-            await TupleView.DeleteAllAsync(null, Enumerable.Range(1, 2).Select(x => GetTuple(x)));
+            await TupleView.DeleteAllAsync(null, Enumerable.Range(1, 3).Select(x => GetTuple(x)));
         }
 
         [Test]
@@ -76,7 +76,7 @@ namespace Apache.Ignite.Tests.Transactions
             Assert.AreEqual(4, deleteAllRes.Single()[0]);
             Assert.IsFalse((await TupleView.GetAsync(tx, GetTuple(3))).HasValue);
 
-            var deleteAllExactRes = await TupleView.DeleteAllAsync(tx, new[] { GetTuple(1, "12"), GetTuple(5) });
+            var deleteAllExactRes = await TupleView.DeleteAllAsync(tx, new[] { GetTuple(1), GetTuple(5) });
             Assert.AreEqual(5, deleteAllExactRes.Single()[0]);
             Assert.IsFalse((await TupleView.GetAsync(tx, key)).HasValue);
 
@@ -281,6 +281,33 @@ namespace Apache.Ignite.Tests.Transactions
             Assert.AreEqual($"Transaction {{ Id = {id}, State = Open, IsReadOnly = False }}", tx1.ToString());
             Assert.AreEqual($"Transaction {{ Id = {id + 1}, State = RolledBack, IsReadOnly = True }}", tx2.ToString());
             Assert.AreEqual($"Transaction {{ Id = {id + 2}, State = Committed, IsReadOnly = False }}", tx3.ToString());
+        }
+
+        [Test]
+        public async Task TestObservableTimestampPropagation([Values(true, false)] bool sql)
+        {
+            using var server = new FakeServer();
+            using var client = await server.ConnectClientAsync();
+
+            server.ObservableTimestamp = 123;
+
+            // Non-transactional operations do not propagate timestamp.
+            await client.Tables.GetTablesAsync();
+            await client.Tables.GetTablesAsync();
+
+            Assert.AreEqual(0, server.LastClientObservableTimestamp);
+
+            // Transactional operations propagate timestamp.
+            if (sql)
+            {
+                await using var resultSet = await client.Sql.ExecuteAsync(null, "select 1");
+            }
+            else
+            {
+                await client.Transactions.BeginAsync();
+            }
+
+            Assert.AreEqual(123, server.LastClientObservableTimestamp);
         }
 
         private class CustomTx : ITransaction

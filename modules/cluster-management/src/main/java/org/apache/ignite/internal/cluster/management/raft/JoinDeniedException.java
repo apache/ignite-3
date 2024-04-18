@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Exception thrown if a node was unable to pass the validation step.

@@ -19,7 +19,9 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.Objects.requireNonNull;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -30,27 +32,41 @@ import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.logical.LogicalTableModify;
+import org.apache.calcite.rel.logical.LogicalValues;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlMerge;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.SqlUpdate;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.SqlValidator;
+import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.RelBuilder;
+import org.apache.calcite.util.ControlFlowException;
+import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.jetbrains.annotations.Nullable;
 
 /** Converts a SQL parse tree into a relational algebra operators. */
 public class IgniteSqlToRelConvertor extends SqlToRelConverter {
+    private final Deque<SqlCall> datasetStack = new ArrayDeque<>();
 
-    public IgniteSqlToRelConvertor(
+    private RelBuilder relBuilder;
+
+    IgniteSqlToRelConvertor(
             RelOptTable.ViewExpander viewExpander,
             @Nullable SqlValidator validator,
             Prepare.CatalogReader catalogReader, RelOptCluster cluster,
@@ -58,6 +74,8 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
             Config cfg
     ) {
         super(viewExpander, validator, catalogReader, cluster, convertletTable, cfg);
+
+        relBuilder = config.getRelBuilderFactory().create(cluster, null);
     }
 
     /** {@inheritDoc} */
@@ -67,6 +85,133 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
         } else {
             return super.convertQueryRecursive(qry, top, targetRowType);
         }
+    }
+
+    @Override
+    protected RexNode convertExtendedExpression(
+            SqlNode expr,
+            Blackboard bb) {
+        SqlKind kind = expr.getKind();
+        if (kind == SqlKind.CAST) {
+            SqlCall call = (SqlCall) expr;
+            SqlNode op0 = call.operand(0);
+            SqlNode type = call.operand(1);
+            if (!(op0 instanceof SqlNumericLiteral) || !(type instanceof SqlDataTypeSpec)) {
+                return null;
+            }
+            SqlNumericLiteral literal = (SqlNumericLiteral) op0;
+            RelDataType derived = ((SqlDataTypeSpec) type).deriveType(validator);
+            // if BIGINT is present we need to preserve CAST from BIGINT to BIGINT for further overflow check possibility
+            // TODO: need to be removed after https://issues.apache.org/jira/browse/IGNITE-20889
+            if (derived.getSqlTypeName() == SqlTypeName.BIGINT) {
+                RexLiteral lit = rexBuilder.makeLiteral(literal.toValue());
+                return rexBuilder.makeCast(derived, lit, false, false);
+            }
+        }
+        return null;
+    }
+
+    @Override protected RelNode convertInsert(SqlInsert call) {
+        datasetStack.push(call);
+
+        RelNode rel = super.convertInsert(call);
+
+        datasetStack.pop();
+
+        return rel;
+    }
+
+    private static class DefaultChecker extends SqlShuttle {
+        private boolean hasDefaults(SqlCall call) {
+            try {
+                call.accept(this);
+                return false;
+            } catch (ControlFlowException e) {
+                return true;
+            }
+        }
+
+        @Override public @Nullable SqlNode visit(SqlCall call) {
+            if (call.getKind() == SqlKind.DEFAULT) {
+                throw new ControlFlowException();
+            }
+
+            return super.visit(call);
+        }
+    }
+
+    @Override public RelNode convertValues(SqlCall values, RelDataType targetRowType) {
+        DefaultChecker checker = new DefaultChecker();
+
+        boolean hasDefaults = checker.hasDefaults(values);
+
+        if (hasDefaults) {
+            SqlValidatorScope scope = validator.getOverScope(values);
+            assert scope != null;
+            Blackboard bb = createBlackboard(scope, null, false);
+
+            convertValuesImplEx(bb, values, targetRowType);
+            return bb.root();
+        } else {
+            // a bit lightweight than default processing one.
+            return super.convertValues(values, targetRowType);
+        }
+    }
+
+    private void convertValuesImplEx(Blackboard bb, SqlCall values, RelDataType targetRowType) {
+        SqlCall insertOp = datasetStack.peek();
+        assert insertOp instanceof SqlInsert;
+        assert values == ((SqlInsert) insertOp).getSource();
+        RelOptTable targetTable = getTargetTable(insertOp);
+        assert targetTable != null;
+
+        IgniteDataSource ignTable = targetTable.unwrap(IgniteDataSource.class);
+
+        List<RelDataTypeField> tblFields = targetTable.getRowType().getFieldList();
+        List<String> targetFields = targetRowType.getFieldNames();
+
+        int[] mapping = new int[targetFields.size()];
+
+        int pos = 0;
+
+        for (String fld : targetFields) {
+            int tblPos = 0;
+            for (RelDataTypeField tblFld : tblFields) {
+                if (tblFld.getName().equals(fld)) {
+                    mapping[pos++] = tblPos;
+                    break;
+                }
+                ++tblPos;
+            }
+        }
+
+        for (SqlNode rowConstructor : values.getOperandList()) {
+            SqlCall rowConstructor0 = (SqlCall) rowConstructor;
+
+            List<Pair<RexNode, String>> exps = new ArrayList<>(targetFields.size());
+
+            pos = 0;
+            for (; pos < targetFields.size(); ++pos) {
+                SqlNode operand = rowConstructor0.getOperandList().get(pos);
+
+                if (operand.getKind() == SqlKind.DEFAULT) {
+                    RexNode def = ignTable.descriptor().newColumnDefaultValue(targetTable, mapping[pos], bb);
+
+                    exps.add(Pair.of(def, SqlValidatorUtil.alias(operand, pos)));
+                } else {
+                    exps.add(Pair.of(bb.convertExpression(operand), SqlValidatorUtil.alias(operand, pos)));
+                }
+            }
+
+            RelNode in = (null == bb.root) ? LogicalValues.createOneRow(cluster) : bb.root;
+
+            relBuilder.push(in)
+                    .project(Pair.left(exps), Pair.right(exps));
+        }
+
+        bb.setRoot(
+                relBuilder.union(true, values.getOperandList().size())
+                        .build(), true);
     }
 
     /**

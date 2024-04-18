@@ -21,12 +21,16 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.EN
 
 import com.google.auto.service.AutoService;
 import java.nio.file.Path;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineExtensionConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -44,12 +48,18 @@ public class RocksDbDataStorageModule implements DataStorageModule {
             String igniteInstanceName,
             ConfigurationRegistry configRegistry,
             Path storagePath,
-            @Nullable LongJvmPauseDetector longJvmPauseDetector
+            @Nullable LongJvmPauseDetector longJvmPauseDetector,
+            FailureProcessor failureProcessor,
+            LogSyncer logSyncer
     ) throws StorageException {
-        RocksDbStorageEngineConfiguration engineConfig = configRegistry.getConfiguration(RocksDbStorageEngineConfiguration.KEY);
+        RocksDbStorageEngineConfiguration engineConfig =
+                ((RocksDbStorageEngineExtensionConfiguration) configRegistry
+                        .getConfiguration(StorageConfiguration.KEY).engines()).rocksDb();
+
+        StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageConfiguration.KEY);
 
         assert engineConfig != null;
 
-        return new RocksDbStorageEngine(igniteInstanceName, engineConfig, storagePath);
+        return new RocksDbStorageEngine(igniteInstanceName, engineConfig, storageConfig, storagePath, logSyncer);
     }
 }

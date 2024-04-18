@@ -29,9 +29,9 @@ public interface RangeCondition<RowT> {
     /** Upper search row. */
     RowT upper();
 
-    /** Inlusive search by lower row. */
+    /** Inclusive search by lower row. */
     boolean lowerInclude();
 
-    /** Inlusive search by upper row. */
+    /** Inclusive search by upper row. */
     boolean upperInclude();
 }

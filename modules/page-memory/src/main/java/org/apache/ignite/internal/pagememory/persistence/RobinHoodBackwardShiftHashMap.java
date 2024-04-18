@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getFloat;
 import static org.apache.ignite.internal.util.GridUnsafe.getInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getLong;
 import static org.apache.ignite.internal.util.GridUnsafe.putInt;
 import static org.apache.ignite.internal.util.GridUnsafe.putLong;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
-import static org.apache.ignite.lang.IgniteSystemProperties.getFloat;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.function.BiConsumer;
@@ -180,13 +180,13 @@ public class RobinHoodBackwardShiftHashMap implements LoadedPagesMap {
             if (isEmpty(curGrpId, curPageId)) {
                 return absent;
             } else if (curGrpId == grpId && curPageId == pageId) {
-                //equal value found
+                // Equal value found
                 long actualVer = getVersion(base);
                 boolean freshVal = actualVer >= reqVer;
 
                 return freshVal ? getValue(base) : outdated;
             } else if (dibCurEntry < distanceFromInit) {
-                //current entry has quite good position, it would be swapped at hypothetical insert of current value
+                // Current entry has quite good position, it would be swapped at hypothetical insert of current value
                 return absent;
             }
         }
@@ -236,9 +236,9 @@ public class RobinHoodBackwardShiftHashMap implements LoadedPagesMap {
 
                 setValue(base, valToInsert);
 
-                return; //equal value found
+                return; // Equal value found
             } else if (dibCurEntry < dibEntryToInsert) {
-                //swapping *toInsert and state in bucket: save cur state to bucket
+                // Swapping *toInsert and state in bucket: save cur state to bucket
                 setCellValue(base, idxIdealToInsert, grpIdToInsert, pageIdToInsert, valToInsert, verToInsert);
 
                 idxIdealToInsert = curIdealBucket;
@@ -279,9 +279,9 @@ public class RobinHoodBackwardShiftHashMap implements LoadedPagesMap {
             } else if (curGrpId == grpId && curPageId == pageId) {
                 idxEqualValFound = idxCurr;
 
-                break; //equal value found
+                break; // Equal value found.
             } else if (dibCurEntry < dibEntryToInsert) {
-                //If our value was present in map we had already found it.
+                // If our value was present in map we had already found it.
                 return false;
             }
         }
@@ -301,7 +301,7 @@ public class RobinHoodBackwardShiftHashMap implements LoadedPagesMap {
     private void doBackwardShift(int idxRmv) {
         assert idxRmv >= 0;
 
-        //scanning rest of map to perform backward shifts
+        // Scanning rest of map to perform backward shifts.
         for (int i = 0; i < numBuckets - 1; i++) {
             int idxCurr = (idxRmv + i) % numBuckets;
             int idxNext = (idxRmv + i + 1) % numBuckets;
@@ -383,7 +383,7 @@ public class RobinHoodBackwardShiftHashMap implements LoadedPagesMap {
             if (isEmpty(curGrpId, curPageId)) {
                 break; // break to fail
             } else if (curGrpId == grpId && curPageId == pageId) {
-                //equal value found
+                // Equal value found.
                 long actualVer = getVersion(base);
 
                 boolean freshVal = actualVer >= ver;
@@ -398,7 +398,7 @@ public class RobinHoodBackwardShiftHashMap implements LoadedPagesMap {
 
                 return getValue(base);
             } else if (dibCurEntry < distanceFromInit) {
-                //current entry has quite good position,  it would be swapped at hypothetical insert of current value
+                // Current entry has quite good position, it would be swapped at hypothetical insert of current value.
 
                 break;
             }
@@ -440,7 +440,7 @@ public class RobinHoodBackwardShiftHashMap implements LoadedPagesMap {
 
             list.add(valAt);
 
-            idx--; //Need recheck current cell because of backward shift
+            idx--; // Need recheck current cell because of backward shift.
         }
 
         return list;
@@ -548,13 +548,13 @@ public class RobinHoodBackwardShiftHashMap implements LoadedPagesMap {
             sb.append("Empty: ");
         }
 
-        sb.append("i.buc=").append(getIdealBucket(base)).append(",");
-        sb.append("(grp=").append(curGrpId).append(",");
-        sb.append("page=").append(curPageId).append(")");
-        sb.append("->");
-        sb.append("(val=").append(curVal).append(",");
-        sb.append("ver=").append(ver).append(")");
-        sb.append("\n");
+        sb.append("i.buc=").append(getIdealBucket(base)).append(',')
+                .append("(grp=").append(curGrpId).append(',')
+                .append("page=").append(curPageId).append(')')
+                .append("->")
+                .append("(val=").append(curVal).append(',')
+                .append("ver=").append(ver).append(')')
+                .append('\n');
     }
 
     /**

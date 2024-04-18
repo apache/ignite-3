@@ -23,17 +23,22 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.catalog.IgniteCatalog;
+import org.apache.ignite.catalog.Options;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.client.compute.ClientCompute;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
 import org.apache.ignite.internal.jdbc.proto.ClientMessage;
+import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -70,6 +75,14 @@ public class TcpIgniteClient implements IgniteClient {
     /** Metrics. */
     private final ClientMetricSource metrics;
 
+    /** Marshallers provider. */
+    private final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
+
+    /**
+     * Cluster name.
+     */
+    private String clusterName;
+
     /**
      * Constructor.
      *
@@ -93,10 +106,10 @@ public class TcpIgniteClient implements IgniteClient {
 
         metrics = new ClientMetricSource();
         ch = new ReliableChannel(chFactory, cfg, metrics);
-        tables = new ClientTables(ch);
+        tables = new ClientTables(ch, marshallers);
         transactions = new ClientTransactions(ch);
         compute = new ClientCompute(ch, tables);
-        sql = new ClientSql(ch);
+        sql = new ClientSql(ch, marshallers);
         metricManager = initMetricManager(cfg);
     }
 
@@ -121,7 +134,11 @@ public class TcpIgniteClient implements IgniteClient {
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<ClientChannel> initAsync() {
-        return ch.channelsInitAsync();
+        return ch.channelsInitAsync().whenComplete((channel, throwable) -> {
+            if (throwable == null) {
+                clusterName = channel.protocolContext().clusterName();
+            }
+        });
     }
 
     /**
@@ -131,6 +148,8 @@ public class TcpIgniteClient implements IgniteClient {
      * @return Future representing pending completion of the operation.
      */
     public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) {
+        ErrorGroups.initialize();
+
         //noinspection resource: returned from method
         var client = new TcpIgniteClient(cfg);
 
@@ -171,14 +190,14 @@ public class TcpIgniteClient implements IgniteClient {
     @Override
     public CompletableFuture<Collection<ClusterNode>> clusterNodesAsync() {
         return ch.serviceAsync(ClientOp.CLUSTER_GET_NODES, r -> {
-            int cnt = r.in().unpackArrayHeader();
+            int cnt = r.in().unpackInt();
             List<ClusterNode> res = new ArrayList<>(cnt);
 
             for (int i = 0; i < cnt; i++) {
-                int fieldCnt = r.in().unpackArrayHeader();
+                int fieldCnt = r.in().unpackInt();
                 assert fieldCnt == 4;
 
-                res.add(new ClusterNode(
+                res.add(new ClientClusterNode(
                         r.in().unpackString(),
                         r.in().unpackString(),
                         new NetworkAddress(r.in().unpackString(), r.in().unpackInt())));
@@ -186,6 +205,11 @@ public class TcpIgniteClient implements IgniteClient {
 
             return res;
         });
+    }
+
+    @Override
+    public IgniteCatalog catalog(Options options) {
+        return new IgniteCatalogSqlImpl(sql(), options);
     }
 
     /** {@inheritDoc} */
@@ -214,6 +238,15 @@ public class TcpIgniteClient implements IgniteClient {
     @Override
     public List<ClusterNode> connections() {
         return ch.connections();
+    }
+
+    /**
+     * Returns the name of the cluster to which this client is connected to.
+     *
+     * @return Cluster name.
+     */
+    public String clusterName() {
+        return clusterName;
     }
 
     @TestOnly

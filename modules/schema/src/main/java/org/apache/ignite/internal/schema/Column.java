@@ -19,49 +19,33 @@ package org.apache.ignite.internal.schema;
 
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Column descriptor which contains a column name, a type and a nullability flag.
- *
- * <p>Because of columns must be written to a row in a specific order, column write order ({@link #schemaIndex}) may differ from the
- * user-defined order ({@link #columnOrder}).
  */
 public class Column {
     /** Default "default value supplier". */
     private static final DefaultValueProvider NULL_SUPPLIER = DefaultValueProvider.constantProvider(null);
 
-    /** Absolute index in schema descriptor. */
-    private final int schemaIndex;
-
-    /** User column order as defined in table definition. */
-    private final int columnOrder;
-
-    /**
-     * Column name.
-     */
+    private final int rowPosition;
+    private final int keyPosition;
+    private final int valuePosition;
+    private final int colocationPosition;
     private final String name;
-
-    /**
-     * An instance of column data type.
-     */
     private final NativeType type;
-
-    /**
-     * If {@code false}, null values will not be allowed for this column.
-     */
     private final boolean nullable;
 
-    /**
-     * Default value supplier.
-     */
     @IgniteToStringExclude
     private final DefaultValueProvider defaultValueProvider;
 
     /**
      * Constructor.
      *
-     * @param name     Column name.
-     * @param type     An instance of column data type.
+     * @param name Column name.
+     * @param type An instance of column data type.
      * @param nullable If {@code false}, null values will not be allowed for this column.
      */
     public Column(
@@ -69,15 +53,15 @@ public class Column {
             NativeType type,
             boolean nullable
     ) {
-        this(-1, -1, name, type, nullable, NULL_SUPPLIER);
+        this(-1, -1, -1, -1, name, type, nullable, NULL_SUPPLIER);
     }
 
     /**
      * Constructor.
      *
-     * @param name      Column name.
-     * @param type      An instance of column data type.
-     * @param nullable  If {@code false}, null values will not be allowed for this column.
+     * @param name Column name.
+     * @param type An instance of column data type.
+     * @param nullable f {@code false}, null values will not be allowed for this column.
      * @param defaultValueProvider Default value supplier.
      */
     public Column(
@@ -86,65 +70,35 @@ public class Column {
             boolean nullable,
             DefaultValueProvider defaultValueProvider
     ) {
-        this(-1, -1, name, type, nullable, defaultValueProvider);
+        this(-1, -1, -1, -1, name, type, nullable, defaultValueProvider);
     }
 
     /**
      * Constructor.
      *
-     * @param columnOrder Column order in table definition.
-     * @param name        Column name.
-     * @param type        An instance of column data type.
-     * @param nullable    If {@code false}, null values will not be allowed for this column.
-     */
-    public Column(
-            int columnOrder,
-            String name,
-            NativeType type,
-            boolean nullable
-    ) {
-        this(-1, columnOrder, name, type, nullable, NULL_SUPPLIER);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param columnOrder Column order in table definition.
-     * @param name        Column name.
-     * @param type        An instance of column data type.
-     * @param nullable    If {@code false}, null values will not be allowed for this column.
-     * @param defaultValueProvider   Default value supplier.
-     */
-    public Column(
-            int columnOrder,
-            String name,
-            NativeType type,
-            boolean nullable,
-            DefaultValueProvider defaultValueProvider
-    ) {
-        this(-1, columnOrder, name, type, nullable, defaultValueProvider);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param schemaIndex Absolute index of this column in its schema descriptor.
-     * @param columnOrder Column order defined in table definition.
-     * @param name        Column name.
-     * @param type        An instance of column data type.
-     * @param nullable    If {@code false}, null values will not be allowed for this column.
-     * @param defaultValueProvider   Default value supplier.
+     * @param rowPosition Position of a column in a full row.
+     * @param keyPosition Position of a column in a key tuple.
+     * @param valuePosition Position of a column in a value tuple.
+     * @param colocationPosition Position of a column in a colocation key.
+     * @param name Column name.
+     * @param type An instance of column data type.
+     * @param nullable If {@code false}, null values will not be allowed for this column.
+     * @param defaultValueProvider Default value supplier.
      */
     private Column(
-            int schemaIndex,
-            int columnOrder,
+            int rowPosition,
+            int keyPosition,
+            int valuePosition,
+            int colocationPosition,
             String name,
             NativeType type,
             boolean nullable,
             DefaultValueProvider defaultValueProvider
     ) {
-        this.schemaIndex = schemaIndex;
-        this.columnOrder = columnOrder;
+        this.rowPosition = rowPosition;
+        this.keyPosition = keyPosition;
+        this.valuePosition = valuePosition;
+        this.colocationPosition = colocationPosition;
         this.name = name;
         this.type = type;
         this.nullable = nullable;
@@ -152,17 +106,31 @@ public class Column {
     }
 
     /**
-     * Get absolute index of this column in its schema descriptor.
+     * Get absolute position of this column in full row.
      */
-    public int schemaIndex() {
-        return schemaIndex;
+    public int positionInRow() {
+        return rowPosition;
     }
 
     /**
-     * Get user column order as defined in table definition.
+     * Get absolute position of this column in the key, or -1 when not a part of the key.
      */
-    public int columnOrder() {
-        return columnOrder;
+    public int positionInKey() {
+        return keyPosition;
+    }
+
+    /**
+     * Get absolute position of this column in the value, or -1 when not a part of the value.
+     */
+    public int positionInValue() {
+        return valuePosition;
+    }
+
+    /**
+     * Get absolute position of this column in the colocation key, or -1 when not a part of the key.
+     */
+    public int positionInColocation() {
+        return colocationPosition;
     }
 
     /**
@@ -229,7 +197,7 @@ public class Column {
      *
      * @param val Object to validate.
      */
-    public void validate(Object val) {
+    public void validate(@Nullable Object val) {
         if (val == null && !nullable) {
             throw new IllegalArgumentException("Failed to set column (null was passed, but column is not nullable): "
                     + "[col=" + this + ']');
@@ -247,13 +215,23 @@ public class Column {
     }
 
     /**
-     * Copy column with new schema index.
+     * Creates copy of the column with assigned positions.
      *
-     * @param schemaIndex Column index in the schema.
+     * @param rowPosition Position of this column in full row tuple.
+     * @param keyPosition Position of this column in key tuple.
+     *      -1 if this column doesn't belong to key.
+     * @param valuePosition Position of this column in value tuple.
+     *      -1 if this column doesn't belong to value.
+     * @param colocationPosition Position of this column in key tuple.
+     *      -1 if this column doesn't belong to colocation key.
      * @return Column.
      */
-    public Column copy(int schemaIndex) {
-        return new Column(schemaIndex, columnOrder, name, type, nullable, defaultValueProvider);
+    Column copy(int rowPosition, int keyPosition, int valuePosition, int colocationPosition) {
+        assert (keyPosition == -1 && valuePosition >= 0)
+                || (keyPosition >= 0 && valuePosition == -1)
+                : "keyPosition=" + keyPosition + ", valuePosition=" + valuePosition;
+
+        return new Column(rowPosition, keyPosition, valuePosition, colocationPosition, name, type, nullable, defaultValueProvider);
     }
 
     /** {@inheritDoc} */

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.cli.call.configuration;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.call.CallInitializedIntegrationTestBase;
+import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link NodeConfigShowCall}.
  */
-class ItShowConfigurationCallTest extends CallInitializedIntegrationTestBase {
+class ItShowConfigurationCallTest extends CliIntegrationTest {
 
     @Inject
     NodeConfigShowCall nodeConfigShowCall;
@@ -59,7 +59,7 @@ class ItShowConfigurationCallTest extends CallInitializedIntegrationTestBase {
         // Given
         var input = ClusterConfigShowCallInput.builder()
                 .clusterUrl(NODE_URL)
-                .selector("rocksDb.defaultRegion.cache")
+                .selector("gc.batchSize")
                 .build();
 
         // When
@@ -68,7 +68,7 @@ class ItShowConfigurationCallTest extends CallInitializedIntegrationTestBase {
         // Then
         assertThat(output.hasError()).isFalse();
         // And
-        assertThat(output.body().getValue()).isEqualTo("lru");
+        assertThat(output.body().getValue()).isEqualTo("5");
     }
 
     @Test

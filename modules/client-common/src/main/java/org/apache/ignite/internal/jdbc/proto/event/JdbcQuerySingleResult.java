@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.jdbc.proto.event;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * JDBC query execute result.
@@ -33,22 +33,32 @@ public class JdbcQuerySingleResult extends Response {
     /** Cursor ID. */
     private Long cursorId;
 
-    /** Query result rows. */
-    private List<List<Object>> items;
+    /** Serialized query result rows. */
+    private List<BinaryTupleReader> rowTuples;
 
     /** Flag indicating the query has no unfetched results. */
     private boolean last;
 
-    /** Flag indicating the query is SELECT query. {@code false} for DML/DDL queries. */
+    /** Flag indicating the query is SELECT/EXPLAIN query. {@code false} for DML/DDL/TX queries. */
     private boolean isQuery;
 
     /** Update count. */
     private long updateCnt;
 
+    /** Ordered list of types of columns in serialized rows. */
+    private List<ColumnType> columnTypes;
+
+    /** Decimal scales in appearance order. Can be empty in case no any decimal columns. */
+    private int[] decimalScales;
+
+    /** {@code true} if results are available, {@code false} otherwise. */
+    private boolean resultsAvailable;
+
     /**
-     * Constructor. For deserialization purposes only.
+     * Constructor.
      */
     public JdbcQuerySingleResult() {
+        resultsAvailable = false;
     }
 
     /**
@@ -59,26 +69,37 @@ public class JdbcQuerySingleResult extends Response {
      */
     public JdbcQuerySingleResult(int status, String err) {
         super(status, err);
+
+        resultsAvailable = false;
     }
 
     /**
      * Constructor.
      *
      * @param cursorId Cursor ID.
-     * @param items    Query result rows.
+     * @param rowTuples Serialized SQL result rows.
+     * @param columnTypes Ordered list of types of columns in serialized rows.
+     * @param decimalScales Decimal scales in appearance order.
      * @param last     Flag indicates the query has no unfetched results.
      */
-    public JdbcQuerySingleResult(long cursorId, List<List<Object>> items, boolean last) {
+    public JdbcQuerySingleResult(long cursorId, List<BinaryTupleReader> rowTuples, List<ColumnType> columnTypes, int[] decimalScales,
+            boolean last) {
         super();
 
-        Objects.requireNonNull(items);
+        Objects.requireNonNull(rowTuples);
 
         this.cursorId = cursorId;
-        this.items = items;
+        this.rowTuples = rowTuples;
+        this.columnTypes = columnTypes;
+        this.decimalScales = decimalScales;
+
         this.last = last;
         this.isQuery = true;
 
         hasResults = true;
+        resultsAvailable = true;
+
+        assert decimalScales != null;
     }
 
     /**
@@ -86,15 +107,14 @@ public class JdbcQuerySingleResult extends Response {
      *
      * @param updateCnt Update count for DML queries.
      */
-    public JdbcQuerySingleResult(long updateCnt) {
+    public JdbcQuerySingleResult(long cursorId, long updateCnt) {
         super();
 
-        this.last = true;
-        this.isQuery = false;
         this.updateCnt = updateCnt;
-        this.items = Collections.emptyList();
+        this.cursorId = cursorId;
 
-        hasResults = true;
+        hasResults = false;
+        resultsAvailable = true;
     }
 
     /**
@@ -109,10 +129,28 @@ public class JdbcQuerySingleResult extends Response {
     /**
      * Get the items.
      *
-     * @return Query result rows.
+     * @return Serialized query result rows.
      */
-    public List<List<Object>> items() {
-        return items;
+    public List<BinaryTupleReader> items() {
+        return rowTuples;
+    }
+
+    /**
+     * Types of columns in serialized rows.
+     *
+     * @return Ordered list of types of columns in serialized rows.
+     */
+    public List<ColumnType> columnTypes() {
+        return columnTypes;
+    }
+
+    /**
+     * Decimal scales.
+     *
+     * @return Decimal scales in appearance order in columns. Can be empty in case no any decimal columns.
+     */
+    public int[] decimalScales() {
+        return decimalScales;
     }
 
     /**
@@ -133,6 +171,13 @@ public class JdbcQuerySingleResult extends Response {
         return isQuery;
     }
 
+    /** Results availability flag.
+     * If no more results available, returns {@code false}
+     */
+    public boolean resultAvailable() {
+        return resultsAvailable;
+    }
+
     /**
      * Get the update count.
      *
@@ -147,24 +192,35 @@ public class JdbcQuerySingleResult extends Response {
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
+        packer.packBoolean(resultsAvailable);
+        if (resultsAvailable) {
+            packer.packLong(updateCnt);
+
+            if (cursorId != null) {
+                packer.packLong(cursorId);
+            } else {
+                packer.packNil();
+            }
+        }
+
         if (!hasResults) {
             return;
         }
 
-        if (cursorId != null) {
-            packer.packLong(cursorId);
-        } else {
-            packer.packNil();
-        }
-
         packer.packBoolean(isQuery);
-        packer.packLong(updateCnt);
         packer.packBoolean(last);
 
-        packer.packArrayHeader(items.size());
+        packer.packIntArray(decimalScales);
 
-        for (List<Object> item : items) {
-            packer.packObjectArrayAsBinaryTuple(item.toArray());
+        packer.packInt(this.columnTypes.size());
+        for (int i = 0; i < this.columnTypes.size(); i++) {
+            packer.packInt(this.columnTypes.get(i).id());
+        }
+
+        packer.packInt(rowTuples.size());
+
+        for (BinaryTupleReader item : rowTuples) {
+            packer.packByteBuffer(item.byteBuffer());
         }
     }
 
@@ -172,27 +228,40 @@ public class JdbcQuerySingleResult extends Response {
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
+        resultsAvailable = unpacker.unpackBoolean();
+        if (resultsAvailable) {
+            updateCnt = unpacker.unpackLong();
+
+            if (unpacker.tryUnpackNil()) {
+                cursorId = null;
+            } else {
+                cursorId = unpacker.unpackLong();
+            }
+        }
 
         if (!hasResults) {
             return;
         }
 
-        if (unpacker.tryUnpackNil()) {
-            cursorId = null;
-        } else {
-            cursorId = unpacker.unpackLong();
-        }
         isQuery = unpacker.unpackBoolean();
-        updateCnt = unpacker.unpackLong();
         last = unpacker.unpackBoolean();
 
-        int size = unpacker.unpackArrayHeader();
+        decimalScales = unpacker.unpackIntArray();
 
-        items = new ArrayList<>(size);
+        int count = unpacker.unpackInt();
+        columnTypes = new ArrayList<>(count);
 
-        for (int i = 0; i < size; i++) {
-            items.add(Arrays.asList(unpacker.unpackObjectArrayFromBinaryTuple()));
+        for (int i = 0; i < count; i++) {
+            columnTypes.add(ColumnType.getById(unpacker.unpackInt()));
         }
+
+        int size = unpacker.unpackInt();
+
+        rowTuples = new ArrayList<>(size);
+        for (int rowIdx = 0; rowIdx < size; rowIdx++) {
+            rowTuples.add(new BinaryTupleReader(count, unpacker.readBinary()));
+        }
+
     }
 
     /** {@inheritDoc} */

@@ -19,10 +19,11 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.BitSet;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
-import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -34,21 +35,25 @@ public interface ScannableTable {
      * Performs a scan over table.
      *
      * @param ctx  Execution context.
-     * @param partWithTerm  Partition.
+     * @param partWithConsistencyToken  Partition.
      * @param rowFactory  Row factory.
      * @param requiredColumns  Required columns.
      * @return  A publisher that produces rows.
      * @param <RowT>  A type of row.
      */
-    <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
-            RowFactory<RowT> rowFactory, @Nullable BitSet requiredColumns);
+    <RowT> Publisher<RowT> scan(
+            ExecutionContext<RowT> ctx,
+            PartitionWithConsistencyToken partWithConsistencyToken,
+            RowFactory<RowT> rowFactory,
+            @Nullable BitSet requiredColumns
+    );
 
     /**
      * Performs range scan using the given index.
      *
      * @param <RowT> A type of row.
      * @param ctx Execution context.
-     * @param partWithTerm Partition.
+     * @param partWithConsistencyToken Partition.
      * @param rowFactory Row factory.
      * @param indexId Index id.
      * @param columns Index columns.
@@ -56,16 +61,22 @@ public interface ScannableTable {
      * @param requiredColumns Required columns.
      * @return A publisher that produces rows.
      */
-    <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
-            RowFactory<RowT> rowFactory, int indexId, List<String> columns,
-            @Nullable RangeCondition<RowT> cond, @Nullable BitSet requiredColumns);
+    <RowT> Publisher<RowT> indexRangeScan(
+            ExecutionContext<RowT> ctx,
+            PartitionWithConsistencyToken partWithConsistencyToken,
+            RowFactory<RowT> rowFactory,
+            int indexId,
+            List<String> columns,
+            @Nullable RangeCondition<RowT> cond,
+            @Nullable BitSet requiredColumns
+    );
 
     /**
      * Performs a lookup scan using the given index.
      *
      * @param <RowT> A type of row.
      * @param ctx Execution context.
-     * @param partWithTerm Partition.
+     * @param partWithConsistencyToken Partition.
      * @param rowFactory Row factory.
      * @param indexId Index id.
      * @param columns Index columns.
@@ -73,7 +84,36 @@ public interface ScannableTable {
      * @param requiredColumns Required columns.
      * @return A publisher that produces rows.
      */
-    <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
-            RowFactory<RowT> rowFactory, int indexId, List<String> columns,
-            RowT key, @Nullable BitSet requiredColumns);
+    <RowT> Publisher<RowT> indexLookup(
+            ExecutionContext<RowT> ctx,
+            PartitionWithConsistencyToken partWithConsistencyToken,
+            RowFactory<RowT> rowFactory,
+            int indexId,
+            List<String> columns,
+            RowT key,
+            @Nullable BitSet requiredColumns
+    );
+
+    /**
+     * Performs a lookup by primary index.
+     *
+     * <p>Note: this scan may be performed on initiator node only since it requires an
+     * original transaction rather than attributes, and transaction is only available on
+     * initiator node.
+     *
+     * @param <RowT> A type of row.
+     * @param ctx Execution context.
+     * @param tx Transaction to use to perform lookup.
+     * @param rowFactory Row factory.
+     * @param key A key to lookup.
+     * @param requiredColumns Required columns.
+     * @return A future representing result of operation.
+     */
+    <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(
+            ExecutionContext<RowT> ctx,
+            InternalTransaction tx,
+            RowFactory<RowT> rowFactory,
+            RowT key,
+            @Nullable BitSet requiredColumns
+    );
 }

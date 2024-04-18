@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.emptyMapCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -26,17 +29,22 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -45,10 +53,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>NB: Binary view doesn't allow null tuples. Methods return either a tuple that represents the value, or {@code null} if no value
  * exists for the given key.
  */
-public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
-    /** Underlying table. */
-    private final ClientTable tbl;
-
+public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tuple>> implements KeyValueView<Tuple, Tuple> {
     /** Tuple serializer. */
     private final ClientTupleSerializer ser;
 
@@ -56,52 +61,52 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
      * Constructor.
      *
      * @param tbl Table.
+     * @param sql Sql.
      */
-    public ClientKeyValueBinaryView(ClientTable tbl) {
-        assert tbl != null;
+    public ClientKeyValueBinaryView(ClientTable tbl, ClientSql sql) {
+        super(tbl, sql);
 
-        this.tbl = tbl;
         ser = new ClientTupleSerializer(tbl.tableId());
     }
 
     /** {@inheritDoc} */
     @Override
-    public Tuple get(@Nullable Transaction tx, @NotNull Tuple key) {
+    public Tuple get(@Nullable Transaction tx, Tuple key) {
         return sync(getAsync(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, @NotNull Tuple key) {
+    public CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, Tuple key) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
-                ClientTupleSerializer::readValueTuple,
+                (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
-    public Map<Tuple, Tuple> getAll(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
+    public Map<Tuple, Tuple> getAll(@Nullable Transaction tx, Collection<Tuple> keys) {
         return sync(getAllAsync(tx, keys));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
+    public CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
         Objects.requireNonNull(keys);
 
         if (keys.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyMap());
+            return emptyMapCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
                 (s, w) -> ser.writeTuples(tx, keys, s, w, true),
-                ClientTupleSerializer::readKvTuplesNullable,
+                (s, r) -> ClientTupleSerializer.readKvTuplesNullable(s, r.in()),
                 Collections.emptyMap(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keys.iterator().next()));
     }
@@ -112,7 +117,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
      * @throws UnsupportedOperationException unconditionally.
      */
     @Override
-    public NullableValue<Tuple> getNullable(@Nullable Transaction tx, @NotNull Tuple key) {
+    public NullableValue<Tuple> getNullable(@Nullable Transaction tx, Tuple key) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
@@ -122,56 +127,56 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
      * @throws UnsupportedOperationException unconditionally.
      */
     @Override
-    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAsync(@Nullable Transaction tx, @NotNull Tuple key) {
+    public CompletableFuture<NullableValue<Tuple>> getNullableAsync(@Nullable Transaction tx, Tuple key) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getOrDefault(@Nullable Transaction tx, @NotNull Tuple key, Tuple defaultValue) {
-        return getOrDefaultAsync(tx, key, defaultValue).join();
+    public Tuple getOrDefault(@Nullable Transaction tx, Tuple key, Tuple defaultValue) {
+        return sync(getOrDefaultAsync(tx, key, defaultValue));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getOrDefaultAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple defaultValue) {
+    public CompletableFuture<Tuple> getOrDefaultAsync(@Nullable Transaction tx, Tuple key, Tuple defaultValue) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
-                (s, r) -> IgniteUtils.nonNullOrElse(ClientTupleSerializer.readValueTuple(s, r), defaultValue),
+                (s, r) -> IgniteUtils.nonNullOrElse(ClientTupleSerializer.readValueTuple(s, r.in()), defaultValue),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean contains(@Nullable Transaction tx, @NotNull Tuple key) {
+    public boolean contains(@Nullable Transaction tx, Tuple key) {
         return sync(containsAsync(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, @NotNull Tuple key) {
+    public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, Tuple key) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_KEY,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
-    public void put(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public void put(@Nullable Transaction tx, Tuple key, Tuple val) {
         sync(putAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> putAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public CompletableFuture<Void> putAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutOpAsync(
@@ -183,17 +188,17 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public void putAll(@Nullable Transaction tx, @NotNull Map<Tuple, Tuple> pairs) {
+    public void putAll(@Nullable Transaction tx, Map<Tuple, Tuple> pairs) {
         sync(putAllAsync(tx, pairs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<Tuple, Tuple> pairs) {
+    public CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, Map<Tuple, Tuple> pairs) {
         Objects.requireNonNull(pairs);
 
         if (pairs.isEmpty()) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return tbl.doSchemaOutOpAsync(
@@ -205,20 +210,20 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndPut(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
+    public Tuple getAndPut(@Nullable Transaction tx, Tuple key, Tuple val) {
         return sync(getAndPutAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndPutAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
+    public CompletableFuture<Tuple> getAndPutAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
-                ClientTupleSerializer::readValueTuple,
+                (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
@@ -229,7 +234,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
      * @throws UnsupportedOperationException unconditionally.
      */
     @Override
-    public NullableValue<Tuple> getNullableAndPut(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public NullableValue<Tuple> getNullableAndPut(@Nullable Transaction tx, Tuple key, Tuple val) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
@@ -239,104 +244,104 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
      * @throws UnsupportedOperationException unconditionally.
      */
     @Override
-    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndPutAsync(@Nullable Transaction tx, @NotNull Tuple key,
+    public CompletableFuture<NullableValue<Tuple>> getNullableAndPutAsync(@Nullable Transaction tx, Tuple key,
             Tuple val) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean putIfAbsent(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
+    public boolean putIfAbsent(@Nullable Transaction tx, Tuple key, Tuple val) {
         return sync(putIfAbsentAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean remove(@Nullable Transaction tx, @NotNull Tuple key) {
+    public boolean remove(@Nullable Transaction tx, Tuple key) {
         return sync(removeAsync(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean remove(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
+    public boolean remove(@Nullable Transaction tx, Tuple key, Tuple val) {
         return sync(removeAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull Tuple key) {
+    public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, Tuple key) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
+    public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Tuple> removeAll(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
+    public Collection<Tuple> removeAll(@Nullable Transaction tx, Collection<Tuple> keys) {
         return sync(removeAllAsync(tx, keys));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<Tuple>> removeAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
+    public CompletableFuture<Collection<Tuple>> removeAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
         Objects.requireNonNull(keys);
 
         if (keys.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
+            return emptyCollectionCompletedFuture();
         }
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
                 (s, w) -> ser.writeTuples(tx, keys, s, w, true),
-                (s, r) -> ClientTupleSerializer.readTuples(s, r, true),
+                (s, r) -> ClientTupleSerializer.readTuples(s, r.in(), true),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keys.iterator().next()));
     }
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndRemove(@Nullable Transaction tx, @NotNull Tuple key) {
+    public Tuple getAndRemove(@Nullable Transaction tx, Tuple key) {
         return sync(getAndRemoveAsync(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndRemoveAsync(@Nullable Transaction tx, @NotNull Tuple key) {
+    public CompletableFuture<Tuple> getAndRemoveAsync(@Nullable Transaction tx, Tuple key) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> ser.writeTuple(tx, key, s, w, true),
-                ClientTupleSerializer::readValueTuple,
+                (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
@@ -347,7 +352,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
      * @throws UnsupportedOperationException unconditionally.
      */
     @Override
-    public NullableValue<Tuple> getNullableAndRemove(@Nullable Transaction tx, @NotNull Tuple key) {
+    public NullableValue<Tuple> getNullableAndRemove(@Nullable Transaction tx, Tuple key) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
@@ -357,37 +362,37 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
      * @throws UnsupportedOperationException unconditionally.
      */
     @Override
-    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndRemoveAsync(@Nullable Transaction tx, @NotNull Tuple key) {
+    public CompletableFuture<NullableValue<Tuple>> getNullableAndRemoveAsync(@Nullable Transaction tx, Tuple key) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public boolean replace(@Nullable Transaction tx, Tuple key, Tuple val) {
         return sync(replaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@Nullable Transaction tx, @NotNull Tuple key, Tuple oldVal, Tuple newVal) {
+    public boolean replace(@Nullable Transaction tx, Tuple key, Tuple oldVal, Tuple newVal) {
         return sync(replaceAsync(tx, key, oldVal, newVal));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple oldVal, Tuple newVal) {
+    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, Tuple key, Tuple oldVal, Tuple newVal) {
         Objects.requireNonNull(key);
 
         return tbl.doSchemaOutOpAsync(
@@ -396,26 +401,26 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
                     ser.writeKvTuple(tx, key, oldVal, s, w, false);
                     ser.writeKvTuple(tx, key, newVal, s, w, true);
                 },
-                ClientMessageUnpacker::unpackBoolean,
+                r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndReplace(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
+    public Tuple getAndReplace(@Nullable Transaction tx, Tuple key, Tuple val) {
         return sync(getAndReplaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
+    public CompletableFuture<Tuple> getAndReplaceAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),
-                ClientTupleSerializer::readValueTuple,
+                (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
@@ -426,7 +431,7 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
      * @throws UnsupportedOperationException unconditionally.
      */
     @Override
-    public NullableValue<Tuple> getNullableAndReplace(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public NullableValue<Tuple> getNullableAndReplace(@Nullable Transaction tx, Tuple key, Tuple val) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
@@ -436,14 +441,16 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
      * @throws UnsupportedOperationException unconditionally.
      */
     @Override
-    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndReplaceAsync(@Nullable Transaction tx, @NotNull Tuple key,
+    public CompletableFuture<NullableValue<Tuple>> getNullableAndReplaceAsync(@Nullable Transaction tx, Tuple key,
             Tuple val) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> streamData(Publisher<Entry<Tuple, Tuple>> publisher, @Nullable DataStreamerOptions options) {
+    public CompletableFuture<Void> streamData(
+            Publisher<DataStreamerItem<Entry<Tuple, Tuple>>> publisher,
+            @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
         var provider = new KeyValueTupleStreamerPartitionAwarenessProvider(tbl);
@@ -451,14 +458,22 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
 
         // Partition-aware (best effort) sender with retries.
         // The batch may go to a different node when a direct connection is not available.
-        StreamerBatchSender<Entry<Tuple, Tuple>, String> batchSender = (nodeName, items) -> tbl.doSchemaOutOpAsync(
-                ClientOp.TUPLE_UPSERT_ALL,
-                (s, w) -> ser.writeKvTuples(null, items, s, w),
+        StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender = (partition, items, deleted) -> tbl.doSchemaOutOpAsync(
+                ClientOp.STREAMER_BATCH_SEND,
+                (s, w) -> ser.writeStreamerKvTuples(partition, items, deleted, s, w),
                 r -> null,
-                PartitionAwarenessProvider.of(nodeName),
+                PartitionAwarenessProvider.of(partition),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
-        //noinspection resource
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected Function<SqlRow, Entry<Tuple, Tuple>> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
+        String[] keyCols = columnNames(schema.keyColumns());
+        String[] valCols = columnNames(schema.valColumns());
+
+        return (row) -> new IgniteBiTuple<>(new SqlRowProjection(row, meta, keyCols), new SqlRowProjection(row, meta, valCols));
     }
 }

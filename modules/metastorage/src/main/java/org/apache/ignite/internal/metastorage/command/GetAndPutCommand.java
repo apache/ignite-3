@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Get and put command for MetaStorageCommandListener that inserts or updates an entry with the given key and the given value and retrieves

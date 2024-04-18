@@ -21,12 +21,12 @@ package org.apache.ignite.internal.cli.commands.sql;
  * Constants for SQL auto-completion.
  */
 
-public class SqlMetaData {
+class SqlMetaData {
 
     /**
      * SQL reserved keywords.
      */
-    public static String[] KEYWORDS = { //TODO: https://issues.apache.org/jira/browse/IGNITE-16973
+    static final String[] KEYWORDS = { // TODO: https://issues.apache.org/jira/browse/IGNITE-16973
             "ABSOLUTE", "ACTION", "ADD", "ALL", "ALLOCATE", "ALTER", "AND", "ANY", "ARE", "AS", "ASC", "ASSERTION", "AT", "AUTHORIZATION",
             "AVG", "BEGIN", "BETWEEN", "BIT", "BIT_LENGTH", "BOTH", "BY", "CASCADE", "CASCADED", "CASE", "CAST", "CATALOG", "CHAR",
             "CHARACTER", "CHAR_LENGTH", "CHARACTER_LENGTH", "CHECK", "CLOSE", "COALESCE", "COLLATE", "COLLATION", "COLUMN", "COMMIT",
@@ -58,7 +58,7 @@ public class SqlMetaData {
     /**
      * List of keywords which must be at the beginning of the statement, used for very basic completion.
      */
-    public static final String[] STARTING_KEYWORDS = {
+    static final String[] STARTING_KEYWORDS = {
             "ALTER", "SET", "CREATE", "DROP", "WITH", "SELECT", "EXPLAIN", "DESCRIBE", "INSERT", "DELETE", "UPDATE", "MERGE", "CALL"
     };
 
@@ -66,7 +66,7 @@ public class SqlMetaData {
     /**
      * SQL numeric functions.
      */
-    public static final String[] NUMERIC_FUNCTIONS = {
+    static final String[] NUMERIC_FUNCTIONS = {
             "ABS", "ACOS", "ASIN", "ATAN", "ATAN2", "CBRT", "CEILING", "COS", "COT", "DEGREES", "EXP", "FLOOR", "LOG", "LOG10", "MOD", "PI",
             "POWER", "RADIANS", "RAND", "ROUND", "SIGN", "SIN", "SQRT", "TAN", "TRUNCATE"
     };
@@ -74,7 +74,7 @@ public class SqlMetaData {
     /**
      * SQL string functions.
      */
-    public static final String[] STRING_FUNCTIONS = {
+    static final String[] STRING_FUNCTIONS = {
             "ASCII", "CHAR", "CONCAT", "DIFFERENCE", "INSERT", "LCASE", "LEFT", "LENGTH", "LOCATE",
             "LTRIM", "REPEAT", "REPLACE", "RIGHT", "RTRIM", "SOUNDEX", "SPACE", "SUBSTRING", "UCASE"
     };
@@ -82,7 +82,7 @@ public class SqlMetaData {
     /**
      * SQL date/time functions.
      */
-    public static final String[] TIME_DATE_FUNCTIONS = {
+    static final String[] TIME_DATE_FUNCTIONS = {
             "CONVERT_TIMEZONE", "CURDATE", "CURTIME", "DAYNAME", "DAYOFMONTH", "DAYOFWEEK", "DAYOFYEAR", "HOUR", "MINUTE", "MONTH",
             "MONTHNAME", "NOW", "QUARTER", "SECOND", "TIMESTAMPADD", "TIMESTAMPDIFF", "TO_DATE", "TO_TIMESTAMP", "WEEK", "YEAR"
     };
@@ -90,7 +90,7 @@ public class SqlMetaData {
     /**
      * SQL system functions.
      */
-    public static final String[] SYSTEM_FUNCTIONS = {
+    static final String[] SYSTEM_FUNCTIONS = {
             "CONVERT", "DATABASE", "IFNULL", "USER"
     };
 }

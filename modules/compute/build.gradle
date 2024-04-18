@@ -18,6 +18,7 @@
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 dependencies {
     implementation project(':ignite-api')
@@ -26,6 +27,8 @@ dependencies {
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-core')
     implementation project(':ignite-code-deployment')
+    implementation project(':ignite-cluster-management')
+    implementation project(':ignite-placement-driver-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -40,6 +43,21 @@ dependencies {
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
+    testImplementation libs.awaitility
+
+    integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation libs.awaitility
+    integrationTestImplementation libs.hamcrest.core
+    integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-code-deployment')
+    integrationTestImplementation project(':ignite-network')
+    integrationTestImplementation project(':ignite-cluster-management')
+    integrationTestImplementation project(':ignite-table')
+    integrationTestImplementation project(':ignite-placement-driver-api')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
 }
 
 description = 'ignite-compute'

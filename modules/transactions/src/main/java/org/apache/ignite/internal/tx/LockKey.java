@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.HashUtils;
 
 /** Lock key. */
 public class LockKey {
@@ -73,6 +75,12 @@ public class LockKey {
 
     @Override
     public int hashCode() {
+        // Apply more efficient hashing to byte buffers to decrease collisions
+        if (key instanceof ByteBuffer) {
+            ByteBuffer key1 = (ByteBuffer) key;
+            return HashUtils.hash32(HashUtils.hash64(key1, 0, key1.capacity(), contextId != null ? contextId.hashCode() : 0));
+        }
+
         int result = contextId != null ? contextId.hashCode() : 0;
         result = 31 * result + (key != null ? key.hashCode() : 0);
         return result;

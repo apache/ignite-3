@@ -22,6 +22,7 @@ using System.Buffers.Binary;
 using System.IO;
 using BinaryTuple;
 using Ignite.Sql;
+using NodaTime;
 
 /// <summary>
 /// MsgPack reader.
@@ -79,6 +80,12 @@ internal ref struct MsgPackReader
             MsgPackCode.False => false,
             var invalid => throw GetInvalidCodeException("bool", invalid)
         };
+
+    /// <summary>
+    /// Reads a nullable boolean value.
+    /// </summary>
+    /// <returns>The value.</returns>
+    public bool ReadBooleanNullable() => TryReadNil() ? default : ReadBoolean();
 
     /// <summary>
     /// Reads a short value.
@@ -158,19 +165,6 @@ internal ref struct MsgPackReader
     }
 
     /// <summary>
-    /// Reads array header.
-    /// </summary>
-    /// <returns>Array size.</returns>
-    public int ReadArrayHeader() =>
-        _span[_pos++] switch
-        {
-            var code when MsgPackCode.IsFixArr(code) => code & 0x0F,
-            MsgPackCode.Array16 => BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)),
-            MsgPackCode.Array32 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))),
-            var invalid => throw GetInvalidCodeException("array", invalid)
-        };
-
-    /// <summary>
     /// Reads string header.
     /// </summary>
     /// <returns>String length in bytes.</returns>
@@ -216,19 +210,6 @@ internal ref struct MsgPackReader
     public ReadOnlySpan<byte> ReadBinary() => GetSpan(ReadBinaryHeader());
 
     /// <summary>
-    /// Reads map header.
-    /// </summary>
-    /// <returns>Map length.</returns>
-    public int ReadMapHeader() =>
-        _span[_pos++] switch
-        {
-            var code when MsgPackCode.IsFixMap(code) => code & 0x0F,
-            MsgPackCode.Map16 => BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)),
-            MsgPackCode.Map32 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))),
-            var invalid => throw GetInvalidCodeException("map", invalid)
-        };
-
-    /// <summary>
     /// Reads GUID value.
     /// </summary>
     /// <returns>Guid.</returns>
@@ -239,6 +220,14 @@ internal ref struct MsgPackReader
 
         return UuidSerializer.Read(GetSpan(16));
     }
+
+    /// <summary>
+    /// Reads Instant value.
+    /// </summary>
+    /// <returns>Instant.</returns>
+    public Instant? ReadInstantNullable() => TryReadNil()
+        ? null
+        : Instant.FromUnixTimeSeconds(ReadInt64()).PlusNanoseconds(ReadInt32());
 
     /// <summary>
     /// Skips a value.

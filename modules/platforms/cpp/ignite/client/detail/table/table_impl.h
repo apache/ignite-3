@@ -68,7 +68,7 @@ public:
      *
      * @param callback Callback which is going to be called with the latest schema.
      */
-    void get_latest_schema_async(ignite_callback<std::shared_ptr<schema>> callback);
+    void load_latest_schema_async(ignite_callback<std::shared_ptr<schema>> callback);
 
     /**
      * Gets the latest schema.
@@ -86,14 +86,71 @@ public:
 
             auto schema = res.value();
             if (!schema) {
-                handler(ignite_error{"Can not get a schema for the table " + m_name});
+                handler(ignite_error{"Can not get the latest schema for the table " + m_name});
                 return;
             }
 
             callback(*schema, handler);
         };
 
-        get_latest_schema_async(std::move(func));
+        load_latest_schema_async(std::move(func));
+    }
+
+    /**
+     * Get schema by version and use it with callback.
+     *
+     * @param version Schema version.
+     * @param callback Callback.
+     * @param handler Callback to call on error during retrieval of the latest schema.
+     */
+    template<typename T>
+    void with_schema_async(std::int32_t version, ignite_callback<T> handler,
+        std::function<void(const schema &, ignite_callback<T>)> callback) {
+        auto schema = get_schema(version);
+
+        if (schema) {
+            callback(*schema, std::move(handler));
+
+            return;
+        }
+
+        auto func = [this, version, handler = std::move(handler), callback = std::move(callback)](auto &&res) mutable {
+            if (res.has_error()) {
+                handler(ignite_error{res.error()});
+                return;
+            }
+
+            auto schema = res.value();
+            if (!schema) {
+                handler(ignite_error{
+                    "Can not get a schema of version " + std::to_string(version) + " for the table " + m_name});
+                return;
+            }
+
+            callback(*schema, handler);
+        };
+
+        load_schema_async(version, std::move(func));
+    }
+
+    /**
+     * Performs operation with proper schema.
+     *
+     * @param handler Callback to call on error during retrieval of the latest schema.
+     */
+    template<typename T>
+    void with_proper_schema_async(
+        ignite_callback<T> user_callback, std::function<void(const schema &, ignite_callback<T>)> callback) {
+        auto fail_over = [uc = std::move(user_callback), this, callback](ignite_result<T> &&res) mutable {
+            if (res.has_error() && res.error().get_schema_version().has_value()) {
+                auto ver = *res.error().get_schema_version();
+                with_schema_async<T>(ver, std::move(uc), callback);
+            } else {
+                uc(std::move(res));
+            }
+        };
+
+        with_latest_schema_async<T>(std::move(fail_over), callback);
     }
 
     /**
@@ -160,7 +217,7 @@ public:
      * @param callback Callback. Called with a value which contains replaced
      *   record or @c std::nullopt if it did not exist.
      */
-    IGNITE_API void get_and_upsert_async(
+    void get_and_upsert_async(
         transaction *tx, const ignite_tuple &record, ignite_callback<std::optional<ignite_tuple>> callback);
 
     /**
@@ -303,27 +360,6 @@ public:
      */
     [[nodiscard]] std::int32_t get_id() const { return m_id; }
 
-private:
-    /**
-     * Load latest schema from server asynchronously.
-     *
-     * @return Latest schema.
-     */
-    void load_schema_async(ignite_callback<std::shared_ptr<schema>> callback);
-
-    /**
-     * Add schema.
-     *
-     * @param val Schema.
-     */
-    void add_schema(const std::shared_ptr<schema> &val) {
-        std::lock_guard<std::mutex> lock(m_schemas_mutex);
-        if (m_latest_schema_version < val->version)
-            m_latest_schema_version = val->version;
-
-        m_schemas[val->version] = val;
-    }
-
     /**
      * Get schema by version.
      *
@@ -339,15 +375,26 @@ private:
         return it->second;
     }
 
+private:
     /**
-     * Read schema version from reader and try and retrieve schema instance for it.
+     * Load schema from server asynchronously.
      *
-     * @param reader Reader to use.
+     * @param version Version to get. std::nullopt for latest.
+     * @param callback Callback to call with received schema.
      */
-    std::shared_ptr<schema> get_schema(protocol::reader &reader) {
-        auto schema_version = reader.read_object<std::int32_t>();
+    void load_schema_async(std::optional<std::int32_t> version, ignite_callback<std::shared_ptr<schema>> callback);
 
-        return get_schema(schema_version);
+    /**
+     * Add schema.
+     *
+     * @param val Schema.
+     */
+    void add_schema(const std::shared_ptr<schema> &val) {
+        std::lock_guard<std::mutex> lock(m_schemas_mutex);
+        if (m_latest_schema_version < val->version)
+            m_latest_schema_version = val->version;
+
+        m_schemas[val->version] = val;
     }
 
     /**

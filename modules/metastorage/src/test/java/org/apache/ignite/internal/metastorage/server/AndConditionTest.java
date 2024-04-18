@@ -29,6 +29,7 @@ import static org.mockito.Mockito.when;
 import java.util.Arrays;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,7 +39,7 @@ import org.junit.jupiter.api.Test;
  *
  * @see AndCondition
  */
-public class AndConditionTest {
+public class AndConditionTest extends BaseIgniteAbstractTest {
     private Condition cond1;
     private Condition cond2;
     private Condition cond3;
@@ -103,7 +104,7 @@ public class AndConditionTest {
 
         when(m.keys()).thenReturn(keys);
 
-        when(m.test(any())).thenReturn(result);
+        when(m.test(any(Entry[].class))).thenReturn(result);
 
         return m;
     }

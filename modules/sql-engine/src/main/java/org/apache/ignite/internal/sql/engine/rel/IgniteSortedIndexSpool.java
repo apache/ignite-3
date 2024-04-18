@@ -40,6 +40,8 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
  * Relational operator that returns the sorted contents of a table and allow to lookup rows by specified bounds.
  */
 public class IgniteSortedIndexSpool extends AbstractIgniteSpool implements IgniteRel {
+    private static final String REL_TYPE_NAME = "SortedIndexSpool";
+
     private final RelCollation collation;
 
     /** Index search conditions. */
@@ -180,5 +182,11 @@ public class IgniteSortedIndexSpool extends AbstractIgniteSpool implements Ignit
         IgniteCostFactory costFactory = (IgniteCostFactory) planner.getCostFactory();
 
         return costFactory.makeCost(rowCnt, cpuCost, 0, totalBytes, 0);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

@@ -42,23 +42,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         public static readonly MethodInfo GetTypeFromHandleMethod = GetMethodInfo(() => Type.GetTypeFromHandle(default));
 
-        private static readonly ConcurrentDictionary<Type, IDictionary<string, ColumnInfo>> FieldsByColumnNameCache = new();
-
-        /// <summary>
-        /// Gets the field by column name. Ignores case, handles <see cref="ColumnAttribute"/> and <see cref="NotMappedAttribute"/>.
-        /// </summary>
-        /// <param name="type">Type.</param>
-        /// <param name="name">Field name.</param>
-        /// <returns>Field info, or null when no matching fields exist.</returns>
-        public static FieldInfo? GetFieldByColumnName(this Type type, string name) =>
-            GetFieldsByColumnName(type).TryGetValue(name, out var fieldInfo) ? fieldInfo.Field : null;
+        private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, ColumnInfo>> FieldsByColumnNameCache = new();
 
         /// <summary>
         /// Gets column names for all fields in the specified type.
         /// </summary>
         /// <param name="type">Type.</param>
         /// <returns>Columns.</returns>
-        public static ICollection<ColumnInfo> GetColumns(this Type type) => GetFieldsByColumnName(type).Values;
+        public static ICollection<ColumnInfo> GetColumns(this Type type) => (ICollection<ColumnInfo>)GetFieldsByColumnName(type).Values;
 
         /// <summary>
         /// Gets a pair of types for <see cref="KeyValuePair{TKey,TValue}"/>.
@@ -90,19 +81,29 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="type">Type to unwrap.</param>
         /// <returns>Underlying type when enum; type itself otherwise.</returns>
-        public static Type UnwrapEnum(this Type type) => type.IsEnum ? Enum.GetUnderlyingType(type) : type;
+        public static Type UnwrapEnum(this Type type)
+        {
+            if (Nullable.GetUnderlyingType(type) is { IsEnum: true } underlyingType)
+            {
+                return typeof(Nullable<>).MakeGenericType(Enum.GetUnderlyingType(underlyingType));
+            }
+
+            return type.IsEnum
+                ? Enum.GetUnderlyingType(type)
+                : type;
+        }
 
         /// <summary>
-        /// Gets a map of fields by column name.
+        /// Gets a map of fields by column name. Ignores case, handles <see cref="ColumnAttribute"/> and <see cref="NotMappedAttribute"/>.
         /// </summary>
         /// <param name="type">Type to get the map for.</param>
         /// <returns>Map.</returns>
-        private static IDictionary<string, ColumnInfo> GetFieldsByColumnName(Type type)
+        public static IReadOnlyDictionary<string, ColumnInfo> GetFieldsByColumnName(this Type type)
         {
             // ReSharper disable once HeapView.CanAvoidClosure, HeapView.ClosureAllocation, HeapView.DelegateAllocation (false positive)
             return FieldsByColumnNameCache.GetOrAdd(type, static t => RetrieveFieldsByColumnName(t));
 
-            static IDictionary<string, ColumnInfo> RetrieveFieldsByColumnName(Type type)
+            static IReadOnlyDictionary<string, ColumnInfo> RetrieveFieldsByColumnName(Type type)
             {
                 var res = new Dictionary<string, ColumnInfo>(StringComparer.OrdinalIgnoreCase);
 
@@ -117,8 +118,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                     if (res.TryGetValue(columnInfo.Name, out var existingColInfo))
                     {
-                        throw new IgniteClientException(
-                            ErrorGroups.Client.Configuration,
+                        throw new ArgumentException(
                             $"Column '{columnInfo.Name}' maps to more than one field of type {type}: {field} and {existingColInfo.Field}");
                     }
 

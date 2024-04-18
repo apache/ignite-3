@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -30,15 +31,18 @@ import io.netty.channel.embedded.EmbeddedChannel;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.future.OrderingFuture;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,7 +52,7 @@ import org.mockito.Mockito;
  * Tests for {@link NettyClient}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class NettyClientTest {
+public class NettyClientTest extends BaseIgniteAbstractTest {
     /** Client. */
     private NettyClient client;
 
@@ -219,7 +223,7 @@ public class NettyClientTest {
      * @return Mocked bootstrap.
      */
     private Bootstrap mockBootstrap() {
-        Bootstrap bootstrap = Mockito.mock(Bootstrap.class);
+        Bootstrap bootstrap = mock(Bootstrap.class);
 
         Mockito.doReturn(bootstrap).when(bootstrap).clone();
 
@@ -255,7 +259,7 @@ public class NettyClientTest {
 
         /** Constructor. */
         private MockClientHandshakeManager(Channel channel) {
-            this.sender = new NettySender(channel, "", "", (short) 0);
+            this.sender = new NettySender(channel, "", "", (short) 0, mock(RecoveryDescriptor.class));
         }
 
         /** {@inheritDoc} */
@@ -266,8 +270,13 @@ public class NettyClientTest {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<NettySender> handshakeFuture() {
+        public CompletableFuture<NettySender> localHandshakeFuture() {
             return CompletableFuture.completedFuture(sender);
+        }
+
+        @Override
+        public CompletionStage<NettySender> finalHandshakeFuture() {
+            return localHandshakeFuture();
         }
 
         /** {@inheritDoc} */

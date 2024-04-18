@@ -20,7 +20,7 @@ package org.apache.ignite.internal.properties;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Utility class to read Ignite properties from properties file.

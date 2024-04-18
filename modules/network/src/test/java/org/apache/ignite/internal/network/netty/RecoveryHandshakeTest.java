@@ -17,23 +17,30 @@
 
 package org.apache.ignite.internal.network.netty;
 
-import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.Channel;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.messages.TestMessage;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
@@ -46,21 +53,31 @@ import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManage
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
+import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.OutNetworkObject;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Recovery protocol handshake flow test.
  */
-public class RecoveryHandshakeTest {
+public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
     /** Connection id. */
     private static final short CONNECTION_ID = 1337;
+
+    private static final UUID LOWER_UUID = new UUID(100, 200);
+    private static final UUID HIGHER_UUID = new UUID(300, 400);
+
+    private static final String SERVER_HOST = "server-host";
+    private static final String CLIENT_HOST = "client-host";
+
+    private static final int PORT = 1000;
 
     /** Serialization registry. */
     private static final MessageSerializationRegistry MESSAGE_REGISTRY = defaultSerializationRegistry();
@@ -76,15 +93,18 @@ public class RecoveryHandshakeTest {
         RecoveryDescriptorProvider clientRecovery = createRecoveryDescriptorProvider();
         RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
 
-        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(clientRecovery);
-        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(serverRecovery);
+        EmbeddedChannel clientSideChannel = createUnregisteredChannel();
+        EmbeddedChannel serverSideChannel = createUnregisteredChannel();
 
-        EmbeddedChannel clientSideChannel = setupChannel(clientHandshakeManager, noMessageListener);
+        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(clientSideChannel, clientRecovery);
+        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(serverSideChannel, serverRecovery);
 
-        EmbeddedChannel serverSideChannel = setupChannel(serverHandshakeManager, noMessageListener);
+        setupChannel(clientSideChannel, clientHandshakeManager, noMessageListener);
+        setupChannel(serverSideChannel, serverHandshakeManager, noMessageListener);
 
         assertTrue(serverSideChannel.isActive());
 
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -107,16 +127,23 @@ public class RecoveryHandshakeTest {
         RecoveryDescriptorProvider clientRecovery = createRecoveryDescriptorProvider();
         RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
 
+        EmbeddedChannel clientSideChannel = createUnregisteredChannel();
+        EmbeddedChannel serverSideChannel = createUnregisteredChannel();
+
         UUID clientLaunchId = UUID.randomUUID();
         RecoveryDescriptor serverRecoveryDescriptor = serverRecovery.getRecoveryDescriptor("client", clientLaunchId, CONNECTION_ID);
         addUnacknowledgedMessages(serverRecoveryDescriptor);
 
-        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager("client", clientLaunchId,
-                clientRecovery);
-        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(serverRecovery);
+        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(
+                clientSideChannel,
+                "client",
+                clientLaunchId,
+                clientRecovery
+        );
+        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(serverSideChannel, serverRecovery);
 
         var messageCaptor = new AtomicReference<TestMessage>();
-        EmbeddedChannel clientSideChannel = setupChannel(clientHandshakeManager, (inObject) -> {
+        setupChannel(clientSideChannel, clientHandshakeManager, (inObject) -> {
             NetworkMessage msg = inObject.message();
 
             assertInstanceOf(TestMessage.class, msg);
@@ -124,10 +151,11 @@ public class RecoveryHandshakeTest {
             messageCaptor.set((TestMessage) msg);
         });
 
-        EmbeddedChannel serverSideChannel = setupChannel(serverHandshakeManager, noMessageListener);
+        setupChannel(serverSideChannel, serverHandshakeManager, noMessageListener);
 
         assertTrue(serverSideChannel.isActive());
 
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -160,18 +188,25 @@ public class RecoveryHandshakeTest {
         RecoveryDescriptorProvider clientRecovery = createRecoveryDescriptorProvider();
         RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
 
+        EmbeddedChannel clientSideChannel = createUnregisteredChannel();
+        EmbeddedChannel serverSideChannel = createUnregisteredChannel();
+
         UUID serverLaunchId = UUID.randomUUID();
         RecoveryDescriptor clientRecoveryDescriptor = clientRecovery.getRecoveryDescriptor("server", serverLaunchId, CONNECTION_ID);
         addUnacknowledgedMessages(clientRecoveryDescriptor);
 
-        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(clientRecovery);
-        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager("server", serverLaunchId,
-                serverRecovery);
+        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(clientSideChannel, clientRecovery);
+        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(
+                serverSideChannel,
+                "server",
+                serverLaunchId,
+                serverRecovery
+        );
 
         var messageCaptor = new AtomicReference<TestMessage>();
-        EmbeddedChannel clientSideChannel = setupChannel(clientHandshakeManager, noMessageListener);
+        setupChannel(clientSideChannel, clientHandshakeManager, noMessageListener);
 
-        EmbeddedChannel serverSideChannel = setupChannel(serverHandshakeManager, (inObject) -> {
+        setupChannel(serverSideChannel, serverHandshakeManager, (inObject) -> {
             NetworkMessage msg = inObject.message();
 
             assertInstanceOf(TestMessage.class, msg);
@@ -181,6 +216,7 @@ public class RecoveryHandshakeTest {
 
         assertTrue(serverSideChannel.isActive());
 
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -209,29 +245,37 @@ public class RecoveryHandshakeTest {
     }
 
     @Test
-    public void testPairedRecoveryDescriptors() throws Exception {
+    public void testPairedRecoveryDescriptorsClinch() throws Exception {
         RecoveryDescriptorProvider node1Recovery = createRecoveryDescriptorProvider();
         RecoveryDescriptorProvider node2Recovery = createRecoveryDescriptorProvider();
 
-        UUID node1Uuid = new UUID(100, 200);
-        UUID node2Uuid = new UUID(300, 400);
+        EmbeddedChannel channel1Src = createUnregisteredChannel();
+        EmbeddedChannel channel1Dst = createUnregisteredChannel();
+        EmbeddedChannel channel2Src = createUnregisteredChannel();
+        EmbeddedChannel channel2Dst = createUnregisteredChannel();
 
-        RecoveryClientHandshakeManager chm1 = createRecoveryClientHandshakeManager("client", node1Uuid, node1Recovery);
-        RecoveryServerHandshakeManager shm1 = createRecoveryServerHandshakeManager("client", node1Uuid, node1Recovery);
+        UUID node1Uuid = LOWER_UUID;
+        UUID node2Uuid = HIGHER_UUID;
 
-        RecoveryClientHandshakeManager chm2 = createRecoveryClientHandshakeManager("server", node2Uuid, node2Recovery);
-        RecoveryServerHandshakeManager shm2 = createRecoveryServerHandshakeManager("server", node2Uuid, node2Recovery);
+        RecoveryClientHandshakeManager chm1 = createRecoveryClientHandshakeManager(channel1Src, "client", node1Uuid, node1Recovery);
+        RecoveryServerHandshakeManager shm1 = createRecoveryServerHandshakeManager(channel2Dst, "client", node1Uuid, node1Recovery);
 
-        // Channel opened from node1 to node2 - channel 1.
-        // Channel opened from node2 to node1 - channel 2.
+        RecoveryClientHandshakeManager chm2 = createRecoveryClientHandshakeManager(channel2Src, "server", node2Uuid, node2Recovery);
+        RecoveryServerHandshakeManager shm2 = createRecoveryServerHandshakeManager(channel1Dst, "server", node2Uuid, node2Recovery);
+
+        // Channel opened from node1 to node2 is channel 1.
+        // Channel opened from node2 to node1 is channel 2.
 
         // Channel 1.
-        EmbeddedChannel channel1Src = setupChannel(chm1, noMessageListener);
-        EmbeddedChannel channel1Dst = setupChannel(shm2, noMessageListener);
+        setupChannel(channel1Src, chm1, noMessageListener);
+        setupChannel(channel1Dst, shm2, noMessageListener);
 
-        // Channel 1.
-        EmbeddedChannel channel2Src = setupChannel(chm2, noMessageListener);
-        EmbeddedChannel channel2Dst = setupChannel(shm1, noMessageListener);
+        // Channel 2.
+        setupChannel(channel2Src, chm2, noMessageListener);
+        setupChannel(channel2Dst, shm1, noMessageListener);
+
+        exchangeClientToServer(channel2Dst, channel2Src);
+        exchangeClientToServer(channel1Dst, channel1Src);
 
         exchangeServerToClient(channel2Dst, channel2Src);
         exchangeServerToClient(channel1Dst, channel1Src);
@@ -239,10 +283,72 @@ public class RecoveryHandshakeTest {
         exchangeClientToServer(channel2Dst, channel2Src);
         exchangeClientToServer(channel1Dst, channel1Src);
 
-        // 2 -> 1 is alive, while 1 -> 2 closes because of the tie-breaking.
+        // 2 -> 1 (Channel 2) is alive, while 1 -> 2 (Channel 1) closes because of the tie-breaking.
+        exchangeServerToClient(channel1Dst, channel1Src);
         exchangeServerToClient(channel2Dst, channel2Src);
         assertFalse(channel1Src.isOpen());
         assertFalse(channel1Dst.isOpen());
+
+        assertTrue(channel2Src.isOpen());
+        assertTrue(channel2Dst.isOpen());
+
+        assertFalse(channel1Src.finish());
+        assertFalse(channel2Dst.finish());
+        assertFalse(channel2Src.finish());
+        assertFalse(channel1Dst.finish());
+    }
+
+    /**
+     * This tests the following scenario: two handshakes in the opposite directions are started,
+     * Handshake 1 is faster and it takes both client-side and server-side locks (using recovery descriptors
+     * as locks), and only then Handshake 2 tries to take the first lock (the one on the client side).
+     * In such a situation, tie-breaking logic should not be applied (as Handshake 1 could have already
+     * established, or almost established, a logical connection); instead, Handshake 2 must stop
+     * itself (regardless of what that the Tie Breaker would prescribe).
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testLateHandshakeDoesNotUseTieBreaker(boolean node1LaunchIdIsLower) throws Exception {
+        RecoveryDescriptorProvider node1Recovery = createRecoveryDescriptorProvider();
+        RecoveryDescriptorProvider node2Recovery = createRecoveryDescriptorProvider();
+
+        EmbeddedChannel channel1Src = createUnregisteredChannel();
+        EmbeddedChannel channel1Dst = createUnregisteredChannel();
+        EmbeddedChannel channel2Src = createUnregisteredChannel();
+        EmbeddedChannel channel2Dst = createUnregisteredChannel();
+
+        UUID node1Uuid = node1LaunchIdIsLower ? LOWER_UUID : HIGHER_UUID;
+        UUID node2Uuid = node1LaunchIdIsLower ? HIGHER_UUID : LOWER_UUID;
+
+        RecoveryClientHandshakeManager chm1 = createRecoveryClientHandshakeManager(channel1Src, "client", node1Uuid, node1Recovery);
+        RecoveryServerHandshakeManager shm1 = createRecoveryServerHandshakeManager(channel2Dst, "client", node1Uuid, node1Recovery);
+
+        RecoveryClientHandshakeManager chm2 = createRecoveryClientHandshakeManager(channel2Src, "server", node2Uuid, node2Recovery);
+        RecoveryServerHandshakeManager shm2 = createRecoveryServerHandshakeManager(channel1Dst, "server", node2Uuid, node2Recovery);
+
+        // Channel opened from node1 to node2 is channel 1.
+        // Channel opened from node2 to node1 is channel 2.
+
+        // Channel 1.
+        setupChannel(channel1Src, chm1, noMessageListener);
+        setupChannel(channel1Dst, shm2, noMessageListener);
+
+        // Channel 2.
+        setupChannel(channel2Src, chm2, noMessageListener);
+        setupChannel(channel2Dst, shm1, noMessageListener);
+
+        // Channel 2's handshake acquires both locks.
+        exchangeClientToServer(channel2Dst, channel2Src);
+        exchangeServerToClient(channel2Dst, channel2Src);
+        exchangeClientToServer(channel2Dst, channel2Src);
+
+        // Now Channel 1's handshake cannot acquire even first lock.
+        exchangeClientToServer(channel1Dst, channel1Src);
+        exchangeServerToClient(channel1Dst, channel1Src);
+
+        // 2 -> 1 is alive, while 1 -> 2 closes because it is late.
+        exchangeServerToClient(channel2Dst, channel2Src);
+        assertFalse(channel1Src.isOpen());
 
         assertTrue(channel2Src.isOpen());
         assertTrue(channel2Dst.isOpen());
@@ -279,19 +385,31 @@ public class RecoveryHandshakeTest {
         RecoveryDescriptorProvider clientRecovery = createRecoveryDescriptorProvider();
         RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
 
-        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(client, clientLaunchId,
-                clientRecovery);
-        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(server, serverLaunchId,
-                serverRecovery);
+        EmbeddedChannel clientSideChannel = createUnregisteredChannel();
+        EmbeddedChannel serverSideChannel = createUnregisteredChannel();
+
+        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(
+                clientSideChannel,
+                client,
+                clientLaunchId,
+                clientRecovery
+        );
+        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(
+                serverSideChannel,
+                server,
+                serverLaunchId,
+                serverRecovery
+        );
 
         var receivedFirst = new AtomicBoolean();
 
         var listener1 = new MessageListener("1", receivedFirst);
 
-        EmbeddedChannel clientSideChannel = setupChannel(clientHandshakeManager, serverDidntReceiveAck ? listener1 : noMessageListener);
-        EmbeddedChannel serverSideChannel = setupChannel(serverHandshakeManager, serverDidntReceiveAck ?  noMessageListener : listener1);
+        setupChannel(clientSideChannel, clientHandshakeManager, serverDidntReceiveAck ? listener1 : noMessageListener);
+        setupChannel(serverSideChannel, serverHandshakeManager, serverDidntReceiveAck ?  noMessageListener : listener1);
 
         // Normal handshake
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -320,8 +438,8 @@ public class RecoveryHandshakeTest {
         }
 
         // Simulate reconnection
-        clientHandshakeManager = createRecoveryClientHandshakeManager(client, clientLaunchId, clientRecovery);
-        serverHandshakeManager = createRecoveryServerHandshakeManager(server, serverLaunchId, serverRecovery);
+        clientHandshakeManager = createRecoveryClientHandshakeManager(clientSideChannel, client, clientLaunchId, clientRecovery);
+        serverHandshakeManager = createRecoveryServerHandshakeManager(serverSideChannel, server, serverLaunchId, serverRecovery);
 
         var receivedSecond = new AtomicBoolean();
 
@@ -330,10 +448,14 @@ public class RecoveryHandshakeTest {
         clientSideChannel.finishAndReleaseAll();
         serverSideChannel.finishAndReleaseAll();
 
-        clientSideChannel = setupChannel(clientHandshakeManager, serverDidntReceiveAck ? listener2 : noMessageListener);
-        serverSideChannel = setupChannel(serverHandshakeManager, serverDidntReceiveAck ? noMessageListener : listener2);
+        clientSideChannel = createUnregisteredChannel();
+        serverSideChannel = createUnregisteredChannel();
+
+        setupChannel(clientSideChannel, clientHandshakeManager, serverDidntReceiveAck ? listener2 : noMessageListener);
+        setupChannel(serverSideChannel, serverHandshakeManager, serverDidntReceiveAck ? noMessageListener : listener2);
 
         // Handshake
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -366,20 +488,24 @@ public class RecoveryHandshakeTest {
         RecoveryDescriptorProvider clientRecovery = createRecoveryDescriptorProvider();
         RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
 
-        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(clientRecovery);
+        EmbeddedChannel clientSideChannel = createUnregisteredChannel();
+        EmbeddedChannel serverSideChannel = createUnregisteredChannel();
+
+        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(clientSideChannel, clientRecovery);
         RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(
+                serverSideChannel,
                 "server",
                 UUID.randomUUID(),
                 serverRecovery,
                 new AllIdsAreStale()
         );
 
-        EmbeddedChannel clientSideChannel = setupChannel(clientHandshakeManager, noMessageListener);
-
-        EmbeddedChannel serverSideChannel = setupChannel(serverHandshakeManager, noMessageListener);
+        setupChannel(clientSideChannel, clientHandshakeManager, noMessageListener);
+        setupChannel(serverSideChannel, serverHandshakeManager, noMessageListener);
 
         assertTrue(serverSideChannel.isActive());
 
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -402,20 +528,24 @@ public class RecoveryHandshakeTest {
         RecoveryDescriptorProvider clientRecovery = createRecoveryDescriptorProvider();
         RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
 
+        EmbeddedChannel clientSideChannel = createUnregisteredChannel();
+        EmbeddedChannel serverSideChannel = createUnregisteredChannel();
+
         RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(
+                clientSideChannel,
                 "client",
                 UUID.randomUUID(),
                 clientRecovery,
                 new AllIdsAreStale()
         );
-        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(serverRecovery);
+        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(serverSideChannel, serverRecovery);
 
-        EmbeddedChannel clientSideChannel = setupChannel(clientHandshakeManager, noMessageListener);
-
-        EmbeddedChannel serverSideChannel = setupChannel(serverHandshakeManager, noMessageListener);
+        setupChannel(clientSideChannel, clientHandshakeManager, noMessageListener);
+        setupChannel(serverSideChannel, serverHandshakeManager, noMessageListener);
 
         assertTrue(serverSideChannel.isActive());
 
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
 
@@ -464,25 +594,41 @@ public class RecoveryHandshakeTest {
     }
 
     private void checkHandshakeNotCompleted(HandshakeManager manager) {
-        CompletableFuture<NettySender> handshakeFuture = manager.handshakeFuture();
-        assertFalse(handshakeFuture.isDone());
-        assertFalse(handshakeFuture.isCompletedExceptionally());
-        assertFalse(handshakeFuture.isCancelled());
+        CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
+        assertFalse(localHandshakeFuture.isDone());
+        assertFalse(localHandshakeFuture.isCompletedExceptionally());
+        assertFalse(localHandshakeFuture.isCancelled());
+
+        CompletableFuture<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture().toCompletableFuture();
+        assertFalse(finalHandshakeFuture.isDone());
+        assertFalse(finalHandshakeFuture.isCompletedExceptionally());
+        assertFalse(finalHandshakeFuture.isCancelled());
     }
 
     private void checkHandshakeCompleted(HandshakeManager manager) {
-        CompletableFuture<NettySender> handshakeFuture = manager.handshakeFuture();
-        assertTrue(handshakeFuture.isDone());
-        assertFalse(handshakeFuture.isCompletedExceptionally());
-        assertFalse(handshakeFuture.isCancelled());
+        CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
+        assertTrue(localHandshakeFuture.isDone());
+        assertFalse(localHandshakeFuture.isCompletedExceptionally());
+        assertFalse(localHandshakeFuture.isCancelled());
+
+        CompletableFuture<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture().toCompletableFuture();
+        assertTrue(finalHandshakeFuture.isDone());
+        assertFalse(finalHandshakeFuture.isCompletedExceptionally());
+        assertFalse(finalHandshakeFuture.isCancelled());
     }
 
     private void checkHandshakeCompletedExceptionally(HandshakeManager manager) {
-        CompletableFuture<NettySender> handshakeFuture = manager.handshakeFuture();
+        CompletableFuture<NettySender> handshakeFuture = manager.localHandshakeFuture();
 
         assertTrue(handshakeFuture.isDone());
         assertTrue(handshakeFuture.isCompletedExceptionally());
         assertFalse(handshakeFuture.isCancelled());
+
+        CompletableFuture<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture().toCompletableFuture();
+
+        assertTrue(finalHandshakeFuture.isDone());
+        assertTrue(finalHandshakeFuture.isCompletedExceptionally());
+        assertFalse(finalHandshakeFuture.isCancelled());
     }
 
     private void addUnacknowledgedMessages(RecoveryDescriptor recoveryDescriptor) {
@@ -505,19 +651,20 @@ public class RecoveryHandshakeTest {
     private final Consumer<InNetworkObject> noMessageListener = inNetworkObject ->
             fail("Received message while shouldn't have, [" + inNetworkObject.message() + "]");
 
-    private EmbeddedChannel setupChannel(HandshakeManager handshakeManager, Consumer<InNetworkObject> messageListener) throws Exception {
-        // Channel should not be registered at first, not before we add pipeline handlers
-        // Otherwise, events like "channel active" won't be propagated to the handlers
-        var channel = new EmbeddedChannel(false, false);
-
+    private void setupChannel(EmbeddedChannel channel, HandshakeManager handshakeManager, Consumer<InNetworkObject> messageListener)
+            throws Exception {
         var serializationService = new SerializationService(MESSAGE_REGISTRY, createUserObjectSerializationContext());
         var sessionSerializationService = new PerSessionSerializationService(serializationService);
 
         PipelineUtils.setup(channel.pipeline(), sessionSerializationService, handshakeManager, messageListener);
 
         channel.register();
+    }
 
-        return channel;
+    private static EmbeddedChannel createUnregisteredChannel() {
+        // Channel should not be registered at first, not before we add pipeline handlers
+        // Otherwise, events like "channel active" won't be propagated to the handlers
+        return new EmbeddedChannel(false, false);
     }
 
     private UserObjectSerializationContext createUserObjectSerializationContext() {
@@ -530,32 +677,74 @@ public class RecoveryHandshakeTest {
                 userObjectMarshaller);
     }
 
-    private RecoveryClientHandshakeManager createRecoveryClientHandshakeManager(RecoveryDescriptorProvider provider) {
-        return createRecoveryClientHandshakeManager("client", UUID.randomUUID(), provider);
+    private RecoveryClientHandshakeManager createRecoveryClientHandshakeManager(
+            Channel clientSideChannel,
+            RecoveryDescriptorProvider provider
+    ) {
+        return createRecoveryClientHandshakeManager(clientSideChannel, "client", UUID.randomUUID(), provider);
     }
 
-    private RecoveryClientHandshakeManager createRecoveryClientHandshakeManager(String consistentId, UUID launchId,
-            RecoveryDescriptorProvider provider) {
-        return createRecoveryClientHandshakeManager(consistentId, launchId, provider, new AllIdsAreFresh());
+    private RecoveryClientHandshakeManager createRecoveryClientHandshakeManager(
+            Channel clientSideChannel,
+            String consistentId,
+            UUID launchId,
+            RecoveryDescriptorProvider provider
+    ) {
+        return createRecoveryClientHandshakeManager(clientSideChannel, consistentId, launchId, provider, new AllIdsAreFresh());
     }
 
-    private RecoveryClientHandshakeManager createRecoveryClientHandshakeManager(String consistentId, UUID launchId,
-            RecoveryDescriptorProvider provider, StaleIdDetector staleIdDetector) {
-        return new RecoveryClientHandshakeManager(launchId, consistentId, CONNECTION_ID, provider, staleIdDetector, channel -> {});
+    private RecoveryClientHandshakeManager createRecoveryClientHandshakeManager(
+            Channel clientSideChannel,
+            String consistentId,
+            UUID launchId,
+            RecoveryDescriptorProvider provider,
+            StaleIdDetector staleIdDetector
+    ) {
+        return new RecoveryClientHandshakeManager(
+                new ClusterNodeImpl(launchId.toString(), consistentId, new NetworkAddress(CLIENT_HOST, PORT)),
+                CONNECTION_ID,
+                provider,
+                () -> List.of(clientSideChannel.eventLoop()),
+                staleIdDetector,
+                channel -> {},
+                () -> false,
+                mock(FailureProcessor.class)
+        );
     }
 
-    private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(RecoveryDescriptorProvider provider) {
-        return createRecoveryServerHandshakeManager("server", UUID.randomUUID(), provider);
+    private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(
+            Channel serverSideChannel,
+            RecoveryDescriptorProvider provider
+    ) {
+        return createRecoveryServerHandshakeManager(serverSideChannel, "server", UUID.randomUUID(), provider);
     }
 
-    private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(String consistentId, UUID launchId,
-            RecoveryDescriptorProvider provider) {
-        return createRecoveryServerHandshakeManager(consistentId, launchId, provider, new AllIdsAreFresh());
+    private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(
+            Channel serverSideChannel,
+            String consistentId,
+            UUID launchId,
+            RecoveryDescriptorProvider provider
+    ) {
+        return createRecoveryServerHandshakeManager(serverSideChannel, consistentId, launchId, provider, new AllIdsAreFresh());
     }
 
-    private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(String consistentId, UUID launchId,
-            RecoveryDescriptorProvider provider, StaleIdDetector staleIdDetector) {
-        return new RecoveryServerHandshakeManager(launchId, consistentId, MESSAGE_FACTORY, provider, staleIdDetector, channel -> {});
+    private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(
+            Channel serverSideChannel,
+            String consistentId,
+            UUID launchId,
+            RecoveryDescriptorProvider provider,
+            StaleIdDetector staleIdDetector
+    ) {
+        return new RecoveryServerHandshakeManager(
+                new ClusterNodeImpl(launchId.toString(), consistentId, new NetworkAddress(SERVER_HOST, PORT)),
+                MESSAGE_FACTORY,
+                provider,
+                () -> List.of(serverSideChannel.eventLoop()),
+                staleIdDetector,
+                channel -> {},
+                () -> false,
+                mock(FailureProcessor.class)
+        );
     }
 
     private RecoveryDescriptorProvider createRecoveryDescriptorProvider() {

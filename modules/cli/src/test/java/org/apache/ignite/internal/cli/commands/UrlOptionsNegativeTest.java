@@ -54,7 +54,6 @@ import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitUndeployC
 import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitUndeployReplCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectReplCommand;
-import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigShowReplCommand;
 import org.apache.ignite.internal.cli.commands.node.config.NodeConfigUpdateCommand;
@@ -71,7 +70,6 @@ import org.apache.ignite.internal.cli.commands.node.status.NodeStatusCommand;
 import org.apache.ignite.internal.cli.commands.node.status.NodeStatusReplCommand;
 import org.apache.ignite.internal.cli.commands.node.unit.NodeUnitListCommand;
 import org.apache.ignite.internal.cli.commands.node.unit.NodeUnitListReplCommand;
-import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -126,8 +124,7 @@ public class UrlOptionsNegativeTest {
     private void setUp(Class<?> cmdClass) {
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createSectionWithDefaultProfileConfig());
         MicronautFactory factory = new MicronautFactory(context);
-        cmd = new CommandLine(cmdClass, factory)
-                .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
+        cmd = new CommandLine(cmdClass, factory);
         CommandLineContextProvider.setCmd(cmd);
         sout = new StringWriter();
         serr = new StringWriter();
@@ -314,7 +311,7 @@ public class UrlOptionsNegativeTest {
 
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Missing required parameter: '<nodeNameOrUrl>'")
+                () -> assertErrOutputContains("Missing required parameter: '<nodeUrl>'")
         );
     }
 

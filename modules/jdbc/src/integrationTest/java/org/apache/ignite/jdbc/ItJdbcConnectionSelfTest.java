@@ -42,7 +42,6 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLClientInfoException;
-import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
@@ -52,6 +51,7 @@ import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.apache.ignite.internal.jdbc.IgniteJdbcDriver;
+import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -117,15 +117,15 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         assertInvalid("jdbc:ignite:thin://:10000", "Host name is empty");
         assertInvalid("jdbc:ignite:thin://     :10000", "Host name is empty");
 
-        assertInvalid("jdbc:ignite:thin://127.0.0.1:-1", "port range contains invalid port -1");
-        assertInvalid("jdbc:ignite:thin://127.0.0.1:0", "port range contains invalid port 0");
+        assertInvalid("jdbc:ignite:thin://127.0.0.1:-1", "(invalid port -1)");
+        assertInvalid("jdbc:ignite:thin://127.0.0.1:0", "(invalid port 0)");
         assertInvalid("jdbc:ignite:thin://127.0.0.1:100000",
-                "port range contains invalid port 100000");
+                "(invalid port 100000)");
 
-        assertInvalid("jdbc:ignite:thin://[::1]:-1", "port range contains invalid port -1");
-        assertInvalid("jdbc:ignite:thin://[::1]:0", "port range contains invalid port 0");
+        assertInvalid("jdbc:ignite:thin://[::1]:-1", "(invalid port -1)");
+        assertInvalid("jdbc:ignite:thin://[::1]:0", "(invalid port 0)");
         assertInvalid("jdbc:ignite:thin://[::1]:100000",
-                "port range contains invalid port 100000");
+                "(invalid port 100000)");
     }
 
     /**
@@ -179,16 +179,16 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     /**
      * Assert that provided URL is invalid.
      *
-     * @param url    URL.
+     * @param url URL.
      * @param errMsg Error message.
      */
-    private void assertInvalid(final String url, String errMsg) {
-        assertThrows(SQLException.class, () -> DriverManager.getConnection(url), errMsg);
+    private void assertInvalid(String url, String errMsg) {
+        JdbcTestUtils.assertThrowsSqlException(errMsg, () -> DriverManager.getConnection(url));
     }
 
     @Test
     public void testClose() throws Exception {
-        final Connection conn;
+        Connection conn;
 
         try (Connection conn0 = DriverManager.getConnection(URL)) {
             conn = conn0;
@@ -201,7 +201,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
         assertFalse(conn.isValid(2), "Connection must be closed");
 
-        assertThrows(SQLException.class, () -> conn.isValid(-2), "Invalid timeout");
+        JdbcTestUtils.assertThrowsSqlException("Invalid timeout", () -> conn.isValid(-2));
     }
 
     @Test
@@ -228,14 +228,14 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     @Test
     public void testCreateStatement2() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
-            int[] rsTypes = new int[]{TYPE_FORWARD_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.TYPE_SCROLL_SENSITIVE};
+            int[] rsTypes = {TYPE_FORWARD_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.TYPE_SCROLL_SENSITIVE};
 
-            int[] rsConcurs = new int[]{ CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE };
+            int[] rsConcurs = {CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE};
 
             DatabaseMetaData meta = conn.getMetaData();
 
-            for (final int type : rsTypes) {
-                for (final int concur : rsConcurs) {
+            for (int type : rsTypes) {
+                for (int concur : rsConcurs) {
                     if (meta.supportsResultSetConcurrency(type, concur)) {
                         assertEquals(TYPE_FORWARD_ONLY, type);
                         assertEquals(CONCUR_READ_ONLY, concur);
@@ -250,7 +250,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
                         continue;
                     }
 
-                    assertThrows(SQLFeatureNotSupportedException.class, () -> conn.createStatement(type, concur));
+                    JdbcTestUtils.assertThrowsSqlException(SQLFeatureNotSupportedException.class, () -> conn.createStatement(type, concur));
                 }
             }
 
@@ -269,17 +269,17 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     @Test
     public void testCreateStatement3() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
-            int[] rsTypes = new int[]{ TYPE_FORWARD_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.TYPE_SCROLL_SENSITIVE };
+            int[] rsTypes = {TYPE_FORWARD_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.TYPE_SCROLL_SENSITIVE};
 
-            int[] rsConcurs = new int[]{ CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE };
+            int[] rsConcurs = {CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE};
 
-            int[] rsHoldabilities = new int[]{ HOLD_CURSORS_OVER_COMMIT, CLOSE_CURSORS_AT_COMMIT };
+            int[] rsHoldabilities = {HOLD_CURSORS_OVER_COMMIT, CLOSE_CURSORS_AT_COMMIT};
 
             DatabaseMetaData meta = conn.getMetaData();
 
-            for (final int type : rsTypes) {
-                for (final int concur : rsConcurs) {
-                    for (final int holdabililty : rsHoldabilities) {
+            for (int type : rsTypes) {
+                for (int concur : rsConcurs) {
+                    for (int holdabililty : rsHoldabilities) {
                         if (meta.supportsResultSetConcurrency(type, concur)) {
                             assertEquals(TYPE_FORWARD_ONLY, type);
                             assertEquals(CONCUR_READ_ONLY, concur);
@@ -295,7 +295,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
                             continue;
                         }
 
-                        assertThrows(SQLFeatureNotSupportedException.class,
+                        JdbcTestUtils.assertThrowsSqlException(SQLFeatureNotSupportedException.class,
                                 () -> conn.createStatement(type, concur, holdabililty));
                     }
                 }
@@ -312,10 +312,9 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     public void testPrepareStatement() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // null query text
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.prepareStatement(null),
-                    "SQL string cannot be null"
+            JdbcTestUtils.assertThrowsSqlException(
+                    "SQL string cannot be null",
+                    () -> conn.prepareStatement(null)
             );
 
             final String sqlText = "select * from test where param = ?";
@@ -341,29 +340,28 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             final String sqlText = "select * from test where param = ?";
 
-            int[] rsTypes = new int[]{ TYPE_FORWARD_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.TYPE_SCROLL_SENSITIVE };
+            int[] rsTypes = {TYPE_FORWARD_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.TYPE_SCROLL_SENSITIVE};
 
-            int[] rsConcurs = new int[]{ CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE };
+            int[] rsConcurs = {CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE};
 
             DatabaseMetaData meta = conn.getMetaData();
 
-            for (final int type : rsTypes) {
-                for (final int concur : rsConcurs) {
+            for (int type : rsTypes) {
+                for (int concur : rsConcurs) {
                     if (meta.supportsResultSetConcurrency(type, concur)) {
                         assertEquals(TYPE_FORWARD_ONLY, type);
                         assertEquals(CONCUR_READ_ONLY, concur);
 
                         // null query text
-                        assertThrows(
-                                SQLException.class,
-                                () -> conn.prepareStatement(null, type, concur),
-                                "SQL string cannot be null"
+                        JdbcTestUtils.assertThrowsSqlException(
+                                "SQL string cannot be null",
+                                () -> conn.prepareStatement(null, type, concur)
                         );
 
                         continue;
                     }
 
-                    assertThrows(
+                    JdbcTestUtils.assertThrowsSqlException(
                             SQLFeatureNotSupportedException.class,
                             () -> conn.prepareStatement(sqlText, type, concur)
                     );
@@ -389,11 +387,11 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             final String sqlText = "select * from test where param = ?";
 
-            int[] rsTypes = new int[]{ TYPE_FORWARD_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.TYPE_SCROLL_SENSITIVE };
+            int[] rsTypes = {TYPE_FORWARD_ONLY, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.TYPE_SCROLL_SENSITIVE};
 
-            int[] rsConcurs = new int[]{ CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE };
+            int[] rsConcurs = {CONCUR_READ_ONLY, ResultSet.CONCUR_UPDATABLE};
 
-            int[] rsHoldabilities = new int[]{ HOLD_CURSORS_OVER_COMMIT, CLOSE_CURSORS_AT_COMMIT };
+            int[] rsHoldabilities = {HOLD_CURSORS_OVER_COMMIT, CLOSE_CURSORS_AT_COMMIT};
 
             DatabaseMetaData meta = conn.getMetaData();
 
@@ -405,16 +403,15 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
                             assertEquals(CONCUR_READ_ONLY, concur);
 
                             // null query text
-                            assertThrows(
-                                    SQLException.class,
-                                    () -> conn.prepareStatement(null, type, concur, holdabililty),
-                                    "SQL string cannot be null"
+                            JdbcTestUtils.assertThrowsSqlException(
+                                    "SQL string cannot be null",
+                                    () -> conn.prepareStatement(null, type, concur, holdabililty)
                             );
 
                             continue;
                         }
 
-                        assertThrows(
+                        JdbcTestUtils.assertThrowsSqlException(
                                 SQLFeatureNotSupportedException.class,
                                 () -> conn.prepareStatement(sqlText, type, concur, holdabililty)
                         );
@@ -438,28 +435,25 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             final String sqlText = "insert into test (val) values (?)";
 
-            assertThrows(
-                    SQLFeatureNotSupportedException.class,
-                    () -> conn.prepareStatement(sqlText, RETURN_GENERATED_KEYS),
-                    "Auto generated keys are not supported."
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Auto generated keys are not supported.",
+                    () -> conn.prepareStatement(sqlText, RETURN_GENERATED_KEYS)
+
             );
 
-            assertThrows(
-                    SQLFeatureNotSupportedException.class,
-                    () -> conn.prepareStatement(sqlText, NO_GENERATED_KEYS),
-                    "Auto generated keys are not supported."
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Auto generated keys are not supported.",
+                    () -> conn.prepareStatement(sqlText, NO_GENERATED_KEYS)
             );
 
-            assertThrows(
-                    SQLFeatureNotSupportedException.class,
-                    () -> conn.prepareStatement(sqlText, new int[]{1}),
-                    "Auto generated keys are not supported."
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Auto generated keys are not supported.",
+                    () -> conn.prepareStatement(sqlText, new int[]{1})
             );
 
-            assertThrows(
-                    SQLFeatureNotSupportedException.class,
-                    () -> conn.prepareStatement(sqlText, new String[]{"ID"}),
-                    "Auto generated keys are not supported."
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Auto generated keys are not supported.",
+                    () -> conn.prepareStatement(sqlText, new String[]{"ID"})
             );
         }
     }
@@ -469,22 +463,22 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             final String sqlText = "exec test()";
 
-            assertThrows(
+            JdbcTestUtils.assertThrowsSqlException(
                     SQLFeatureNotSupportedException.class,
-                    () -> conn.prepareCall(sqlText),
-                    "Callable functions are not supported."
+                    "Callable functions are not supported.",
+                    () -> conn.prepareCall(sqlText)
             );
 
-            assertThrows(
+            JdbcTestUtils.assertThrowsSqlException(
                     SQLFeatureNotSupportedException.class,
-                    () -> conn.prepareCall(sqlText, TYPE_FORWARD_ONLY, CONCUR_READ_ONLY),
-                    "Callable functions are not supported."
+                    "Callable functions are not supported.",
+                    () -> conn.prepareCall(sqlText, TYPE_FORWARD_ONLY, CONCUR_READ_ONLY)
             );
 
-            assertThrows(
+            JdbcTestUtils.assertThrowsSqlException(
                     SQLFeatureNotSupportedException.class,
-                    () -> conn.prepareCall(sqlText, TYPE_FORWARD_ONLY, CONCUR_READ_ONLY, HOLD_CURSORS_OVER_COMMIT),
-                    "Callable functions are not supported."
+                    "Callable functions are not supported.",
+                    () -> conn.prepareCall(sqlText, TYPE_FORWARD_ONLY, CONCUR_READ_ONLY, HOLD_CURSORS_OVER_COMMIT)
             );
         }
     }
@@ -513,25 +507,23 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     public void testCommit() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // Should not be called in auto-commit mode
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.commit(),
-                    "Transaction cannot be committed explicitly in auto-commit mode"
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Transaction cannot be committed explicitly in auto-commit mode",
+                    conn::commit
             );
 
             assertTrue(conn.getAutoCommit());
 
             // Should not be called in auto-commit mode
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.commit(),
-                    "Transaction cannot be committed explicitly in auto-commit mode."
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Transaction cannot be committed explicitly in auto-commit mode.",
+                    conn::commit
             );
 
             conn.close();
 
             // Exception when called on closed connection
-            checkConnectionClosed(() -> conn.commit());
+            checkConnectionClosed(conn::commit);
         }
     }
 
@@ -539,16 +531,15 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     public void testRollback() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // Should not be called in auto-commit mode
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.rollback(),
-                    "Transaction cannot be rolled back explicitly in auto-commit mode."
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Transaction cannot be rolled back explicitly in auto-commit mode.",
+                    conn::rollback
             );
 
             conn.close();
 
             // Exception when called on closed connection
-            checkConnectionClosed(() -> conn.rollback());
+            checkConnectionClosed(conn::rollback);
         }
     }
 
@@ -567,7 +558,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             conn.close();
 
             // Exception when called on closed connection
-            checkConnectionClosed(() -> conn.getMetaData());
+            checkConnectionClosed(conn::getMetaData);
         }
     }
 
@@ -580,7 +571,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             checkConnectionClosed(() -> conn.setReadOnly(true));
 
             // Exception when called on closed connection
-            checkConnectionClosed(() -> conn.isReadOnly());
+            checkConnectionClosed(conn::isReadOnly);
         }
     }
 
@@ -601,7 +592,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             checkConnectionClosed(() -> conn.setCatalog(""));
 
             // Exception when called on closed connection
-            checkConnectionClosed(() -> conn.getCatalog());
+            checkConnectionClosed(conn::getCatalog);
         }
     }
 
@@ -609,17 +600,16 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     public void testGetSetTransactionIsolation() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // Invalid parameter value
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.setTransactionIsolation(-1),
-                    "Invalid transaction isolation level"
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Invalid transaction isolation level",
+                    () -> conn.setTransactionIsolation(-1)
             );
 
             // default level
             assertEquals(TRANSACTION_NONE, conn.getTransactionIsolation());
 
-            int[] levels = { TRANSACTION_READ_UNCOMMITTED, TRANSACTION_READ_COMMITTED,
-                    TRANSACTION_REPEATABLE_READ, TRANSACTION_SERIALIZABLE };
+            int[] levels = {TRANSACTION_READ_UNCOMMITTED, TRANSACTION_READ_COMMITTED,
+                    TRANSACTION_REPEATABLE_READ, TRANSACTION_SERIALIZABLE};
 
             for (int level : levels) {
                 conn.setTransactionIsolation(level);
@@ -630,7 +620,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             // Exception when called on closed connection
 
-            checkConnectionClosed(() -> conn.getTransactionIsolation());
+            checkConnectionClosed(conn::getTransactionIsolation);
 
             // Exception when called on closed connection
             checkConnectionClosed(() -> conn.setTransactionIsolation(TRANSACTION_SERIALIZABLE));
@@ -653,42 +643,40 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             conn.close();
 
             // Exception when called on closed connection
-            checkConnectionClosed(() -> conn.getWarnings());
+            checkConnectionClosed(conn::getWarnings);
 
             // Exception when called on closed connection
-            checkConnectionClosed(() -> conn.clearWarnings());
+            checkConnectionClosed(conn::clearWarnings);
         }
     }
 
     @Test
     public void testGetSetTypeMap() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
-            assertThrows(
+            JdbcTestUtils.assertThrowsSqlException(
                     SQLFeatureNotSupportedException.class,
-                    () -> conn.getTypeMap(),
-                    "Types mapping is not supported"
+                    "Types mapping is not supported",
+                    conn::getTypeMap
             );
 
-            assertThrows(
+            JdbcTestUtils.assertThrowsSqlException(
                     SQLFeatureNotSupportedException.class,
-                    () -> conn.setTypeMap(new HashMap<String, Class<?>>()),
-                    "Types mapping is not supported"
+                    "Types mapping is not supported",
+                    () -> conn.setTypeMap(new HashMap<>())
             );
 
             conn.close();
 
             // Exception when called on closed connection
 
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.getTypeMap(),
-                    "Connection is closed"
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Connection is closed",
+                    conn::getTypeMap
             );
 
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.setTypeMap(new HashMap<String, Class<?>>()),
-                    "Connection is closed"
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Connection is closed",
+                    () -> conn.setTypeMap(new HashMap<>())
             );
         }
     }
@@ -712,24 +700,21 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             // Invalid constant
 
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.setHoldability(-1),
-                    "Invalid result set holdability value"
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Invalid result set holdability value",
+                    () -> conn.setHoldability(-1)
             );
 
             conn.close();
 
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.getHoldability(),
-                    "Connection is closed"
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Connection is closed",
+                    conn::getHoldability
             );
 
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.setHoldability(HOLD_CURSORS_OVER_COMMIT),
-                    "Connection is closed"
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Connection is closed",
+                    () -> conn.setHoldability(HOLD_CURSORS_OVER_COMMIT)
             );
         }
     }
@@ -738,18 +723,17 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     public void testCreateClob() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // Unsupported
-            assertThrows(
+            JdbcTestUtils.assertThrowsSqlException(
                     SQLFeatureNotSupportedException.class,
-                    () -> conn.createClob(),
-                    "SQL-specific types are not supported"
+                    "SQL-specific types are not supported",
+                    conn::createClob
             );
 
             conn.close();
 
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.createClob(),
-                    "Connection is closed"
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Connection is closed",
+                    conn::createClob
             );
         }
     }
@@ -758,18 +742,17 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     public void testCreateBlob() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // Unsupported
-            assertThrows(
+            JdbcTestUtils.assertThrowsSqlException(
                     SQLFeatureNotSupportedException.class,
-                    () -> conn.createBlob(),
-                    "SQL-specific types are not supported"
+                    "SQL-specific types are not supported",
+                    conn::createBlob
             );
 
             conn.close();
 
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.createBlob(),
-                    "Connection is closed"
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Connection is closed",
+                    conn::createBlob
             );
         }
     }
@@ -778,18 +761,17 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     public void testCreateNclob() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // Unsupported
-            assertThrows(
+            JdbcTestUtils.assertThrowsSqlException(
                     SQLFeatureNotSupportedException.class,
-                    () -> conn.createNClob(),
-                    "SQL-specific types are not supported"
+                    "SQL-specific types are not supported",
+                    conn::createNClob
             );
 
             conn.close();
 
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.createNClob(),
-                    "Connection is closed"
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Connection is closed",
+                    conn::createNClob
             );
         }
     }
@@ -798,18 +780,17 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     public void testCreateSqlXml() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // Unsupported
-            assertThrows(
+            JdbcTestUtils.assertThrowsSqlException(
                     SQLFeatureNotSupportedException.class,
-                    () -> conn.createSQLXML(),
-                    "SQL-specific types are not supported"
+                    "SQL-specific types are not supported",
+                    conn::createSQLXML
             );
 
             conn.close();
 
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.createSQLXML(),
-                    "Connection is closed"
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Connection is closed",
+                    conn::createSQLXML
             );
         }
     }
@@ -830,10 +811,10 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             checkConnectionClosed(() -> conn.getClientInfo(name));
 
-            assertThrows(
+            JdbcTestUtils.assertThrowsSqlException(
                     SQLClientInfoException.class,
-                    () -> conn.setClientInfo(name, val),
-                    "Connection is closed"
+                    "Connection is closed",
+                    () -> conn.setClientInfo(name, val)
             );
         }
     }
@@ -844,7 +825,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
             final String name = "ApplicationName";
             final String val = "SelfTest";
 
-            final Properties props = new Properties();
+            Properties props = new Properties();
             props.setProperty(name, val);
 
             conn.setClientInfo(props);
@@ -857,12 +838,12 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             conn.close();
 
-            checkConnectionClosed(() -> conn.getClientInfo());
+            checkConnectionClosed(conn::getClientInfo);
 
-            assertThrows(
+            JdbcTestUtils.assertThrowsSqlException(
                     SQLClientInfoException.class,
-                    () -> conn.setClientInfo(props),
-                    "Connection is closed"
+                    "Connection is closed",
+                    () -> conn.setClientInfo(props)
             );
         }
     }
@@ -872,13 +853,12 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
         try (Connection conn = DriverManager.getConnection(URL)) {
             final String typeName = "varchar";
 
-            final String[] elements = new String[]{"apple", "pear"};
+            String[] elements = {"apple", "pear"};
 
             // Invalid typename
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.createArrayOf(null, null),
-                    "Type name cannot be null"
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Type name cannot be null",
+                    () -> conn.createArrayOf(null, null)
             );
 
             // Unsupported
@@ -895,15 +875,14 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     public void testCreateStruct() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
             // Invalid typename
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.createStruct(null, null),
-                    "Type name cannot be null"
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Type name cannot be null",
+                    () -> conn.createStruct(null, null)
             );
 
             final String typeName = "employee";
 
-            final Object[] attrs = new Object[]{100, "Tom"};
+            Object[] attrs = {100, "Tom"};
 
             checkNotSupported(() -> conn.createStruct(typeName, attrs));
 
@@ -932,21 +911,20 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             checkConnectionClosed(() -> conn.setSchema(schema));
 
-            checkConnectionClosed(() -> conn.getSchema());
+            checkConnectionClosed(conn::getSchema);
         }
     }
 
     @Test
     public void testAbort() throws Exception {
         try (Connection conn = DriverManager.getConnection(URL)) {
-            //Invalid executor
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.abort(null),
-                    "Executor cannot be null"
+            // Invalid executor.
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Executor cannot be null",
+                    () -> conn.abort(null)
             );
 
-            final Executor executor = Executors.newFixedThreadPool(1);
+            Executor executor = Executors.newFixedThreadPool(1);
 
             conn.abort(executor);
 
@@ -964,11 +942,10 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             final int timeout = 1000;
 
-            //Invalid timeout
-            assertThrows(
-                    SQLException.class,
-                    () -> conn.setNetworkTimeout(executor, -1),
-                    "Network timeout cannot be negative"
+            // Invalid timeout.
+            JdbcTestUtils.assertThrowsSqlException(
+                    "Network timeout cannot be negative",
+                    () -> conn.setNetworkTimeout(executor, -1)
             );
 
             conn.setNetworkTimeout(executor, timeout);
@@ -977,7 +954,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
             conn.close();
 
-            checkConnectionClosed(() -> conn.getNetworkTimeout());
+            checkConnectionClosed(conn::getNetworkTimeout);
 
             checkConnectionClosed(() -> conn.setNetworkTimeout(executor, timeout));
         }

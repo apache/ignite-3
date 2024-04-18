@@ -17,85 +17,88 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.NavigableMap;
+import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-/**
- * Dummy schema manager for tests.
- */
+/** Dummy schema manager for tests. */
 public class DummySchemaManagerImpl implements SchemaRegistry {
-    /** Schema. */
-    private final SchemaDescriptor schema;
+    private final NavigableMap<Integer, SchemaDescriptor> schemaByVersion;
 
-    /**
-     * Constructor.
-     *
-     * @param schema Schema descriptor.
-     */
-    public DummySchemaManagerImpl(@NotNull SchemaDescriptor schema) {
-        assert schema != null;
+    /** Constructor. */
+    public DummySchemaManagerImpl(SchemaDescriptor... schemas) {
+        assert !nullOrEmpty(schemas);
 
-        this.schema = schema;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public SchemaDescriptor schema() {
-        return schema;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public SchemaDescriptor schema(int ver) {
-        assert ver >= 0;
-
-        assert schema.version() == ver;
-
-        return schema;
+        schemaByVersion = Stream.of(schemas).collect(toMap(SchemaDescriptor::version, identity(), (o, o2) -> o2, TreeMap::new));
     }
 
     @Override
-    public @Nullable SchemaDescriptor schemaCached(int ver) {
-        assert schema.version() == ver;
-
-        return schema;
+    public SchemaDescriptor lastKnownSchema() {
+        return schemaByVersion.lastEntry().getValue();
     }
 
-    /** {@inheritDoc} */
-    @Override public SchemaDescriptor waitLatestSchema() {
-        return schema();
-    }
-
-    /** {@inheritDoc} */
     @Override
-    public int lastSchemaVersion() {
-        return schema.version();
+    public SchemaDescriptor schema(int version) {
+        assert schemaByVersion.containsKey(version) : version;
+
+        return schemaByVersion.get(version);
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<SchemaDescriptor> schemaAsync(int version) {
+        return completedFuture(schema(version));
+    }
+
+    @Override
+    public int lastKnownSchemaVersion() {
+        return lastKnownSchema().version();
+    }
+
     @Override
     public Row resolve(BinaryRow row, SchemaDescriptor desc) {
-        return new Row(desc, row);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Row resolve(BinaryRow row) {
-        assert row.schemaVersion() == schema.version() || row.schemaVersion() == 0;
-
-        return new Row(schema, row);
+        return Row.wrapBinaryRow(desc, row);
     }
 
     @Override
-    public List<Row> resolve(Collection<BinaryRow> rows) {
-        return rows.stream().map(binaryRow -> binaryRow == null ? null : resolve(binaryRow)).collect(toList());
+    public Row resolve(BinaryRow row, int targetSchemaVersion) {
+        assert targetSchemaVersion == row.schemaVersion() : "row=" + row.schemaVersion() + ", target=" + targetSchemaVersion;
+
+        return Row.wrapBinaryRow(schema(targetSchemaVersion), row);
+    }
+
+    @Override
+    public List<Row> resolve(Collection<BinaryRow> rows, int targetSchemaVersion) {
+        return rows.stream()
+                .map(row -> row == null ? null : resolve(row, targetSchemaVersion))
+                .collect(toList());
+    }
+
+    @Override
+    public List<Row> resolveKeys(Collection<BinaryRow> keyOnlyRows, int targetSchemaVersion) {
+        for (BinaryRow row : keyOnlyRows) {
+            assert row == null || row.schemaVersion() == targetSchemaVersion;
+        }
+
+        return keyOnlyRows.stream()
+                .map(row -> row == null ? null : Row.wrapKeyOnlyBinaryRow(schema(row.schemaVersion()), row))
+                .collect(toList());
+    }
+
+    @Override
+    public void close() {
+        // No-op.
     }
 }

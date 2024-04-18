@@ -27,10 +27,11 @@ import static org.mockito.Mockito.when;
 import org.apache.ignite.internal.network.messages.InheritedMessage;
 import org.apache.ignite.internal.network.messages.InheritedMessageSerializationFactory;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
-import org.apache.ignite.network.serialization.MessageDeserializer;
-import org.apache.ignite.network.serialization.MessageReader;
-import org.apache.ignite.network.serialization.MessageSerializer;
-import org.apache.ignite.network.serialization.MessageWriter;
+import org.apache.ignite.internal.network.serialization.MessageDeserializer;
+import org.apache.ignite.internal.network.serialization.MessageReader;
+import org.apache.ignite.internal.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.network.serialization.MessageWriter;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
@@ -39,7 +40,7 @@ import org.mockito.InOrder;
  *
  * @see InheritedMessage
  */
-public class InheritedMessageTest {
+public class InheritedMessageTest extends BaseIgniteAbstractTest {
     private final TestMessagesFactory messageFactory = new TestMessagesFactory();
 
     private final InheritedMessageSerializationFactory serializationFactory =

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.schema.registry;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
  * Schema registration conflict exception is thown if registering schema's number was alredy registered earlier.

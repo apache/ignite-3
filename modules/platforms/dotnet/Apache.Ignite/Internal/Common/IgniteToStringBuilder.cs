@@ -67,7 +67,7 @@ internal record IgniteToStringBuilder
     /// <returns>This instance.</returns>
     public IgniteToStringBuilder Append(object? value, [CallerArgumentExpression("value")] string? name = null)
     {
-        IgniteArgumentCheck.NotNull(name, nameof(name));
+        IgniteArgumentCheck.NotNull(name);
 
         CheckClosed();
         AppendComma();
@@ -88,7 +88,7 @@ internal record IgniteToStringBuilder
     /// <returns>This instance.</returns>
     public IgniteToStringBuilder AppendList<T>(IEnumerable<T> value, [CallerArgumentExpression("value")] string? name = null)
     {
-        IgniteArgumentCheck.NotNull(name, nameof(name));
+        IgniteArgumentCheck.NotNull(name);
 
         CheckClosed();
         AppendComma();

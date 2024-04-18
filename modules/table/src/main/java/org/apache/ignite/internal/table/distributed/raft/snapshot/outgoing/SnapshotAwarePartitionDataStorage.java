@@ -62,6 +62,16 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
+    public int tableId() {
+        return partitionKey.tableId();
+    }
+
+    @Override
+    public int partitionId() {
+        return partitionKey.partitionId();
+    }
+
+    @Override
     public <V> V runConsistently(WriteClosure<V> closure) throws StorageException {
         return partitionStorage.runConsistently(closure);
     }
@@ -115,6 +125,14 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
         handleSnapshotInterference(rowId);
 
         return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+    }
+
+    @Override
+    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs)
+            throws TxIdMismatchException, StorageException {
+        handleSnapshotInterference(rowId);
+
+        partitionStorage.addWriteCommitted(rowId, row, commitTs);
     }
 
     @Override
@@ -206,5 +224,15 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     @Override
     public @Nullable BinaryRow vacuum(GcEntry entry) {
         return partitionStorage.vacuum(entry);
+    }
+
+    @Override
+    public void updateLease(long leaseStartTime) {
+        partitionStorage.updateLease(leaseStartTime);
+    }
+
+    @Override
+    public long leaseStartTime() {
+        return partitionStorage.leaseStartTime();
     }
 }

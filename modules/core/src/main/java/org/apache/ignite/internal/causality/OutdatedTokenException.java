@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.causality;
 
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 
 /**
  * This exception is thrown when {@link CompletableVersionedValue#get(long)} is called with an outdated token

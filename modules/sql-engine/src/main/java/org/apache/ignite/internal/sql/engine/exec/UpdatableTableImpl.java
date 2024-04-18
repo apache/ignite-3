@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.DEFAULT_VALUE_PLACEHOLDER;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponsesWithRestoreOrder;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 
@@ -26,10 +27,11 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.util.Static;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -37,17 +39,18 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.distributed.storage.RowBatch;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.SqlException;
 
@@ -55,6 +58,7 @@ import org.apache.ignite.sql.SqlException;
  * Ignite table implementation.
  */
 public final class UpdatableTableImpl implements UpdatableTable {
+
     private static final IgniteLogger LOG = Loggers.forClass(UpdatableTableImpl.class);
 
     private static final TableMessagesFactory MESSAGES_FACTORY = new TableMessagesFactory();
@@ -63,47 +67,32 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private final TableDescriptor desc;
 
-    private final HybridClock clock;
+    private final ClockService clockService;
+
+    private final InternalTable table;
 
     private final ReplicaService replicaService;
-
-    private final SchemaDescriptor schemaDescriptor;
-
-    private final List<ColumnDescriptor> columnsOrderedByPhysSchema;
 
     private final PartitionExtractor partitionExtractor;
 
     private final TableRowConverter rowConverter;
 
-    /**
-     * Constructor.
-     *
-     * @param desc  Table descriptor.
-     */
-    public UpdatableTableImpl(
+    /** Constructor. */
+    UpdatableTableImpl(
             int tableId,
             TableDescriptor desc,
             int partitions,
+            InternalTable table,
             ReplicaService replicaService,
-            HybridClock clock,
-            TableRowConverter rowConverter,
-            SchemaDescriptor schemaDescriptor
+            ClockService clockService,
+            TableRowConverter rowConverter
     ) {
         this.tableId = tableId;
+        this.table = table;
         this.desc = desc;
         this.replicaService = replicaService;
-        this.clock = clock;
-        this.schemaDescriptor = schemaDescriptor;
+        this.clockService = clockService;
         this.partitionExtractor = (row) -> IgniteUtils.safeAbs(row.colocationHash()) % partitions;
-
-        List<ColumnDescriptor> tmp = new ArrayList<>(desc.columnsCount());
-        for (int i = 0; i < desc.columnsCount(); i++) {
-            tmp.add(desc.columnDescriptor(i));
-        }
-
-        tmp.sort(Comparator.comparingInt(ColumnDescriptor::physicalIndex));
-
-        columnsOrderedByPhysSchema = tmp;
         this.rowConverter = rowConverter;
     }
 
@@ -111,53 +100,78 @@ public final class UpdatableTableImpl implements UpdatableTable {
     @Override
     public <RowT> CompletableFuture<?> upsertAll(
             ExecutionContext<RowT> ectx,
-            List<RowT> rows
+            List<RowT> rows,
+            ColocationGroup colocationGroup
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
         TablePartitionId commitPartitionId = txAttributes.commitPartition();
 
         assert commitPartitionId != null;
 
+        validateNotNullConstraint(ectx.rowHandler(), rows);
+
         Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(row, ectx, false);
+            BinaryRowEx binaryRow = convertRow(ectx, row);
 
             rowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
 
+        @SuppressWarnings("unchecked")
         CompletableFuture<List<RowT>>[] futures = new CompletableFuture[rowsByPartition.size()];
 
         int batchNum = 0;
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
-            NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
+
+            NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
-                    .commitPartitionId(commitPartitionId)
-                    .binaryRowsBytes(serializeBinaryRows(partToRows.getValue()))
+                    .commitPartitionId(serializeTablePartitionId(commitPartitionId))
+                    .schemaVersion(partToRows.getValue().get(0).schemaVersion())
+                    .binaryTuples(binaryRowsToBuffers(partToRows.getValue()))
                     .transactionId(txAttributes.id())
-                    .term(nodeWithTerm.term())
+                    .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestType(RequestType.RW_UPSERT_ALL)
-                    .timestampLong(clock.nowLong())
+                    .timestampLong(clockService.nowLong())
+                    .skipDelayedAck(true)
+                    .coordinatorId(txAttributes.coordinatorId())
                     .build();
 
-            futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);
+            futures[batchNum++] = replicaService.invoke(nodeWithConsistencyToken.name(), request);
         }
 
         return CompletableFuture.allOf(futures);
     }
 
-    private static List<ByteBuffer> serializeBinaryRows(Collection<BinaryRow> rows) {
+    private static List<ByteBuffer> binaryRowsToBuffers(Collection<BinaryRow> rows) {
         var result = new ArrayList<ByteBuffer>(rows.size());
 
         for (BinaryRow row : rows) {
-            result.add(row.byteBuffer());
+            result.add(row.tupleSlice());
         }
 
         return result;
+    }
+
+    private static List<ByteBuffer> serializePrimaryKeys(Collection<BinaryRow> rows) {
+        var result = new ArrayList<ByteBuffer>(rows.size());
+
+        for (BinaryRow row : rows) {
+            result.add(row.tupleSlice());
+        }
+
+        return result;
+    }
+
+    private static TablePartitionIdMessage serializeTablePartitionId(TablePartitionId id) {
+        return MESSAGES_FACTORY.tablePartitionIdMessage()
+                .partitionId(id.partitionId())
+                .tableId(id.tableId())
+                .build();
     }
 
     @Override
@@ -167,74 +181,92 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     /** {@inheritDoc} */
     @Override
+    public <RowT> CompletableFuture<Void> insert(InternalTransaction tx, ExecutionContext<RowT> ectx, RowT row) {
+        validateNotNullConstraint(ectx.rowHandler(), row);
+
+        BinaryRowEx tableRow = rowConverter.toBinaryRow(ectx, row, false);
+
+        return table.insert(tableRow, tx)
+                .thenApply(success -> {
+                    if (success) {
+                        return null;
+                    }
+
+                    RowHandler<RowT> rowHandler = ectx.rowHandler();
+
+                    throw conflictKeysException(List.of(rowHandler.toString(row)));
+                });
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public <RowT> CompletableFuture<?> insertAll(
             ExecutionContext<RowT> ectx,
-            List<RowT> rows
+            List<RowT> rows,
+            ColocationGroup colocationGroup
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
         TablePartitionId commitPartitionId = txAttributes.commitPartition();
 
+        validateNotNullConstraint(ectx.rowHandler(), rows);
+
         assert commitPartitionId != null;
 
-        RowHandler<RowT> handler = ectx.rowHandler();
+        Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(ectx, rows);
 
-        Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
+        for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
+            int partitionId = partitionRowBatch.getIntKey();
+            RowBatch rowBatch = partitionRowBatch.getValue();
 
-        for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(row, ectx, false);
+            TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
 
-            rowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
-        }
+            NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partitionId);
 
-        CompletableFuture<List<RowT>>[] futures = new CompletableFuture[rowsByPartition.size()];
-
-        int batchNum = 0;
-
-        for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
-            NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
-
-            ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
+            ReadWriteMultiRowReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
-                    .commitPartitionId(commitPartitionId)
-                    .binaryRowsBytes(serializeBinaryRows(partToRows.getValue()))
+                    .commitPartitionId(serializeTablePartitionId(commitPartitionId))
+                    .schemaVersion(rowBatch.requestedRows.get(0).schemaVersion())
+                    .binaryTuples(binaryRowsToBuffers(rowBatch.requestedRows))
                     .transactionId(txAttributes.id())
-                    .term(nodeWithTerm.term())
+                    .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestType(RequestType.RW_INSERT_ALL)
-                    .timestampLong(clock.nowLong())
+                    .timestampLong(clockService.nowLong())
+                    .skipDelayedAck(true)
+                    .coordinatorId(txAttributes.coordinatorId())
                     .build();
 
-            futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request)
-                .thenApply(result -> {
-                    Collection<BinaryRow> binaryRows = (Collection<BinaryRow>) result;
-
-                    if (binaryRows.isEmpty()) {
-                        return List.of();
-                    }
-
-                    List<RowT> conflictRows = new ArrayList<>(binaryRows.size());
-                    IgniteTypeFactory typeFactory = ectx.getTypeFactory();
-                    RowHandler.RowFactory<RowT> rowFactory = handler.factory(
-                            ectx.getTypeFactory(),
-                            desc.insertRowType(typeFactory)
-                    );
-
-                    for (BinaryRow row : binaryRows) {
-                        conflictRows.add(rowConverter.toRow(ectx, row, rowFactory, null));
-                    }
-
-                    return conflictRows;
-                });
+            rowBatch.resultFuture = replicaService.invoke(nodeWithConsistencyToken.name(), request);
         }
 
-        return handleInsertResults(handler, futures);
+        return handleInsertResults(ectx, rowBatchByPartitionId.values());
+    }
+
+    /**
+     * Creates batches of rows for processing, grouped by partition ID.
+     *
+     * @param ectx Execution context.
+     * @param rows Rows.
+     */
+    private <RowT> Int2ObjectMap<RowBatch> toRowBatchByPartitionId(ExecutionContext<RowT> ectx, List<RowT> rows) {
+        Int2ObjectMap<RowBatch> rowBatchByPartitionId = new Int2ObjectOpenHashMap<>();
+
+        int i = 0;
+
+        for (RowT row : rows) {
+            BinaryRowEx binaryRow = convertRow(ectx, row);
+
+            rowBatchByPartitionId.computeIfAbsent(partitionExtractor.fromRow(binaryRow), partitionId -> new RowBatch()).add(binaryRow, i++);
+        }
+
+        return rowBatchByPartitionId;
     }
 
     /** {@inheritDoc} */
     @Override
     public <RowT> CompletableFuture<?> deleteAll(
             ExecutionContext<RowT> ectx,
-            List<RowT> rows
+            List<RowT> rows,
+            ColocationGroup colocationGroup
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
         TablePartitionId commitPartitionId = txAttributes.commitPartition();
@@ -244,99 +276,70 @@ public final class UpdatableTableImpl implements UpdatableTable {
         Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(row, ectx, true);
+            BinaryRowEx binaryRow = convertKeyOnlyRow(ectx, row);
 
             keyRowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
 
+        @SuppressWarnings("unchecked")
         CompletableFuture<List<RowT>>[] futures = new CompletableFuture[keyRowsByPartition.size()];
 
         int batchNum = 0;
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
-            NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
 
-            ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
+            NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partToRows.getIntKey());
+
+            ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                     .groupId(partGroupId)
-                    .commitPartitionId(commitPartitionId)
-                    .binaryRowsBytes(serializeBinaryRows(partToRows.getValue()))
+                    .commitPartitionId(serializeTablePartitionId(commitPartitionId))
+                    .schemaVersion(partToRows.getValue().get(0).schemaVersion())
+                    .primaryKeys(serializePrimaryKeys(partToRows.getValue()))
                     .transactionId(txAttributes.id())
-                    .term(nodeWithTerm.term())
+                    .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestType(RequestType.RW_DELETE_ALL)
-                    .timestampLong(clock.nowLong())
+                    .timestampLong(clockService.nowLong())
+                    .skipDelayedAck(true)
+                    .coordinatorId(txAttributes.coordinatorId())
                     .build();
 
-            futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request);
+            futures[batchNum++] = replicaService.invoke(nodeWithConsistencyToken.name(), request);
         }
 
         return CompletableFuture.allOf(futures);
     }
 
-    private <RowT> BinaryRowEx convertRow(RowT row, ExecutionContext<RowT> ectx, boolean keyOnly) {
-        RowHandler<RowT> hnd = ectx.rowHandler();
-
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (keyOnly && !colDesc.key()) {
-                continue;
-            }
-
-            Object value = hnd.get(colDesc.logicalIndex(), row);
-
-            // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-            assert value != DEFAULT_VALUE_PLACEHOLDER;
-
-            if (value == null) {
-                break;
-            }
-        }
-
-        RowAssembler rowAssembler = keyOnly ? RowAssembler.keyAssembler(schemaDescriptor) : new RowAssembler(schemaDescriptor);
-
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (keyOnly && !colDesc.key()) {
-                continue;
-            }
-
-            Object val = hnd.get(colDesc.logicalIndex(), row);
-
-            val = TypeUtils.fromInternal(val, NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
-
-            RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
-        }
-
-        return new Row(schemaDescriptor, rowAssembler.build());
+    private <RowT> BinaryRowEx convertRow(ExecutionContext<RowT> ctx, RowT row) {
+        return rowConverter.toBinaryRow(ctx, row, false);
     }
 
-    private static <RowT> CompletableFuture<List<RowT>> handleInsertResults(
-            RowHandler<RowT> handler,
-            CompletableFuture<List<RowT>>[] futs
+    private <RowT> BinaryRowEx convertKeyOnlyRow(ExecutionContext<RowT> ctx, RowT row) {
+        return rowConverter.toBinaryRow(ctx, row, true);
+    }
+
+    private <RowT> CompletableFuture<List<RowT>> handleInsertResults(
+            ExecutionContext<RowT> ectx,
+            Collection<RowBatch> batches
     ) {
-        return CompletableFuture.allOf(futs)
+        return collectRejectedRowsResponsesWithRestoreOrder(batches)
                 .thenApply(response -> {
-                    List<String> conflictRows = null;
-
-                    for (CompletableFuture<List<RowT>> future : futs) {
-                        List<RowT> values = future.join();
-
-                        if (nullOrEmpty(values)) {
-                            continue;
-                        }
-
-                        if (conflictRows == null) {
-                            conflictRows = new ArrayList<>(values.size());
-                        }
-
-                        for (RowT row : values) {
-                            conflictRows.add(handler.toString(row));
-                        }
+                    if (nullOrEmpty(response)) {
+                        return null;
                     }
 
-                    if (conflictRows != null) {
-                        throw conflictKeysException(conflictRows);
+                    RowHandler<RowT> handler = ectx.rowHandler();
+                    IgniteTypeFactory typeFactory = ectx.getTypeFactory();
+                    RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(desc.rowType(typeFactory, null)));
+                    RowHandler.RowFactory<RowT> rowFactory = handler.factory(rowSchema);
+
+                    ArrayList<String> conflictRows = new ArrayList<>(response.size());
+
+                    for (BinaryRow row : response) {
+                        conflictRows.add(handler.toString(rowConverter.toRow(ectx, row, rowFactory)));
                     }
 
-                    return null;
+                    throw conflictKeysException(conflictRows);
                 });
     }
 
@@ -353,5 +356,22 @@ public final class UpdatableTableImpl implements UpdatableTable {
     @FunctionalInterface
     private interface PartitionExtractor {
         int fromRow(BinaryRowEx row);
+    }
+
+    private <RowT> void validateNotNullConstraint(RowHandler<RowT> rowHandler, List<RowT> rows) {
+        for (RowT row : rows) {
+            validateNotNullConstraint(rowHandler, row);
+        }
+    }
+
+    private <RowT> void validateNotNullConstraint(RowHandler<RowT> rowHandler, RowT row) {
+        for (int i = 0; i < desc.columnsCount(); i++) {
+            ColumnDescriptor column = desc.columnDescriptor(i);
+
+            if (!column.nullable() && rowHandler.isNull(i, row)) {
+                String message = Static.RESOURCE.columnNotNullable(column.name()).ex().getMessage();
+                throw new SqlException(CONSTRAINT_VIOLATION_ERR, message);
+            }
+        }
     }
 }

@@ -22,10 +22,13 @@ import okhttp3.OkHttpClient.Builder;
 import okhttp3.logging.HttpLoggingInterceptor;
 import okhttp3.logging.HttpLoggingInterceptor.Level;
 import org.apache.ignite.rest.client.invoker.ApiClient;
+import org.jetbrains.annotations.Nullable;
 
 /** Helper class for logging HTTP requests/responses from generated REST API client. */
 class HttpLogging {
     private final ApiClient client;
+
+    @Nullable
     private HttpLoggingInterceptor interceptor;
 
     HttpLogging(ApiClient client) {
@@ -59,6 +62,8 @@ class HttpLogging {
             builder.interceptors().remove(interceptor);
 
             client.setHttpClient(builder.build());
+
+            interceptor = null;
         }
     }
 }

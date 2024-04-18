@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.IncomingSnapshotCopier;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotReader;
@@ -41,6 +42,9 @@ import org.jetbrains.annotations.Nullable;
  * @see PartitionSnapshotStorageFactory
  */
 public class PartitionSnapshotStorage implements SnapshotStorage {
+    /** Default number of milliseconds that the follower is allowed to try to catch up the required catalog version. */
+    private static final int DEFAULT_WAIT_FOR_METADATA_CATCHUP_MS = 3000;
+
     /** Topology service. */
     private final TopologyService topologyService;
 
@@ -56,6 +60,8 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     /** Instance of partition. */
     private final PartitionAccess partition;
 
+    private final CatalogService catalogService;
+
     /**
      *  Snapshot meta, constructed from the storage data and raft group configuration at startup.
      *  {@code null} if the storage is empty.
@@ -65,6 +71,8 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
 
     /** Incoming snapshots executor. */
     private final Executor incomingSnapshotsExecutor;
+
+    private final long waitForMetadataCatchupMs;
 
     /** Snapshot throttle instance. */
     @Nullable
@@ -81,6 +89,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
      * @param snapshotUri Snapshot URI.
      * @param raftOptions RAFT options.
      * @param partition Partition.
+     * @param catalogService Catalog service.
      * @param startupSnapshotMeta Snapshot meta at startup. {@code null} if the storage is empty.
      * @param incomingSnapshotsExecutor Incoming snapshots executor.
      */
@@ -90,16 +99,55 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
             String snapshotUri,
             RaftOptions raftOptions,
             PartitionAccess partition,
+            CatalogService catalogService,
             @Nullable SnapshotMeta startupSnapshotMeta,
             Executor incomingSnapshotsExecutor
+    ) {
+        this(
+                topologyService,
+                outgoingSnapshotsManager,
+                snapshotUri,
+                raftOptions,
+                partition,
+                catalogService,
+                startupSnapshotMeta,
+                incomingSnapshotsExecutor,
+                DEFAULT_WAIT_FOR_METADATA_CATCHUP_MS
+        );
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param topologyService Topology service.
+     * @param outgoingSnapshotsManager Outgoing snapshot manager.
+     * @param snapshotUri Snapshot URI.
+     * @param raftOptions RAFT options.
+     * @param partition Partition.
+     * @param catalogService Catalog service.
+     * @param startupSnapshotMeta Snapshot meta at startup. {@code null} if the storage is empty.
+     * @param incomingSnapshotsExecutor Incoming snapshots executor.
+     */
+    public PartitionSnapshotStorage(
+            TopologyService topologyService,
+            OutgoingSnapshotsManager outgoingSnapshotsManager,
+            String snapshotUri,
+            RaftOptions raftOptions,
+            PartitionAccess partition,
+            CatalogService catalogService,
+            @Nullable SnapshotMeta startupSnapshotMeta,
+            Executor incomingSnapshotsExecutor,
+            long waitForMetadataCatchupMs
     ) {
         this.topologyService = topologyService;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.snapshotUri = snapshotUri;
         this.raftOptions = raftOptions;
         this.partition = partition;
+        this.catalogService = catalogService;
         this.startupSnapshotMeta = startupSnapshotMeta;
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
+        this.waitForMetadataCatchupMs = waitForMetadataCatchupMs;
     }
 
     /**
@@ -135,6 +183,13 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
      */
     public PartitionAccess partition() {
         return partition;
+    }
+
+    /**
+     * Returns catalog service.
+     */
+    public CatalogService catalogService() {
+        return catalogService;
     }
 
     /**
@@ -209,7 +264,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
         SnapshotUri snapshotUri = SnapshotUri.fromStringUri(uri);
 
-        IncomingSnapshotCopier copier = new IncomingSnapshotCopier(this, snapshotUri);
+        IncomingSnapshotCopier copier = new IncomingSnapshotCopier(this, snapshotUri, waitForMetadataCatchupMs);
 
         copier.start();
 

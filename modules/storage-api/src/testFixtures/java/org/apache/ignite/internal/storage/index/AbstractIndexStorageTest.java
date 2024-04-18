@@ -19,11 +19,10 @@ package org.apache.ignite.internal.storage.index;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
-import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.column;
-import static org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders.tableBuilder;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.storage.BaseMvStoragesTest.getOrCreateMvPartition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -36,31 +35,41 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Random;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Base class for index storage tests. Covers common methods, such as {@link IndexStorage#get(BinaryTuple)} or
@@ -69,43 +78,38 @@ import org.junit.jupiter.api.Test;
  * @param <S> Type of specific index implementation.
  * @param <D> Type of index descriptor for that specific implementation.
  */
-public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends StorageIndexDescriptor> {
-    private static final IgniteLogger log = Loggers.forClass(AbstractIndexStorageTest.class);
-
+public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends StorageIndexDescriptor> extends BaseIgniteAbstractTest {
     /** Definitions of all supported column types. */
     @SuppressWarnings("WeakerAccess") // May be used in "@VariableSource", that's why it's public.
-    public static final List<ColumnDefinition> ALL_TYPES_COLUMN_DEFINITIONS = allTypesColumnDefinitions();
+    public static final List<ColumnParams> ALL_TYPES_COLUMN_PARAMS = allTypesColumnParams();
 
-    protected static final int TEST_PARTITION = 0;
+    protected static final int TEST_PARTITION = 12;
+
+    protected static final String TABLE_NAME = "FOO";
+
+    protected static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
 
     protected static final String INDEX_NAME = "TEST_IDX";
 
-    // Short name is convenient for initialization in @InjectConfiguration.
-    protected static final String TABLE_NAME = "foo";
-
-    private static List<ColumnDefinition> allTypesColumnDefinitions() {
-        Stream<ColumnType> allColumnTypes = Stream.of(
-                ColumnType.INT8,
-                ColumnType.INT16,
-                ColumnType.INT32,
-                ColumnType.INT64,
-                ColumnType.FLOAT,
-                ColumnType.DOUBLE,
-                ColumnType.UUID,
-                ColumnType.DATE,
-                ColumnType.bitmaskOf(32),
-                ColumnType.string(),
-                ColumnType.blob(),
-                ColumnType.number(),
-                ColumnType.decimal(),
-                ColumnType.time(),
-                ColumnType.datetime(),
-                ColumnType.timestamp()
+    private static List<ColumnParams> allTypesColumnParams() {
+        return List.of(
+                columnParamsBuilder(ColumnType.INT8).nullable(true).build(),
+                columnParamsBuilder(ColumnType.INT16).nullable(true).build(),
+                columnParamsBuilder(ColumnType.INT32).nullable(true).build(),
+                columnParamsBuilder(ColumnType.INT64).nullable(true).build(),
+                columnParamsBuilder(ColumnType.FLOAT).nullable(true).build(),
+                columnParamsBuilder(ColumnType.DOUBLE).nullable(true).build(),
+                columnParamsBuilder(ColumnType.UUID).nullable(true).build(),
+                columnParamsBuilder(ColumnType.DATE).nullable(true).build(),
+                columnParamsBuilder(ColumnType.BITMASK).length(100).nullable(true).build(),
+                columnParamsBuilder(ColumnType.STRING).length(100).nullable(true).build(),
+                columnParamsBuilder(ColumnType.BYTE_ARRAY).length(100).nullable(true).build(),
+                columnParamsBuilder(ColumnType.NUMBER).precision(10).nullable(true).build(),
+                columnParamsBuilder(ColumnType.DECIMAL).precision(19).scale(3).nullable(true).build(),
+                columnParamsBuilder(ColumnType.TIME).precision(0).nullable(true).build(),
+                columnParamsBuilder(ColumnType.DATETIME).precision(6).nullable(true).build(),
+                columnParamsBuilder(ColumnType.TIMESTAMP).precision(6).nullable(true).build()
         );
-
-        return allColumnTypes
-                .map(type -> column(columnName(type), type).asNullable(true).build())
-                .collect(toUnmodifiableList());
     }
 
     private final long seed = System.currentTimeMillis();
@@ -116,7 +120,11 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
     protected MvPartitionStorage partitionStorage;
 
-    TablesConfiguration tablesCfg;
+    protected final AtomicInteger catalogId = new AtomicInteger();
+
+    protected final CatalogService catalogService = mock(CatalogService.class);
+
+    protected final HybridClock clock = new HybridClockImpl();
 
     @BeforeEach
     void setUp() {
@@ -127,7 +135,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
      * Returns a name of the column with given type.
      */
     protected static String columnName(ColumnType type) {
-        return type.typeSpec().name();
+        return type.name();
     }
 
     /**
@@ -135,31 +143,40 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
      *
      * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
      */
-    protected final void initialize(MvTableStorage tableStorage, TablesConfiguration tablesCfg) {
-        this.tablesCfg = tablesCfg;
+    protected final void initialize(MvTableStorage tableStorage) {
         this.tableStorage = tableStorage;
         this.partitionStorage = getOrCreateMvPartition(tableStorage, TEST_PARTITION);
 
-        createTestTable(tablesCfg.tables().get("foo"));
+        createTestTable();
     }
 
     /**
      * Configures a test table with columns of all supported types.
      */
-    private static void createTestTable(TableConfiguration tableCfg) {
-        ColumnDefinition pkColumn = column("pk", ColumnType.INT32).asNullable(false).build();
+    private void createTestTable() {
+        ColumnParams pkColumn = ColumnParams.builder().name("pk").type(ColumnType.INT32).nullable(false).build();
 
-        ColumnDefinition[] allColumns = Stream.concat(Stream.of(pkColumn), ALL_TYPES_COLUMN_DEFINITIONS.stream())
-                .toArray(ColumnDefinition[]::new);
+        int schemaId = catalogId.getAndIncrement();
+        int tableId = catalogId.getAndIncrement();
+        int zoneId = catalogId.getAndIncrement();
+        int pkIndexId = catalogId.getAndIncrement();
 
-        TableDefinition tableDefinition = tableBuilder("test", TABLE_NAME)
-                .columns(allColumns)
-                .withPrimaryKey(pkColumn.name())
-                .build();
+        CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
+                tableId,
+                schemaId,
+                pkIndexId,
+                TABLE_NAME,
+                zoneId,
+                Stream.concat(Stream.of(pkColumn), ALL_TYPES_COLUMN_PARAMS.stream()).map(CatalogUtils::fromParams).collect(toList()),
+                List.of("pk"),
+                null,
+                DEFAULT_STORAGE_PROFILE
+        );
 
-        CompletableFuture<Void> createTableFuture = tableCfg.change(cfg -> convert(tableDefinition, cfg));
+        when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
+        when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
 
-        assertThat(createTableFuture, willCompleteSuccessfully());
+        createCatalogIndexDescriptor(tableId, pkIndexId, PK_INDEX_NAME, pkColumn.type());
     }
 
     /**
@@ -174,12 +191,14 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
      */
     protected abstract D indexDescriptor(S index);
 
+    abstract CatalogIndexDescriptor createCatalogIndexDescriptor(int tableId, int indexId, String indexName, ColumnType... columnTypes);
+
     /**
      * Tests the {@link IndexStorage#get} method.
      */
     @Test
     public void testGet() {
-        S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.string());
+        S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
         var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
 
         // First two rows have the same index key, but different row IDs.
@@ -204,7 +223,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
     @Test
     public void testGetConcurrentPut() {
-        S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.string());
+        S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
         var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
 
         Object[] columnValues = { 1, "foo" };
@@ -229,7 +248,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
     @Test
     public void testGetConcurrentReplace() {
-        S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.string());
+        S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
         var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
 
         Object[] columnValues = { 1, "foo" };
@@ -258,7 +277,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
      */
     @Test
     public void testPutIdempotence() {
-        S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.string());
+        S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
         var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
 
         IndexRow row = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
@@ -280,7 +299,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
      */
     @Test
     public void testRemove() {
-        S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.string());
+        S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
         var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
 
         IndexRow row1 = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
@@ -319,7 +338,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
      */
     @Test
     public void testRemoveIdempotence() {
-        S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.string());
+        S index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
         var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
 
         IndexRow row = serializer.serializeRow(new Object[]{ 1, "foo" }, new RowId(TEST_PARTITION));
@@ -333,6 +352,32 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         assertThat(getAll(index, row), is(empty()));
 
         assertDoesNotThrow(() -> remove(index, row));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testNextRowIdToBuild(boolean pk) {
+        IndexStorage indexStorage;
+
+        if (pk) {
+            indexStorage = createPkIndexStorage();
+
+            assertNull(indexStorage.getNextRowIdToBuild());
+        } else {
+            indexStorage = createIndexStorage(INDEX_NAME, ColumnType.INT32);
+
+            assertEquals(initialRowIdToBuild(TEST_PARTITION), indexStorage.getNextRowIdToBuild());
+        }
+
+        var newNextRowIdToBuild = new RowId(TEST_PARTITION);
+
+        partitionStorage.runConsistently(locker -> {
+            indexStorage.setNextRowIdToBuild(newNextRowIdToBuild);
+
+            return null;
+        });
+
+        assertEquals(newNextRowIdToBuild, newNextRowIdToBuild);
     }
 
     protected static Collection<RowId> getAll(IndexStorage index, IndexRow row) {
@@ -376,5 +421,25 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
             return null;
         });
+    }
+
+    private static ColumnParams.Builder columnParamsBuilder(ColumnType columnType) {
+        return ColumnParams.builder().name(columnName(columnType)).type(columnType);
+    }
+
+    void addToCatalog(CatalogIndexDescriptor indexDescriptor) {
+        when(catalogService.aliveIndex(eq(indexDescriptor.name()), anyLong())).thenReturn(indexDescriptor);
+        when(catalogService.index(eq(indexDescriptor.id()), anyInt())).thenReturn(indexDescriptor);
+    }
+
+    IndexStorage createPkIndexStorage() {
+        CatalogTableDescriptor tableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+
+        CatalogIndexDescriptor pkIndexDescriptor = catalogService.aliveIndex(PK_INDEX_NAME, clock.nowLong());
+
+        return tableStorage.getOrCreateIndex(
+                TEST_PARTITION,
+                StorageIndexDescriptor.create(tableDescriptor, pkIndexDescriptor)
+        );
     }
 }

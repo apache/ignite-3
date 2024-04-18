@@ -146,4 +146,28 @@ public class ClientOp {
 
     /** JDBC command to commit/rollback transaction. */
     public static final int JDBC_TX_FINISH = 55;
+
+    /** Execute SQL script. */
+    public static final int SQL_EXEC_SCRIPT = 56;
+
+    /** SQL query metadata. */
+    public static final int SQL_QUERY_META = 57;
+
+    /** JDBC get more results command. */
+    public static final int JDBC_MORE_RESULTS = 58;
+
+    /** Get compute job status. */
+    public static final int COMPUTE_GET_STATUS = 59;
+
+    /** Cancel compute job. */
+    public static final int COMPUTE_CANCEL = 60;
+
+    /** Change compute job priority. */
+    public static final int COMPUTE_CHANGE_PRIORITY = 61;
+
+    /** Send streamer batch. */
+    public static final int STREAMER_BATCH_SEND = 62;
+
+    /** Execute SQL query with the parameters batch. */
+    public static final int SQL_EXEC_BATCH = 63;
 }

@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.replicator.message;
 
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * When some request is failed in {@link ReplicaService} with a {@link ReplicaUnavailableException}

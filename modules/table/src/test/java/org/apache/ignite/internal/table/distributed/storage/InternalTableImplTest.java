@@ -19,12 +19,11 @@ package org.apache.ignite.internal.table.distributed.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithRestoreOrder;
-import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectMultiRowsResponsesWithoutRestoreOrder;
+import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.collectRejectedRowsResponsesWithRestoreOrder;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -35,35 +34,48 @@ import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.SingleClusterNodeResolver;
 import org.junit.jupiter.api.Test;
 
 /**
  * For {@link InternalTableImpl} testing.
  */
-public class InternalTableImplTest {
+public class InternalTableImplTest extends BaseIgniteAbstractTest {
     @Test
     void testUpdatePartitionTrackers() {
         InternalTableImpl internalTable = new InternalTableImpl(
                 "test",
                 1,
-                Int2ObjectMaps.emptyMap(),
                 1,
-                s -> mock(ClusterNode.class),
+                new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
-                mock(HybridClock.class)
+                mock(HybridClock.class),
+                new HybridTimestampTracker(),
+                mock(PlacementDriver.class),
+                new TableRaftServiceImpl("test", 1, Int2ObjectMaps.emptyMap(), new SingleClusterNodeResolver(mock(ClusterNode.class))),
+                mock(TransactionInflights.class),
+                3_000,
+                0,
+                null
         );
 
         // Let's check the empty table.
@@ -100,14 +112,20 @@ public class InternalTableImplTest {
         InternalTableImpl internalTable = new InternalTableImpl(
                 "test",
                 1,
-                Int2ObjectMaps.emptyMap(),
                 3,
-                s -> mock(ClusterNode.class),
+                new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
-                mock(HybridClock.class)
+                mock(HybridClock.class),
+                new HybridTimestampTracker(),
+                mock(PlacementDriver.class),
+                new TableRaftServiceImpl("test", 3, Int2ObjectMaps.emptyMap(), new SingleClusterNodeResolver(mock(ClusterNode.class))),
+                mock(TransactionInflights.class),
+                3_000,
+                0,
+                null
         );
 
         List<BinaryRowEx> originalRows = List.of(
@@ -144,9 +162,39 @@ public class InternalTableImplTest {
                 willBe(equalTo(originalRows))
         );
 
+        var part1 = new ArrayList<>(2);
+
+        part1.add(null);
+        part1.add(new NullBinaryRow());
+
+        rowBatchByPartitionId.get(0).resultFuture = completedFuture(part1);
+
+        var part2 = new ArrayList<>(2);
+
+        part2.add(null);
+
+        rowBatchByPartitionId.get(1).resultFuture = completedFuture(part2);
+
+        var part3 = new ArrayList<>(2);
+
+        part3.add(new NullBinaryRow());
+        part3.add(null);
+        part3.add(new NullBinaryRow());
+
+        rowBatchByPartitionId.get(2).resultFuture = completedFuture(part3);
+
+        List<BinaryRowEx> rejectedRows = List.of(
+                // Rows for 0 partition.
+                originalRows.get(0),
+                // Rows for 1 partition.
+                originalRows.get(2),
+                // Rows for 2 partition.
+                originalRows.get(4)
+        );
+
         assertThat(
-                collectMultiRowsResponsesWithoutRestoreOrder(rowBatchByPartitionId.values()),
-                willBe(hasItems(originalRows.toArray(BinaryRowEx[]::new)))
+                collectRejectedRowsResponsesWithRestoreOrder(rowBatchByPartitionId.values()),
+                willBe(equalTo(rejectedRows))
         );
     }
 

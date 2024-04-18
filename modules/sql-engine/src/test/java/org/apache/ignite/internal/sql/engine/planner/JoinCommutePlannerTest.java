@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -35,8 +35,6 @@ import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.rules.FilterJoinRule.JoinConditionPushRule;
 import org.apache.calcite.rel.rules.FilterJoinRule.JoinConditionPushRule.JoinConditionPushRuleConfig;
 import org.apache.calcite.rel.rules.JoinCommuteRule;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.rel.IgniteNestedLoopJoin;
@@ -45,8 +43,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -63,32 +61,23 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
     @BeforeAll
     public static void init() {
         publicSchema = createSchema(
-                new TestTable(
-                        "HUGE",
-                        new RelDataTypeFactory.Builder(TYPE_FACTORY)
-                                .add("ID", TYPE_FACTORY.createJavaType(Integer.class))
-                                .build(), 1_000) {
-
-                    @Override
-                    public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
-                    }
-                },
-                new TestTable(
-                        "SMALL",
-                        new RelDataTypeFactory.Builder(TYPE_FACTORY)
-                                .add("ID", TYPE_FACTORY.createJavaType(Integer.class))
-                                .build(), 10) {
-
-                    @Override
-                    public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
-                    }
-                }
+                TestBuilders.table()
+                        .name("HUGE")
+                        .addColumn("ID", NativeTypes.INT32)
+                        .distribution(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
+                        .size(1_000)
+                        .build(),
+                TestBuilders.table()
+                        .name("SMALL")
+                        .addColumn("ID", NativeTypes.INT32)
+                        .distribution(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
+                        .size(10)
+                        .build()
         );
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16334")
     public void testEnforceJoinOrderHint() throws Exception {
         String sqlJoinCommuteWithNoHint = "SELECT COUNT(*) FROM SMALL s, HUGE h, HUGE h1 WHERE h.id = s.id and h1.id=s.id";
         String sqlJoinCommuteWithHint =
@@ -123,7 +112,8 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testOuterCommute() throws Exception {
-        String sql = "SELECT COUNT(*) FROM SMALL s RIGHT JOIN HUGE h on h.id = s.id";
+        // Use aggregates that are the same for both MAP and REDUCE phases.
+        String sql = "SELECT SUM(s.id), SUM(h.id) FROM SMALL s RIGHT JOIN HUGE h on h.id = s.id";
 
         IgniteRel phys = physicalPlan(sql, publicSchema, "MergeJoinConverter", "CorrelatedNestedLoopJoin");
 
@@ -173,7 +163,8 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testInnerCommute() throws Exception {
-        String sql = "SELECT COUNT(*) FROM SMALL s JOIN HUGE h on h.id = s.id";
+        // Use aggregates that are the same for both MAP and REDUCE phases.
+        String sql = "SELECT SUM(s.id), SUM(h.id) FROM SMALL s JOIN HUGE h on h.id = s.id";
 
         IgniteRel phys = physicalPlan(sql, publicSchema, "MergeJoinConverter", "CorrelatedNestedLoopJoin");
 

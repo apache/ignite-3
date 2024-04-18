@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cli;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper.copyResourceToTempFile;
+import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
@@ -34,6 +35,7 @@ import static org.mockserver.model.JsonBody.json;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -149,7 +151,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
-                assertOutputEqual("Node configuration was updated successfully");
+                assertOutputEqual("Node configuration updated. "
+                        + fg(Color.YELLOW).mark("Restart the node to apply changes."));
                 assertThatStderrIsEmpty();
             }
         }
@@ -283,7 +286,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         void initWithAuthenticationSuccess() throws IOException {
 
             Path clusterConfigurationFile = copyResourceToTempFile("cluster-configuration-with-enabled-auth.conf").toPath();
-            String clusterConfiguration = new String(Files.readAllBytes(clusterConfigurationFile));
+            String clusterConfiguration = Files.readString(clusterConfigurationFile);
 
             var expectedSentContent = "{\n"
                     + "  \"metaStorageNodes\": [\n"

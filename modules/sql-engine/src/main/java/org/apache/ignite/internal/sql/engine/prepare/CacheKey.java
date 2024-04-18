@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.Arrays;
 import java.util.Objects;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * CacheKey.
@@ -26,7 +27,9 @@ import java.util.Objects;
  * context could be schema name, dynamic parameters, and so on...
  */
 public class CacheKey {
-    public static final Class[] EMPTY_CLASS_ARRAY = {};
+    static final ColumnType[] EMPTY_CLASS_ARRAY = {};
+
+    private final int catalogVersion;
 
     private final String schemaName;
 
@@ -34,32 +37,24 @@ public class CacheKey {
 
     private final Object contextKey;
 
-    private final Class[] paramTypes;
+    private final Object[] paramTypes;
 
     /**
      * Constructor.
      *
+     * @param catalogVersion Catalog version.
      * @param schemaName Schema name.
      * @param query      Query string.
      * @param contextKey Optional context key to differ queries with and without/different flags, having an impact on result plan (like
      *                   LOCAL flag)
      * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
      */
-    public CacheKey(String schemaName, String query, Object contextKey, Class[] paramTypes) {
+    public CacheKey(int catalogVersion, String schemaName, String query, Object contextKey, ColumnType[] paramTypes) {
+        this.catalogVersion = catalogVersion;
         this.schemaName = schemaName;
         this.query = query;
         this.contextKey = contextKey;
         this.paramTypes = paramTypes;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param schemaName Schema name.
-     * @param query      Query string.
-     */
-    public CacheKey(String schemaName, String query) {
-        this(schemaName, query, null, EMPTY_CLASS_ARRAY);
     }
 
     /** {@inheritDoc} */
@@ -74,6 +69,9 @@ public class CacheKey {
 
         CacheKey cacheKey = (CacheKey) o;
 
+        if (catalogVersion != cacheKey.catalogVersion) {
+            return false;
+        }
         if (!schemaName.equals(cacheKey.schemaName)) {
             return false;
         }
@@ -89,7 +87,8 @@ public class CacheKey {
 
     @Override
     public int hashCode() {
-        int result = schemaName.hashCode();
+        int result = catalogVersion;
+        result = 31 * result + schemaName.hashCode();
         result = 31 * result + query.hashCode();
         result = 31 * result + (contextKey != null ? contextKey.hashCode() : 0);
         result = 31 * result + Arrays.deepHashCode(paramTypes);

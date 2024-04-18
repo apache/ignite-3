@@ -34,13 +34,16 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 
@@ -51,17 +54,19 @@ import org.junit.jupiter.api.Test;
 public class RuntimeSortedIndexTest extends IgniteAbstractTest {
     private static final int UNIQUE_GROUPS = 10_000;
 
-    private static final int[] NOT_UNIQUE_ROWS_IN_GROUP = new int[]{1, 10};
+    private static final int[] NOT_UNIQUE_ROWS_IN_GROUP = {1, 10};
 
-    private static final Pair<Class<?>[], ImmutableIntList>[] ROW_TYPES = new Pair[]{
-            new Pair(new Class<?>[]{int.class, int.class, int.class}, ImmutableIntList.of(1)),
-            new Pair(new Class<?>[]{int.class, long.class, int.class}, ImmutableIntList.of(1)),
-            new Pair(new Class<?>[]{int.class, String.class, int.class}, ImmutableIntList.of(1)),
-            new Pair(new Class<?>[]{int.class, Date.class, int.class}, ImmutableIntList.of(1)),
-            new Pair(new Class<?>[]{int.class, Time.class, int.class}, ImmutableIntList.of(1)),
-            new Pair(new Class<?>[]{int.class, Timestamp.class, int.class}, ImmutableIntList.of(1)),
-            new Pair(new Class<?>[]{int.class, String.class, Time.class, Date.class, Timestamp.class, int.class},
-                    ImmutableIntList.of(1, 2, 3, 4))
+    private static final Pair<NativeType[], ImmutableIntList>[] ROW_TYPES = new Pair[]{
+            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.INT32, NativeTypes.INT32}, ImmutableIntList.of(1)),
+
+            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.INT64, NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.DATE, NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.time(0), NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.datetime(6), NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.timestamp(6), NativeTypes.INT32}, ImmutableIntList.of(1)),
+            new Pair(new NativeType[]{NativeTypes.INT32, NativeTypes.STRING, NativeTypes.time(0),
+                    NativeTypes.DATE, NativeTypes.datetime(6), NativeTypes.INT32}, ImmutableIntList.of(1, 2, 3, 4))
     };
 
     /** Search count. */
@@ -72,7 +77,7 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
         IgniteTypeFactory tf = Commons.typeFactory();
 
         List<Pair<RelDataType, ImmutableIntList>> testIndexes = Arrays.stream(ROW_TYPES)
-                .map(rt -> Pair.of(TypeUtils.createRowType(tf, rt.getKey()), rt.getValue()))
+                .map(rt -> Pair.of(TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, rt.getKey())), rt.getValue()))
                 .collect(Collectors.toList());
 
         for (Pair<RelDataType, ImmutableIntList> testIdx : testIndexes) {
@@ -109,17 +114,15 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
     private RuntimeSortedIndex<Object[]> generate(RelDataType rowType, final List<Integer> idxCols, int notUnique) {
         RuntimeSortedIndex<Object[]> idx = new RuntimeSortedIndex<>(
                 new ExecutionContext<>(
-                        BaseQueryContext.builder()
-                                .logger(log)
-                                .build(),
                         null,
                         UUID.randomUUID(),
-                        new ClusterNode("1", "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
+                        new ClusterNodeImpl("1", "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
                         "fake-test-node",
                         null,
                         ArrayRowHandler.INSTANCE,
                         Map.of(),
-                        null
+                        null,
+                        SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
                 ),
                 RelCollations.of(ImmutableIntList.copyOf(idxCols)),
                 (o1, o2) -> {

@@ -41,9 +41,9 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -52,11 +52,11 @@ import org.junit.jupiter.api.Test;
 /**
  * SQL tests.
  */
+@SuppressWarnings("resource")
 public class ClientSqlTest extends AbstractClientTableTest {
     @Test
     public void testExecuteAsync() {
-        Session session = client.sql().createSession();
-        AsyncResultSet<SqlRow> resultSet = session.executeAsync(null, "SELECT 1").join();
+        AsyncResultSet<SqlRow> resultSet =  client.sql().executeAsync(null, "SELECT 1").join();
 
         assertTrue(resultSet.hasRowSet());
         assertFalse(resultSet.wasApplied());
@@ -68,8 +68,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
 
     @Test
     public void testExecute() {
-        Session session = client.sql().createSession();
-        ResultSet<SqlRow> resultSet = session.execute(null, "SELECT 1");
+        ResultSet<SqlRow> resultSet =  client.sql().execute(null, "SELECT 1");
 
         assertTrue(resultSet.hasRowSet());
         assertFalse(resultSet.wasApplied());
@@ -79,47 +78,15 @@ public class ClientSqlTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testSessionPropertiesPropagation() {
-        Session session = client.sql().sessionBuilder()
-                .defaultSchema("SCHEMA1")
-                .defaultQueryTimeout(123, TimeUnit.SECONDS)
-                .defaultPageSize(234)
-                .property("prop1", "1")
-                .property("prop2", "2")
-                .build();
-
-        AsyncResultSet<SqlRow> resultSet = session.executeAsync(null, "SELECT PROPS").join();
-
-        Map<String, Object> props = StreamSupport.stream(resultSet.currentPage().spliterator(), false)
-                .collect(Collectors.toMap(x -> x.stringValue(0), x -> x.value(1)));
-
-        assertEquals("SCHEMA1", props.get("schema"));
-        assertEquals("123000", props.get("timeout"));
-        assertEquals("234", props.get("pageSize"));
-        assertEquals("1", props.get("prop1"));
-        assertEquals("2", props.get("prop2"));
-    }
-
-    @Test
-    public void testStatementPropertiesOverrideSessionProperties() {
-        Session session = client.sql().sessionBuilder()
-                .defaultSchema("SCHEMA1")
-                .defaultQueryTimeout(123, TimeUnit.SECONDS)
-                .defaultPageSize(234)
-                .property("prop1", "1")
-                .property("prop2", "2")
-                .build();
-
+    public void testStatementPropertiesPropagation() {
         Statement statement = client.sql().statementBuilder()
                 .query("SELECT PROPS")
                 .defaultSchema("SCHEMA2")
                 .queryTimeout(124, TimeUnit.SECONDS)
                 .pageSize(235)
-                .property("prop2", "22")
-                .property("prop3", "3")
                 .build();
 
-        AsyncResultSet<SqlRow> resultSet = session.executeAsync(null, statement).join();
+        AsyncResultSet<SqlRow> resultSet = client.sql().executeAsync(null, statement).join();
 
         Map<String, Object> props = StreamSupport.stream(resultSet.currentPage().spliterator(), false)
                 .collect(Collectors.toMap(x -> x.stringValue(0), x -> x.value(1)));
@@ -127,15 +94,11 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals("SCHEMA2", props.get("schema"));
         assertEquals("124000", props.get("timeout"));
         assertEquals("235", props.get("pageSize"));
-        assertEquals("1", props.get("prop1"));
-        assertEquals("22", props.get("prop2"));
-        assertEquals("3", props.get("prop3"));
     }
 
     @Test
     public void testMetadata() {
-        Session session = client.sql().createSession();
-        ResultSet<SqlRow> resultSet = session.execute(null, "SELECT META");
+        ResultSet<SqlRow> resultSet =  client.sql().execute(null, "SELECT META");
         ResultSetMetadata meta = resultSet.metadata();
         SqlRow row = resultSet.next();
 
@@ -214,5 +177,33 @@ public class ClientSqlTest extends AbstractClientTableTest {
 
         assertEquals(BigInteger.valueOf(42), row.value(17));
         assertEquals(ColumnType.NUMBER, meta.columns().get(17).type());
+    }
+
+    @Test
+    public void testExecuteScript() {
+        IgniteSql sql = client.sql();
+
+        sql.executeScript("foo");
+
+        ResultSet<SqlRow> resultSet = sql.execute(null, "SELECT LAST SCRIPT");
+        SqlRow row = resultSet.next();
+
+        assertEquals(
+                "foo, arguments: [], defaultSchema=<not set>, defaultQueryTimeout=0",
+                row.value(0));
+    }
+
+    @Test
+    public void testExecuteScriptWithPropertiesAndArguments() {
+        IgniteSql sql = client.sql();
+
+        sql.executeScript("do bar baz", "arg1", null, 2);
+
+        ResultSet<SqlRow> resultSet = sql.execute(null, "SELECT LAST SCRIPT");
+        SqlRow row = resultSet.next();
+
+        assertEquals(
+                "do bar baz, arguments: [arg1, null, 2, ], defaultSchema=<not set>, defaultQueryTimeout=0",
+                row.value(0));
     }
 }

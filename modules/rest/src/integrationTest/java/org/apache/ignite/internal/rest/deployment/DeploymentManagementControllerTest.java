@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.rest.constants.HttpCode.CONFLICT;
 import static org.apache.ignite.internal.rest.constants.HttpCode.NOT_FOUND;
 import static org.apache.ignite.internal.rest.constants.HttpCode.OK;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -44,6 +43,7 @@ import io.micronaut.http.client.annotation.Client;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.http.client.multipart.MultipartBody;
 import io.micronaut.http.client.multipart.MultipartBody.Builder;
+import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.io.File;
 import java.io.IOException;
@@ -53,19 +53,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.apache.ignite.internal.rest.api.deployment.UnitVersionStatus;
-import org.apache.ignite.internal.testframework.IntegrationTestBase;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Integration test for REST controller {@link DeploymentManagementController}.
  */
-public class DeploymentManagementControllerTest extends IntegrationTestBase {
-    private static Path dummyFile;
+@MicronautTest(rebuildContext = true)
+public class DeploymentManagementControllerTest extends ClusterPerTestIntegrationTest {
+    private static final String NODE_URL = "http://localhost:" + Cluster.BASE_HTTP_PORT;
+
+    private Path dummyFile;
 
     private static final long SIZE_IN_BYTES = 1024L;
 
@@ -74,12 +76,8 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
     HttpClient client;
 
     @BeforeEach
-    public void setup(TestInfo testInfo) throws IOException {
-        startNodes(testInfo);
-        String metaStorageNodeName = testNodeName(testInfo, 0);
-        initializeCluster(metaStorageNodeName);
-
-        dummyFile = WORK_DIR.resolve("dummy.txt");
+    public void setup() throws IOException {
+        dummyFile = workDir.resolve("dummy.txt");
 
         if (!Files.exists(dummyFile)) {
             try (SeekableByteChannel channel = Files.newByteChannel(dummyFile, WRITE, CREATE)) {
@@ -90,11 +88,6 @@ public class DeploymentManagementControllerTest extends IntegrationTestBase {
                 channel.write(buf);
             }
         }
-    }
-
-    @AfterEach
-    public void cleanup(TestInfo testInfo) throws Exception {
-        stopNodes(testInfo);
     }
 
     @Test

@@ -23,9 +23,9 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_SHORT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.List;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvider;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
+import org.apache.ignite.internal.cli.event.Events;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine.Model.OptionSpec;
 
@@ -36,7 +36,7 @@ class SessionDefaultValueProviderTest {
     @Test
     void jdbcUrl() throws Exception {
         // Given
-        Session session = new Session(List.of());
+        Session session = new Session();
         ConfigDefaultValueProvider configDefaultValueProvider = new ConfigDefaultValueProvider(new TestConfigManagerProvider());
         SessionDefaultValueProvider provider = new SessionDefaultValueProvider(session, configDefaultValueProvider);
 
@@ -47,7 +47,7 @@ class SessionDefaultValueProviderTest {
         assertEquals(JDBC_URL_CONFIG, provider.defaultValue(spec));
 
         // When session is connected
-        session.connect(new SessionInfo("nodeUrl", "nodeName", JDBC_URL_SESSION, null));
+        session.onEvent(Events.connect(SessionInfo.builder().nodeUrl("nodeUrl").nodeName("nodeName").jdbcUrl(JDBC_URL_SESSION).build()));
 
         // Then default value is taken from the session
         assertEquals(JDBC_URL_SESSION, provider.defaultValue(spec));

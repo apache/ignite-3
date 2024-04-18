@@ -17,21 +17,25 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metastorage.WatchEvent;
 
 /**
- * Interface for declaring callbacks that get called after all Meta Storage watches have been notified of a particular revision.
+ * Interface for declaring callbacks that get called after all Meta Storage watches have been notified of a particular revision
+ * and/or when SafeTime gets advanced.
  */
-@FunctionalInterface
 public interface OnRevisionAppliedCallback {
+    /**
+     * Invoked whenever MetaStorage Safe Time gets advanced (either because a write command is applied,
+     * together with all watches that process it, or because idle safe time mechanism advanced Safe Time).
+     *
+     * @param newSafeTime New safe time value.
+     */
+    void onSafeTimeAdvanced(HybridTimestamp newSafeTime);
+
     /**
      * Notifies of completion of processing of Meta Storage watches for a particular revision.
      *
-     * @param watchEvent Event with modified Meta Storage entries processed by at least one Watch.
-     * @param newSafeTime Safe time of the applied revision.
-     * @return Future that represents the state of the execution of the callback.
+     * @param revision Latest applied meta-storage revision.
      */
-    CompletableFuture<Void> onRevisionApplied(WatchEvent watchEvent, HybridTimestamp newSafeTime);
+    void onRevisionApplied(long revision);
 }

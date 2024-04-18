@@ -26,21 +26,124 @@
         PMD Ruleset for Apache Ignite
     </description>
 
-    <rule ref="category/java/errorprone.xml/EmptyFinallyBlock"/>
-    <rule ref="category/java/errorprone.xml/AvoidCatchingNPE"/>
-    <rule ref="category/java/errorprone.xml/BrokenNullCheck"/>
-    <rule ref="category/java/errorprone.xml/EmptySwitchStatements"/>
-    <rule ref="category/java/errorprone.xml/EmptyStatementNotInLoop"/>
-    <rule ref="category/java/errorprone.xml/EmptySynchronizedBlock"/>
-    <rule ref="category/java/errorprone.xml/UselessOperationOnImmutable"/>
-
     <rule ref="category/java/bestpractices.xml/UnusedLocalVariable"/>
     <rule ref="category/java/bestpractices.xml/UnusedPrivateField"/>
+    <rule ref="category/java/bestpractices.xml/AvoidPrintStackTrace" />
+    <rule ref="category/java/bestpractices.xml/AvoidReassigningCatchVariables" />
+    <rule ref="category/java/bestpractices.xml/MissingOverride" />
+    <rule ref="category/java/bestpractices.xml/OneDeclarationPerLine">
+        <properties>
+            <property name="strictMode" value="true" />
+        </properties>
+    </rule>
+    <rule ref="category/java/bestpractices.xml/ReplaceHashtableWithMap" />
+    <rule ref="category/java/bestpractices.xml/ReplaceVectorWithList" />
+    <rule ref="category/java/bestpractices.xml/SimplifiableTestAssertion" />
+    <rule ref="category/java/bestpractices.xml/UseCollectionIsEmpty" />
+
+
+    <rule ref="category/java/errorprone.xml/AvoidCatchingNPE"/>
+    <rule ref="category/java/errorprone.xml/BrokenNullCheck"/>
+    <rule ref="category/java/errorprone.xml/UselessOperationOnImmutable"/>
+    <rule ref="category/java/errorprone.xml/AvoidCallingFinalize" />
+    <rule ref="category/java/errorprone.xml/DontUseFloatTypeForLoopIndices" />
+    <rule ref="category/java/errorprone.xml/EqualsNull" />
+    <rule ref="category/java/errorprone.xml/IdempotentOperations" />
+    <rule ref="category/java/errorprone.xml/JumbledIncrementer" />
+    <rule ref="category/java/errorprone.xml/MisplacedNullCheck" />
+    <rule ref="category/java/errorprone.xml/MoreThanOneLogger" />
+    <rule ref="category/java/errorprone.xml/ReturnFromFinallyBlock" />
+    <rule ref="category/java/errorprone.xml/SimpleDateFormatNeedsLocale" />
+    <rule ref="category/java/errorprone.xml/SingletonClassReturningNewInstance" />
+    <rule ref="category/java/errorprone.xml/SuspiciousEqualsMethodName" />
+    <rule ref="category/java/errorprone.xml/SuspiciousHashcodeMethodName" />
+    <rule ref="category/java/errorprone.xml/SuspiciousOctalEscape" />
+    <rule ref="category/java/errorprone.xml/UnconditionalIfStatement" />
+    <rule ref="category/java/errorprone.xml/UnnecessaryBooleanAssertion" />
+    <rule ref="category/java/errorprone.xml/UnnecessaryCaseChange" />
+    <rule ref="category/java/errorprone.xml/UnnecessaryConversionTemporary" />
+    <rule ref="category/java/errorprone.xml/UnusedNullCheckInEquals" />
+    <rule ref="category/java/errorprone.xml/UseCorrectExceptionLogging" />
+    <rule ref="category/java/errorprone.xml/UseEqualsToCompareStrings" />
+    <rule ref="category/java/errorprone.xml/OverrideBothEqualsAndHashcode" />
+
+    <rule ref="category/java/codestyle.xml/EmptyControlStatement" />
+    <rule ref="category/java/codestyle.xml/AvoidProtectedFieldInFinalClass" />
+    <rule ref="category/java/codestyle.xml/AvoidProtectedMethodInFinalClassNotExtending" />
+    <rule ref="category/java/codestyle.xml/ExtendsObject" />
+    <rule ref="category/java/codestyle.xml/ForLoopShouldBeWhileLoop" />
+    <rule ref="category/java/codestyle.xml/FormalParameterNamingConventions" />
+    <rule ref="category/java/codestyle.xml/NoPackage" />
+    <rule ref="category/java/codestyle.xml/PackageCase" />
+    <rule ref="category/java/codestyle.xml/UnnecessaryCast" />
+    <rule ref="category/java/codestyle.xml/UnnecessaryReturn" />
+    <rule ref="category/java/codestyle.xml/UnnecessarySemicolon" />
+    <rule ref="category/java/codestyle.xml/UseDiamondOperator" />
+    <rule ref="category/java/codestyle.xml/UnnecessaryFullyQualifiedName" />
+    <rule ref="category/java/codestyle.xml/UselessQualifiedThis" />
+
+
+    <rule ref="category/java/performance.xml/AppendCharacterWithChar" />
+    <rule ref="category/java/performance.xml/AvoidArrayLoops" />
+    <rule ref="category/java/performance.xml/AvoidCalendarDateCreation" />
+    <rule ref="category/java/performance.xml/InefficientEmptyStringCheck" />
+    <rule ref="category/java/performance.xml/StringInstantiation" />
+    <rule ref="category/java/performance.xml/StringToString" />
+    <rule ref="category/java/performance.xml/UseArrayListInsteadOfVector" />
+    <rule ref="category/java/performance.xml/UseArraysAsList" />
+    <rule ref="category/java/performance.xml/UseIndexOfChar" />
+    <rule ref="category/java/performance.xml/UseIOStreamsWithApacheCommonsFileItem" />
+    <rule ref="category/java/performance.xml/UselessStringValueOf" />
+    <rule ref="category/java/performance.xml/UseStringBufferForStringAppends" />
+    <rule ref="category/java/performance.xml/UseStringBufferLength" />
+    <rule ref="category/java/performance.xml/AvoidFileStream" />
+    <rule ref="category/java/performance.xml/OptimizableToArrayCall" />
+    <rule ref="category/java/performance.xml/ConsecutiveAppendsShouldReuse" />
+    <rule ref="category/java/performance.xml/InefficientStringBuffering" />
+    <rule ref="category/java/performance.xml/BigIntegerInstantiation">
+        <properties>
+            <!-- Ignore in tests -->
+            <property name="violationSuppressXPath" value="//ClassOrInterfaceDeclaration['.*/src/test/java/.*']"/>
+        </properties>
+    </rule>
+
+
+    <rule ref="category/java/multithreading.xml/AvoidThreadGroup" />
+    <rule ref="category/java/multithreading.xml/DontCallThreadRun" />
+    <rule ref="category/java/multithreading.xml/DoubleCheckedLocking" />
+    <rule ref="category/java/multithreading.xml/NonThreadSafeSingleton" />
+    <rule ref="category/java/multithreading.xml/UnsynchronizedStaticFormatter" />
+    <rule ref="category/java/multithreading.xml/UseNotifyAllInsteadOfNotify" />
+
+
     <!--
         UnusedPrivateMethod has a known bug which leads to false positive triggering if
         method signature contains generic parameter and\or descendant class is passed as parameter.
         See for details: https://github.com/pmd/pmd/issues/770
+        This was fixed in PMD 7.0.0 so should be returned when we upgrade the PMD
     -->
     <!--    <rule ref="category/java/bestpractices.xml/UnusedPrivateMethod" />-->
 
+    <rule name="Prohibited classes"
+      language="java"
+      message="Avoid using these classes."
+      class="net.sourceforge.pmd.lang.rule.XPathRule" >
+        <description>
+            Avoid using these classes.
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+                    <![CDATA[
+//Name[pmd-java:typeIs('org.jetbrains.annotations.NotNull')]
+                    ]]>
+                </value>
+            </property>
+        </properties>
+    </rule>
+
+
+    <!-- exclusions -->
+    <exclude-pattern>.*/src/main/java/com/facebook/presto/.*</exclude-pattern>
 </ruleset>

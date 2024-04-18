@@ -21,16 +21,22 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -41,6 +47,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CyclicBarrier;
@@ -49,38 +56,70 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import org.apache.ignite.distributed.ItTxTestCluster;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.NodeFinder;
+import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
+import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -88,9 +127,19 @@ import org.mockito.quality.Strictness;
 /**
  * TODO asch IGNITE-15928 validate zero locks after test commit.
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public abstract class TxAbstractTest extends IgniteAbstractTest {
+    protected static final double BALANCE_1 = 500;
+
+    protected static final double BALANCE_2 = 500;
+
+    protected static final double DELTA = 100;
+
+    protected static final String ACC_TABLE_NAME = "accounts";
+
+    protected static final String CUST_TABLE_NAME = "customers";
+
     protected static SchemaDescriptor ACCOUNTS_SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("accountNumber".toUpperCase(), NativeTypes.INT64, false)},
@@ -104,26 +153,190 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     );
 
     /** Accounts table id -> balance. */
-    protected TableImpl accounts;
+    protected TableViewInternal accounts;
 
     /** Customers table id -> name. */
-    protected TableImpl customers;
+    protected TableViewInternal customers;
 
-    protected static final double BALANCE_1 = 500;
-
-    protected static final double BALANCE_2 = 500;
-
-    protected static final double DELTA = 100;
+    protected HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
 
     protected IgniteTransactions igniteTransactions;
 
-    protected TxManager clientTxManager;
+    // TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
+    @InjectConfiguration("mock: { fsync: false }")
+    protected RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    protected TransactionConfiguration txConfiguration;
+
+    @InjectConfiguration
+    protected StorageUpdateConfiguration storageUpdateConfiguration;
+
+    @InjectConfiguration
+    protected ReplicationConfiguration replicationConfiguration;
+
+    protected final TestInfo testInfo;
+
+    protected ItTxTestCluster txTestCluster;
+
+    /**
+     * Returns a count of nodes.
+     *
+     * @return Nodes.
+     */
+    protected abstract int nodes();
+
+    /**
+     * Returns a count of replicas.
+     *
+     * @return Replicas.
+     */
+    protected int replicas() {
+        return 1;
+    }
+
+    /**
+     * Returns {@code true} to disable collocation by using dedicated client node.
+     *
+     * @return {@code true} to disable collocation.
+     */
+    protected boolean startClient() {
+        return true;
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param testInfo Test info.
+     */
+    public TxAbstractTest(TestInfo testInfo) {
+        this.testInfo = testInfo;
+    }
 
     /**
      * Initialize the test state.
      */
     @BeforeEach
-    public abstract void before() throws Exception;
+    public void before() throws Exception {
+        txTestCluster = new ItTxTestCluster(
+                testInfo,
+                raftConfiguration,
+                txConfiguration,
+                storageUpdateConfiguration,
+                workDir,
+                nodes(),
+                replicas(),
+                startClient(),
+                timestampTracker,
+                replicationConfiguration
+        );
+        txTestCluster.prepareCluster();
+
+        this.igniteTransactions = txTestCluster.igniteTransactions();
+
+        accounts = txTestCluster.startTable(ACC_TABLE_NAME, ACCOUNTS_SCHEMA);
+        customers = txTestCluster.startTable(CUST_TABLE_NAME, CUSTOMERS_SCHEMA);
+
+        log.info("Tables have been started");
+    }
+
+    /**
+     * Shutdowns all cluster nodes after each test.
+     *
+     * @throws Exception If failed.
+     */
+    @AfterEach
+    public void after() throws Exception {
+        txTestCluster.shutdownCluster();
+        Mockito.framework().clearInlineMocks();
+    }
+
+    /**
+     * Starts a node.
+     *
+     * @param name Node name.
+     * @param port Local port.
+     * @param nodeFinder Node finder.
+     * @return The client cluster view.
+     */
+    public static ClusterService startNode(TestInfo testInfo, String name, int port,
+            NodeFinder nodeFinder) {
+        var network = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
+
+        network.start();
+
+        return network;
+    }
+
+    /** {@inheritDoc} */
+    protected TxManager clientTxManager() {
+        return txTestCluster.clientTxManager();
+    }
+
+    /** {@inheritDoc} */
+    protected TxManager txManager(TableViewInternal t) {
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = txTestCluster.placementDriver().getPrimaryReplica(
+                new TablePartitionId(t.tableId(), 0),
+                txTestCluster.clocks().get(txTestCluster.localNodeName()).now());
+
+        assertThat(primaryReplicaFuture, willCompleteSuccessfully());
+
+        TxManager manager = txTestCluster.txManagers().get(primaryReplicaFuture.join().getLeaseholder());
+
+        assertNotNull(manager);
+
+        return manager;
+    }
+
+    /**
+     * Check the storage of partition is the same across all nodes. The checking is based on {@link MvPartitionStorage#lastAppliedIndex()}
+     * that is increased on all update storage operation.
+     * TODO: IGNITE-18869 The method must be updated when a proper way to compare storages will be implemented.
+     *
+     * @param table The table.
+     * @param partId Partition id.
+     * @return True if {@link MvPartitionStorage#lastAppliedIndex()} is equivalent across all nodes, false otherwise.
+     */
+    protected boolean assertPartitionsSame(TableViewInternal table, int partId) {
+        long storageIdx = 0;
+
+        for (Map.Entry<String, Loza> entry : txTestCluster.raftServers().entrySet()) {
+            Loza svc = entry.getValue();
+
+            var server = (JraftServerImpl) svc.server();
+
+            var groupId = new TablePartitionId(table.tableId(), partId);
+
+            Peer serverPeer = server.localPeers(groupId).get(0);
+
+            RaftGroupService grp = server.raftGroupService(new RaftNodeId(groupId, serverPeer));
+
+            var fsm = (JraftServerImpl.DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
+
+            PartitionListener listener = (PartitionListener) fsm.getListener();
+
+            MvPartitionStorage storage = listener.getMvStorage();
+
+            if (storageIdx == 0) {
+                storageIdx = storage.lastAppliedIndex();
+            } else if (storageIdx != storage.lastAppliedIndex()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    protected void injectFailureOnNextOperation(TableViewInternal accounts) {
+        InternalTable internalTable = accounts.internalTable();
+        ReplicaService replicaService = IgniteTestUtils.getFieldValue(internalTable, "replicaSvc");
+        Mockito.doReturn(CompletableFuture.failedFuture(new Exception())).when(replicaService).invoke((String) any(), any());
+        Mockito.doReturn(CompletableFuture.failedFuture(new Exception())).when(replicaService).invoke((ClusterNode) any(), any());
+    }
+
+    protected Collection<TxManager> txManagers() {
+        return txTestCluster.txManagers().values();
+    }
 
     @Test
     public void testCommitRollbackSameTxDoesNotThrow() throws TransactionException {
@@ -152,6 +365,41 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
+    public void testRepeatedCommitRollbackAfterUpdateWithException() throws Exception {
+        injectFailureOnNextOperation(accounts);
+
+        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+
+        CompletableFuture<Void> fut = accounts.recordView().upsertAsync(tx, makeValue(1, 100.));
+
+        assertThrows(Exception.class, fut::join);
+
+        tx.commitAsync().join();
+
+        tx.rollbackAsync().join();
+
+        tx.commitAsync().join();
+    }
+
+    @Test
+    public void testRepeatedCommitRollbackAfterRollbackWithException() throws Exception {
+        InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
+
+        accounts.recordView().upsert(tx, makeValue(1, 100.));
+
+        injectFailureOnNextOperation(accounts);
+
+        CompletableFuture<Void> fut = tx.rollbackAsync();
+        assertThrows(Exception.class, fut::join);
+
+        tx.commitAsync().join();
+
+        tx.rollbackAsync().join();
+
+        tx.commitAsync().join();
+    }
+
+    @Test
     public void testDeleteUpsertCommit() throws TransactionException {
         deleteUpsert().commit();
 
@@ -165,7 +413,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(100., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
     }
 
-    private InternalTransaction deleteUpsert() {
+    protected InternalTransaction deleteUpsert() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
@@ -191,8 +439,11 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testDeleteUpsertAllRollback() throws TransactionException {
         deleteUpsertAll().rollback();
 
-        assertEquals(100., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
-        assertEquals(100., accounts.recordView().get(null, makeKey(2)).doubleValue("balance"));
+        var res1 = accounts.recordView().get(null, makeKey(1));
+        assertEquals(100., res1.doubleValue("balance"), "tuple =[" + res1 + "]");
+
+        var res2 = accounts.recordView().get(null, makeKey(2));
+        assertEquals(100., res2.doubleValue("balance"), "tuple =[" + res2 + "]");
     }
 
     private InternalTransaction deleteUpsertAll() {
@@ -201,6 +452,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         tuples.add(makeValue(2, 100.));
 
         accounts.recordView().upsertAll(null, tuples);
+
+        var res1 = accounts.recordView().get(null, makeKey(1));
+        assertEquals(100., res1.doubleValue("balance"), "tuple =[" + res1 + "]");
+
+        var res2 = accounts.recordView().get(null, makeKey(2));
+        assertEquals(100., res2.doubleValue("balance"), "tuple =[" + res2 + "]");
 
         InternalTransaction tx = (InternalTransaction) igniteTransactions.begin();
 
@@ -344,6 +601,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     /**
      * Tests negative transfer scenario.
      */
+    @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-17861")
     public void testTxClosureAbortAsync() {
         double balance1 = 10.;
@@ -385,7 +643,13 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         });
 
         var err = assertThrows(CompletionException.class, fut0::join);
-        assertEquals(IllegalArgumentException.class, err.getCause().getClass());
+
+        try {
+            assertInstanceOf(IllegalArgumentException.class, err.getCause());
+        } catch (AssertionError e) {
+            throw new AssertionError("Unexpected exception type", err);
+        }
+
         assertEquals(balance, view.get(null, makeKey(1)).doubleValue("balance"));
     }
 
@@ -405,7 +669,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         });
 
         var err = assertThrows(CompletionException.class, fut0::join);
-        assertEquals(NullPointerException.class, err.getCause().getClass());
+
+        try {
+            assertInstanceOf(NullPointerException.class, err.getCause());
+        } catch (AssertionError e) {
+            throw new AssertionError("Unexpected exception type", err);
+        }
     }
 
     @Test
@@ -501,15 +770,14 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                 .thenCompose(tx -> accounts.recordView().getAsync(tx, makeKey(1))
                         .thenCombine(accounts.recordView().getAsync(tx, makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
                         .thenCompose(pair -> allOf(
-                                accounts.recordView().upsertAsync(
-                                        tx, makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
-                                accounts.recordView().upsertAsync(
-                                        tx, makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
+                                        accounts.recordView().upsertAsync(
+                                                tx, makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
+                                        accounts.recordView().upsertAsync(
+                                                tx, makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
                                 )
-                                .thenApply(ignored -> tx)
+                                        .thenApply(ignored -> tx)
                         )
                 ).thenCompose(Transaction::commitAsync).join();
-
 
         assertEquals(BALANCE_1 - DELTA, accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
         assertEquals(BALANCE_2 + DELTA, accounts.recordView().get(null, makeKey(2)).doubleValue("balance"));
@@ -527,12 +795,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                 .thenCompose(tx -> accounts.keyValueView().getAsync(tx, makeKey(1))
                         .thenCombine(accounts.recordView().getAsync(tx, makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
                         .thenCompose(pair -> allOf(
-                                accounts.keyValueView().putAsync(
-                                        tx, makeKey(1), makeValue(pair.getFirst().doubleValue("balance") - DELTA)),
-                                accounts.keyValueView().putAsync(
-                                        tx, makeKey(2), makeValue(pair.getSecond().doubleValue("balance") + DELTA))
+                                        accounts.keyValueView().putAsync(
+                                                tx, makeKey(1), makeValue(pair.getFirst().doubleValue("balance") - DELTA)),
+                                        accounts.keyValueView().putAsync(
+                                                tx, makeKey(2), makeValue(pair.getSecond().doubleValue("balance") + DELTA))
                                 )
-                                .thenApply(ignored -> tx)
+                                        .thenApply(ignored -> tx)
                         )
                 ).thenCompose(Transaction::commitAsync).join();
 
@@ -1223,7 +1491,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16700")
     public void testBalance() throws InterruptedException {
         doTestSingleKeyMultithreaded(5_000, false);
     }
@@ -1235,11 +1502,25 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testScan() throws Exception {
-        accounts.recordView().upsertAll(null, List.of(makeValue(1, 100.), makeValue(2, 200.)));
+        doTestScan(null);
+    }
 
-        CompletableFuture<List<Tuple>> scanFut = scan(accounts.internalTable(), null);
+    @Test
+    public void testScanExplicit() throws Exception {
+        igniteTransactions.runInTransaction(this::doTestScan);
+    }
 
-        var rows = scanFut.get(10, TimeUnit.SECONDS);
+    /**
+     * Do scan in test.
+     *
+     * @param tx The transaction.
+     */
+    private void doTestScan(@Nullable Transaction tx) {
+        accounts.recordView().upsertAll(tx, List.of(makeValue(1, 100.), makeValue(2, 200.)));
+
+        CompletableFuture<List<Tuple>> scanFut = scan(accounts.internalTable(), tx == null ? null : (InternalTransaction) tx);
+
+        var rows = scanFut.join();
 
         Map<Long, Tuple> map = new HashMap<>();
 
@@ -1249,6 +1530,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         assertEquals(100., map.get(1L).doubleValue("balance"));
         assertEquals(200., map.get(2L).doubleValue("balance"));
+
+        // Attempt to overwrite.
+        accounts.recordView().upsertAll(tx, List.of(makeValue(1, 300.), makeValue(2, 400.)));
     }
 
     /**
@@ -1258,9 +1542,16 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param internalTx Internal transaction of {@code null}.
      * @return Future to scanning result.
      */
-    private CompletableFuture<List<Tuple>> scan(InternalTable internalTable, InternalTransaction internalTx) {
+    private CompletableFuture<List<Tuple>> scan(InternalTable internalTable, @Nullable InternalTransaction internalTx) {
         Flow.Publisher<BinaryRow> pub = internalTx != null && internalTx.isReadOnly()
-                ? internalTable.scan(0, internalTx.readTimestamp(), internalTable.leaderAssignment(0))
+                ?
+                internalTable.scan(
+                        0,
+                        internalTx.id(),
+                        internalTx.readTimestamp(),
+                        internalTable.tableRaftService().leaderAssignment(0),
+                        internalTx.coordinatorId()
+                )
                 : internalTable.scan(0, internalTx);
 
         List<Tuple> rows = new ArrayList<>();
@@ -1275,7 +1566,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
             @Override
             public void onNext(BinaryRow item) {
-                Row row = accounts.schemaView().resolve(item);
+                SchemaRegistry registry = accounts.schemaView();
+                Row row = registry.resolve(item, registry.lastKnownSchema());
 
                 rows.add(TableRow.tuple(row));
             }
@@ -1318,9 +1610,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * Checks operation over tuple record view. The scenario was moved from ITDistributedTableTest.
      *
      * @param view Record view.
-     * @param tx   Transaction or {@code null} for implicit one.
+     * @param tx Transaction or {@code null} for implicit one.
      */
-    private void doTestComplex(RecordView<Tuple> view, Transaction tx) {
+    private void doTestComplex(RecordView<Tuple> view, @Nullable Transaction tx) {
         final int keysCnt = 10;
 
         long start = System.nanoTime();
@@ -1394,15 +1686,19 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
             assertNull(entry);
         }
+
+        if (tx != null) {
+            tx.commit();
+        }
     }
 
     /**
      * Checks operation over tuple key value view. The scenario was moved from ITDistributedTableTest.
      *
      * @param view Table view.
-     * @param tx   Transaction or {@code null} for implicit one.
+     * @param tx Transaction or {@code null} for implicit one.
      */
-    public void doTestComplexKeyValue(KeyValueView<Tuple, Tuple> view, Transaction tx) {
+    public void doTestComplexKeyValue(KeyValueView<Tuple, Tuple> view, @Nullable Transaction tx) {
         final int keysCnt = 10;
 
         for (long i = 0; i < keysCnt; i++) {
@@ -1470,6 +1766,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
             assertNull(entry);
         }
+
+        if (tx != null) {
+            tx.commit();
+        }
     }
 
     /**
@@ -1484,16 +1784,18 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         Thread[] threads = new Thread[threadsCnt];
 
-        final double initial = 1000;
-        final double total = threads.length * initial;
+        final int accountsCount = threads.length * 10;
 
-        for (int i = 0; i < threads.length; i++) {
+        final double initial = 1000;
+        final double total = accountsCount * initial;
+
+        for (int i = 0; i < accountsCount; i++) {
             accounts.recordView().upsert(null, makeValue(i, 1000));
         }
 
         double total0 = 0;
 
-        for (long i = 0; i < threads.length; i++) {
+        for (long i = 0; i < accountsCount; i++) {
             double balance = accounts.recordView().get(null, makeKey(i)).doubleValue("balance");
 
             total0 += balance;
@@ -1513,7 +1815,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         AtomicReference<Throwable> firstErr = new AtomicReference<>();
 
         for (int i = 0; i < threads.length; i++) {
-            long finalI = i;
             threads[i] = new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -1524,12 +1825,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                     }
 
                     while (!stop.get() && firstErr.get() == null) {
-                        InternalTransaction tx = txManager(accounts).begin();
+                        InternalTransaction tx = clientTxManager().begin(timestampTracker);
 
                         var table = accounts.recordView();
 
                         try {
-                            long acc1 = finalI;
+                            long acc1 = r.nextInt(accountsCount);
 
                             double amount = 100 + r.nextInt(500);
 
@@ -1542,7 +1843,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                             long acc2 = acc1;
 
                             while (acc1 == acc2) {
-                                acc2 = r.nextInt(threads.length);
+                                acc2 = r.nextInt(accountsCount);
                             }
 
                             if (verbose) {
@@ -1568,6 +1869,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                             ops.increment();
                         } catch (Exception e) {
                             assertTrue(e.getMessage().contains("Failed to acquire a lock"), e.getMessage());
+
+                            tx.rollback();
 
                             fails.increment();
                         }
@@ -1601,7 +1904,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         total0 = 0;
 
-        for (long i = 0; i < threads.length; i++) {
+        for (long i = 0; i < accountsCount; i++) {
             double balance = accounts.recordView().get(null, makeKey(i)).doubleValue("balance");
 
             total0 += balance;
@@ -1616,7 +1919,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param id The id.
      * @return The key tuple.
      */
-    private Tuple makeKey(long id) {
+    protected Tuple makeKey(long id) {
         return Tuple.create().set("accountNumber", id);
     }
 
@@ -1663,38 +1966,14 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     /**
-     * Get a client tx manager.
-     *
-     * @return TX manager.
-     */
-    protected abstract TxManager clientTxManager();
-
-    /**
-     * Get a tx manager on a partition leader.
-     *
-     * @param t The table.
-     * @return TX manager.
-     */
-    protected abstract TxManager txManager(Table t);
-
-    /**
      * Get a lock manager on a partition leader.
      *
      * @param t The table.
      * @return Lock manager.
      */
-    protected LockManager lockManager(Table t) {
+    protected LockManager lockManager(TableViewInternal t) {
         return txManager(t).lockManager();
     }
-
-    /**
-     * Validates table partition equality by calculating a hash code over data.
-     *
-     * @param table The table.
-     * @param partId Partition id.
-     * @return {@code True} if a replicas are the same.
-     */
-    protected abstract boolean assertPartitionsSame(TableImpl table, int partId);
 
     /**
      * Validates balances.
@@ -1702,7 +1981,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param rows Rows.
      * @param expected Expected values.
      */
-    private static void validateBalance(Collection<Tuple> rows, @Nullable Double... expected) {
+    protected static void validateBalance(Collection<Tuple> rows, @Nullable Double... expected) {
         assertThat(
                 rows.stream().map(tuple -> tuple == null ? null : tuple.doubleValue("balance")).collect(toList()),
                 contains(expected)
@@ -1748,7 +2027,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                     completedFuture(Tuple.create().set("balance1", val1).set("balance2", val2))));
         });
     }
-
 
     @Test
     public void testReadOnlyGet() {
@@ -1904,25 +2182,207 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testTransactionAlreadyCommitted() {
-        testTransactionAlreadyFinished(true);
+        testTransactionAlreadyFinished(true, true, (transaction, uuid) -> {
+            transaction.commit();
+
+            log.info("Committed transaction {}", uuid);
+        });
     }
 
     @Test
     public void testTransactionAlreadyRolledback() {
-        testTransactionAlreadyFinished(false);
+        testTransactionAlreadyFinished(false, true, (transaction, uuid) -> {
+            transaction.rollback();
+
+            log.info("Rolled back transaction {}", uuid);
+        });
+    }
+
+    @Test
+    public void testImplicit() {
+        accounts.recordView().upsert(null, makeValue(1, BALANCE_1));
+        assertEquals(BALANCE_1, accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
+    }
+
+    @Test
+    public void testWriteIntentResolutionFallbackToCommitPartitionPath() {
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+
+        // Pending tx
+        Transaction tx = igniteTransactions.begin();
+        accounts.recordView().delete(tx, makeKey(1));
+
+        // Imitate the restart of the client node, which is a tx coordinator, in order to make its volatile state unavailable.
+        // Now coordinator path of the write intent resolution has no effect, and we should fallback to commit partition path.
+        UUID txId = ((ReadWriteTransactionImpl) tx).id();
+
+        for (TxManager txManager : txManagers()) {
+            txManager.updateTxMeta(txId, old -> old == null ? null : new TxStateMeta(
+                    old.txState(),
+                    "restarted",
+                    old.commitPartitionId(),
+                    old.commitTimestamp()
+            ));
+        }
+
+        // Read-only.
+        Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
+        assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
+    }
+
+    @Test
+    public void testSingleGet() {
+        var accountRecordsView = accounts.recordView();
+
+        accountRecordsView.upsert(null, makeValue(1, 100.));
+
+        Transaction tx1 = igniteTransactions.begin();
+        Transaction tx2 = igniteTransactions.begin();
+
+        accountRecordsView.upsert(tx1, makeValue(1, 200.));
+
+        assertThrows(TransactionException.class, () -> accountRecordsView.get(tx2, makeKey(1)));
+
+        assertEquals(100., accountRecordsView.get(null, makeKey(1)).doubleValue("balance"));
+
+        tx1.commit();
+
+        assertEquals(200., accountRecordsView.get(null, makeKey(1)).doubleValue("balance"));
+    }
+
+    @Test
+    public void testBatchSinglePartitionGet() throws Exception {
+        var accountRecordsView = accounts.recordView();
+
+        SchemaRegistry schemaRegistry = accounts.schemaView();
+        var marshaller = new TupleMarshallerImpl(schemaRegistry.lastKnownSchema());
+
+        int partId = accounts.internalTable().partition(marshaller.marshalKey(makeKey(0)));
+
+        ArrayList<Integer> keys = new ArrayList<>(10);
+        keys.add(0);
+
+        for (int i = 1; i < 10_000 && keys.size() < 10; i++) {
+            var p = accounts.internalTable().partition(marshaller.marshalKey(makeKey(i)));
+
+            if (p == partId) {
+                keys.add(i);
+            }
+        }
+
+        log.info("A batch of keys for a single partition is found [partId={}, keys{}]", partId, keys);
+
+        accountRecordsView.upsertAll(null, keys.stream().map(k -> makeValue(k, 100.)).collect(toList()));
+
+        Transaction tx1 = igniteTransactions.begin();
+        Transaction tx2 = igniteTransactions.begin();
+
+        accountRecordsView.upsertAll(tx1, keys.stream().map(k -> makeValue(k, 200.)).collect(toList()));
+
+        assertThrows(TransactionException.class,
+                () -> accountRecordsView.getAll(tx2, keys.stream().map(k -> makeKey(k)).collect(toList())));
+
+        for (Tuple tuple : accountRecordsView.getAll(null, keys.stream().map(k -> makeKey(k)).collect(toList()))) {
+            assertEquals(100., tuple.doubleValue("balance"));
+        }
+
+        tx1.commit();
+
+        for (Tuple tuple : accountRecordsView.getAll(null, keys.stream().map(k -> makeKey(k)).collect(toList()))) {
+            assertEquals(200., tuple.doubleValue("balance"));
+        }
+    }
+
+    @Test
+    public void testYoungerTransactionWithHigherPriorityWaitsForOlderTransactionCommit() {
+        IgniteTransactionsImpl igniteTransactionsImpl = (IgniteTransactionsImpl) igniteTransactions;
+
+        KeyValueView<Long, String> keyValueView = customers.keyValueView(Long.class, String.class);
+
+        // Init data.
+        keyValueView.put(null, 1L, "init");
+
+        // Start low priority transaction.
+        Transaction oldLowTx = igniteTransactionsImpl.beginWithPriority(false, TxPriority.LOW);
+
+        // Update data.
+        keyValueView.put(oldLowTx, 1L, "low");
+
+        // Start normal priority transaction.
+        Transaction youngNormalTx = igniteTransactionsImpl.beginWithPriority(false, TxPriority.NORMAL);
+
+        // Try to update the same key with normal priority.
+        CompletableFuture<String> objectCompletableFuture = CompletableFuture.supplyAsync(
+                () -> keyValueView.getAndPut(youngNormalTx, 1L, "normal")
+        );
+
+        // Commit low priority transaction.
+        oldLowTx.commit();
+
+        // Wait for normal priority transaction to update the key.
+        assertThat(objectCompletableFuture, willBe("low"));
+
+        // Commit normal priority transaction.
+        youngNormalTx.commit();
+
+        // Check that normal priority transaction has updated the key.
+        assertEquals("normal", keyValueView.get(null, 1L));
+    }
+
+    @ParameterizedTest
+    @EnumSource(TxPriority.class)
+    public void testYoungerTransactionThrowsExceptionIfKeyLockedByOlderTransactionWithSamePriority(TxPriority priority) {
+        IgniteTransactionsImpl igniteTransactionsImpl = (IgniteTransactionsImpl) igniteTransactions;
+
+        KeyValueView<Long, String> keyValueView = customers.keyValueView(Long.class, String.class);
+
+        // Init data.
+        keyValueView.put(null, 1L, "init");
+
+        // Start the first transaction.
+        Transaction oldNormalTx = igniteTransactionsImpl.beginWithPriority(false, priority);
+
+        // Update data with the first transaction.
+        keyValueView.put(oldNormalTx, 1L, "low");
+
+        // Start the second transaction with the same priority.
+        Transaction youngNormalTx = igniteTransactionsImpl.beginWithPriority(false, priority);
+
+        // Try to update the same key with the second normal priority transaction.
+        assertThrows(TransactionException.class, () -> keyValueView.put(youngNormalTx, 1L, "normal"));
+    }
+
+    @Test
+    public void testIgniteTransactionsAndReadTimestamp() {
+        Transaction readWriteTx = igniteTransactions.begin();
+        assertFalse(readWriteTx.isReadOnly());
+        assertNull(((InternalTransaction) readWriteTx).readTimestamp());
+
+        Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
+        assertTrue(readOnlyTx.isReadOnly());
+        assertNotNull(((InternalTransaction) readOnlyTx).readTimestamp());
+
+        readWriteTx.commit();
+
+        Transaction readOnlyTx2 = igniteTransactions.begin(new TransactionOptions().readOnly(true));
+        readOnlyTx2.rollback();
     }
 
     /**
      * Checks operations that act after a transaction is committed, are finished with exception.
      *
      * @param commit True when transaction is committed, false the transaction is rolled back.
+     * @param checkLocks Whether to check locks after.
+     * @param finisher Finishing closure.
      */
-    private void testTransactionAlreadyFinished(boolean commit) {
+    protected void testTransactionAlreadyFinished(
+            boolean commit,
+            boolean checkLocks,
+            BiConsumer<Transaction, UUID> finisher
+    ) {
         Transaction tx = igniteTransactions.begin();
 
         var txId = ((ReadWriteTransactionImpl) tx).id();
-
-        Transaction sameTxWithoutFinishGuard = new ReadWriteTransactionImpl(txManager(accounts), txId);
 
         log.info("Started transaction {}", txId);
 
@@ -1931,33 +2391,27 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         accountsRv.upsert(tx, makeValue(1, 100.));
         accountsRv.upsert(tx, makeValue(2, 200.));
 
-        Collection<Tuple> res = accountsRv.getAll(sameTxWithoutFinishGuard, List.of(makeKey(1), makeKey(2)));
+        Collection<Tuple> res = accountsRv.getAll(tx, List.of(makeKey(1), makeKey(2)));
 
         validateBalance(res, 100., 200.);
 
-        if (commit) {
-            tx.commit();
+        finisher.accept(tx, txId);
 
-            log.info("Committed transaction {}", txId);
-        } else {
-            tx.rollback();
+        assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR,
+                () -> accountsRv.get(tx, makeKey(1)), "Transaction is already finished");
 
-            log.info("Rolled back transaction {}", txId);
+        assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR,
+                () -> accountsRv.delete(tx, makeKey(1)), "Transaction is already finished");
+
+        assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR,
+                () -> accountsRv.get(tx, makeKey(2)), "Transaction is already finished");
+
+        assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR,
+                () -> accountsRv.upsert(tx, makeValue(2, 300.)), "Transaction is already finished");
+
+        if (checkLocks) {
+            assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));
         }
-
-        TransactionException ex = assertThrows(TransactionException.class, () -> accountsRv.get(sameTxWithoutFinishGuard, makeKey(1)));
-        assertTrue(ex.getMessage().contains("Transaction is already finished."));
-
-        ex = assertThrows(TransactionException.class, () -> accountsRv.delete(sameTxWithoutFinishGuard, makeKey(1)));
-        assertTrue(ex.getMessage().contains("Transaction is already finished."));
-
-        ex = assertThrows(TransactionException.class, () -> accountsRv.get(sameTxWithoutFinishGuard, makeKey(2)));
-        assertTrue(ex.getMessage().contains("Transaction is already finished."));
-
-        ex = assertThrows(TransactionException.class, () -> accountsRv.upsert(sameTxWithoutFinishGuard, makeValue(2, 300.)));
-        assertTrue(ex.getMessage().contains("Transaction is already finished."));
-
-        assertTrue(CollectionUtils.nullOrEmpty(txManager(accounts).lockManager().locks(txId)));
 
         if (commit) {
             res = accountsRv.getAll(null, List.of(makeKey(1), makeKey(2)));

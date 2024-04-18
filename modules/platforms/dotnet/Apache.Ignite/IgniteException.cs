@@ -54,7 +54,7 @@ namespace Apache.Ignite
         protected IgniteException(SerializationInfo serializationInfo, StreamingContext streamingContext)
             : base(serializationInfo, streamingContext)
         {
-            IgniteArgumentCheck.NotNull(serializationInfo, nameof(serializationInfo));
+            IgniteArgumentCheck.NotNull(serializationInfo);
 
             TraceId = (Guid)serializationInfo.GetValue(nameof(TraceId), typeof(Guid))!;
             Code = serializationInfo.GetInt32(nameof(Code));

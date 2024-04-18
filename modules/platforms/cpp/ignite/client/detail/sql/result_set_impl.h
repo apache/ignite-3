@@ -116,7 +116,7 @@ public:
         };
 
         return m_connection->perform_request<void>(
-            client_operation::SQL_CURSOR_CLOSE, writer_func, std::move(reader_func), std::move(callback));
+            protocol::client_operation::SQL_CURSOR_CLOSE, writer_func, std::move(reader_func), std::move(callback));
     }
 
     /**
@@ -140,13 +140,24 @@ public:
      *
      * @return Current page size.
      */
-    [[nodiscard]] std::vector<ignite_tuple> current_page() {
+    [[nodiscard]] std::vector<ignite_tuple> current_page() && {
         require_result_set();
 
         auto ret = std::move(m_page);
         m_page.clear();
 
         return ret;
+    }
+
+    /**
+     * Get current page size.
+     *
+     * @return Current page size.
+     */
+    [[nodiscard]] const std::vector<ignite_tuple> &current_page() const & {
+        require_result_set();
+
+        return m_page;
     }
 
     /**
@@ -183,7 +194,7 @@ public:
         };
 
         m_connection->perform_request<void>(
-            client_operation::SQL_CURSOR_NEXT_PAGE, writer_func, std::move(reader_func), std::move(callback));
+            protocol::client_operation::SQL_CURSOR_NEXT_PAGE, writer_func, std::move(reader_func), std::move(callback));
     }
 
 private:
@@ -202,64 +213,60 @@ private:
      * @return Result set meta columns.
      */
     static std::vector<column_metadata> read_meta(protocol::reader &reader) {
-        auto size = reader.read_array_size();
+        auto size = reader.read_int32();
 
         std::vector<column_metadata> columns;
         columns.reserve(size);
 
-        reader.read_array_raw([&columns](std::uint32_t idx, const msgpack_object &obj) {
-            if (obj.type != MSGPACK_OBJECT_ARRAY)
-                throw ignite_error("Meta column expected to be serialized as array");
+        for (std::int32_t i = 0; i < size; ++i) {
+            auto fields_num = reader.read_int32();
+            assert(fields_num >= 6); // There should be at least six fields.
 
-            const msgpack_object_array &arr = obj.via.array;
+            auto name = reader.read_string();
+            auto nullable = reader.read_bool();
+            auto typ = ignite_type(reader.read_int32());
+            auto scale = reader.read_int32();
+            auto precision = reader.read_int32();
 
-            constexpr std::uint32_t min_count = 6;
-            assert(arr.size >= min_count);
-
-            auto name = protocol::unpack_object<std::string>(arr.ptr[0]);
-            auto nullable = protocol::unpack_object<bool>(arr.ptr[1]);
-            auto typ = ignite_type(protocol::unpack_object<std::int32_t>(arr.ptr[2]));
-            auto scale = protocol::unpack_object<std::int32_t>(arr.ptr[3]);
-            auto precision = protocol::unpack_object<std::int32_t>(arr.ptr[4]);
-
-            bool origin_present = protocol::unpack_object<bool>(arr.ptr[5]);
+            bool origin_present = reader.read_bool();
 
             if (!origin_present) {
                 columns.emplace_back(std::move(name), typ, precision, scale, nullable, column_origin{});
-                return;
+                continue;
             }
 
-            assert(arr.size >= min_count + 3);
-            auto origin_name =
-                arr.ptr[6].type == MSGPACK_OBJECT_NIL ? name : protocol::unpack_object<std::string>(arr.ptr[6]);
+            assert(fields_num >= 9); // There should be at least three more fields.
+            auto origin_name = reader.read_string_nullable();
+            if (!origin_name)
+                origin_name = name;
 
-            auto origin_schema_id = protocol::try_unpack_object<std::int32_t>(arr.ptr[7]);
+            auto origin_schema_id = reader.try_read_int32();
             std::string origin_schema;
             if (origin_schema_id) {
                 if (*origin_schema_id >= std::int32_t(columns.size())) {
                     throw ignite_error("Origin schema ID is too large: " + std::to_string(*origin_schema_id)
-                        + ", id=" + std::to_string(idx));
+                        + ", id=" + std::to_string(i));
                 }
                 origin_schema = columns[*origin_schema_id].origin().schema_name();
             } else {
-                origin_schema = protocol::unpack_object<std::string>(arr.ptr[7]);
+                origin_schema = reader.read_string();
             }
 
-            auto origin_table_id = protocol::try_unpack_object<std::int32_t>(arr.ptr[8]);
+            auto origin_table_id = reader.try_read_int32();
             std::string origin_table;
             if (origin_table_id) {
                 if (*origin_table_id >= std::int32_t(columns.size())) {
                     throw ignite_error("Origin table ID is too large: " + std::to_string(*origin_table_id)
-                        + ", id=" + std::to_string(idx));
+                        + ", id=" + std::to_string(i));
                 }
                 origin_table = columns[*origin_table_id].origin().table_name();
             } else {
-                origin_table = protocol::unpack_object<std::string>(arr.ptr[8]);
+                origin_table = reader.read_string();
             }
 
-            column_origin origin{std::move(origin_name), std::move(origin_table), std::move(origin_schema)};
+            column_origin origin{std::move(*origin_name), std::move(origin_table), std::move(origin_schema)};
             columns.emplace_back(std::move(name), typ, precision, scale, nullable, std::move(origin));
-        });
+        }
 
         return columns;
     }
@@ -271,24 +278,23 @@ private:
      * @return Page.
      */
     static std::vector<ignite_tuple> read_page(protocol::reader &reader, const result_set_metadata &meta) {
-        auto size = reader.read_array_size();
+        auto size = reader.read_int32();
 
         std::vector<ignite_tuple> page;
         page.reserve(size);
 
-        reader.read_array_raw([&columns = meta.columns(), &page](std::uint32_t, const msgpack_object &obj) {
-            auto tuple_data = protocol::unpack_binary(obj);
+        for (std::int32_t tuple_idx = 0; tuple_idx < size; ++tuple_idx) {
+            auto tuple_data = reader.read_binary();
 
-            auto columns_cnt = columns.size();
+            auto columns_cnt = meta.columns().size();
             ignite_tuple res(columns_cnt);
             binary_tuple_parser parser(std::int32_t(columns_cnt), tuple_data);
 
-            for (size_t i = 0; i < columns_cnt; ++i) {
-                auto &column = columns[i];
+            for (const auto &column : meta.columns()) {
                 res.set(column.name(), protocol::read_next_column(parser, column.type(), column.scale()));
             }
             page.emplace_back(std::move(res));
-        });
+        }
 
         return page;
     }
