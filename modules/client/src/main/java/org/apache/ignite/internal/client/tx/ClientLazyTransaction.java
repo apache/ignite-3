@@ -109,7 +109,7 @@ public class ClientLazyTransaction implements Transaction {
         return tx0;
     }
 
-    public static CompletableFuture<?> ensureStarted(
+    public static CompletableFuture<ClientTransaction> ensureStarted(
             @Nullable Transaction tx,
             ReliableChannel ch,
             @Nullable String preferredNodeName) {

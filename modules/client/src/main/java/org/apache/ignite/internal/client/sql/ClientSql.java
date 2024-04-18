@@ -31,7 +31,7 @@ import org.apache.ignite.internal.client.PayloadWriter;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -242,7 +242,8 @@ public class ClientSql implements IgniteSql {
         if (transaction != null) {
             try {
                 //noinspection resource
-                return ClientTransaction.get(transaction).channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader);
+                return ClientLazyTransaction.ensureStarted(transaction, ch, null).thenCompose(
+                        tx -> tx.channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader));
             } catch (TransactionException e) {
                 return CompletableFuture.failedFuture(new SqlException(e.traceId(), e.code(), e.getMessage(), e));
             }
