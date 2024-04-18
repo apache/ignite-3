@@ -53,7 +53,11 @@ class StatementBuilderImpl implements StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public StatementBuilder queryTimeout(long timeout, TimeUnit timeUnit) {
-        Objects.requireNonNull(timeUnit);
+        Objects.requireNonNull(timeUnit, "timeUnit");
+
+        if (timeout <= 0) {
+            throw new IllegalArgumentException("Query timeout must be greater than 0: " + timeout);
+        }
 
         queryTimeoutMs = TimeUnit.MILLISECONDS.convert(timeout, timeUnit);
 
@@ -71,6 +75,10 @@ class StatementBuilderImpl implements StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public StatementBuilder pageSize(int pageSize) {
+        if (pageSize <= 0) {
+            throw new IllegalArgumentException("Page size must be greater than 0: " + pageSize);
+        }
+
         this.pageSize = pageSize;
 
         return this;
@@ -80,7 +88,7 @@ class StatementBuilderImpl implements StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public StatementBuilder timeZone(ZoneId timeZone) {
-        this.timeZone = timeZone;
+        this.timeZone = Objects.requireNonNull(timeZone, "timeZone");
 
         return this;
     }

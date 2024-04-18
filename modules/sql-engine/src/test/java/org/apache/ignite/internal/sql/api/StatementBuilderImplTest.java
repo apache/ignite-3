@@ -37,12 +37,50 @@ public class StatementBuilderImplTest {
     private final StatementBuilderImpl builder = new StatementBuilderImpl();
 
     @Test
-    public void queryAttributeIsMandatory() {
+    public void queryCannotBeNull() {
         //noinspection ThrowableNotThrown
         assertThrows(
                 NullPointerException.class,
                 () -> builder.build(),
                 "Parameter 'query' cannot be null"
+        );
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void pageSizeMustBeGreaterThanZero() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> builder.pageSize(0),
+                "Page size must be greater than 0: 0"
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> builder.pageSize(-1),
+                "Page size must be greater than 0: -1"
+        );
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void queryTimeoutMustBeGreaterThanZero() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> builder.queryTimeout(0, TimeUnit.SECONDS),
+                "Query timeout must be greater than 0: 0"
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> builder.queryTimeout(-1, TimeUnit.SECONDS),
+                "Query timeout must be greater than 0: -1"
+        );
+
+        assertThrows(
+                NullPointerException.class,
+                () -> builder.queryTimeout(1, null),
+                "timeUnit"
         );
     }
 

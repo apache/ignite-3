@@ -110,8 +110,11 @@ class StatementImpl implements Statement {
     public StatementBuilder toBuilder() {
         var builder = new StatementBuilderImpl()
                 .query(query)
-                .defaultSchema(defaultSchema)
-                .timeZone(timeZone);
+                .defaultSchema(defaultSchema);
+
+        if (timeZone != null) {
+            builder.timeZone(timeZone);
+        }
 
         if (pageSize != null) {
             builder.pageSize(pageSize);

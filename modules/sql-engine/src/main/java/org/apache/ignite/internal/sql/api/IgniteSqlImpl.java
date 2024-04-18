@@ -325,8 +325,9 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             Statement statement,
             @Nullable Object... arguments
     ) {
-        int pageSize = statement.pageSize() > 0 ? statement.pageSize() : DEFAULT_PAGE_SIZE;
-        SqlProperties properties = buildProperties(statement);
+        assert statement.pageSize() >= 0 : statement.pageSize();
+
+        int pageSize = statement.pageSize() == 0 ? DEFAULT_PAGE_SIZE : statement.pageSize();
 
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(nodeIsStoppingException());
@@ -335,6 +336,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
+            SqlProperties properties = buildProperties(statement);
+
             result = queryProcessor.queryAsync(properties, transactions, (InternalTransaction) transaction, statement.query(), arguments)
                     .thenCompose(cur -> {
                                 if (!busyLock.enterBusy()) {
