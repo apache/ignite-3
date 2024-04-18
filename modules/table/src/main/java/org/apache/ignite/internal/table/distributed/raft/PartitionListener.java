@@ -173,7 +173,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 long proposedSafeTime = cmd.safeTime().longValue();
 
                 // Because of clock.tick it's guaranteed that two different commands will have different safe timestamps.
-                // maxObservableSafeTime may match proposedSafeTime only if it is the cmd that was previously validated and then retried
+                // maxObservableSafeTime may match proposedSafeTime only if it is the command that was previously validated and then retried
                 // by raft client because of either TimeoutException or inner raft server recoverable exception.
                 assert proposedSafeTime >= maxObservableSafeTimeVerifier : "Safe time reordering detected [current="
                         + maxObservableSafeTimeVerifier + ", proposed=" + proposedSafeTime + "]";
@@ -189,13 +189,13 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             long storagesAppliedIndex = Math.min(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
 
             assert commandIndex > storagesAppliedIndex :
-                    "Write cmd must have an index greater than that of storages [commandIndex=" + commandIndex
+                    "Write command must have an index greater than that of storages [commandIndex=" + commandIndex
                             + ", mvAppliedIndex=" + storage.lastAppliedIndex()
                             + ", txStateAppliedIndex=" + txStateStorage.lastAppliedIndex() + "]";
 
             Serializable result = null;
 
-            // NB: Make sure that ANY cmd we accept here updates lastAppliedIndex+term info in one of the underlying
+            // NB: Make sure that ANY command we accept here updates lastAppliedIndex+term info in one of the underlying
             // storages!
             // Otherwise, a gap between lastAppliedIndex from the point of view of JRaft and our storage might appear.
             // If a leader has such a gap, and does doSnapshot(), it will subsequently truncate its log too aggressively
@@ -232,7 +232,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 result = e.getCause();
             } catch (Throwable t) {
                 LOG.error(
-                        "Unknown error while processing cmd [commandIndex={}, commandTerm={}, cmd={}]",
+                        "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
                         t,
                         clo.index(), clo.index(), command
                 );
@@ -264,17 +264,17 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * Handler for the {@link UpdateCommand}.
      *
      * @param cmd Command.
-     * @param commandIndex Index of the RAFT cmd.
-     * @param commandTerm Term of the RAFT cmd.
+     * @param commandIndex Index of the RAFT command.
+     * @param commandTerm Term of the RAFT command.
      */
     private UpdateCommandResult handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
-        // Skips the write cmd because the storage has already executed it.
+        // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return new UpdateCommandResult(true);
         }
 
         if (cmd.leaseStartTime() != null) {
-            long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in cmd [cmd=" + cmd + "].");
+            long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
 
             long storageLeaseStartTime = storage.leaseStartTime();
 
@@ -317,17 +317,17 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * Handler for the {@link UpdateAllCommand}.
      *
      * @param cmd Command.
-     * @param commandIndex Index of the RAFT cmd.
-     * @param commandTerm Term of the RAFT cmd.
+     * @param commandIndex Index of the RAFT command.
+     * @param commandTerm Term of the RAFT command.
      */
     private UpdateCommandResult handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm) {
-        // Skips the write cmd because the storage has already executed it.
+        // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return new UpdateCommandResult(true);
         }
 
         if (cmd.leaseStartTime() != null) {
-            long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in cmd [cmd=" + cmd + "].");
+            long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
 
             long storageLeaseStartTime = storage.leaseStartTime();
 
@@ -368,14 +368,14 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * Handler for the {@link FinishTxCommand}.
      *
      * @param cmd Command.
-     * @param commandIndex Index of the RAFT cmd.
-     * @param commandTerm Term of the RAFT cmd.
+     * @param commandIndex Index of the RAFT command.
+     * @param commandTerm Term of the RAFT command.
      * @return The actually stored transaction state {@link TransactionResult}.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
     private @Nullable TransactionResult handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm)
             throws IgniteInternalException {
-        // Skips the write cmd because the storage has already executed it.
+        // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStateStorage.lastAppliedIndex()) {
             return null;
         }
@@ -400,7 +400,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 commandTerm
         );
 
-        // Assume that we handle the finish cmd only on the commit partition.
+        // Assume that we handle the finish command only on the commit partition.
         TablePartitionId commitPartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
 
         markFinished(txId, cmd.commit(), cmd.commitTimestamp(), commitPartitionId);
@@ -428,11 +428,11 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * Handler for the {@link WriteIntentSwitchCommand}.
      *
      * @param cmd Command.
-     * @param commandIndex Index of the RAFT cmd.
-     * @param commandTerm Term of the RAFT cmd.
+     * @param commandIndex Index of the RAFT command.
+     * @param commandTerm Term of the RAFT command.
      */
     private void handleWriteIntentSwitchCommand(WriteIntentSwitchCommand cmd, long commandIndex, long commandTerm) {
-        // Skips the write cmd because the storage has already executed it.
+        // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return;
         }
@@ -454,11 +454,11 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * Handler for the {@link SafeTimeSyncCommand}.
      *
      * @param cmd Command.
-     * @param commandIndex RAFT index of the cmd.
-     * @param commandTerm RAFT term of the cmd.
+     * @param commandIndex RAFT index of the command.
+     * @param commandTerm RAFT term of the command.
      */
     private void handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd, long commandIndex, long commandTerm) {
-        // Skips the write cmd because the storage has already executed it.
+        // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return;
         }
@@ -484,7 +484,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
 
         // Do the update under lock to make sure no snapshot is started concurrently with this update.
-        // Note that we do not need to protect from a concurrent cmd execution by this listener because
+        // Note that we do not need to protect from a concurrent command execution by this listener because
         // configuration is committed in the same thread in which commands are applied.
         storage.acquirePartitionSnapshotsReadLock();
 
@@ -556,7 +556,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             long proposedSafeTime = cmd.safeTime().longValue();
 
             // Because of clock.tick it's guaranteed that two different commands will have different safe timestamps.
-            // maxObservableSafeTime may match proposedSafeTime only if it is the cmd that was previously validated and then retried
+            // maxObservableSafeTime may match proposedSafeTime only if it is the command that was previously validated and then retried
             // by raft client because of either TimeoutException or inner raft server recoverable exception.
             if (proposedSafeTime >= maxObservableSafeTime) {
                 maxObservableSafeTime = proposedSafeTime;
@@ -580,11 +580,11 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * Handler for the {@link BuildIndexCommand}.
      *
      * @param cmd Command.
-     * @param commandIndex RAFT index of the cmd.
-     * @param commandTerm RAFT term of the cmd.
+     * @param commandIndex RAFT index of the command.
+     * @param commandTerm RAFT term of the command.
      */
     void handleBuildIndexCommand(BuildIndexCommand cmd, long commandIndex, long commandTerm) {
-        // Skips the write cmd because the storage has already executed it.
+        // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return;
         }
@@ -631,7 +631,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * @param commandTerm Command term.
      */
     private void handlePrimaryReplicaChangeCommand(PrimaryReplicaChangeCommand cmd, long commandIndex, long commandTerm) {
-        // Skips the write cmd because the storage has already executed it.
+        // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return;
         }
@@ -653,12 +653,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * @param commandTerm Command term.
      */
     private void handleVacuumTxStatesCommand(VacuumTxStatesCommand cmd, long commandIndex, long commandTerm) {
-        // Skips the write cmd because the storage has already executed it.
+        // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return;
         }
-
-        LOG.info("qqq vacuum cmd=" + cmd);
 
         txStateStorage.removeAll(cmd.txIds(), commandIndex, commandTerm);
     }

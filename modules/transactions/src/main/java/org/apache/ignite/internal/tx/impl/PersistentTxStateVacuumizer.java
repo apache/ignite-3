@@ -28,10 +28,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -83,11 +81,10 @@ public class PersistentTxStateVacuumizer {
      * Vacuum persistent tx states.
      *
      * @param txIds Transaction ids to vacuum; map of commit partition ids to sets of tx ids.
-     * @return A future.
+     * @return A future, result is the set of successfully vacuumized txn states.
      */
-    public CompletableFuture<IgniteBiTuple<Set<UUID>, Integer>> vacuumPersistentTxStates(Map<TablePartitionId, Set<UUID>> txIds) {
+    public CompletableFuture<Set<UUID>> vacuumPersistentTxStates(Map<TablePartitionId, Set<UUID>> txIds) {
         Set<UUID> successful = ConcurrentHashMap.newKeySet();
-        AtomicInteger unsuccessfulCount = new AtomicInteger(0);
         List<CompletableFuture<?>> futures = new ArrayList<>();
         HybridTimestamp now = clockService.now();
 
@@ -109,8 +106,6 @@ public class PersistentTxStateVacuumizer {
                             successful.addAll(txs);
                         } else if (!(unwrapCause(e) instanceof PrimaryReplicaMissException)) {
                             LOG.warn("Failed to vacuum tx states from the persistent storage.", e);
-
-                            unsuccessfulCount.incrementAndGet();
                         }
                     });
                 } else {
@@ -124,6 +119,6 @@ public class PersistentTxStateVacuumizer {
         });
 
         return allOf(futures.toArray(new CompletableFuture[0]))
-                .handle((unused, unusedEx) -> new IgniteBiTuple<>(successful, unsuccessfulCount.get()));
+                .handle((unused, unusedEx) -> successful);
     }
 }

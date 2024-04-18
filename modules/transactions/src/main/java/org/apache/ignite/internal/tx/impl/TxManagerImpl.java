@@ -134,7 +134,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final TransactionIdGenerator transactionIdGenerator;
 
     /** The local state storage. */
-    private final VolatileTxStateMetaStorage txStateVolatileStorage;
+    private final VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
 
     /** Future of a read-only transaction by it {@link TxIdAndTimestamp}. */
     private final ConcurrentNavigableMap<TxIdAndTimestamp, CompletableFuture<Void>> readOnlyTxFutureById = new ConcurrentSkipListMap<>(
@@ -326,8 +326,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         txMessageSender = new TxMessageSender(messagingService, replicaService, clockService, txConfig);
 
         var writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService);
-
-        txStateVolatileStorage = new VolatileTxStateMetaStorage();
 
         txCleanupRequestHandler = new TxCleanupRequestHandler(
                 messagingService,

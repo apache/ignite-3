@@ -131,7 +131,6 @@ public class ItTransactionTestUtils {
             if (primary) {
                 ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(node, grpId);
 
-                System.out.println("qqq partId=" + partId + ", primary=" + replicaMeta.getLeaseholder());
                 if (node.id().equals(replicaMeta.getLeaseholderId())) {
                     return t;
                 }

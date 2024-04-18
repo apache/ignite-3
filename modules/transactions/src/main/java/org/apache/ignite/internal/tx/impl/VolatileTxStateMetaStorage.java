@@ -33,7 +33,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -49,6 +48,8 @@ public class VolatileTxStateMetaStorage {
 
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
+
+    private final AtomicInteger persistentStatesVaccumizedLastIteration = new AtomicInteger();
 
     /**
      * Starts the storage.
@@ -132,7 +133,7 @@ public class VolatileTxStateMetaStorage {
     public void vacuum(
             long vacuumObservationTimestamp,
             long txnResourceTtl,
-            Function<Map<TablePartitionId, Set<UUID>>, CompletableFuture<IgniteBiTuple<Set<UUID>, Integer>>> beforeVacuum
+            Function<Map<TablePartitionId, Set<UUID>>, CompletableFuture<Set<UUID>>> persistentVacuumOp
     ) {
         LOG.info("Vacuum started [vacuumObservationTimestamp={}, txnResourceTtl={}].", vacuumObservationTimestamp, txnResourceTtl);
 
@@ -142,7 +143,7 @@ public class VolatileTxStateMetaStorage {
         AtomicInteger skippedForFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
 
         Map<TablePartitionId, Set<UUID>> txIds = new HashMap<>();
-        Map<UUID, Long> timestamps = new HashMap<>();
+        Map<UUID, Long> cleanupCompletionTimestamps = new HashMap<>();
 
         txStateMap.forEach((txId, meta) -> {
             txStateMap.computeIfPresent(txId, (txId0, meta0) -> {
@@ -169,7 +170,7 @@ public class VolatileTxStateMetaStorage {
                                 ids.add(txId);
 
                                 if (cleanupCompletionTimestamp != null) {
-                                    timestamps.put(txId, cleanupCompletionTimestamp);
+                                    cleanupCompletionTimestamps.put(txId, cleanupCompletionTimestamp);
                                 }
 
                                 return meta0;
@@ -187,38 +188,39 @@ public class VolatileTxStateMetaStorage {
             });
         });
 
-        beforeVacuum.apply(txIds)
-                .thenAccept(tuple -> {
-                    Set<UUID> successful = tuple.get1();
+        int vacuumizedPersistentTxnStatesCount = persistentStatesVaccumizedLastIteration.getAndSet(0);
 
-                    LOG.info("qqq vacuum volatile failed=" + tuple.get2() + ", txIds=" + txIds +  ", successful=" + successful);
+        LOG.info("Vacuum finished [vacuumObservationTimestamp={}, txnResourceTtl={}, "
+                        + "vacuumizedTxnsCount={}, "
+                        + "vacuumizedPersistentTxnStatesCount={}, "
+                        + "markedAsInitiallyDetectedTxnsCount={}, "
+                        + "alreadyMarkedTxnsCount={}, "
+                        + "skippedForFurtherProcessingUnfinishedTxnsCount={}].",
+                vacuumObservationTimestamp,
+                txnResourceTtl,
+                vacuumizedTxnsCount,
+                vacuumizedPersistentTxnStatesCount,
+                markedAsInitiallyDetectedTxnsCount,
+                alreadyMarkedTxnsCount,
+                skippedForFurtherProcessingUnfinishedTxnsCount
+        );
+
+        persistentVacuumOp.apply(txIds)
+                .thenAccept(successful -> {
 
                     for (UUID txId : successful) {
                         txStateMap.compute(txId, (k, v) -> {
                             if (v == null) {
                                 return null;
                             } else {
-                                Long cleanupCompletionTs = timestamps.get(txId);
+                                Long cleanupCompletionTs = cleanupCompletionTimestamps.get(txId);
 
-                                return (cleanupCompletionTs == null || Objects.equals(cleanupCompletionTs, v.cleanupCompletionTimestamp()))
-                                        ? null
-                                        : v;
+                                return (Objects.equals(cleanupCompletionTs, v.cleanupCompletionTimestamp())) ? null : v;
                             }
                         });
                     }
 
-                    LOG.info("Vacuum finished [vacuumObservationTimestamp={}, txnResourceTtl={}, vacuumizedTxnsCount={},"
-                                    + "vacuumizedPersistentTxnStatesCount={}, "
-                                    + " markedAsInitiallyDetectedTxnsCount={}, alreadyMarkedTxnsCount={}, "
-                                    + "skippedForFurtherProcessingUnfinishedTxnsCount={}].",
-                            vacuumObservationTimestamp,
-                            txnResourceTtl,
-                            vacuumizedTxnsCount,
-                            successful.size(),
-                            markedAsInitiallyDetectedTxnsCount,
-                            alreadyMarkedTxnsCount,
-                            skippedForFurtherProcessingUnfinishedTxnsCount
-                    );
+                    persistentStatesVaccumizedLastIteration.addAndGet(successful.size());
                 });
     }
 
