@@ -1,0 +1,47 @@
+# name: sql/basic_queries/rename_columns_in _from.test
+# description: SQL feature E051-9 (Basic query specification. Rename columns in the FROM clause)
+# feature: E051-09
+# group: [basic_queries]
+
+statement ok
+CREATE TABLE tab ( A INT PRIMARY KEY, B INT )
+
+statement ok
+INSERT INTO tab VALUES(1,13), (2,12), (3,11)
+
+query II
+SELECT ALL alias . X , Y FROM tab AS alias (X, Y) order by x
+----
+1	13
+2	12
+3	11
+
+query II
+SELECT DISTINCT alias.Y, X FROM tab AS alias (X, Y) order by y
+----
+11	3
+12	2
+13	1
+
+query II
+SELECT alias.X, Y FROM tab AS alias (X, Y) order by x
+----
+1	13
+2	12
+3	11
+
+query II
+SELECT alias.a, b FROM tab AS alias (b, a) order by b
+----
+13	1
+12	2
+11	3
+
+statement error
+SELECT alias.b, b FROM tab AS alias (b, b)
+
+statement error
+SELECT alias.X FROM tab AS alias (X)
+
+statement error
+SELECT alias.X FROM tab AS alias (X, Y, Z)
