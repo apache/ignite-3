@@ -18,11 +18,9 @@
 package org.apache.ignite.internal.rest.recovery;
 
 import static java.util.Comparator.comparing;
-import static org.apache.ignite.internal.rest.recovery.DisasterRecoveryFactory.DISASTER_RECOVERY_MANAGER_NAME;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.annotation.Controller;
-import jakarta.inject.Named;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +45,7 @@ import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState
 public class DisasterRecoveryController implements DisasterRecoveryApi {
     private final DisasterRecoveryManager disasterRecoveryManager;
 
-    public DisasterRecoveryController(@Named(DISASTER_RECOVERY_MANAGER_NAME) DisasterRecoveryManager disasterRecoveryManager) {
+    public DisasterRecoveryController(DisasterRecoveryManager disasterRecoveryManager) {
         this.disasterRecoveryManager = disasterRecoveryManager;
     }
 
@@ -74,10 +72,10 @@ public class DisasterRecoveryController implements DisasterRecoveryApi {
     private static LocalPartitionStatesResponse convertLocalStates(Map<TablePartitionId, Map<String, LocalPartitionState>> localStates) {
         List<LocalPartitionStateResponse> states = new ArrayList<>();
 
-        for (Entry<TablePartitionId, Map<String, LocalPartitionState>> entry0 : localStates.entrySet()) {
-            for (Entry<String, LocalPartitionState> entry1 : entry0.getValue().entrySet()) {
-                String nodeName = entry1.getKey();
-                LocalPartitionState state = entry1.getValue();
+        for (Map<String, LocalPartitionState> map : localStates.values()) {
+            for (Entry<String, LocalPartitionState> entry : map.entrySet()) {
+                String nodeName = entry.getKey();
+                LocalPartitionState state = entry.getValue();
 
                 states.add(new LocalPartitionStateResponse(
                         state.partitionId,
@@ -99,9 +97,7 @@ public class DisasterRecoveryController implements DisasterRecoveryApi {
     private static GlobalPartitionStatesResponse convertGlobalStates(Map<TablePartitionId, GlobalPartitionState> globalStates) {
         List<GlobalPartitionStateResponse> states = new ArrayList<>();
 
-        for (Entry<TablePartitionId, GlobalPartitionState> entry : globalStates.entrySet()) {
-            GlobalPartitionState state = entry.getValue();
-
+        for (GlobalPartitionState state : globalStates.values()) {
             states.add(new GlobalPartitionStateResponse(
                     state.partitionId,
                     state.tableName,

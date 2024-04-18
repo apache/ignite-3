@@ -24,11 +24,11 @@ public enum GlobalPartitionStateEnum {
     /** All replicas are healthy. */
     AVAILABLE,
 
-    /** There are healthy replicas, but they don't form a majority. */
-    READ_ONLY,
-
     /** There are healthy replicas, and they form a majority. */
     DEGRADED,
+
+    /** There are healthy replicas, but they don't form a majority. */
+    READ_ONLY,
 
     /** There are no healthy replicas. */
     UNAVAILABLE

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.rest.recovery;
 
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
-import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.rest.RestFactory;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
@@ -29,8 +28,6 @@ import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryMan
  */
 @Factory
 public class DisasterRecoveryFactory implements RestFactory {
-    static final String DISASTER_RECOVERY_MANAGER_NAME = "disasterRecoveryManager";
-
     private DisasterRecoveryManager disasterRecoveryManager;
 
     public DisasterRecoveryFactory(DisasterRecoveryManager disasterRecoveryManager) {
@@ -39,7 +36,6 @@ public class DisasterRecoveryFactory implements RestFactory {
 
     @Bean
     @Singleton
-    @Named(DISASTER_RECOVERY_MANAGER_NAME)
     public DisasterRecoveryManager disasterRecoveryManager() {
         return disasterRecoveryManager;
     }

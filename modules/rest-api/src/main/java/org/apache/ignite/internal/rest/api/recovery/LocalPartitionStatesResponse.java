@@ -33,7 +33,7 @@ public class LocalPartitionStatesResponse {
 
     @JsonCreator
     public LocalPartitionStatesResponse(@JsonProperty("states") List<LocalPartitionStateResponse> states) {
-        this.states = states;
+        this.states = List.copyOf(states);
     }
 
     @JsonGetter("states")

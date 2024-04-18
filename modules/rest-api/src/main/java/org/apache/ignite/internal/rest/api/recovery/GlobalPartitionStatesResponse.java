@@ -33,7 +33,7 @@ public class GlobalPartitionStatesResponse {
 
     @JsonCreator
     public GlobalPartitionStatesResponse(@JsonProperty("states") List<GlobalPartitionStateResponse> states) {
-        this.states = states;
+        this.states = List.copyOf(states);
     }
 
     @JsonGetter("states")

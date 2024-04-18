@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.DEGRADED;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.READ_ONLY;
@@ -40,7 +41,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -88,9 +88,17 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
     private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
 
-    private static final int TIMEOUT = 30;
+    /** Disaster recovery operations timeout in seconds. */
+    private static final int TIMEOUT_SECONDS = 30;
 
+    /**
+     * Maximal allowed difference between committed index on the leader and on the follower, that differentiates
+     * {@link LocalPartitionStateEnum#HEALTHY} from {@link LocalPartitionStateEnum#CATCHING_UP}.
+     */
     private static final int CATCH_UP_THRESHOLD = 100;
+
+    /** Zone ID that corresponds to "all zones". */
+    private static final int NO_ZONE_ID = -1;
 
     /** Thread pool executor for async parts. */
     private final ExecutorService threadPool;
@@ -188,7 +196,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
      * Returns partition states for all zones' partitions in the cluster. Result is a mapping of {@link TablePartitionId} to the mapping
      * between a node name and a partition state.
      *
-     * @param zoneName Zone name.
+     * @param zoneName Zone name. {@code null} means "all zones".
      * @return Future with the mapping.
      */
     public CompletableFuture<Map<TablePartitionId, Map<String, LocalPartitionState>>> localPartitionStates(@Nullable String zoneName) {
@@ -202,7 +210,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
      * Returns partition states for all zones' partitions in the cluster. Result is a mapping of {@link TablePartitionId} to the global
      * partition state enum value.
      *
-     * @param zoneName Zone name.
+     * @param zoneName Zone name. {@code null} means "all zones".
      * @return Future with the mapping.
      */
     public CompletableFuture<Map<TablePartitionId, GlobalPartitionState>> globalPartitionStates(@Nullable String zoneName) {
@@ -210,7 +218,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
         return localPartitionStatesInternal(zoneName, catalog)
                 .thenApply(res -> normalizeLocal(res, catalog))
-                .thenApply(res -> normalizeGlobal(res, catalog));
+                .thenApply(res -> assembleGlobal(res, catalog));
     }
 
     private CompletableFuture<Map<TablePartitionId, Map<String, LocalPartitionStateMessage>>> localPartitionStatesInternal(
@@ -218,7 +226,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
     ) {
         int zoneId;
         if (zoneName == null) {
-            zoneId = -1;
+            zoneId = NO_ZONE_ID;
         } else {
             Optional<CatalogZoneDescriptor> zoneDesciptorOptional = catalog.zones().stream()
                     .filter(catalogZoneDescriptor -> catalogZoneDescriptor.name().equals(zoneName))
@@ -247,7 +255,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
             CompletableFuture<NetworkMessage> invokeFuture = messagingService.invoke(
                     node.nodeName(),
                     localPartitionStatesRequest,
-                    TimeUnit.SECONDS.toMillis(TIMEOUT)
+                    TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS)
             );
 
             futures[i++] = invokeFuture.thenAccept(networkMessage -> {
@@ -283,7 +291,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
         CompletableFuture<Void> operationFuture = new CompletableFuture<Void>()
                 .whenComplete((v, throwable) -> ongoingOperationsById.remove(operationId))
-                .orTimeout(TIMEOUT, TimeUnit.SECONDS);
+                .orTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
         ongoingOperationsById.put(operationId, operationFuture);
 
@@ -339,7 +347,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
                     var tablePartitionId = (TablePartitionId) raftNodeId.groupId();
 
                     CatalogTableDescriptor tableDescriptor = catalogManager.table(tablePartitionId.tableId(), catalogVersion);
-                    if (tableDescriptor == null || request.zoneId() != -1 && tableDescriptor.zoneId() != request.zoneId()) {
+                    if (tableDescriptor == null || request.zoneId() != NO_ZONE_ID && tableDescriptor.zoneId() != request.zoneId()) {
                         return;
                     }
 
@@ -414,14 +422,14 @@ public class DisasterRecoveryManager implements IgniteComponent {
             Map<TablePartitionId, Map<String, LocalPartitionStateMessage>> result,
             Catalog catalog
     ) {
-        return result.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> {
+        return result.entrySet().stream().collect(toMap(Map.Entry::getKey, entry -> {
             TablePartitionId tablePartitionId = entry.getKey();
             Map<String, LocalPartitionStateMessage> map = entry.getValue();
 
             // noinspection OptionalGetWithoutIsPresent
             long maxLogIndex = map.values().stream().mapToLong(LocalPartitionStateMessage::logIndex).max().getAsLong();
 
-            return map.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry2 -> {
+            return map.entrySet().stream().collect(toMap(Map.Entry::getKey, entry2 -> {
                 LocalPartitionStateMessage stateMsg = entry2.getValue();
 
                 LocalPartitionStateEnum stateEnum = stateMsg.state();
@@ -436,60 +444,69 @@ public class DisasterRecoveryManager implements IgniteComponent {
         }));
     }
 
-    private static Map<TablePartitionId, GlobalPartitionState> normalizeGlobal(
+    private static Map<TablePartitionId, GlobalPartitionState> assembleGlobal(
             Map<TablePartitionId, Map<String, LocalPartitionState>> localResult,
             Catalog catalog
     ) {
-        Map<Integer, Integer> tableIdToPartitions = new HashMap<>();
-
         Map<TablePartitionId, GlobalPartitionState> result = localResult.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
+                .collect(toMap(Map.Entry::getKey, entry -> {
                     TablePartitionId tablePartitionId = entry.getKey();
                     Map<String, LocalPartitionState> map = entry.getValue();
 
-                    int zoneId = catalog.table(tablePartitionId.tableId()).zoneId();
-                    CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
-
-                    tableIdToPartitions.putIfAbsent(tablePartitionId.tableId(), zoneDescriptor.partitions());
-
-                    int replicas = zoneDescriptor.replicas();
-                    int quorum = replicas / 2 + 1;
-
-                    Map<LocalPartitionStateEnum, List<LocalPartitionState>> groupedStates = map.values().stream()
-                            .collect(groupingBy(localPartitionState -> localPartitionState.state));
-
-                    GlobalPartitionStateEnum globalStateEnum;
-
-                    int healthyReplicas = groupedStates.getOrDefault(HEALTHY, emptyList()).size();
-
-                    if (healthyReplicas == replicas) {
-                        globalStateEnum = AVAILABLE;
-                    } else if (healthyReplicas >= quorum) {
-                        globalStateEnum = DEGRADED;
-                    } else if (healthyReplicas > 0) {
-                        globalStateEnum = READ_ONLY;
-                    } else {
-                        globalStateEnum = GlobalPartitionStateEnum.UNAVAILABLE;
-                    }
-
-                    LocalPartitionState anyLocalState = map.values().iterator().next();
-                    return new GlobalPartitionState(anyLocalState.tableName, tablePartitionId.partitionId(), globalStateEnum);
+                    return assembleGlobalStateFromLocal(catalog, tablePartitionId, map);
                 }));
 
-        for (Map.Entry<Integer, Integer> entry : tableIdToPartitions.entrySet()) {
-            int tableId = entry.getKey();
-            int partitions = entry.getValue();
+        localResult.keySet().stream()
+                .map(TablePartitionId::tableId)
+                .distinct()
+                .forEach(tableId -> {
+                    int zoneId = catalog.table(tableId).zoneId();
+                    CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
+                    int partitions = zoneDescriptor.partitions();
 
-            for (int partitionId = 0; partitionId < partitions; partitionId++) {
-                TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
+                    // Make missing partitions explicitly unavailable.
+                    for (int partitionId = 0; partitionId < partitions; partitionId++) {
+                        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
 
-                result.computeIfAbsent(tablePartitionId, key ->
-                        new GlobalPartitionState(catalog.table(key.tableId()).name(), key.partitionId(),
-                                GlobalPartitionStateEnum.UNAVAILABLE)
-                );
-            }
-        }
+                        result.computeIfAbsent(tablePartitionId, key ->
+                                new GlobalPartitionState(catalog.table(key.tableId()).name(), key.partitionId(),
+                                        GlobalPartitionStateEnum.UNAVAILABLE)
+                        );
+                    }
+                });
 
         return result;
+    }
+
+    private static GlobalPartitionState assembleGlobalStateFromLocal(
+            Catalog catalog,
+            TablePartitionId tablePartitionId,
+            Map<String, LocalPartitionState> map
+    ) {
+        int zoneId = catalog.table(tablePartitionId.tableId()).zoneId();
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
+
+        int replicas = zoneDescriptor.replicas();
+        int quorum = replicas / 2 + 1;
+
+        Map<LocalPartitionStateEnum, List<LocalPartitionState>> groupedStates = map.values().stream()
+                .collect(groupingBy(localPartitionState -> localPartitionState.state));
+
+        GlobalPartitionStateEnum globalStateEnum;
+
+        int healthyReplicas = groupedStates.getOrDefault(HEALTHY, emptyList()).size();
+
+        if (healthyReplicas == replicas) {
+            globalStateEnum = AVAILABLE;
+        } else if (healthyReplicas >= quorum) {
+            globalStateEnum = DEGRADED;
+        } else if (healthyReplicas > 0) {
+            globalStateEnum = READ_ONLY;
+        } else {
+            globalStateEnum = GlobalPartitionStateEnum.UNAVAILABLE;
+        }
+
+        LocalPartitionState anyLocalState = map.values().iterator().next();
+        return new GlobalPartitionState(anyLocalState.tableName, tablePartitionId.partitionId(), globalStateEnum);
     }
 }
