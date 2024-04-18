@@ -1422,7 +1422,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             int catalogVersion
     ) {
         int zoneId = tableDescriptor.zoneId();
-         CompletableFuture<List<Assignments>> assignmentsFuture;
+        CompletableFuture<List<Assignments>> assignmentsFuture;
 
         if (partitionAssignmentsGetLocally(metaStorageMgr, zoneId, 0, causalityToken) != null) {
             assignmentsFuture = completedFuture(
