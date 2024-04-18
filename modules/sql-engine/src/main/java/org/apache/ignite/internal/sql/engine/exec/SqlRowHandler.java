@@ -77,12 +77,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean isNull(int field, RowWrapper row) {
-        return row.isNull(field);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public RowWrapper concat(RowWrapper left, RowWrapper right) {
         int leftLen = left.columnsCount();
         int rightLen = right.columnsCount();
@@ -193,8 +187,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
         abstract @Nullable Object get(int field);
 
-        abstract boolean isNull(int field);
-
         abstract BinaryTuple toBinaryTuple();
     }
 
@@ -218,11 +210,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         @Override
         @Nullable Object get(int field) {
             return row[field];
-        }
-
-        @Override
-        boolean isNull(int field) {
-            return row[field] == null;
         }
 
         @Override
@@ -400,11 +387,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             }
 
             return TypeUtils.toInternal(value, Commons.nativeTypeToClass(nativeType));
-        }
-
-        @Override
-        boolean isNull(int field) {
-            return tuple.hasNullValue(field);
         }
 
         @Override

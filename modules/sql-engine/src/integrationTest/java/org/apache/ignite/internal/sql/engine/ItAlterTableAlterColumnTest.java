@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
-import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -142,7 +141,7 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE t (id INT PRIMARY KEY, val VARCHAR(10) NOT NULL)");
         sql("ALTER TABLE t ALTER COLUMN val SET DATA TYPE VARCHAR(10)");
 
-        assertThrowsSqlException(CONSTRAINT_VIOLATION_ERR, "does not allow NULLs",
+        assertThrowsSqlException(STMT_VALIDATION_ERR, "does not allow NULLs",
                 () -> sql("INSERT INTO t VALUES(1, NULL)"));
 
         sql("ALTER TABLE t ALTER COLUMN val SET DATA TYPE VARCHAR(10) NULL");

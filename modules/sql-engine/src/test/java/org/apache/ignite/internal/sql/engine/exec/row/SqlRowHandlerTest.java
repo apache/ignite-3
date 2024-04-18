@@ -23,9 +23,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -55,7 +53,6 @@ import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -265,31 +262,6 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         assertNotNull(rowBuilder.build());
     }
 
-    @ParameterizedTest
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373 Interval type support.
-    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
-    public void testIsNull(ColumnType columnType) {
-        NativeType nativeType = TypeUtils.columnType2NativeType(columnType, 3, 3, 0);
-
-        RowSchema rowSchema = RowSchema.builder()
-                .addField(nativeType, true)
-                .build();
-
-        RowFactory<RowWrapper> rowFactory = handler.factory(rowSchema);
-
-        {
-            RowWrapper row = rowFactory.create(new Object[]{null});
-            assertNull(handler.get(0, row));
-            assertTrue(handler.isNull(0, row));
-        }
-
-        {
-            RowWrapper row = rowFactory.rowBuilder().addField(null).build();
-            assertNull(handler.get(0, row));
-            assertTrue(handler.isNull(0, row));
-        }
-    }
-
     private RowSchema rowSchema(List<ColumnType> columnTypes, Object[] values) {
         Builder schemaBuilder = RowSchema.builder();
 
@@ -375,6 +347,10 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
             this.left = leftTupleRequired ? factory1.create(handler.toBinaryTuple(left)) : left;
             this.right = rightTupleRequired ? factory2.create(handler.toBinaryTuple(right)) : right;
         }
+    }
+
+    private static @Nullable Object convertToInternal(NativeType nativeType, Object value) {
+        return convertToInternal(RowSchemaTypes.nativeType(nativeType), value);
     }
 
     private static @Nullable Object convertToInternal(TypeSpec typeSpec, Object value) {

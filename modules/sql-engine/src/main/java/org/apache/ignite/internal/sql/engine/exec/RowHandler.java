@@ -34,15 +34,6 @@ public interface RowHandler<RowT> {
      */
     @Nullable Object get(int field, RowT row);
 
-    /**
-     * Checks whether the given field is {@code null}.
-     *
-     * @param field Field position to be processed.
-     * @param row Row.
-     * @return {@code true} if {@code field} is {@code null} and {@code false} otherwise.
-     */
-    boolean isNull(int field, RowT row);
-
     /** Concatenate two rows. */
     RowT concat(RowT left, RowT right);
 

@@ -58,11 +58,6 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
         return row[field];
     }
 
-    @Override
-    public boolean isNull(int field, Object[] row) {
-        return row[field] == null;
-    }
-
     /** {@inheritDoc} */
     @Override
     public Object[] concat(Object[] left, Object[] right) {
