@@ -324,7 +324,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 clock,
                 new TestClockService(clock),
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
-                mock(TopologyAwareRaftGroupServiceFactory.class),
                 distributionZoneManager,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,

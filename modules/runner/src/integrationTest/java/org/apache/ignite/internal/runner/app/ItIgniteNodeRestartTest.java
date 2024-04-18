@@ -178,6 +178,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
+import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -480,7 +481,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 placementDriverManager.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
-                failureProcessor
+                failureProcessor,
+                new ThreadLocalPartitionCommandsMarshaller(clusterSvc.serializationRegistry()),
+                topologyAwareRaftGroupServiceFactory,
+                raftMgr
         );
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
@@ -608,7 +612,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 hybridClock,
                 clockService,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
-                topologyAwareRaftGroupServiceFactory,
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,

@@ -49,7 +49,10 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -81,7 +84,10 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
             @Mock ClusterManagementGroupManager cmgManager,
             @Mock PlacementDriver placementDriver,
             @Mock MessagingService messagingService,
-            @Mock TopologyService topologyService
+            @Mock TopologyService topologyService,
+            @Mock Marshaller marshaller,
+            @Mock TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
+            @Mock Loza raftManager
     ) {
         String nodeName = testNodeName(testInfo, 0);
 
@@ -109,7 +115,10 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 Set.of(),
                 placementDriver,
                 requestsExecutor,
-                new NoOpFailureProcessor()
+                new NoOpFailureProcessor(),
+                marshaller, //TODO
+                raftGroupServiceFactory, //TODO
+                raftManager
         );
 
         replicaManager.start();
@@ -153,6 +162,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         replicaManager.listen(BEFORE_REPLICA_STOPPED, removeReplicaListener);
 
         var groupId = new TablePartitionId(0, 0);
+        when(replicaListener.raftClient()).thenReturn(raftGroupService);
 
         CompletableFuture<Replica> startReplicaFuture = replicaManager.startReplica(
                 groupId,

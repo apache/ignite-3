@@ -159,6 +159,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -181,6 +182,7 @@ import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
+import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -816,7 +818,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             verify(getNode(i).raftManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
                     .startRaftGroupNodeWithoutService(any(), any(), any(), any(), any(RaftGroupOptions.class));
             verify(getNode(i).replicaManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
-                    .startReplica(any(), any(), any(), any());
+                    .startReplica(any(), any(ReplicaListener.class), any(), any());
         }
     }
 
@@ -1179,7 +1181,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     placementDriver,
                     threadPoolsManager.partitionOperationsExecutor(),
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
-                    new NoOpFailureProcessor()
+                    new NoOpFailureProcessor(),
+                    new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()),
+                    topologyAwareRaftGroupServiceFactory,
+                    raftManager
             ));
 
             LongSupplier delayDurationMsSupplier = () -> 10L;
@@ -1234,7 +1239,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clock,
                     clockService,
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
-                    topologyAwareRaftGroupServiceFactory,
                     distributionZoneManager,
                     schemaSyncService,
                     catalogManager,

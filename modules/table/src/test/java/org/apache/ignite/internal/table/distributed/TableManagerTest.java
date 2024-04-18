@@ -100,10 +100,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
-import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -513,8 +510,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     private IgniteBiTuple<TableViewInternal, TableManager> startTableManagerStopTest() throws Exception {
         TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_FOR_DROP_NAME, tblManagerFut);
 
-        verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any(), any(), any());
-
         TableManager tableManager = tblManagerFut.join();
 
         return new IgniteBiTuple<>(table, tableManager);
@@ -526,7 +521,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         tableManager.beforeNodeStop();
         tableManager.stop();
 
-        verify(rm, times(PARTITIONS)).stopRaftNodes(any());
         verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
 
         verify(table.internalTable().storage()).close();
@@ -673,14 +667,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     ) throws Exception {
         String consistentId = "node0";
 
-        when(rm.startRaftGroupService(any(), any(), any(), any())).thenAnswer(mock -> {
-            RaftGroupService raftGrpSrvcMock = mock(TopologyAwareRaftGroupService.class);
-
-            when(raftGrpSrvcMock.leader()).thenReturn(new Peer(consistentId));
-
-            return completedFuture(raftGrpSrvcMock);
-        });
-
         when(ts.getByConsistentId(any())).thenReturn(new ClusterNodeImpl(
                 UUID.randomUUID().toString(),
                 consistentId,
@@ -772,7 +758,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 clock,
                 new TestClockService(clock),
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
-                mock(TopologyAwareRaftGroupServiceFactory.class),
                 distributionZoneManager,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,

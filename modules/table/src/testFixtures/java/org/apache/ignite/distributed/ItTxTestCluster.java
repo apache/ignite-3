@@ -399,6 +399,15 @@ public class ItTxTestCluster {
 
             // This test is run without Meta storage.
             when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
+            var raftClientFactory = new TopologyAwareRaftGroupServiceFactory(
+                    clusterService,
+                    logicalTopologyService(clusterService),
+                    Loza.FACTORY,
+                    new RaftGroupEventsClientListener()
+            );
+
+
+            var commandMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
 
             ReplicaManager replicaMgr = new ReplicaManager(
                     node.name(),
@@ -408,7 +417,10 @@ public class ItTxTestCluster {
                     Set.of(TableMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
                     partitionOperationsExecutor,
-                    new NoOpFailureProcessor()
+                    new NoOpFailureProcessor(),
+                    commandMarshaller,
+                    raftClientFactory,
+                    raftSrv
             );
 
             replicaMgr.start();

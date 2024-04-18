@@ -55,7 +55,10 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
+import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaResult;
@@ -65,8 +68,10 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -77,6 +82,7 @@ import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -157,7 +163,10 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
                 new TestPlacementDriver(clusterService.topologyService().localMember()),
                 requestsExecutor,
-                new NoOpFailureProcessor()
+                new NoOpFailureProcessor(),
+                mock(ThreadLocalPartitionCommandsMarshaller.class),
+                mock(TopologyAwareRaftGroupServiceFactory.class),
+                mock(Loza.class)
         );
 
         replicaManager.start();
@@ -186,13 +195,23 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 (message, sender, correlationId) -> {
                     try {
                         log.info("Replica msg " + message.getClass().getSimpleName());
-
+                        TopologyAwareRaftGroupService raftClient = mock(TopologyAwareRaftGroupService.class);
                         replicaManager.startReplica(
                                 tablePartitionId,
-                                (request0, senderId) -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
-                                        .result(5)
-                                        .build(), null)),
-                                mock(TopologyAwareRaftGroupService.class),
+                                new ReplicaListener() {
+                                    @Override
+                                    public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
+                                        return completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
+                                                .result(5)
+                                                .build(), null));
+                                    }
+
+                                    @Override
+                                    public RaftCommandRunner raftClient() {
+                                        return raftClient;
+                                    }
+                                },
+                                raftClient,
                                 new PendingComparableValuesTracker<>(0L)
                         );
                     } catch (NodeStoppingException e) {
@@ -299,11 +318,21 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
             runAsync(() -> {
                 try {
                     log.info("Replica msg " + message.getClass().getSimpleName());
-
+                    TopologyAwareRaftGroupService raftClient = mock(TopologyAwareRaftGroupService.class);
                     replicaManager.startReplica(
                             tablePartitionId,
-                            (request, senderId) -> new CompletableFuture<>(),
-                            mock(TopologyAwareRaftGroupService.class),
+                            new ReplicaListener() {
+                                @Override
+                                public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
+                                    return new CompletableFuture<>();
+                                }
+
+                                @Override
+                                public RaftCommandRunner raftClient() {
+                                    return raftClient;
+                                }
+                            },
+                            raftClient,
                             new PendingComparableValuesTracker<>(0L)
                     );
                 } catch (NodeStoppingException e) {

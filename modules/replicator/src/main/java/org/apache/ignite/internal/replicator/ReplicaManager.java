@@ -192,7 +192,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
             Executor requestsExecutor,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            Marshaller raftCommandsMarshaller,
+            TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
+            RaftManager raftManager
     ) {
         this(
                 nodeName,
@@ -204,9 +207,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 requestsExecutor,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 failureProcessor,
-                null,
-                null,
-                null
+                raftCommandsMarshaller,
+                raftGroupServiceFactory,
+                raftManager
         );
     }
 
@@ -583,6 +586,71 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * REMOVE ME.
+     */
+    @TestOnly
+    public CompletableFuture<Replica> startReplica(
+            ReplicationGroupId replicaGrpId,
+            ReplicaListener listener,
+            RaftGroupService raftClient,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker
+    ) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            return startReplicaInternal(replicaGrpId, listener, raftClient, storageIndexTracker);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private CompletableFuture<Replica> startReplicaInternal(
+            ReplicationGroupId replicaGrpId,
+            ReplicaListener listener,
+            RaftGroupService raftClient,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker
+    ) throws NodeStoppingException {
+        LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
+
+        ClusterNode localNode = clusterNetSvc.topologyService().localMember();
+
+        Replica newReplica = new Replica(
+                        replicaGrpId,
+                        listener,
+                        storageIndexTracker,
+                        localNode,
+                        executor,
+                        placementDriver,
+                        clockService);
+
+        CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
+            if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
+                assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
+                LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
+
+                return CompletableFuture.completedFuture(newReplica);
+            } else {
+                existingReplicaFuture.complete(newReplica);
+                LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
+
+                return existingReplicaFuture;
+            }
+        });
+
+        var eventParams = new LocalReplicaEventParameters(replicaGrpId);
+
+        return fireEvent(AFTER_REPLICA_STARTED, eventParams)
+                .exceptionally(e -> {
+                    LOG.error("Error when notifying about AFTER_REPLICA_STARTED event.", e);
+
+                    return null;
+                })
+                .thenCompose(v -> replicaFuture);
     }
 
     /**

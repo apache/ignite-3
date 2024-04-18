@@ -76,7 +76,9 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageTestGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -182,6 +184,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             raftClientFactory.put(nodeName, topologyAwareRaftGroupServiceFactory);
 
+            //var commandMarshaller = new (clusterService.serializationRegistry());
+
             var replicaManager = new ReplicaManager(
                     nodeName,
                     clusterService,
@@ -190,7 +194,10 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     Set.of(ReplicaMessageTestGroup.class),
                     new TestPlacementDriver(primaryReplicaSupplier),
                     partitionOperationsExecutor,
-                    new NoOpFailureProcessor()
+                    new NoOpFailureProcessor(),
+                    null, // TODO
+                    topologyAwareRaftGroupServiceFactory,
+                    raftManager
             );
 
             replicaManagers.put(nodeName, replicaManager);
@@ -484,17 +491,25 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                 try {
                     return replicaManager.startReplica(
                             groupId,
-                            (request, senderId) -> {
-                                log.info("Handle request [type={}]", request.getClass().getSimpleName());
+                            new ReplicaListener() {
+                                @Override
+                                public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
+                                    log.info("Handle request [type={}]", request.getClass().getSimpleName());
 
-                                return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().build())
-                                        .thenCompose(ignored -> {
-                                            if (replicaListener == null) {
-                                                return completedFuture(new ReplicaResult(null, null));
-                                            } else {
-                                                return replicaListener.apply(request, senderId);
-                                            }
-                                        });
+                                    return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().build())
+                                            .thenCompose(ignored -> {
+                                                if (replicaListener == null) {
+                                                    return completedFuture(new ReplicaResult(null, null));
+                                                } else {
+                                                    return replicaListener.apply(request, senderId);
+                                                }
+                                            });
+                                }
+
+                                @Override
+                                public RaftCommandRunner raftClient() {
+                                    return raftClient;
+                                }
                             },
                             raftClient,
                             new PendingComparableValuesTracker<>(Long.MAX_VALUE));
