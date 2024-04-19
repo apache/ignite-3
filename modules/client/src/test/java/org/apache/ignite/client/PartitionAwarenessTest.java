@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.netty.util.ResourceLeakDetector;
@@ -39,6 +40,7 @@ import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.streamer.SimplePublisher;
@@ -161,9 +163,11 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     @Test
     public void testNonNullTxDisablesPartitionAwareness() {
         RecordView<Tuple> recordView = defaultTable().recordView();
-        var tx = (ClientTransaction) client2.transactions().begin();
+        var tx = (ClientLazyTransaction) client2.transactions().begin();
+        client2.sql().execute(tx, "SELECT 1"); // Force lazy tx init.
 
-        @SuppressWarnings("resource") String expectedNode = tx.channel().protocolContext().clusterNode().name();
+        String expectedNode = tx.nodeName();
+        assertNotNull(expectedNode);
 
         assertOpOnNode(expectedNode, "get", x -> recordView.get(tx, Tuple.create().set("ID", 0L)));
         assertOpOnNode(expectedNode, "get", x -> recordView.get(tx, Tuple.create().set("ID", 1L)));
