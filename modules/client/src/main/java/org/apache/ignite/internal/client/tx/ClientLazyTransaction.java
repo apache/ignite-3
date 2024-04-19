@@ -132,6 +132,13 @@ public class ClientLazyTransaction implements Transaction {
         return ((ClientLazyTransaction) tx).ensureStarted(ch, preferredNodeName);
     }
 
+    /**
+     * Gets the internal transaction from the given public transaction. Throws an exception if the given transaction is
+     * not an instance of {@link ClientLazyTransaction}.
+     *
+     * @param tx Public transaction.
+     * @return Internal transaction.
+     */
     public static @Nullable ClientLazyTransaction get(@Nullable Transaction tx) {
         if (tx == null) {
             return null;
