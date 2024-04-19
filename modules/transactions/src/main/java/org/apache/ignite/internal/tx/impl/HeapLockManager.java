@@ -417,6 +417,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             return new IgniteBiTuple<>(waiter.fut, waiter.lockMode());
         }
 
+        /**
+         * Returns waiters count.
+         *
+         * @return waiters count.
+         */
         public int waitersCount() {
             synchronized (waiters) {
                 return waiters.size();
