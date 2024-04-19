@@ -39,6 +39,7 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -220,7 +221,6 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -1184,7 +1184,7 @@ public class IgniteImpl implements Ignite {
             IgniteException igniteException = new IgniteException(errMsg, ex);
             igniteException.addSuppressed(e);
 
-            throw igniteException;
+            return igniteException;
         }
 
         return new IgniteException(errMsg, e);
@@ -1193,12 +1193,8 @@ public class IgniteImpl implements Ignite {
     /**
      * Stops ignite node.
      */
-    public void stop() {
-        try {
-            lifecycleManager.stopNode().get();
-        } catch (Exception ex) {
-            throw new IgniteException(Common.NODE_STOPPING_ERR, ex);
-        }
+    public void stop() throws ExecutionException, InterruptedException {
+        lifecycleManager.stopNode().get();
 
         restAddressReporter.removeReport();
     }
