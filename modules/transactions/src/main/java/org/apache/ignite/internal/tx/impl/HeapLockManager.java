@@ -293,6 +293,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 v = empty.poll();
                 if (v == null) {
                     res[0] = slots[index];
+                    assert !res[0].markedForRemove;
                 } else {
                     v.markedForRemove = false;
                     v.key = k;
