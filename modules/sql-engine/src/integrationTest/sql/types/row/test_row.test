@@ -1,7 +1,7 @@
 # name: sql/types/row/test_row.test
 # description: SQL feature F561 Full value expressions
 # feature: F561
-# group: [basic_queries]
+# group: [row]
 
 statement ok
 CREATE TABLE emp (empid INTEGER PRIMARY KEY, empname VARCHAR, empage INTEGER, salary INTEGER)
