@@ -57,7 +57,7 @@ public class ClientTransactions implements IgniteTransactions {
         return CompletableFuture.completedFuture(new ClientLazyTransaction(ch.observableTimestamp(), options));
     }
 
-    public static CompletableFuture<ClientTransaction> beginAsync(
+    static CompletableFuture<ClientTransaction> beginAsync(
             ReliableChannel ch,
             @Nullable String preferredNodeName,
             @Nullable TransactionOptions options,

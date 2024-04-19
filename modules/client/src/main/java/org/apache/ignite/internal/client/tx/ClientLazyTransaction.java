@@ -164,6 +164,7 @@ public class ClientLazyTransaction implements Transaction {
 
         return tx0;
     }
+
     ClientTransaction startedTx() {
         var tx0 = tx;
 
