@@ -92,9 +92,6 @@ public abstract class DefaultValue {
         return type;
     }
 
-    /** Serializes this default value or {@code null}. */
-    public abstract void writeTo(IgniteDataOutput os) throws IOException;
-
     /** Reads default value or {@code null}. */
     public static @Nullable DefaultValue readFrom(IgniteDataInput in) throws IOException {
         int typeId = in.readByte();
@@ -147,13 +144,6 @@ public abstract class DefaultValue {
         public int hashCode() {
             return Objects.hash(type, functionName);
         }
-
-        /** {@inheritDoc} */
-        @Override
-        public void writeTo(IgniteDataOutput os) throws IOException {
-            os.writeByte(type.typeId);
-            os.writeUTF(functionName);
-        }
     }
 
     /** Defines default value provider as a constant. */
@@ -178,13 +168,6 @@ public abstract class DefaultValue {
         /** Returns value to use as default. */
         public @Nullable Object value() {
             return value;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void writeTo(IgniteDataOutput out) throws IOException {
-            out.writeByte(type.typeId);
-            writeValue(columnType, value, out);
         }
 
         /** {@inheritDoc} */
@@ -220,7 +203,20 @@ public abstract class DefaultValue {
         if (val == null) {
             out.writeByte(Type.NO_DEFAULT);
         } else {
-            val.writeTo(out);
+            out.writeByte(val.type.typeId);
+
+            if (val instanceof ConstantValue) {
+                ConstantValue constantValue = (ConstantValue) val;
+
+                writeValue(constantValue.columnType, constantValue.value, out);
+            } else if (val instanceof FunctionCall) {
+                FunctionCall functionCall = (FunctionCall) val;
+                String functionName = functionCall.functionName();
+
+                out.writeUTF(functionName);
+            } else {
+                throw new IllegalArgumentException("Unknown or unexpected type: " + val);
+            }
         }
     }
 
