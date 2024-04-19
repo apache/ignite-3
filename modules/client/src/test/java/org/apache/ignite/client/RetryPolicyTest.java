@@ -31,9 +31,12 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
+import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.RetryPolicyContextImpl;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.LoggerFactory;
@@ -102,6 +105,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
 
         try (var client = getClient(plc)) {
             Transaction tx = client.transactions().begin();
+            ClientLazyTransaction.ensureStarted(tx, IgniteTestUtils.getFieldValue(client, "ch"), null).join();
 
             assertThrows(IgniteClientConnectionException.class, tx::commit);
             assertEquals(0, plc.invocations.size());
@@ -164,6 +168,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
         try (var client = getClient(plc)) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
             Transaction tx = client.transactions().begin();
+            ClientLazyTransaction.ensureStarted(tx, IgniteTestUtils.getFieldValue(client, "ch"), null).join();
 
             var ex = assertThrows(IgniteException.class, () -> recView.get(tx, Tuple.create().set("id", 1)));
             assertThat(ex.getMessage(), containsString("Transaction context has been lost due to connection errors."));
