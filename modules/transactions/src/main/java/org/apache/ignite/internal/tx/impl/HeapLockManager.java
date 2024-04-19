@@ -188,8 +188,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     public void release(Lock lock) {
         LockState state = lockState(lock.lockKey());
 
-        if (state.tryRelease(lock.txId(), lock.lockKey())) {
+        if (state.tryRelease(lock.txId())) {
             locks.compute(lock.lockKey(), (k, v) -> {
+                if (v.waiters.isEmpty()) {
+                    v.markedForRemove = true;
+                }
+
                 // Mapping may already change.
                 if (v != state || !v.markedForRemove) {
                     return v;
@@ -214,8 +218,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
         LockState state = lockState(lockKey);
 
-        if (state.tryRelease(txId, lockMode, lockKey)) {
+        if (state.tryRelease(txId, lockMode)) {
             locks.compute(lockKey, (k, v) -> {
+                if (v.waiters.isEmpty()) {
+                    v.markedForRemove = true;
+                }
+
                 // Mapping may already change.
                 if (v != state || !v.markedForRemove) {
                     return v;
@@ -234,10 +242,14 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
         if (states != null) {
             for (LockState state : states) {
-                if (state.tryRelease(txId, state.key)) {
+                if (state.tryRelease(txId)) {
                     LockKey key = state.key; // State may be already invalidated.
                     if (key != null) {
                         locks.compute(key, (k, v) -> {
+                            if (v.waiters.isEmpty()) {
+                                v.markedForRemove = true;
+                            }
+
                             // Mapping may already change.
                             if (v != state || !v.markedForRemove) {
                                 return v;
@@ -510,14 +522,13 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          * Attempts to release a lock for the specified {@code key} in exclusive mode.
          *
          * @param txId Transaction id.
-         * @param lockKey Lock key.
          * @return {@code True} if the queue is empty.
          */
-        boolean tryRelease(UUID txId, LockKey lockKey) {
+        boolean tryRelease(UUID txId) {
             Collection<WaiterImpl> toNotify;
 
             synchronized (waiters) {
-                toNotify = release(txId, lockKey);
+                toNotify = release(txId);
             }
 
             // Notify outside the monitor.
@@ -525,7 +536,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 waiter.notifyLocked();
             }
 
-            return markedForRemove;
+            return markedForRemove || (key!=null && waiters.isEmpty());
         }
 
         /**
@@ -533,10 +544,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          *
          * @param txId Transaction id.
          * @param lockMode Lock mode.
-         * @param lockKey Lock key.
          * @return If the value is true, no one waits of any lock of the key, false otherwise.
          */
-        boolean tryRelease(UUID txId, LockMode lockMode, LockKey lockKey) {
+        boolean tryRelease(UUID txId, LockMode lockMode) {
             List<WaiterImpl> toNotify = emptyList();
             synchronized (waiters) {
                 WaiterImpl waiter = waiters.get(txId);
@@ -548,7 +558,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     LockMode modeFromDowngrade = waiter.recalculateMode(lockMode);
 
                     if (!waiter.locked() && !waiter.hasLockIntent()) {
-                        toNotify = release(txId, lockKey);
+                        toNotify = release(txId);
                     } else if (modeFromDowngrade != waiter.lockMode()) {
                         toNotify = unlockCompatibleWaiters();
                     }
@@ -560,30 +570,19 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 waiter.notifyLocked();
             }
 
-            return markedForRemove;
+            return markedForRemove || (key!=null && waiters.isEmpty());
         }
 
         /**
          * Releases all locks are held by a specific transaction. This method should be invoked synchronously.
          *
          * @param txId Transaction id.
-         * @param lockKey Lock key.
          * @return List of waiters to notify.
          */
-        private List<WaiterImpl> release(UUID txId, LockKey lockKey) {
+        private List<WaiterImpl> release(UUID txId) {
             waiters.remove(txId);
 
             if (waiters.isEmpty()) {
-                if (key != null) {
-                    locks.compute(key, (k, v) -> {
-                        if (k == lockKey) {
-                            markedForRemove = true;
-                        }
-                        return v;
-                    });
-
-                }
-
                 return emptyList();
             }
 
