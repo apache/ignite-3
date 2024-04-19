@@ -418,7 +418,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         }
 
         public int waitersCount() {
-            synchronized(waiters) {
+            synchronized (waiters) {
                 return waiters.size();
             }
         }
