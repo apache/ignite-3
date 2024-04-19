@@ -92,7 +92,7 @@ public class ClientStatement implements Statement {
 
     /** {@inheritDoc} */
     @Override
-    public ZoneId timeZone() {
+    public ZoneId timeZoneId() {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21568
         return ZoneOffset.UTC;
     }

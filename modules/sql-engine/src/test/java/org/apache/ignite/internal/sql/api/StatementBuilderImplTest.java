@@ -89,7 +89,7 @@ public class StatementBuilderImplTest {
         try (Statement statement = builder.query(QUERY).build()) {
             assertThat(statement.defaultSchema(), is(nullValue()));
             assertThat(statement.query(), is(QUERY));
-            assertThat(statement.timeZone(), is(nullValue()));
+            assertThat(statement.timeZoneId(), is(nullValue()));
             assertThat(statement.pageSize(), is(0));
             assertThat(statement.queryTimeout(TimeUnit.NANOSECONDS), is(0L));
         }
@@ -107,14 +107,14 @@ public class StatementBuilderImplTest {
                 .queryTimeout(timeout, TimeUnit.MINUTES)
                 .pageSize(pageSize)
                 .defaultSchema(schema)
-                .timeZone(timeZone)
+                .timeZoneId(timeZone)
                 .build();
 
         assertThat(statement.query(), is(QUERY));
         assertThat(statement.defaultSchema(), is(schema));
         assertThat(statement.queryTimeout(TimeUnit.MINUTES), is(timeout));
         assertThat(statement.pageSize(), is(pageSize));
-        assertThat(statement.timeZone(), is(timeZone));
+        assertThat(statement.timeZoneId(), is(timeZone));
     }
 
     @Test
@@ -146,7 +146,7 @@ public class StatementBuilderImplTest {
                 .build();
 
         Statement statement2 = statement1.toBuilder()
-                .timeZone(timeZone)
+                .timeZoneId(timeZone)
                 .pageSize(pageSize + 1)
                 .queryTimeout(timeout, TimeUnit.MINUTES)
                 .build();
@@ -162,19 +162,19 @@ public class StatementBuilderImplTest {
         assertThat(statement1.defaultSchema(), is(nullValue()));
         assertThat(statement1.queryTimeout(TimeUnit.SECONDS), is(timeout));
         assertThat(statement1.pageSize(), is(pageSize - 1));
-        assertThat(statement1.timeZone(), is(nullValue()));
+        assertThat(statement1.timeZoneId(), is(nullValue()));
 
         assertThat(statement2.query(), is(QUERY));
         assertThat(statement2.defaultSchema(), is(nullValue()));
         assertThat(statement2.queryTimeout(TimeUnit.MINUTES), is(timeout));
         assertThat(statement2.pageSize(), is(pageSize + 1));
-        assertThat(statement2.timeZone(), is(timeZone));
+        assertThat(statement2.timeZoneId(), is(timeZone));
 
         assertThat(statement3.query(), is(QUERY + "3"));
         assertThat(statement3.defaultSchema(), is(schema));
         assertThat(statement3.queryTimeout(TimeUnit.HOURS), is(timeout));
         assertThat(statement3.pageSize(), is(pageSize));
-        assertThat(statement3.timeZone(), is(timeZone));
+        assertThat(statement3.timeZoneId(), is(timeZone));
     }
 
     @Test

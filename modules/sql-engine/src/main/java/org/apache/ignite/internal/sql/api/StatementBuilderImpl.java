@@ -39,8 +39,8 @@ class StatementBuilderImpl implements StatementBuilder {
     /** Page size. */
     private Integer pageSize;
 
-    /** Time zone. */
-    private ZoneId timeZone;
+    /** Time zone ID. */
+    private ZoneId timeZoneId;
 
     /** {@inheritDoc} */
     @Override
@@ -87,8 +87,8 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public StatementBuilder timeZone(ZoneId timeZone) {
-        this.timeZone = Objects.requireNonNull(timeZone, "timeZone");
+    public StatementBuilder timeZoneId(ZoneId timeZoneId) {
+        this.timeZoneId = Objects.requireNonNull(timeZoneId, "timeZoneId");
 
         return this;
     }
@@ -96,6 +96,6 @@ class StatementBuilderImpl implements StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public Statement build() {
-        return new StatementImpl(query, defaultSchema, queryTimeoutMs, pageSize, timeZone);
+        return new StatementImpl(query, defaultSchema, queryTimeoutMs, pageSize, timeZoneId);
     }
 }

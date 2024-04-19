@@ -614,7 +614,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         Builder propertiesBuilder = SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
                 // If the user has not explicitly specified a time zone, then we use the system default value.
-                .set(QueryProperty.TIME_ZONE_ID, Objects.requireNonNullElse(statement.timeZone(), ZoneId.systemDefault()));
+                .set(QueryProperty.TIME_ZONE_ID, Objects.requireNonNullElse(statement.timeZoneId(), ZoneId.systemDefault()));
 
         if (statement.defaultSchema() != null) {
             propertiesBuilder.set(QueryProperty.DEFAULT_SCHEMA, statement.defaultSchema());
