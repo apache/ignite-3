@@ -151,7 +151,7 @@ public class ClientTransaction implements Transaction {
             throw unsupportedTxTypeException(tx);
         }
 
-        ClientTransaction clientTx = ((ClientLazyTransaction) tx).tx();
+        ClientTransaction clientTx = ((ClientLazyTransaction) tx).startedTx();
 
         int state = clientTx.state.get();
 

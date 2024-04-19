@@ -94,19 +94,37 @@ public class ClientLazyTransaction implements Transaction {
         return options != null && options.readOnly();
     }
 
-    private synchronized CompletableFuture<ClientTransaction> ensureStarted(
-            ReliableChannel ch,
-            @Nullable String preferredNodeName) {
+    /**
+     * Gets the node name of the node where the transaction is started. If not started yet, returns {@code null}.
+     *
+     * @return Node name or {@code null}.
+     */
+    public @Nullable String nodeName() {
         var tx0 = tx;
 
-        if (tx0 != null) {
-            return tx0;
+        //noinspection resource
+        return tx0 != null
+                ? tx0.join().channel().protocolContext().clusterNode().name()
+                : null;
+    }
+
+    /**
+     * Gets the internal transaction from the given public transaction. Throws an exception if the given transaction is
+     * not an instance of {@link ClientLazyTransaction}.
+     *
+     * @param tx Public transaction.
+     * @return Internal transaction.
+     */
+    public static @Nullable ClientLazyTransaction get(@Nullable Transaction tx) {
+        if (tx == null) {
+            return null;
         }
 
-        tx0 = ClientTransactions.beginAsync(ch, preferredNodeName, options, observableTimestamp);
-        tx = tx0;
+        if (!(tx instanceof ClientLazyTransaction)) {
+            throw ClientTransaction.unsupportedTxTypeException(tx);
+        }
 
-        return tx0;
+        return (ClientLazyTransaction) tx;
     }
 
     /**
@@ -132,40 +150,26 @@ public class ClientLazyTransaction implements Transaction {
         return ((ClientLazyTransaction) tx).ensureStarted(ch, preferredNodeName);
     }
 
-    /**
-     * Gets the internal transaction from the given public transaction. Throws an exception if the given transaction is
-     * not an instance of {@link ClientLazyTransaction}.
-     *
-     * @param tx Public transaction.
-     * @return Internal transaction.
-     */
-    public static @Nullable ClientLazyTransaction get(@Nullable Transaction tx) {
-        if (tx == null) {
-            return null;
+    private synchronized CompletableFuture<ClientTransaction> ensureStarted(
+            ReliableChannel ch,
+            @Nullable String preferredNodeName) {
+        var tx0 = tx;
+
+        if (tx0 != null) {
+            return tx0;
         }
 
-        if (!(tx instanceof ClientLazyTransaction)) {
-            throw ClientTransaction.unsupportedTxTypeException(tx);
-        }
+        tx0 = ClientTransactions.beginAsync(ch, preferredNodeName, options, observableTimestamp);
+        tx = tx0;
 
-        return (ClientLazyTransaction) tx;
+        return tx0;
     }
-
-    public ClientTransaction tx() {
+    ClientTransaction startedTx() {
         var tx0 = tx;
 
         assert tx0 != null : "Transaction is not started";
         assert tx0.isDone() : "Transaction is starting";
 
         return tx0.join();
-    }
-
-    public @Nullable String nodeName() {
-        var tx0 = tx;
-
-        //noinspection resource
-        return tx0 != null
-                ? tx0.join().channel().protocolContext().clusterNode().name()
-                : null;
     }
 }
