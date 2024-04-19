@@ -174,7 +174,6 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         }
     }
 
-
     @ParameterizedTest(name = "{0}")
     @MethodSource("values")
     public void constantDefault(ColumnType columnType, Object value) throws IOException {
@@ -183,7 +182,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         log.info("{}: {}", columnType, value);
 
         try (IgniteUnsafeDataOutput os = new IgniteUnsafeDataOutput(128)) {
-            val.writeTo(os);
+            DefaultValue.writeTo(val, os);
 
             try (IgniteUnsafeDataInput in = new IgniteUnsafeDataInput(os.internalArray())) {
                 DefaultValue actual = DefaultValue.readFrom(in);
@@ -245,7 +244,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         FunctionCall val = (FunctionCall) DefaultValue.functionCall("func");
 
         try (IgniteUnsafeDataOutput os = new IgniteUnsafeDataOutput(128)) {
-            val.writeTo(os);
+            DefaultValue.writeTo(val, os);
 
             try (IgniteUnsafeDataInput in = new IgniteUnsafeDataInput(os.internalArray())) {
                 DefaultValue actual = DefaultValue.readFrom(in);
