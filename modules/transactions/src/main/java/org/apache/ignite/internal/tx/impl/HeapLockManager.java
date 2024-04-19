@@ -512,7 +512,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 waiter.notifyLocked();
             }
 
-            return markedForRemove || (key!=null && waiters.isEmpty());
+            return markedForRemove || (key != null && waiters.isEmpty());
         }
 
         /**
@@ -546,7 +546,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 waiter.notifyLocked();
             }
 
-            return markedForRemove || (key!=null && waiters.isEmpty());
+            return markedForRemove || (key != null && waiters.isEmpty());
         }
 
         /**
