@@ -30,7 +30,6 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Client transaction.
@@ -168,7 +167,7 @@ public class ClientTransaction implements Transaction {
                 format("Transaction is already finished [id={}, state={}].", clientTx.id, stateStr));
     }
 
-    public static @NotNull IgniteException unsupportedTxTypeException(Transaction tx) {
+    static IgniteException unsupportedTxTypeException(Transaction tx) {
         return new IgniteException(INTERNAL_ERR, "Unsupported transaction implementation: '"
                 + tx.getClass()
                 + "'. Use IgniteClient.transactions() to start transactions.");
