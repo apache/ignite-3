@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.planner;
 import static org.apache.ignite.internal.sql.engine.planner.CorrelatedSubqueryPlannerTest.createTestTable;
 import static org.apache.ignite.internal.sql.engine.planner.JoinColocationPlannerTest.complexTbl;
 import static org.apache.ignite.internal.sql.engine.planner.JoinColocationPlannerTest.simpleTable;
+import static org.apache.ignite.internal.sql.engine.planner.JoinColocationPlannerTest.simpleTableHashPk;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -107,10 +108,12 @@ public class HashJoinPlannerTest extends AbstractPlannerTest {
 
     @Test
     public void hashJoinWinsOnLeftSkewedInput() throws Exception {
-        IgniteTable thinTbl = simpleTable("THIN_TBL", 10);
-        IgniteTable thickTbl = simpleTable("THICK_TBL", 100_000);
+        IgniteTable thinTblSortedPk = simpleTable("THIN_TBL", 10);
+        IgniteTable thinTblHashPk = simpleTableHashPk("THIN_TBL_HASH_PK", 10);
+        IgniteTable thickTblSortedPk = simpleTable("THICK_TBL", 100_000);
+        IgniteTable thickTblHashPk = simpleTableHashPk("THICK_TBL_HASH_PK", 100_000);
 
-        IgniteSchema schema = createSchema(thinTbl, thickTbl);
+        IgniteSchema schema = createSchema(thinTblSortedPk, thickTblSortedPk, thinTblHashPk, thickTblHashPk);
 
         String sql = "select t1.ID, t1.ID2, t2.ID, t2.ID2 "
                 + "from THICK_TBL t1 " // left
@@ -120,7 +123,20 @@ public class HashJoinPlannerTest extends AbstractPlannerTest {
 
         sql = "select t1.ID, t1.ID2, t2.ID, t2.ID2 "
                 + "from THIN_TBL t1 " // left
-                + "join THICK_TBL t2 on t1.id = t2.id "; // right
+                + "join THICK_TBL t2 on t1.ID2 = t2.ID2 "; // right
+
+        assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteHashJoin.class).negate()), "JoinCommuteRule");
+
+        sql = "select t1.ID, t1.ID2, t2.ID, t2.ID2 "
+                + "from THIN_TBL_HASH_PK t1 " // left
+                + "join THICK_TBL_HASH_PK t2 on t1.ID = t2.ID "; // right
+
+        assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteHashJoin.class)), "JoinCommuteRule");
+
+        // merge join can consume less cpu in such a case
+        sql = "select t1.ID, t1.ID2, t2.ID, t2.ID2 "
+                + "from THIN_TBL t1 " // left
+                + "join THICK_TBL t2 on t1.ID = t2.ID "; // right
 
         assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteHashJoin.class).negate()), "JoinCommuteRule");
     }
@@ -166,6 +182,7 @@ public class HashJoinPlannerTest extends AbstractPlannerTest {
                 Arguments.of("select t1.c1 from t1 %s join t1 t2 ON t1.id is not distinct from t2.c1", false),
                 Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = ?", false),
                 Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = OCTET_LENGTH('TEST')", false),
+                Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = LOG10(t1.c1)", false),
                 Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = t2.c1 and t1.ID > t2.ID", false),
                 Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = 1 and t2.c1 = 1", false)
         );

@@ -270,6 +270,21 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 .build();
     }
 
+    static IgniteTable simpleTableHashPk(String tableName, int size) {
+        return TestBuilders.table()
+                .name(tableName)
+                .size(size)
+                .distribution(someAffinity())
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("ID2", NativeTypes.INT32)
+                .addColumn("VAL", NativeTypes.STRING)
+                .hashIndex()
+                .name("PK")
+                .addColumn("ID")
+                .end()
+                .build();
+    }
+
     static IgniteTable complexTbl(String tableName) {
         return complexTbl(tableName, DEFAULT_TBL_SIZE,
                 IgniteDistributions.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID));

@@ -30,6 +30,7 @@ import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
@@ -73,9 +74,13 @@ public class IgniteHashJoin extends AbstractIgniteJoin {
 
         int rightKeysSize = joinInfo.rightKeys.size();
 
-        double rightSize = rightRowCount * IgniteCost.AVERAGE_FIELD_SIZE * (0.9 * rightKeysSize + getRight().getRowType().getFieldCount());
+        double rightSize = rightRowCount * IgniteCost.AVERAGE_FIELD_SIZE * getRight().getRowType().getFieldCount();
 
-        return costFactory.makeCost(rowCount, rowCount * IgniteCost.ROW_PASS_THROUGH_COST, 0, rightSize, 0);
+        double distRightRows = Util.first(mq.getDistinctRowCount(right, ImmutableBitSet.of(joinInfo.rightKeys), null), 0.9 * rightRowCount);
+
+        rightSize += distRightRows * rightKeysSize * IgniteCost.AVERAGE_FIELD_SIZE;
+
+        return costFactory.makeCost(rowCount, rowCount * IgniteCost.HASH_LOOKUP_COST, 0, rightSize, 0);
     }
 
     /** {@inheritDoc} */
