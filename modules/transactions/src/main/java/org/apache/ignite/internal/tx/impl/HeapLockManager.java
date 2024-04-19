@@ -189,21 +189,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         LockState state = lockState(lock.lockKey());
 
         if (state.tryRelease(lock.txId())) {
-            locks.compute(lock.lockKey(), (k, v) -> {
-                if (v.waiters.isEmpty()) {
-                    v.markedForRemove = true;
-                }
-
-                // Mapping may already change.
-                if (v != state || !v.markedForRemove) {
-                    return v;
-                }
-
-                // markedForRemove state should be cleared on entry reuse to avoid race.
-                v.key = null;
-                empty.add(v);
-                return null;
-            });
+            locks.compute(lock.lockKey(), (k, v) -> adjustLockState(state, v));
         }
     }
 
@@ -219,20 +205,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         LockState state = lockState(lockKey);
 
         if (state.tryRelease(txId, lockMode)) {
-            locks.compute(lockKey, (k, v) -> {
-                if (v.waiters.isEmpty()) {
-                    v.markedForRemove = true;
-                }
-
-                // Mapping may already change.
-                if (v != state || !v.markedForRemove) {
-                    return v;
-                }
-
-                v.key = null;
-                empty.add(v);
-                return null;
-            });
+            locks.compute(lockKey, (k, v) -> adjustLockState(state, v));
         }
     }
 
@@ -245,20 +218,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 if (state.tryRelease(txId)) {
                     LockKey key = state.key; // State may be already invalidated.
                     if (key != null) {
-                        locks.compute(key, (k, v) -> {
-                            if (v.waiters.isEmpty()) {
-                                v.markedForRemove = true;
-                            }
-
-                            // Mapping may already change.
-                            if (v != state || !v.markedForRemove) {
-                                return v;
-                            }
-
-                            v.key = null;
-                            empty.add(v);
-                            return null;
-                        });
+                        locks.compute(key, (k, v) -> adjustLockState(state, v));
                     }
                 }
             }
@@ -347,6 +307,22 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     private CompletableFuture<Boolean> parentLockConflictListener(LockEventParameters params) {
         return fireEvent(LockEvent.LOCK_CONFLICT, params).thenApply(v -> false);
+    }
+
+    @Nullable
+    private LockState adjustLockState(LockState state, LockState v) {
+        // Mapping may already change.
+        if (v != state) {
+            return v;
+        }
+        if (v.waiters.isEmpty()) {
+            v.markedForRemove = true;
+            v.key = null;
+            empty.add(v);
+            return null;
+        } else {
+            return v;
+        }
     }
 
     /**
