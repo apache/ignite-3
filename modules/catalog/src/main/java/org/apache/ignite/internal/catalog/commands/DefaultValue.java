@@ -195,6 +195,7 @@ public abstract class DefaultValue {
 
     /**
      * Writes the given default value into output.
+     *
      * @param val Default value or null.
      * @param out Output.
      * @throws IOException if thrown.
