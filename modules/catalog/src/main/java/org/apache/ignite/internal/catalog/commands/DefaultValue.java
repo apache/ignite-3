@@ -92,22 +92,6 @@ public abstract class DefaultValue {
         return type;
     }
 
-    /** Reads default value or {@code null}. */
-    public static @Nullable DefaultValue readFrom(IgniteDataInput in) throws IOException {
-        int typeId = in.readByte();
-        if (typeId == Type.NULL_VALUE) {
-            return null;
-        } else if (typeId == Type.CONSTANT.typeId) {
-            Object val = readValue(in);
-            return new ConstantValue(val);
-        } else if (typeId == Type.FUNCTION_CALL.typeId) {
-            String functionName = in.readUTF();
-            return new FunctionCall(functionName);
-        } else {
-            throw new IllegalArgumentException("Unexpected type: " + typeId);
-        }
-    }
-
     /** Defines default value provider as a function call. */
     public static class FunctionCall extends DefaultValue {
 
@@ -218,6 +202,22 @@ public abstract class DefaultValue {
             } else {
                 throw new IllegalArgumentException("Unknown or unexpected type: " + val);
             }
+        }
+    }
+
+    /** Reads default value or {@code null}. */
+    public static @Nullable DefaultValue readFrom(IgniteDataInput in) throws IOException {
+        int typeId = in.readByte();
+        if (typeId == Type.NULL_VALUE) {
+            return null;
+        } else if (typeId == Type.CONSTANT.typeId) {
+            Object val = readValue(in);
+            return new ConstantValue(val);
+        } else if (typeId == Type.FUNCTION_CALL.typeId) {
+            String functionName = in.readUTF();
+            return new FunctionCall(functionName);
+        } else {
+            throw new IllegalArgumentException("Unexpected type: " + typeId);
         }
     }
 
