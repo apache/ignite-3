@@ -89,7 +89,7 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void renameColumnsInFrom(){
+    public void renameColumnsInFrom() {
         assertQuery("select NEW_PERSON.NEW_ID, NEW_NAME, NEW_persON.New_salary from person NEW_PERSON(NeW_Id, NeW_NaMe, New_SaLaRy)")
                 .columnNames("NEW_ID", "NEW_NAME", "NEW_SALARY").check();
     }
