@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import io.micronaut.http.HttpResponse;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
@@ -95,20 +94,15 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerTestIntegrationT
         response = client.toBlocking().exchange("/state/local/FOO/", LocalPartitionStatesResponse.class);
 
         assertEquals(HttpStatus.OK, response.status());
-        assertEquals(1, response.body().states().size());
-    }
 
-    @Test
-    void testLocalPartitionStatesByZoneJson() {
-        executeSql("CREATE ZONE foo WITH partitions=1, storage_profiles='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'");
-        executeSql("CREATE TABLE foo (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = 'FOO'");
+        List<LocalPartitionStateResponse> states = response.body().states();
+        assertEquals(1, states.size());
 
-        HttpResponse<String> response = client.toBlocking().exchange("/state/local/FOO/", String.class);
-
-        assertEquals(
-                "{'states':[{'partitionId':0,'tableName':'FOO','nodeName':'idrct_tlpsbzj_0','state':'HEALTHY'}]}".replace('\'', '"'),
-                response.body()
-        );
+        LocalPartitionStateResponse state = states.get(0);
+        assertEquals(0, state.partitionId());
+        assertEquals("idrct_tlpsbz_0", state.nodeName());
+        assertEquals("FOO", state.tableName());
+        assertEquals("HEALTHY", state.state());
     }
 
     @Test
@@ -150,19 +144,13 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerTestIntegrationT
         response = client.toBlocking().exchange("/state/global/FOO/", GlobalPartitionStatesResponse.class);
 
         assertEquals(HttpStatus.OK, response.status());
-        assertEquals(1, response.body().states().size());
-    }
 
-    @Test
-    void testGlobalPartitionStatesByZoneJson() {
-        executeSql("CREATE ZONE foo WITH partitions=1, storage_profiles='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'");
-        executeSql("CREATE TABLE foo (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = 'FOO'");
+        List<GlobalPartitionStateResponse> states = response.body().states();
+        assertEquals(1, states.size());
 
-        HttpResponse<String> response = client.toBlocking().exchange("/state/global/FOO/", String.class);
-
-        assertEquals(
-                "{'states':[{'partitionId':0,'tableName':'FOO','state':'AVAILABLE'}]}".replace('\'', '"'),
-                response.body()
-        );
+        GlobalPartitionStateResponse state = states.get(0);
+        assertEquals(0, state.partitionId());
+        assertEquals("FOO", state.tableName());
+        assertEquals("AVAILABLE", state.state());
     }
 }

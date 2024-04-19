@@ -347,6 +347,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
                     var tablePartitionId = (TablePartitionId) raftNodeId.groupId();
 
                     CatalogTableDescriptor tableDescriptor = catalogManager.table(tablePartitionId.tableId(), catalogVersion);
+                    // Only tables that belong to a specific catalog version will be returned.
                     if (tableDescriptor == null || request.zoneId() != NO_ZONE_ID && tableDescriptor.zoneId() != request.zoneId()) {
                         return;
                     }
@@ -415,7 +416,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
     }
 
     /**
-     * Replaces some healthy states with a {@link LocalPartitionStateEnum#CATCHING_UP},it can only be done once the state of all peers is
+     * Replaces some healthy states with a {@link LocalPartitionStateEnum#CATCHING_UP}, it can only be done once the state of all peers is
      * known.
      */
     private static Map<TablePartitionId, Map<String, LocalPartitionState>> normalizeLocal(
@@ -438,6 +439,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
                     stateEnum = CATCHING_UP;
                 }
 
+                // Tables, returned from local states request, are always present in the required version of the catalog.
                 CatalogTableDescriptor tableDescriptor = catalog.table(tablePartitionId.tableId());
                 return new LocalPartitionState(tableDescriptor.name(), tablePartitionId.partitionId(), stateEnum);
             }));
@@ -483,6 +485,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
             TablePartitionId tablePartitionId,
             Map<String, LocalPartitionState> map
     ) {
+        // Tables, returned from local states request, are always present in the required version of the catalog.
         int zoneId = catalog.table(tablePartitionId.tableId()).zoneId();
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
 
