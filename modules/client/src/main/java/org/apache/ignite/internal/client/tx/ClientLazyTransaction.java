@@ -134,16 +134,7 @@ public class ClientLazyTransaction implements Transaction {
             throw ClientTransaction.unsupportedTxTypeException(tx);
         }
 
-        var tx0 = ((ClientLazyTransaction) tx).tx;
-
-        if (tx0 == null) {
-            return null;
-        }
-
-        // Normally, the transaction is already started at this point and the future is completed.
-        // Only if the tx is used from multiple threads we might have to block on the future, but it's a weird case.
-        // noinspection resource
-        return PartitionAwarenessProvider.of(tx0.join().channel().protocolContext().clusterNode().name());
+        return PartitionAwarenessProvider.of((ClientLazyTransaction) tx);
     }
 
     public ClientTransaction tx() {
