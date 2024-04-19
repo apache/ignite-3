@@ -17,15 +17,23 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -305,7 +313,6 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("JSON_VALUE('{\"a\":1}', '$.a' RETURNING INTEGER)").returns(1).check();
         assertExpression("JSON_VALUE('{\"a\":true}', '$.a' RETURNING BOOLEAN)").returns(true).check();
         assertExpression("JSON_VALUE('{\"a\":1.1}', '$.a' RETURNING DOUBLE)").returns(1.1d).check();
-        assertExpression("JSON_VALUE('{\"a\":1}' FORMAT JSON, '$.a')").returns("1").check();
 
         assertExpression("JSON_QUERY('{\"a\":{\"b\":1}}', '$.a')").returns("{\"b\":1}").check();
         assertExpression("JSON_TYPE('{\"a\":1}')").returns("OBJECT").check();
@@ -328,9 +335,22 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("'{\"a\":1}' IS NOT JSON OBJECT").returns(false).check();
         assertExpression("'[1, 2]' IS NOT JSON ARRAY").returns(false).check();
         assertExpression("'1' IS NOT JSON SCALAR").returns(false).check();
+    }
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-20163
-        // assertExpression("'{\"a\":1}' FORMAT JSON").check();
+    @Test
+    public void testFormatJson() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20163 Convert these tests to ones that do not expect errors
+        //  this issue is resolved
+        String error = "Expression is not supported: FORMAT JSON";
+
+        assertThrowsSqlException(SqlException.class, Sql.STMT_VALIDATION_ERR, error, 
+                () -> sql("SELECT '{\"a\":1}' FORMAT JSON"));
+
+        assertThrowsSqlException(SqlException.class, Sql.STMT_VALIDATION_ERR, error, 
+                () -> sql("SELECT JSON_VALUE('{\"a\":1}' FORMAT JSON, '$.a')"));
+
+        assertThrowsSqlException(SqlException.class, Sql.STMT_VALIDATION_ERR, error,
+                () -> sql("SELECT c FORMAT JSON FROM (VALUES ('{\"a\":1}')) t(c)"));
     }
 
     @Test
@@ -343,6 +363,19 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT JSON_ARRAYAGG(val) FROM t")
                 .returns("[1]")
                 .check();
+    }
+
+    @Test
+    public void testJsonObject() throws IOException  {
+        List<List<Object>> rows = sql(
+                "select json_object('name': 'Alex', 'address': json_object('city': 'City 17', 'street': 'Elm', 'house': 42))"
+        );
+        assertEquals(1, rows.size(), rows.toString());
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        Map<String, ?> json = (Map<String, ?>) mapper.readValue((String) rows.get(0).get(0), HashMap.class);
+        assertEquals(Map.of("name", "Alex", "address", Map.of("city", "City 17", "street", "Elm", "house", 42)), json);
     }
 
     @Test

@@ -197,8 +197,8 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                         indexes,
                         systemViews,
                         INITIAL_CAUSALITY_TOKEN
-                ))
-        );
+                )),
+                DEFAULT_ZONE.id());
     }
 
     static CatalogTableDescriptor table(int tableId, int schemaId, int zoneId, int pkIndexId, String columnName) {

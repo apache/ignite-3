@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;

@@ -70,9 +70,12 @@ import java.util.concurrent.Phaser;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.affinity.AffinityUtils;
+import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -336,6 +339,40 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNotNull(table);
 
         assertSame(table, tblManagerFut.join().table(DYNAMIC_TABLE_NAME));
+    }
+
+    /**
+     * Testing TableManager#writeTableAssignmentsToMetastore for 2 exceptional scenarios:
+     * 1. the method was interrupted in outer future before invoke calling completion.
+     * 2. the method was interrupted in inner metastore's future when the result of invocation had gotten, but after error happens;
+     *
+     * @throws Exception if something goes wrong on mocks creation.
+     */
+    @Test
+    public void testWriteTableAssignmentsToMetastoreExceptionally() throws Exception {
+        TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
+        int tableId = table.tableId();
+        TableManager tableManager = tblManagerFut.join();
+        List<Assignments> assignmentsList = List.of(Assignments.of(Assignment.forPeer(node.id())));
+
+        // the first case scenario
+        CompletableFuture<List<Assignments>> assignmentsFuture = new CompletableFuture<>();
+        var outerExceptionMsg = "Outer future is interrupted";
+        assignmentsFuture.completeExceptionally(new TimeoutException(outerExceptionMsg));
+        CompletableFuture<List<Assignments>> writtenAssignmentsFuture = tableManager
+                .writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
+        assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
+        assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, outerExceptionMsg);
+
+        // the second case scenario
+        assignmentsFuture = completedFuture(assignmentsList);
+        CompletableFuture<Boolean> invokeTimeoutFuture = new CompletableFuture<>();
+        var innerExceptionMsg = "Inner future is interrupted";
+        invokeTimeoutFuture.completeExceptionally(new TimeoutException(innerExceptionMsg));
+        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(invokeTimeoutFuture);
+        writtenAssignmentsFuture = tableManager.writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
+        assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
+        assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, innerExceptionMsg);
     }
 
     /**

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromLogicalNodesInStorage;
@@ -44,6 +43,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -87,7 +87,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+        int defaultZoneId = getDefaultZone().id();
 
         assertDataNodesFromLogicalNodesInStorage(defaultZoneId, clusterNodes, keyValueStorage);
 
@@ -117,13 +117,13 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
     void testDataNodesPropagationAfterScaleUpTriggeredOnNewCluster() throws Exception {
         startDistributionZoneManager();
 
-        alterZone(DEFAULT_ZONE_NAME, IMMEDIATE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
+        alterZone(getDefaultZone().name(), IMMEDIATE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
 
         createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, null, null);
 
         topology.putNode(NODE_1);
 
-        assertDataNodesFromLogicalNodesInStorage(getZoneId(DEFAULT_ZONE_NAME), Set.of(NODE_1), keyValueStorage);
+        assertDataNodesFromLogicalNodesInStorage(getDefaultZone().id(), Set.of(NODE_1), keyValueStorage);
         assertDataNodesFromLogicalNodesInStorage(getZoneId(ZONE_NAME), Set.of(NODE_1), keyValueStorage);
     }
 
@@ -137,7 +137,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
 
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+        int defaultZoneId = getDefaultZone().id();
 
         assertDataNodesFromLogicalNodesInStorage(defaultZoneId, clusterNodes, keyValueStorage);
 
@@ -167,11 +167,11 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+        CatalogZoneDescriptor defaultZone = getDefaultZone();
 
-        assertDataNodesFromLogicalNodesInStorage(defaultZoneId, clusterNodes, keyValueStorage);
+        assertDataNodesFromLogicalNodesInStorage(defaultZone.id(), clusterNodes, keyValueStorage);
 
-        alterZone(DEFAULT_ZONE_NAME, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
+        alterZone(defaultZone.name(), INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
 
         topology.putNode(NODE_2);
 
@@ -179,9 +179,9 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         assertLogicalTopology(clusterNodes2, keyValueStorage);
 
-        alterZone(DEFAULT_ZONE_NAME, IMMEDIATE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
+        alterZone(defaultZone.name(), IMMEDIATE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
 
-        assertDataNodesFromLogicalNodesInStorage(defaultZoneId, clusterNodes2, keyValueStorage);
+        assertDataNodesFromLogicalNodesInStorage(defaultZone.id(), clusterNodes2, keyValueStorage);
     }
 
     @Test
@@ -194,11 +194,11 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
 
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+        CatalogZoneDescriptor defaultZone = getDefaultZone();
 
-        assertDataNodesFromLogicalNodesInStorage(defaultZoneId, clusterNodes, keyValueStorage);
+        assertDataNodesFromLogicalNodesInStorage(defaultZone.id(), clusterNodes, keyValueStorage);
 
-        alterZone(DEFAULT_ZONE_NAME, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
+        alterZone(defaultZone.name(), INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
 
         topology.removeNodes(Set.of(NODE_2));
 
@@ -206,9 +206,9 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         assertLogicalTopology(clusterNodes2, keyValueStorage);
 
-        alterZone(DEFAULT_ZONE_NAME, INFINITE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
+        alterZone(defaultZone.name(), INFINITE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
-        assertDataNodesFromLogicalNodesInStorage(defaultZoneId, clusterNodes2, keyValueStorage);
+        assertDataNodesFromLogicalNodesInStorage(defaultZone.id(), clusterNodes2, keyValueStorage);
     }
 
     @Test
@@ -472,7 +472,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
 
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+        int defaultZoneId = getDefaultZone().id();
 
         assertDataNodesFromLogicalNodesInStorage(defaultZoneId, Set.of(NODE_1), keyValueStorage);
 

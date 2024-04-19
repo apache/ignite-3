@@ -19,5 +19,5 @@ package org.apache.ignite.catalog;
 
 /** Type of the index to create. */
 public enum IndexType {
-    TREE, HASH, DEFAULT
+    SORTED, HASH, DEFAULT
 }

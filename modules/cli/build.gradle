@@ -30,15 +30,19 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 description = 'ignite-cli'
 
+configurations {
+    openapiSpec
+}
+
 dependencies {
     annotationProcessor libs.picocli.annotation.processor
     annotationProcessor libs.micronaut.inject.annotation.processor
     annotationProcessor libs.micronaut.validation.annotation.processor
 
     implementation project(':ignite-core')
-    implementation project(':ignite-api')
     implementation project(':ignite-client')
     implementation project(':ignite-jdbc')
+    openapiSpec(project(path: ':ignite-rest-api', configuration: 'openapiSpec'))
 
     implementation libs.tree.sitter
     implementation libs.tree.sitter.sql
@@ -131,8 +135,8 @@ configurations {
 ext.generatedClientDir = layout.buildDirectory.dir("swagger/client")
 
 task copyOpenapiDefinition(type: Copy) {
-    from("$rootDir/modules/rest-api/openapi")
-    into("$buildDir/customOpenapiDefinition/")
+    from configurations.openapiSpec
+    into(layout.buildDirectory.dir("customOpenapiDefinition"))
 }
 
 pmdMain {
@@ -141,8 +145,8 @@ pmdMain {
 
 task generateApiClient(type: GenerateTask) {
     generatorName="java"
-    inputs.dir file("$buildDir/customOpenapiDefinition/")
-    inputSpec="$buildDir/customOpenapiDefinition/openapi.yaml"
+    inputs.dir layout.buildDirectory.dir("customOpenapiDefinition")
+    inputSpec=layout.buildDirectory.file("customOpenapiDefinition/openapi.yaml").get().asFile.path
     apiPackage="org.apache.ignite.rest.client.api"
     invokerPackage="org.apache.ignite.rest.client.invoker"
     modelPackage="org.apache.ignite.rest.client.model"

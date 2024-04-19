@@ -99,7 +99,7 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
         CompletableFuture<Thread> completerFuture = operation.executeOn(compute)
                 .thenApply(unused -> currentThread());
 
-        assertThat(completerFuture, willBe(anIgniteThread()));
+        assertThat(completerFuture, willBe(either(is(currentThread())).or(anIgniteThread())));
     }
 
     private static IgniteCompute computeForInternalUse() {

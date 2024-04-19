@@ -97,7 +97,7 @@ class CreateFromDefinitionTest {
                 )
                 .primaryKey("id", "id_str")
                 .index("id_str", "f_name")
-                .index("ix_test", IndexType.TREE, column("id_str").asc(), column("f_name").sort(DESC_NULLS_LAST))
+                .index("ix_test", IndexType.SORTED, column("id_str").asc(), column("f_name").sort(DESC_NULLS_LAST))
                 .build();
 
         assertThat(
@@ -106,7 +106,7 @@ class CreateFromDefinitionTest {
                         + " (id int, id_str varchar, f_name varchar(20) NOT NULL DEFAULT 'a', PRIMARY KEY (id, id_str))"
                         + " COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
                         + "CREATE INDEX IF NOT EXISTS ix_id_str_f_name ON builder_test (id_str, f_name);"
-                        + "CREATE INDEX IF NOT EXISTS ix_test ON builder_test USING TREE (id_str asc, f_name desc nulls last);")
+                        + "CREATE INDEX IF NOT EXISTS ix_test ON builder_test USING SORTED (id_str asc, f_name desc nulls last);")
         );
 
         assertThat(
@@ -116,7 +116,7 @@ class CreateFromDefinitionTest {
                         + " COLOCATE BY (\"id\", \"id_str\") WITH PRIMARY_ZONE='ZONE_TEST';"
                         + "CREATE INDEX IF NOT EXISTS \"ix_id_str_f_name\" ON \"builder_test\" (\"id_str\", \"f_name\");"
                         + "CREATE INDEX IF NOT EXISTS \"ix_test\" ON \"builder_test\""
-                        + " USING TREE (\"id_str\" asc, \"f_name\" desc nulls last);")
+                        + " USING SORTED (\"id_str\" asc, \"f_name\" desc nulls last);")
         );
     }
 

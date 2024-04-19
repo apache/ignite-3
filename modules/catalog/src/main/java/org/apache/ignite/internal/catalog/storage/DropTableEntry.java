@@ -90,7 +90,8 @@ public class DropTableEntry implements UpdateEntry, Fireable {
                         schema.indexes(),
                         schema.systemViews(),
                         causalityToken
-                ), catalog.schemas())
+                ), catalog.schemas()),
+                catalog.defaultZone().id()
         );
     }
 

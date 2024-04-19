@@ -467,7 +467,8 @@ public class IgniteImpl implements Ignite {
                 criticalWorkerRegistry,
                 threadPoolsManager.commonScheduler(),
                 nettyBootstrapFactory,
-                criticalWorkersConfiguration
+                criticalWorkersConfiguration,
+                failureProcessor
         );
 
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
@@ -714,7 +715,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.messagingService()
         );
 
-        var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver());
+        var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
