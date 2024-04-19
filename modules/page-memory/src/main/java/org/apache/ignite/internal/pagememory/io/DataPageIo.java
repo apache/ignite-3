@@ -1244,7 +1244,7 @@ public class DataPageIo extends PageIo {
             assert headerSize <= payloadSize : "Header must entirely fit in the first fragment, but header size is "
                     + headerSize + " and payload size is " + payloadSize;
 
-            row.fillPageBuf(pageBuf);
+            row.writeHeader(pageBuf);
 
             bufferOffset = 0;
             bufferSize = payloadSize - row.valueOffset();
@@ -1270,7 +1270,7 @@ public class DataPageIo extends PageIo {
      * @param offset Offset within the value buffer.
      * @param payloadSize Number of bytes to write.
      */
-    protected void putValueBufferIntoPage(ByteBuffer pageBuffer, ByteBuffer valueBuffer, int offset, int payloadSize) {
+    protected static void putValueBufferIntoPage(ByteBuffer pageBuffer, ByteBuffer valueBuffer, int offset, int payloadSize) {
         int oldPosition = valueBuffer.position();
         int oldLimit = valueBuffer.limit();
 
@@ -1476,7 +1476,7 @@ public class DataPageIo extends PageIo {
 
         int offset = dataOff + Short.BYTES;
 
-        row.putInfo(pageAddr, offset);
+        row.writeToPage(pageAddr, offset);
     }
 
     /**

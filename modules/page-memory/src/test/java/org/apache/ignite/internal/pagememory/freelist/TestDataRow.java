@@ -73,7 +73,7 @@ class TestDataRow implements Storable {
 
     /** {@inheritDoc} */
     @Override
-    public IoVersions<? extends DataPageIo> ioVersions() {
+    public IoVersions<DataPageIo> ioVersions() {
         return DataPageIo.VERSIONS;
     }
 
@@ -83,12 +83,12 @@ class TestDataRow implements Storable {
     }
 
     @Override
-    public void putInfo(long pageAddr, int offset) {
+    public void writeToPage(long pageAddr, int offset) {
         PageUtils.putBytes(pageAddr, offset, bytes);
     }
 
     @Override
-    public void fillPageBuf(ByteBuffer pageBuf) {
+    public void writeHeader(ByteBuffer pageBuf) {
         // No-op.
     }
 

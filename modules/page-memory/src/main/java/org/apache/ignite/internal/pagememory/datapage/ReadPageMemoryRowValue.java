@@ -61,6 +61,8 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
     }
 
     private long readFullyOrStartReadingFragmented(long pageAddr, DataPagePayload payload) {
+        assert PageUtils.getByte(pageAddr, payload.offset() + Storable.DATA_TYPE_OFFSET) == dataType();
+
         valueSize = readValueSize(pageAddr, payload);
 
         if (!payload.hasMoreFragments()) {
@@ -74,6 +76,8 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
             return payload.nextLink();
         }
     }
+
+    protected abstract byte dataType();
 
     private int readValueSize(long pageAddr, DataPagePayload payload) {
         return PageUtils.getInt(pageAddr, payload.offset() + valueSizeOffsetInFirstSlot());

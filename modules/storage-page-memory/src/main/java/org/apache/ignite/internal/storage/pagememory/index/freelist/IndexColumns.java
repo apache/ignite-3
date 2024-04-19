@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.index.freelist;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putByte;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 
@@ -32,8 +33,10 @@ import org.jetbrains.annotations.Nullable;
  * Index columns to store in free list.
  */
 public class IndexColumns implements Storable {
+    public static final byte DATA_TYPE = 0;
+
     /** Size offset. */
-    public static final int SIZE_OFFSET = 0;
+    public static final int SIZE_OFFSET = DATA_TYPE_OFFSET + DATA_TYPE_SIZE_BYTES;
 
     /** Value offset. Value goes right after the size. */
     public static final int VALUE_OFFSET = SIZE_OFFSET + Integer.BYTES;
@@ -117,16 +120,18 @@ public class IndexColumns implements Storable {
     }
 
     @Override
-    public void fillPageBuf(ByteBuffer pageBuf) {
+    public void writeHeader(ByteBuffer pageBuf) {
+        pageBuf.put((byte) 0);
         pageBuf.putInt(valueSize());
     }
 
     @Override
-    public void putInfo(long pageAddr, int offset) {
+    public void writeToPage(long pageAddr, int offset) {
+        putByte(pageAddr, offset + DATA_TYPE_OFFSET, DATA_TYPE);
+
         putInt(pageAddr, offset + SIZE_OFFSET, valueSize());
 
         putByteBuffer(pageAddr, offset + VALUE_OFFSET, valueBuffer());
-
     }
 
     @Override

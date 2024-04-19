@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putByte;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
@@ -39,11 +40,11 @@ import org.jetbrains.annotations.Nullable;
  * Represents row version inside row version chain.
  */
 public final class RowVersion implements Storable {
+    public static final byte DATA_TYPE = 1;
     private static final int NEXT_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
     private static final int VALUE_SIZE_STORE_SIZE_BYTES = Integer.BYTES;
     private static final int SCHEMA_VERSION_SIZE_BYTES = Short.BYTES;
-
-    public static final int TIMESTAMP_OFFSET = 0;
+    public static final int TIMESTAMP_OFFSET = DATA_TYPE_OFFSET + DATA_TYPE_SIZE_BYTES;
     public static final int NEXT_LINK_OFFSET = TIMESTAMP_OFFSET + HYBRID_TIMESTAMP_SIZE;
     public static final int VALUE_SIZE_OFFSET = NEXT_LINK_OFFSET + NEXT_LINK_STORE_SIZE_BYTES;
     public static final int SCHEMA_VERSION_OFFSET = VALUE_SIZE_OFFSET + VALUE_SIZE_STORE_SIZE_BYTES;
@@ -159,16 +160,19 @@ public final class RowVersion implements Storable {
 
     @Override
     public int headerSize() {
-        return HYBRID_TIMESTAMP_SIZE + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES + SCHEMA_VERSION_SIZE_BYTES;
+        return HYBRID_TIMESTAMP_SIZE + DATA_TYPE_SIZE_BYTES + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES
+                + SCHEMA_VERSION_SIZE_BYTES;
     }
 
     @Override
-    public IoVersions<? extends DataPageIo> ioVersions() {
+    public IoVersions<DataPageIo> ioVersions() {
         return DataPageIo.VERSIONS;
     }
 
     @Override
-    public void fillPageBuf(ByteBuffer pageBuf) {
+    public void writeHeader(ByteBuffer pageBuf) {
+        pageBuf.put(DATA_TYPE);
+
         HybridTimestamps.writeTimestampToBuffer(pageBuf, timestamp());
 
         PartitionlessLinks.writeToBuffer(pageBuf, nextLink());
@@ -189,7 +193,10 @@ public final class RowVersion implements Storable {
     }
 
     @Override
-    public void putInfo(long pageAddr, int offset) {
+    public void writeToPage(long pageAddr, int offset) {
+        putByte(pageAddr, offset, DATA_TYPE);
+        offset += DATA_TYPE_SIZE_BYTES;
+
         offset += HybridTimestamps.writeTimestampToMemory(pageAddr, offset, timestamp());
 
         offset += writePartitionless(pageAddr + offset, nextLink());

@@ -27,6 +27,9 @@ import org.jetbrains.annotations.Nullable;
  * Simple interface for data, store in some RowStore.
  */
 public interface Storable {
+    int DATA_TYPE_SIZE_BYTES = 1;
+    int DATA_TYPE_OFFSET = 0;
+
     /**
      * Sets link for this row.
      *
@@ -61,15 +64,20 @@ public interface Storable {
     /**
      * Returns I/O for handling this storable.
      */
-    IoVersions<? extends DataPageIo> ioVersions();
+    IoVersions<DataPageIo> ioVersions();
 
-    void fillPageBuf(ByteBuffer pageBuf);
+    void writeHeader(ByteBuffer pageBuf);
 
     /** Returns a byte buffer that contains binary tuple data. */
     @Nullable
     ByteBuffer valueBuffer();
 
-    void putInfo(long pageAddr, int offset);
+    /** Writes row data to page.
+     *
+     * @param pageAddr Page address.
+     * @param offset Data offset. */
+    void writeToPage(long pageAddr, int offset);
 
+    /** Returns value offset. */
     int valueOffset();
 }
