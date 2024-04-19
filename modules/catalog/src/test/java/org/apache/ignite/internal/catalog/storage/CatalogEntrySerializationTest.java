@@ -176,7 +176,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("values")
-    public void testConstantDefault(ColumnType columnType, Object value) throws IOException {
+    public void testConstantDefaultAllTypes(ColumnType columnType, Object value) throws IOException {
         ConstantValue val = (ConstantValue) DefaultValue.constant(value);
 
         log.info("{}: {}", columnType, value);
