@@ -30,7 +30,6 @@ import org.apache.calcite.plan.RelOptPlanner.CannotPlanException;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Join;
-import org.apache.ignite.internal.sql.engine.rel.AbstractIgniteJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
@@ -68,8 +67,8 @@ public class HashJoinPlannerTest extends AbstractPlannerTest {
         RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter",
                 "CorrelatedNestedLoopJoin", "MergeJoinConverter", "JoinCommuteRule");
 
-        AbstractIgniteJoin join = findFirstNode(phys, byClass(AbstractIgniteJoin.class));
-        List<RelNode> joinNodes = findNodes(phys, byClass(AbstractIgniteJoin.class));
+        IgniteHashJoin join = findFirstNode(phys, byClass(IgniteHashJoin.class));
+        List<RelNode> joinNodes = findNodes(phys, byClass(IgniteHashJoin.class));
         List<RelNode> sortNodes = findNodes(phys, byClass(IgniteSort.class));
 
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
@@ -98,7 +97,7 @@ public class HashJoinPlannerTest extends AbstractPlannerTest {
         IgniteRel phys = physicalPlan(sql, schema, "NestedLoopJoinConverter",
                 "CorrelatedNestedLoopJoin", "MergeJoinConverter", "JoinCommuteRule");
 
-        AbstractIgniteJoin join = findFirstNode(phys, byClass(AbstractIgniteJoin.class));
+        IgniteHashJoin join = findFirstNode(phys, byClass(IgniteHashJoin.class));
 
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
