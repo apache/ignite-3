@@ -89,6 +89,12 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    public void renameColumnsInFrom(){
+        assertQuery("select NEW_PERSON.NEW_ID, NEW_NAME, NEW_persON.New_salary from person NEW_PERSON(NeW_Id, NeW_NaMe, New_SaLaRy)")
+                .columnNames("NEW_ID", "NEW_NAME", "NEW_SALARY").check();
+    }
+
+    @Test
     public void infixTypeCast() {
         assertQuery("select id, id::tinyint as tid, id::smallint as sid, id::varchar as vid, id::interval hour, "
                 + "id::interval year from person")
