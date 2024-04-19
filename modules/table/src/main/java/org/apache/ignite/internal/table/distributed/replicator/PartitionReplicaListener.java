@@ -448,7 +448,10 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     @Override
     public RaftCommandRunner raftClient() {
-        return ((ExecutorInclinedRaftCommandRunner) raftClient).decoratedCommandRunner();
+        if (raftClient instanceof ExecutorInclinedRaftCommandRunner) {
+            return ((ExecutorInclinedRaftCommandRunner) raftClient).decoratedCommandRunner();
+        }
+        return raftClient;
     }
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, @Nullable Boolean isPrimary, String senderId,
