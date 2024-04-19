@@ -347,7 +347,7 @@ class IgniteUnsafeDataInputOutputByteOrderTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < RND.nextInt(100); i++) {
             int b = RND.nextInt(256);
             val.set(Math.abs(b));
-        };
+        }
 
         out.writeBitSet(val);
 

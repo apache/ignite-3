@@ -240,7 +240,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void functionCallDefault() throws IOException{
+    public void functionCallDefault() throws IOException {
         FunctionCall val = (FunctionCall) DefaultValue.functionCall("func");
 
         try (IgniteUnsafeDataOutput os = new IgniteUnsafeDataOutput(128)) {

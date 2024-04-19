@@ -176,7 +176,7 @@ public interface IgniteDataInput extends DataInput {
     BigDecimal readBigDecimal() throws IOException;
 
     /**
-     * Reads local time,
+     * Reads local time.
      *
      * @return Local time.
      * @throws IOException In case of error.
