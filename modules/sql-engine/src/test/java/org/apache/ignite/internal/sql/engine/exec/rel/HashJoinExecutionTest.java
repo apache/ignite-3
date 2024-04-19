@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
-import static org.apache.ignite.internal.sql.engine.exec.rel.ExecutionTest.assert2DimArrayEquals;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
@@ -123,5 +123,19 @@ public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
         };
 
         assert2DimArrayEquals(expectedAfterRewind, rowsAfterRewind);
+    }
+
+    static void assert2DimArrayEquals(Object[][] expected, ArrayList<Object[]> actual) {
+        assertEquals(expected.length, actual.size(), "expected length: " + expected.length + ", actual length: " + actual.size());
+
+        int length = expected.length;
+
+        for (int i = 0; i < length; ++i) {
+            Object[] exp = expected[i];
+            Object[] act = actual.get(i);
+
+            assertEquals(exp.length, act.length, "expected length: " + exp.length + ", actual length: " + act.length);
+            assertArrayEquals(exp, act);
+        }
     }
 }

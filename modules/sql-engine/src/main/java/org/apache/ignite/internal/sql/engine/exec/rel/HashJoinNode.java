@@ -43,7 +43,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     final Collection<Integer> leftJoinPositions;
     private final Collection<Integer> rightJoinPositions;
 
-    boolean touchResults;
+    final boolean touchResults;
 
     Iterator<RowT> rightIt = Collections.emptyIterator();
 
@@ -55,22 +55,6 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
         leftJoinPositions = joinInfo.leftKeys.toIntegerList();
         rightJoinPositions = joinInfo.rightKeys.toIntegerList();
-    }
-
-    void getMoreOrEnd() throws Exception {
-        if (waitingRight == 0) {
-            rightSource().request(waitingRight = inBufSize);
-        }
-
-        if (waitingLeft == 0 && leftInBuf.isEmpty()) {
-            leftSource().request(waitingLeft = inBufSize);
-        }
-
-        if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && leftInBuf.isEmpty() && left == null
-                && !rightIt.hasNext()) {
-            requested = 0;
-            downstream().end();
-        }
     }
 
     @Override
@@ -520,11 +504,11 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     private static <RowT> Collection<RowT> lookup(
             RowT row,
             RowHandler<RowT> handler,
-            Map<Object, Object> hashMap,
+            Map<Object, Object> hashStore,
             Collection<Integer> leftJoinPositions,
             boolean processTouched
     ) {
-        Map<Object, Object> next = hashMap;
+        Map<Object, Object> next = hashStore;
         int processed = 0;
         Collection<RowT> coll = Collections.emptyList();
 
@@ -614,6 +598,22 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
         if (waitingRight == 0) {
             rightSource().request(waitingRight = inBufSize);
+        }
+    }
+
+    void getMoreOrEnd() throws Exception {
+        if (waitingRight == 0) {
+            rightSource().request(waitingRight = inBufSize);
+        }
+
+        if (waitingLeft == 0 && leftInBuf.isEmpty()) {
+            leftSource().request(waitingLeft = inBufSize);
+        }
+
+        if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && leftInBuf.isEmpty() && left == null
+                && !rightIt.hasNext()) {
+            requested = 0;
+            downstream().end();
         }
     }
 

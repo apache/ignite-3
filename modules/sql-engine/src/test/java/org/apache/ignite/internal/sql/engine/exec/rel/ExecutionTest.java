@@ -213,28 +213,10 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
 
         assertEquals(4, rows.size());
 
-        Object[][] expected = {
-                {0, "Igor", "Core"},
-                {3, "Alexey", "Core"},
-                {1, "Roman", "SQL"},
-                {2, "Ivan", null}
-        };
-
-        assert2DimArrayEquals(expected, rows);
-    }
-
-    static void assert2DimArrayEquals(Object[][] expected, ArrayList<Object[]> actual) {
-        assertEquals(expected.length, actual.size(), "expected length: " + expected.length + ", actual length: " + actual.size());
-
-        int length = expected.length;
-
-        for (int i = 0; i < length; ++i) {
-            Object[] exp = expected[i];
-            Object[] act = actual.get(i);
-
-            assertEquals(exp.length, act.length, "expected length: " + exp.length + ", actual length: " + act.length);
-            assertArrayEquals(exp, act);
-        }
+        assertArrayEquals(new Object[]{0, "Igor", "Core"}, rows.get(0));
+        assertArrayEquals(new Object[]{1, "Roman", "SQL"}, rows.get(1));
+        assertArrayEquals(new Object[]{2, "Ivan", null}, rows.get(2));
+        assertArrayEquals(new Object[]{3, "Alexey", "Core"}, rows.get(3));
     }
 
     @Test

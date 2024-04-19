@@ -47,10 +47,7 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 
-/**
- * NestedLoopJoinExecutionTest.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
- */
+/** Common join execution test. */
 public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Object[]> {
     abstract JoinAlgo joinAlgo();
 
