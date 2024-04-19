@@ -49,7 +49,7 @@ public interface DisasterRecoveryApi {
     @ApiResponse(responseCode = "200", description = "Partition states returned.")
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "400", description = "Zone is not found.",
+    @ApiResponse(responseCode = "404", description = "Zone is not found.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces(MediaType.APPLICATION_JSON)
     CompletableFuture<LocalPartitionStatesResponse> getLocalPartitionStates(@PathVariable("zoneName") String zoneName);
@@ -67,7 +67,7 @@ public interface DisasterRecoveryApi {
     @ApiResponse(responseCode = "200", description = "Partition states returned.")
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "400", description = "Zone is not found.",
+    @ApiResponse(responseCode = "404", description = "Zone is not found.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces(MediaType.APPLICATION_JSON)
     CompletableFuture<GlobalPartitionStatesResponse> getGlobalPartitionStates(@PathVariable("zoneName") String zoneName);

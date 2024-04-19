@@ -76,7 +76,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerTestIntegrationT
                 () -> client.toBlocking().exchange("/state/local/no-such-zone/", LocalPartitionStatesResponse.class)
         );
 
-        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
+        assertEquals(HttpStatus.NOT_FOUND, thrown.getResponse().status());
     }
 
     @Test
@@ -126,7 +126,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerTestIntegrationT
                 () -> client.toBlocking().exchange("/state/global/no-such-zone/", GlobalPartitionStatesResponse.class)
         );
 
-        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
+        assertEquals(HttpStatus.NOT_FOUND, thrown.getResponse().status());
     }
 
     @Test

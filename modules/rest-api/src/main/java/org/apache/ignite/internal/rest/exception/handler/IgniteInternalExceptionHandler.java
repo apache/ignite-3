@@ -39,7 +39,7 @@ public class IgniteInternalExceptionHandler implements ExceptionHandler<IgniteIn
     public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteInternalException exception) {
         if (exception.code() == DistributionZones.ZONE_NOT_FOUND_ERR) {
             return HttpProblemResponse.from(
-                    Problem.fromHttpCode(HttpCode.BAD_REQUEST)
+                    Problem.fromHttpCode(HttpCode.NOT_FOUND)
                             .detail(exception.getMessage())
                             .traceId(exception.traceId())
                             .code(exception.codeAsString())
