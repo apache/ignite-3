@@ -39,7 +39,7 @@ class StatementBuilderImpl implements StatementBuilder {
     /** Page size. */
     private Integer pageSize;
 
-    /** Time zone ID. */
+    /** Time-zone ID. */
     private ZoneId timeZoneId;
 
     /** {@inheritDoc} */

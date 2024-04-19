@@ -38,7 +38,7 @@ class StatementImpl implements Statement {
     /** Page size. */
     private final Integer pageSize;
 
-    /** Time zone ID. */
+    /** Time-zone ID. */
     private final ZoneId timeZoneId;
 
     /**
@@ -57,7 +57,7 @@ class StatementImpl implements Statement {
      * @param defaultSchema Default schema.
      * @param queryTimeoutMs Query timeout.
      * @param pageSize Page size.
-     * @param timeZoneId Time zone ID.
+     * @param timeZoneId Time-zone ID.
      */
     StatementImpl(
             String query,

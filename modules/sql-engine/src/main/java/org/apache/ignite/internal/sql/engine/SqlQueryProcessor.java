@@ -142,7 +142,7 @@ import org.jetbrains.annotations.TestOnly;
  *  Main implementation of {@link QueryProcessor}.
  */
 public class SqlQueryProcessor implements QueryProcessor {
-    /** Default time zone ID. */
+    /** Default time-zone ID. */
     public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
 
     /** The logger. */
