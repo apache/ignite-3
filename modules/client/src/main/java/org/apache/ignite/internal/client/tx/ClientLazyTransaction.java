@@ -109,6 +109,14 @@ public class ClientLazyTransaction implements Transaction {
         return tx0;
     }
 
+    /**
+     * Ensures that the underlying transaction is actually started on the server.
+     *
+     * @param tx Transaction.
+     * @param ch Channel.
+     * @param preferredNodeName Preferred node name.
+     * @return Future that will be completed when the transaction is started.
+     */
     public static CompletableFuture<ClientTransaction> ensureStarted(
             @Nullable Transaction tx,
             ReliableChannel ch,
