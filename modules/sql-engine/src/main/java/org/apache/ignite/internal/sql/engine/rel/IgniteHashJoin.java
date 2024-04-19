@@ -62,7 +62,6 @@ public class IgniteHashJoin extends AbstractIgniteJoin {
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         IgniteCostFactory costFactory = (IgniteCostFactory) planner.getCostFactory();
 
-        double rowCount = 0;
         double leftRowCount = mq.getRowCount(getLeft());
         double rightRowCount = mq.getRowCount(getRight());
 
@@ -70,11 +69,11 @@ public class IgniteHashJoin extends AbstractIgniteJoin {
             return planner.getCostFactory().makeInfiniteCost();
         }
 
-        rowCount += leftRowCount;
-        // believe in some kind of keys equality
-        rowCount += Util.nLogN(rightRowCount);
+        double rowCount = leftRowCount + rightRowCount;
 
-        double rightSize = rightRowCount * (getRight().getRowType().getFieldCount() * 8) * IgniteCost.AVERAGE_FIELD_SIZE;
+        int rightKeysSize = joinInfo.rightKeys.size();
+
+        double rightSize = rightRowCount * IgniteCost.AVERAGE_FIELD_SIZE * (0.9 * rightKeysSize + getRight().getRowType().getFieldCount());
 
         return costFactory.makeCost(rowCount, rowCount * IgniteCost.ROW_PASS_THROUGH_COST, 0, rightSize, 0);
     }

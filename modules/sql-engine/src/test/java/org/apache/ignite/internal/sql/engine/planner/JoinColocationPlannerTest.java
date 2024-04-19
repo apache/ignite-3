@@ -27,14 +27,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.util.List;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.rel.AbstractIgniteJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
@@ -43,7 +41,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -101,74 +98,6 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         assertThat(invalidPlanMsg, joinNodes.size(), equalTo(1));
         assertThat(invalidPlanMsg, join, notNullValue());
         assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(true));
-    }
-
-    /**
-     * Hash join need to preserve left collation.
-     */
-    @Test
-    public void hashJoinCheckLeftCollationsPropagation() throws Exception {
-        IgniteTable tbl1 = simpleTable("TEST_TBL", DEFAULT_TBL_SIZE);
-        IgniteTable tbl2 = complexTbl("TEST_TBL_CMPLX");
-
-        IgniteSchema schema = createSchema(tbl1, tbl2);
-
-        String sql = "select t1.ID, t2.ID1 "
-                + "from TEST_TBL_CMPLX t2 "
-                + "join TEST_TBL t1 on t1.id = t2.id1 "
-                + "order by t2.ID1 NULLS LAST, t2.ID2 NULLS LAST";
-
-        // Only hash join
-        RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter",
-                "CorrelatedNestedLoopJoin", "MergeJoinConverter", "JoinCommuteRule");
-
-        AbstractIgniteJoin join = findFirstNode(phys, byClass(AbstractIgniteJoin.class));
-        List<RelNode> joinNodes = findNodes(phys, byClass(AbstractIgniteJoin.class));
-        List<RelNode> sortNodes = findNodes(phys, byClass(IgniteSort.class));
-
-        String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
-
-        assertThat(invalidPlanMsg, sortNodes.size(), equalTo(0));
-        assertThat(invalidPlanMsg, joinNodes.size(), equalTo(1));
-        assertThat(invalidPlanMsg, join, notNullValue());
-    }
-
-    /**
-     * Hash join erase right collation.
-     */
-    @Test
-    public void hashJoinCheckRightCollations() throws Exception {
-        IgniteTable tbl1 = simpleTable("TEST_TBL", DEFAULT_TBL_SIZE);
-        IgniteTable tbl2 = complexTbl("TEST_TBL_CMPLX");
-
-        IgniteSchema schema = createSchema(tbl1, tbl2);
-
-        String sql = "select t1.ID, t2.ID1 "
-                + "from TEST_TBL t1 "
-                + "join TEST_TBL_CMPLX t2 on t1.id = t2.id1 "
-                + "order by t2.ID1 NULLS LAST, t2.ID2 NULLS LAST";
-
-        // Only hash join
-        IgniteRel phys = physicalPlan(sql, schema, "NestedLoopJoinConverter",
-                "CorrelatedNestedLoopJoin", "MergeJoinConverter", "JoinCommuteRule");
-
-        AbstractIgniteJoin join = findFirstNode(phys, byClass(AbstractIgniteJoin.class));
-
-        String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
-
-        assertThat(invalidPlanMsg, join, notNullValue());
-        assertThat(invalidPlanMsg, sortOnTopOfJoin(phys), notNullValue());
-    }
-
-    private static @Nullable IgniteSort sortOnTopOfJoin(IgniteRel root) {
-        List<IgniteSort> sortNodes = findNodes(root, byClass(IgniteSort.class)
-                .and(node -> node.getInputs().size() == 1 && node.getInput(0) instanceof Join));
-
-        if (sortNodes.size() > 1) {
-            throw new AssertionError("Unexpected count of sort nodes: exp<=1, act=" + sortNodes.size());
-        }
-
-        return sortNodes.isEmpty() ? null : sortNodes.get(0);
     }
 
     /**
@@ -326,7 +255,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         ), "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "HashJoinConverter");
     }
 
-    private static IgniteTable simpleTable(String tableName, int size) {
+    static IgniteTable simpleTable(String tableName, int size) {
         return TestBuilders.table()
                 .name(tableName)
                 .size(size)
@@ -341,7 +270,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 .build();
     }
 
-    private static IgniteTable complexTbl(String tableName) {
+    static IgniteTable complexTbl(String tableName) {
         return complexTbl(tableName, DEFAULT_TBL_SIZE,
                 IgniteDistributions.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID));
     }
