@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.sql.IgniteSql;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -32,7 +33,7 @@ public class ItMultipleLocksTest extends ClusterPerTestIntegrationTest {
         return 1;
     }
 
-    @Test
+    @RepeatedTest(100)
     void test() {
         var node0 = runningNodes().findAny().orElseThrow();
 
