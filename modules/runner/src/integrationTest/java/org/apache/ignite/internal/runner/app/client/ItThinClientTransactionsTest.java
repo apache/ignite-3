@@ -194,7 +194,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         KeyValueView<Integer, String> kvView = kvView();
 
         Transaction tx1 = client().transactions().begin();
-        client().sql().execute(tx1, "SELECT 1"); // Force lazy tx init.
+        client().sql().execute(tx1, "SELECT 1").close(); // Force lazy tx init.
 
         // Here we guarantee that tx2 will strictly after tx2 even if the transactions start in different server nodes.
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19900 Client should participate in RW TX clock adjustment
@@ -271,7 +271,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     @Test
     void testTransactionFromAnotherChannelThrows() throws Exception {
         Transaction tx = client().transactions().begin();
-        client().sql().execute(tx, "SELECT 1"); // Force lazy tx init.
+        client().sql().execute(tx, "SELECT 1").close(); // Force lazy tx init.
 
         try (IgniteClient client2 = IgniteClient.builder().addresses(getNodeAddress()).build()) {
             RecordView<Tuple> recordView = client2.tables().tables().get(0).recordView();

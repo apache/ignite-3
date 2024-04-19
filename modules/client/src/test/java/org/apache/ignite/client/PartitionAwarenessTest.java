@@ -164,7 +164,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testNonNullTxDisablesPartitionAwareness() {
         RecordView<Tuple> recordView = defaultTable().recordView();
         var tx = (ClientLazyTransaction) client2.transactions().begin();
-        client2.sql().execute(tx, "SELECT 1"); // Force lazy tx init.
+        client2.sql().execute(tx, "SELECT 1").close(); // Force lazy tx init.
 
         String expectedNode = tx.nodeName();
         assertNotNull(expectedNode);
