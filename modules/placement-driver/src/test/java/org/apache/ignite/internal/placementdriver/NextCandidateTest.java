@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.lang.Math.abs;
 import static java.util.Collections.emptySet;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.hash;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -75,6 +76,7 @@ public class NextCandidateTest {
         List<ClusterNode> onlineNodes = assignments.stream()
                 .map(a -> topologyTracker.nodeByConsistentId(a.consistentId()))
                 .filter(Objects::nonNull)
+                .sorted(comparing(ClusterNode::name))
                 .collect(toList());
 
         int hash = abs(hash(assignments, grpId));
@@ -122,7 +124,7 @@ public class NextCandidateTest {
     @Test
     public void testReplicaFactorLessThanNodeCount() {
         int nodes = 3;
-        int partitions = 5;
+        int partitions = 20;
         int replicas = 2;
 
         prepareCluster(nodes, partitions, replicas, emptySet());
