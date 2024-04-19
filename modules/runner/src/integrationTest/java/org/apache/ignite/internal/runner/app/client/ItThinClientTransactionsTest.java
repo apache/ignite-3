@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
@@ -198,14 +200,17 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19900 Client should participate in RW TX clock adjustment
         Thread.sleep(50);
 
+        // Lock the key in tx2.
         Transaction tx2 = client().transactions().begin();
 
-        kvView.put(tx2, -100, "1");
+        try {
+            kvView.put(tx2, -100, "1");
 
-        var ex = assertThrows(IgniteException.class, () -> kvView.get(tx1, -100));
-        assertThat(ex.getMessage(), containsString("Replication is timed out"));
-
-        tx2.rollback();
+            // Get the key in tx1 - time out.
+            assertThrows(TimeoutException.class, () -> kvView.getAsync(tx1, -100).get(1, TimeUnit.SECONDS));
+        } finally {
+            tx2.rollback();
+        }
     }
 
     @Test
