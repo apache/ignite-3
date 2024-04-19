@@ -128,4 +128,9 @@ public class IndexColumns implements Storable {
         putByteBuffer(pageAddr, offset + VALUE_OFFSET, valueBuffer());
 
     }
+
+    @Override
+    public int valueOffset() {
+        return VALUE_OFFSET;
+    }
 }

@@ -91,4 +91,9 @@ class TestDataRow implements Storable {
     public void fillPageBuf(ByteBuffer pageBuf) {
         // No-op.
     }
+
+    @Override
+    public int valueOffset() {
+        return 0;
+    }
 }

@@ -97,7 +97,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
     private final IoStatisticsHolder statHolder;
 
     private class WriteRowHandler implements PageHandler<Storable, Integer> {
-        /** {@inheritDoc} */
         @Override
         public Integer run(
                 int cacheId,

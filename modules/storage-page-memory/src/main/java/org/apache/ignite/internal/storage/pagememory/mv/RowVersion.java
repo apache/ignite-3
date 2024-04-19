@@ -208,4 +208,9 @@ public final class RowVersion implements Storable {
             putShort(pageAddr, offset, (short) 0);
         }
     }
+
+    @Override
+    public int valueOffset() {
+        return headerSize();
+    }
 }

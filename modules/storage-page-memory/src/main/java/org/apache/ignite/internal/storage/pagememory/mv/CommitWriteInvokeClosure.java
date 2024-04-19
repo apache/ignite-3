@@ -107,26 +107,14 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
         ) throws IgniteInternalCheckedException {
             DataPageIo dataIo = (DataPageIo) io;
 
-            updateTimestamp(dataIo, pageAddr, itemId, pageSize(), arg);
+            int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize(), 0);
+
+            HybridTimestamps.writeTimestampToMemory(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, arg);
 
             evictionTracker.touchPage(pageId);
 
             return true;
         }
-    }
-
-    /**
-     * Updates timestamp leaving the rest untouched.
-     *
-     * @param pageAddr  page address
-     * @param itemId    item ID of the slot where row version (or its first fragment) is stored in this page
-     * @param pageSize  size of the page
-     * @param timestamp timestamp to store
-     */
-    private static void updateTimestamp(DataPageIo dataIo, long pageAddr, int itemId, int pageSize, @Nullable HybridTimestamp timestamp) {
-        int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize, 0);
-
-        HybridTimestamps.writeTimestampToMemory(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, timestamp);
     }
 
     @Override

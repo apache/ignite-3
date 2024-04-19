@@ -116,26 +116,14 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
         ) throws IgniteInternalCheckedException {
             DataPageIo dataIo = (DataPageIo) io;
 
-            updateNextLink(dataIo, pageAddr, itemId, pageSize(), nextLink);
+            int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize(), 0);
+
+            writePartitionless(pageAddr + payloadOffset + RowVersion.NEXT_LINK_OFFSET, nextLink);
 
             evictionTracker.touchPage(pageId);
 
             return true;
         }
-    }
-
-    /**
-     * Updates next link leaving the rest untouched.
-     *
-     * @param pageAddr Page address.
-     * @param itemId Item ID of the slot where row version (or its first fragment) is stored in this page.
-     * @param pageSize Size of the page.
-     * @param nextLink Next link to store.
-     */
-    private static void updateNextLink(DataPageIo dataIo, long pageAddr, int itemId, int pageSize, long nextLink) {
-        int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize, 0);
-
-        writePartitionless(pageAddr + payloadOffset + RowVersion.NEXT_LINK_OFFSET, nextLink);
     }
 
     @Override

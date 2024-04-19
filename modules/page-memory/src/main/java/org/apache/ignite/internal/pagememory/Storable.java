@@ -70,4 +70,6 @@ public interface Storable {
     ByteBuffer valueBuffer();
 
     void putInfo(long pageAddr, int offset);
+
+    int valueOffset();
 }
