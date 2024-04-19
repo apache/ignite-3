@@ -42,12 +42,6 @@ public class PartitionAwarenessProvider {
             @Nullable Function<ClientSchema, Integer> hashFunc,
             @Nullable Integer partition,
             @Nullable ClientLazyTransaction tx) {
-        assert (nodeName != null && hashFunc == null && partition == null && tx == null)
-                || (nodeName == null && hashFunc != null && partition == null && tx == null)
-                || (nodeName == null && hashFunc == null && partition != null && tx == null)
-                || (nodeName == null && hashFunc == null && partition == null && tx != null)
-                : "One must be not null, others null: nodeId, hashFunc, partition, tx";
-
         this.nodeName = nodeName;
         this.hashFunc = hashFunc;
         this.partition = partition;
@@ -67,7 +61,7 @@ public class PartitionAwarenessProvider {
         return new PartitionAwarenessProvider(null, null, partition, null);
     }
 
-    public static PartitionAwarenessProvider of(ClientLazyTransaction tx) {
+    public static PartitionAwarenessProvider of(ClientLazyTransaction tx, Function<ClientSchema, Integer> hashFunc) {
         return new PartitionAwarenessProvider(null, null, null, tx);
     }
 

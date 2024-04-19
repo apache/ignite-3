@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -37,7 +38,6 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
-import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.util.HashCalculator;
@@ -421,11 +421,12 @@ public class ClientTupleSerializer {
      * @return Partition awareness provider.
      */
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(@Nullable Transaction tx, Tuple rec) {
-        var txProvider = ClientLazyTransaction.partitionAwarenessProvider(tx);
+        Function<ClientSchema, Integer> hashFunc = schema -> getColocationHash(schema, rec);
+        var txProvider = ClientLazyTransaction.partitionAwarenessProvider(tx, hashFunc);
 
         return txProvider != null
                 ? txProvider
-                : PartitionAwarenessProvider.of(schema -> getColocationHash(schema, rec));
+                : PartitionAwarenessProvider.of(hashFunc);
     }
 
     /**
@@ -437,11 +438,12 @@ public class ClientTupleSerializer {
      */
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(
             @Nullable Transaction tx, Mapper<?> mapper, Object rec) {
-        var txProvider = ClientLazyTransaction.partitionAwarenessProvider(tx);
+        Function<ClientSchema, Integer> hashFunc = schema -> getColocationHash(schema, mapper, rec);
+        var txProvider = ClientLazyTransaction.partitionAwarenessProvider(tx, hashFunc);
 
         return txProvider != null
                 ? txProvider
-                : PartitionAwarenessProvider.of(schema -> getColocationHash(schema, mapper, rec));
+                : PartitionAwarenessProvider.of(hashFunc);
     }
 
     /**

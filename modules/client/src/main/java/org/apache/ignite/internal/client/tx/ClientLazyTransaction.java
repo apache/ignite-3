@@ -20,7 +20,9 @@ package org.apache.ignite.internal.client.tx;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -125,7 +127,9 @@ public class ClientLazyTransaction implements Transaction {
         return ((ClientLazyTransaction) tx).ensureStarted(ch, preferredNodeName);
     }
 
-    public static @Nullable PartitionAwarenessProvider partitionAwarenessProvider(@Nullable Transaction tx) {
+    public static @Nullable PartitionAwarenessProvider partitionAwarenessProvider(
+            @Nullable Transaction tx,
+            Function<ClientSchema, Integer> hashFunc) {
         if (tx == null) {
             return null;
         }
@@ -134,7 +138,7 @@ public class ClientLazyTransaction implements Transaction {
             throw ClientTransaction.unsupportedTxTypeException(tx);
         }
 
-        return PartitionAwarenessProvider.of((ClientLazyTransaction) tx);
+        return PartitionAwarenessProvider.of((ClientLazyTransaction) tx, hashFunc);
     }
 
     public ClientTransaction tx() {

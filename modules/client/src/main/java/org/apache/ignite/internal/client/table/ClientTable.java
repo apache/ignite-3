@@ -435,6 +435,8 @@ public class ClientTable implements Table {
         CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
+
+                    // TODO: Here if lazy tx is not started we should compute preferred node
                     String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
                     return ClientLazyTransaction.ensureStarted(tx, ch, preferredNodeName).thenCompose(unused ->
