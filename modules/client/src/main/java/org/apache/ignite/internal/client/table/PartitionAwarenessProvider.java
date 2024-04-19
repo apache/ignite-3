@@ -66,11 +66,7 @@ public class PartitionAwarenessProvider {
     }
 
     @Nullable String nodeName() {
-        if (tx != null) {
-            return tx.tx().channel().protocolContext().clusterNode().name();
-        }
-
-        return nodeName;
+        return tx != null ? tx.nodeName() : nodeName;
     }
 
     @Nullable Integer partition() {

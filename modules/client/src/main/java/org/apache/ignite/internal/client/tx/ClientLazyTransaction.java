@@ -149,4 +149,12 @@ public class ClientLazyTransaction implements Transaction {
 
         return tx0.join();
     }
+
+    public @Nullable String nodeName() {
+        var tx0 = tx;
+
+        return tx0 != null
+                ? tx0.join().channel().protocolContext().clusterNode().name()
+                : null;
+    }
 }
