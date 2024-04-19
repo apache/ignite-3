@@ -288,7 +288,7 @@ class IgniteUnsafeDataInputOutputByteOrderTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testInstant() throws IOException {
-        Instant val = Instant.ofEpochMilli(Math.abs(RND.nextLong()));
+        Instant val = Instant.ofEpochMilli(RND.nextLong());
 
         out.writeInstant(val);
 
