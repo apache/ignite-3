@@ -435,17 +435,20 @@ public class ClientTable implements Table {
         CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
+                    String txPreferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
-                    // TODO: Here if lazy tx is not started we should compute preferred node
-                    String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
+                    return ClientLazyTransaction.ensureStarted(tx, ch, txPreferredNodeName).thenCompose(unused -> {
+                                // Update preferred node name after starting the transaction.
+                                // All operations for a given explicit transaction should go to the same node (tx coordinator).
+                                String opPreferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
-                    return ClientLazyTransaction.ensureStarted(tx, ch, preferredNodeName).thenCompose(unused ->
-                        ch.serviceAsync(opCode,
-                            w -> writer.accept(schema, w),
-                            r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired),
-                            preferredNodeName,
-                            retryPolicyOverride,
-                            expectNotifications)
+                                return ch.serviceAsync(opCode,
+                                        w -> writer.accept(schema, w),
+                                        r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired),
+                                        opPreferredNodeName,
+                                        retryPolicyOverride,
+                                        expectNotifications);
+                            }
                     );
                 })
 

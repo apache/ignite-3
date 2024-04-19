@@ -62,7 +62,7 @@ public class PartitionAwarenessProvider {
     }
 
     public static PartitionAwarenessProvider of(ClientLazyTransaction tx, Function<ClientSchema, Integer> hashFunc) {
-        return new PartitionAwarenessProvider(null, null, null, tx);
+        return new PartitionAwarenessProvider(null, hashFunc, null, tx);
     }
 
     @Nullable String nodeName() {
