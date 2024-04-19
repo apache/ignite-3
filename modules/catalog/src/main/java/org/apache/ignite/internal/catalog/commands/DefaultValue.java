@@ -73,7 +73,7 @@ public abstract class DefaultValue {
         /** Represents absent of default value ({@code null}). */
         private static final int NO_DEFAULT = -1;
 
-        /** type id used by serialization. */
+        /** Type id used by serialization. */
         private final int typeId;
 
         Type(int typeId) {
