@@ -71,7 +71,7 @@ public abstract class DefaultValue {
         FUNCTION_CALL(1);
 
         /** Represents absent of default value ({@code null}). */
-        private static final int NO_DEFAULT = -1;
+        private static final int NULL_VALUE = -1;
 
         /** Type id used by serialization. */
         private final int typeId;
@@ -95,7 +95,7 @@ public abstract class DefaultValue {
     /** Reads default value or {@code null}. */
     public static @Nullable DefaultValue readFrom(IgniteDataInput in) throws IOException {
         int typeId = in.readByte();
-        if (typeId == Type.NO_DEFAULT) {
+        if (typeId == Type.NULL_VALUE) {
             return null;
         } else if (typeId == Type.CONSTANT.typeId) {
             Object val = readValue(in);
@@ -201,7 +201,7 @@ public abstract class DefaultValue {
      */
     public static void writeTo(@Nullable DefaultValue val, IgniteDataOutput out) throws IOException {
         if (val == null) {
-            out.writeByte(Type.NO_DEFAULT);
+            out.writeByte(Type.NULL_VALUE);
         } else {
             out.writeByte(val.type.typeId);
 
