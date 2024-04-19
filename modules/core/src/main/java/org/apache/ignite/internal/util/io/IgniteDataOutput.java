@@ -150,7 +150,7 @@ public interface IgniteDataOutput extends DataOutput {
     /**
      * Writes decimal.
      *
-     * @param val Decimal.
+     * @param val Big decimal.
      * @throws IOException In case of error.
      */
     void writeBigDecimal(BigDecimal val) throws IOException;

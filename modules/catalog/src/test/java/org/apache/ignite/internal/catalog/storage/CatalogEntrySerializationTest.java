@@ -78,15 +78,15 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests to verify catalog storage entries serialization.
  */
 public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
-    private static final long seed = System.nanoTime();
+    private static final long SEED = System.nanoTime();
 
-    private static final Random RND = new Random(seed);
+    private static final Random RND = new Random(SEED);
 
     private final UpdateLogMarshallerImpl marshaller = new UpdateLogMarshallerImpl();
 
     @BeforeEach
     public void setup() {
-        log.info("Seed: {}", seed);
+        log.info("Seed: {}", SEED);
     }
 
     @ParameterizedTest
@@ -211,9 +211,9 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         list.add(BigInteger.valueOf(RND.nextLong()));
 
         list.add(LocalTime.of(RND.nextInt(24), RND.nextInt(60), RND.nextInt(60), RND.nextInt(100_000)));
-        list.add(LocalDate.of(RND.nextInt(5000) + 1900, RND.nextInt(12) + 1, RND.nextInt(27) + 1));
+        list.add(LocalDate.of(RND.nextInt(4000) - 1000, RND.nextInt(12) + 1, RND.nextInt(27) + 1));
         list.add(LocalDateTime.of(
-                LocalDate.of(RND.nextInt(5000) + 1900, RND.nextInt(12) + 1, RND.nextInt(27) + 1),
+                LocalDate.of(RND.nextInt(4000) - 1000, RND.nextInt(12) + 1, RND.nextInt(27) + 1),
                 LocalTime.of(RND.nextInt(24), RND.nextInt(60), RND.nextInt(60), RND.nextInt(100_000))
         ));
 

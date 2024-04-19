@@ -54,8 +54,15 @@ class IgniteUnsafeDataInputOutputByteOrderTest extends BaseIgniteAbstractTest {
     /** Length bytes. */
     private static final int LEN_BYTES = 0;
 
+    private static final long SEED = System.nanoTime();
+
     /** Rnd. */
-    private static final Random RND = new Random();
+    private static final Random RND = new Random(SEED);
+
+    @BeforeEach
+    public void setup() {
+        log.info("Seed: {}", SEED);
+    }
 
     /** Out. */
     private IgniteUnsafeDataOutput out;
@@ -261,7 +268,7 @@ class IgniteUnsafeDataInputOutputByteOrderTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testLocalDate() throws IOException {
-        LocalDate val = LocalDate.of(RND.nextInt(500) + 1900, RND.nextInt(12) + 1, 1 + RND.nextInt(27));
+        LocalDate val = LocalDate.of(RND.nextInt(4000) - 1000, RND.nextInt(12) + 1, 1 + RND.nextInt(27));
 
         out.writeLocalDate(val);
 
@@ -271,7 +278,7 @@ class IgniteUnsafeDataInputOutputByteOrderTest extends BaseIgniteAbstractTest {
     @Test
     public void testLocalDateTime() throws IOException {
         LocalTime time = LocalTime.of(RND.nextInt(24), RND.nextInt(60), RND.nextInt(60), RND.nextInt(10000));
-        LocalDate date = LocalDate.of(RND.nextInt(500) + 1900, RND.nextInt(12) + 1, 1 + RND.nextInt(27));
+        LocalDate date = LocalDate.of(RND.nextInt(4000) - 1000, RND.nextInt(12) + 1, 1 + RND.nextInt(27));
         LocalDateTime val = LocalDateTime.of(date, time);
 
         out.writeLocalDateTime(val);
