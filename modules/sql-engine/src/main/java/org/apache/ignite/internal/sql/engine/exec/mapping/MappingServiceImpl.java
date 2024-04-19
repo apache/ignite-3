@@ -287,6 +287,17 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     @Override
     public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
         topologyHolder.update(newTopology);
+
+        mappingsCache.removeIfValue(value -> {
+            if (value.mappedFragments.isDone()) {
+                String leftNodeName = leftNode.name();
+                return value.mappedFragments.join().stream().map(MappedFragment::nodes)
+                        .anyMatch(nodes -> nodes.contains(leftNodeName));
+            }
+
+            // Invalidate non-completed mappings to reduce the chance of getting stale value
+            return true;
+        });
     }
 
     @Override
