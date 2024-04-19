@@ -160,7 +160,7 @@ public interface IgniteDataInput extends DataInput {
     char[] readCharArray(int length) throws IOException;
 
     /**
-     * Reads big integer
+     * Reads big integer.
      *
      * @return Big integer.
      * @throws IOException In case of error.
@@ -168,7 +168,7 @@ public interface IgniteDataInput extends DataInput {
     BigInteger readBigInteger() throws IOException;
 
     /**
-     * Reads big decimal
+     * Reads big decimal.
      *
      * @return Big decimal.
      * @throws IOException In case of error.
