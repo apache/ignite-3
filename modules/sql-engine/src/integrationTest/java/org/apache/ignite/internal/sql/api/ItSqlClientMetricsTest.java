@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.lang.ErrorGroups.Sql;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -118,10 +118,10 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
     }
 
     private void assertMetricValue(MetricSet metricSet, String metricName, Object expectedValue) throws InterruptedException {
-        waitForCondition(
-                () -> expectedValue.toString().equals(metricSet.get(metricName).getValueAsString()),
-                1000);
-
-        assertEquals(expectedValue.toString(), metricSet.get(metricName).getValueAsString());
+        assertTrue(
+                waitForCondition(
+                        () -> expectedValue.toString().equals(metricSet.get(metricName).getValueAsString()),
+                        1000)
+        );
     }
 }

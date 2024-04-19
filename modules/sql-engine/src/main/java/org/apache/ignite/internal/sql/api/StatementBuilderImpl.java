@@ -56,7 +56,7 @@ class StatementBuilderImpl implements StatementBuilder {
         Objects.requireNonNull(timeUnit, "timeUnit");
 
         if (timeout <= 0) {
-            throw new IllegalArgumentException("Query timeout must be greater than 0: " + timeout);
+            throw new IllegalArgumentException("Timeout must be positive: " + timeout);
         }
 
         queryTimeoutMs = TimeUnit.MILLISECONDS.convert(timeout, timeUnit);
@@ -76,7 +76,7 @@ class StatementBuilderImpl implements StatementBuilder {
     @Override
     public StatementBuilder pageSize(int pageSize) {
         if (pageSize <= 0) {
-            throw new IllegalArgumentException("Page size must be greater than 0: " + pageSize);
+            throw new IllegalArgumentException("Page size must be positive: " + pageSize);
         }
 
         this.pageSize = pageSize;

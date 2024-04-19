@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -71,6 +73,13 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         var p3 = ars3.currentPage();
         AsyncResultSet<SqlRow> ars4 = await(ars0.fetchNextPage());
         var p4 = ars4.currentPage();
+
+        AsyncResultSet<?> ars0unwrapped = Wrappers.unwrap(ars0, AsyncResultSet.class);
+
+        assertSame(ars0unwrapped, Wrappers.unwrap(ars1, AsyncResultSet.class));
+        assertSame(ars0unwrapped, Wrappers.unwrap(ars2, AsyncResultSet.class));
+        assertSame(ars0unwrapped, Wrappers.unwrap(ars3, AsyncResultSet.class));
+        assertSame(ars0unwrapped, Wrappers.unwrap(ars4, AsyncResultSet.class));
 
         List<SqlRow> res = Stream.of(p0, p1, p2, p3, p4)
                 .flatMap(p -> StreamSupport.stream(p.spliterator(), false))

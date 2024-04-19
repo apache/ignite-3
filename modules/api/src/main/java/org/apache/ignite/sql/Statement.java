@@ -108,7 +108,7 @@ public interface Statement extends AutoCloseable {
         /**
          * Sets a page size - the maximum number of result rows that can be fetched at a time.
          *
-         * @param pageSize Maximum number of rows per page.
+         * @param pageSize Maximum number of rows per page. Must be positive.
          * @return {@code this} for chaining.
          */
         StatementBuilder pageSize(int pageSize);

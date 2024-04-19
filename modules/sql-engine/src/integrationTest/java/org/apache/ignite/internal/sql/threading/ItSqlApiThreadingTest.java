@@ -125,6 +125,8 @@ class ItSqlApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     private static AsyncResultSet<SqlRow> fetchFirstPage(IgniteSql igniteSql)
             throws InterruptedException, ExecutionException, TimeoutException {
+        // Setting a minimum page size to ensure that the query engine returns a non-closed
+        // cursor even after we call its second page.
         Statement statement = igniteSql.statementBuilder().query(SELECT_QUERY).pageSize(1).build();
 
         return igniteSql.executeAsync(null, statement).get(10, SECONDS);

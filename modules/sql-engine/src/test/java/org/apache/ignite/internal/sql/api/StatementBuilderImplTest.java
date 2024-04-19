@@ -52,13 +52,13 @@ public class StatementBuilderImplTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> builder.pageSize(0),
-                "Page size must be greater than 0: 0"
+                "Page size must be positive: 0"
         );
 
         assertThrows(
                 IllegalArgumentException.class,
                 () -> builder.pageSize(-1),
-                "Page size must be greater than 0: -1"
+                "Page size must be positive: -1"
         );
     }
 
@@ -68,13 +68,13 @@ public class StatementBuilderImplTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> builder.queryTimeout(0, TimeUnit.SECONDS),
-                "Query timeout must be greater than 0: 0"
+                "Timeout must be positive: 0"
         );
 
         assertThrows(
                 IllegalArgumentException.class,
                 () -> builder.queryTimeout(-1, TimeUnit.SECONDS),
-                "Query timeout must be greater than 0: -1"
+                "Timeout must be positive: -1"
         );
 
         assertThrows(

@@ -58,6 +58,8 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     private static final Record KEY_RECORD = new Record(1, "");
 
+    // Setting a minimum page size to ensure that CriteriaQuerySource#query() returns
+    // a non-closed cursor even after we call its second page.
     private static final CriteriaQueryOptions criteriaOptions = CriteriaQueryOptions.builder().pageSize(1).build();
 
     @Override
