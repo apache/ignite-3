@@ -40,12 +40,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
@@ -215,15 +215,14 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
             CatalogService catalogService = cluster.catalogManager();
             Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
 
-            Optional<Integer> tblId = catalog.tables().stream()
+            Optional<CatalogTableDescriptor> tblDesc = catalog.tables().stream()
                     .filter(desc -> name.equals(desc.name()))
-                    .findFirst()
-                    .map(CatalogObjectDescriptor::id);
+                    .findFirst();
 
-            assertTrue(tblId.isPresent());
+            assertTrue(tblDesc.isPresent());
 
             return new PrimaryReplicaEventParameters(
-                    0, new TablePartitionId(tblId.get(), 0), "ignored", "ignored", HybridTimestamp.MIN_VALUE);
+                    0, new ZonePartitionId(tblDesc.get().zoneId(), tblDesc.get().id(), 0), "ignored", "ignored", HybridTimestamp.MIN_VALUE);
         };
 
         // Initialize mapping service.

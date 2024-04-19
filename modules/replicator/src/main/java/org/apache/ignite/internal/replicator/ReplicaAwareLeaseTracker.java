@@ -102,6 +102,7 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
 
                     WaitReplicaStateMessage awaitReplicaReq = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
                             .groupId(tablePartitionId)
+                            .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                             .timeout(timeout)
                             .build();
 

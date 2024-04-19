@@ -49,9 +49,6 @@ public interface ReplicaMessageGroup {
     /** Message type for {@link AwaitReplicaResponse}. */
     short AWAIT_REPLICA_RESPONSE = 7;
 
-    /** Message type for {@link EmptyPrimaryReplicaRequest}. */
-    short EMPTY_PRIMARY_REPLICA_REQUEST = 8;
-
     /** Message type for {@link SafeTimeSyncCommand}. */
     short SAFE_TIME_SYNC_COMMAND = 40;
 

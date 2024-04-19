@@ -42,13 +42,11 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplica
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
-import org.apache.ignite.internal.replicator.message.EmptyPrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.WaitReplicaStateMessage;
-import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -154,16 +152,11 @@ public class Replica {
                 request.groupId(),
                 replicaGrpId);
 
-        if (request instanceof WaitReplicaStateMessage) {
-            return processWaitReplicaStateMessage((WaitReplicaStateMessage) request)
-                    .thenApply(ignored -> new ReplicaResult(null, null));
-        }
-
         if (!waitForActualStateFuture.isDone() && request instanceof PrimaryReplicaRequest) {
             var targetPrimaryReq = (PrimaryReplicaRequest) request;
 
-            if (request instanceof EmptyPrimaryReplicaRequest) {
-                return waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + 10_000)
+            if (request instanceof WaitReplicaStateMessage) {
+                return processWaitReplicaStateMessage((WaitReplicaStateMessage) request)
                         .thenComposeAsync(
                                 v -> sendPrimaryReplicaChangeToReplicationGroup(targetPrimaryReq.enlistmentConsistencyToken()),
                                 executor
@@ -185,7 +178,7 @@ public class Replica {
                             executor
                     )
                     .thenComposeAsync(unused -> listener.invoke(request, senderId), executor);
-        } else if (request instanceof EmptyPrimaryReplicaRequest) {
+        } else if (request instanceof WaitReplicaStateMessage) {
             return completedFuture(new ReplicaResult(null, null));
         }
 
