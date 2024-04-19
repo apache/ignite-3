@@ -421,12 +421,7 @@ public class ClientTupleSerializer {
      * @return Partition awareness provider.
      */
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(@Nullable Transaction tx, Tuple rec) {
-        Function<ClientSchema, Integer> hashFunc = schema -> getColocationHash(schema, rec);
-        var txProvider = ClientLazyTransaction.partitionAwarenessProvider(tx, hashFunc);
-
-        return txProvider != null
-                ? txProvider
-                : PartitionAwarenessProvider.of(hashFunc);
+        return PartitionAwarenessProvider.of(ClientLazyTransaction.get(tx), schema -> getColocationHash(schema, rec));
     }
 
     /**
@@ -438,12 +433,7 @@ public class ClientTupleSerializer {
      */
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(
             @Nullable Transaction tx, Mapper<?> mapper, Object rec) {
-        Function<ClientSchema, Integer> hashFunc = schema -> getColocationHash(schema, mapper, rec);
-        var txProvider = ClientLazyTransaction.partitionAwarenessProvider(tx, hashFunc);
-
-        return txProvider != null
-                ? txProvider
-                : PartitionAwarenessProvider.of(hashFunc);
+        return PartitionAwarenessProvider.of(ClientLazyTransaction.get(tx), schema -> getColocationHash(schema, mapper, rec));
     }
 
     /**

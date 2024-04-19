@@ -20,10 +20,7 @@ package org.apache.ignite.internal.client.tx;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import org.apache.ignite.internal.client.ReliableChannel;
-import org.apache.ignite.internal.client.table.ClientSchema;
-import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -127,9 +124,7 @@ public class ClientLazyTransaction implements Transaction {
         return ((ClientLazyTransaction) tx).ensureStarted(ch, preferredNodeName);
     }
 
-    public static @Nullable PartitionAwarenessProvider partitionAwarenessProvider(
-            @Nullable Transaction tx,
-            Function<ClientSchema, Integer> hashFunc) {
+    public static @Nullable ClientLazyTransaction get(@Nullable Transaction tx) {
         if (tx == null) {
             return null;
         }
@@ -138,7 +133,7 @@ public class ClientLazyTransaction implements Transaction {
             throw ClientTransaction.unsupportedTxTypeException(tx);
         }
 
-        return PartitionAwarenessProvider.of((ClientLazyTransaction) tx, hashFunc);
+        return (ClientLazyTransaction) tx;
     }
 
     public ClientTransaction tx() {
@@ -153,6 +148,7 @@ public class ClientLazyTransaction implements Transaction {
     public @Nullable String nodeName() {
         var tx0 = tx;
 
+        //noinspection resource
         return tx0 != null
                 ? tx0.join().channel().protocolContext().clusterNode().name()
                 : null;
