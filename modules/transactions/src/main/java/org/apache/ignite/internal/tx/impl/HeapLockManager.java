@@ -297,7 +297,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     @Override
     public boolean isEmpty() {
         for (LockState slot : slots) {
-            if (!slot.waiters.isEmpty()) {
+            if (slot.waitersCount() != 0) {
                 return false;
             }
         }
@@ -315,13 +315,16 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         if (v != state) {
             return v;
         }
-        if (v.waiters.isEmpty()) {
-            v.markedForRemove = true;
-            v.key = null;
-            empty.add(v);
-            return null;
-        } else {
-            return v;
+
+        synchronized (v.waiters) {
+            if (v.waiters.isEmpty()) {
+                v.markedForRemove = true;
+                v.key = null;
+                empty.add(v);
+                return null;
+            } else {
+                return v;
+            }
         }
     }
 
@@ -414,8 +417,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             return new IgniteBiTuple<>(waiter.fut, waiter.lockMode());
         }
 
-        public synchronized int waitersCount() {
-            return waiters.size();
+        public int waitersCount() {
+            synchronized(waiters) {
+                return waiters.size();
+            }
         }
 
         /**
@@ -512,7 +517,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 waiter.notifyLocked();
             }
 
-            return markedForRemove || (key != null && waiters.isEmpty());
+            return key != null && waitersCount() == 0;
         }
 
         /**
@@ -546,7 +551,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 waiter.notifyLocked();
             }
 
-            return markedForRemove || (key != null && waiters.isEmpty());
+            return key != null && waitersCount() == 0;
         }
 
         /**
