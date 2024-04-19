@@ -131,9 +131,9 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
 
         HASHJOIN(
                 "MergeJoinConverter",
-                        "JoinCommuteRule",
-                        "NestedLoopJoinConverter",
-                        "CorrelatedNestedLoopJoin"
+                "JoinCommuteRule",
+                "NestedLoopJoinConverter",
+                "CorrelatedNestedLoopJoin"
         );
 
         private final String[] disabledRules;
