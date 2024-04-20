@@ -29,8 +29,6 @@ import org.jetbrains.annotations.Nullable;
  * 3. Null instance = No partition awareness and no transaction. Use any channel.
  */
 public class PartitionAwarenessProvider {
-    private final @Nullable String nodeName;
-
     private final @Nullable Integer partition;
 
     private final @Nullable Function<ClientSchema, Integer> hashFunc;
@@ -38,35 +36,24 @@ public class PartitionAwarenessProvider {
     private final @Nullable ClientLazyTransaction tx;
 
     private PartitionAwarenessProvider(
-            @Nullable String nodeName,
             @Nullable Function<ClientSchema, Integer> hashFunc,
             @Nullable Integer partition,
             @Nullable ClientLazyTransaction tx) {
-        this.nodeName = nodeName;
         this.hashFunc = hashFunc;
         this.partition = partition;
         this.tx = tx;
     }
 
-    // TODO: Remove unused method
-    public static PartitionAwarenessProvider of(String nodeName) {
-        return new PartitionAwarenessProvider(nodeName, null, null, null);
-    }
-
-    public static PartitionAwarenessProvider of(Function<ClientSchema, Integer> hashFunc) {
-        return new PartitionAwarenessProvider(null, hashFunc, null, null);
-    }
-
     public static PartitionAwarenessProvider of(Integer partition) {
-        return new PartitionAwarenessProvider(null, null, partition, null);
+        return new PartitionAwarenessProvider(null, partition, null);
     }
 
     public static PartitionAwarenessProvider of(@Nullable ClientLazyTransaction tx, Function<ClientSchema, Integer> hashFunc) {
-        return new PartitionAwarenessProvider(null, hashFunc, null, tx);
+        return new PartitionAwarenessProvider(hashFunc, null, tx);
     }
 
     @Nullable String nodeName() {
-        return tx != null ? tx.nodeName() : nodeName;
+        return tx != null ? tx.nodeName() : null;
     }
 
     @Nullable Integer partition() {
