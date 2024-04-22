@@ -15,17 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.disaster.messages;
+package org.apache.ignite.internal.rest.api.recovery;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup.DisasterRecoveryMessages;
 
 /**
- * Response for {@link LocalPartitionStatesResponse}.
+ * Local partition states schema class.
  */
-@Transferable(DisasterRecoveryMessages.LOCAL_PARTITION_STATE_RESPONSE)
-public interface LocalPartitionStatesResponse extends NetworkMessage {
-    List<LocalPartitionStateMessage> states();
+@Schema(description = "Information about local partition states.")
+public class LocalPartitionStatesResponse {
+    @Schema
+    private final List<LocalPartitionStateResponse> states;
+
+    @JsonCreator
+    public LocalPartitionStatesResponse(@JsonProperty("states") List<LocalPartitionStateResponse> states) {
+        this.states = List.copyOf(states);
+    }
+
+    @JsonGetter("states")
+    public List<LocalPartitionStateResponse> states() {
+        return states;
+    }
 }
