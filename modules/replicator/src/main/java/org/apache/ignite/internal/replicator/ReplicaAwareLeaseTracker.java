@@ -33,7 +33,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.WaitReplicaStateMessage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeResolver;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link PlacementDriver} that is aware if {@link ReplicaService}.
@@ -118,11 +117,6 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
     @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
         return delegate.previousPrimaryExpired(grpId);
-    }
-
-    @Override
-    public @Nullable ReplicaMeta currentLease(ReplicationGroupId groupId) {
-        return delegate.currentLease(groupId);
     }
 
     @Override

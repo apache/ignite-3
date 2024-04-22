@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
@@ -204,7 +203,9 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     }
 
     private int zoneId() {
-        return TestIndexManagementUtils.zoneId(catalogManager, DEFAULT_ZONE_NAME, clock);
+        String zoneName = catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone().name();
+
+        return TestIndexManagementUtils.zoneId(catalogManager, zoneName, clock);
     }
 
     private CatalogIndexDescriptor indexDescriptor() {

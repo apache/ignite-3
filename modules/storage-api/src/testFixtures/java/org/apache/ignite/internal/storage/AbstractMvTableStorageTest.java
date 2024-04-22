@@ -1009,6 +1009,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 true,
                 AVAILABLE,
                 catalogService.latestCatalogVersion(),
+                0,
                 List.of(pkColumnName)
         );
 

@@ -721,13 +721,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 .thenCompose(unused -> {
                                     ArrayList<CompletableFuture<?>> requestToReplicas = new ArrayList<>();
 
-                                                for (ReplicationGroupId partId : diff) {
-                                                    WaitReplicaStateMessage req = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
-                                                            .enlistmentConsistencyToken(meta.getStartTime().longValue())
-                                                            .groupId(partId)
-                                                            // TODO: discuss this timeout
-                                                            .timeout(10)
-                                                            .build();
+                                    for (ReplicationGroupId partId : diff) {
+                                        WaitReplicaStateMessage req = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
+                                                .enlistmentConsistencyToken(meta.getStartTime().longValue())
+                                                .groupId(partId)
+                                                // TODO: discuss this timeout
+                                                .timeout(10)
+                                                .build();
 
                                         CompletableFuture<Replica> replicaFut = replicas.get(repGrp);
 

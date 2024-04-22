@@ -19,7 +19,6 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
@@ -301,7 +300,9 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     }
 
     private int zoneId() {
-        return getZoneIdStrict(catalogManager, DEFAULT_ZONE_NAME, clock.nowLong());
+        String zoneName = catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone().name();
+
+        return getZoneIdStrict(catalogManager, zoneName, clock.nowLong());
     }
 
     private int indexId(String indexName) {
