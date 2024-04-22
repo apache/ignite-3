@@ -463,7 +463,7 @@ public abstract class DataStructure implements ManuallyCloseable {
     /**
      * Returns a page size without the encryption overhead, in bytes.
      */
-    protected int pageSize() {
+    public int pageSize() {
         return pageMem.realPageSize(grpId);
     }
 
