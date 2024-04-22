@@ -41,8 +41,8 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public StatementBuilder query(String sql) {
-        query = sql;
+    public StatementBuilder query(String query) {
+        this.query = query;
 
         return this;
     }

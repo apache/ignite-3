@@ -44,8 +44,8 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public StatementBuilder query(String sql) {
-        query = Objects.requireNonNull(sql, "sql");
+    public StatementBuilder query(String query) {
+        this.query = Objects.requireNonNull(query, "query");
 
         return this;
     }

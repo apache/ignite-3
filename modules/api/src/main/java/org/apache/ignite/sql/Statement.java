@@ -83,10 +83,10 @@ public interface Statement extends AutoCloseable {
         /**
          * Sets an SQL statement string.
          *
-         * @param sql SQL query.
+         * @param query SQL query.
          * @return {@code this} for chaining.
          */
-        StatementBuilder query(String sql);
+        StatementBuilder query(String query);
 
         /**
          * Sets a query timeout.

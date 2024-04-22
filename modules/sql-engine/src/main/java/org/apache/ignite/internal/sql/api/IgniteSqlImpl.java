@@ -323,9 +323,9 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             Statement statement,
             @Nullable Object... arguments
     ) {
-        assert statement.pageSize() >= 0 : statement.pageSize();
+        assert statement.pageSize() > 0 : statement.pageSize();
 
-        int pageSize = statement.pageSize() == 0 ? DEFAULT_PAGE_SIZE : statement.pageSize();
+        int pageSize = statement.pageSize();
 
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(nodeIsStoppingException());
