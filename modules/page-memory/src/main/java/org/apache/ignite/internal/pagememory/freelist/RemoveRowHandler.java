@@ -27,6 +27,7 @@ import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 
 final class RemoveRowHandler implements PageHandler<ReuseBag, Long> {
+    /** Free list. */
     private final FreeListImpl freeList;
 
     /** Indicates whether partition ID should be masked from page ID. */
@@ -35,6 +36,7 @@ final class RemoveRowHandler implements PageHandler<ReuseBag, Long> {
     /**
      * Constructor.
      *
+     * @param freeList Free list.
      * @param maskPartId Indicates whether partition ID should be masked from page ID.
      */
     RemoveRowHandler(FreeListImpl freeList, boolean maskPartId) {
@@ -42,7 +44,6 @@ final class RemoveRowHandler implements PageHandler<ReuseBag, Long> {
         this.maskPartId = maskPartId;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Long run(
             int cacheId,

@@ -28,11 +28,10 @@ import org.apache.ignite.internal.util.CachedIterator;
 final class WriteRowsHandler implements PageHandler<CachedIterator<Storable>, Integer> {
     private final FreeListImpl freeList;
 
-    public WriteRowsHandler(FreeListImpl freeList) {
+    WriteRowsHandler(FreeListImpl freeList) {
         this.freeList = freeList;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Integer run(
             int cacheId,

@@ -77,8 +77,6 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
         }
     }
 
-    protected abstract byte dataType();
-
     private int readValueSize(long pageAddr, DataPagePayload payload) {
         return PageUtils.getInt(pageAddr, payload.offset() + valueSizeOffsetInFirstSlot());
     }
@@ -133,6 +131,9 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
      * @return offset into first slot at which the 'value' starts
      */
     protected abstract int valueOffsetInFirstSlot();
+
+    /** Returns type of the data row. */
+    protected abstract byte dataType();
 
     /**
      * Resets the object to make it ready for use.
