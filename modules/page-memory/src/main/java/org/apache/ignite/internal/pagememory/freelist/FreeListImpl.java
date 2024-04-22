@@ -292,7 +292,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
     @Override
     public void insertDataRows(Collection<? extends Storable> rows) throws IgniteInternalCheckedException {
         try {
-            CachedIterator<Storable> it = new CachedIterator<Storable>(rows.iterator());
+            CachedIterator<Storable> it = new CachedIterator<>(rows.iterator());
 
             int written = COMPLETE;
 
