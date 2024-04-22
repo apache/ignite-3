@@ -137,6 +137,7 @@ dependencies {
     integrationTestImplementation project(':ignite-sql-engine')
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-low-watermark')
+    integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-api')))
     integrationTestImplementation(testFixtures(project(':ignite-core')))

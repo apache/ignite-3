@@ -46,6 +46,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -262,6 +263,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
             raftManager = new Loza(
                     clusterService,
+                    new MetricManager(),
                     raftConfiguration,
                     workDir.resolve(nodeName + "_loza"),
                     new HybridClockImpl(),
