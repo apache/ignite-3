@@ -42,6 +42,7 @@ dependencies {
     implementation project(':ignite-raft-api')
     implementation project(':ignite-network')
     implementation project(':ignite-rocksdb-common')
+    implementation project(':ignite-metrics')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.disruptor

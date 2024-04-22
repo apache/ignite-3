@@ -1247,17 +1247,20 @@ public class NodeImpl implements Node, RaftServerService {
                 () -> new FSMCallerImpl.ApplyTask(),
                 opts.getStripes(),
                 false,
-                false
+                false,
+                opts.getRaftMetrics().disruptorMetrics("JRaft-FSMCaller-Disruptor")
             ));
         } else if (ownFsmCallerExecutorDisruptorConfig != null) {
             opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
                 opts.getServerName(),
-                "JRaft-FSMCaller-Disruptor-" + ownFsmCallerExecutorDisruptorConfig.getThreadPostfix(),
+                "JRaft-FSMCaller-Disruptor" + ownFsmCallerExecutorDisruptorConfig.getThreadPostfix(),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
                 ownFsmCallerExecutorDisruptorConfig.getStripes(),
                 false,
-                false
+                false,
+                null
+                //opts.getRaftMetrics().disruptorMetrics("JRaft-FSMCaller-Disruptor")
             ));
         }
 
@@ -1269,7 +1272,8 @@ public class NodeImpl implements Node, RaftServerService {
                 () -> new NodeImpl.LogEntryAndClosure(),
                 opts.getStripes(),
                 false,
-                false
+                false,
+                opts.getRaftMetrics().disruptorMetrics("JRaft-NodeImpl-Disruptor")
             ));
         }
 
@@ -1281,7 +1285,8 @@ public class NodeImpl implements Node, RaftServerService {
                 () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
                 opts.getStripes(),
                 false,
-                false
+                false,
+                opts.getRaftMetrics().disruptorMetrics("JRaft-ReadOnlyService-Disruptor")
             ));
         }
 
@@ -1293,7 +1298,8 @@ public class NodeImpl implements Node, RaftServerService {
                 () -> new LogManagerImpl.StableClosureEvent(),
                 opts.getLogStripesCount(),
                 logStorage instanceof RocksDbSharedLogStorage,
-                opts.isLogYieldStrategy()
+                opts.isLogYieldStrategy(),
+                opts.getRaftMetrics().disruptorMetrics("JRaft-LogManager-Disruptor")
             ));
 
             opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));

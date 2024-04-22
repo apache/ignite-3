@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metrics;
 
+import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,6 +28,9 @@ public class LongGauge extends AbstractMetric implements LongMetric {
     /** Value supplier. */
     private final LongSupplier val;
 
+    /** Function to format a readable value. */
+    private final LongFunction<String> stringFormatter;
+
     /**
      * Constructor.
      *
@@ -35,13 +39,35 @@ public class LongGauge extends AbstractMetric implements LongMetric {
      * @param val Supplier.
      */
     public LongGauge(String name, @Nullable String desc, LongSupplier val) {
+        this(name, desc, val, null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param name Name.
+     * @param desc Description.
+     * @param val Supplier.
+     * @param stringFormatter String formatter or {@code null}.
+     */
+    public LongGauge(String name, @Nullable String desc, LongSupplier val, @Nullable LongFunction<String> stringFormatter) {
         super(name, desc);
 
         this.val = val;
+        this.stringFormatter = stringFormatter;
     }
 
     /** {@inheritDoc} */
     @Override public long value() {
         return val.getAsLong();
+    }
+
+    @Override
+    public String getValueAsString() {
+        if (stringFormatter == null) {
+            return Long.toString(value());
+        }
+
+        return stringFormatter.apply(value());
     }
 }

@@ -33,8 +33,10 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.sources.RaftMetricSource.DisruptorMetrics;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.entity.NodeId;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Stripe Disruptor is a set of queues which process several independent groups in one queue (in the stripe).
@@ -64,6 +66,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
     /** The Striped disruptor name. */
     private final String name;
 
+    private final DisruptorMetrics metrics;
+
     /**
      * If {@code false}, this stripe will always pass {@code true} into {@link EventHandler#onEvent(Object, long, boolean)}.
      * Otherwise, the data will be provided with batches.
@@ -80,6 +84,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param supportsBatches If {@code false}, this stripe will always pass {@code true} into
      *      {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
      * @param useYieldStrategy If {@code true}, the yield strategy is to be used, otherwise the blocking strategy.
+     * @param metrics Metrics.
      */
     public StripedDisruptor(
             String nodeName,
@@ -88,7 +93,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
             EventFactory<T> eventFactory,
             int stripes,
             boolean supportsBatches,
-            boolean useYieldStrategy
+            boolean useYieldStrategy,
+            @Nullable DisruptorMetrics metrics
     ) {
         this(
                 nodeName,
@@ -98,7 +104,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
                 eventFactory,
                 stripes,
                 supportsBatches,
-                useYieldStrategy
+                useYieldStrategy,
+                metrics
         );
     }
 
@@ -112,6 +119,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param supportsBatches If {@code false}, this stripe will always pass {@code true} into
      *      {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
      * @param useYieldStrategy If {@code true}, the yield strategy is to be used, otherwise the blocking strategy.
+     * @param raftMetrics Metrics.
      */
     public StripedDisruptor(
             String nodeName,
@@ -121,7 +129,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
             EventFactory<T> eventFactory,
             int stripes,
             boolean supportsBatches,
-            boolean useYieldStrategy
+            boolean useYieldStrategy,
+            @Nullable DisruptorMetrics raftMetrics
     ) {
         disruptors = new Disruptor[stripes];
         queues = new RingBuffer[stripes];
@@ -130,6 +139,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
         this.stripes = stripes;
         this.name = NamedThreadFactory.threadPrefix(nodeName, poolName);
         this.supportsBatches = supportsBatches;
+        this.metrics = raftMetrics;
 
         for (int i = 0; i < stripes; i++) {
             String stripeName = format("{}_stripe_{}", poolName, i);
@@ -237,6 +247,9 @@ public class StripedDisruptor<T extends NodeIdAware> {
     private class StripeEntryHandler implements EventHandler<T> {
         private final ConcurrentHashMap<NodeId, EventHandler<T>> subscribers;
 
+        /** Size of the batch that is currently being handled. */
+        private int currentBatchSize = 0;
+
         /**
          * The constructor.
          */
@@ -269,6 +282,18 @@ public class StripedDisruptor<T extends NodeIdAware> {
 
             // TODO: IGNITE-20536 Need to add assert that handler is not null and to implement a no-op handler.
             if (handler != null) {
+                if (metrics != null) {
+                    metrics.hitToStripe(getStripe(event.nodeId()));
+
+                    if (endOfBatch) {
+                        metrics.addBatchSize(currentBatchSize + 1);
+
+                        currentBatchSize = 0;
+                    } else {
+                        currentBatchSize ++;
+                    }
+                }
+
                 handler.onEvent(event, sequence, endOfBatch || subscribers.size() > 1 && !supportsBatches);
             } else {
                 LOG.warn(format("Group of the event is unsupported [nodeId={}, event={}]", event.nodeId(), event));

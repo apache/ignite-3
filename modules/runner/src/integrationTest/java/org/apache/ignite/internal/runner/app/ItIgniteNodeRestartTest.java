@@ -353,7 +353,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-        var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock, raftGroupEventsClientListener);
+        var raftMgr = new Loza(clusterSvc, new MetricManager(), raftConfiguration, dir, hybridClock, raftGroupEventsClientListener);
 
         var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"), name);
 

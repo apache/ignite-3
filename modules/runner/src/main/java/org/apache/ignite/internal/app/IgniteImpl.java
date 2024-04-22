@@ -492,6 +492,7 @@ public class IgniteImpl implements Ignite {
 
         raftMgr = new Loza(
                 clusterSvc,
+                metricManager,
                 raftConfiguration,
                 workDir,
                 clock,
