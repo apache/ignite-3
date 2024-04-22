@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.tracing.configuration;
 
-import static org.apache.ignite.internal.tracing.configuration.ExporterConfigurationSchema.TYPE_ZIPKIN;
+import static org.apache.ignite.internal.tracing.configuration.TracingExporterConfigurationSchema.TYPE_ZIPKIN;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
@@ -27,8 +27,8 @@ import org.apache.ignite.configuration.validation.NotBlank;
  * Zipkin configuration schema.
  */
 @PolymorphicConfigInstance(TYPE_ZIPKIN)
-public class ZipkinExporterConfigurationSchema extends ExporterConfigurationSchema {
+public class ZipkinExporterConfigurationSchema extends TracingExporterConfigurationSchema {
     @NotBlank
-    @Value
-    public String endpoint;
+    @Value(hasDefault = true)
+    public String endpoint = "http://127.0.0.1:9411/api/v2/spans";
 }

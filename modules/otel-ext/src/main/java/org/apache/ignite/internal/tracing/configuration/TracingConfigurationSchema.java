@@ -21,7 +21,6 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
 
 /** Configuration schema for cluster trace. */
 @ConfigurationRoot(rootName = "tracing", type = ConfigurationType.DISTRIBUTED)
@@ -31,7 +30,6 @@ public class TracingConfigurationSchema {
     public final double ratio = 1.0d;
 
     /** Exporter configuration. */
-    @Immutable
     @ConfigValue
-    public ExporterConfigurationSchema exporter;
+    public TracingExporterConfigurationSchema exporter;
 }

@@ -20,14 +20,14 @@ package org.apache.ignite.internal.tracing.configuration;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 
-/** Exporter configuration schema. */
+/** Tracing exporter configuration schema. */
 @PolymorphicConfig
-public class ExporterConfigurationSchema {
+public class TracingExporterConfigurationSchema {
     static final String TYPE_ZIPKIN = "zipkin";
 
     static final String TYPE_FILE_ZIPKIN = "file-zipkin";
 
     /** Exporter type. */
-    @PolymorphicId
-    public String type;
+    @PolymorphicId(hasDefault = true)
+    public String type = TYPE_ZIPKIN;
 }

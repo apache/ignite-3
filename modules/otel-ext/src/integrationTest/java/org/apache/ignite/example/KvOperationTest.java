@@ -74,7 +74,7 @@ public class KvOperationTest extends ClusterPerClassIntegrationTest {
     void kvGetWithTracing() throws Exception {
         IgniteImpl ignite = CLUSTER.aliveNode();
 
-        ignite.clusterConfiguration().getConfiguration(TracingConfiguration.KEY).change(change -> change.changeRatio(1.0d)).get();
+//        ignite.clusterConfiguration().getConfiguration(TracingConfiguration.KEY).change(change -> change.changeRatio(1.0d)).get();
 
         KeyValueView<Tuple, Tuple> keyValueView = ignite.tables().table(DEFAULT_TABLE_NAME).keyValueView();
 

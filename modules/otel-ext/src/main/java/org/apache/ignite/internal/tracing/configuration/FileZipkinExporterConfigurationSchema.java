@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.tracing.configuration;
 
-import static org.apache.ignite.internal.tracing.configuration.ExporterConfigurationSchema.TYPE_FILE_ZIPKIN;
+import static org.apache.ignite.internal.tracing.configuration.TracingExporterConfigurationSchema.TYPE_FILE_ZIPKIN;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
@@ -27,7 +27,7 @@ import org.apache.ignite.configuration.validation.NotBlank;
  * Zipkin configuration schema.
  */
 @PolymorphicConfigInstance(TYPE_FILE_ZIPKIN)
-public class FileZipkinExporterConfigurationSchema extends ExporterConfigurationSchema {
+public class FileZipkinExporterConfigurationSchema extends TracingExporterConfigurationSchema {
     @NotBlank
     @Value
     public String basePath;

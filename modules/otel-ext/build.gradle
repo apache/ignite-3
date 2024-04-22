@@ -24,6 +24,7 @@ description = 'ignite-otel-ext'
 
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor libs.auto.service
 
     implementation project(':ignite-core')
     implementation project(':ignite-configuration')
@@ -40,13 +41,11 @@ dependencies {
     implementation libs.opentelemetry.exporter.otlp
     implementation libs.opentelemetry.exporter.otlp.common
     implementation libs.opentelemetry.exporter.zipkin
-    implementation libs.auto.service.annotations
-
-    annotationProcessor libs.auto.service
-
-    testAnnotationProcessor libs.jmh.annotation.processor
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
+    testAnnotationProcessor libs.jmh.annotation.processor
+    testAnnotationProcessor libs.auto.service
+
     testImplementation libs.assertj.core
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
@@ -58,13 +57,15 @@ dependencies {
 
     integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
     integrationTestAnnotationProcessor libs.auto.service
-    integrationTestImplementation project(':ignite-runner')
+
+    integrationTestImplementation project(':ignite-core')
+    integrationTestImplementation project(':ignite-configuration')
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation project(':ignite-jdbc')
-    integrationTestImplementation project(':ignite-configuration')
-    integrationTestImplementation(testFixtures(project(':ignite-core')))
-    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation libs.auto.service.annotations
 }
 

@@ -29,7 +29,6 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.TextMapGetter;
 import io.opentelemetry.exporter.zipkin.FileZipkinSpanExporter;
 import io.opentelemetry.exporter.zipkin.ZipkinSpanExporter;
-import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import io.opentelemetry.sdk.trace.export.SpanExporter;
@@ -50,9 +49,9 @@ import org.apache.ignite.internal.tracing.NoopSpan;
 import org.apache.ignite.internal.tracing.SpanManager;
 import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tracing.Tracing;
-import org.apache.ignite.internal.tracing.configuration.ExporterView;
 import org.apache.ignite.internal.tracing.configuration.FileZipkinExporterView;
 import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
+import org.apache.ignite.internal.tracing.configuration.TracingExporterView;
 import org.apache.ignite.internal.tracing.configuration.TracingView;
 import org.apache.ignite.internal.tracing.configuration.ZipkinExporterView;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -78,17 +77,6 @@ public class OtelSpanManager implements Tracing {
 
     /** Tracing enabled flag. */
     private volatile boolean tracingEnabled = true;
-
-    /**
-     * Constructor.
-     */
-    public OtelSpanManager() {
-        AutoConfiguredOpenTelemetrySdk telemetrySdk = AutoConfiguredOpenTelemetrySdk.initialize();
-
-        SdkTracerProvider tracerProvider = telemetrySdk.getOpenTelemetrySdk().getSdkTracerProvider();
-
-        tracerProviders.put(DEFAULT, tracerProvider);
-    }
 
     @Override
     public TraceSpan create(@Nullable TraceSpan parentSpan, String lb, boolean forceTracing, boolean endRequired) {
@@ -237,9 +225,9 @@ public class OtelSpanManager implements Tracing {
                         .setSampler(sampler)
                         .build();
 
-                IgniteUtils.closeAll(tracerProviders.put(name, tracerProvider));
+                IgniteUtils.closeAll(tracerProviders.put(DEFAULT, tracerProvider));
 
-                LOG.debug("Refreshed tracing configuration [name={}, ratio={}]", name, ratio);
+                LOG.debug("Refreshed tracing configuration [name={}, ratio={}]", DEFAULT, ratio);
             }
         } catch (Exception exception) {
             LOG.error("Couldn't refresh tracing configuration for `{}`. Leaving the old settings", name, exception);
@@ -254,7 +242,7 @@ public class OtelSpanManager implements Tracing {
      * @param exporterView Exporter view.
      * @return Span exporter.
      */
-    private static SpanExporter createFromConfiguration(ExporterView exporterView) {
+    private static SpanExporter createFromConfiguration(TracingExporterView exporterView) {
         if (exporterView instanceof ZipkinExporterView) {
             ZipkinExporterView view = (ZipkinExporterView) exporterView;
 
