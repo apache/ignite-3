@@ -121,7 +121,7 @@ public class IndexColumns implements Storable {
 
     @Override
     public void writeHeader(ByteBuffer pageBuf) {
-        pageBuf.put((byte) 0);
+        pageBuf.put(DATA_TYPE);
         pageBuf.putInt(valueSize());
     }
 

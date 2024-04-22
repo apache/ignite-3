@@ -73,16 +73,19 @@ public interface Storable {
     @Nullable
     ByteBuffer valueBuffer();
 
-    /** Writes row header to page buffer.
+    /**
+     * Writes row header to page buffer and moves its pointer to {@link #valueOffset()}.
      *
      * @param pageBuf page buffer to write header to.
-     * */
+     */
     void writeHeader(ByteBuffer pageBuf);
 
-    /** Writes row header and value to page.
+    /**
+     * Writes row header and value to page.
      *
      * @param pageAddr Page address.
-     * @param offset Data offset. */
+     * @param offset Data offset.
+     */
     void writeToPage(long pageAddr, int offset);
 
     /** Returns value offset from the start of the row. */

@@ -594,7 +594,7 @@ public class DataPageIo extends PageIo {
 
         assert directCnt > 0 : "itemId=" + itemId + ", directCnt=" + directCnt + ", page=" + printPageLayout(pageAddr, pageSize);
 
-        int directItemId;
+        final int directItemId;
         if (itemId >= directCnt) { // Need to do indirect lookup.
             int indirectCnt = getIndirectCount(pageAddr);
 
@@ -633,7 +633,7 @@ public class DataPageIo extends PageIo {
 
         int indirectCnt = getIndirectCount(pageAddr);
 
-        int directItemId;
+        final int directItemId;
         if (itemId >= directCnt) { // Need to do indirect lookup.
             if (indirectCnt <= 0) {
                 return NON_EXISTENT_ITEM_OFFSET;
@@ -693,7 +693,7 @@ public class DataPageIo extends PageIo {
      * @param pageSize Page size.
      * @return {@link DataPagePayload} object.
      */
-    public DataPagePayload readPayload(long pageAddr, int itemId, int pageSize) {
+    public DataPagePayload readPayload(final long pageAddr, final int itemId, final int pageSize) {
         int dataOff = getDataOffset(pageAddr, itemId, pageSize);
 
         boolean fragmented = isFragmented(pageAddr, dataOff);
@@ -713,7 +713,7 @@ public class DataPageIo extends PageIo {
      * @param pageSize size of the page in bytes
      * @return {@code true} iff an item with given ID exists in a page at the given address
      */
-    public boolean itemExists(long pageAddr, int itemId, int pageSize) {
+    public boolean itemExists(long pageAddr, int itemId, final int pageSize) {
         return getDataOffsetOrNotFoundMarker(pageAddr, itemId, pageSize) != NON_EXISTENT_ITEM_OFFSET;
     }
 
@@ -725,7 +725,7 @@ public class DataPageIo extends PageIo {
      * @param pageSize Page size.
      * @param reqLen Required payload length.
      */
-    public int getPayloadOffset(long pageAddr, int itemId, int pageSize, int reqLen) {
+    public int getPayloadOffset(final long pageAddr, final int itemId, final int pageSize, int reqLen) {
         int dataOff = getDataOffset(pageAddr, itemId, pageSize);
 
         int payloadSize = getPageEntrySize(pageAddr, dataOff, 0);
@@ -888,12 +888,12 @@ public class DataPageIo extends PageIo {
         assert checkIndex(itemId) : itemId;
         assertPageType(pageAddr);
 
-        int dataOff = getDataOffset(pageAddr, itemId, pageSize);
-        long nextLink = isFragmented(pageAddr, dataOff) ? getNextFragmentLink(pageAddr, dataOff) : 0;
+        final int dataOff = getDataOffset(pageAddr, itemId, pageSize);
+        final long nextLink = isFragmented(pageAddr, dataOff) ? getNextFragmentLink(pageAddr, dataOff) : 0;
 
         // Record original counts to calculate delta in free space in the end of remove.
-        int directCnt = getDirectCount(pageAddr);
-        int indirectCnt = getIndirectCount(pageAddr);
+        final int directCnt = getDirectCount(pageAddr);
+        final int indirectCnt = getIndirectCount(pageAddr);
 
         int curIndirectCnt = indirectCnt;
 
@@ -923,9 +923,12 @@ public class DataPageIo extends PageIo {
                 assert itemId < directCnt;
             }
 
-            boolean dropLast = itemId + 1 >= directCnt || moveLastItem(pageAddr, itemId, directCnt, indirectCnt);
+            boolean dropLast = true;
 
-            // It is not the last direct item.
+            if (itemId + 1 < directCnt) {
+                // It is not the last direct item.
+                dropLast = moveLastItem(pageAddr, itemId, directCnt, indirectCnt);
+            }
 
             if (indirectId == 0) {
                 // For the last direct item with no indirect item.
@@ -1002,11 +1005,11 @@ public class DataPageIo extends PageIo {
      * @throws IgniteInternalCheckedException If failed.
      */
     public void addRow(
-            long pageId,
-            long pageAddr,
+            final long pageId,
+            final long pageAddr,
             Storable row,
-            int rowSize,
-            int pageSize
+            final int rowSize,
+            final int pageSize
     ) throws IgniteInternalCheckedException {
         assert rowSize <= getFreeSpace(pageAddr) : "can't call addRow if not enough space for the whole row";
         assert rowSize <= 0xFFFF : "Row size is too big: " + rowSize;
@@ -1038,10 +1041,10 @@ public class DataPageIo extends PageIo {
      * @return First entry offset after compaction.
      */
     private int compactIfNeed(
-            long pageAddr,
-            int entryFullSize,
-            int directCnt,
-            int indirectCnt,
+            final long pageAddr,
+            final int entryFullSize,
+            final int directCnt,
+            final int indirectCnt,
             int dataOff,
             int pageSize
     ) {
@@ -1067,12 +1070,12 @@ public class DataPageIo extends PageIo {
      * @param pageSize Page size.
      * @return Item ID.
      */
-    private int addItem(long pageAddr,
-            int fullEntrySize,
-            int directCnt,
-            int indirectCnt,
-            int dataOff,
-            int pageSize) {
+    private int addItem(final long pageAddr,
+            final int fullEntrySize,
+            final int directCnt,
+            final int indirectCnt,
+            final int dataOff,
+            final int pageSize) {
         setFirstEntryOffset(pageAddr, dataOff, pageSize);
 
         int itemId = insertItem(pageAddr, dataOff, directCnt, indirectCnt, pageSize);
@@ -1223,7 +1226,6 @@ public class DataPageIo extends PageIo {
         }
     }
 
-
     /**
      * Writes a content of a byte buffer into a page.
      *
@@ -1309,7 +1311,7 @@ public class DataPageIo extends PageIo {
         // Move right all of the entries if possible to make the page as compact as possible to its tail.
         int prevOff = pageSize;
 
-        int start = directCnt - 1;
+        final int start = directCnt - 1;
         int curOff = offs[start] >>> 8;
         int curEntrySize = getPageEntrySize(pageAddr, curOff, SHOW_PAYLOAD_LEN | SHOW_LINK);
 

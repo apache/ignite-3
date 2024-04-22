@@ -157,7 +157,7 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
-     * Returns ree list root page ID.
+     * Returns free list root page ID.
      *
      * @param pageAddr Page address.
      */

@@ -18,24 +18,17 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
-import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
 import static org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter.equalsByNextLink;
-import static org.apache.ignite.internal.util.GridUnsafe.pageSize;
 
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
-import org.apache.ignite.internal.pagememory.io.DataPageIo;
-import org.apache.ignite.internal.pagememory.io.PageIo;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
-import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
@@ -94,36 +87,6 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
         this.gcQueue = localState.gcQueue();
 
         this.updateNextLinkHandler = new UpdateNextLinkHandler(localState.freeList().evictionTracker());
-    }
-
-    private static class UpdateNextLinkHandler implements PageHandler<Long, Object> {
-        private final PageEvictionTracker evictionTracker;
-
-        private UpdateNextLinkHandler(PageEvictionTracker evictionTracker) {
-            this.evictionTracker = evictionTracker;
-        }
-
-        @Override
-        public Object run(
-                int groupId,
-                long pageId,
-                long page,
-                long pageAddr,
-                PageIo io,
-                Long nextLink,
-                int itemId,
-                IoStatisticsHolder statHolder
-        ) throws IgniteInternalCheckedException {
-            DataPageIo dataIo = (DataPageIo) io;
-
-            int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize(), 0);
-
-            writePartitionless(pageAddr + payloadOffset + RowVersion.NEXT_LINK_OFFSET, nextLink);
-
-            evictionTracker.touchPage(pageId);
-
-            return true;
-        }
     }
 
     @Override
@@ -198,7 +161,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
     public void onUpdate() {
         if (toUpdate != null) {
             try {
-                updateNextLink(toUpdate.link(), NULL_LINK);
+                freeList.updateDataRow(toUpdate.link(), updateNextLinkHandler, NULL_LINK);
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException(
                         "Error updating the next link: [rowId={}, timestamp={}, rowLink={}, nextLink={}, {}]",
@@ -207,10 +170,6 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
                 );
             }
         }
-    }
-
-    private void updateNextLink(long link, long nextLink) throws IgniteInternalCheckedException {
-        freeList.updateDataRow(link, updateNextLinkHandler, nextLink);
     }
 
     private RowVersion readRowVersionWithChecks(VersionChain versionChain) {
