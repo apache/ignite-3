@@ -153,6 +153,7 @@ public class RaftMetricSource implements MetricSource {
             this.averageBatchSizeMetric = averageBatchSizeMetric;
             this.stripeHistogramMetric = stripeHistogramMetric;
         }
+
         public boolean enabled() {
             return enabled;
         }
