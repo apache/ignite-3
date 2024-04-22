@@ -111,7 +111,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-        raftManager = new Loza(clusterService, new MetricManager(), raftConfiguration, workDir.resolve("loza"), clock, raftGroupEventsClientListener);
+        raftManager = new Loza(clusterService, new MetricManager(), raftConfiguration, workDir.resolve("loza"), clock,
+                raftGroupEventsClientListener);
 
         var logicalTopologyService = mock(LogicalTopologyService.class);
 
