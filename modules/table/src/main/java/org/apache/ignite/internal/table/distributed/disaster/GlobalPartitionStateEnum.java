@@ -15,17 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.disaster.messages;
-
-import java.util.List;
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup.DisasterRecoveryMessages;
+package org.apache.ignite.internal.table.distributed.disaster;
 
 /**
- * Response for {@link LocalPartitionStatesResponse}.
+ * Enum for states of partitions.
  */
-@Transferable(DisasterRecoveryMessages.LOCAL_PARTITION_STATE_RESPONSE)
-public interface LocalPartitionStatesResponse extends NetworkMessage {
-    List<LocalPartitionStateMessage> states();
+public enum GlobalPartitionStateEnum {
+    /** All replicas are healthy. */
+    AVAILABLE,
+
+    /** There are healthy replicas, and they form a majority. */
+    DEGRADED,
+
+    /** There are healthy replicas, but they don't form a majority. */
+    READ_ONLY,
+
+    /** There are no healthy replicas. */
+    UNAVAILABLE
 }
