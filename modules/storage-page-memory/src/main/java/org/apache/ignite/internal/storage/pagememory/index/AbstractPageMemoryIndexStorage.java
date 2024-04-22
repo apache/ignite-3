@@ -455,4 +455,8 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
             return hasNext;
         }
     }
+
+    protected void throwExceptionIfIndexIsNotBuilt() {
+        StorageUtils.throwExceptionIfIndexIsNotBuilt(nextRowIdToBuild, this::createStorageInfo);
+    }
 }
