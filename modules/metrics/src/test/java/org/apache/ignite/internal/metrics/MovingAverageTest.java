@@ -52,7 +52,7 @@ public class MovingAverageTest extends AbstractDoubleMetricTest {
 
     @Override
     protected void setValue0(DoubleMetric metric, double value) {
-        for (int i=0; i< items.length ; i++) {
+        for (int i = 0; i < items.length; i++) {
             addValue(value);
 
             ((MovingAverageMetric) metric).add(value);
@@ -76,7 +76,7 @@ public class MovingAverageTest extends AbstractDoubleMetricTest {
      */
     private void addValue(double value) {
         items[pos % items.length] = value;
-        pos ++;
+        pos++;
     }
 
     /**

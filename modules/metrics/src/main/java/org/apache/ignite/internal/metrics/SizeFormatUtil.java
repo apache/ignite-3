@@ -18,11 +18,16 @@
 package org.apache.ignite.internal.metrics;
 
 import java.text.DecimalFormat;
+import java.text.ParseException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Number formatter utilities.
  */
 public class SizeFormatUtil {
+    /** Logger. */
+    private static IgniteLogger LOG = Loggers.forClass(SizeFormatUtil.class);
 
     /** The number of bytes in a kilobyte. */
     public static final long ONE_KB = 1024;
@@ -69,6 +74,50 @@ public class SizeFormatUtil {
             displaySize = size + " bytes";
         }
         return displaySize;
+    }
+
+    public static long parsSize(String size) {
+        long result = 0;
+
+        try {
+            if (size.contains("EB")) {
+                result += DEC_FORMAT.parse(size.substring(0, size.indexOf("EB") - 1)).doubleValue() * ONE_EB;
+                size = size.substring(size.indexOf("EB") + 2);
+            }
+
+            if (size.contains("PB")) {
+                result += DEC_FORMAT.parse(size.substring(0, size.indexOf("PB") - 1)).doubleValue() * ONE_PB;
+                size = size.substring(size.indexOf("PB") + 2);
+            }
+
+            if (size.contains("TB")) {
+                result += DEC_FORMAT.parse(size.substring(0, size.indexOf("TB") - 1)).doubleValue() * ONE_TB;
+                size = size.substring(size.indexOf("TB") + 2);
+            }
+
+            if (size.contains("GB")) {
+                result += DEC_FORMAT.parse(size.substring(0, size.indexOf("GB") - 1)).doubleValue() * ONE_GB;
+                size = size.substring(size.indexOf("GB") + 2);
+            }
+
+            if (size.contains("MB")) {
+                result += DEC_FORMAT.parse(size.substring(0, size.indexOf("MB") - 1)).doubleValue() * ONE_MB;
+                size = size.substring(size.indexOf("MB") + 2);
+            }
+
+            if (size.contains("KB")) {
+                result += DEC_FORMAT.parse(size.substring(0, size.indexOf("KB") - 1)).doubleValue() * ONE_KB;
+                size = size.substring(size.indexOf("KB") + 2);
+            }
+
+            if (size.contains("bytes")) {
+                result += Long.parseLong(size.substring(0, size.indexOf("bytes") - 1));
+            }
+        } catch (ParseException e) {
+            LOG.info("Size string parsing exception captain [size={}]", e, size);
+        }
+
+        return result;
     }
 
     private static String formatSize(long size, long divider, String unitName) {

@@ -27,6 +27,7 @@ import java.util.Map;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.SizeFormatUtil;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -83,6 +84,6 @@ public class ItJvmMetricSourceTest extends BaseIgniteAbstractTest {
     }
 
     private void assertPositiveLongValue(String metric) {
-        assertThat(Long.parseLong(metric), greaterThan(0L));
+        assertThat(SizeFormatUtil.parsSize(metric), greaterThan(0L));
     }
 }
