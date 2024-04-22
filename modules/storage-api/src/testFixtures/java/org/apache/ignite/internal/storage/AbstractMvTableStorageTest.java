@@ -325,6 +325,33 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     /**
+     * Tests that an attempt to destroy an index in a table storage that is already destroyed does not
+     * cause an exception.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void indexDestructionDoesNotFailIfTableStorageIsDestroyed(boolean waitForDestroyFuture) throws Exception {
+        MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
+        assertThat(sortedIndexStorage, is(notNullValue()));
+
+        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+        assertThat(hashIndexStorage, is(notNullValue()));
+
+        assertThat(partitionStorage.flush(), willCompleteSuccessfully());
+
+        CompletableFuture<Void> destroyTableStorageFuture = tableStorage.destroy();
+
+        if (waitForDestroyFuture) {
+            assertThat(destroyTableStorageFuture, willCompleteSuccessfully());
+        }
+
+        assertDoesNotThrow(() -> tableStorage.destroyIndex(sortedIdx.id()).get(10, SECONDS));
+        assertDoesNotThrow(() -> tableStorage.destroyIndex(hashIdx.id()).get(10, SECONDS));
+    }
+
+    /**
      * Tests that removing one Sorted Index does not affect the data in the other.
      */
     @Test

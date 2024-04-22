@@ -335,7 +335,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 workerRegistry,
                 threadPoolsManager.commonScheduler(),
                 nettyBootstrapFactory,
-                workersConfiguration
+                workersConfiguration,
+                failureProcessor
         );
 
         var clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
@@ -496,7 +497,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.messagingService()
         );
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriverManager.placementDriver());
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
 
         var txManager = new TxManagerImpl(
                 name,
@@ -1293,7 +1294,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * metastorage group starts again.
      */
     @Test
-    @Disabled(value = "https://issues.apache.org/jira/browse/IGNITE-18919")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18919")
     public void testMetastorageStop() throws NodeStoppingException {
         int cfgGap = 4;
 

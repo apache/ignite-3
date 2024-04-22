@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
 
 import java.util.Arrays;
@@ -47,20 +46,15 @@ public class DropZoneCommand extends AbstractZoneCommand {
      */
     private DropZoneCommand(String zoneName) throws CatalogValidationException {
         super(zoneName);
-
-        validate();
-    }
-
-    @SuppressWarnings("MethodOverridesInaccessibleMethodOfSuper")
-    private void validate() {
-        if (zoneName.equals(DEFAULT_ZONE_NAME)) {
-            throw new DistributionZoneCantBeDroppedValidationException("Default distribution zone can't be dropped: zoneName={}", zoneName);
-        }
     }
 
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
+
+        if (zone.id() == catalog.defaultZone().id()) {
+            throw new DistributionZoneCantBeDroppedValidationException("Default distribution zone can't be dropped: zoneName={}", zoneName);
+        }
 
         catalog.schemas().stream()
                 .flatMap(s -> Arrays.stream(s.tables()))

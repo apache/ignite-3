@@ -200,7 +200,7 @@ class CreateFromAnnotationsTest {
     void primaryKey() {
         assertThat(
                 createTable().processRecordClass(PkSort.class).toSqlString(),
-                is("CREATE TABLE IF NOT EXISTS PkSort (id int, PRIMARY KEY USING TREE (id desc));")
+                is("CREATE TABLE IF NOT EXISTS PkSort (id int, PRIMARY KEY USING SORTED (id desc));")
         );
     }
 
@@ -208,7 +208,7 @@ class CreateFromAnnotationsTest {
     void primaryKeyQuoted() {
         assertThat(
                 createTableQuoted().processRecordClass(PkSort.class).toSqlString(),
-                is("CREATE TABLE IF NOT EXISTS \"PkSort\" (\"id\" int, PRIMARY KEY USING TREE (\"id\" desc));")
+                is("CREATE TABLE IF NOT EXISTS \"PkSort\" (\"id\" int, PRIMARY KEY USING SORTED (\"id\" desc));")
         );
     }
 
@@ -303,7 +303,7 @@ class CreateFromAnnotationsTest {
     }
 
     @SuppressWarnings("unused")
-    @Table(primaryKeyType = IndexType.TREE)
+    @Table(primaryKeyType = IndexType.SORTED)
     private static class PkSort {
         @Id(SortOrder.DESC)
         Integer id;

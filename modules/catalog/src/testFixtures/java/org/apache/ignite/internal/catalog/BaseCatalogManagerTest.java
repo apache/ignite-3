@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
@@ -204,7 +203,6 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
         return CreateTableCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
-                .zone(DEFAULT_ZONE_NAME)
                 .tableName(tableName)
                 .columns(columns)
                 .primaryKey(primaryKey)

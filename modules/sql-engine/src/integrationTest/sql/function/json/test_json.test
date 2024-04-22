@@ -45,9 +45,19 @@ select json_array(name, age) from t
 ["Alex",32]
 ["Maria",27]
 
-skipif ignite3
-# IGNITE-22022 Json object with nested object creation fails
 query T
-select json_object('name': 'Alex', 'address': json_object('city': 'City 17', 'street': 'xxx'))
+select json_object('address': json_object('city': 'City 17'))
 ----
-{"name":"Alex","address":{"city":"City 17","street":"xxx"}}
+{"address":{"city":"City 17"}}
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22032 date during json construction is returned in caclite's internal form (number of days)
+query T
+select json_object('date': '2010-01-01'::DATE)
+----
+{"date":"2010-01-01"}
+
+query T
+select json_object('date': '2010-01-01'::DATE::VARCHAR)
+----
+{"date":"2010-01-01"}
