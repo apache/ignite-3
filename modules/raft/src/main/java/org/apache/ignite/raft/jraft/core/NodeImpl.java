@@ -43,7 +43,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.raft.JraftGroupEventsListener;
+import org.apache.ignite.internal.metrics.sources.RaftMetricSource;import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorage;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
@@ -1237,6 +1237,10 @@ public class NodeImpl implements Node, RaftServerService {
 
         if (opts.getClientExecutor() == null && validateOption(opts, "clientExecutor"))
             opts.setClientExecutor(JRaftUtils.createClientExecutor(opts, opts.getServerName()));
+
+        if (opts.getRaftMetrics() == null) {
+            opts.setRaftMetrics(new RaftMetricSource(opts.getStripes(), opts.getLogStripesCount()));
+        }
 
         if (opts.getfSMCallerExecutorDisruptor() == null) {
             opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
