@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
@@ -36,6 +35,8 @@ import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
@@ -416,17 +417,18 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
 
-        CatalogZoneDescriptor zone = node.catalogManager().zone(DEFAULT_ZONE_NAME, node.clock().nowLong());
+        CatalogZoneDescriptor zone = getDefaultZone(node);
 
         assertEquals(zone.storageProfiles().defaultProfile().storageProfile(), table.storageProfile());
     }
 
-
     @Test
     public void tableStorageProfileExceptionIfZoneDoesntContainProfile() {
+        String defaultZoneName = getDefaultZone(CLUSTER.aliveNode()).name();
+
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Zone with name '" + DEFAULT_ZONE_NAME + "' does not contain table's storage profile",
+                "Zone with name '" + defaultZoneName + "' does not contain table's storage profile",
                 () -> sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH STORAGE_PROFILE='profile1'")
         );
     }
@@ -441,9 +443,9 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertEquals(DEFAULT_STORAGE_PROFILE, table.storageProfile());
 
-        CatalogZoneDescriptor zone = node.catalogManager().zone(DEFAULT_ZONE_NAME, node.clock().nowLong());
+        CatalogZoneDescriptor defaultZone = getDefaultZone(node);
 
-        assertEquals(zone.storageProfiles().defaultProfile().storageProfile(), table.storageProfile());
+        assertEquals(defaultZone.storageProfiles().defaultProfile().storageProfile(), table.storageProfile());
     }
 
     @Test
@@ -478,5 +480,14 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         sql("DROP TABLE TEST");
 
         sql("DROP ZONE ZONE1");
+    }
+
+    private static CatalogZoneDescriptor getDefaultZone(IgniteImpl node) {
+        CatalogManager catalogManager = node.catalogManager();
+        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()));
+
+        assert catalog != null;
+
+        return catalog.defaultZone();
     }
 }
