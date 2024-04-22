@@ -43,7 +43,7 @@ public interface JdbcQueryEventHandler {
     /**
      * Create connection context on a server and returns connection identity.
      *
-     * @param timeZoneId Client time zone ID.
+     * @param timeZoneId Client time-zone ID.
      *
      * @return A future representing result of the operation.
      */

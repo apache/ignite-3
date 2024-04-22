@@ -301,7 +301,6 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
      * The same as {@link #commuteIsDisabledForBigJoinsOfTables()}, but with table functions as source of data.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18937")
     public void commuteIsDisabledForBigJoinsOfTableFunctions() throws Exception {
         int joinSize = 50;
 

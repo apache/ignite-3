@@ -45,6 +45,7 @@ import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
@@ -52,7 +53,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -366,7 +366,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 );
             case TIMESTAMP:
                 return ((LocalDateTime) generateValueByType(i, NativeTypeSpec.DATETIME))
-                        .atZone(TimeZone.getDefault().toZoneId())
+                        .atZone(ZoneId.systemDefault())
                         .toInstant();
             default:
                 throw new IllegalStateException("Unexpected type: " + type);

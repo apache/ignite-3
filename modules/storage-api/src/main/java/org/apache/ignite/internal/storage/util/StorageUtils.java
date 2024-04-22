@@ -26,6 +26,8 @@ import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
+import org.apache.ignite.internal.storage.index.IndexNotBuiltException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Helper class for storages.
@@ -238,5 +240,17 @@ public class StorageUtils {
      */
     public static RowId initialRowIdToBuild(int partitionId) {
         return RowId.lowestRowId(partitionId);
+    }
+
+    /**
+     * Throws an {@link IndexNotBuiltException} if the index has not yet been built.
+     *
+     * @param nextRowIdToBuild Next row ID to build, {@code null} if the index is built.
+     * @param storageInfoSupplier Storage information supplier, for example in the format "indexId=5, partitionId=1".
+     */
+    public static void throwExceptionIfIndexIsNotBuilt(@Nullable RowId nextRowIdToBuild, Supplier<String> storageInfoSupplier) {
+        if (nextRowIdToBuild != null) {
+            throw new IndexNotBuiltException("Index not built yet: [{}]", storageInfoSupplier.get());
+        }
     }
 }

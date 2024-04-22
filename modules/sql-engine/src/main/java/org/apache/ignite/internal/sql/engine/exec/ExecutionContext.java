@@ -105,7 +105,7 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param handler Row handler.
      * @param params Parameters.
      * @param txAttributes Transaction attributes.
-     * @param timeZoneId Session time zone ID.
+     * @param timeZoneId Session time-zone ID.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
