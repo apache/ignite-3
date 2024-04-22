@@ -53,6 +53,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -123,10 +124,10 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testGetTupleRoutesRequestToPrimaryNode() {
         RecordView<Tuple> recordView = defaultTable().recordView();
 
-        assertOpOnNode(nodeKey0, "get", x -> recordView.get(null, Tuple.create().set("ID", 0L)));
-        assertOpOnNode(nodeKey1, "get", x -> recordView.get(null, Tuple.create().set("ID", 1L)));
-        assertOpOnNode(nodeKey2, "get", x -> recordView.get(null, Tuple.create().set("ID", 2L)));
-        assertOpOnNode(nodeKey3, "get", x -> recordView.get(null, Tuple.create().set("ID", 3L)));
+        assertOpOnNode(nodeKey0, "get", tx -> recordView.get(tx, Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, "get", tx -> recordView.get(tx, Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, "get", tx -> recordView.get(tx, Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey3, "get", tx -> recordView.get(tx, Tuple.create().set("ID", 3L)));
     }
 
     @Test
@@ -583,7 +584,12 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         fut.join();
     }
 
-    private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Void> op) {
+    private void assertOpOnNode(String expectedNode, String expectedOp, Consumer<Transaction> op) {
+        assertOpOnNodeNoTx(expectedNode, expectedOp, op);
+        assertOpOnNodeWithTx(expectedNode, expectedOp, op);
+    }
+
+    private void assertOpOnNodeNoTx(String expectedNode, String expectedOp, Consumer<Transaction> op) {
         lastOpServerName = null;
         lastOp = null;
 
@@ -591,6 +597,18 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         assertEquals(expectedOp, lastOp);
         assertEquals(expectedNode, lastOpServerName, "Operation " + expectedOp + " was not executed on expected node");
+    }
+
+    private void assertOpOnNodeWithTx(String expectedNode, String expectedOp, Consumer<Transaction> op) {
+        lastOpServerName = null;
+        lastOp = null;
+
+        Transaction tx = client.transactions().begin();
+        op.accept(null);
+        tx.commit();
+
+        assertEquals(expectedOp, lastOp);
+        assertEquals(expectedNode, lastOpServerName, "Operation " + expectedOp + " was not executed on expected node with transaction");
     }
 
     private Table defaultTable() {
