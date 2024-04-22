@@ -24,7 +24,7 @@ SELECT empname FROM emp WHERE (empname, empage, salary) = ('Johnah', 47, 1200)
 Johnah
 
 query T rowsort
-SELECT empname FROM emp WHERE ('Johnah', 47) IN ((empname,empage))
+SELECT empname FROM emp WHERE ('Johnah', 47) IN ((empname, empage))
 ----
 Johnah
 
