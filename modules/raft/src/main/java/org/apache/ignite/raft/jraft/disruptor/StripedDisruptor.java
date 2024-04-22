@@ -282,7 +282,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
 
             // TODO: IGNITE-20536 Need to add assert that handler is not null and to implement a no-op handler.
             if (handler != null) {
-                if (metrics != null) {
+                if (metrics != null && metrics.enabled()) {
                     metrics.hitToStripe(getStripe(event.nodeId()));
 
                     if (endOfBatch) {

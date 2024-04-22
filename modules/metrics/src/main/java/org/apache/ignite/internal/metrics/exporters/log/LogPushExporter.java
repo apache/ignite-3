@@ -28,6 +28,7 @@ import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.internal.metrics.exporters.PushMetricExporter;
 import org.apache.ignite.internal.metrics.exporters.configuration.LogPushExporterView;
+import org.apache.ignite.internal.util.CollectionUtils;
 
 /**
  * Log push metrics exporter.
@@ -54,6 +55,10 @@ public class LogPushExporter extends PushMetricExporter<LogPushExporterView> {
 
     @Override
     public void report() {
+        if (CollectionUtils.nullOrEmpty(metrics().get1().values())) {
+            return;
+        }
+
         var report = new StringBuilder("Metric report: \n");
 
         for (MetricSet metricSet : metrics().get1().values()) {

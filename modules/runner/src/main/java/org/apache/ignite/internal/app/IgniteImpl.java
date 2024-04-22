@@ -1238,6 +1238,11 @@ public class IgniteImpl implements Ignite {
         return failureProcessor;
     }
 
+    @TestOnly
+    public MetricManager metricManager() {
+        return metricManager;
+    }
+
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {
