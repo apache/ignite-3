@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.otel.ext.sampler;
+package org.apache.ignite.internal.tracing.otel;
 
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.SpanKind;

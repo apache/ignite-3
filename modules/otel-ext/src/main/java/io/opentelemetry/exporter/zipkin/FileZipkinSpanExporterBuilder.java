@@ -38,7 +38,7 @@ public class FileZipkinSpanExporterBuilder {
      * @param basePath Base path.
      * @return {@code this} for chaining.
      */
-    FileZipkinSpanExporterBuilder setBasePath(String basePath) {
+    public FileZipkinSpanExporterBuilder setBasePath(String basePath) {
         requireNonNull(basePath, "basePath");
         this.basePath = basePath;
 

@@ -26,9 +26,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.Ignite;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Tracing Manager.
@@ -51,13 +49,8 @@ public class TracingManager {
                 .orElse(NoopSpanManager.INSTANCE);
     }
 
-    public static void initialize(Ignite ignite) {
-        SPAN_MANAGER.initialize(ignite);
-    }
-
-    @TestOnly
-    public static void initialize(String name, double ratio) {
-        SPAN_MANAGER.initialize(name, ratio);
+    public static SpanManager getSpanManager() {
+        return SPAN_MANAGER;
     }
 
     /**

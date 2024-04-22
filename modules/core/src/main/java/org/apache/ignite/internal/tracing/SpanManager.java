@@ -24,9 +24,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.Ignite;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Manager for {@link TraceSpan} instances.
@@ -94,9 +92,4 @@ public interface SpanManager {
     TraceSpan restoreSpanContext(Map<String, String> headers);
 
     TraceSpan current();
-
-    void initialize(Ignite ignite);
-
-    @TestOnly
-    void initialize(String name, double ratio);
 }

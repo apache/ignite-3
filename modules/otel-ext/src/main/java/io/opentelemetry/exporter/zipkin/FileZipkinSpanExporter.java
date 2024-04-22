@@ -31,13 +31,11 @@ import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.jetbrains.annotations.TestOnly;
 import zipkin2.codec.SpanBytesEncoder;
 
 /**
  * {@link SpanExporter} SPI implementation for exporting to file in zipkin format.
  */
-@TestOnly
 public class FileZipkinSpanExporter implements SpanExporter {
     private static final IgniteLogger LOG = Loggers.forClass(FileZipkinSpanExporter.class);
 

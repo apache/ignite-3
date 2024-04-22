@@ -29,7 +29,6 @@ dependencies {
     implementation project(':ignite-configuration')
     implementation project(':ignite-client')
     implementation project(':ignite-jdbc')
-    implementation project(':ignite-runner')
 
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations

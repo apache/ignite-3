@@ -17,21 +17,17 @@
 
 package org.apache.ignite.internal.tracing.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 
-/** Configuration schema for cluster trace. */
-@ConfigurationRoot(rootName = "tracing", type = ConfigurationType.DISTRIBUTED)
-public class TracingConfigurationSchema {
-    /** Sampling ratio. */
-    @Value(hasDefault = true)
-    public final double ratio = 1.0d;
+/** Exporter configuration schema. */
+@PolymorphicConfig
+public class ExporterConfigurationSchema {
+    static final String TYPE_ZIPKIN = "zipkin";
 
-    /** Exporter configuration. */
-    @Immutable
-    @ConfigValue
-    public ExporterConfigurationSchema exporter;
+    static final String TYPE_FILE_ZIPKIN = "file-zipkin";
+
+    /** Exporter type. */
+    @PolymorphicId
+    public String type;
 }

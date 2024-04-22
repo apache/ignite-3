@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.otel.ext;
+package org.apache.ignite.internal.tracing.otel;
 
 import com.google.auto.service.AutoService;
 import io.opentelemetry.sdk.autoconfigure.spi.AutoConfigurationCustomizer;
@@ -23,7 +23,6 @@ import io.opentelemetry.sdk.autoconfigure.spi.AutoConfigurationCustomizerProvide
 import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
 import io.opentelemetry.sdk.trace.samplers.Sampler;
 import java.util.Map;
-import org.apache.ignite.otel.ext.sampler.DynamicRatioSampler;
 
 /**
  * This is one of the main entry points for Instrumentation Agent's customizations. It allows configuring the

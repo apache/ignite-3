@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import io.opentelemetry.api.trace.Span;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.tracing.TracingManager;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -33,7 +32,7 @@ import org.junit.jupiter.api.Test;
 public class FutureTest {
     @BeforeAll
     static void setUp() {
-        TracingManager.initialize("ignite-node-0", 1.0d);
+        // TracingManager.initialize("ignite-node-0", 1.0d);
     }
 
     @Test

@@ -28,7 +28,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
-import org.apache.ignite.internal.tracing.TracingManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -52,7 +51,7 @@ class ExecutorTest {
                 0
         );
 
-        TracingManager.initialize("ignite-node-0", 1.0d);
+        // TracingManager.initialize("ignite-node-0", 1.0d);
     }
 
     @AfterAll

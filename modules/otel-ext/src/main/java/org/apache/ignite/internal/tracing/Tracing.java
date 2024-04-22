@@ -15,29 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tracing.configuration;
+package org.apache.ignite.internal.tracing;
 
-import com.google.auto.service.AutoService;
-import java.util.Collection;
-import java.util.List;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
 
 /**
- * Configuration module for tracing configs.
+ * Tracing sub-system interface.
  */
-@AutoService(ConfigurationModule.class)
-public class TracingConfigurationModule implements ConfigurationModule {
-    /** {@inheritDoc} */
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.DISTRIBUTED;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(TracingConfiguration.KEY);
-    }
+public interface Tracing extends SpanManager {
+    void initialize(String name, TracingConfiguration tracingConfiguration);
 }

@@ -15,23 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tracing.configuration;
+package org.apache.ignite.internal.tracing;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
+import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
 
-/** Configuration schema for cluster trace. */
-@ConfigurationRoot(rootName = "tracing", type = ConfigurationType.DISTRIBUTED)
-public class TracingConfigurationSchema {
-    /** Sampling ratio. */
-    @Value(hasDefault = true)
-    public final double ratio = 1.0d;
+/**
+ * Tracing Manager.
+ */
+public class GridTracingManager {
+    /**
+     * Initialize tracing module.
+     *
+     * @param name Ignite node name.
+     * @param tracingConfiguration Tracing configuration.
+     */
+    public static void initialize(String name, TracingConfiguration tracingConfiguration) {
+        SpanManager spanManager = TracingManager.getSpanManager();
 
-    /** Exporter configuration. */
-    @Immutable
-    @ConfigValue
-    public ExporterConfigurationSchema exporter;
+        if (spanManager instanceof Tracing) {
+            Tracing tracing = (Tracing) spanManager;
+
+            tracing.initialize(name, tracingConfiguration);
+        }
+    }
 }

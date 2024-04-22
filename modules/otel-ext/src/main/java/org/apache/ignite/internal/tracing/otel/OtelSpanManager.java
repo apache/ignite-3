@@ -18,51 +18,58 @@
 package org.apache.ignite.internal.tracing.otel;
 
 import static io.opentelemetry.api.GlobalOpenTelemetry.getPropagators;
+import static org.apache.ignite.internal.tracing.otel.DynamicRatioSampler.SAMPLING_RATE_NEVER;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
-import static org.apache.ignite.otel.ext.sampler.DynamicRatioSampler.SAMPLING_RATE_NEVER;
 
 import com.google.auto.service.AutoService;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.TextMapGetter;
+import io.opentelemetry.exporter.zipkin.FileZipkinSpanExporter;
+import io.opentelemetry.exporter.zipkin.ZipkinSpanExporter;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
+import io.opentelemetry.sdk.trace.export.SpanExporter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tracing.NoopSpan;
 import org.apache.ignite.internal.tracing.SpanManager;
 import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.Tracing;
+import org.apache.ignite.internal.tracing.configuration.ExporterView;
+import org.apache.ignite.internal.tracing.configuration.FileZipkinExporterView;
 import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
 import org.apache.ignite.internal.tracing.configuration.TracingView;
-import org.apache.ignite.otel.ext.sampler.DynamicRatioSampler;
+import org.apache.ignite.internal.tracing.configuration.ZipkinExporterView;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Tracing manager.
  */
 @AutoService(SpanManager.class)
-public class OtelSpanManager implements SpanManager {
+public class OtelSpanManager implements Tracing {
     private static final IgniteLogger LOG = Loggers.forClass(OtelSpanManager.class);
 
     private static final TextMapGetter<Map<String, String>> GETTER = new MapGetter();
 
-    private final SdkTracerProvider tracerProvider;
+    private static final String DEFAULT = "default";
 
-    private final Tracer tracer;
+    private final Map<String, SdkTracerProvider> tracerProviders = new ConcurrentHashMap<>();
 
     /**
      * Read-write lock for the list of authenticators and the authentication enabled flag.
@@ -78,8 +85,9 @@ public class OtelSpanManager implements SpanManager {
     public OtelSpanManager() {
         AutoConfiguredOpenTelemetrySdk telemetrySdk = AutoConfiguredOpenTelemetrySdk.initialize();
 
-        tracerProvider = telemetrySdk.getOpenTelemetrySdk().getSdkTracerProvider();
-        tracer = tracerProvider.get(null);
+        SdkTracerProvider tracerProvider = telemetrySdk.getOpenTelemetrySdk().getSdkTracerProvider();
+
+        tracerProviders.put(DEFAULT, tracerProvider);
     }
 
     @Override
@@ -95,7 +103,7 @@ public class OtelSpanManager implements SpanManager {
             return NoopSpan.INSTANCE;
         }
 
-        var spanBuilder = tracer.spanBuilder(lb);
+        var spanBuilder = forNode(DEFAULT).spanBuilder(lb);
 
         if (!invalidParent) {
             spanBuilder.setParent(parentSpan.getContext());
@@ -193,25 +201,25 @@ public class OtelSpanManager implements SpanManager {
     }
 
     @Override
-    public void initialize(Ignite ignite) {
-        TracingConfiguration tracingConfiguration = ((IgniteImpl) ignite).clusterConfiguration()
-                .getConfiguration(TracingConfiguration.KEY);
-
+    public void initialize(String name, TracingConfiguration tracingConfiguration) {
         tracingConfiguration.listen((ctx) -> {
             @Nullable TracingView view = ctx.newValue();
 
-            refreshTracers(ignite.name(), view == null ? SAMPLING_RATE_NEVER : view.ratio());
+            if (view != null) {
+                refreshTracers(name, view);
+            }
 
             return nullCompletedFuture();
         });
     }
 
-    @Override
-    public void initialize(String name, double ratio) {
-        refreshTracers(name, ratio);
+    private Tracer forNode(String name) {
+        return tracerProviders.get(name).get(null);
     }
 
-    private void refreshTracers(String name, double ratio) {
+    private void refreshTracers(String name, TracingView view) {
+        double ratio = view.ratio();
+
         rwLock.writeLock().lock();
         try {
             if (ratio == SAMPLING_RATE_NEVER) {
@@ -219,16 +227,51 @@ public class OtelSpanManager implements SpanManager {
             } else {
                 tracingEnabled = true;
 
-                DynamicRatioSampler sampler = (DynamicRatioSampler) tracerProvider.getSampler();
-                sampler.configure(ratio, true);
+                SpanExporter exporter = createFromConfiguration(view.exporter());
 
-                LOG.debug("refresh tracing configuration [name={}, ratio={}]", name, ratio);
+                DynamicRatioSampler sampler = new DynamicRatioSampler();
+                sampler.configure(view.ratio(), true);
+
+                SdkTracerProvider tracerProvider = SdkTracerProvider.builder()
+                        .addSpanProcessor(BatchSpanProcessor.builder(exporter).build())
+                        .setSampler(sampler)
+                        .build();
+
+                IgniteUtils.closeAll(tracerProviders.put(name, tracerProvider));
+
+                LOG.debug("Refreshed tracing configuration [name={}, ratio={}]", name, ratio);
             }
         } catch (Exception exception) {
             LOG.error("Couldn't refresh tracing configuration for `{}`. Leaving the old settings", name, exception);
         } finally {
             rwLock.writeLock().unlock();
         }
+    }
+
+    /**
+     * Create span exporter instance from configuration view.
+     *
+     * @param exporterView Exporter view.
+     * @return Span exporter.
+     */
+    private static SpanExporter createFromConfiguration(ExporterView exporterView) {
+        if (exporterView instanceof ZipkinExporterView) {
+            ZipkinExporterView view = (ZipkinExporterView) exporterView;
+
+            return ZipkinSpanExporter.builder()
+                    .setEndpoint(view.endpoint())
+                    .build();
+        }
+
+        if (exporterView instanceof FileZipkinExporterView) {
+            FileZipkinExporterView view = (FileZipkinExporterView) exporterView;
+
+            return FileZipkinSpanExporter.builder()
+                    .setBasePath(view.basePath())
+                    .build();
+        }
+
+        throw new IllegalArgumentException("Unexpected exporter provider view: " + exporterView);
     }
 
     private static class MapGetter implements TextMapGetter<Map<String, String>> {
