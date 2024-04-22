@@ -37,7 +37,7 @@ Noah
 
 # skipif ignite3
 # https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
-query T
+query T rowsort
 SELECT DISTINCT (empage, salary) FROM emp
 ----
 (42,1700)
