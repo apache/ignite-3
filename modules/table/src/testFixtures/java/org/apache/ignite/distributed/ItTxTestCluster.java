@@ -594,6 +594,7 @@ public class ItTxTestCluster {
                 ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
                 StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
+                when(pkIndexDescriptor.isPk()).thenReturn(true);
 
                 when(pkIndexDescriptor.columns()).then(invocation -> Collections.nCopies(
                         schemaDescriptor.keyColumns().size(),

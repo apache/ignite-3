@@ -417,6 +417,12 @@ public class ErrorGroups {
 
         /** Operation on a destroyed storage. */
         public static final int ALREADY_DESTROYED_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 5);
+
+        /** Error reading from an index that has not yet been built. */
+        public static final int INDEX_NOT_BUILT_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Error when detecting an inconsistent index state. */
+        public static final int INCONSISTENT_INDEX_STATE_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 7);
     }
 
     /** Distribution zones error group. */

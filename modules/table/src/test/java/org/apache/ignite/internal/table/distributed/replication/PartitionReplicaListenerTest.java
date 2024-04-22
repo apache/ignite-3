@@ -133,8 +133,10 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.TestStorageUtils;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
@@ -515,6 +517,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 columnsExtractor
         );
 
+        completeBuiltIndexes(sortedIndexStorage.storage(), hashIndexStorage.storage());
+
         IndexLocker pkLocker = new HashIndexLocker(pkIndexId, true, lockManager, row2Tuple);
         IndexLocker sortedIndexLocker = new SortedIndexLocker(sortedIndexId, PART_ID, lockManager, indexStorage, row2Tuple);
         IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2Tuple);
@@ -658,6 +662,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         ((TestSortedIndexStorage) sortedIndexStorage.storage()).clear();
         testMvPartitionStorage.clear();
         pendingRows.clear();
+
+        completeBuiltIndexes(hashIndexStorage.storage(), sortedIndexStorage.storage());
     }
 
     @Test
@@ -3034,5 +3040,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .build();
 
         return partitionReplicaListener.invoke(request, localNode.id());
+    }
+
+    private void completeBuiltIndexes(IndexStorage... indexStorages) {
+        TestStorageUtils.completeBuiltIndexes(testMvPartitionStorage, indexStorages);
     }
 }

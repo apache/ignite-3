@@ -28,7 +28,6 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -45,14 +44,6 @@ public class ItInternalTableReadOnlyScanTest extends ItAbstractInternalTableScan
         requireNonNull(tx);
 
         return internalTbl.scan(part, tx.id(), internalTbl.CLOCK.now(), mock(ClusterNode.class), tx.coordinatorId());
-    }
-
-    // TODO: IGNITE-17666 Use super test as is.
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17666")
-    @Override
-    @Test
-    public void testExceptionRowScanCursorHasNext() throws Exception {
-        super.testExceptionRowScanCursorHasNext();
     }
 
     @Override
