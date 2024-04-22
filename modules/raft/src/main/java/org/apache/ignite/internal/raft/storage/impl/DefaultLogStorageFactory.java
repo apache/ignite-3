@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
@@ -54,8 +55,8 @@ import org.rocksdb.util.SizeUnit;
 public class DefaultLogStorageFactory implements LogStorageFactory {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultLogStorageFactory.class);
 
-    /** Database path. */
-    private final Path path;
+    /** Function to get path to the log storage. */
+    private final Supplier<Path> logPathSupplier;
 
     /** Executor for shared storages. */
     private final ExecutorService executorService;
@@ -88,16 +89,16 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      */
     @TestOnly
     public DefaultLogStorageFactory(Path path) {
-        this("test", path);
+        this("test", () -> path);
     }
 
     /**
      * Constructor.
      *
-     * @param path Path to the storage.
+     * @param logPathSupplier Function to get path to the log storage.
      */
-    public DefaultLogStorageFactory(String nodeName, Path path) {
-        this.path = path;
+    public DefaultLogStorageFactory(String nodeName, Supplier<Path> logPathSupplier) {
+        this.logPathSupplier = logPathSupplier;
 
         executorService = Executors.newSingleThreadExecutor(
                 NamedThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
@@ -107,10 +108,12 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** {@inheritDoc} */
     @Override
     public void start() {
+        Path logPath = logPathSupplier.get();
+
         try {
-            Files.createDirectories(path);
+            Files.createDirectories(logPath);
         } catch (IOException e) {
-            throw new IllegalStateException("Failed to create directory: " + this.path, e);
+            throw new IllegalStateException("Failed to create directory: " + logPath, e);
         }
 
         List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>();
@@ -128,7 +131,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         );
 
         try {
-            this.db = RocksDB.open(this.dbOptions, this.path.toString(), columnFamilyDescriptors, columnFamilyHandles);
+            this.db = RocksDB.open(this.dbOptions, logPath.toString(), columnFamilyDescriptors, columnFamilyHandles);
 
             // Setup rocks thread pools to utilize all the available cores as the database is shared among
             // all the raft groups

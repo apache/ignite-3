@@ -225,4 +225,14 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     public @Nullable BinaryRow vacuum(GcEntry entry) {
         return partitionStorage.vacuum(entry);
     }
+
+    @Override
+    public void updateLease(long leaseStartTime) {
+        partitionStorage.updateLease(leaseStartTime);
+    }
+
+    @Override
+    public long leaseStartTime() {
+        return partitionStorage.leaseStartTime();
+    }
 }

@@ -220,8 +220,11 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         Set<String>[] lastAssignmentsHolderForLog = new Set[1];
 
         assertTrue(waitForCondition(() -> {
+            int zoneId = cluster.aliveNode().catalogManager().table(table, cluster.aliveNode().catalogManager().latestCatalogVersion())
+                    .zoneId();
+
             Set<String> assignments =
-                    await(partitionAssignments(cluster.aliveNode().metaStorageManager(), table, 0))
+                    await(partitionAssignments(cluster.aliveNode().metaStorageManager(), zoneId, 0))
                             .stream()
                             .map(Assignment::consistentId)
                             .collect(Collectors.toSet());
@@ -236,8 +239,11 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         Set<String>[] lastAssignmentsHolderForLog = new Set[1];
 
         assertTrue(waitForCondition(() -> {
+            int zoneId = cluster.aliveNode().catalogManager().table(table, cluster.aliveNode().catalogManager().latestCatalogVersion())
+                    .zoneId();
+
             Set<String> assignments =
-                    await(partitionAssignments(cluster.aliveNode().metaStorageManager(), table, 0))
+                    await(partitionAssignments(cluster.aliveNode().metaStorageManager(), zoneId, 0))
                             .stream()
                             .map(Assignment::consistentId)
                             .collect(Collectors.toSet());
@@ -310,6 +316,6 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
 
         return catalogManager.catalog(catalogManager.latestCatalogVersion()).tables().stream()
                 .filter(t -> t.name().equals(tableName))
-                .findFirst().get().zoneId();
+                .findFirst().get().id();
     }
 }

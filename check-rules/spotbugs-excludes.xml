@@ -214,6 +214,7 @@
       <Field name="PARTITION_META_PREFIX"/>
       <Field name="PARTITION_CONF_PREFIX"/>
       <Field name="INDEX_ROW_ID_PREFIX"/>
+      <Field name="LEASE_PREFIX"/>
     </Or>
   </Match>
   <!-- end of false-positive exclusions -->

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureZoneContainsTablesStorageProfile;
@@ -35,7 +34,6 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
@@ -51,6 +49,7 @@ import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A command that adds a new table to the catalog.
@@ -81,7 +80,7 @@ public class CreateTableCommand extends AbstractTableCommand {
      * @param colocationColumns Name of the columns participating in distribution calculation.
      *      Should be subset of the primary key columns.
      * @param columns List of the columns containing by the table. There should be at least one column.
-     * @param zoneName Name of the zone to create table in. Should not be null or blank.
+     * @param zoneName Name of the zone to create table in or {@code null} to use the default distribution zone.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
     private CreateTableCommand(
@@ -90,7 +89,7 @@ public class CreateTableCommand extends AbstractTableCommand {
             TablePrimaryKey primaryKey,
             List<String> colocationColumns,
             List<ColumnParams> columns,
-            String zoneName,
+            @Nullable String zoneName,
             String storageProfile
     ) throws CatalogValidationException {
         super(schemaName, tableName);
@@ -110,7 +109,9 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, tableName);
 
-        CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
+        CatalogZoneDescriptor zone = zoneName == null
+                ? catalog.defaultZone()
+                : zoneOrThrow(catalog, zoneName);
 
         if (storageProfile == null) {
             storageProfile = zone.storageProfiles().defaultProfile().storageProfile();
@@ -310,8 +311,6 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         @Override
         public CatalogCommand build() {
-            String zoneName = requireNonNullElse(this.zoneName, CatalogService.DEFAULT_ZONE_NAME);
-
             List<String> colocationColumns;
 
             if (this.colocationColumns != null) {

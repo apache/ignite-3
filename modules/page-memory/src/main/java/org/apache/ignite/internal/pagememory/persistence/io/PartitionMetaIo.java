@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
@@ -48,6 +49,8 @@ public class PartitionMetaIo extends PageIo {
     private static final int GC_QUEUE_META_PAGE_ID_OFF = INDEX_TREE_META_PAGE_ID_OFF + Long.BYTES;
 
     private static final int PAGE_COUNT_OFF = GC_QUEUE_META_PAGE_ID_OFF + Long.BYTES;
+
+    private static final int LEASE_START_TIME_OFF = PAGE_COUNT_OFF + Integer.BYTES;
 
     /** Page IO type. */
     public static final short T_TABLE_PARTITION_META_IO = 7;
@@ -78,6 +81,7 @@ public class PartitionMetaIo extends PageIo {
         setIndexTreeMetaPageId(pageAddr, 0);
         setGcQueueMetaPageId(pageAddr, 0);
         setPageCount(pageAddr, 0);
+        setLeaseStartTime(pageAddr, HybridTimestamp.MIN_VALUE.longValue());
     }
 
     /**
@@ -269,6 +273,28 @@ public class PartitionMetaIo extends PageIo {
         return getInt(pageAddr, PAGE_COUNT_OFF);
     }
 
+    /**
+     * Sets the lease start time.
+     *
+     * @param pageAddr Page address.
+     * @param leaseStartTime Lease start time.
+     */
+    public void setLeaseStartTime(long pageAddr, long leaseStartTime) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, LEASE_START_TIME_OFF, leaseStartTime);
+    }
+
+    /**
+     * Returns the lease start time.
+     *
+     * @param pageAddr Page address.
+     * @return Lease start time.
+     */
+    public long getLeaseStartTime(long pageAddr) {
+        return getLong(pageAddr, LEASE_START_TIME_OFF);
+    }
+
     /** {@inheritDoc} */
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
@@ -282,6 +308,7 @@ public class PartitionMetaIo extends PageIo {
                 .app("indexTreeMetaPageId=").appendHex(getIndexTreeMetaPageId(addr)).nl()
                 .app("gcQueueMetaPageId=").appendHex(getGcQueueMetaPageId(addr)).nl()
                 .app("pageCount=").app(getPageCount(addr)).nl()
+                .app("leaseStartTime=").app(getLeaseStartTime(addr)).nl()
                 .app(']');
     }
 }

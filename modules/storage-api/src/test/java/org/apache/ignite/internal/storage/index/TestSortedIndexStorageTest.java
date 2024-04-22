@@ -36,4 +36,9 @@ public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
 
         initialize(storage);
     }
+
+    // Not valid for test storage.
+    @Override
+    void testReadOnlyScanContractUpdateAfterScan() {
+    }
 }

@@ -237,21 +237,6 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         return expirationFutureByGroup.getOrDefault(grpId, nullCompletedFuture());
     }
 
-    @Override
-    public ReplicaMeta currentLease(ReplicationGroupId groupId) {
-        assert groupId instanceof TablePartitionId : "Unexpected replication group type [grp=" + groupId + "].";
-
-        var tblPartId = (TablePartitionId) groupId;
-
-        ReplicationGroupId groupId0 = tablePartIdToZoneIdProvider.apply(tblPartId);
-
-        return inBusyLock(busyLock, () -> {
-            Lease lease = getLease(groupId0);
-
-            return lease.isAccepted() ? lease : null;
-        });
-    }
-
     /**
      * Gets a lease for a particular group.
      *

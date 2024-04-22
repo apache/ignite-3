@@ -22,11 +22,11 @@ package org.apache.ignite.internal.sql.engine.sql;
  */
 public enum IgniteSqlIndexType {
     /** Sorted index. */
-    TREE,
+    SORTED,
 
     /** Hash index. */
     HASH,
 
-    /** The user have omitted USING clause, hence the type is set to {@link #TREE} implicitly. */
-    IMPLICIT_TREE
+    /** The user have omitted USING clause, hence the type is set to {@link #SORTED} implicitly. */
+    IMPLICIT_SORTED
 }

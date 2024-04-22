@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -51,6 +50,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -149,6 +151,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private final Executor requestsExecutor;
 
+    private final FailureProcessor failureProcessor;
+
     /** Set of message groups to handler as replica requests. */
     private final Set<Class<?>> messageGroupsToHandle;
 
@@ -172,7 +176,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ClockService clockService,
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
-            Executor requestsExecutor
+            Executor requestsExecutor,
+            FailureProcessor failureProcessor
     ) {
         this(
                 nodeName,
@@ -182,7 +187,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 messageGroupsToHandle,
                 placementDriver,
                 requestsExecutor,
-                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                failureProcessor
         );
     }
 
@@ -206,7 +212,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
             Executor requestsExecutor,
-            LongSupplier idleSafeTimePropagationPeriodMsSupplier
+            LongSupplier idleSafeTimePropagationPeriodMsSupplier,
+            FailureProcessor failureProcessor
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
@@ -217,6 +224,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.placementDriver = placementDriver;
         this.requestsExecutor = requestsExecutor;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
+        this.failureProcessor = failureProcessor;
 
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
                 1,
@@ -427,14 +435,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 futures[i++] = replicaFut.thenCompose(replica -> replica.processPlacementDriverMessage(msg));
             }
 
-            // 1) PD -> Zones instead of Tables
-            // 2) TX flow from TableId to ZoneId
-
-            // 3) Refactoring for encapsulating raft into Replica entity
-            // 4) One Replica many rafts
-            // 5) One Replica one raft group
             allOf(futures).whenComplete((responses, ex) -> {
-                // TODO allOf all replicas of the zone from msg.groupId() (zoneId, partId) from {@code replicas}
                 if (ex == null) {
                     boolean accepted = responses.stream().allMatch(LeaseGrantedMessageResponse::accepted);
 
@@ -675,57 +676,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         );
 
         scheduledTableLeaseUpdateExecutor.scheduleAtFixedRate(() -> {
-                    for (Map.Entry<ZonePartitionId, Set<ReplicationGroupId>> entry : zonePartIdToTablePartId.entrySet()) {
-                        ZonePartitionId repGrp = entry.getKey();
+            if (!busyLock.enterBusy()) {
+                return;
+            }
 
-                        ReplicaMeta meta = placementDriver.getLeaseMeta(repGrp);
-
-                        if (meta != null) {
-                            HashSet<ReplicationGroupId> diff = new HashSet<>(entry.getValue());
-                            diff.removeAll(meta.subgroups());
-
-                            if (meta.getLeaseholderId().equals(localNodeId) && !diff.isEmpty()) {
-                                LOG.info("New subgroups are found for existing lease [repGrp={}, subGroups={}]", repGrp, diff);
-
-                                try {
-                                    placementDriver.addSubgroups(repGrp, meta.getStartTime().longValue(), diff)
-                                            .thenCompose(unused -> {
-                                                ArrayList<CompletableFuture<?>> requestToReplicas = new ArrayList<>();
-
-                                                for (ReplicationGroupId partId : diff) {
-                                                    WaitReplicaStateMessage req = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
-                                                            .enlistmentConsistencyToken(meta.getStartTime().longValue())
-                                                            .groupId(partId)
-                                                            // TODO: discuss this timeout
-                                                            .timeout(10)
-                                                            .build();
-
-                                                    CompletableFuture<Replica> replicaFut = replicas.get(repGrp);
-
-                                                    if (replicaFut != null) {
-                                                        requestToReplicas.add(replicaFut.thenCompose(
-                                                                replica -> replica.processRequest(req, localNodeId)));
-                                                    }
-                                                }
-
-                                                return allOf(requestToReplicas.toArray(CompletableFuture[]::new));
-                                            }).join();
-                                } catch (Exception ex) {
-                                    LOG.error(
-                                            "Failed to add new subgroups to the replication group [repGrp={}, subGroups={}]",
-                                            ex,
-                                            repGrp,
-                                            diff
-                                    );
-                                }
-                            }
-                        }
-                    }
-                },
-                0,
-                1,
-                TimeUnit.SECONDS
-        );
+            try {
+                updateTableGroupsInternal();
+            } finally {
+                busyLock.leaveBusy();
+            }
+        }, 0, 1, TimeUnit.SECONDS);
 
         cmgMgr.metaStorageNodes().whenComplete((nodes, e) -> {
             if (e != null) {
@@ -738,6 +698,58 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         localNodeId = clusterNetSvc.topologyService().localMember().id();
 
         return nullCompletedFuture();
+    }
+
+    /**
+     * Updates list of replication groups for each distributed zone.
+     */
+    private void updateTableGroupsInternal() {
+        for (Entry<ZonePartitionId, Set<ReplicationGroupId>> entry : zonePartIdToTablePartId.entrySet()) {
+            ZonePartitionId repGrp = entry.getKey();
+
+            ReplicaMeta meta = placementDriver.getLeaseMeta(repGrp);
+
+            if (meta != null) {
+                HashSet<ReplicationGroupId> diff = new HashSet<>(entry.getValue());
+                diff.removeAll(meta.subgroups());
+
+                if (meta.getLeaseholderId().equals(localNodeId) && !diff.isEmpty()) {
+                    LOG.info("New subgroups are found for existing lease [repGrp={}, subGroups={}]", repGrp, diff);
+
+                    try {
+                        placementDriver.addSubgroups(repGrp, meta.getStartTime().longValue(), diff)
+                                .thenCompose(unused -> {
+                                    ArrayList<CompletableFuture<?>> requestToReplicas = new ArrayList<>();
+
+                                                for (ReplicationGroupId partId : diff) {
+                                                    WaitReplicaStateMessage req = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
+                                                            .enlistmentConsistencyToken(meta.getStartTime().longValue())
+                                                            .groupId(partId)
+                                                            // TODO: discuss this timeout
+                                                            .timeout(10)
+                                                            .build();
+
+                                        CompletableFuture<Replica> replicaFut = replicas.get(repGrp);
+
+                                        if (replicaFut != null) {
+                                            requestToReplicas.add(replicaFut.thenCompose(
+                                                    replica -> replica.processRequest(req, localNodeId)));
+                                        }
+                                    }
+
+                                    return allOf(requestToReplicas.toArray(CompletableFuture[]::new));
+                                }).get(10, TimeUnit.SECONDS);
+                    } catch (Exception ex) {
+                        LOG.error(
+                                "Failed to add new subgroups to the replication group [repGrp={}, subGroups={}]",
+                                ex,
+                                repGrp,
+                                diff
+                        );
+                    }
+                }
+            }
+        }
     }
 
     /** {@inheritDoc} */
@@ -861,15 +873,29 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Idle safe time sync for replicas.
      */
     private void idleSafeTimeSync() {
-        replicas.values().forEach(r -> {
-            if (r.isDone()) {
-                ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
-                        .groupId(r.join().groupId())
-                        .build();
+        for (Entry<ReplicationGroupId, CompletableFuture<Replica>> entry : replicas.entrySet()) {
+            try {
+                sendSafeTimeSyncIfReplicaReady(entry.getValue());
+            } catch (Exception | AssertionError e) {
+                LOG.warn("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
+            } catch (Error e) {
+                LOG.error("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
 
-                r.join().processRequest(req, localNodeId);
+                failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
             }
-        });
+        }
+    }
+
+    private void sendSafeTimeSyncIfReplicaReady(CompletableFuture<Replica> replicaFuture) {
+        if (isCompletedSuccessfully(replicaFuture)) {
+            Replica replica = replicaFuture.join();
+
+            ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
+                    .groupId(replica.groupId())
+                    .build();
+
+            replica.processRequest(req, localNodeId);
+        }
     }
 
     /**

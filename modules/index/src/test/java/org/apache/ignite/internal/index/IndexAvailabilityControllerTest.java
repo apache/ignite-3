@@ -20,7 +20,6 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
@@ -48,6 +47,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -98,7 +98,11 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         assertThat(allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
-        CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
+        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong()));
+
+        assert catalog != null;
+
+        CatalogZoneDescriptor zoneDescriptor = catalog.defaultZone();
 
         assertNotNull(zoneDescriptor);
 
@@ -346,8 +350,12 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     private void changePartitionCountInCatalog(int newPartitions) {
+        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong()));
+
+        assert catalog != null;
+
         assertThat(
-                catalogManager.execute(AlterZoneCommand.builder().zoneName(DEFAULT_ZONE_NAME).partitions(newPartitions).build()),
+                catalogManager.execute(AlterZoneCommand.builder().zoneName(catalog.defaultZone().name()).partitions(newPartitions).build()),
                 willCompleteSuccessfully()
         );
 

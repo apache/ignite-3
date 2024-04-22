@@ -22,7 +22,6 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -275,8 +274,6 @@ internal static class DataStreamer
             bool batchSchemaOutdated)
         {
             Debug.Assert(items.Length > 0, "items.Length > 0");
-
-            Console.WriteLine("Sending batch: " + items.Take(count).StringJoin());
 
             if (batchSchemaOutdated)
             {

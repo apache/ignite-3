@@ -548,7 +548,7 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
         assertThat(collectAllSubFileAndDirs(dbDir), empty());
     }
 
-    private FilePageStoreManager createManager() throws Exception {
+    private FilePageStoreManager createManager() {
         FilePageStoreManager manager = new FilePageStoreManager(
                 "test",
                 workDir,

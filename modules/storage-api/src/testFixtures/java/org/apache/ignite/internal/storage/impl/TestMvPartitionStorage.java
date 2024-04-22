@@ -65,6 +65,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private volatile long lastAppliedTerm;
 
+    private volatile long leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
+
     private volatile byte @Nullable [] groupConfig;
 
     final int partitionId;
@@ -620,6 +622,24 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
+    public void updateLease(long leaseStartTime) {
+        checkStorageClosed();
+
+        if (leaseStartTime <= this.leaseStartTime) {
+            return;
+        }
+
+        this.leaseStartTime = leaseStartTime;
+    }
+
+    @Override
+    public long leaseStartTime() {
+        checkStorageClosed();
+
+        return leaseStartTime;
+    }
+
+    @Override
     public void close() {
         closed = true;
 
@@ -650,6 +670,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;
         groupConfig = null;
+
+        leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
     }
 
     private void checkStorageClosed() {

@@ -26,7 +26,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Service that provides an ability to await and retrieve primary replicas for replication groups.
@@ -106,15 +105,6 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
     CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId);
 
     /**
-     * Returns the current knowledge about the lease on the local node.
-     *
-     * @param groupId Group id.
-     * @return Current lease.
-     */
-    @Nullable
-    ReplicaMeta currentLease(ReplicationGroupId groupId);
-
-    /**
      * Gets a cached lease by a zone replication group.
      *
      * @param grpId Replication group id.
@@ -125,7 +115,7 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
     /**
      * Tries to update the lease in order to include the new subgroup. The set of groups will be added to the set of lease subgroups
      * ({@link ReplicaMeta#subgroups()}) for the specific lease determined by the zone id.
-     * TODO: When replicas are started by zone, the method is removed.
+     * TODO: IGNITE-20362 When replicas are started by zone, the method is removed.
      *
      * @param zoneId Zone id.
      * @param enlistmentConsistencyToken Lease token.

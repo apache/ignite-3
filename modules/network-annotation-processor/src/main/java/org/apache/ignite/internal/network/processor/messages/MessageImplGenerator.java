@@ -222,7 +222,6 @@ public class MessageImplGenerator {
 
         messageImpl.addMethod(groupTypeMethod);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17591
         MethodSpec toStringMethod = MethodSpec.methodBuilder("toString")
                 .addAnnotation(Override.class)
                 .addModifiers(Modifier.PUBLIC)

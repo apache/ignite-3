@@ -191,13 +191,14 @@ class IndexBuildController implements ManuallyCloseable {
                 primaryReplicaIds.add(zonePartitionId);
 
                 return getMvTableStorageFuture(parameters.causalityToken(), tablePartitionId)
-                        .thenCompose(mvTableStorage -> awaitPrimaryReplica(zonePartitionId, parameters.startTime())
-                                .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
-                                        catalogVersion,
-                                        tablePartitionId,
-                                        mvTableStorage,
-                                        replicaMeta
-                                ))
+                        .thenCompose(
+                                mvTableStorage -> inBusyLock(busyLock, () -> awaitPrimaryReplica(zonePartitionId, parameters.startTime()))
+                                        .thenAccept(replicaMeta -> inBusyLock(busyLock, () -> tryScheduleBuildIndexesForNewPrimaryReplica(
+                                                catalogVersion,
+                                                tablePartitionId,
+                                                mvTableStorage,
+                                                replicaMeta
+                                        )))
                         );
             } else {
                 stopBuildingIndexesIfPrimaryExpired(tablePartitionId);

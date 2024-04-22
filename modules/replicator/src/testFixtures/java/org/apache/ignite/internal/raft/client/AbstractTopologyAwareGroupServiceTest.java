@@ -428,6 +428,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 var raftServer = new JraftServerImpl(
                         cluster,
                         dataPath,
+                        raftConfiguration,
                         nodeOptions,
                         eventsClientListener
                 );

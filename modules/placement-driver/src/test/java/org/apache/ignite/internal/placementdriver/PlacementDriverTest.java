@@ -200,7 +200,10 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         publishLease(LEASE_FROM_1_TO_5_000);
 
         // Await local node to be notified about new primary replica.
-        assertTrue(waitForCondition(() -> placementDriver.currentLease(GROUP_1).equals(LEASE_FROM_1_TO_5_000), 1_000));
+        assertTrue(waitForCondition(
+                () -> placementDriver.getLease(ZONE_GROUP_1).equals(LEASE_FROM_1_TO_5_000),
+                1_000)
+        );
 
         // Assert that primary await future isn't completed yet because corresponding await time 10 is greater than lease expiration time 5.
         assertFalse(primaryReplicaFuture.isDone());
@@ -238,7 +241,10 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         publishLease(LEASE_FROM_1_TO_5_000);
 
         // Await local node to be notified about new primary replica.
-        assertTrue(waitForCondition(() -> placementDriver.currentLease(GROUP_1).equals(LEASE_FROM_1_TO_5_000), 1_000));
+        assertTrue(waitForCondition(
+                () -> placementDriver.getLease(ZONE_GROUP_1).equals(LEASE_FROM_1_TO_5_000),
+                1_000
+        ));
 
         // Assert that primary await future isn't completed yet because corresponding await time 10 is greater than lease expiration time 5.
         assertFalse(primaryReplicaFuture.isDone());
@@ -268,8 +274,10 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         publishLease(LEASE_FROM_1_TO_15_000);
 
         // Await local node to be notified about new primary replica.
-        assertTrue(waitForCondition(() -> placementDriver.currentLease(GROUP_1).equals(LEASE_FROM_1_TO_15_000),
-                AWAIT_PERIOD_FOR_LOCAL_NODE_TO_BE_NOTIFIED_ABOUT_LEASE_UPDATES));
+        assertTrue(waitForCondition(
+                () -> placementDriver.getLease(ZONE_GROUP_1).equals(LEASE_FROM_1_TO_15_000),
+                AWAIT_PERIOD_FOR_LOCAL_NODE_TO_BE_NOTIFIED_ABOUT_LEASE_UPDATES
+        ));
 
         // Await primary replica for time 10.
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,

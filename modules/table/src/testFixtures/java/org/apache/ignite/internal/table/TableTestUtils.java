@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.INT32;
@@ -65,7 +64,7 @@ public class TableTestUtils {
      *
      * @param catalogManager Catalog manager.
      * @param schemaName Schema name.
-     * @param zoneName Zone name.
+     * @param zoneName Zone name or {@code null} to use default distribution zone.
      * @param tableName Table name.
      * @param columns Table columns.
      * @param pkColumns Primary key columns.
@@ -73,7 +72,7 @@ public class TableTestUtils {
     public static void createTable(
             CatalogManager catalogManager,
             String schemaName,
-            String zoneName,
+            @Nullable String zoneName,
             String tableName,
             List<ColumnParams> columns,
             List<String> pkColumns
@@ -322,8 +321,8 @@ public class TableTestUtils {
     }
 
     /**
-     * Creates a simple table in {@link CatalogService#DEFAULT_SCHEMA_NAME} and {@link CatalogService#DEFAULT_ZONE_NAME} and single
-     * {@link #COLUMN_NAME column} of type {@link ColumnType#INT32}.
+     * Creates a simple table in {@link CatalogService#DEFAULT_SCHEMA_NAME} and single
+     * {@link #COLUMN_NAME column} of type {@link ColumnType#INT32} in default distribution zone.
      *
      * @param catalogManager Catalog name.
      * @param tableName Table name.
@@ -332,7 +331,7 @@ public class TableTestUtils {
         createTable(
                 catalogManager,
                 DEFAULT_SCHEMA_NAME,
-                DEFAULT_ZONE_NAME,
+                null,
                 tableName,
                 List.of(ColumnParams.builder().name(COLUMN_NAME).type(INT32).build()),
                 List.of(COLUMN_NAME)

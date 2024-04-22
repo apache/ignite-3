@@ -30,7 +30,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-class JsonEventSerializerTest {
+class JacksonBasedJsonSerializerTest {
     private static Stream<Arguments> events() {
         return Stream.of(
                 Arguments.of(
@@ -72,15 +72,48 @@ class JsonEventSerializerTest {
                                 + "\"user\":{\"username\":\"test_user\",\"authenticationProvider\":\"test_provider\"},"
                                 + "\"fields\":{\"id\":\"123\",\"ip\":\"127.0.0.1\"}"
                                 + "}"
+                ),
+                Arguments.of(
+                        new CustomEventBuilder()
+                                .productVersion("3.0.0")
+                                .timestamp(1234567890)
+                                .user(EventUser.of("test_user", "test_provider"))
+                                .message(new Message(1, "test"))
+                                .build(),
+                        "{\"type\":\"CUSTOM\","
+                                + "\"timestamp\":1234567890,"
+                                + "\"productVersion\":\"3.0.0\","
+                                + "\"user\":{\"username\":\"test_user\",\"authenticationProvider\":\"test_provider\"},"
+                                + "\"message\":{\"version\":1,\"body\":\"test\"},"
+                                + "\"fields\":{\"hasMessage\":true}"
+                                + "}"
+                ),
+                Arguments.of(
+                        IgniteEvents.USER_AUTHENTICATED.builder()
+                                .productVersion("3.0.0")
+                                .timestamp(1234567890)
+                                .user(EventUser.of("test_user", "test_provider"))
+                                .fields(Map.of(
+                                        "ip", "127.0.0.1",
+                                        "id", "123",
+                                        "message", new Message(1, "foo")
+                                ))
+                                .build(),
+                        "{\"type\":\"USER_AUTHENTICATED\","
+                                + "\"timestamp\":1234567890,"
+                                + "\"productVersion\":\"3.0.0\","
+                                + "\"user\":{\"username\":\"test_user\",\"authenticationProvider\":\"test_provider\"},"
+                                + "\"fields\":{\"id\":\"123\",\"ip\":\"127.0.0.1\",\"message\":{\"version\":1,\"body\":\"foo\"}}"
+                                + "}"
                 )
         );
     }
 
-    private JsonEventSerializer serializer;
+    private JacksonBasedJsonSerializer serializer;
 
     @BeforeEach
     void setUp() {
-        serializer = new JsonEventSerializer();
+        serializer = new JacksonBasedJsonSerializer();
     }
 
     @ParameterizedTest

@@ -416,7 +416,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         Path jraft = workDir.resolve("jraft" + idx);
 
-        JraftServerImpl server = new JraftServerImpl(service, jraft) {
+        JraftServerImpl server = new JraftServerImpl(service, jraft, raftConfiguration) {
             @Override
             public void stop() throws Exception {
                 super.stop();

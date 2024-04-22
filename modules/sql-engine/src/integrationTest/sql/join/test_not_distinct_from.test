@@ -26,8 +26,8 @@ SELECT a from tbl_1 WHERE a IS NOT DISTINCT FROM b
 ----
 NULL
 
-query II
-select a,tbl_2.b from tbl_1 inner join tbl_2 on (a IS NOT DISTINCT FROM tbl_2.b)
+query II rowsort
+select a, tbl_2.b from tbl_1 inner join tbl_2 on (a IS NOT DISTINCT FROM tbl_2.b)
 ----
 1	1
 2	2
