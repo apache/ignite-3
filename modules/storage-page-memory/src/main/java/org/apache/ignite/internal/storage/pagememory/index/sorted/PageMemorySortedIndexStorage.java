@@ -41,7 +41,6 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.CursorUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -171,7 +170,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
             try {
                 Cursor<SortedIndexRow> cursor = indexTree.find(lower, upper);
 
-                return CursorUtils.map(cursor, this::toIndexRowImpl);
+                return new ReadOnlyScanCursor(cursor);
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException("Couldn't get index tree cursor", e);
             }
@@ -268,5 +267,38 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
                 }
             };
         });
+    }
+
+    private class ReadOnlyScanCursor implements Cursor<IndexRow> {
+        private final Cursor<SortedIndexRow> treeCursor;
+
+        private ReadOnlyScanCursor(Cursor<SortedIndexRow> treeCursor) {
+            this.treeCursor = treeCursor;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return busyDataRead(() -> {
+                throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
+
+                return treeCursor.hasNext();
+            });
+        }
+
+        @Override
+        public IndexRow next() {
+            return busyDataRead(() -> {
+                throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
+
+                SortedIndexRow next = treeCursor.next();
+
+                return toIndexRowImpl(next);
+            });
+        }
+
+        @Override
+        public void close() {
+            treeCursor.close();
+        }
     }
 }
