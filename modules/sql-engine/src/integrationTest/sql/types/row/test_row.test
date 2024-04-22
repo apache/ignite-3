@@ -19,7 +19,7 @@ statement ok
 INSERT INTO emp VALUES(4, 'Dave', 42, 1700)
 
 query T rowsort
-SELECT empname FROM emp WHERE (empname,empage,salary) = ('Johnah', 47, 1200)
+SELECT empname FROM emp WHERE (empname, empage, salary) = ('Johnah', 47, 1200)
 ----
 Johnah
 
