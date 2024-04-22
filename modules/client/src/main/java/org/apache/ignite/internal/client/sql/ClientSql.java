@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.sql;
 
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Map;
@@ -252,7 +253,7 @@ public class ClientSql implements IgniteSql {
                                 throw new SqlException(te.traceId(), te.code(), te.getMessage(), te);
                             }
 
-                            throw new CompletionException(e);
+                            throw sneakyThrow(ex);
                         });
             } catch (TransactionException e) {
                 return CompletableFuture.failedFuture(new SqlException(e.traceId(), e.code(), e.getMessage(), e));
