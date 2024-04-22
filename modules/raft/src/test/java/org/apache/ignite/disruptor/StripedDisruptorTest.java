@@ -49,7 +49,8 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                 NodeIdAwareTestObj::new,
                 1,
                 false,
-                false);
+                false,
+                null);
 
         var nodeId1 = new NodeId("grp1", new PeerId("foo"));
         var nodeId2 = new NodeId("grp2", new PeerId("foo"));
@@ -100,7 +101,8 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                 NodeIdAwareTestObj::new,
                 5,
                 false,
-                false);
+                false,
+                null);
 
         GroupAwareTestObjHandler handler = new GroupAwareTestObjHandler();
 
