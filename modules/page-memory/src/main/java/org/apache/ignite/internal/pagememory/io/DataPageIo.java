@@ -21,11 +21,9 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -398,42 +396,6 @@ public class DataPageIo extends PageIo {
      */
     public int getDirectCount(long pageAddr) {
         return PageUtils.getByte(pageAddr, DIRECT_CNT_OFF) & 0xFF;
-    }
-
-    /**
-     * Returns rows number in the given data page.
-     *
-     * @param pageAddr Page address.
-     */
-    public int getRowsCount(long pageAddr) {
-        return getDirectCount(pageAddr);
-    }
-
-    /**
-     * Applies closure to all items in the page.
-     *
-     * @param pageAddr Page address.
-     * @param c Closure.
-     * @param <U> Closure return type.
-     * @return Collection of closure results for all items in page.
-     * @throws IgniteInternalCheckedException In case of error in closure body.
-     */
-    public <U> List<U> forAllItems(long pageAddr, Closure<U> c) throws IgniteInternalCheckedException {
-        assertPageType(pageAddr);
-
-        long pageId = getPageId(pageAddr);
-
-        int cnt = getDirectCount(pageAddr);
-
-        List<U> res = new ArrayList<>(cnt);
-
-        for (int i = 0; i < cnt; i++) {
-            long link = PageIdUtils.link(pageId, i);
-
-            res.add(c.apply(link));
-        }
-
-        return res;
     }
 
     /**
@@ -1477,22 +1439,6 @@ public class DataPageIo extends PageIo {
         int offset = dataOff + Short.BYTES;
 
         row.writeToPage(pageAddr, offset);
-    }
-
-    /**
-     * Defines closure interface for applying computations to data page items.
-     *
-     * @param <T> Closure return type.
-     */
-    public interface Closure<T> {
-        /**
-         * Closure body.
-         *
-         * @param link Link to item.
-         * @return Closure return value.
-         * @throws IgniteInternalCheckedException In case of error in closure body.
-         */
-        T apply(long link) throws IgniteInternalCheckedException;
     }
 
     @Override

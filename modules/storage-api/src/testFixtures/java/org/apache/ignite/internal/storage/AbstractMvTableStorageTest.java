@@ -477,6 +477,36 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(getAll(storage2.get(tuple)), contains(rowId2));
     }
 
+    @Test
+    public void testPutIndexAndVersionRowToMemory() {
+        MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
+        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+
+        // Should be large enough to exceed inline size.
+        byte[] bytes = new byte[100];
+        new Random().nextBytes(bytes);
+        String str = new String(bytes);
+
+        BinaryRow binaryRow = binaryRow(new TestKey(10, "foo"), new TestValue(20, str));
+
+        IndexRow hashIndexRow = indexRow(indexStorage.indexDescriptor(), binaryRow, new RowId(PARTITION_ID));
+
+        partitionStorage.runConsistently(locker -> {
+            indexStorage.put(hashIndexRow);
+
+            return null;
+        });
+
+        partitionStorage.runConsistently(locker -> {
+            RowId rowId = new RowId(0);
+            locker.tryLock(rowId);
+
+            partitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), 999, 0);
+
+            return null;
+        });
+    }
+
     private static void checkStorageDestroyed(IndexStorage storage) {
         assertThrows(StorageDestroyedException.class, () -> storage.get(mock(BinaryTuple.class)));
 
