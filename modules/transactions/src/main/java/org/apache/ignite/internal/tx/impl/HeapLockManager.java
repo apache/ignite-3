@@ -195,17 +195,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         LockState state = lockState(lock.lockKey());
 
         if (state.tryRelease(lock.txId())) {
-            locks.compute(lock.lockKey(), (k, v) -> {
-                // Mapping may already change.
-                if (v != state || !v.markedForRemove) {
-                    return v;
-                }
-
-                // markedForRemove state should be cleared on entry reuse to avoid race.
-                v.key = null;
-                empty.add(v);
-                return null;
-            });
+            locks.compute(lock.lockKey(), (k, v) -> adjustLockState(state, v));
         }
     }
 
@@ -225,16 +215,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             LockState state = lockState(lockKey);
 
             if (state.tryRelease(txId, lockMode)) {
-                locks.compute(lockKey, (k, v) -> {
-                    // Mapping may already change.
-                    if (v != state || !v.markedForRemove) {
-                        return v;
-                    }
-
-                    v.key = null;
-                    empty.add(v);
-                    return null;
-                });
+                locks.compute(lockKey, (k, v) -> adjustLockState(state, v));
             }
         });
     }
@@ -248,16 +229,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 if (state.tryRelease(txId)) {
                     LockKey key = state.key; // State may be already invalidated.
                     if (key != null) {
-                        locks.compute(key, (k, v) -> {
-                            // Mapping may already change.
-                            if (v != state || !v.markedForRemove) {
-                                return v;
-                            }
-
-                            v.key = null;
-                            empty.add(v);
-                            return null;
-                        });
+                        locks.compute(key, (k, v) -> adjustLockState(state, v));
                     }
                 }
             }
@@ -304,6 +276,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 v = empty.poll();
                 if (v == null) {
                     res[0] = slots[index];
+                    assert !res[0].markedForRemove;
                 } else {
                     v.markedForRemove = false;
                     v.key = k;
@@ -335,7 +308,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     @Override
     public boolean isEmpty() {
         for (LockState slot : slots) {
-            if (!slot.waiters.isEmpty()) {
+            if (slot.waitersCount() != 0) {
                 return false;
             }
         }
@@ -345,6 +318,25 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     private CompletableFuture<Boolean> parentLockConflictListener(LockEventParameters params) {
         return fireEvent(LockEvent.LOCK_CONFLICT, params).thenApply(v -> false);
+    }
+
+    @Nullable
+    private LockState adjustLockState(LockState state, LockState v) {
+        // Mapping may already change.
+        if (v != state) {
+            return v;
+        }
+
+        synchronized (v.waiters) {
+            if (v.waiters.isEmpty()) {
+                v.markedForRemove = true;
+                v.key = null;
+                empty.add(v);
+                return null;
+            } else {
+                return v;
+            }
+        }
     }
 
     /**
@@ -436,8 +428,15 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             return new IgniteBiTuple<>(waiter.fut, waiter.lockMode());
         }
 
-        public synchronized int waitersCount() {
-            return waiters.size();
+        /**
+         * Returns waiters count.
+         *
+         * @return waiters count.
+         */
+        public int waitersCount() {
+            synchronized (waiters) {
+                return waiters.size();
+            }
         }
 
         /**
@@ -534,7 +533,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 waiter.notifyLocked();
             }
 
-            return markedForRemove;
+            return key != null && waitersCount() == 0;
         }
 
         /**
@@ -568,7 +567,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 waiter.notifyLocked();
             }
 
-            return markedForRemove;
+            return key != null && waitersCount() == 0;
         }
 
         /**
@@ -581,10 +580,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             waiters.remove(txId);
 
             if (waiters.isEmpty()) {
-                if (key != null) {
-                    markedForRemove = true;
-                }
-
                 return emptyList();
             }
 
