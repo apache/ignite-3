@@ -66,9 +66,9 @@ public class LogPushExporter extends PushMetricExporter<LogPushExporterView> {
 
             StreamSupport.stream(metricSet.spliterator(), false).sorted(Comparator.comparing(Metric::name)).forEach(metric ->
                     report.append(metric.name())
-                            .append(":")
+                            .append(':')
                             .append(metric.getValueAsString())
-                            .append("\n"));
+                            .append('\n'));
         }
 
         LOG.info(report.toString());

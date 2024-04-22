@@ -47,8 +47,6 @@ public class SizeFormatUtil {
     /** The number of bytes in an exabyte. */
     public static final long ONE_EB = ONE_KB * ONE_PB;
 
-    private static final DecimalFormat DEC_FORMAT = new DecimalFormat("#.##");
-
     /**
      * Returns a human-readable version of the size, where the input represents a specific number of bytes.
      *
@@ -84,35 +82,36 @@ public class SizeFormatUtil {
      */
     public static long parsSize(String size) {
         long result = 0;
+        var decFormat = new DecimalFormat("#.##");
 
         try {
             if (size.contains("EB")) {
-                result += (long) (DEC_FORMAT.parse(size.substring(0, size.indexOf("EB") - 1)).doubleValue() * ONE_EB);
+                result += (long) (decFormat.parse(size.substring(0, size.indexOf("EB") - 1)).doubleValue() * ONE_EB);
                 size = size.substring(size.indexOf("EB") + 2);
             }
 
             if (size.contains("PB")) {
-                result += (long) (DEC_FORMAT.parse(size.substring(0, size.indexOf("PB") - 1)).doubleValue() * ONE_PB);
+                result += (long) (decFormat.parse(size.substring(0, size.indexOf("PB") - 1)).doubleValue() * ONE_PB);
                 size = size.substring(size.indexOf("PB") + 2);
             }
 
             if (size.contains("TB")) {
-                result += (long) (DEC_FORMAT.parse(size.substring(0, size.indexOf("TB") - 1)).doubleValue() * ONE_TB);
+                result += (long) (decFormat.parse(size.substring(0, size.indexOf("TB") - 1)).doubleValue() * ONE_TB);
                 size = size.substring(size.indexOf("TB") + 2);
             }
 
             if (size.contains("GB")) {
-                result += (long) (DEC_FORMAT.parse(size.substring(0, size.indexOf("GB") - 1)).doubleValue() * ONE_GB);
+                result += (long) (decFormat.parse(size.substring(0, size.indexOf("GB") - 1)).doubleValue() * ONE_GB);
                 size = size.substring(size.indexOf("GB") + 2);
             }
 
             if (size.contains("MB")) {
-                result += (long) (DEC_FORMAT.parse(size.substring(0, size.indexOf("MB") - 1)).doubleValue() * ONE_MB);
+                result += (long) (decFormat.parse(size.substring(0, size.indexOf("MB") - 1)).doubleValue() * ONE_MB);
                 size = size.substring(size.indexOf("MB") + 2);
             }
 
             if (size.contains("KB")) {
-                result += (long) (DEC_FORMAT.parse(size.substring(0, size.indexOf("KB") - 1)).doubleValue() * ONE_KB);
+                result += (long) (decFormat.parse(size.substring(0, size.indexOf("KB") - 1)).doubleValue() * ONE_KB);
                 size = size.substring(size.indexOf("KB") + 2);
             }
 
@@ -127,6 +126,6 @@ public class SizeFormatUtil {
     }
 
     private static String formatSize(long size, long divider, String unitName) {
-        return DEC_FORMAT.format((double) size / divider) + " " + unitName;
+        return new DecimalFormat("#.##").format((double) size / divider) + " " + unitName;
     }
 }
