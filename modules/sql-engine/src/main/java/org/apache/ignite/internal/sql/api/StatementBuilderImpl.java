@@ -45,7 +45,7 @@ class StatementBuilderImpl implements StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public StatementBuilder query(String sql) {
-        query = sql;
+        query = Objects.requireNonNull(sql, "sql");
 
         return this;
     }
@@ -67,7 +67,7 @@ class StatementBuilderImpl implements StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public StatementBuilder defaultSchema(String schema) {
-        defaultSchema = schema;
+        defaultSchema = Objects.requireNonNull(schema, "schema");
 
         return this;
     }

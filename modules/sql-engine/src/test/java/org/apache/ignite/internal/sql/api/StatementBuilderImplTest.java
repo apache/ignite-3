@@ -20,11 +20,11 @@ package org.apache.ignite.internal.sql.api;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 import java.time.ZoneId;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.sql.Statement;
 import org.junit.jupiter.api.Test;
 
@@ -87,10 +87,10 @@ public class StatementBuilderImplTest {
     @Test
     public void checkDefaultParameters() throws Exception {
         try (Statement statement = builder.query(QUERY).build()) {
-            assertThat(statement.defaultSchema(), is(nullValue()));
+            assertThat(statement.defaultSchema(), is(SqlQueryProcessor.DEFAULT_SCHEMA_NAME));
             assertThat(statement.query(), is(QUERY));
-            assertThat(statement.timeZoneId(), is(nullValue()));
-            assertThat(statement.pageSize(), is(0));
+            assertThat(statement.timeZoneId(), is(ZoneId.systemDefault()));
+            assertThat(statement.pageSize(), is(IgniteSqlImpl.DEFAULT_PAGE_SIZE));
             assertThat(statement.queryTimeout(TimeUnit.NANOSECONDS), is(0L));
         }
     }
@@ -137,7 +137,7 @@ public class StatementBuilderImplTest {
         long timeout = 17;
         int pageSize = 128;
         String schema = "SYSTEM";
-        ZoneId timeZone = ZoneId.of("GMT+3");
+        ZoneId timeZone = ZoneId.of("GMT+1");
 
         Statement statement1 = builder
                 .query(QUERY)
@@ -159,13 +159,13 @@ public class StatementBuilderImplTest {
                 .build();
 
         assertThat(statement1.query(), is(QUERY));
-        assertThat(statement1.defaultSchema(), is(nullValue()));
+        assertThat(statement1.defaultSchema(), is(SqlQueryProcessor.DEFAULT_SCHEMA_NAME));
         assertThat(statement1.queryTimeout(TimeUnit.SECONDS), is(timeout));
         assertThat(statement1.pageSize(), is(pageSize - 1));
-        assertThat(statement1.timeZoneId(), is(nullValue()));
+        assertThat(statement1.timeZoneId(), is(ZoneId.systemDefault()));
 
         assertThat(statement2.query(), is(QUERY));
-        assertThat(statement2.defaultSchema(), is(nullValue()));
+        assertThat(statement2.defaultSchema(), is(SqlQueryProcessor.DEFAULT_SCHEMA_NAME));
         assertThat(statement2.queryTimeout(TimeUnit.MINUTES), is(timeout));
         assertThat(statement2.pageSize(), is(pageSize + 1));
         assertThat(statement2.timeZoneId(), is(timeZone));
@@ -180,14 +180,14 @@ public class StatementBuilderImplTest {
     @Test
     public void testBuilderCanBeReused() {
         Statement statement1 = builder.query(QUERY).build();
-        Statement statement2 = builder.defaultSchema("PUBLIC").build();
+        Statement statement2 = builder.defaultSchema("SYSTEM").build();
 
         assertNotSame(statement1, statement2);
 
         assertThat(statement1.query(), is(QUERY));
         assertThat(statement2.query(), is(QUERY));
 
-        assertThat(statement1.defaultSchema(), is(nullValue()));
-        assertThat(statement2.defaultSchema(), is("PUBLIC"));
+        assertThat(statement1.defaultSchema(), is(SqlQueryProcessor.DEFAULT_SCHEMA_NAME));
+        assertThat(statement2.defaultSchema(), is("SYSTEM"));
     }
 }

@@ -91,7 +91,7 @@ public interface Statement extends AutoCloseable {
         /**
          * Sets a query timeout.
          *
-         * @param timeout Query timeout value.
+         * @param timeout Query timeout value. Must be positive.
          * @param timeUnit Timeunit.
          * @return {@code this} for chaining.
          */

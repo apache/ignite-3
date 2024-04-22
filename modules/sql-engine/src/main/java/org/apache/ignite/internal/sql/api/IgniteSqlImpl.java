@@ -23,7 +23,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -52,7 +51,6 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties.Builder;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -336,7 +334,11 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            SqlProperties properties = buildProperties(statement);
+            SqlProperties properties = SqlPropertiesHelper.newBuilder()
+                    .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
+                    .set(QueryProperty.TIME_ZONE_ID, statement.timeZoneId())
+                    .set(QueryProperty.DEFAULT_SCHEMA, statement.defaultSchema())
+                    .build();
 
             result = queryProcessor.queryAsync(properties, transactions, (InternalTransaction) transaction, statement.query(), arguments)
                     .thenCompose(cur -> {
@@ -608,19 +610,6 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     @TestOnly
     List<AsyncSqlCursor<?>> openedCursors() {
         return List.copyOf(openedCursors.values());
-    }
-
-    private static SqlProperties buildProperties(Statement statement) {
-        Builder propertiesBuilder = SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                // If the user has not explicitly specified a time zone, then we use the system default value.
-                .set(QueryProperty.TIME_ZONE_ID, Objects.requireNonNullElse(statement.timeZoneId(), ZoneId.systemDefault()));
-
-        if (statement.defaultSchema() != null) {
-            propertiesBuilder.set(QueryProperty.DEFAULT_SCHEMA, statement.defaultSchema());
-        }
-
-        return propertiesBuilder.build();
     }
 
     private static SqlException nodeIsStoppingException() {

@@ -157,7 +157,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private static final int SCHEMA_CACHE_SIZE = 128;
 
     /** Name of the default schema. */
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+    public static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     private static final SqlProperties DEFAULT_PROPERTIES = SqlPropertiesHelper.newBuilder()
             .set(QueryProperty.DEFAULT_SCHEMA, DEFAULT_SCHEMA_NAME)

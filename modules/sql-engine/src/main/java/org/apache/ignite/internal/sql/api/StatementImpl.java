@@ -20,12 +20,16 @@ package org.apache.ignite.internal.sql.api;
 import java.time.ZoneId;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.sql.Statement;
 
 /**
  * Statement.
  */
 class StatementImpl implements Statement {
+    /** Default query timeout is not limited. */
+    private static final long DEFAULT_QUERY_TIMEOUT = 0;
+
     /** Query. */
     private final String query;
 
@@ -33,10 +37,10 @@ class StatementImpl implements Statement {
     private final String defaultSchema;
 
     /** Query timeout. */
-    private final Long queryTimeoutMs;
+    private final long queryTimeoutMs;
 
     /** Page size. */
-    private final Integer pageSize;
+    private final int pageSize;
 
     /** Time-zone ID. */
     private final ZoneId timeZoneId;
@@ -67,10 +71,12 @@ class StatementImpl implements Statement {
             ZoneId timeZoneId
     ) {
         this.query = Objects.requireNonNull(query, "Parameter 'query' cannot be null");
-        this.defaultSchema = defaultSchema;
-        this.queryTimeoutMs = queryTimeoutMs;
-        this.pageSize = pageSize;
-        this.timeZoneId = timeZoneId;
+        this.defaultSchema = Objects.requireNonNullElse(defaultSchema, SqlQueryProcessor.DEFAULT_SCHEMA_NAME);
+        this.queryTimeoutMs = Objects.requireNonNullElse(queryTimeoutMs, DEFAULT_QUERY_TIMEOUT);
+        this.pageSize =  Objects.requireNonNullElse(pageSize, IgniteSqlImpl.DEFAULT_PAGE_SIZE);
+
+        // If the user has not explicitly specified a time zone, then we use the system default value.
+        this.timeZoneId = Objects.requireNonNullElse(timeZoneId, ZoneId.systemDefault());
     }
 
     /** {@inheritDoc} */
@@ -84,7 +90,7 @@ class StatementImpl implements Statement {
     public long queryTimeout(TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
-        return queryTimeoutMs == null ? 0 : timeUnit.convert(queryTimeoutMs, TimeUnit.MILLISECONDS);
+        return timeUnit.convert(queryTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */
@@ -96,7 +102,7 @@ class StatementImpl implements Statement {
     /** {@inheritDoc} */
     @Override
     public int pageSize() {
-        return pageSize == null ? 0 : pageSize;
+        return pageSize;
     }
 
     /** {@inheritDoc} */
@@ -108,23 +114,12 @@ class StatementImpl implements Statement {
     /** {@inheritDoc} */
     @Override
     public StatementBuilder toBuilder() {
-        var builder = new StatementBuilderImpl()
+        return new StatementBuilderImpl()
                 .query(query)
-                .defaultSchema(defaultSchema);
-
-        if (timeZoneId != null) {
-            builder.timeZoneId(timeZoneId);
-        }
-
-        if (pageSize != null) {
-            builder.pageSize(pageSize);
-        }
-
-        if (queryTimeoutMs != null) {
-            builder.queryTimeout(queryTimeoutMs, TimeUnit.MILLISECONDS);
-        }
-
-        return builder;
+                .defaultSchema(defaultSchema)
+                .timeZoneId(timeZoneId)
+                .pageSize(pageSize)
+                .queryTimeout(queryTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */
