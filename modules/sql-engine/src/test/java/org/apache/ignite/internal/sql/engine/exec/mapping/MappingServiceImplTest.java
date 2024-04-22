@@ -194,15 +194,35 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         assertSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
         assertSame(sysViewMapping, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
 
-        mappingService.onNodeLeft(Mockito.mock(LogicalNode.class),
-                new LogicalTopologySnapshot(2, logicalNodes("NODE")));
-        // Plan with tables only must not be invalidated.
+        LogicalNode newNode = Mockito.mock(LogicalNode.class);
+        Mockito.when(newNode.name()).thenReturn("NODE2");
+
+        mappingService.onNodeJoined(Mockito.mock(LogicalNode.class),
+                new LogicalTopologySnapshot(3, logicalNodes("NODE", "NODE1", "NODE2")));
+
+        // Plan with tables only must not be invalidated on node join.
         assertSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
         verifyNoMoreInteractions(targetProvider);
 
         // Plan with system views must be invalidated.
         assertNotSame(sysViewMapping, await(mappingService.map(PLAN_WITH_SYSTEM_VIEW, PARAMS)));
-        verify(targetProvider, times(3)).forTable(any(), any());
+
+        mappingService.onNodeLeft(newNode,
+                new LogicalTopologySnapshot(3, logicalNodes("NODE", "NODE1")));
+
+        // Plan with tables that don't include a left node should not be invalidated.
+        assertSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
+
+        LogicalNode node1 = Mockito.mock(LogicalNode.class);
+        Mockito.when(node1.name()).thenReturn("NODE1");
+
+        mappingService.onNodeLeft(node1,
+                new LogicalTopologySnapshot(3, logicalNodes("NODE")));
+
+        // Plan with tables that include left node must be invalidated.
+        assertNotSame(tableOnlyMapping, await(mappingService.map(PLAN, PARAMS)));
+
+        verify(targetProvider, times(4)).forTable(any(), any());
         verify(targetProvider, times(2)).forSystemView(any(), any());
     }
 
