@@ -46,19 +46,23 @@ public class ThreadAssertingSortedIndexStorage extends ThreadAssertingIndexStora
     }
 
     @Override
-    public PeekCursor<IndexRow> scan(
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            boolean onlyBuiltIndex
-    ) {
+    public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
         assertThreadAllowsToRead();
 
-        return new ThreadAssertingPeekCursor<>(indexStorage.scan(lowerBound, upperBound, flags, onlyBuiltIndex));
+        return new ThreadAssertingPeekCursor<>(indexStorage.scan(lowerBound, upperBound, flags));
     }
 
     @Override
     public Cursor<IndexRow> readOnlyScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        assertThreadAllowsToRead();
+
         return new ThreadAssertingCursor<>(indexStorage.readOnlyScan(lowerBound, upperBound, flags));
+    }
+
+    @Override
+    public PeekCursor<IndexRow> tolerantScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        assertThreadAllowsToRead();
+
+        return new ThreadAssertingPeekCursor<>(indexStorage.tolerantScan(lowerBound, upperBound, flags));
     }
 }

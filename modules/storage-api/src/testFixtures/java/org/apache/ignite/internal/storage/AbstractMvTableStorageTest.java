@@ -516,7 +516,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     private static void checkStorageDestroyed(SortedIndexStorage storage) {
         checkStorageDestroyed((IndexStorage) storage);
 
-        assertThrows(StorageDestroyedException.class, () -> storage.scan(null, null, GREATER, true));
+        assertThrows(StorageDestroyedException.class, () -> storage.scan(null, null, GREATER));
+        assertThrows(StorageDestroyedException.class, () -> storage.readOnlyScan(null, null, GREATER));
+        assertThrows(StorageDestroyedException.class, () -> storage.tolerantScan(null, null, GREATER));
     }
 
     @SuppressWarnings({"resource", "deprecation"})
@@ -710,7 +712,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThrows(StorageRebalanceException.class, () -> storage.get(mock(BinaryTuple.class)));
         assertThrows(StorageRebalanceException.class, () -> storage.remove(mock(IndexRow.class)));
-        assertThrows(StorageRebalanceException.class, () -> storage.scan(null, null, GREATER, true));
+        assertThrows(StorageRebalanceException.class, () -> storage.scan(null, null, GREATER));
+        assertThrows(StorageRebalanceException.class, () -> storage.readOnlyScan(null, null, GREATER));
+        assertThrows(StorageRebalanceException.class, () -> storage.tolerantScan(null, null, GREATER));
     }
 
     @Test
@@ -1229,7 +1233,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         Cursor<RowId> getFromHashIndexCursor = hashIndexStorage.get(hashIndexRow.indexColumns());
 
         Cursor<RowId> getFromSortedIndexCursor = sortedIndexStorage.get(hashIndexRow.indexColumns());
-        Cursor<IndexRow> scanFromSortedIndexCursor = sortedIndexStorage.scan(null, null, GREATER, true);
+        Cursor<IndexRow> scanFromSortedIndexCursor = sortedIndexStorage.scan(null, null, GREATER);
+        Cursor<IndexRow> readOnlyScanFromSortedIndexCursor = sortedIndexStorage.readOnlyScan(null, null, GREATER);
+        Cursor<IndexRow> tolerantScanFromSortedIndexCursor = sortedIndexStorage.tolerantScan(null, null, GREATER);
 
         CompletableFuture<Void> destroyFuture = tableStorage.destroyPartition(PARTITION_ID);
         if (waitForDestroyFuture) {
@@ -1254,6 +1260,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThrows(StorageDestroyedException.class, () -> getAll(getFromSortedIndexCursor));
         assertThrows(StorageDestroyedException.class, () -> getAll(scanFromSortedIndexCursor));
+        assertThrows(StorageDestroyedException.class, () -> getAll(readOnlyScanFromSortedIndexCursor));
+        assertThrows(StorageDestroyedException.class, () -> getAll(tolerantScanFromSortedIndexCursor));
 
         // What happens if there is no partition?
         assertThrows(StorageException.class, () -> tableStorage.destroyPartition(PARTITION_ID));
@@ -1282,7 +1290,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         Cursor<RowId> getFromHashIndexCursor = hashIndexStorage.get(hashIndexRow.indexColumns());
 
         Cursor<RowId> getFromSortedIndexCursor = sortedIndexStorage.get(sortedIndexRow.indexColumns());
-        Cursor<IndexRow> scanFromSortedIndexCursor = sortedIndexStorage.scan(null, null, GREATER, true);
+        Cursor<IndexRow> scanFromSortedIndexCursor = sortedIndexStorage.scan(null, null, GREATER);
+        Cursor<IndexRow> readOnlyScanFromSortedIndexCursor = sortedIndexStorage.readOnlyScan(null, null, GREATER);
+        Cursor<IndexRow> tolerantScanFromSortedIndexCursor = sortedIndexStorage.tolerantScan(null, null, GREATER);
 
         CompletableFuture<Void> destroyFuture = tableStorage.destroy();
 
@@ -1302,6 +1312,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThrows(StorageDestroyedException.class, () -> getAll(getFromSortedIndexCursor));
         assertThrows(StorageDestroyedException.class, () -> getAll(scanFromSortedIndexCursor));
+        assertThrows(StorageDestroyedException.class, () -> getAll(readOnlyScanFromSortedIndexCursor));
+        assertThrows(StorageDestroyedException.class, () -> getAll(tolerantScanFromSortedIndexCursor));
 
         // Let's check that nothing will happen if we try to destroy it again.
         assertThat(tableStorage.destroy(), willCompleteSuccessfully());
@@ -1341,7 +1353,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         Cursor<?> hashIndexStorageGetCursor = hashIndexStorage.get(hashIndexRow.indexColumns());
 
         Cursor<?> sortedIndexStorageGetCursor = sortedIndexStorage.get(sortedIndexRow.indexColumns());
-        Cursor<?> sortedIndexStorageScanCursor = sortedIndexStorage.scan(null, null, GREATER, true);
+        Cursor<?> sortedIndexStorageScanCursor = sortedIndexStorage.scan(null, null, GREATER);
+        Cursor<?> sortedIndexStorageReadOnlyScanCursor = sortedIndexStorage.readOnlyScan(null, null, GREATER);
+        Cursor<?> sortedIndexStorageTolerantScanCursor = sortedIndexStorage.tolerantScan(null, null, GREATER);
 
         // Partition is out of configuration range.
         assertThrows(IllegalArgumentException.class, () -> tableStorage.startRebalancePartition(getPartitionIdOutOfRange()));
@@ -1365,6 +1379,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         checkCursorAfterStartRebalance(sortedIndexStorageGetCursor);
         checkCursorAfterStartRebalance(sortedIndexStorageScanCursor);
+        checkCursorAfterStartRebalance(sortedIndexStorageReadOnlyScanCursor);
+        checkCursorAfterStartRebalance(sortedIndexStorageTolerantScanCursor);
     }
 
     @SuppressWarnings({"resource", "deprecation"})

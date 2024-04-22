@@ -57,20 +57,15 @@ public interface SortedIndexStorage extends IndexStorage {
      *      {@code null} means unbounded.
      * @param flags Control flags. {@link #GREATER} | {@link #LESS} by default. Other available values
      *      are {@link #GREATER_OR_EQUAL}, {@link #LESS_OR_EQUAL}.
-     * @param onlyBuiltIndex {@code True} if need to scan only from the built index.
      * @return Cursor with fetched index rows.
      * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.
      * @throws StorageException If failed to read data.
-     * @throws IndexNotBuiltException If the index has not yet been built and {@code onlyBuiltIndex} = {@code true}.
-     * @throws InconsistentIndexStateException If the index is in a readable status, but the index is not built.
+     * @throws IndexNotBuiltException If the index has not yet been built.
      */
-    // TODO: IGNITE-22039 Implement for onlyBuiltIndex == false throw an InconsistentIndexStateException if the index is not in a readable
-    //  status and write tests
     PeekCursor<IndexRow> scan(
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
-            @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags,
-            boolean onlyBuiltIndex
+            @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
     );
 
     /**
@@ -92,6 +87,29 @@ public interface SortedIndexStorage extends IndexStorage {
             @Nullable BinaryTuplePrefix upperBound,
             @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
     ) {
-        return scan(lowerBound, upperBound, flags, true);
+        return scan(lowerBound, upperBound, flags);
     }
+
+    /**
+     * Returns a range of updatable index values between the lower bound and the upper bound, supporting read-write transactions.
+     *
+     * <p>Unlike method {@link #scan(BinaryTuplePrefix, BinaryTuplePrefix, int)}, it allows you to read from an unbuilt index.</p>
+     *
+     * @param lowerBound Lower bound. Exclusivity is controlled by a {@link #GREATER_OR_EQUAL} or {@link #GREATER} flag.
+     *      {@code null} means unbounded.
+     * @param upperBound Upper bound. Exclusivity is controlled by a {@link #LESS} or {@link #LESS_OR_EQUAL} flag.
+     *      {@code null} means unbounded.
+     * @param flags Control flags. {@link #GREATER} | {@link #LESS} by default. Other available values
+     *      are {@link #GREATER_OR_EQUAL}, {@link #LESS_OR_EQUAL}.
+     * @return Cursor with fetched index rows.
+     * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.
+     * @throws StorageException If failed to read data.
+     * @throws InconsistentIndexStateException If the index is in a readable status, but the index is not built.
+     */
+    // TODO: IGNITE-22039 Implement throw an InconsistentIndexStateException if the index is not in a readable status and write tests
+    PeekCursor<IndexRow> tolerantScan(
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
+    );
 }

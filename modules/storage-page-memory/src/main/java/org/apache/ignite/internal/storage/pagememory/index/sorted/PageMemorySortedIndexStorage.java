@@ -151,43 +151,8 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
     }
 
     @Override
-    public PeekCursor<IndexRow> scan(
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags,
-            boolean onlyBuiltIndex
-    ) {
-        return busyDataRead(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
-
-            if (onlyBuiltIndex) {
-                throwExceptionIfIndexIsNotBuilt();
-            }
-
-            boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
-            boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
-
-            SortedIndexRowKey lower = createBound(lowerBound, !includeLower);
-
-            SortedIndexRowKey upper = createBound(upperBound, includeUpper);
-
-            return new ScanCursor<IndexRow>(lower) {
-                private final BinaryTupleComparator comparator = localTree.getBinaryTupleComparator();
-
-                @Override
-                public IndexRow map(SortedIndexRow value) {
-                    return toIndexRowImpl(value);
-                }
-
-                @Override
-                protected boolean exceedsUpperBound(SortedIndexRow value) {
-                    return upper != null && 0 <= comparator.compare(
-                            value.indexColumns().valueBuffer(),
-                            upper.indexColumns().valueBuffer()
-                    );
-                }
-            };
-        });
+    public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        return scanInternal(lowerBound, upperBound, flags, true);
     }
 
     @Override
@@ -211,6 +176,11 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
                 throw new StorageException("Couldn't get index tree cursor", e);
             }
         });
+    }
+
+    @Override
+    public PeekCursor<IndexRow> tolerantScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        return scanInternal(lowerBound, upperBound, flags, false);
     }
 
     private @Nullable SortedIndexRowKey createBound(@Nullable BinaryTuplePrefix bound, boolean setEqualityFlag) {
@@ -259,5 +229,44 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
             indexRow.indexColumns().link(PageIdUtils.NULL_LINK);
         }
+    }
+
+    private PeekCursor<IndexRow> scanInternal(
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            boolean onlyBuiltIndex
+    ) {
+        return busyDataRead(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            if (onlyBuiltIndex) {
+                throwExceptionIfIndexIsNotBuilt();
+            }
+
+            boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
+            boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
+
+            SortedIndexRowKey lower = createBound(lowerBound, !includeLower);
+
+            SortedIndexRowKey upper = createBound(upperBound, includeUpper);
+
+            return new ScanCursor<IndexRow>(lower) {
+                private final BinaryTupleComparator comparator = localTree.getBinaryTupleComparator();
+
+                @Override
+                public IndexRow map(SortedIndexRow value) {
+                    return toIndexRowImpl(value);
+                }
+
+                @Override
+                protected boolean exceedsUpperBound(SortedIndexRow value) {
+                    return upper != null && 0 <= comparator.compare(
+                            value.indexColumns().valueBuffer(),
+                            upper.indexColumns().valueBuffer()
+                    );
+                }
+            };
+        });
     }
 }

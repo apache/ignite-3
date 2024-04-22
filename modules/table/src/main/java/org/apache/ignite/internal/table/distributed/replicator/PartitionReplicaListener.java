@@ -1322,8 +1322,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                         // We have to handle upperBound on a level of replication listener,
                                         // for correctness of taking of a range lock.
                                         null,
-                                        flags,
-                                        true
+                                        flags
                                 ))
                         ).cursor();
 

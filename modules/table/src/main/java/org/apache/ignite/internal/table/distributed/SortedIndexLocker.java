@@ -160,7 +160,7 @@ public class SortedIndexLocker implements IndexLocker {
         IndexRow nextRow = null;
 
         // Find next key.
-        try (Cursor<IndexRow> cursor = storage.scan(prefix, null, SortedIndexStorage.GREATER, false)) {
+        try (Cursor<IndexRow> cursor = storage.tolerantScan(prefix, null, SortedIndexStorage.GREATER)) {
             if (cursor.hasNext()) {
                 nextRow = cursor.next();
             }
