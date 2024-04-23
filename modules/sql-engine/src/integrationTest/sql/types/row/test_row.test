@@ -18,12 +18,12 @@ INSERT INTO emp VALUES(3, 'Noah', 47, 1200)
 statement ok
 INSERT INTO emp VALUES(4, 'Dave', 42, 1700)
 
-query T rowsort
+query T
 SELECT empname FROM emp WHERE (empname, empage, salary) = ('Johnah', 47, 1200)
 ----
 Johnah
 
-query T rowsort
+query T
 SELECT empname FROM emp WHERE ('Johnah', 47) IN ((empname, empage))
 ----
 Johnah
