@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.DISABLE_RULE
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.ENFORCE_JOIN_ORDER;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -159,6 +160,9 @@ public final class PlannerHelper {
 
             if (ex instanceof CannotPlanException) {
                 throw ex;
+            } else if (ex.getClass() == RuntimeException.class && ex.getCause() instanceof SqlException) {
+                SqlException sqlEx = (SqlException)ex.getCause();
+                throw new SqlException(sqlEx.traceId(), sqlEx.code(), sqlEx.getMessage(), ex);
             } else {
                 throw new SqlException(Common.INTERNAL_ERR, "Unable to optimize plan due to internal error", ex);
             }
