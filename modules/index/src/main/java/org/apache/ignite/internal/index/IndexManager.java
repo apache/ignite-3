@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREAT
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexToTable;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -131,7 +133,7 @@ public class IndexManager implements IgniteComponent {
 
         catalogService.listen(INDEX_CREATE, (CreateIndexEventParameters parameters) -> onIndexCreate(parameters));
         catalogService.listen(INDEX_REMOVED, fromConsumer(this::onIndexRemoved));
-        lowWatermark.addUpdateListener(this::onLwmChanged);
+        lowWatermark.listen(LOW_WATERMARK_CHANGED, fromConsumer(this::onLwmChanged));
 
         LOG.info("Index manager started");
 
@@ -217,9 +219,9 @@ public class IndexManager implements IgniteComponent {
         });
     }
 
-    private CompletableFuture<Void> onLwmChanged(HybridTimestamp ts) {
-        return inBusyLockAsync(busyLock, () -> {
-            int newEarliestCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(ts));
+    private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
+            int newEarliestCatalogVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
             List<DestroyIndexEvent> events = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion);
 

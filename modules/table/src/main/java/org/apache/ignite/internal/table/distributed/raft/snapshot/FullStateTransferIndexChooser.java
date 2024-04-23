@@ -29,11 +29,11 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOV
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.view;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
 import java.util.ArrayList;
@@ -46,7 +46,6 @@ import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -62,6 +61,7 @@ import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -261,7 +261,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
         catalogService.listen(INDEX_CREATE, fromConsumer(this::onIndexCreated));
         catalogService.listen(INDEX_REMOVED, fromConsumer(this::onIndexRemoved));
 
-        lowWatermark.addUpdateListener(this::onLwmChanged);
+        lowWatermark.listen(LOW_WATERMARK_CHANGED, fromConsumer(this::onLwmChanged));
     }
 
     private void onIndexRemoved(RemoveIndexEventParameters parameters) {
@@ -410,9 +410,9 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
                 .collect(toCollection(() -> new ArrayList<>(indexIds.size())));
     }
 
-    private CompletableFuture<Void> onLwmChanged(HybridTimestamp ts) {
-        return inBusyLockAsync(busyLock, () -> {
-            int lwmCatalogVersion = catalogService.activeCatalogVersion(ts.longValue());
+    private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
+            int lwmCatalogVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
             Iterator<ReadOnlyIndexInfo> it = readOnlyIndexes.iterator();
 
