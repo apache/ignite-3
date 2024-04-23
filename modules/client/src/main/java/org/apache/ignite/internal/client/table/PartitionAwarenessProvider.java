@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import java.util.function.Function;
+import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -28,40 +29,31 @@ import org.jetbrains.annotations.Nullable;
  * 3. Null instance = No partition awareness and no transaction. Use any channel.
  */
 public class PartitionAwarenessProvider {
-    private final @Nullable String nodeName;
-
     private final @Nullable Integer partition;
 
     private final @Nullable Function<ClientSchema, Integer> hashFunc;
 
-    private PartitionAwarenessProvider(
-            @Nullable String nodeName,
-            @Nullable Function<ClientSchema, Integer> hashFunc,
-            @Nullable Integer partition) {
-        assert (nodeName != null && hashFunc == null && partition == null)
-                || (nodeName == null && hashFunc != null && partition == null)
-                || (nodeName == null && hashFunc == null && partition != null)
-                : "One must be not null, others null: nodeId, hashFunc, partition";
+    private final @Nullable ClientLazyTransaction tx;
 
-        this.nodeName = nodeName;
+    private PartitionAwarenessProvider(
+            @Nullable Function<ClientSchema, Integer> hashFunc,
+            @Nullable Integer partition,
+            @Nullable ClientLazyTransaction tx) {
         this.hashFunc = hashFunc;
         this.partition = partition;
-    }
-
-    public static PartitionAwarenessProvider of(String nodeName) {
-        return new PartitionAwarenessProvider(nodeName, null, null);
-    }
-
-    public static PartitionAwarenessProvider of(Function<ClientSchema, Integer> hashFunc) {
-        return new PartitionAwarenessProvider(null, hashFunc, null);
+        this.tx = tx;
     }
 
     public static PartitionAwarenessProvider of(Integer partition) {
-        return new PartitionAwarenessProvider(null, null, partition);
+        return new PartitionAwarenessProvider(null, partition, null);
+    }
+
+    public static PartitionAwarenessProvider of(@Nullable ClientLazyTransaction tx, Function<ClientSchema, Integer> hashFunc) {
+        return new PartitionAwarenessProvider(hashFunc, null, tx);
     }
 
     @Nullable String nodeName() {
-        return nodeName;
+        return tx != null ? tx.nodeName() : null;
     }
 
     @Nullable Integer partition() {

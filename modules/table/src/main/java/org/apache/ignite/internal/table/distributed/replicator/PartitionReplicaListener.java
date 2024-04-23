@@ -3915,14 +3915,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     private void markFinished(UUID txId, TxState txState, @Nullable HybridTimestamp commitTimestamp) {
         assert isFinalState(txState) : "Unexpected state [txId=" + txId + ", txState=" + txState + ']';
 
-        txManager.updateTxMeta(txId, old -> old == null
-                ? null
-                : new TxStateMeta(
-                        txState,
-                        old.txCoordinatorId(),
-                        old.commitPartitionId(),
-                        txState == COMMITTED ? commitTimestamp : null
-                ));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(
+                txState,
+                old == null ? null : old.txCoordinatorId(),
+                old == null ? null : old.commitPartitionId(),
+                txState == COMMITTED ? commitTimestamp : null
+        ));
     }
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
