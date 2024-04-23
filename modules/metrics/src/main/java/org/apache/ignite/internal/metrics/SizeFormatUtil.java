@@ -119,7 +119,7 @@ public class SizeFormatUtil {
                 result += Long.parseLong(size.substring(0, size.indexOf("bytes") - 1));
             }
         } catch (ParseException e) {
-            LOG.info("Size string parsing exception captain [size={}]", e, size);
+            throw new AssertionError("Size string parsing exception captain [size=" + size + "]", e);
         }
 
         return result;
