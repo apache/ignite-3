@@ -17,6 +17,13 @@ CREATE TABLE t2 (c21 INTEGER, c22 INTEGER, c23 CHAR);
 statement ok
 INSERT INTO t2 VALUES (2, 3, 'a'), (3, 4, 'b'), (4, 3, 'c')
 
+query II rowsort
+select j.c21, j.c22 from (SELECT c21, c22 from t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) j INNER JOIN t2 t22 ON (t22.c21 = j.c22);
+----
+2	3
+3	4
+4	3
+
 skipif ignite3
 # https://issues.apache.org/jira/browse/IGNITE-22085
 query II rowsort
