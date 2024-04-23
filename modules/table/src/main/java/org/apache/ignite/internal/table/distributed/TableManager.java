@@ -965,26 +965,30 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         startGroupFut
                 .thenAcceptAsync(isStartedRaftNode -> inBusyLock(busyLock, () -> {
-                    if (localMemberAssignment == null || !isStartedRaftNode || replicaMgr.isReplicaStarted(replicaGrpId)) {
-                        return;
-                    }
+
+                    boolean startedRaftNode = startGroupFut.join();
+//                    if (localMemberAssignment == null || !startedRaftNode || replicaMgr.isReplicaStarted(replicaGrpId)) {
+//                        return;
+//                    }
 
                     try {
                         replicaMgr.startReplica(
                                         replicaGrpId,
                                         newConfiguration,
-                                        (raftClient) -> createReplicaListener(
-                                                replicaGrpId,
-                                                table,
-                                                safeTimeTracker,
-                                                partitionStorages.getMvPartitionStorage(),
-                                                partitionStorages.getTxStateStorage(),
-                                                partitionUpdateHandlers,
-                                                raftClient),
-                                        storageIndexTracker)
-                                .thenAccept(replica -> ((InternalTableImpl) internalTbl)
-                                        .tableRaftService()
-                                        .updateInternalTableRaftGroupService(partId, replica.raftClient()));
+                                        (raftClient) -> {
+                                            ((InternalTableImpl) internalTbl)
+                                                    .tableRaftService()
+                                                    .updateInternalTableRaftGroupService(partId, raftClient);
+                                            return createReplicaListener(
+                                                    replicaGrpId,
+                                                    table,
+                                                    safeTimeTracker,
+                                                    partitionStorages.getMvPartitionStorage(),
+                                                    partitionStorages.getTxStateStorage(),
+                                                    partitionUpdateHandlers,
+                                                    raftClient);
+                                        },
+                                        storageIndexTracker);
                     } catch (NodeStoppingException ex) {
                         throw new AssertionError("Loza was stopped before Table manager", ex);
                     }
