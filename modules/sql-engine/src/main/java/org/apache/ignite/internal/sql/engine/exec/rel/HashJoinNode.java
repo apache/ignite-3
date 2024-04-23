@@ -43,7 +43,7 @@ import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 
 /** HashJoin implementor. */
 public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNode<RowT> {
-    Map<RowWrapper<RowT>, Collection<RowT>> hashStore = new Object2ObjectOpenHashMap<>();
+    Map<RowWrapper<RowT>, TouchedCollection<RowT>> hashStore = new Object2ObjectOpenHashMap<>();
     protected final RowHandler<RowT> handler;
 
     private final Collection<Integer> leftJoinPositions;
@@ -555,22 +555,22 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
         RowWrapper<RowT> row0 = new RowWrapper<>(rowBuilder.buildAndReset(), node.handler, node.leftJoinPositions.size());
 
-        Object found = node.hashStore.get(row0);
+        TouchedCollection<RowT> found = node.hashStore.get(row0);
 
         if (found != null) {
-            coll = (Collection<RowT>) node.hashStore.get(row0);
+            coll = found.items();
 
             if (processTouched) {
-                ((TouchedCollection<RowT>) coll).touched = true;
+                found.touched = true;
             }
         }
 
         return coll;
     }
 
-    private static <RowT> Iterator<RowT> getUntouched(Map<RowWrapper<RowT>, Collection<RowT>> entries) {
+    private static <RowT> Iterator<RowT> getUntouched(Map<RowWrapper<RowT>, TouchedCollection<RowT>> entries) {
         return new Iterator<RowT>() {
-            private final Iterator<Entry<RowWrapper<RowT>, Collection<RowT>>> outerIt = entries.entrySet().iterator();
+            private final Iterator<Entry<RowWrapper<RowT>, TouchedCollection<RowT>>> outerIt = entries.entrySet().iterator();
             private Iterator<RowT> innerIt = Collections.emptyIterator();
 
             @Override
@@ -603,10 +603,10 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 assert !innerIt.hasNext();
 
                 while (outerIt.hasNext()) {
-                    Entry<RowWrapper<RowT>, Collection<RowT>> res = outerIt.next();
-                    TouchedCollection<RowT> coll = (TouchedCollection<RowT>) res.getValue();
-                    if (!coll.touched && !coll.isEmpty()) {
-                        innerIt = coll.iterator();
+                    Entry<RowWrapper<RowT>, TouchedCollection<RowT>> res = outerIt.next();
+                    TouchedCollection<RowT> coll = res.getValue();
+                    if (!coll.touched && !coll.items().isEmpty()) {
+                        innerIt = coll.items().iterator();
                         break;
                     }
                 }
@@ -632,7 +632,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         }
 
         RowWrapper<RowT> row0 = new RowWrapper<>(rowBuilder.buildAndReset(), handler, rightJoinPositions.size());
-        Collection<RowT> raw = hashStore.computeIfAbsent(row0, k -> touchResults ? new TouchedCollection<>() : new ArrayList<>());
+        TouchedCollection<RowT> raw = hashStore.computeIfAbsent(row0, k -> new TouchedCollection<>());
         raw.add(row);
 
         if (waitingRight == 0) {
@@ -699,7 +699,20 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         }
     }
 
-    private static class TouchedCollection<RowT> extends ArrayList<RowT> {
+    private static class TouchedCollection<RowT> {
+        Collection<RowT> coll;
         boolean touched;
+
+        TouchedCollection() {
+            this.coll = new ArrayList<>();
+        }
+
+        void add(RowT row) {
+            coll.add(row);
+        }
+
+        Collection<RowT> items() {
+            return coll;
+        }
     }
 }
