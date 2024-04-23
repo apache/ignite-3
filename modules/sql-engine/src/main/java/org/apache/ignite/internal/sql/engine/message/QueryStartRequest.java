@@ -57,7 +57,7 @@ public interface QueryStartRequest extends TimestampAware, ExecutionContextAware
     int schemaVersion();
 
     /**
-     * Session time zone ID.
+     * Session time-zone ID.
      */
     String timeZoneId();
 }

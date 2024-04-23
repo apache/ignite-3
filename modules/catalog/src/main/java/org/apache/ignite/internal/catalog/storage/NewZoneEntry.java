@@ -77,7 +77,8 @@ public class NewZoneEntry implements UpdateEntry, Fireable {
                 catalog.time(),
                 catalog.objectIdGenState(),
                 CollectionUtils.concat(catalog.zones(), List.of(descriptor)),
-                catalog.schemas()
+                catalog.schemas(),
+                catalog.defaultZone().id()
         );
     }
 

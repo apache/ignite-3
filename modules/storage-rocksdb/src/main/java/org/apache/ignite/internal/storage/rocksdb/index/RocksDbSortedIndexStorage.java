@@ -112,6 +112,8 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
         return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
+            throwExceptionIfIndexNotBuilt();
+
             BinaryTuplePrefix keyPrefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
             return scan(keyPrefix, keyPrefix, true, true, this::decodeRowId);
@@ -152,14 +154,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
 
     @Override
     public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
-        return busyDataRead(() -> {
-            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
-
-            boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
-            boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
-
-            return scan(lowerBound, upperBound, includeLower, includeUpper, this::decodeRow);
-        });
+        return scanInternal(lowerBound, upperBound, flags, true);
     }
 
     protected <T> PeekCursor<T> scan(
@@ -185,6 +180,8 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
     public Cursor<IndexRow> readOnlyScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
         return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            throwExceptionIfIndexNotBuilt();
 
             boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
             boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
@@ -252,6 +249,11 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
                 }
             };
         });
+    }
+
+    @Override
+    public PeekCursor<IndexRow> tolerantScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        return scanInternal(lowerBound, upperBound, flags, false);
     }
 
     private byte[] getBound(@Nullable BinaryTuplePrefix bound, byte[] partitionPrefix, boolean changeBoundIncluded) {
@@ -327,5 +329,25 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
     @Override
     public void clearIndex(WriteBatch writeBatch) throws RocksDBException {
         writeBatch.deleteRange(indexCf.handle(), partitionStartPrefix, partitionEndPrefix);
+    }
+
+    private PeekCursor<IndexRow> scanInternal(
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            boolean onlyBuiltIndex
+    ) {
+        return busyDataRead(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            if (onlyBuiltIndex) {
+                throwExceptionIfIndexNotBuilt();
+            }
+
+            boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
+            boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
+
+            return scan(lowerBound, upperBound, includeLower, includeUpper, this::decodeRow);
+        });
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.sql;
 
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Map;
 import java.util.Map.Entry;
@@ -31,7 +32,7 @@ import org.apache.ignite.internal.client.PayloadWriter;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -242,7 +243,17 @@ public class ClientSql implements IgniteSql {
         if (transaction != null) {
             try {
                 //noinspection resource
-                return ClientTransaction.get(transaction).channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader);
+                return ClientLazyTransaction.ensureStarted(transaction, ch, null)
+                        .thenCompose(tx -> tx.channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader))
+                        .exceptionally(e -> {
+                            Throwable ex = unwrapCause(e);
+                            if (ex instanceof TransactionException) {
+                                var te = (TransactionException) ex;
+                                throw new SqlException(te.traceId(), te.code(), te.getMessage(), te);
+                            }
+
+                            throw ExceptionUtils.sneakyThrow(ex);
+                        });
             } catch (TransactionException e) {
                 return CompletableFuture.failedFuture(new SqlException(e.traceId(), e.code(), e.getMessage(), e));
             }

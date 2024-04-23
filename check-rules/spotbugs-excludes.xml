@@ -217,6 +217,11 @@
       <Field name="LEASE_PREFIX"/>
     </Or>
   </Match>
+  <Match>
+    <Bug pattern="IT_NO_SUCH_ELEMENT"/>
+    <Class name="org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage$ReadOnlyScanCursor"/>
+    <Method name="next"/>
+  </Match>
   <!-- end of false-positive exclusions -->
 
 

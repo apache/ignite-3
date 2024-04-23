@@ -355,7 +355,8 @@ public class ClientCompute implements IgniteCompute {
                 },
                 ClientCompute::unpackSubmitResult,
                 partitionAwarenessProvider,
-                true);
+                true,
+                null);
     }
 
     private CompletableFuture<ClientTable> getTable(String tableName) {

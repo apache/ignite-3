@@ -64,6 +64,7 @@ public class Catalog {
     private final long activationTimestamp;
     private final Map<String, CatalogSchemaDescriptor> schemasByName;
     private final Map<String, CatalogZoneDescriptor> zonesByName;
+    private final CatalogZoneDescriptor defaultZone;
 
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogSchemaDescriptor> schemasById;
@@ -89,13 +90,15 @@ public class Catalog {
      *         next version of the catalog.
      * @param zones Distribution zones descriptors.
      * @param schemas Enumeration of schemas available in the current version of catalog.
+     * @param defaultZoneId ID of the default distribution zone.
      */
     public Catalog(
             int version,
             long activationTimestamp,
             int objectIdGen,
             Collection<CatalogZoneDescriptor> zones,
-            Collection<CatalogSchemaDescriptor> schemas
+            Collection<CatalogSchemaDescriptor> schemas,
+            int defaultZoneId
     ) {
         this.version = version;
         this.activationTimestamp = activationTimestamp;
@@ -112,6 +115,11 @@ public class Catalog {
         indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes())).collect(toMapById());
         indexesByTableId = unmodifiable(toIndexesByTableId(schemas));
         zonesById = zones.stream().collect(toMapById());
+        defaultZone = zonesById.get(defaultZoneId);
+
+        if (defaultZone == null) {
+            throw new IllegalStateException("The default zone was not found among the provided zones [id=" + defaultZoneId + ']');
+        }
     }
 
     public int version() {
@@ -168,6 +176,10 @@ public class Catalog {
 
     public Collection<CatalogZoneDescriptor> zones() {
         return zonesByName.values();
+    }
+
+    public CatalogZoneDescriptor defaultZone() {
+        return defaultZone;
     }
 
     @Override

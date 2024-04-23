@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.api;
 
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
@@ -40,34 +39,25 @@ class StatementBuilderImpl implements StatementBuilder {
     /** Page size. */
     private Integer pageSize;
 
-    private ZoneId zoneId = ZoneOffset.UTC;
+    /** Time-zone ID. */
+    private ZoneId timeZoneId;
 
     /** {@inheritDoc} */
     @Override
-    public String query() {
-        return query;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public StatementBuilder query(String sql) {
-        query = sql;
+    public StatementBuilder query(String query) {
+        this.query = Objects.requireNonNull(query, "query");
 
         return this;
     }
 
     /** {@inheritDoc} */
     @Override
-    public long queryTimeout(TimeUnit timeUnit) {
-        Objects.requireNonNull(timeUnit);
-
-        return timeUnit.convert(queryTimeoutMs == null ? 0 : queryTimeoutMs, TimeUnit.MILLISECONDS);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public StatementBuilder queryTimeout(long timeout, TimeUnit timeUnit) {
-        Objects.requireNonNull(timeUnit);
+        Objects.requireNonNull(timeUnit, "timeUnit");
+
+        if (timeout <= 0) {
+            throw new IllegalArgumentException("Timeout must be positive: " + timeout);
+        }
 
         queryTimeoutMs = TimeUnit.MILLISECONDS.convert(timeout, timeUnit);
 
@@ -76,27 +66,19 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public String defaultSchema() {
-        return defaultSchema;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public StatementBuilder defaultSchema(String schema) {
-        defaultSchema = schema;
+        defaultSchema = Objects.requireNonNull(schema, "schema");
 
         return this;
     }
 
     /** {@inheritDoc} */
     @Override
-    public int pageSize() {
-        return pageSize == null ? 0 : pageSize;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public StatementBuilder pageSize(int pageSize) {
+        if (pageSize <= 0) {
+            throw new IllegalArgumentException("Page size must be positive: " + pageSize);
+        }
+
         this.pageSize = pageSize;
 
         return this;
@@ -105,14 +87,8 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public ZoneId timeZoneId() {
-        return zoneId;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public StatementBuilder timeZoneId(ZoneId zoneId) {
-        this.zoneId = Objects.requireNonNull(zoneId);
+    public StatementBuilder timeZoneId(ZoneId timeZoneId) {
+        this.timeZoneId = Objects.requireNonNull(timeZoneId, "timeZoneId");
 
         return this;
     }
@@ -120,7 +96,6 @@ class StatementBuilderImpl implements StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public Statement build() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-18647
-        return new StatementImpl(query);
+        return new StatementImpl(query, defaultSchema, queryTimeoutMs, pageSize, timeZoneId);
     }
 }

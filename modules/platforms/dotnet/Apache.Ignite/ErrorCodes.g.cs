@@ -356,6 +356,12 @@ namespace Apache.Ignite
 
             /// <summary> AlreadyDestroyed error. </summary>
             public const int AlreadyDestroyed = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> IndexNotBuilt error. </summary>
+            public const int IndexNotBuilt = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> InconsistentIndexState error. </summary>
+            public const int InconsistentIndexState = (GroupCode << 16) | (7 & 0xFFFF);
         }
 
         /// <summary> DistributionZones errors. </summary>
