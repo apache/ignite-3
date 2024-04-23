@@ -424,7 +424,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            Set<ReplicationGroupId> replicationGroupIds = zonePartIdToTablePartId.get((ZonePartitionId) msg.groupId());
+            Set<ReplicationGroupId> replicationGroupIds = zonePartIdToTablePartId.getOrDefault((ZonePartitionId) msg.groupId(), Set.of());
 
             CompletableFuture<LeaseGrantedMessageResponse>[] futures = new CompletableFuture[replicationGroupIds.size()];
 
