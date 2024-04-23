@@ -17,36 +17,49 @@
 
 package org.apache.ignite.internal.sql.engine.sql.fun;
 
-import org.apache.calcite.sql.SqlFunction;
-import org.apache.calcite.sql.SqlFunctionCategory;
+import static org.apache.calcite.sql.type.InferTypes.ANY_NULLABLE;
+
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlOperatorBinding;
-import org.apache.calcite.sql.SqlTableFunction;
+import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
-import org.apache.calcite.sql.type.SqlReturnTypeInference;
+import org.apache.calcite.sql.type.SqlOperandMetadata;
 import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlMonotonicity;
+import org.apache.calcite.sql.validate.SqlUserDefinedTableFunction;
+import org.apache.ignite.internal.sql.engine.exec.exp.TableFunctionImpl;
 
 /**
  * Definition of the "SYSTEM_RANGE" builtin SQL function.
  */
-public class SqlSystemRangeFunction extends SqlFunction implements SqlTableFunction {
+public class SqlSystemRangeFunction extends SqlUserDefinedTableFunction {
     /**
      * Creates the SqlSystemRangeFunction.
      */
-    SqlSystemRangeFunction() {
+    SqlSystemRangeFunction(Method method, String funcName) {
         super(
-                "SYSTEM_RANGE",
+                new SqlIdentifier(funcName, SqlParserPos.ZERO),
                 SqlKind.OTHER_FUNCTION,
                 ReturnTypes.CURSOR,
-                null,
-                OperandTypes.or(
-                        OperandTypes.family(SqlTypeFamily.NUMERIC, SqlTypeFamily.NUMERIC),
-                        OperandTypes.family(SqlTypeFamily.NUMERIC, SqlTypeFamily.NUMERIC, SqlTypeFamily.NUMERIC)
-                ),
-                SqlFunctionCategory.USER_DEFINED_TABLE_FUNCTION);
+                ANY_NULLABLE,
+                Arg.metadata(
+                        Arg.of("from", f -> f.createSqlType(SqlTypeName.BIGINT),
+                                SqlTypeFamily.EXACT_NUMERIC, false),
+                        Arg.of("to", f -> f.createSqlType(SqlTypeName.BIGINT),
+                                SqlTypeFamily.EXACT_NUMERIC, false),
+                        Arg.of("step", f -> f.createSqlType(SqlTypeName.BIGINT),
+                                SqlTypeFamily.EXACT_NUMERIC, true)),
+                TableFunctionImpl.create(method)
+        );
     }
 
     /** {@inheritDoc} */
@@ -55,9 +68,49 @@ public class SqlSystemRangeFunction extends SqlFunction implements SqlTableFunct
         return SqlMonotonicity.MONOTONIC;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public SqlReturnTypeInference getRowTypeInference() {
-        return cb -> cb.getTypeFactory().builder().add("X", SqlTypeName.BIGINT).build();
+    /** Operands checker helper interface. */
+    private interface Arg {
+
+        String name();
+
+        RelDataType type(RelDataTypeFactory typeFactory);
+
+        SqlTypeFamily family();
+
+        boolean optional();
+
+        static SqlOperandMetadata metadata(Arg... args) {
+            return OperandTypes.operandMetadata(
+                    Arrays.stream(args).map(Arg::family).collect(Collectors.toList()),
+                    typeFactory ->
+                            Arrays.stream(args).map(arg -> arg.type(typeFactory))
+                                    .collect(Collectors.toList()),
+                    i -> args[i].name(), i -> args[i].optional());
+        }
+
+        static Arg of(
+                String name,
+                Function<RelDataTypeFactory, RelDataType> protoType,
+                SqlTypeFamily family,
+                boolean optional
+        ) {
+            return new Arg() {
+                @Override public String name() {
+                    return name;
+                }
+
+                @Override public RelDataType type(RelDataTypeFactory typeFactory) {
+                    return protoType.apply(typeFactory);
+                }
+
+                @Override public SqlTypeFamily family() {
+                    return family;
+                }
+
+                @Override public boolean optional() {
+                    return optional;
+                }
+            };
+        }
     }
 }

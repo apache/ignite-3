@@ -190,6 +190,8 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 return Object[].class; // At now
             case MAP:
                 return Map.class;
+            case CURSOR:
+                return Object.class;
             case ARRAY:
             case MULTISET:
                 return List.class;

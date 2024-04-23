@@ -623,7 +623,7 @@ public class TypeUtils {
         if (type instanceof IgniteCustomType) {
             NativeType nativeType = IgniteTypeFactory.relDataTypeToNative(type);
             return RowSchemaTypes.nativeTypeWithNullability(nativeType, nullable);
-        } else if (SqlTypeName.ANY == type.getSqlTypeName()) {
+        } else if (SqlTypeName.ANY == type.getSqlTypeName() || type.getSqlTypeName() == SqlTypeName.CURSOR) {
             // TODO Some JSON functions that return ANY as well : https://issues.apache.org/jira/browse/IGNITE-20163
             return new BaseTypeSpec(null, nullable);
         } else if (SqlTypeUtil.isNull(type)) {
