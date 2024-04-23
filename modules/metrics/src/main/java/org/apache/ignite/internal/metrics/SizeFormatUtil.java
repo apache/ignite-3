@@ -19,16 +19,11 @@ package org.apache.ignite.internal.metrics;
 
 import java.text.DecimalFormat;
 import java.text.ParseException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Number formatter utilities.
  */
 public class SizeFormatUtil {
-    /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(SizeFormatUtil.class);
-
     /** The number of bytes in a kilobyte. */
     public static final long ONE_KB = 1024;
 
