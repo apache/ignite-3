@@ -61,14 +61,14 @@ public class ItJdbcClientTimeZoneTest extends AbstractJdbcSelfTest {
 
     @BeforeEach
     void saveTimeZoneAndClearTable() throws SQLException {
-        origin = TimeZone.getDefault().toZoneId();
+        origin = ZoneId.systemDefault();
 
         stmt.execute("DELETE FROM test");
     }
 
     @AfterEach
     void restoreTimezone() {
-        ZoneId current = TimeZone.getDefault().toZoneId();
+        ZoneId current = ZoneId.systemDefault();
 
         if (!Objects.equals(origin, current)) {
             TimeZone.setDefault(TimeZone.getTimeZone(origin));

@@ -1294,7 +1294,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * metastorage group starts again.
      */
     @Test
-    @Disabled(value = "https://issues.apache.org/jira/browse/IGNITE-18919")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18919")
     public void testMetastorageStop() throws NodeStoppingException {
         int cfgGap = 4;
 

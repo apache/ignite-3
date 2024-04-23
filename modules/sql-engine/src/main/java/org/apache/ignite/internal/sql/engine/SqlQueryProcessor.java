@@ -142,7 +142,7 @@ import org.jetbrains.annotations.TestOnly;
  *  Main implementation of {@link QueryProcessor}.
  */
 public class SqlQueryProcessor implements QueryProcessor {
-    /** Default time zone ID. */
+    /** Default time-zone ID. */
     public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
 
     /** The logger. */
@@ -157,7 +157,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private static final int SCHEMA_CACHE_SIZE = 128;
 
     /** Name of the default schema. */
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+    public static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     private static final SqlProperties DEFAULT_PROPERTIES = SqlPropertiesHelper.newBuilder()
             .set(QueryProperty.DEFAULT_SCHEMA, DEFAULT_SCHEMA_NAME)

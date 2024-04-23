@@ -340,6 +340,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schema);
 
         StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
+        when(pkIndexDescriptor.isPk()).thenReturn(true);
 
         when(pkIndexDescriptor.columns()).then(
                 invocation -> Collections.nCopies(schema.keyColumns().size(), mock(StorageHashIndexColumnDescriptor.class))

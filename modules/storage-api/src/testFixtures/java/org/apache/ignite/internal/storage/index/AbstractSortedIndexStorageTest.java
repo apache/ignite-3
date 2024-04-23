@@ -38,6 +38,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.sameInstance;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -88,17 +89,23 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
     private static final IgniteLogger LOG = Loggers.forClass(AbstractSortedIndexStorageTest.class);
 
     @Override
-    protected SortedIndexStorage createIndexStorage(String name, ColumnType... columnTypes) {
-        return createIndexStorage(name, toCatalogIndexColumnDescriptors(columnTypes));
+    protected SortedIndexStorage createIndexStorage(String name, boolean built, ColumnType... columnTypes) {
+        return createIndexStorage(name, built, toCatalogIndexColumnDescriptors(columnTypes));
     }
 
     /**
      * Creates a Sorted Index using the given columns.
+     *
+     * @param name Index name.
+     * @param built {@code True} to create a built index, {@code false} if you need to build it later.
+     * @param columns Columns.
+     * @see #completeBuildIndex(IndexStorage)
      */
-    protected SortedIndexStorage createIndexStorage(String name, List<ColumnParams> indexSchema) {
+    protected SortedIndexStorage createIndexStorage(String name, boolean built, List<ColumnParams> columns) {
         return createIndexStorage(
                 name,
-                indexSchema.stream()
+                built,
+                columns.stream()
                         .map(ColumnParams::name)
                         .map(columnName -> new CatalogIndexColumnDescriptor(
                                 columnName,
@@ -109,9 +116,25 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
     }
 
     /**
-     * Creates a Sorted Index using the given index definition.
+     * Creates a built Sorted Index using the given columns.
+     *
+     * @param name Index name.
+     * @param columns Columns.
+     * @see #completeBuildIndex(IndexStorage)
      */
-    protected SortedIndexStorage createIndexStorage(String name, CatalogIndexColumnDescriptor... columns) {
+    protected SortedIndexStorage createIndexStorage(String name, List<ColumnParams> columns) {
+        return createIndexStorage(name, true, columns);
+    }
+
+    /**
+     * Creates a Sorted Index using the given index definition.
+     *
+     * @param name Index name.
+     * @param built {@code True} to create a built index, {@code false} if you need to build it later.
+     * @param columns Columns.
+     * @see #completeBuildIndex(IndexStorage)
+     */
+    protected SortedIndexStorage createIndexStorage(String name, boolean built, CatalogIndexColumnDescriptor... columns) {
         CatalogTableDescriptor tableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
 
         int tableId = tableDescriptor.id();
@@ -119,10 +142,27 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         CatalogSortedIndexDescriptor indexDescriptor = createCatalogIndexDescriptor(tableId, indexId, name, columns);
 
-        return tableStorage.getOrCreateSortedIndex(
+        SortedIndexStorage indexStorage = tableStorage.getOrCreateSortedIndex(
                 TEST_PARTITION,
                 new StorageSortedIndexDescriptor(tableDescriptor, indexDescriptor)
         );
+
+        if (built) {
+            completeBuildIndex(indexStorage);
+        }
+
+        return indexStorage;
+    }
+
+    /**
+     * Creates a built Sorted Index using the given index definition.
+     *
+     * @param name Index name.
+     * @param columns Columns.
+     * @see #completeBuildIndex(IndexStorage)
+     */
+    protected SortedIndexStorage createIndexStorage(String name, CatalogIndexColumnDescriptor... columns) {
+        return createIndexStorage(name, true, columns);
     }
 
     @Override
@@ -1452,6 +1492,30 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         assertThat(getAll(index, row3), is(empty()));
     }
 
+    @Test
+    void testScanFromPkIndex() {
+        SortedIndexStorage pkIndex = createPkIndexStorage();
+
+        assertDoesNotThrow(() -> scan(pkIndex, index -> index.readOnlyScan(null, null, 0)));
+        assertDoesNotThrow(() -> scan(pkIndex, index -> index.scan(null, null, 0)));
+        assertDoesNotThrow(() -> scan(pkIndex, index -> index.tolerantScan(null, null, 0)));
+    }
+
+    @Test
+    void testScanAfterBuiltIndex() {
+        SortedIndexStorage index = createIndexStorage(INDEX_NAME, false, ColumnType.INT32);
+
+        assertThrows(IndexNotBuiltException.class, () -> scan(index, i -> i.readOnlyScan(null, null, 0)));
+        assertThrows(IndexNotBuiltException.class, () -> scan(index, i -> i.scan(null, null, 0)));
+        assertDoesNotThrow(() -> scan(index, i -> i.tolerantScan(null, null, 0)));
+
+        completeBuildIndex(index);
+
+        assertDoesNotThrow(() -> scan(index, i -> i.readOnlyScan(null, null, 0)));
+        assertDoesNotThrow(() -> scan(index, i -> i.scan(null, null, 0)));
+        assertDoesNotThrow(() -> scan(index, i -> i.tolerantScan(null, null, 0)));
+    }
+
     private List<ColumnParams> shuffledRandomColumnParams() {
         return shuffledColumnParams(d -> random.nextBoolean());
     }
@@ -1546,6 +1610,16 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
             return cursor.stream()
                     .map(serializer::deserializeColumns)
                     .map(mapper)
+                    .collect(toUnmodifiableList());
+        }
+    }
+
+    private static List<Object[]> scan(SortedIndexStorage index, Function<SortedIndexStorage, Cursor<IndexRow>> cursorFunction) {
+        var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
+
+        try (Cursor<IndexRow> cursor = cursorFunction.apply(index)) {
+            return cursor.stream()
+                    .map(serializer::deserializeColumns)
                     .collect(toUnmodifiableList());
         }
     }

@@ -24,6 +24,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.NativeType;
 
@@ -39,6 +40,7 @@ public class StorageHashIndexDescriptor implements StorageIndexDescriptor {
     public static class StorageHashIndexColumnDescriptor implements StorageColumnDescriptor {
         private final String name;
 
+        @IgniteToStringInclude
         private final NativeType type;
 
         private final boolean nullable;
@@ -79,6 +81,7 @@ public class StorageHashIndexDescriptor implements StorageIndexDescriptor {
 
     private final int id;
 
+    @IgniteToStringInclude
     private final List<StorageHashIndexColumnDescriptor> columns;
 
     private final boolean pk;
@@ -119,6 +122,11 @@ public class StorageHashIndexDescriptor implements StorageIndexDescriptor {
     @Override
     public boolean isPk() {
         return pk;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 
     private static List<StorageHashIndexColumnDescriptor> extractIndexColumnsConfiguration(

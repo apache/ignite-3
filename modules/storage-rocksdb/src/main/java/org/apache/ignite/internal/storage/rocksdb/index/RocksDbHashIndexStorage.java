@@ -105,6 +105,8 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
         return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
+            throwExceptionIfIndexNotBuilt();
+
             byte[] rangeStart = rocksPrefix(key);
 
             byte[] rangeEnd = incrementPrefix(rangeStart);
