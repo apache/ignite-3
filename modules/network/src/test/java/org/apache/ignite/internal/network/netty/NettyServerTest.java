@@ -91,17 +91,16 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     final void tearDown() throws Exception {
         IgniteUtils.closeAll(
                 server == null ? null : () -> server.stop().join(),
-                bootstrapFactory == null ? null : () -> bootstrapFactory.stopAsync()
+                bootstrapFactory == null ? null : () -> assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully())
         );
     }
 
     /**
      * Tests a successful server start scenario.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testSuccessfulServerStart() throws Exception {
+    public void testSuccessfulServerStart() {
         server = getServer(true);
 
         assertTrue(server.isRunning());
@@ -110,10 +109,9 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     /**
      * Tests a graceful server shutdown scenario.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testServerGracefulShutdown() throws Exception {
+    public void testServerGracefulShutdown() {
         server = getServer(true);
 
         server.stop().join();
@@ -222,7 +220,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
                 });
 
         bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
-        bootstrapFactory.startAsync();
+        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
 
         server = new NettyServer(
                 serverCfg.value(),
@@ -241,7 +239,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
                         .handler(new ChannelInitializer<>() {
                             /** {@inheritDoc} */
                             @Override
-                            protected void initChannel(Channel ch) throws Exception {
+                            protected void initChannel(Channel ch) {
                                 // No-op.
                             }
                         })
@@ -295,7 +293,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      */
     private NettyServer getServer(boolean shouldStart) {
         bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
-        bootstrapFactory.startAsync();
+        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
 
         MessageSerializationRegistry registry = mock(MessageSerializationRegistry.class);
 

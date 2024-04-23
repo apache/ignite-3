@@ -21,12 +21,14 @@ import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.core.State.STATE_ERROR;
 import static org.apache.ignite.raft.jraft.core.State.STATE_LEADER;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForCondition;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.raft.server.counter.GetValueCommand.getValueCommand;
 import static org.apache.ignite.raft.server.counter.IncrementAndGetCommand.incrementAndGetCommand;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -782,7 +784,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         toStop.beforeNodeStop();
 
-        toStop.stopAsync();
+        assertThat(toStop.stopAsync(), willCompleteSuccessfully());
 
         applyIncrements(client1, 11, 20);
         applyIncrements(client2, 21, 30);
@@ -814,7 +816,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         svc2.beforeNodeStop();
 
-        svc2.stopAsync();
+        assertThat(svc2.stopAsync(), willCompleteSuccessfully());
 
         var svc3 = startServer(stopIdx, r -> {
             String localNodeName = r.clusterService().topologyService().localMember().name();

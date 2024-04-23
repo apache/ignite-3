@@ -97,17 +97,17 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
      */
     @ParameterizedTest
     @MethodSource("metaStorageProvider")
-    public void testCheckCorrectness(MetaStorageManager metastore) throws Exception {
+    public void testCheckCorrectness(MetaStorageManager metastore) {
         var deployWatchesFut = metastore.deployWatches();
 
         assertFalse(deployWatchesFut.isDone());
 
-        metastore.startAsync();
+        assertThat(metastore.startAsync(), willCompleteSuccessfully());
 
         assertThat(deployWatchesFut, willCompleteSuccessfully());
 
         metastore.beforeNodeStop();
 
-        metastore.stopAsync();
+        assertThat(metastore.stopAsync(), willCompleteSuccessfully());
     }
 }

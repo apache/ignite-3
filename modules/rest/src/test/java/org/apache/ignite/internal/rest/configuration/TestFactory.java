@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.rest.configuration;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
@@ -64,7 +66,7 @@ public class TestFactory {
                 ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
-        configurationRegistry.startAsync();
+        assertThat(configurationRegistry.startAsync(), willCompleteSuccessfully());
 
         return configurationRegistry;
     }

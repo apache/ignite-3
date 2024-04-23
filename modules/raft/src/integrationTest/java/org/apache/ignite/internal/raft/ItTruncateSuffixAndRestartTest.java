@@ -169,8 +169,8 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
 
             var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, nodeName);
 
-            nettyBootstrapFactory.startAsync();
-            cleanup.add(nettyBootstrapFactory::stopAsync);
+            assertThat(nettyBootstrapFactory.startAsync(), willCompleteSuccessfully());
+            cleanup.add(() -> assertThat(nettyBootstrapFactory.stopAsync(), willCompleteSuccessfully()));
 
             clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
                     nodeName,
@@ -181,13 +181,13 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     new NoOpCriticalWorkerRegistry(),
                     mock(FailureProcessor.class));
 
-            clusterSvc.startAsync();
-            cleanup.add(clusterSvc::stopAsync);
+            assertThat(clusterSvc.startAsync(), willCompleteSuccessfully());
+            cleanup.add(() -> assertThat(clusterSvc.stopAsync(), willCompleteSuccessfully()));
 
             raftMgr = new Loza(clusterSvc, raftConfiguration, nodeDir, hybridClock);
 
-            raftMgr.startAsync();
-            cleanup.add(raftMgr::stopAsync);
+            assertThat(raftMgr.startAsync(), willCompleteSuccessfully());
+            cleanup.add(() -> assertThat(raftMgr.stopAsync(), willCompleteSuccessfully()));
 
             cleanup.add(this::stopService);
         }

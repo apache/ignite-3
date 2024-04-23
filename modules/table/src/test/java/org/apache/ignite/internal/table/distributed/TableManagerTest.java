@@ -298,12 +298,12 @@ public class TableManagerTest extends IgniteAbstractTest {
                     assertTrue(tblManagerFut.isDone());
 
                     tblManagerFut.join().beforeNodeStop();
-                    tblManagerFut.join().stopAsync();
+                    assertThat(tblManagerFut.join().stopAsync(), willCompleteSuccessfully());
                 },
-                dsm == null ? null : dsm::stopAsync,
-                sm == null ? null : sm::stopAsync,
-                catalogManager == null ? null : catalogManager::stopAsync,
-                catalogMetastore == null ? null : catalogMetastore::stopAsync,
+                dsm == null ? null : () -> assertThat(dsm.stopAsync(), willCompleteSuccessfully()),
+                sm == null ? null : () -> assertThat(sm.stopAsync(), willCompleteSuccessfully()),
+                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
+                catalogMetastore == null ? null : () -> assertThat(catalogMetastore.stopAsync(), willCompleteSuccessfully()),
                 partitionOperationsExecutor == null ? null
                         : () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
         );
@@ -445,7 +445,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableManager tableManager = tblManagerFut.join();
 
         tableManager.beforeNodeStop();
-        tableManager.stopAsync();
+        assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
 
         assertThrowsWithCause(tableManager::tables, NodeStoppingException.class);
         assertThrowsWithCause(() -> tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME), NodeStoppingException.class);
@@ -465,8 +465,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableManager tableManager = tblManagerFut.join();
 
         tableManager.beforeNodeStop();
-        tableManager.stopAsync();
-
+        assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
         int fakeTblId = 1;
 
         assertThrowsWithCause(() -> tableManager.table(fakeTblId), NodeStoppingException.class);
@@ -561,7 +560,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         mockDoThrow.run();
 
         tableManager.beforeNodeStop();
-        tableManager.stopAsync();
+        assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
 
         verify(rm, times(PARTITIONS)).stopRaftNodes(any());
         verify(replicaMgr, times(PARTITIONS)).stopReplica(any());

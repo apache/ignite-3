@@ -18,10 +18,11 @@
 package org.apache.ignite.raft.server;
 
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.raft.server.counter.GetValueCommand.getValueCommand;
 import static org.apache.ignite.raft.server.counter.IncrementAndGetCommand.incrementAndGetCommand;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -99,16 +100,12 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         server = new JraftServerImpl(service, workDir, raftConfiguration) {
             @Override
-            public synchronized CompletableFuture<Void> stopAsync() {
-                super.stopAsync();
-
-                service.stopAsync();
-
-                return nullCompletedFuture();
+            public CompletableFuture<Void> stopAsync() {
+                return CompletableFuture.allOf(super.stopAsync(), service.stopAsync());
             }
         };
 
-        server.startAsync();
+        assertThat(server.startAsync(), willCompleteSuccessfully());
 
         String serverNodeName = server.clusterService().topologyService().localMember().name();
 
@@ -156,7 +153,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
         IgniteUtils.closeAll(
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_0),
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_1),
-                server::stopAsync,
+                () -> assertThat(server.stopAsync(), willCompleteSuccessfully()),
                 client1::shutdown,
                 client2::shutdown,
                 () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)

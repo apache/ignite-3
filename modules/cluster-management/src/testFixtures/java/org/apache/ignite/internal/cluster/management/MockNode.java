@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.cluster.management;
 
 
+import static java.util.concurrent.CompletableFuture.allOf;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
@@ -140,8 +143,8 @@ public class MockNode {
     /**
      * Start fake node.
      */
-    public void startComponents() {
-        components.forEach(IgniteComponent::startAsync);
+    public CompletableFuture<Void> startComponents() {
+        return allOf(components.stream().map(IgniteComponent::startAsync).toArray(CompletableFuture[]::new));
     }
 
     /**
@@ -170,7 +173,7 @@ public class MockNode {
 
         it.forEachRemaining(component -> {
             try {
-                component.stopAsync();
+                component.stopAsync().get(30, TimeUnit.SECONDS);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

@@ -258,7 +258,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         CompletableFuture<Void> start() throws Exception {
             clusterService = ClusterServiceTestUtils.clusterService(nodeName, port.getAndIncrement(), NODE_FINDER);
 
-            clusterService.startAsync();
+            assertThat(clusterService.startAsync(), willCompleteSuccessfully());
 
             raftManager = new Loza(
                     clusterService,
@@ -268,7 +268,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     new RaftGroupEventsClientListener()
             );
 
-            raftManager.startAsync();
+            assertThat(raftManager.startAsync(), willCompleteSuccessfully());
 
             TxManager txManagerMock = mock(TxManager.class);
 
@@ -300,8 +300,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     raftManager == null ? null : () -> raftManager.stopRaftNodes(GROUP_ID),
                     raftManager == null ? null : raftManager::beforeNodeStop,
                     clusterService == null ? null : clusterService::beforeNodeStop,
-                    raftManager == null ? null : raftManager::stopAsync,
-                    clusterService == null ? null : clusterService::stopAsync
+                    raftManager == null ? null : () -> assertThat(raftManager.stopAsync(), willCompleteSuccessfully()),
+                    clusterService == null ? null : () -> assertThat(clusterService.stopAsync(), willCompleteSuccessfully())
             );
         }
     }

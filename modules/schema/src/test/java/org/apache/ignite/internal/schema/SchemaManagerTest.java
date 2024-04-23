@@ -95,7 +95,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         metaStorageManager = spy(StandaloneMetaStorageManager.create(metaStorageKvStorage));
-        metaStorageManager.startAsync();
+        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
 
         tableCreatedListener = ArgumentCaptor.forClass(EventListener.class);
         tableAlteredListener = ArgumentCaptor.forClass(EventListener.class);
@@ -105,15 +105,15 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_ALTER), tableAlteredListener.capture());
 
         schemaManager = new SchemaManager(registry, catalogService);
-        schemaManager.startAsync();
+        assertThat(schemaManager.startAsync(), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        schemaManager.stopAsync();
-        metaStorageManager.stopAsync();
+    void tearDown() {
+        assertThat(schemaManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
     }
 
     private void createSomeTable() {
@@ -266,17 +266,17 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void loadingPreExistingSchemasWorks() throws Exception {
+    void loadingPreExistingSchemasWorks() {
         create2TableVersions();
 
-        schemaManager.stopAsync();
+        assertThat(schemaManager.stopAsync(), willCompleteSuccessfully());
 
         when(catalogService.latestCatalogVersion()).thenReturn(2);
         when(catalogService.tables(anyInt())).thenReturn(List.of(tableDescriptorAfterColumnAddition()));
         doReturn(CompletableFuture.completedFuture(CAUSALITY_TOKEN_2)).when(metaStorageManager).recoveryFinishedFuture();
 
         schemaManager = new SchemaManager(registry, catalogService);
-        schemaManager.startAsync();
+        assertThat(schemaManager.startAsync(), willCompleteSuccessfully());
 
         completeCausalityToken(CAUSALITY_TOKEN_2);
 

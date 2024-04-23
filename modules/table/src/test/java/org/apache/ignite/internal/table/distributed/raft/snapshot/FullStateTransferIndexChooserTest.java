@@ -101,7 +101,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
         closeAllManually(
                 indexChooser,
                 catalogManager::beforeNodeStop,
-                catalogManager::stopAsync
+                () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully())
         );
     }
 

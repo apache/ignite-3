@@ -120,7 +120,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(
-                catalogManager == null ? null : catalogManager::stopAsync,
+                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
                 indexBuildController == null ? null : indexBuildController::close
         );
     }

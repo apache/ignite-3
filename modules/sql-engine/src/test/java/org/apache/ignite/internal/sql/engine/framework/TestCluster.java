@@ -112,8 +112,8 @@ public class TestCluster implements LifecycleAware {
         }
 
         @Override
-        public void stop() throws Exception {
-            component.stopAsync();
+        public void stop() {
+            assertThat(component.stopAsync(), willCompleteSuccessfully());
         }
     }
 }

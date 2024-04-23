@@ -104,8 +104,8 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
     void tearDown() throws Exception {
         IgniteUtils.closeAll(
                 controller == null ? null : controller::close,
-                catalogManager == null ? null : catalogManager::stopAsync,
-                metaStorageManager == null ? null : metaStorageManager::stopAsync
+                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
+                metaStorageManager == null ? null : () -> assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully())
         );
     }
 
@@ -192,8 +192,8 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
 
         IgniteUtils.closeAll(
-                catalogManager == null ? null : catalogManager::stopAsync,
-                metaStorageManager == null ? null : metaStorageManager::stopAsync
+                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
+                metaStorageManager == null ? null : () -> assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully())
         );
 
         keyValueStorage = new TestRocksDbKeyValueStorage(NODE_NAME, workDir);

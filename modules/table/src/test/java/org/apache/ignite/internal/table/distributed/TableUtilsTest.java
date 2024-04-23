@@ -36,7 +36,6 @@ import static org.apache.ignite.internal.table.TableTestUtils.startBuildingIndex
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.TransactionIds.transactionId;
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -70,11 +69,10 @@ public class TableUtilsTest extends IgniteAbstractTest {
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        closeAll(
-                catalogManager::beforeNodeStop,
-                catalogManager::stopAsync
-        );
+    void tearDown() {
+        catalogManager.beforeNodeStop();
+
+        assertThat(catalogManager.stopAsync(), willCompleteSuccessfully());
     }
 
     @Test

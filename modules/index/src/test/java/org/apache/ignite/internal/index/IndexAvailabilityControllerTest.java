@@ -118,8 +118,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         closeAll(
                 indexAvailabilityController::close,
                 indexBuilder::close,
-                catalogManager::stopAsync,
-                metaStorageManager::stopAsync,
+                () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
+                () -> assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully()),
                 () -> shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS)
         );
     }

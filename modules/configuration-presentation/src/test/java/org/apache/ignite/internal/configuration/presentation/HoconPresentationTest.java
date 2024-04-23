@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration.presentation;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.isA;
 import static org.hamcrest.Matchers.nullValue;
@@ -89,7 +90,7 @@ public class HoconPresentationTest {
                 ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
-        cfgRegistry.startAsync();
+        assertThat(cfgRegistry.startAsync(), willCompleteSuccessfully());
 
         cfgPresentation = new HoconPresentation(cfgRegistry);
 
@@ -101,7 +102,7 @@ public class HoconPresentationTest {
      */
     @AfterAll
     static void afterAll() throws Exception {
-        cfgRegistry.stopAsync();
+        assertThat(cfgRegistry.stopAsync(), willCompleteSuccessfully());
         cfgRegistry = null;
 
         generator.close();

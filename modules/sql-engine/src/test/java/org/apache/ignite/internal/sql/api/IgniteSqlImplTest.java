@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.cause;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
@@ -127,7 +128,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
         assertThat(rs, notNullValue());
         assertThat(igniteSql.openedCursors(), hasSize(1));
 
-        igniteSql.stopAsync();
+        assertThat(igniteSql.stopAsync(), willCompleteSuccessfully());
 
         verify(result).closeAsync();
     }
@@ -147,7 +148,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
 
         assertThat(executeQueryLatch.await(5, TimeUnit.SECONDS), is(true));
 
-        igniteSql.stopAsync();
+        assertThat(igniteSql.stopAsync(), willCompleteSuccessfully());
 
         AsyncSqlCursor<InternalSqlRow> cursor = mock(AsyncSqlCursor.class);
         cursorFuture.complete(cursor);
@@ -193,7 +194,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
 
         assertThat(executeQueryLatch.await(5, TimeUnit.SECONDS), is(true));
 
-        igniteSql.stopAsync();
+        assertThat(igniteSql.stopAsync(), willCompleteSuccessfully());
 
         AsyncSqlCursor<InternalSqlRow> cursor = mock(AsyncSqlCursor.class);
         cursorFuture.complete(cursor);
@@ -339,7 +340,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
 
         Thread thread = new Thread(() -> {
             try {
-                igniteSql.stopAsync();
+                assertThat(igniteSql.stopAsync(), willCompleteSuccessfully());
             } catch (Exception e) {
                 throw new RuntimeException(e);
             } finally {

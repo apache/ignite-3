@@ -128,12 +128,12 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             if (!placementDriverNodeNames.contains(nodeName)) {
                 var service = clusterServices.get(nodeName);
 
-                service.startAsync();
+                assertThat(service.startAsync(), willCompleteSuccessfully());
 
                 servicesToClose.add(() -> {
                     service.beforeNodeStop();
 
-                    service.stopAsync();
+                    assertThat(service.stopAsync(), willCompleteSuccessfully());
                 });
             }
         }

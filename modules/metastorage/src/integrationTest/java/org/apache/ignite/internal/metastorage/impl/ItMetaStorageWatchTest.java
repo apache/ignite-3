@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
@@ -189,7 +190,8 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         }
 
         void start() {
-            components.forEach(IgniteComponent::startAsync);
+            CompletableFuture<Void> future = allOf(components.stream().map(IgniteComponent::startAsync).toArray(CompletableFuture[]::new));
+            assertThat(future, willCompleteSuccessfully());
         }
 
         String name() {
@@ -201,9 +203,9 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             Stream<AutoCloseable> beforeNodeStop = components.stream().map(c -> c::beforeNodeStop);
 
-            Stream<AutoCloseable> nodeStop = components.stream().map(c -> c::stopAsync);
+            CompletableFuture<Void> nodeStop = allOf(components.stream().map(IgniteComponent::stopAsync).toArray(CompletableFuture[]::new));
 
-            IgniteUtils.closeAll(Stream.concat(beforeNodeStop, nodeStop));
+            IgniteUtils.closeAll(beforeNodeStop, () -> assertThat(nodeStop, willCompleteSuccessfully()));
         }
     }
 

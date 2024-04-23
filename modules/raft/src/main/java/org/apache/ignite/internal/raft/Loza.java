@@ -201,9 +201,7 @@ public class Loza implements RaftManager {
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
-        raftServer.stopAsync();
-
-        return nullCompletedFuture();
+        return raftServer.stopAsync();
     }
 
     @Override

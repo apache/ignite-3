@@ -109,7 +109,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() {
-        lowWatermark.stopAsync();
+        assertThat(lowWatermark.stopAsync(), willCompleteSuccessfully());
     }
 
     @Test

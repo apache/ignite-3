@@ -316,9 +316,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     }
 
     @AfterAll
-    static void afterAllTests() throws Exception {
+    static void afterAllTests() {
         if (txManager != null) {
-            txManager.stopAsync();
+            assertThat(txManager.stopAsync(), willCompleteSuccessfully());
         }
     }
 

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -124,7 +123,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
         assertThat(
-                allOf(components.stream().map(IgniteComponent::startAsync).collect(toList()).toArray(CompletableFuture[]::new)),
+                allOf(components.stream().map(IgniteComponent::startAsync).toArray(CompletableFuture[]::new)),
                 willCompleteSuccessfully()
         );
     }
@@ -138,7 +137,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         Collections.reverse(components);
 
         IgniteUtils.closeAll(components.stream().map(c -> c::beforeNodeStop));
-        IgniteUtils.closeAll(components.stream().map(c -> c::stopAsync));
+        CompletableFuture<Void> future = allOf(components.stream().map(IgniteComponent::stopAsync).toArray(CompletableFuture[]::new));
+        assertThat(future, willCompleteSuccessfully());
     }
 
     void startDistributionZoneManager() {

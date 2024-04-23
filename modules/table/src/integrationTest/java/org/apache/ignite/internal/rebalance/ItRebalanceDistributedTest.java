@@ -1372,13 +1372,20 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 }
             });
 
+            List<CompletableFuture<Void>> allComponentsStopFuture = new ArrayList<>();
+
             new ReverseIterator<>(nodeComponents).forEachRemaining(component -> {
-                try {
-                    component.stopAsync();
-                } catch (Exception e) {
-                    LOG.error("Unable to stop component [component={}]", e, component);
-                }
+                CompletableFuture<Void> stopFuture = component.stopAsync()
+                        .whenComplete((unused, throwable) -> {
+                            if (throwable != null) {
+                                LOG.error("Unable to stop component [component={}]", throwable, component);
+                            }
+                        });
+
+                allComponentsStopFuture.add(stopFuture);
             });
+
+            assertThat(allOf(allComponentsStopFuture.toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
 
             nodeCfgGenerator.close();
             clusterCfgGenerator.close();

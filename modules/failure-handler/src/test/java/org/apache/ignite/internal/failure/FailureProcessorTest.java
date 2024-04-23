@@ -50,7 +50,7 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
 
             verify(handler, times(1)).onFailure(anyString(), any());
         } finally {
-            failureProcessor.stopAsync();
+            assertThat(failureProcessor.stopAsync(), willSucceedFast());
         }
     }
 
@@ -67,7 +67,7 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
 
             assertThat(failureProcessor.process(new FailureContext(SYSTEM_CRITICAL_OPERATION_TIMEOUT, null)), is(false));
         } finally {
-            failureProcessor.stopAsync();
+            assertThat(failureProcessor.stopAsync(), willSucceedFast());
         }
     }
 }

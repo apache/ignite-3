@@ -41,6 +41,7 @@ import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.d
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
@@ -278,10 +279,10 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         // Start.
 
-        vault.startAsync();
+        assertThat(vault.startAsync(), willCompleteSuccessfully());
         vault.putName(name);
 
-        nodeCfgMgr.startAsync();
+        assertThat(nodeCfgMgr.startAsync(), willCompleteSuccessfully());
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
@@ -297,7 +298,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
 
         for (IgniteComponent component : otherComponents) {
-            component.startAsync();
+            assertThat(component.startAsync(), willCompleteSuccessfully());
 
             components.add(component);
         }

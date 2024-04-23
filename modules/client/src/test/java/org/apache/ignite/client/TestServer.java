@@ -18,6 +18,8 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -171,7 +173,7 @@ public class TestServer implements AutoCloseable {
                 new TestConfigurationValidator()
         );
 
-        cfg.startAsync();
+        assertThat(cfg.startAsync(), willCompleteSuccessfully());
 
         cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
                 local -> local.changePort(port != null ? port : getFreePort()).changeIdleTimeout(idleTimeout)
@@ -179,7 +181,7 @@ public class TestServer implements AutoCloseable {
 
         bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkConfiguration.KEY), "TestServer-");
 
-        bootstrapFactory.startAsync();
+        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
 
         if (nodeName == null) {
             nodeName = "server-1";
@@ -208,7 +210,7 @@ public class TestServer implements AutoCloseable {
             authenticationManager = new DummyAuthenticationManager();
         } else {
             authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
-            authenticationManager.startAsync();
+            assertThat(authenticationManager.startAsync(), willCompleteSuccessfully());
         }
 
         ClusterTag tag = msgFactory.clusterTag()
@@ -315,10 +317,11 @@ public class TestServer implements AutoCloseable {
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
-        module.stopAsync();
-        authenticationManager.stopAsync();
-        bootstrapFactory.stopAsync();
-        cfg.stopAsync();
+        assertThat(module.stopAsync(), willCompleteSuccessfully());
+        assertThat(authenticationManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully());
+        assertThat(cfg.stopAsync(), willCompleteSuccessfully());
+
         generator.close();
     }
 

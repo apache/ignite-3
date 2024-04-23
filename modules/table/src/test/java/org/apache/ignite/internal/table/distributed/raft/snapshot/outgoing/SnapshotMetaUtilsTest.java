@@ -126,7 +126,7 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
                     is(Map.of(indexId2, nextRowIdToBuildIndex2.uuid()))
             );
         } finally {
-            closeAll(catalogManager::beforeNodeStop, catalogManager::stopAsync);
+            closeAll(catalogManager::beforeNodeStop, () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()));
         }
     }
 }

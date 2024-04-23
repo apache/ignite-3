@@ -80,7 +80,7 @@ class CatalogTestUtilsTest extends BaseIgniteAbstractTest {
         assertThat(tablesOfVersion2, hasItem(descriptorWithName("T1")));
         assertThat(tablesOfVersion2, hasItem(descriptorWithName("T2")));
 
-        manager.stopAsync();
+        assertThat(manager.stopAsync(), willCompleteSuccessfully());
     }
 
     private static Matcher<CatalogTableDescriptor> descriptorWithName(String name) {

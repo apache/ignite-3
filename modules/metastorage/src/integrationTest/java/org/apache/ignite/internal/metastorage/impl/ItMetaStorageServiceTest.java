@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
@@ -73,6 +74,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
@@ -201,8 +203,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         }
 
         void start(PeersAndLearners configuration) {
-            clusterService.startAsync();
-            raftManager.startAsync();
+            assertThat(clusterService.startAsync(), willCompleteSuccessfully());
+            assertThat(raftManager.startAsync(), willCompleteSuccessfully());
 
             CompletableFuture<RaftGroupService> raftService = startRaftService(configuration);
 
@@ -252,9 +254,16 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             Stream<AutoCloseable> beforeNodeStop = Stream.of(raftManager, clusterService).map(c -> c::beforeNodeStop);
 
-            Stream<AutoCloseable> nodeStop = Stream.of(raftManager, clusterService).map(c -> c::stopAsync);
+            CompletableFuture<Void> nodeStop = allOf(
+                    Stream.of(raftManager, clusterService)
+                    .map(IgniteComponent::stopAsync)
+                            .toArray(CompletableFuture[]::new)
+            );
 
-            IgniteUtils.closeAll(Stream.of(raftStop, beforeNodeStop, nodeStop).flatMap(Function.identity()));
+            IgniteUtils.closeAll(
+                    Stream.of(raftStop, beforeNodeStop).flatMap(Function.identity()),
+                    () -> assertThat(nodeStop, willCompleteSuccessfully())
+            );
         }
     }
 

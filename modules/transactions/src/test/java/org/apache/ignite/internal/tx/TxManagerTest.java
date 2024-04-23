@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
@@ -166,13 +167,14 @@ public class TxManagerTest extends IgniteAbstractTest {
                 lowWatermark
         );
 
-        txManager.startAsync();
+        assertThat(txManager.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
-    public void tearDown() throws Exception {
+    public void tearDown() {
         txManager.beforeNodeStop();
-        txManager.stopAsync();
+
+        assertThat(txManager.stopAsync(), willCompleteSuccessfully());
     }
 
     @Test

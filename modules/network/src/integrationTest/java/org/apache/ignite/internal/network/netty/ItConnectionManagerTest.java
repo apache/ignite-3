@@ -521,7 +521,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, consistentId);
 
-        bootstrapFactory.startAsync();
+        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
 
         try {
             var manager = new ConnectionManager(
@@ -546,7 +546,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
             return wrapper;
         } catch (Exception e) {
-            bootstrapFactory.stopAsync();
+            assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully());
 
             throw e;
         }
@@ -564,7 +564,11 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
         @Override
         public void close() throws Exception {
-            IgniteUtils.closeAll(connectionManager::initiateStopping, connectionManager::stop, nettyFactory::stopAsync);
+            IgniteUtils.closeAll(
+                    connectionManager::initiateStopping,
+                    connectionManager::stop,
+                    () -> assertThat(nettyFactory.stopAsync(), willCompleteSuccessfully())
+            );
         }
 
         OrderingFuture<NettySender> openChannelTo(ConnectionManagerWrapper recipient) {

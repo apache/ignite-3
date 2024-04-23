@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.network.scalecube;
 
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -48,7 +50,7 @@ class ItNodeRestartsTest {
     @AfterEach
     void tearDown() {
         for (ClusterService service : services) {
-            service.stopAsync();
+            assertThat(service.stopAsync(), willCompleteSuccessfully());
         }
     }
 
@@ -76,10 +78,10 @@ class ItNodeRestartsTest {
         int idx1 = 2;
 
         LOG.info("Shutdown {}", addresses.get(idx0));
-        services.get(idx0).stopAsync();
+        assertThat(services.get(idx0).stopAsync(), willCompleteSuccessfully());
 
         LOG.info("Shutdown {}", addresses.get(idx1));
-        services.get(idx1).stopAsync();
+        assertThat(services.get(idx1).stopAsync(), willCompleteSuccessfully());
 
         LOG.info("Starting {}", addresses.get(idx0));
         ClusterService svc0 = startNetwork(testInfo, addresses.get(idx0), nodeFinder);
@@ -108,7 +110,7 @@ class ItNodeRestartsTest {
     private ClusterService startNetwork(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder) {
         ClusterService clusterService = ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder);
 
-        clusterService.startAsync();
+        assertThat(clusterService.startAsync(), willCompleteSuccessfully());
 
         return clusterService;
     }

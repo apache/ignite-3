@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -51,7 +53,7 @@ public class ItClientHandlerBindTest extends BaseIgniteAbstractTest {
     final void tearDown() throws Exception {
         IgniteUtils.closeAll(
                 server == null ? null : () -> server.tearDown(),
-                serverModule == null ? null : () -> serverModule.stopAsync()
+                serverModule == null ? null : () -> assertThat(serverModule.stopAsync(), willCompleteSuccessfully())
         );
     }
 

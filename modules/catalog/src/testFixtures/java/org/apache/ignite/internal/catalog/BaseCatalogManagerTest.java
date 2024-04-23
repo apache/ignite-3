@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
@@ -30,6 +31,7 @@ import static org.mockito.Mockito.spy;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -50,11 +52,11 @@ import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -104,19 +106,21 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 () -> CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD
         );
 
-        metastore.startAsync();
-        clockWaiter.startAsync();
-        manager.startAsync();
+        assertThat(metastore.startAsync(), willCompleteSuccessfully());
+        assertThat(clockWaiter.startAsync(), willCompleteSuccessfully());
+        assertThat(manager.startAsync(), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
     }
 
     @AfterEach
     public void tearDown() throws Exception {
-        IgniteUtils.closeAll(Stream.of(manager, clockWaiter, metastore)
+        CompletableFuture<Void> future = allOf(Stream.of(manager, clockWaiter, metastore)
                 .filter(Objects::nonNull)
-                .map(component -> component::stopAsync)
-        );
+                .map(IgniteComponent::stopAsync)
+                .toArray(CompletableFuture[]::new));
+
+        assertThat(future, willCompleteSuccessfully());
     }
 
     protected static CatalogCommand createHashIndexCommand(

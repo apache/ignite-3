@@ -23,7 +23,9 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromConsistentIds;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -195,9 +197,9 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             replicaManagers.put(nodeName, replicaManager);
 
-            clusterService.startAsync();
-            raftManager.startAsync();
-            replicaManager.startAsync();
+            assertThat(clusterService.startAsync(), willCompleteSuccessfully());
+            assertThat(raftManager.startAsync(), willCompleteSuccessfully());
+            assertThat(replicaManager.startAsync(), willCompleteSuccessfully());
 
             servicesToClose.add(() -> {
                 try {
@@ -205,9 +207,9 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     raftManager.beforeNodeStop();
                     clusterService.beforeNodeStop();
 
-                    replicaManager.stopAsync();
-                    raftManager.stopAsync();
-                    clusterService.stopAsync();
+                    assertThat(replicaManager.stopAsync(), willCompleteSuccessfully());
+                    assertThat(raftManager.stopAsync(), willCompleteSuccessfully());
+                    assertThat(clusterService.stopAsync(), willCompleteSuccessfully());
                 } catch (Exception e) {
                     log.info("Fail to stop services [node={}]", e, nodeName);
                 }
@@ -355,7 +357,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             var srvc = clusterServices.get(nodeToStop);
 
             srvc.beforeNodeStop();
-            srvc.stopAsync();
+            assertThat(srvc.stopAsync(), willCompleteSuccessfully());
         }
 
         var anyNode = randomNode(grpNodesToStop);

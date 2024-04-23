@@ -63,8 +63,8 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     @AfterEach
     public void after() throws Exception {
-        clockWaiter.stopAsync();
-        catalogManager.stopAsync();
+        assertThat(clockWaiter.stopAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.stopAsync(), willCompleteSuccessfully());
     }
 
     @Test

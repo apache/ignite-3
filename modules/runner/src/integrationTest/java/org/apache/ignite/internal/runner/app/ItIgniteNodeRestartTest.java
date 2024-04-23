@@ -664,10 +664,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         // Start.
 
-        vault.startAsync();
+        assertThat(vault.startAsync(), willCompleteSuccessfully());
         vault.putName(name);
 
-        nodeCfgMgr.startAsync();
+        assertThat(nodeCfgMgr.startAsync(), willCompleteSuccessfully());
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
@@ -698,7 +698,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         for (IgniteComponent component : otherComponents) {
-            component.startAsync();
+            assertThat(component.startAsync(), willCompleteSuccessfully());
 
             components.add(component);
         }

@@ -39,13 +39,13 @@ class ClockWaiterTest {
     void createWaiter() {
         waiter = new ClockWaiter("test", clock);
 
-        waiter.startAsync();
+        assertThat(waiter.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void cleanup() throws Exception {
+    void cleanup() {
         if (waiter != null) {
-            waiter.stopAsync();
+            assertThat(waiter.stopAsync(), willCompleteSuccessfully());
         }
     }
 
@@ -83,12 +83,12 @@ class ClockWaiterTest {
     }
 
     @Test
-    void futureGetsCancelledOnStop() throws Exception {
+    void futureGetsCancelledOnStop() {
         HybridTimestamp oneYearAhead = getOneYearAhead();
 
         CompletableFuture<Void> future = waiter.waitFor(oneYearAhead);
 
-        waiter.stopAsync();
+        assertThat(waiter.stopAsync(), willCompleteSuccessfully());
 
         assertThat(future, willThrow(CancellationException.class));
     }

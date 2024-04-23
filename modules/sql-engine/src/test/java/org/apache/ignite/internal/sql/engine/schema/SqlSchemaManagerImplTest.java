@@ -110,8 +110,8 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    void cleanup() throws Exception {
-        catalogManager.stopAsync();
+    void cleanup() {
+        assertThat(catalogManager.stopAsync(), willCompleteSuccessfully());
     }
 
     @Test

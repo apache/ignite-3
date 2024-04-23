@@ -172,8 +172,8 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
         closeAll(
                 catalogManager::beforeNodeStop,
                 clockWaiter::beforeNodeStop,
-                catalogManager::stopAsync,
-                clockWaiter::stopAsync,
+                () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
+                () -> assertThat(clockWaiter.stopAsync(), willCompleteSuccessfully()),
                 task == null ? null : task::stop
         );
 

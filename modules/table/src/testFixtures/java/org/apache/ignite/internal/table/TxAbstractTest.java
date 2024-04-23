@@ -263,7 +263,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             NodeFinder nodeFinder) {
         var network = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
-        network.startAsync();
+        assertThat(network.startAsync(), willCompleteSuccessfully());
 
         return network;
     }

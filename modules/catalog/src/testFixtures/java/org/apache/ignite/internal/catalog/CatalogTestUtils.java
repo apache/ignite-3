@@ -93,12 +93,7 @@ public class CatalogTestUtils {
 
             @Override
             public CompletableFuture<Void> stopAsync() {
-                super.stopAsync();
-
-                clockWaiter.stopAsync();
-                metastore.stopAsync();
-
-                return nullCompletedFuture();
+                return allOf(super.stopAsync(), clockWaiter.stopAsync(), metastore.stopAsync());
             }
         };
     }
@@ -130,11 +125,7 @@ public class CatalogTestUtils {
 
             @Override
             public CompletableFuture<Void> stopAsync() {
-                super.stopAsync();
-
-                metastore.stopAsync();
-
-                return nullCompletedFuture();
+                return allOf(super.stopAsync(), metastore.stopAsync());
             }
         };
     }
@@ -166,11 +157,7 @@ public class CatalogTestUtils {
 
             @Override
             public CompletableFuture<Void> stopAsync() {
-                super.stopAsync();
-
-                clockWaiter.stopAsync();
-
-                return nullCompletedFuture();
+                return allOf(super.stopAsync(), clockWaiter.stopAsync());
             }
         };
     }
@@ -216,11 +203,7 @@ public class CatalogTestUtils {
 
             @Override
             public CompletableFuture<Void> stopAsync() {
-                super.stopAsync();
-
-                clockWaiter.stopAsync();
-
-                return nullCompletedFuture();
+                return allOf(super.stopAsync(), clockWaiter.stopAsync());
             }
         };
     }
@@ -256,11 +239,7 @@ public class CatalogTestUtils {
 
             @Override
             public CompletableFuture<Void> stopAsync() {
-                super.stopAsync();
-
-                clockWaiter.stopAsync();
-
-                return nullCompletedFuture();
+                return allOf(super.stopAsync(), clockWaiter.stopAsync());
             }
         };
     }

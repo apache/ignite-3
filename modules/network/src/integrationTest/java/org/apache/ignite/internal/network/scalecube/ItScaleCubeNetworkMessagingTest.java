@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.scalecube;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -289,7 +290,7 @@ class ItScaleCubeNetworkMessagingTest {
         ClusterService member0 = testCluster.members.get(0);
         ClusterService member1 = testCluster.members.get(1);
 
-        member0.stopAsync();
+        assertThat(member0.stopAsync(), willCompleteSuccessfully());
 
         // Perform two invokes to test that multiple requests can get cancelled.
         CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
@@ -340,7 +341,7 @@ class ItScaleCubeNetworkMessagingTest {
                 1000
         );
 
-        member0.stopAsync();
+        assertThat(member0.stopAsync(), willCompleteSuccessfully());
 
         ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, SECONDS));
 
@@ -387,7 +388,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         assertTrue(receivedTestMessages.await(10, SECONDS), "Did not receive invocations on the receiver in time");
 
-        member0.stopAsync();
+        assertThat(member0.stopAsync(), willCompleteSuccessfully());
 
         ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, SECONDS));
 
@@ -1058,7 +1059,7 @@ class ItScaleCubeNetworkMessagingTest {
                 receiver.topologyService().localMember()
         );
 
-        sender.stopAsync();
+        assertThat(sender.stopAsync(), willCompleteSuccessfully());
 
         assertThat(sendFuture, willThrow(NodeStoppingException.class));
     }
@@ -1174,7 +1175,7 @@ class ItScaleCubeNetworkMessagingTest {
         if (forceful) {
             stopForcefully(alice);
         } else {
-            alice.stopAsync();
+            assertThat(alice.stopAsync(), willCompleteSuccessfully());
         }
 
         boolean aliceShutdownReceived = aliceShutdownLatch.await(forceful ? 10 : 3, SECONDS);
@@ -1258,7 +1259,9 @@ class ItScaleCubeNetworkMessagingTest {
          * @throws AssertionError       If the cluster was unable to start in 3 seconds.
          */
         void startAwait() throws InterruptedException {
-            members.forEach(ClusterService::startAsync);
+            CompletableFuture<Void> future = allOf(members.stream().map(ClusterService::startAsync).toArray(CompletableFuture[]::new));
+
+            assertThat(future, willCompleteSuccessfully());
 
             if (!waitForCondition(this::allMembersSeeEachOther, SECONDS.toMillis(3))) {
                 throw new AssertionError();
@@ -1276,7 +1279,9 @@ class ItScaleCubeNetworkMessagingTest {
          * Stops the cluster.
          */
         void shutdown() {
-            members.forEach(ClusterService::stopAsync);
+            CompletableFuture<Void> future = allOf(members.stream().map(ClusterService::stopAsync).toArray(CompletableFuture[]::new));
+
+            assertThat(future, willCompleteSuccessfully());
         }
     }
 

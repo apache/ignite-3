@@ -19,6 +19,7 @@ package org.apache.ignite.raft.jraft.core;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.synchronizedList;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.byteBufferToByteArray;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
 import static org.apache.ignite.raft.jraft.test.TestUtils.sender;
@@ -3856,7 +3857,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         nodeOptions.setCommandsMarshaller(TestCluster.commandsMarshaller(clusterService));
 
-        clusterService.startAsync();
+        assertThat(clusterService.startAsync(), willCompleteSuccessfully());
 
         var service = new RaftGroupService(groupId, peer.getPeerId(), nodeOptions, rpcServer, nodeManager) {
             @Override public synchronized void shutdown() {
@@ -3864,7 +3865,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
                 super.shutdown();
 
-                clusterService.stopAsync();
+                assertThat(clusterService.stopAsync(), willCompleteSuccessfully());
             }
         };
 

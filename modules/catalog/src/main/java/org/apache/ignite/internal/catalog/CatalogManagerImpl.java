@@ -191,18 +191,14 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 
-        updateLog.startAsync();
-
-        return nullCompletedFuture();
+        return updateLog.startAsync();
     }
 
     @Override
     public CompletableFuture<Void> stopAsync() {
         busyLock.block();
         versionTracker.close();
-        updateLog.stopAsync();
-
-        return nullCompletedFuture();
+        return updateLog.stopAsync();
     }
 
     @Override

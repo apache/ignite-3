@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
@@ -88,11 +90,11 @@ public class TestServer {
     }
 
     void tearDown() throws Exception {
-        bootstrapFactory.stopAsync();
+        assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully());
     }
 
     ClientHandlerModule start(TestInfo testInfo) {
-        authenticationManager.startAsync();
+        assertThat(authenticationManager.startAsync(), willCompleteSuccessfully());
 
         clientConnectorConfiguration.change(
                 local -> local
@@ -108,7 +110,7 @@ public class TestServer {
 
         bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, testInfo.getDisplayName());
 
-        bootstrapFactory.startAsync();
+        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");

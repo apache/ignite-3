@@ -107,15 +107,15 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         }
 
         void start() {
-            clusterService.startAsync();
-            raftManager.startAsync();
+            assertThat(clusterService.startAsync(), willCompleteSuccessfully());
+            assertThat(raftManager.startAsync(), willCompleteSuccessfully());
         }
 
         void afterNodeStart() {
             try {
                 assertTrue(waitForCondition(() -> clusterService.topologyService().allMembers().size() == cluster.size(), 1000));
 
-                raftStorage.startAsync();
+                assertThat(raftStorage.startAsync(), willCompleteSuccessfully());
 
                 PeersAndLearners configuration = clusterService.topologyService().allMembers().stream()
                         .map(ClusterNode::name)
@@ -158,9 +158,9 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         void stop() {
             try {
                 IgniteUtils.closeAll(
-                        raftManager::stopAsync,
-                        raftStorage::stopAsync,
-                        clusterService::stopAsync
+                        () -> assertThat(raftManager.stopAsync(), willCompleteSuccessfully()),
+                        () -> assertThat(raftStorage.stopAsync(), willCompleteSuccessfully()),
+                        () -> assertThat(clusterService.stopAsync(), willCompleteSuccessfully())
                 );
             } catch (Exception e) {
                 throw new RuntimeException(e);

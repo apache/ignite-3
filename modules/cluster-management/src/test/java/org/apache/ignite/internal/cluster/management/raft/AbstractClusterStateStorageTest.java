@@ -54,12 +54,12 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
     void setUp(TestInfo testInfo) {
         storage = createStorage(testNodeName(testInfo, 0));
 
-        storage.startAsync();
+        assertThat(storage.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        storage.stopAsync();
+        assertThat(storage.stopAsync(), willCompleteSuccessfully());
     }
 
     /**
@@ -289,7 +289,7 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
 
         storage = createStorage(testNodeName(testInfo, 0));
 
-        storage.startAsync();
+        assertThat(storage.startAsync(), willCompleteSuccessfully());
 
         assertThat(storage.get(key), is(nullValue()));
 
@@ -322,7 +322,7 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
 
         storage = createStorage(testNodeName(testInfo, 0));
 
-        storage.startAsync();
+        assertThat(storage.startAsync(), willCompleteSuccessfully());
 
         assertThat(storage.get(key1), is(nullValue()));
         assertThat(storage.get(key2), is(nullValue()));

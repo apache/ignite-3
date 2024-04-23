@@ -76,13 +76,13 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         metastore = StandaloneMetaStorageManager.create(keyValueStorage);
 
         keyValueStorage.start();
-        metastore.startAsync();
+        assertThat(metastore.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
     public void tearDown() throws Exception {
         IgniteUtils.closeAll(
-                metastore == null ? null : metastore::stopAsync,
+                metastore == null ? null : () -> assertThat(metastore.stopAsync(), willCompleteSuccessfully()),
                 keyValueStorage == null ? null : keyValueStorage::close
         );
     }
@@ -99,7 +99,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         appendUpdates(updateLogImpl, expectedUpdates);
 
         // Let's restart the log and metastore with recovery.
-        updateLogImpl.stopAsync();
+        assertThat(updateLogImpl.stopAsync(), willCompleteSuccessfully());
 
         restartMetastore();
 
@@ -132,7 +132,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         compactCatalog(updateLogImpl, snapshotEntryOfVersion(2));
 
         // Let's restart the log and metastore with recovery.
-        updateLogImpl.stopAsync();
+        assertThat(updateLogImpl.stopAsync(), willCompleteSuccessfully());
 
         restartMetastore();
 
@@ -170,7 +170,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         UpdateLogImpl updateLogImpl = createUpdateLogImpl();
 
         updateLogImpl.registerUpdateHandler(onUpdateHandler);
-        updateLogImpl.startAsync();
+        assertThat(updateLogImpl.startAsync(), willCompleteSuccessfully());
 
         return updateLogImpl;
     }
@@ -189,10 +189,10 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
     private void restartMetastore() throws Exception {
         long recoverRevision = metastore.appliedRevision();
 
-        metastore.stopAsync();
+        assertThat(metastore.stopAsync(), willCompleteSuccessfully());
 
         metastore = StandaloneMetaStorageManager.create(keyValueStorage);
-        metastore.startAsync();
+        assertThat(metastore.startAsync(), willCompleteSuccessfully());
 
         assertThat(metastore.recoveryFinishedFuture(), willBe(recoverRevision));
     }
@@ -229,7 +229,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         long revisionBefore = metastore.appliedRevision();
 
-        updateLog.startAsync();
+        assertThat(updateLog.startAsync(), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 

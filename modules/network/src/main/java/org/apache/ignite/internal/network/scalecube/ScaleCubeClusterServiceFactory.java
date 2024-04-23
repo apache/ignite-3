@@ -253,7 +253,7 @@ public class ScaleCubeClusterServiceFactory {
 
             @Override
             public void beforeNodeStop() {
-                this.stopAsync();
+                this.stopAsync().join();
             }
 
             @Override

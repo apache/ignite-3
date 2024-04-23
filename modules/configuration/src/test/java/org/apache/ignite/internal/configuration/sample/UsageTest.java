@@ -19,6 +19,8 @@ package org.apache.ignite.internal.configuration.sample;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -39,8 +41,8 @@ public class UsageTest {
     private ConfigurationRegistry registry;
 
     @AfterEach
-    public void after() throws Exception {
-        registry.stopAsync();
+    public void after() {
+        assertThat(registry.stopAsync(), willCompleteSuccessfully());
     }
 
     /**
@@ -55,7 +57,7 @@ public class UsageTest {
                 new TestConfigurationValidator()
         );
 
-        registry.startAsync();
+        assertThat(registry.startAsync(), willCompleteSuccessfully());
 
         LocalConfiguration root = registry.getConfiguration(LocalConfiguration.KEY);
 
@@ -114,7 +116,7 @@ public class UsageTest {
                 new TestConfigurationValidator()
         );
 
-        registry.startAsync();
+        assertThat(registry.startAsync(), willCompleteSuccessfully());
 
         registry.getConfiguration(LocalConfiguration.KEY).change(local ->
                 local.changeTestConfigurationSchema(schema ->

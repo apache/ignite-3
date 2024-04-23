@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -175,11 +176,13 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
         /**
          * Starts the created components.
          */
-        void start() throws Exception {
-            vaultManager.startAsync();
+        void start() {
+            assertThat(vaultManager.startAsync(), willCompleteSuccessfully());
 
-            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
-                    .forEach(IgniteComponent::startAsync);
+            CompletableFuture<Void> startFuture = allOf(Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
+                    .map(IgniteComponent::startAsync).toArray(CompletableFuture[]::new));
+
+            assertThat(startFuture, willCompleteSuccessfully());
 
             // this is needed to avoid assertion errors
             cfgStorage.registerConfigurationListener(changedEntries -> nullCompletedFuture());
@@ -195,7 +198,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
         /**
          * Stops the created components.
          */
-        void stop() throws Exception {
+        void stop() {
             var components =
                     List.of(metaStorageManager, cmgManager, raftManager, clusterService, vaultManager);
 
@@ -203,9 +206,10 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                 igniteComponent.beforeNodeStop();
             }
 
-            for (IgniteComponent component : components) {
-                component.stopAsync();
-            }
+            CompletableFuture<Void> stopFuture = allOf(components.stream()
+                    .map(IgniteComponent::stopAsync)
+                    .toArray(CompletableFuture[]::new));
+            assertThat(stopFuture, willCompleteSuccessfully());
         }
 
         String name() {

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
@@ -52,13 +55,13 @@ class Node implements AutoCloseable {
     }
 
     CompletableFuture<Void> startAsync() {
-        clusterService.startAsync();
-        loza.startAsync();
-        metastore.startAsync();
+        assertThat(clusterService.startAsync(), willCompleteSuccessfully());
+        assertThat(loza.startAsync(), willCompleteSuccessfully());
+        assertThat(metastore.startAsync(), willCompleteSuccessfully());
 
         return metastore
                 .recoveryFinishedFuture()
-                .thenRun(placementDriverManager::startAsync)
+                .thenCompose(unused -> placementDriverManager.startAsync())
                 .thenCompose(unused -> metastore.notifyRevisionUpdateListenerOnStart())
                 .thenCompose(unused -> metastore.deployWatches());
     }

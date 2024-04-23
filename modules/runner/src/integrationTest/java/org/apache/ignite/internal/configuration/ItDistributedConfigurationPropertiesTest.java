@@ -225,12 +225,14 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
          * Starts the created components.
          */
         CompletableFuture<Void> start() {
-            vaultManager.startAsync();
+            assertThat(vaultManager.startAsync(), willCompleteSuccessfully());
 
-            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
-                    .forEach(IgniteComponent::startAsync);
+            CompletableFuture<Void> startFuture = allOf(Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
+                    .map(IgniteComponent::startAsync).toArray(CompletableFuture[]::new));
 
-            return CompletableFuture.runAsync(distributedCfgManager::startAsync);
+            assertThat(startFuture, willCompleteSuccessfully());
+
+            return CompletableFuture.runAsync(() -> assertThat(distributedCfgManager.startAsync(), willCompleteSuccessfully()));
         }
 
         /**
@@ -243,7 +245,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
         /**
          * Stops the created components.
          */
-        void stop() throws Exception {
+        void stop() {
             var components = List.of(
                     distributedCfgManager,
                     cmgManager,
@@ -257,9 +259,10 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                 igniteComponent.beforeNodeStop();
             }
 
-            for (IgniteComponent component : components) {
-                component.stopAsync();
-            }
+            CompletableFuture<Void> stopFuture = allOf(components.stream()
+                    .map(IgniteComponent::stopAsync)
+                    .toArray(CompletableFuture[]::new));
+            assertThat(stopFuture, willCompleteSuccessfully());
 
             generator.close();
         }

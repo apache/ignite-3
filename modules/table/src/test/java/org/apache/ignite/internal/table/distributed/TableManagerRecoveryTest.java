@@ -370,14 +370,14 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private void stopComponents() throws Exception {
         if (tableManager != null) {
             tableManager.beforeNodeStop();
-            tableManager.stopAsync();
+            assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
         }
 
         IgniteUtils.closeAll(
-                dsm == null ? null : dsm::stopAsync,
-                sm == null ? null : sm::stopAsync,
-                catalogManager == null ? null : catalogManager::stopAsync,
-                metaStorageManager == null ? null : metaStorageManager::stopAsync,
+                dsm == null ? null : () -> assertThat(dsm.stopAsync(), willCompleteSuccessfully()),
+                sm == null ? null : () -> assertThat(sm.stopAsync(), willCompleteSuccessfully()),
+                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
+                metaStorageManager == null ? null : () -> assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully()),
                 partitionOperationsExecutor == null ? null
                         : () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
         );

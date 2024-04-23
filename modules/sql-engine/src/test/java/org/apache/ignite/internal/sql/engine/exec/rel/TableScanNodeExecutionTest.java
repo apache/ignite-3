@@ -176,7 +176,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             assertThat(txManager.startAsync(), willCompleteSuccessfully());
 
-            closeables.add(txManager::stopAsync);
+            closeables.add(() -> assertThat(txManager.stopAsync(), willCompleteSuccessfully()));
 
             TestInternalTableImpl internalTable = new TestInternalTableImpl(replicaSvc, size, timestampTracker, txManager);
 

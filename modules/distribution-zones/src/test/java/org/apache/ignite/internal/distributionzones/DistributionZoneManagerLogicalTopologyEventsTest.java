@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.cluster.management.topology.LogicalTopo
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopologyVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Set;
@@ -41,7 +43,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testMetaStorageKeysInitializedOnStartWhenTopVerEmpty() throws Exception {
-        distributionZoneManager.startAsync();
+        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -54,7 +56,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
     void testMetaStorageKeysInitializedOnStartWhenTopVerEqualsToCmgTopVer() throws Exception {
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(2L), HybridTimestamp.MIN_VALUE);
 
-        distributionZoneManager.startAsync();
+        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
 
         assertLogicalTopologyVersion(2L, keyValueStorage);
 
@@ -65,7 +67,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
     void testMetaStorageKeysInitializedOnStartWhenTopVerGreaterThanCmgTopVer() throws Exception {
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(3L), HybridTimestamp.MIN_VALUE);
 
-        distributionZoneManager.startAsync();
+        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
 
         assertLogicalTopologyVersion(3L, keyValueStorage);
 
@@ -74,7 +76,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testNodeAddingUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        distributionZoneManager.startAsync();
+        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -89,7 +91,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testNodeStaleAddingDoNotUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        distributionZoneManager.startAsync();
+        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -111,7 +113,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testNodeRemovingUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        distributionZoneManager.startAsync();
+        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -132,7 +134,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testNodeStaleRemovingDoNotUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        distributionZoneManager.startAsync();
+        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -156,7 +158,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testTopologyLeapUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        distributionZoneManager.startAsync();
+        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -177,7 +179,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testStaleTopologyLeapDoNotUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        distributionZoneManager.startAsync();
+        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
