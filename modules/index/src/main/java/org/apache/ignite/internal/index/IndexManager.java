@@ -133,7 +133,7 @@ public class IndexManager implements IgniteComponent {
 
         catalogService.listen(INDEX_CREATE, (CreateIndexEventParameters parameters) -> onIndexCreate(parameters));
         catalogService.listen(INDEX_REMOVED, fromConsumer(this::onIndexRemoved));
-        lowWatermark.listen(LOW_WATERMARK_CHANGED, fromConsumer(this::onLwmChanged));
+        lowWatermark.listen(LOW_WATERMARK_CHANGED, parameters -> onLwmChanged((ChangeLowWatermarkEventParameters) parameters));
 
         LOG.info("Index manager started");
 
@@ -219,8 +219,8 @@ public class IndexManager implements IgniteComponent {
         });
     }
 
-    private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
-        inBusyLock(busyLock, () -> {
+    private CompletableFuture<Boolean> onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
+        return inBusyLockAsync(busyLock, () -> {
             int newEarliestCatalogVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
             List<DestroyIndexEvent> events = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion);
@@ -228,7 +228,7 @@ public class IndexManager implements IgniteComponent {
             return runAsync(
                     () -> events.forEach(event -> destroyIndex(event.indexId(), event.tableId())),
                     ioExecutor
-            );
+            ).thenApply(unused -> false);
         });
     }
 

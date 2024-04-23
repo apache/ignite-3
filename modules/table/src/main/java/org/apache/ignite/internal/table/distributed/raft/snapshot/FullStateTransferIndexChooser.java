@@ -32,7 +32,6 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.view;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
@@ -425,8 +424,6 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
                     tableVersionByIndexId.remove(readOnlyIndexInfo.indexId());
                 }
             }
-
-            return nullCompletedFuture();
         });
     }
 }

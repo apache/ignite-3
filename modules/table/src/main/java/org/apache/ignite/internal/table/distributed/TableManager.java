@@ -621,7 +621,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 }
             });
 
-            lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED, fromConsumer(this::onLwmChanged));
+            lowWatermark.listen(
+                    LowWatermarkEvent.LOW_WATERMARK_CHANGED,
+                    parameters -> onLwmChanged((ChangeLowWatermarkEventParameters) parameters)
+            );
 
             partitionReplicatorNodeRecovery.start();
 
@@ -791,21 +794,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
-        inBusyLock(busyLock, () -> {
+    private CompletableFuture<Boolean> onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
+        return inBusyLockAsync(busyLock, () -> {
             int newEarliestCatalogVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
-            List<DestroyTableEvent> events = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion);
-
-            if (events.isEmpty()) {
-                return nullCompletedFuture();
-            }
-
-            List<CompletableFuture<Void>> futures = events.stream()
+            List<CompletableFuture<Void>> futures = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion).stream()
                     .map(event -> destroyTableLocally(event.tableId()))
                     .collect(toList());
 
-            return allOf(futures.toArray(CompletableFuture[]::new));
+            return allOf(futures.toArray(CompletableFuture[]::new)).thenApply(unused -> false);
         });
     }
 
