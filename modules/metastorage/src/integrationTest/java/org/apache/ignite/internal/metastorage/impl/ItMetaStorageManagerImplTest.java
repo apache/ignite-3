@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
@@ -151,14 +150,10 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     void tearDown() throws Exception {
         List<IgniteComponent> components = List.of(metaStorageManager, raftManager, clusterService);
 
-        Stream<AutoCloseable> beforeNodeStop = components.stream().map(c -> c::beforeNodeStop);
-
-        CompletableFuture<Void> future = allOf(components.stream().map(IgniteComponent::stopAsync).toArray(CompletableFuture[]::new));
-
-        IgniteUtils.closeAll(
-                beforeNodeStop,
-                () -> assertThat(future, willCompleteSuccessfully())
-        );
+        IgniteUtils.closeAll(Stream.concat(
+                components.stream().map(c -> c::beforeNodeStop),
+                Stream.of(() -> assertThat(IgniteUtils.stopAsync(components), willCompleteSuccessfully()))
+        ));
     }
 
     /**

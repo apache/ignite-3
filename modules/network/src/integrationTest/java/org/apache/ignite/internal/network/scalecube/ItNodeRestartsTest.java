@@ -31,6 +31,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -49,9 +50,7 @@ class ItNodeRestartsTest {
     /** Tear down method. */
     @AfterEach
     void tearDown() {
-        for (ClusterService service : services) {
-            assertThat(service.stopAsync(), willCompleteSuccessfully());
-        }
+        assertThat(IgniteUtils.stopAsync(services), willCompleteSuccessfully());
     }
 
     /**

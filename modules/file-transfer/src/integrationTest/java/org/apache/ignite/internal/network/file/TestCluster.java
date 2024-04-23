@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.network.file;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
@@ -28,7 +27,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -179,17 +177,14 @@ public class TestCluster {
         }
 
         void start() {
-            CompletableFuture<Void> future = allOf(components.stream().map(IgniteComponent::startAsync).toArray(CompletableFuture[]::new));
-            assertThat(future, willCompleteSuccessfully());
+            assertThat(IgniteUtils.startAsync(components), willCompleteSuccessfully());
         }
 
         void stop() throws Exception {
-            Stream<AutoCloseable> beforeNodeStop = components.stream().map(c -> c::beforeNodeStop);
-            CompletableFuture<Void> future = allOf(components.stream().map(IgniteComponent::stopAsync).toArray(CompletableFuture[]::new));
-            IgniteUtils.closeAll(
-                    beforeNodeStop,
-                    () -> assertThat(future, willCompleteSuccessfully())
-            );
+            IgniteUtils.closeAll(Stream.concat(
+                    components.stream().map(c -> c::beforeNodeStop),
+                    Stream.of(() -> assertThat(IgniteUtils.stopAsync(components), willCompleteSuccessfully()))
+            ));
         }
     }
 }

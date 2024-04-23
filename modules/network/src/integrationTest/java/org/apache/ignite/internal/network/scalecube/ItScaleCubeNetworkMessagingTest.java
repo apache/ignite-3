@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.network.scalecube;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -86,6 +85,7 @@ import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManage
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyEventHandler;
@@ -1259,9 +1259,7 @@ class ItScaleCubeNetworkMessagingTest {
          * @throws AssertionError       If the cluster was unable to start in 3 seconds.
          */
         void startAwait() throws InterruptedException {
-            CompletableFuture<Void> future = allOf(members.stream().map(ClusterService::startAsync).toArray(CompletableFuture[]::new));
-
-            assertThat(future, willCompleteSuccessfully());
+            assertThat(IgniteUtils.startAsync(members), willCompleteSuccessfully());
 
             if (!waitForCondition(this::allMembersSeeEachOther, SECONDS.toMillis(3))) {
                 throw new AssertionError();
@@ -1279,9 +1277,7 @@ class ItScaleCubeNetworkMessagingTest {
          * Stops the cluster.
          */
         void shutdown() {
-            CompletableFuture<Void> future = allOf(members.stream().map(ClusterService::stopAsync).toArray(CompletableFuture[]::new));
-
-            assertThat(future, willCompleteSuccessfully());
+            assertThat(IgniteUtils.stopAsync(members), willCompleteSuccessfully());
         }
     }
 

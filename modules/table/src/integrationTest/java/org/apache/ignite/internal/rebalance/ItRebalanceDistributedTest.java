@@ -63,6 +63,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -199,7 +200,7 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
-import org.apache.ignite.internal.util.ReverseIterator;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterNode;
@@ -1364,28 +1365,18 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
          * Stops the created components.
          */
         void stop() {
-            new ReverseIterator<>(nodeComponents).forEachRemaining(component -> {
+            List<IgniteComponent> components = new ArrayList<>(nodeComponents);
+            Collections.reverse(components);
+
+            for (IgniteComponent component : components) {
                 try {
                     component.beforeNodeStop();
                 } catch (Exception e) {
                     LOG.error("Unable to execute before node stop [component={}]", e, component);
                 }
-            });
+            }
 
-            List<CompletableFuture<Void>> allComponentsStopFuture = new ArrayList<>();
-
-            new ReverseIterator<>(nodeComponents).forEachRemaining(component -> {
-                CompletableFuture<Void> stopFuture = component.stopAsync()
-                        .whenComplete((unused, throwable) -> {
-                            if (throwable != null) {
-                                LOG.error("Unable to stop component [component={}]", throwable, component);
-                            }
-                        });
-
-                allComponentsStopFuture.add(stopFuture);
-            });
-
-            assertThat(allOf(allComponentsStopFuture.toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
+            assertThat(IgniteUtils.stopAsync(components), willCompleteSuccessfully());
 
             nodeCfgGenerator.close();
             clusterCfgGenerator.close();

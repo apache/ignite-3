@@ -33,6 +33,7 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -70,10 +71,7 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
 
     @AfterEach
     protected void after() throws Exception {
-        assertThat(
-                allOf(clusterServices.stream().map(ClusterService::stopAsync).toArray(CompletableFuture[]::new)),
-                willCompleteSuccessfully()
-        );
+        assertThat(IgniteUtils.stopAsync(clusterServices), willCompleteSuccessfully());
     }
 
     /**

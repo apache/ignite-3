@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.service;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -133,13 +134,12 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         Stream<AutoCloseable> beforeNodeStop = Stream.concat(servers.stream(), cluster.stream()).map(c -> c::beforeNodeStop);
 
-        CompletableFuture<?> nodeStop = allOf(Stream.concat(servers.stream(), cluster.stream())
-                .map(IgniteComponent::stopAsync)
-                .toArray(CompletableFuture[]::new));
+        List<IgniteComponent> components = Stream.concat(servers.stream(), cluster.stream()).collect(toList());
+
+        Stream<AutoCloseable> nodeStop = Stream.of(() -> assertThat(IgniteUtils.stopAsync(components), willCompleteSuccessfully()));
 
         IgniteUtils.closeAll(
-                Stream.of(stopRaftGroups, shutdownClients, stopExecutor, beforeNodeStop).flatMap(Function.identity()),
-                () -> assertThat(nodeStop, willCompleteSuccessfully())
+                Stream.of(stopRaftGroups, shutdownClients, stopExecutor, beforeNodeStop, nodeStop).flatMap(Function.identity())
         );
     }
 

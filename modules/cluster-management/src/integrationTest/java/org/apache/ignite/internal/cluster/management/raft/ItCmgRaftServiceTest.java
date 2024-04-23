@@ -156,15 +156,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         }
 
         void stop() {
-            try {
-                IgniteUtils.closeAll(
-                        () -> assertThat(raftManager.stopAsync(), willCompleteSuccessfully()),
-                        () -> assertThat(raftStorage.stopAsync(), willCompleteSuccessfully()),
-                        () -> assertThat(clusterService.stopAsync(), willCompleteSuccessfully())
-                );
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            assertThat(IgniteUtils.stopAsync(raftManager, raftStorage, clusterService), willCompleteSuccessfully());
         }
 
         ClusterNode localMember() {

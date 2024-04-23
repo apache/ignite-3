@@ -72,7 +72,7 @@ class Node implements AutoCloseable {
 
         IgniteUtils.closeAll(Stream.concat(
                 igniteComponents.stream().map(component -> component::beforeNodeStop),
-                Stream.of(() -> IgniteUtils.stopAll(igniteComponents.stream()))
+                Stream.of(() -> assertThat(IgniteUtils.stopAsync(igniteComponents), willCompleteSuccessfully()))
         ));
     }
 }

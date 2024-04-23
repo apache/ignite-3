@@ -81,8 +81,8 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     private TestUpdateHandlerInterceptor interceptor;
 
     @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.stopAll(catalogManager, metaStorageManager);
+    void tearDown() {
+        assertThat(IgniteUtils.stopAsync(catalogManager, metaStorageManager), willCompleteSuccessfully());
     }
 
     @Test
@@ -216,7 +216,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
-    private void stopComponents() throws Exception {
-        IgniteUtils.stopAll(catalogManager, metaStorageManager);
+    private void stopComponents() {
+        assertThat(IgniteUtils.stopAsync(catalogManager, metaStorageManager), willCompleteSuccessfully());
     }
 }

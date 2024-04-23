@@ -206,8 +206,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     metaStorageManager
             );
 
-            CompletableFuture<Void> future = allOf(components.stream().map(IgniteComponent::startAsync).toArray(CompletableFuture[]::new));
-            assertThat(future, willCompleteSuccessfully());
+            assertThat(IgniteUtils.stopAsync(components), willCompleteSuccessfully());
         }
 
         /**
@@ -231,11 +230,10 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     vaultManager
             );
 
-            Stream<AutoCloseable> beforeNodeStop = components.stream().map(c -> c::beforeNodeStop);
-
-            CompletableFuture<Void> nodeStop = allOf(components.stream().map(IgniteComponent::stopAsync).toArray(CompletableFuture[]::new));
-
-            IgniteUtils.closeAll(beforeNodeStop, () -> assertThat(nodeStop, willCompleteSuccessfully()));
+            IgniteUtils.closeAll(Stream.concat(
+                    components.stream().map(c -> c::beforeNodeStop),
+                    Stream.of(() -> assertThat(IgniteUtils.stopAsync(components), willCompleteSuccessfully()))
+            ));
         }
 
         CompletableFuture<Set<String>> getMetaStorageLearners() {

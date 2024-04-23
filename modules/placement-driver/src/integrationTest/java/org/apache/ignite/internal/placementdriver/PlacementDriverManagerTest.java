@@ -268,7 +268,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         IgniteUtils.closeAll(Stream.concat(
                 igniteComponents.stream().filter(Objects::nonNull).map(component -> component::beforeNodeStop),
-                Stream.of(() -> IgniteUtils.stopAll(igniteComponents.stream())))
+                Stream.of(() -> assertThat(IgniteUtils.stopAsync(igniteComponents), willCompleteSuccessfully())))
         );
     }
 

@@ -123,8 +123,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.stopAll(metaStorageManager, catalogManager, indexManager);
+    void tearDown() {
+        assertThat(IgniteUtils.stopAsync(metaStorageManager, catalogManager, indexManager), willCompleteSuccessfully());
     }
 
     @Test

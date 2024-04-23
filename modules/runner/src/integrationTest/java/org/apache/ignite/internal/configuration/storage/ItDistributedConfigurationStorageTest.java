@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -31,7 +30,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
@@ -60,6 +58,7 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.NetworkAddress;
@@ -179,10 +178,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
         void start() {
             assertThat(vaultManager.startAsync(), willCompleteSuccessfully());
 
-            CompletableFuture<Void> startFuture = allOf(Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
-                    .map(IgniteComponent::startAsync).toArray(CompletableFuture[]::new));
-
-            assertThat(startFuture, willCompleteSuccessfully());
+            assertThat(IgniteUtils.startAsync(clusterService, raftManager, cmgManager, metaStorageManager), willCompleteSuccessfully());
 
             // this is needed to avoid assertion errors
             cfgStorage.registerConfigurationListener(changedEntries -> nullCompletedFuture());
@@ -206,10 +202,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                 igniteComponent.beforeNodeStop();
             }
 
-            CompletableFuture<Void> stopFuture = allOf(components.stream()
-                    .map(IgniteComponent::stopAsync)
-                    .toArray(CompletableFuture[]::new));
-            assertThat(stopFuture, willCompleteSuccessfully());
+            assertThat(IgniteUtils.stopAsync(components), willCompleteSuccessfully());
         }
 
         String name() {

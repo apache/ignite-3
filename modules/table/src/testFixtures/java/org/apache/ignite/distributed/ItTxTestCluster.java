@@ -873,11 +873,7 @@ public class ItTxTestCluster {
      *
      */
     public void shutdownCluster() {
-        CompletableFuture<Void> clusterStopFuture = allOf(cluster.parallelStream()
-                .map(ClusterService::stopAsync)
-                .toArray(CompletableFuture[]::new));
-
-        assertThat(clusterStopFuture, willCompleteSuccessfully());
+        assertThat(IgniteUtils.stopAsync(cluster), willCompleteSuccessfully());
 
         if (client != null) {
             assertThat(client.stopAsync(), willCompleteSuccessfully());

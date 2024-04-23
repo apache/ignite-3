@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
@@ -30,10 +29,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.spy;
 
 import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
@@ -52,11 +48,11 @@ import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -115,12 +111,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     public void tearDown() throws Exception {
-        CompletableFuture<Void> future = allOf(Stream.of(manager, clockWaiter, metastore)
-                .filter(Objects::nonNull)
-                .map(IgniteComponent::stopAsync)
-                .toArray(CompletableFuture[]::new));
-
-        assertThat(future, willCompleteSuccessfully());
+        assertThat(IgniteUtils.stopAsync(manager, clockWaiter, metastore), willCompleteSuccessfully());
     }
 
     protected static CatalogCommand createHashIndexCommand(
