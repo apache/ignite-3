@@ -27,7 +27,7 @@ import org.apache.ignite.internal.logger.Loggers;
  */
 public class SizeFormatUtil {
     /** Logger. */
-    private static IgniteLogger LOG = Loggers.forClass(SizeFormatUtil.class);
+    private static final IgniteLogger LOG = Loggers.forClass(SizeFormatUtil.class);
 
     /** The number of bytes in a kilobyte. */
     public static final long ONE_KB = 1024;

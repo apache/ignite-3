@@ -37,7 +37,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 public class LogPushExporter extends PushMetricExporter<LogPushExporterView> {
     public static final String EXPORTER_NAME = "logPush";
 
-    private static IgniteLogger LOG = Loggers.forClass(LogPushExporter.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LogPushExporter.class);
 
     private long period;
 
