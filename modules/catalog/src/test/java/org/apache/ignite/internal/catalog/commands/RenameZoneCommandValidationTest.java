@@ -50,7 +50,7 @@ public class RenameZoneCommandValidationTest extends AbstractCommandValidationTe
     void exceptionIsThrownIfZoneWithGivenNameNotFound() {
         RenameZoneCommandBuilder builder = RenameZoneCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = builder
                 .zoneName("some_zone")

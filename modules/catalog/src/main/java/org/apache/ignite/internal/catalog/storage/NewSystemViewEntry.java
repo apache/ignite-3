@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
@@ -100,7 +102,7 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 CatalogUtils.replaceSchema(newSystemSchema, catalog.schemas()),
-                catalog.defaultZone().id()
+                defaultZoneIdOpt(catalog)
         );
     }
 

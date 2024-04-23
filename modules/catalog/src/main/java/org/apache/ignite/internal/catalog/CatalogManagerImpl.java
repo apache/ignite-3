@@ -21,8 +21,13 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.joining;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTsSafeForRoReads;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType.HASH;
 import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.type.NativeTypes.INT32;
@@ -41,6 +46,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -128,19 +135,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
      * Constructor.
      */
     public CatalogManagerImpl(UpdateLog updateLog, ClockService clockService) {
-        this(updateLog, clockService, DEFAULT_DELAY_DURATION, DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
-    }
-
-    /**
-     * Constructor.
-     */
-    CatalogManagerImpl(
-            UpdateLog updateLog,
-            ClockService clockService,
-            long delayDurationMs,
-            long partitionIdleSafeTimePropagationPeriod
-    ) {
-        this(updateLog, clockService, () -> delayDurationMs, () -> partitionIdleSafeTimePropagationPeriod);
+        this(updateLog, clockService, () -> DEFAULT_DELAY_DURATION, () -> DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
     }
 
     /**
@@ -182,16 +177,19 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 INITIAL_CAUSALITY_TOKEN
         );
 
-        CatalogZoneDescriptor defaultZone = fromParams(
-                objectIdGen++,
-                DEFAULT_ZONE_NAME
-        );
+        Catalog emptyCatalog = new Catalog(0, 0L, objectIdGen, List.of(), List.of(publicSchema, systemSchema), null);
 
-        registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(publicSchema, systemSchema), defaultZone.id()));
+        registerCatalog(emptyCatalog);
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 
         updateLog.start();
+
+        if (latestCatalogVersion() == emptyCatalog.version()) {
+            // node have not seen any updates yet, let's try to initialise
+            // catalog with default zone
+            return createDefaultZone(emptyCatalog);
+        }
 
         return nullCompletedFuture();
     }
@@ -361,6 +359,30 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         Catalog catalog = catalogAt(timestamp);
 
         return updateLog.saveSnapshot(new SnapshotEntry(catalog));
+    }
+
+    private CompletableFuture<Void> createDefaultZone(Catalog emptyCatalog) {
+        List<UpdateEntry> createZoneEntries = CreateZoneCommand.builder()
+                .zoneName(DEFAULT_ZONE_NAME)
+                .partitions(DEFAULT_PARTITION_COUNT)
+                .replicas(DEFAULT_REPLICA_COUNT)
+                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
+                .filter(DEFAULT_FILTER)
+                .storageProfilesParams(
+                        List.of(StorageProfileParams.builder().storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE).build())
+                )
+                .build()
+                .get(emptyCatalog);
+
+        return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, createZoneEntries))
+                .handle((result, error) -> {
+                    if (error != null) {
+                        LOG.warn("Unable to create default zone.", error);
+                    }
+
+                    return null;
+                });
     }
 
     private void registerCatalog(Catalog newCatalog) {
@@ -568,7 +590,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 catalog.schemas(),
-                catalog.defaultZone().id()
+                defaultZoneIdOpt(catalog)
         );
     }
 
@@ -662,8 +684,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 .<Boolean>addColumn("IS_DEFAULT_ZONE", BOOLEAN, wrapper -> wrapper.isDefault)
                 .dataProvider(SubscriptionUtils.fromIterable(() -> {
                             Catalog catalog = catalogAt(clockService.nowLong());
+                            CatalogZoneDescriptor defaultZone = catalog.defaultZone();
                             return new TransformingIterator<>(catalog.zones().iterator(),
-                                    (zone) -> new ZoneWithDefaultMarker(zone, catalog.defaultZone().id() == zone.id()));
+                                    (zone) -> new ZoneWithDefaultMarker(zone, defaultZone != null && defaultZone.id() == zone.id()));
                         }
                 ))
                 .build();

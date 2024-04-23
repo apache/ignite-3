@@ -66,7 +66,7 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
     void exceptionIsThrownIfSchemaNotExists() {
         DropTableCommandBuilder builder = DropTableCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = builder
                 .schemaName(SCHEMA_NAME + "_UNK")
@@ -84,7 +84,7 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
     void exceptionIsThrownIfTableWithGivenNameNotFound() {
         DropTableCommandBuilder builder = DropTableCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = builder
                 .schemaName(SCHEMA_NAME)

@@ -72,13 +72,17 @@ public class NewZoneEntry implements UpdateEntry, Fireable {
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
         descriptor.updateToken(causalityToken);
 
+        int defaultZoneId = catalog.defaultZone() != null
+                ? catalog.defaultZone().id()
+                : descriptor.id();
+
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 CollectionUtils.concat(catalog.zones(), List.of(descriptor)),
                 catalog.schemas(),
-                catalog.defaultZone().id()
+                defaultZoneId
         );
     }
 

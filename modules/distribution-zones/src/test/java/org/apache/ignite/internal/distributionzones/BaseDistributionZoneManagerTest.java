@@ -37,6 +37,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -110,6 +112,10 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         catalogManager = createTestCatalogManager(nodeName, clock, metaStorageManager);
         components.add(catalogManager);
 
+        var clockWaiter = new ClockWaiter(nodeName, clock);
+
+        components.add(clockWaiter);
+
         ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                 NamedThreadFactory.create(nodeName, "test-rebalance-scheduler", logger()));
 
@@ -144,6 +150,10 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     void startDistributionZoneManager() {
         assertThat(allOf(distributionZoneManager.start()), willCompleteSuccessfully());
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+    }
+
+    private void awaitDefaultZoneCreation() {
+        CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
     }
 
     protected void createZone(
@@ -202,6 +212,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     }
 
     protected CatalogZoneDescriptor getDefaultZone() {
+        awaitDefaultZoneCreation();
+
         return DistributionZonesTestUtil.getDefaultZone(catalogManager, clock.nowLong());
     }
 }

@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.dropTabl
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.simpleIndex;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.simpleTable;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.startBuildingIndexCommand;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -38,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
@@ -88,6 +90,10 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     @Test
     void testRecoveryCatalogVersionTimestamps() throws Exception {
         createAndStartComponents();
+        awaitDefaultZoneCreation();
+
+        // on the first start default zone must be created
+        verify(metaStorageManager).invoke(any());
 
         // Let's create a couple of versions of the catalog.
         assertThat(catalogManager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
@@ -114,11 +120,16 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         HybridTimestamp newNow = clock.now();
         assertThat(newNow, greaterThan(updateNow));
 
+        reset(metaStorageManager);
+
         createAndStartComponents();
 
         // Check recovery events.
-        verify(interceptor, times(2)).handle(any(VersionedUpdate.class), any(), anyLong());
+        verify(interceptor, times(3)).handle(any(VersionedUpdate.class), any(), anyLong());
         verify(interceptor, Mockito.never()).handle(any(SnapshotEntry.class), any(), anyLong());
+        // on recovery no additional invocation should happen
+        verify(metaStorageManager, Mockito.never()).invoke(any());
+
 
         // Let's check that the versions for the points in time at which they were created are in place.
         assertThat(catalogManager.activeCatalogVersion(time0), equalTo(catalogVersion0));
@@ -128,6 +139,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     @Test
     void testRecoveryCatalogAfterCompaction() throws Exception {
         createAndStartComponents();
+        awaitDefaultZoneCreation();
 
         // Let's create a couple of versions of the catalog.
         assertThat(catalogManager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
@@ -177,6 +189,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     @Test
     void testRecoveryIndexCreationCatalogVersion() throws Exception {
         createAndStartComponents();
+        awaitDefaultZoneCreation();
 
         assertThat(catalogManager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
         assertThat(catalogManager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willCompleteSuccessfully());
@@ -204,11 +217,15 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     private void createComponents() {
         KeyValueStorage keyValueStorage = new TestRocksDbKeyValueStorage(NODE_NAME, workDir);
 
-        metaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
+        metaStorageManager = spy(StandaloneMetaStorageManager.create(keyValueStorage));
 
         interceptor = spy(new TestUpdateHandlerInterceptor());
 
         catalogManager = CatalogTestUtils.createTestCatalogManagerWithInterceptor(NODE_NAME, clock, metaStorageManager, interceptor);
+    }
+
+    private void awaitDefaultZoneCreation() throws InterruptedException {
+        waitForCondition(() -> catalogManager.latestCatalogVersion() > 0, 5_000);
     }
 
     private void startComponentsAndDeployWatches() {

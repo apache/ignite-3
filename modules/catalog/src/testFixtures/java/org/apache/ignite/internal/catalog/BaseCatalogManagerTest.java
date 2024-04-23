@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
@@ -85,10 +86,13 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     protected CatalogManagerImpl manager;
 
     protected AtomicLong delayDuration = new AtomicLong();
+    protected AtomicLong partitionIdleSafeTimePropagationPeriod = new AtomicLong();
+
 
     @BeforeEach
     void setUp() {
         delayDuration.set(CatalogManagerImpl.DEFAULT_DELAY_DURATION);
+        partitionIdleSafeTimePropagationPeriod.set(CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
 
         metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
 
@@ -101,7 +105,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 updateLog,
                 clockService,
                 delayDuration::get,
-                () -> CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD
+                partitionIdleSafeTimePropagationPeriod::get
         );
 
         metastore.start();
@@ -109,6 +113,8 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         manager.start();
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
+
+        awaitDefaultZoneCreation(manager);
     }
 
     @AfterEach
