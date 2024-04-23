@@ -3918,7 +3918,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
                 txState,
                 old == null ? null : old.txCoordinatorId(),
-
                 old == null ? null : old.commitPartitionId(),
                 txState == COMMITTED ? commitTimestamp : null
         ));
