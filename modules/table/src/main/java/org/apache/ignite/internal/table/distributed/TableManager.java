@@ -1008,58 +1008,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return resultFuture;
     }
 
-    private void startPartitionRaftGroupNode(
-            TablePartitionId replicaGrpId,
-            RaftNodeId raftNodeId,
-            PeersAndLearners stableConfiguration,
-            PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            TableImpl table,
-            TxStateStorage txStatePartitionStorage,
-            PartitionDataStorage partitionDataStorage,
-            PartitionUpdateHandlers partitionUpdateHandlers,
-            int zoneId
-    ) throws NodeStoppingException {
-        InternalTable internalTable = table.internalTable();
-
-        RaftGroupOptions groupOptions = groupOptionsForPartition(
-                internalTable.storage(),
-                internalTable.txStateStorage(),
-                partitionKey(internalTable, replicaGrpId.partitionId()),
-                partitionUpdateHandlers
-        );
-
-        RaftGroupListener raftGrpLsnr = new PartitionListener(
-                txManager,
-                partitionDataStorage,
-                partitionUpdateHandlers.storageUpdateHandler,
-                txStatePartitionStorage,
-                safeTimeTracker,
-                storageIndexTracker,
-                catalogService,
-                table.schemaView(),
-                clockService
-        );
-
-        RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
-                metaStorageMgr,
-                replicaGrpId,
-                busyLock,
-                createPartitionMover(internalTable, replicaGrpId.partitionId()),
-                rebalanceScheduler,
-                zoneId
-        );
-
-        // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-        replicaMgr.startPartitionRaftGroupNode(
-                raftNodeId,
-                stableConfiguration,
-                raftGrpLsnr,
-                raftGrpEvtsLsnr,
-                groupOptions
-        );
-    }
-
     private PartitionReplicaListener createReplicaListener(
             TablePartitionId tablePartitionId,
             TableImpl table,
@@ -1099,6 +1047,22 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
     }
 
+    private boolean isLocalPeer(Peer peer) {
+        return peer.consistentId().equals(localNode().name());
+    }
+
+    private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
+        return new SnapshotAwarePartitionDataStorage(
+                partitionStorage,
+                outgoingSnapshotsManager,
+                partitionKey(internalTbl, partId)
+        );
+    }
+
+    private static PartitionKey partitionKey(InternalTable internalTbl, int partId) {
+        return new PartitionKey(internalTbl.tableId(), partId);
+    }
+
     private RaftGroupOptions groupOptionsForPartition(
             MvTableStorage mvTableStorage,
             TxStateTableStorage txStateTableStorage,
@@ -1131,22 +1095,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
 
         return raftGroupOptions;
-    }
-
-    private boolean isLocalPeer(Peer peer) {
-        return peer.consistentId().equals(localNode().name());
-    }
-
-    private PartitionDataStorage partitionDataStorage(MvPartitionStorage partitionStorage, InternalTable internalTbl, int partId) {
-        return new SnapshotAwarePartitionDataStorage(
-                partitionStorage,
-                outgoingSnapshotsManager,
-                partitionKey(internalTbl, partId)
-        );
-    }
-
-    private static PartitionKey partitionKey(InternalTable internalTbl, int partId) {
-        return new PartitionKey(internalTbl.tableId(), partId);
     }
 
     @Override
@@ -2041,7 +1989,57 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 });
     }
 
+    private void startPartitionRaftGroupNode(
+            TablePartitionId replicaGrpId,
+            RaftNodeId raftNodeId,
+            PeersAndLearners stableConfiguration,
+            PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
+            TableImpl table,
+            TxStateStorage txStatePartitionStorage,
+            PartitionDataStorage partitionDataStorage,
+            PartitionUpdateHandlers partitionUpdateHandlers,
+            int zoneId
+    ) throws NodeStoppingException {
+        InternalTable internalTable = table.internalTable();
 
+        RaftGroupOptions groupOptions = groupOptionsForPartition(
+                internalTable.storage(),
+                internalTable.txStateStorage(),
+                partitionKey(internalTable, replicaGrpId.partitionId()),
+                partitionUpdateHandlers
+        );
+
+        RaftGroupListener raftGrpLsnr = new PartitionListener(
+                txManager,
+                partitionDataStorage,
+                partitionUpdateHandlers.storageUpdateHandler,
+                txStatePartitionStorage,
+                safeTimeTracker,
+                storageIndexTracker,
+                catalogService,
+                table.schemaView(),
+                clockService
+        );
+
+        RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
+                metaStorageMgr,
+                replicaGrpId,
+                busyLock,
+                createPartitionMover(internalTable, replicaGrpId.partitionId()),
+                rebalanceScheduler,
+                zoneId
+        );
+
+        // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+        replicaMgr.startPartitionRaftGroupNode(
+                raftNodeId,
+                stableConfiguration,
+                raftGrpLsnr,
+                raftGrpEvtsLsnr,
+                groupOptions
+        );
+    }
 
     /**
      * Creates Meta storage listener for stable assignments updates.
