@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class MovingAverageMetric extends AbstractMetric implements DoubleMetric {
     /** Default rate. */
-    public static int DFLT_ITEMS = 100;
+    public static final int DFLT_ITEMS = 100;
 
     /** Size. */
     private final int items;
