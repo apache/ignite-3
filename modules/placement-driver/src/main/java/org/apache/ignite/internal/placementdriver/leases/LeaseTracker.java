@@ -187,6 +187,8 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                     null,
                     null
             ));
+
+            return resultFut;
         }
 
         byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
@@ -195,7 +197,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                 or(notExists(PLACEMENTDRIVER_LEASES_KEY), value(PLACEMENTDRIVER_LEASES_KEY).eq(leasesCurrent.leasesBytes())),
                 put(PLACEMENTDRIVER_LEASES_KEY, renewedValue),
                 noop()
-        ).whenComplete((invokeResult, throwable) -> {
+        ).whenCompleteAsync((invokeResult, throwable) -> {
             if (throwable != null) {
                 resultFut.completeExceptionally(throwable);
 
