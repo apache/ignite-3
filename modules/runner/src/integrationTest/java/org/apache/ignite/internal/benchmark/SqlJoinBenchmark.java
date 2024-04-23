@@ -56,7 +56,7 @@ public class SqlJoinBenchmark extends AbstractMultiNodeBenchmark {
 
     private IgniteSql sql;
 
-    @Param({"1", "2"})
+    @Param({"1"/*, "2"*/})
     private int clusterSize;
 
     /** Fills the table with data. */
@@ -87,7 +87,7 @@ public class SqlJoinBenchmark extends AbstractMultiNodeBenchmark {
     /**
      * Benchmark left merge join.
      */
-    @Benchmark
+    //@Benchmark
     @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public void leftMergeJoin(Blackhole bh) {
         try (var rs = sql.execute(null, ""
@@ -104,7 +104,7 @@ public class SqlJoinBenchmark extends AbstractMultiNodeBenchmark {
     /**
      * Benchmark left nl join.
      */
-    @Benchmark
+    //@Benchmark
     @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public void leftNestedJoin(Blackhole bh) {
         try (var rs = sql.execute(null, ""

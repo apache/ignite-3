@@ -273,6 +273,15 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove exclude
     @EnumSource(mode = Mode.EXCLUDE, names = "CORRELATED")
     public void testInnerJoin(JoinType joinType) {
+        assertQuery("SELECT c1 FROM t3 WHERE c1 = ANY(SELECT c1 FROM t3) ORDER BY c1", joinType)
+                .ordered()
+                .returns(1)
+                .returns(2)
+                .returns(3)
+                .returns(7)
+                .returns(8)
+                .check();
+
         assertQuery(""
                 + "select t1.c1 c11, t1.c2 c12, t1.c3 c13, t2.c1 c21, t2.c2 c22 "
                 + "  from t1 "
@@ -457,15 +466,6 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove exclude
     @EnumSource(mode = Mode.EXCLUDE, names = {"CORRELATED"})
     public void testLeftJoin(JoinType joinType) {
-        assertQuery("SELECT c1 FROM t3 WHERE c1 = ANY(SELECT c1 FROM t3) ORDER BY c1", joinType)
-                .ordered()
-                .returns(1)
-                .returns(2)
-                .returns(3)
-                .returns(7)
-                .returns(8)
-                .check();
-
         assertQuery("select t31.c1 from t3 t31 left join t3 t32 on t31.c1 = t32.c1 ORDER BY t31.c1;", joinType)
                 .ordered()
                 .returns(1)
@@ -1067,6 +1067,7 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
         Stream<Arguments> types = Arrays.stream(JoinType.values())
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove filter below
                 .filter(type -> type != JoinType.CORRELATED)
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-22074 hash join to make a deal with "is not distinct" expression
                 .filter(type -> type != JoinType.HASHJOIN)
                 .flatMap(v -> Stream.of(Arguments.of(v, false), Arguments.of(v, true)));
 
