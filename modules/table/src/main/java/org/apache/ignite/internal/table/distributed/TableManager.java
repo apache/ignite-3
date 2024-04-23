@@ -967,6 +967,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .thenAcceptAsync(isStartedRaftNode -> inBusyLock(busyLock, () -> {
 
                     boolean startedRaftNode = startGroupFut.join();
+                    // TODO: have to figure out how to pass this condition between internal table updating and replica starting
 //                    if (localMemberAssignment == null || !startedRaftNode || replicaMgr.isReplicaStarted(replicaGrpId)) {
 //                        return;
 //                    }
@@ -1059,40 +1060,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
     }
 
-    private RaftGroupOptions groupOptionsForPartition(
-            MvTableStorage mvTableStorage,
-            TxStateTableStorage txStateTableStorage,
-            PartitionKey partitionKey,
-            PartitionUpdateHandlers partitionUpdateHandlers
-    ) {
-        RaftGroupOptions raftGroupOptions = replicaMgr.createRaftGroupOptions(
-                mvTableStorage.isVolatile(),
-                volatileLogStorageFactoryCreator
-        );
-
-        raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
-                topologyService,
-                outgoingSnapshotsManager,
-                new PartitionAccessImpl(
-                        partitionKey,
-                        mvTableStorage,
-                        txStateTableStorage,
-                        mvGc,
-                        partitionUpdateHandlers.indexUpdateHandler,
-                        partitionUpdateHandlers.gcUpdateHandler,
-                        fullStateTransferIndexChooser,
-                        schemaManager.schemaRegistry(partitionKey.tableId()),
-                        lowWatermark
-                ),
-                catalogService,
-                incomingSnapshotsExecutor
-        ));
-
-        raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
-
-        return raftGroupOptions;
-    }
-
     private PartitionReplicaListener createReplicaListener(
             TablePartitionId tablePartitionId,
             TableImpl table,
@@ -1130,6 +1097,40 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 remotelyTriggeredResourceRegistry,
                 schemaManager.schemaRegistry(tableId)
         );
+    }
+
+    private RaftGroupOptions groupOptionsForPartition(
+            MvTableStorage mvTableStorage,
+            TxStateTableStorage txStateTableStorage,
+            PartitionKey partitionKey,
+            PartitionUpdateHandlers partitionUpdateHandlers
+    ) {
+        RaftGroupOptions raftGroupOptions = replicaMgr.createRaftGroupOptions(
+                mvTableStorage.isVolatile(),
+                volatileLogStorageFactoryCreator
+        );
+
+        raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
+                topologyService,
+                outgoingSnapshotsManager,
+                new PartitionAccessImpl(
+                        partitionKey,
+                        mvTableStorage,
+                        txStateTableStorage,
+                        mvGc,
+                        partitionUpdateHandlers.indexUpdateHandler,
+                        partitionUpdateHandlers.gcUpdateHandler,
+                        fullStateTransferIndexChooser,
+                        schemaManager.schemaRegistry(partitionKey.tableId()),
+                        lowWatermark
+                ),
+                catalogService,
+                incomingSnapshotsExecutor
+        ));
+
+        raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
+
+        return raftGroupOptions;
     }
 
     private boolean isLocalPeer(Peer peer) {

@@ -140,8 +140,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Raft manager for RAFT-clients creation. */
     private final RaftManager raftManager;
 
+    /** TODO. */
     private final TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory;
 
+    /** TODO. */
     private final Marshaller raftCommandsMarshaller;
 
     /** Message handler for placement driver messages. */
@@ -184,6 +186,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param placementDriver A placement driver.
      */
     @TestOnly
+    // TODO: should we just remove it and pass in the call places DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS directly?
     public ReplicaManager(
             String nodeName,
             ClusterService clusterNetSvc,
@@ -693,10 +696,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             } else {
                 LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
 
-                return newReplicaFut.thenCompose(replica -> {
-                    existingReplicaFuture.complete(replica);
-                    return existingReplicaFuture;
-                });
+                existingReplicaFuture.complete(newReplicaFut.join());
+
+                return existingReplicaFuture;
             }
         });
 

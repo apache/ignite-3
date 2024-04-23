@@ -195,22 +195,27 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 (message, sender, correlationId) -> {
                     try {
                         log.info("Replica msg " + message.getClass().getSimpleName());
+
                         TopologyAwareRaftGroupService raftClient = mock(TopologyAwareRaftGroupService.class);
+
+                        ReplicaListener listener = new ReplicaListener() {
+                            @Override
+                            public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
+                                ReplicaResponse response = replicaMessageFactory.replicaResponse()
+                                        .result(5)
+                                        .build();
+                                return completedFuture(new ReplicaResult(response, null));
+                            }
+
+                            @Override
+                            public RaftCommandRunner raftClient() {
+                                return raftClient;
+                            }
+                        };
+
                         replicaManager.startReplica(
                                 tablePartitionId,
-                                new ReplicaListener() {
-                                    @Override
-                                    public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
-                                        return completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
-                                                .result(5)
-                                                .build(), null));
-                                    }
-
-                                    @Override
-                                    public RaftCommandRunner raftClient() {
-                                        return raftClient;
-                                    }
-                                },
+                                listener,
                                 raftClient,
                                 new PendingComparableValuesTracker<>(0L)
                         );
@@ -318,20 +323,24 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
             runAsync(() -> {
                 try {
                     log.info("Replica msg " + message.getClass().getSimpleName());
+
                     TopologyAwareRaftGroupService raftClient = mock(TopologyAwareRaftGroupService.class);
+
+                    ReplicaListener listener = new ReplicaListener() {
+                        @Override
+                        public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
+                            return new CompletableFuture<>();
+                        }
+
+                        @Override
+                        public RaftCommandRunner raftClient() {
+                            return raftClient;
+                        }
+                    };
+
                     replicaManager.startReplica(
                             tablePartitionId,
-                            new ReplicaListener() {
-                                @Override
-                                public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
-                                    return new CompletableFuture<>();
-                                }
-
-                                @Override
-                                public RaftCommandRunner raftClient() {
-                                    return raftClient;
-                                }
-                            },
+                            listener,
                             raftClient,
                             new PendingComparableValuesTracker<>(0L)
                     );

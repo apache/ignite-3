@@ -116,8 +116,8 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 placementDriver,
                 requestsExecutor,
                 new NoOpFailureProcessor(),
-                marshaller, //TODO
-                raftGroupServiceFactory, //TODO
+                marshaller,
+                raftGroupServiceFactory,
                 raftManager
         );
 
