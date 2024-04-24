@@ -64,7 +64,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
                 () -> entryNode.deployment().clusterStatusAsync(unit.name(), unit.version()),
                 willBe(nullValue())
         );
-        deployJar(entryNode, unit.name(), unit.version(), "ignite-it-jobs-1.0-SNAPSHOT.jar");
+        deployJar(entryNode, unit.name(), unit.version(), "ignite-integration-test-jobs-1.0-SNAPSHOT.jar");
     }
 
     @Override
@@ -117,14 +117,14 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         IgniteImpl entryNode = node(0);
 
         DeploymentUnit firstVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.0"));
-        deployJar(entryNode, firstVersion.name(), firstVersion.version(), "ignite-ut-job1-1.0-SNAPSHOT.jar");
+        deployJar(entryNode, firstVersion.name(), firstVersion.version(), "ignite-unit-test-job1-1.0-SNAPSHOT.jar");
 
         CompletableFuture<Integer> result1 = entryNode.compute()
                 .executeAsync(Set.of(entryNode.node()), jobUnits, "org.my.job.compute.unit.UnitJob");
         assertThat(result1, willBe(1));
 
         DeploymentUnit secondVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.1"));
-        deployJar(entryNode, secondVersion.name(), secondVersion.version(), "ignite-ut-job2-1.0-SNAPSHOT.jar");
+        deployJar(entryNode, secondVersion.name(), secondVersion.version(), "ignite-unit-test-job2-1.0-SNAPSHOT.jar");
 
         CompletableFuture<String> result2 = entryNode.compute()
                 .executeAsync(Set.of(entryNode.node()), jobUnits, "org.my.job.compute.unit.UnitJob");

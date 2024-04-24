@@ -30,9 +30,9 @@ def registerJarTask(SourceSet sourceSet, String baseName) {
     }
 }
 
-registerJarTask(sourceSets.jobs, 'ignite-it-jobs')
-registerJarTask(sourceSets.unit1, 'ignite-ut-job1')
-registerJarTask(sourceSets.unit2, 'ignite-ut-job2')
+registerJarTask(sourceSets.jobs, 'ignite-integration-test-jobs')
+registerJarTask(sourceSets.unit1, 'ignite-unit-test-job1')
+registerJarTask(sourceSets.unit2, 'ignite-unit-test-job2')
 
 processTestResources {
     into('units/unit1') {

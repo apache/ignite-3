@@ -59,7 +59,9 @@ import org.example.GetNodeNameJob;
 import org.junit.jupiter.api.Test;
 
 /**
- * Base integration tests for Compute functionality.
+ * Base integration tests for Compute functionality. To add new compute job for testing both in embedded and standalone mode, add the
+ * corresponding job class to the jobs source set. The integration tests depend on this source set so the job class will be visible and it
+ * will be automatically compiled and packed into the ignite-integration-test-jobs-1.0-SNAPSHOT.jar.
  */
 public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     protected abstract List<DeploymentUnit> units();
