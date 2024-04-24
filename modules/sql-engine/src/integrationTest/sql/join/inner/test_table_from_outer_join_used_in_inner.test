@@ -24,48 +24,32 @@ select j.c21, j.c22 from (SELECT c21, c22 from t2 LEFT OUTER JOIN t1 ON (t2.c21 
 3	4
 4	3
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-22085
 query II rowsort
-select j.c21, j.c22 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) j INNER JOIN t2 t22 ON (t22.c21 = j.c22);
-----
-2	3
-3	4
-4	3
-
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-22085
-query III rowsort
-select j.c21, j.c22, j.c21 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) j INNER JOIN t2 t22 ON (t22.c21 = j.c21);
-----
-2	3	2
-3	4	3
-4	3	4
-
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-22085
-query II rowsort
-select j.c21, j.c22 from (t2 RIGHT OUTER JOIN t1 ON (t2.c21 = t1.c11)) j INNER JOIN t2 t22 ON (t22.c21 = j.c22);
+select t1.c11, t2.c22 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t2 t22 ON (t22.c21 = c11);
 ----
 2	3
 3	4
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-22085
-query III rowsort
-select j.c21, j.c22, j.c21 from (t2 RIGHT OUTER JOIN t1 ON (t2.c21 = t1.c11)) j INNER JOIN t2 t22 ON (t22.c21 = j.c21);
+query II rowsort
+select t1.c11, t2.c21 from (t2 RIGHT OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t2 t22 ON (t22.c21 = c12);
 ----
-2	3	2
-3	4	3
+1	null
+2	2
+3	3
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-22085
-query III rowsort
-select j.c21, j.c22, j.c21 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) j INNER JOIN t2 t22 ON (t22.c23 = j.c23);
+query II rowsort
+select t1.c11, t2.c21 from (t2 FULL OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t2 t22 ON (t22.c21 = c12);
 ----
-2	3	2
-3	4	3
-4	3	4
+1	null
+2	2
+3	3
+
+query III rowsort
+select t2.c21, t2.c22, t2.c23 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t2 t22 ON (t22.c23 = 'a');
+----
+2	3	a
+3	4	b
+4	3	c
 
 
 
