@@ -48,7 +48,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -102,10 +102,6 @@ class TestIndexManagementUtils {
         return TableTestUtils.getTableIdStrict(catalogService, tableName, clock.nowLong());
     }
 
-    static int zoneId(CatalogService catalogService, String zoneName, HybridClock clock) {
-        return TableTestUtils.getZoneIdStrict(catalogService, zoneName, clock.nowLong());
-    }
-
     static void makeIndexAvailable(CatalogManager catalogManager, int indexId) {
         assertThat(catalogManager.execute(MakeIndexAvailableCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
     }
@@ -133,7 +129,7 @@ class TestIndexManagementUtils {
 
     static ReplicaMeta newPrimaryReplicaMeta(
             ClusterNode clusterNode,
-            TablePartitionId replicaGroupId,
+            ZonePartitionId replicaGroupId,
             HybridTimestamp startTime,
             HybridTimestamp expirationTime
     ) {

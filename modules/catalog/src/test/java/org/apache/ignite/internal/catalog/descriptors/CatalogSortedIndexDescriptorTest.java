@@ -36,5 +36,6 @@ class CatalogSortedIndexDescriptorTest {
         assertThat(toString, containsString("name=index1"));
         assertThat(toString, containsString("tableId=2"));
         assertThat(toString, containsString("status=REGISTERED"));
+        assertThat(toString, containsString("zoneId=0"));
     }
 }

@@ -32,7 +32,6 @@ import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
-import static org.apache.ignite.internal.table.TableTestUtils.getZoneIdStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -300,9 +299,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     }
 
     private int zoneId() {
-        String zoneName = catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone().name();
-
-        return getZoneIdStrict(catalogManager, zoneName, clock.nowLong());
+        return catalogManager.catalog(catalogManager.latestCatalogVersion()).table(tableId()).zoneId();
     }
 
     private int indexId(String indexName) {

@@ -43,7 +43,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
 
     private static final int TABLE_ID = 123;
 
-    private static final int ZONE_ID = 123;
+    private static final int ZONE_ID = 1234;
 
     private ClientPrimaryReplicaTracker tracker;
 

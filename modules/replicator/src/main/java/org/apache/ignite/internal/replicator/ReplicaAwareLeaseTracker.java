@@ -39,6 +39,8 @@ import org.apache.ignite.network.ClusterNodeResolver;
  * It delegates calls to the original {@link PlacementDriver} and after that sends {@link WaitReplicaStateMessage}
  * which calls {@link org.apache.ignite.internal.replicator.Replica#waitForActualState(long)}.
  */
+// TODO https://issues.apache.org/jira/browse/IGNITE-20362
+@Deprecated
 public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements
         PlacementDriver {
     /** Replicator network message factory. */

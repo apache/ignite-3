@@ -83,6 +83,7 @@ import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitException;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -324,7 +325,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
     }
 
     private ReplicaMeta createLocalNodeReplicaMeta(HybridTimestamp startTime, HybridTimestamp expirationTime) {
-        return newPrimaryReplicaMeta(LOCAL_NODE, new TablePartitionId(indexDescriptor.tableId(), 0), startTime, expirationTime);
+        return newPrimaryReplicaMeta(LOCAL_NODE, new ZonePartitionId(0, indexDescriptor.tableId(), 0), startTime, expirationTime);
     }
 
     private static ClusterService createClusterService() {

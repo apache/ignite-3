@@ -84,7 +84,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private static final AtomicInteger nextTableId = new AtomicInteger(101);
 
-    private static final int zoneId = 101;
+    private static final int zoneId = 1234;
 
     /**
      * Before all.

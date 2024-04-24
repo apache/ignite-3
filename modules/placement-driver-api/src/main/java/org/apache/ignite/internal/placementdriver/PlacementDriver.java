@@ -74,6 +74,7 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
      * @throws PrimaryReplicaAwaitTimeoutException If primary replica await timed out.
      * @throws PrimaryReplicaAwaitException If primary replica await failed with any other reason except timeout.
      */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20362
     @Deprecated
     default CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
             ReplicationGroupId groupId,

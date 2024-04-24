@@ -288,7 +288,7 @@ public class Replica {
      * @return Future that contains a result.
      */
     private CompletableFuture<Void> processWaitReplicaStateMessage(WaitReplicaStateMessage msg) {
-        LOG.info("Received WaitReplicaStateMessage for replica belonging to group=" + groupId());
+        LOG.info("WaitReplicaStateMessage was received [groupId = {}]", groupId());
 
         return waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + TimeUnit.SECONDS.toMillis(msg.timeout()));
     }
