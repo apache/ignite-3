@@ -55,6 +55,9 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     private final RowSchema rightJoinRelatedRowSchema;
     private final RowSchema leftJoinRelatedRowSchema;
 
+    private final RowBuilder<RowT> leftRowBuilder;
+    private final RowBuilder<RowT> rightRowBuilder;
+
     private HashJoinNode(ExecutionContext<RowT> ctx, JoinInfo joinInfo, boolean touch,
             RelDataType leftRowType, RelDataType rightRowType) {
         super(ctx);
@@ -82,6 +85,12 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
             leftTypes.add(leftFields.get(leftPos).getType());
         }
         leftJoinRelatedRowSchema = rowSchemaFromRelTypes(leftTypes);
+
+        RowFactory<RowT> leftRowFactory = handler.factory(leftJoinRelatedRowSchema);
+        leftRowBuilder = leftRowFactory.rowBuilder();
+
+        RowFactory<RowT> rightRowFactory = handler.factory(rightJoinRelatedRowSchema);
+        rightRowBuilder = rightRowFactory.rowBuilder();
     }
 
     @Override
@@ -154,7 +163,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                         if (!rightIt.hasNext()) {
                             left = leftInBuf.remove();
 
-                            Collection<RowT> rightRows = lookup(left, touchResults, this);
+                            Collection<RowT> rightRows = lookup(left, touchResults);
 
                             rightIt = rightRows.iterator();
                         }
@@ -217,7 +226,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                         if (!rightIt.hasNext()) {
                             left = leftInBuf.remove();
 
-                            Collection<RowT> rightRows = lookup(left, touchResults, this);
+                            Collection<RowT> rightRows = lookup(left, touchResults);
 
                             if (rightRows.isEmpty()) {
                                 requested--;
@@ -284,7 +293,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                         if (!rightIt.hasNext()) {
                             left = leftInBuf.remove();
 
-                            Collection<RowT> rightRows = lookup(left, touchResults, this);
+                            Collection<RowT> rightRows = lookup(left, touchResults);
 
                             rightIt = rightRows.iterator();
                         }
@@ -378,7 +387,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                         if (!rightIt.hasNext()) {
                             left = leftInBuf.remove();
 
-                            Collection<RowT> rightRows = lookup(left, touchResults, this);
+                            Collection<RowT> rightRows = lookup(left, touchResults);
 
                             if (rightRows.isEmpty()) {
                                 requested--;
@@ -466,7 +475,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
                         left = leftInBuf.remove();
 
-                        Collection<RowT> rightRows = lookup(left, touchResults, this);
+                        Collection<RowT> rightRows = lookup(left, touchResults);
 
                         if (!rightRows.isEmpty()) {
                             requested--;
@@ -510,7 +519,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
                         left = leftInBuf.remove();
 
-                        Collection<RowT> rightRows = lookup(left, touchResults, this);
+                        Collection<RowT> rightRows = lookup(left, touchResults);
 
                         if (rightRows.isEmpty()) {
                             requested--;
@@ -533,29 +542,23 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         }
     }
 
-    private static <RowT> Collection<RowT> lookup(
-            RowT row,
-            boolean processTouched,
-            HashJoinNode<RowT> node
-    ) {
+    Collection<RowT> lookup(RowT row, boolean processTouched) {
         Collection<RowT> coll = Collections.emptyList();
 
-        RowFactory<RowT> leftRowFactory = node.handler.factory(node.leftJoinRelatedRowSchema);
-        RowBuilder<RowT> rowBuilder = leftRowFactory.rowBuilder();
-
-        for (Integer entry : node.leftJoinPositions) {
-            Object ent = node.handler.get(entry, row);
+        for (Integer entry : leftJoinPositions) {
+            Object ent = handler.get(entry, row);
 
             if (ent == null) {
+                leftRowBuilder.reset();
                 return Collections.emptyList();
             }
 
-            rowBuilder.addField(ent);
+            leftRowBuilder.addField(ent);
         }
 
-        RowWrapper<RowT> row0 = new RowWrapper<>(rowBuilder.buildAndReset(), node.handler, node.leftJoinPositions.size());
+        RowWrapper<RowT> row0 = new RowWrapper<>(leftRowBuilder.buildAndReset(), handler, leftJoinPositions.size());
 
-        TouchedCollection<RowT> found = node.hashStore.get(row0);
+        TouchedCollection<RowT> found = hashStore.get(row0);
 
         if (found != null) {
             coll = found.items();
@@ -623,15 +626,12 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
         waitingRight--;
 
-        RowFactory<RowT> rightRowFactory = handler.factory(rightJoinRelatedRowSchema);
-        RowBuilder<RowT> rowBuilder = rightRowFactory.rowBuilder();
-
         for (Integer entry : rightJoinPositions) {
             Object ent = handler.get(entry, row);
-            rowBuilder.addField(ent);
+            rightRowBuilder.addField(ent);
         }
 
-        RowWrapper<RowT> row0 = new RowWrapper<>(rowBuilder.buildAndReset(), handler, rightJoinPositions.size());
+        RowWrapper<RowT> row0 = new RowWrapper<>(rightRowBuilder.buildAndReset(), handler, rightJoinPositions.size());
         TouchedCollection<RowT> raw = hashStore.computeIfAbsent(row0, k -> new TouchedCollection<>());
         raw.add(row);
 
