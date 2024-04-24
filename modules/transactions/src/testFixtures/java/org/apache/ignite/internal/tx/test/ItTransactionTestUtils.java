@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.tx.test;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -43,6 +43,8 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowEx;
+import org.apache.ignite.internal.table.RecordBinaryViewImpl;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -92,7 +94,7 @@ public class ItTransactionTestUtils {
         TableImpl table = table(node, tableName);
         RecordBinaryViewImpl view = unwrapRecordBinaryViewImpl(table.recordView());
 
-        CompletableFuture<BinaryRowEx> rowFut = view.marshal(tx, tuple);
+        CompletableFuture<BinaryRowEx> rowFut = view.tupleToBinaryRow(tx, tuple);
         assertThat(rowFut, willCompleteSuccessfully());
         BinaryRowEx row = rowFut.join();
 

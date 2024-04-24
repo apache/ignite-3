@@ -39,12 +39,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
-import java.util.function.BiConsumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -86,21 +83,6 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
 
     @Test
     public void testPutGetRemove() {
-        testPutGetRemove0((storage, txIds) -> {
-            int index = 0;
-
-            for (UUID txId : txIds) {
-                storage.remove(txId, index++, 1);
-            }
-        });
-    }
-
-    @Test
-    public void testPutGetRemoveAll() {
-        testPutGetRemove0((storage, txIds) -> storage.removeAll(txIds, 1, 1));
-    }
-
-    private void testPutGetRemove0(BiConsumer<TxStateStorage, Set<UUID>> removeOp) {
         TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
         List<UUID> txIds = new ArrayList<>();
@@ -119,15 +101,11 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
             assertEquals(txMetaExpected, txMeta);
         }
 
-        Set<UUID> toRemove = new HashSet<>();
-
         for (int i = 0; i < 100; i++) {
             if (i % 2 == 0) {
-                toRemove.add(txIds.get(i));
+                storage.remove(txIds.get(i), i, 1);
             }
         }
-
-        removeOp.accept(storage, toRemove);
 
         for (int i = 0; i < 100; i++) {
             if (i % 2 == 0) {

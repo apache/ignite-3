@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.lang.Math.abs;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.hash;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.affinity.Assignment.forPeer;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
@@ -286,6 +290,23 @@ public class LeaseUpdater {
         }
 
         return primaryCandidate;
+        /*if (proposedConsistentId != null && assignments.contains(forPeer(proposedConsistentId))) {
+            ClusterNode proposedCandidate = topologyTracker.nodeByConsistentId(proposedConsistentId);
+
+            if (proposedCandidate != null) {
+                return proposedCandidate;
+            }
+        }
+
+        List<ClusterNode> onlineNodes = assignments.stream()
+                .map(a -> topologyTracker.nodeByConsistentId(a.consistentId()))
+                .filter(Objects::nonNull)
+                .sorted(comparing(ClusterNode::name))
+                .collect(toList());
+
+        int hash = abs(hash(assignments, grpId));
+
+        return onlineNodes.get(hash % onlineNodes.size());*/
     }
 
     /** Returns {@code true} if active. */

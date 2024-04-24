@@ -33,7 +33,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -89,33 +88,39 @@ public class PersistentTxStateVacuumizer {
         HybridTimestamp now = clockService.now();
 
         txIds.forEach((commitPartitionId, txs) -> {
-            ReplicaMeta replicaMeta = placementDriver.getPrimaryReplica(commitPartitionId, now).join();
+            CompletableFuture<?> future = placementDriver.getPrimaryReplica(commitPartitionId, now)
+                    .thenCompose(replicaMeta -> {
+                        // If the primary replica is absent this means that another replica would become primary and
+                        // the volatile state (as well as cleanup completion timestamp) would be updated there, and then
+                        // this operation would be called from there.
+                        // Also, we are going to send the vacuum request only to the local node.
+                        if (replicaMeta != null && localNode.id().equals(replicaMeta.getLeaseholderId())) {
+                            VacuumTxStateReplicaRequest request = TX_MESSAGES_FACTORY.vacuumTxStateReplicaRequest()
+                                    .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
+                                    .groupId(commitPartitionId)
+                                    .transactionIds(txs)
+                                    .build();
 
-            if (replicaMeta != null) {
-                VacuumTxStateReplicaRequest request = TX_MESSAGES_FACTORY.vacuumTxStateReplicaRequest()
-                        .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                        .groupId(commitPartitionId)
-                        .transactionIds(txs)
-                        .build();
-
-                CompletableFuture<?> future;
-
-                if (localNode.id().equals(replicaMeta.getLeaseholderId())) {
-                    future = replicaService.invoke(localNode, request).whenComplete((v, e) -> {
-                        if (e == null) {
+                            return replicaService.invoke(localNode, request).whenComplete((v, e) -> {
+                                if (e == null) {
+                                    successful.addAll(txs);
+                                    // We can log the exceptions without further handling because failed requests' txns are not added
+                                    // to the set of successful and will be retried. PrimaryReplicaMissException can be considered as
+                                    // a part of regular flow and doesn't need to be logged.
+                                } else if (unwrapCause(e) instanceof PrimaryReplicaMissException) {
+                                    LOG.debug("Failed to vacuum tx states from the persistent storage.", e);
+                                } else {
+                                    LOG.warn("Failed to vacuum tx states from the persistent storage.", e);
+                                }
+                            });
+                        } else {
                             successful.addAll(txs);
-                        } else if (!(unwrapCause(e) instanceof PrimaryReplicaMissException)) {
-                            LOG.warn("Failed to vacuum tx states from the persistent storage.", e);
+
+                            return nullCompletedFuture();
                         }
                     });
-                } else {
-                    successful.addAll(txs);
-
-                    future = nullCompletedFuture();
-                }
 
                 futures.add(future);
-            }
         });
 
         return allOf(futures.toArray(new CompletableFuture[0]))
