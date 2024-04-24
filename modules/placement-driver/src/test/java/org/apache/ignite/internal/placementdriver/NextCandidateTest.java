@@ -25,6 +25,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignments;
+import static org.apache.ignite.internal.affinity.Assignment.forPeer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -65,7 +66,7 @@ public class NextCandidateTest {
             @Nullable String proposedConsistentId
     ) {
         // TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
-        if (proposedConsistentId != null) {
+        if (proposedConsistentId != null && assignments.contains(forPeer(proposedConsistentId))) {
             ClusterNode proposedCandidate = topologyTracker.nodeByConsistentId(proposedConsistentId);
 
             if (proposedCandidate != null) {
@@ -243,5 +244,32 @@ public class NextCandidateTest {
                 assertEquals(leasesMap.get(partId), prolongedLeasesMap.get(partId));
             }
         }
+    }
+
+    @Test
+    public void testLeaseMovesAfterAssignmentChange() {
+        int nodes = 2;
+        int partitions = 1;
+        int replicas = 1;
+
+        prepareCluster(nodes, partitions, replicas, emptySet());
+
+        TablePartitionId partitionId = new TablePartitionId(8, 0);
+
+        ClusterNode leaseholder = nextLeaseHolder(assignments.get(0), partitionId, null);
+
+        assertEquals(assignments.get(0).stream().findAny().orElseThrow().consistentId(), leaseholder.name());
+
+        assignments = List.of(Set.of(forPeer(
+                clusterNodes.values().stream()
+                        .filter(n -> !n.name().equals(leaseholder.name()))
+                        .findAny()
+                        .orElseThrow()
+                        .name()
+        )));
+
+        ClusterNode newLeaseholder = nextLeaseHolder(assignments.get(0), partitionId, leaseholder.name());
+
+        assertFalse(newLeaseholder.name().equals(leaseholder.name()));
     }
 }
