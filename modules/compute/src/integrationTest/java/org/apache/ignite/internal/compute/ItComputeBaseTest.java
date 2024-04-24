@@ -53,6 +53,9 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.example.ConcatJob;
+import org.example.FailingJob;
+import org.example.GetNodeNameJob;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -61,11 +64,17 @@ import org.junit.jupiter.api.Test;
 public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     protected abstract List<DeploymentUnit> units();
 
-    protected abstract String concatJobClassName();
+    static String concatJobClassName() {
+        return ConcatJob.class.getName();
+    }
 
-    protected abstract String getNodeNameJobClassName();
+    private static String getNodeNameJobClassName() {
+        return GetNodeNameJob.class.getName();
+    }
 
-    protected abstract String failingJobClassName();
+    private static String failingJobClassName() {
+        return FailingJob.class.getName();
+    }
 
     @Test
     void executesJobLocally() {

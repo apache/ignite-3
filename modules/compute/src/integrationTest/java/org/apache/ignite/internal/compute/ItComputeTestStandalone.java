@@ -72,21 +72,6 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         return units;
     }
 
-    @Override
-    protected String concatJobClassName() {
-        return "org.example.ConcatJob";
-    }
-
-    @Override
-    protected String getNodeNameJobClassName() {
-        return "org.example.GetNodeNameJob";
-    }
-
-    @Override
-    protected String failingJobClassName() {
-        return "org.example.FailingJob";
-    }
-
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-19623")
     @Override
