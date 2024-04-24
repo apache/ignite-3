@@ -35,6 +35,7 @@ import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
@@ -573,7 +574,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
     private static <RowT> Iterator<RowT> getUntouched(Map<RowWrapper<RowT>, TouchedCollection<RowT>> entries) {
         return new Iterator<RowT>() {
-            private final Iterator<Entry<RowWrapper<RowT>, TouchedCollection<RowT>>> outerIt = entries.entrySet().iterator();
+            private final Iterator<TouchedCollection<RowT>> it = entries.values().iterator();
             private Iterator<RowT> innerIt = Collections.emptyIterator();
 
             @Override
@@ -603,11 +604,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
             }
 
             void advance() {
-                assert !innerIt.hasNext();
-
-                while (outerIt.hasNext()) {
-                    Entry<RowWrapper<RowT>, TouchedCollection<RowT>> res = outerIt.next();
-                    TouchedCollection<RowT> coll = res.getValue();
+                while (it.hasNext()) {
+                    TouchedCollection<RowT> coll = it.next();
                     if (!coll.touched && !coll.items().isEmpty()) {
                         innerIt = coll.items().iterator();
                         break;
