@@ -147,7 +147,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             return falseCompletedFuture();
         });
 
-        NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), tblReplicationGrp, null);
+        NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), tblReplicationGrp);
 
         assertTrue(waitForCondition(primaryChanged::get, 10_000));
     }
@@ -179,10 +179,10 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         Collection<IgniteImpl> nodes = cluster.runningNodes().collect(toSet());
 
-        NodeUtils.transferPrimary(nodes, tblReplicationGrp, null);
+        NodeUtils.transferPrimary(nodes, tblReplicationGrp);
 
         CompletableFuture<String> primaryChangeTask =
-                IgniteTestUtils.runAsync(() -> NodeUtils.transferPrimary(nodes, tblReplicationGrp, name -> name.equals(primary)));
+                IgniteTestUtils.runAsync(() -> NodeUtils.transferPrimary(nodes, tblReplicationGrp, primary));
 
         waitingForLeaderCache(tbl, primary);
 
@@ -264,7 +264,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         assertTrue(primaryIgnite.txManager().lockManager().locks(rwTx.id()).hasNext());
         assertEquals(6, partitionStorage.pendingCursors() + hashIdxStorage.pendingCursors() + sortedIdxStorage.pendingCursors());
 
-        NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), tblReplicationGrp, null);
+        NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), tblReplicationGrp);
 
         assertTrue(primaryIgnite.txManager().lockManager().locks(rwTx.id()).hasNext());
         assertEquals(6, partitionStorage.pendingCursors() + hashIdxStorage.pendingCursors() + sortedIdxStorage.pendingCursors());

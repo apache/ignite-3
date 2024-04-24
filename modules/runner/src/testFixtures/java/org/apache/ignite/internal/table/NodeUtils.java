@@ -46,6 +46,38 @@ public class NodeUtils {
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /**
+     * Transfers the primary rights to another node, choosing any node from the cluster except the current leaseholder.
+     *
+     * @param nodes Nodes collection.
+     * @param groupId Group id.
+     * @return New primary replica name.
+     * @throws InterruptedException If failed.
+     */
+    public static String transferPrimary(
+            Collection<IgniteImpl> nodes,
+            ReplicationGroupId groupId
+    ) throws InterruptedException {
+        return transferPrimary(nodes, groupId, (Predicate) null);
+    }
+
+    /**
+     * Transfers the primary rights to another node.
+     *
+     * @param nodes Nodes collection.
+     * @param groupId Group id.
+     * @param preferablePrimary Primary replica preferable node name.
+     * @return New primary replica name.
+     * @throws InterruptedException If failed.
+     */
+    public static String transferPrimary(
+            Collection<IgniteImpl> nodes,
+            ReplicationGroupId groupId,
+            String preferablePrimary
+    ) throws InterruptedException {
+        return transferPrimary(nodes, groupId, s -> s.equals(preferablePrimary));
+    }
+
+    /**
      * Transfers the primary rights to another node.
      *
      * @param nodes Nodes collection.

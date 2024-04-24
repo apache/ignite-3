@@ -161,7 +161,7 @@ public class VolatileTxStateMetaStorage {
                                 cleanupCompletionTimestamp, txnResourceTtl, vacuumObservationTimestamp);
 
                         if (shouldBeVacuumized) {
-                            if (meta0.commitPartitionId() == null) {
+                            if (cleanupCompletionTimestamp == null) {
                                 vacuumizedTxnsCount.incrementAndGet();
 
                                 return null;
@@ -169,9 +169,7 @@ public class VolatileTxStateMetaStorage {
                                 Set<UUID> ids = txIds.computeIfAbsent(meta0.commitPartitionId(), k -> new HashSet<>());
                                 ids.add(txId);
 
-                                if (cleanupCompletionTimestamp != null) {
-                                    cleanupCompletionTimestamps.put(txId, cleanupCompletionTimestamp);
-                                }
+                                cleanupCompletionTimestamps.put(txId, cleanupCompletionTimestamp);
 
                                 return meta0;
                             }
@@ -207,7 +205,6 @@ public class VolatileTxStateMetaStorage {
 
         persistentVacuumOp.apply(txIds)
                 .thenAccept(successful -> {
-
                     for (UUID txId : successful) {
                         txStateMap.compute(txId, (k, v) -> {
                             if (v == null) {

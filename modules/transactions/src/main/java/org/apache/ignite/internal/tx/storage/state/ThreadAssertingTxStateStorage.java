@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAll
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToWrite;
 
-import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -72,13 +71,6 @@ public class ThreadAssertingTxStateStorage implements TxStateStorage {
         assertThreadAllowsToWrite();
 
         storage.remove(txId, commandIndex, commandTerm);
-    }
-
-    @Override
-    public void removeAll(Collection<UUID> txIds, long commandIndex, long commandTerm) {
-        assertThreadAllowsToWrite();
-
-        storage.removeAll(txIds, commandIndex, commandTerm);
     }
 
     @Override

@@ -20,22 +20,24 @@ package org.apache.ignite.internal.table;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.table.ItTransactionTestUtils.findTupleToBeHostedOnNode;
-import static org.apache.ignite.internal.table.ItTransactionTestUtils.partitionAssignment;
-import static org.apache.ignite.internal.table.ItTransactionTestUtils.partitionIdForTuple;
-import static org.apache.ignite.internal.table.ItTransactionTestUtils.table;
-import static org.apache.ignite.internal.table.ItTransactionTestUtils.tableId;
-import static org.apache.ignite.internal.table.ItTransactionTestUtils.txId;
-import static org.apache.ignite.internal.table.ItTransactionTestUtils.waitAndGetPrimaryReplica;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
+import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
+import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.findTupleToBeHostedOnNode;
+import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.partitionAssignment;
+import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.partitionIdForTuple;
+import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.table;
+import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.tableId;
+import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.txId;
+import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.waitAndGetPrimaryReplica;
 import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
-import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Iterator;
@@ -49,7 +51,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -62,10 +63,12 @@ import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
+import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -138,18 +141,12 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         builder.clusterConfiguration("{"
                 + "  transaction: {"
-                + "      implicitTransactionTimeout: 30000,"
-                + "      txnResourceTtl: 2"
+                + "      txnResourceTtl: 1"
                 + "  },"
                 + "  replication: {"
                 + "      rpcTimeout: 30000"
                 + "  },"
                 + "}");
-    }
-
-    @Override
-    protected int initialNodes() {
-        return 3;
     }
 
     /**
@@ -162,6 +159,22 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         return NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
+    /**
+     * Simple vacuum test, checking also that PENDING and FINISHING states are not removed.
+     *
+     * <ul>
+     *     <li>Run a transaction;</li>
+     *     <li>Insert a value;</li>
+     *     <li>Wait 3 seconds;</li>
+     *     <li>Check that the volatile PENDING state of the transaction is preserved;</li>
+     *     <li>Block {@link TxFinishReplicaRequest};</li>
+     *     <li>Start the tx commit;</li>
+     *     <li>While the state is FINISHING, wait 3 seconds;</li>
+     *     <li>Check that the volatile state of the transaction is preserved;</li>
+     *     <li>Unblock {@link TxFinishReplicaRequest};</li>
+     *     <li>Check that both volatile and persistent state is vacuumized.</li>
+     * </ul>
+     */
     @Test
     public void testVacuum() throws InterruptedException {
         IgniteImpl node = anyNode();
@@ -182,16 +195,101 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         view.upsert(tx, tuple);
 
-        tx.commit();
+        Thread.sleep(3000);
+
+        assertTrue(checkVolatileTxStateOnNodes(nodes, txId));
+
+        CompletableFuture<Void> finishAllowedFuture = new CompletableFuture<>();
+
+        node.dropMessages((n, msg) -> {
+            if (msg instanceof TxFinishReplicaRequest) {
+                finishAllowedFuture.join();
+            }
+
+            return false;
+        });
+
+        CompletableFuture<Void> commitFut = tx.commitAsync();
+
+        assertEquals(FINISHING, volatileTxState(node, txId).txState());
+
+        Thread.sleep(3000);
+
+        assertTrue(checkVolatileTxStateOnNodes(nodes, txId));
+
+        finishAllowedFuture.complete(null);
+
+        assertThat(commitFut, willCompleteSuccessfully());
 
         log.info("Test: Tx committed [tx={}].", txId);
 
-        checkVolatileTxStateOnNodes(nodes, txId);
         waitForTxStateReplication(nodes, txId, partId, 10_000);
 
         waitForTxStateVacuum(txId, partId, true, 10_000);
     }
 
+    /**
+     * Check that the ABANDONED transaction state is preserved until recovery.
+     *
+     * <ul>
+     *     <li>Start a transaction from a coordinator that would be not included into commit partition group;</li>
+     *     <li>Insert a value;</li>
+     *     <li>Stop the tx coordinator;</li>
+     *     <li>Wait 3 seconds;</li>
+     *     <li>Check that the volatile state of the transaction is preserved;</li>
+     *     <li>Try to read the value using another transaction, which starts the tx recovery;</li>
+     *     <li>Check that the abandoned transaction is recovered; its volatile and persistent states are vacuumized;</li>
+     *     <li>Check that abandoned tx is rolled back and thus the value is null.</li>
+     * </ul>
+     */
+    @Test
+    public void testAbandonedTxnsAreNotVacuumizedUntilRecovered() throws InterruptedException {
+        IgniteImpl leaseholder = cluster.node(0);
+
+        Tuple tuple = findTupleToBeHostedOnNode(leaseholder, TABLE_NAME, null, INITIAL_TUPLE, NEXT_TUPLE, true);
+
+        int partId = partitionIdForTuple(anyNode(), TABLE_NAME, tuple, null);
+
+        TablePartitionId groupId = new TablePartitionId(tableId(anyNode(), TABLE_NAME), partId);
+
+        Set<String> txNodes = partitionAssignment(anyNode(), groupId);
+
+        IgniteImpl abandonedTxCoord = findNode(n -> !txNodes.contains(n.name()));
+
+        RecordView<Tuple> view = abandonedTxCoord.tables().table(TABLE_NAME).recordView();
+
+        Transaction abandonedTx = abandonedTxCoord.transactions().begin();
+        UUID abandonedTxId = txId(abandonedTx);
+        view.upsert(abandonedTx, tuple);
+
+        stopNode(abandonedTxCoord.name());
+
+        Thread.sleep(3000);
+
+        assertTrue(checkVolatileTxStateOnNodes(txNodes, abandonedTxId));
+
+        RecordView<Tuple> viewLh = leaseholder.tables().table(TABLE_NAME).recordView();
+        Tuple value = viewLh.get(null, Tuple.create().set("key", tuple.longValue("key")));
+        assertNull(value);
+
+        waitForTxStateVacuum(txNodes, abandonedTxId, partId, true, 10_000);
+    }
+
+    /**
+     * Check that the tx state on commit partition is vacuumized only when cleanup is completed.
+     *
+     * <ul>
+     *     <li>Start a transaction;</li>
+     *     <li>Generate some tuple and define on which nodes it would be hosted;</li>
+     *     <li>Choose one more node that doesn't host the first tuple and choose a tuple that will be sent on this node as primary;</li>
+     *     <li>Upsert both tuples within a transaction;</li>
+     *     <li>Block {@link TxCleanupMessage}-s from commit partition primary;</li>
+     *     <li>Start a tx commit;</li>
+     *     <li>Wait for vacuum completion on a node that doesn't host the commit partition;</li>
+     *     <li>Unblock {@link TxCleanupMessage}-s;</li>
+     *     <li>Wait for the cleanup on the commit partition group.</li>
+     * </ul>
+     */
     @Test
     public void testVacuumWithCleanupDelay() throws InterruptedException {
         IgniteImpl node = anyNode();
@@ -244,16 +342,16 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             return false;
         });
 
+        assertTrue(checkVolatileTxStateOnNodes(commitPartNodes, txId));
         CompletableFuture<Void> commitFut = tx.commitAsync();
 
-        checkVolatileTxStateOnNodes(commitPartNodes, txId);
         waitForTxStateReplication(commitPartNodes, txId, commitPartId, 10_000);
 
         assertThat(cleanupStarted, willCompleteSuccessfully());
 
         waitForTxStateVacuum(Set.of(leaseholderForAnotherTuple.name()), txId, 0, false, 10_000);
 
-        checkPersistentTxStateOnNodes(commitPartNodes, txId, commitPartId);
+        assertTrue(checkPersistentTxStateOnNodes(commitPartNodes, txId, commitPartId));
 
         cleanupAllowed.complete(null);
 
@@ -262,6 +360,19 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         waitForTxStateVacuum(txId, commitPartId, true, 10_000);
     }
 
+    /**
+     * Check that the tx state on commit partition is vacuumized only when cleanup is completed.
+     *
+     * <ul>
+     *     <li>Start a transaction;</li>
+     *     <li>Upsert a value;</li>
+     *     <li>Block {@link TxCleanupMessage}-s;</></li>
+     *     <li>Start a tx commit;</li>
+     *     <li>Transfer the primary replica;</li>
+     *     <li>Unblock the {@link TxCleanupMessage}-s;</li>
+     *     <li>Ensure that tx states are finally vacuumized.</li>
+     * </ul>
+     */
     @Test
     public void testCommitPartitionPrimaryChangesBeforeVacuum() throws InterruptedException {
         IgniteImpl node = anyNode();
@@ -378,10 +489,24 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         waitForTxStateVacuum(txId, commitPartId, true, 10_000);
     }
 
+    /**
+     * Checks that the tx recovery doesn't change tx finish result from COMMITTED to ABORTED if it once saved in the persistent storage.
+     *
+     * <ul>
+     *     <li>Start a transaction tx0;</li>
+     *     <li>Upsert some value;</li>
+     *     <li>Block {@link TxCleanupMessage}-s;</li>
+     *     <li>Start the commit of tx0 and with for tx state COMMITTED to be replicated in persistent storage;</li>
+     *     <li>Stop the tx0's coordinator;</li>
+     *     <li>Wait for tx0's state vacuum;</li>
+     *     <li>Start a transaction tx1;</li>
+     *     <li>Try to get the data that has been committed by tx0, ensure the data is correct.</li>
+     * </ul>
+     */
     @Test
     public void testRecoveryAfterPersistentStateVacuumized() throws InterruptedException {
         // This node isn't going to be stopped, so let it be node 0.
-        IgniteImpl commitPartitionLeaseholder = cluster.runningNodes().collect(Collectors.toList()).get(0);
+        IgniteImpl commitPartitionLeaseholder = cluster.node(0);
 
         Tuple tuple0 = findTupleToBeHostedOnNode(commitPartitionLeaseholder, TABLE_NAME, null, INITIAL_TUPLE, NEXT_TUPLE, true);
 
@@ -454,10 +579,66 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         assertEquals(tuple0.longValue("key"), tx0Data.longValue("key"));
         assertEquals(tuple0.stringValue("val"), tx0Data.stringValue("val"));
 
+        cleanupAllowed[0] = true;
+
         tx1.commit();
 
         waitForTxStateVacuum(txId0, commitPartId, true, 10_000);
         waitForTxStateVacuum(txId0, commitPartId, true, 10_000);
+    }
+
+    /**
+     * Check that RO txns read the correct data consistent with commit timestamps.
+     *
+     * <ul>
+     *     <li>Start RO tx 1;</li>
+     *     <li>Upsert (k1, v1) within RW tx 1 and commit it;</li>
+     *     <li>Start RO tx 2;</li>
+     *     <li>Upsert (k1, v2) within RW tx 2 and commit it;</li>
+     *     <li>Start RO tx 3;</li>
+     *     <li>Read the data by k1 within RO tx 1, should be null;</li>
+     *     <li>Read the data by k1 within RO tx 2, should be v1;</li>
+     *     <li>Read the data by k1 within RO tx 3, should be v2.</li>
+     * </ul>
+     */
+    @Test
+    public void testRoReadTheCorrectDataInBetween() throws InterruptedException {
+        IgniteImpl node = anyNode();
+
+        Transaction roTx1 = node.transactions().begin(new TransactionOptions().readOnly(true));
+
+        Tuple t1 = Tuple.create().set("key", 1L).set("val", "val1");
+        Tuple t2 = Tuple.create().set("key", 1L).set("val", "val2");
+
+        RecordView<Tuple> view = table(node, TABLE_NAME).recordView();
+
+        Transaction rwTx1 = node.transactions().begin();
+        view.upsert(rwTx1, t1);
+        rwTx1.commit();
+        UUID rwTxId1 = txId(rwTx1);
+
+        Transaction roTx2 = node.transactions().begin(new TransactionOptions().readOnly(true));
+
+        Transaction rwTx2 = node.transactions().begin();
+        view.upsert(rwTx2, t2);
+        rwTx2.commit();
+        UUID rwTxId2 = txId(rwTx1);
+
+        Transaction roTx3 = node.transactions().begin(new TransactionOptions().readOnly(true));
+
+        waitForTxStateVacuum(rwTxId1, partitionIdForTuple(node, TABLE_NAME, t1, rwTx1), true, 10_000);
+        waitForTxStateVacuum(rwTxId2, partitionIdForTuple(node, TABLE_NAME, t2, rwTx2), true, 10_000);
+
+        Tuple keyRec = Tuple.create().set("key", 1L);
+
+        Tuple r1 = view.get(roTx1, keyRec);
+        assertNull(r1);
+
+        Tuple r2 = view.get(roTx2, keyRec);
+        assertEquals(t1.stringValue("val"), r2.stringValue("val"));
+
+        Tuple r3 = view.get(roTx3, keyRec);
+        assertEquals(t2.stringValue("val"), r3.stringValue("val"));
     }
 
     private boolean checkVolatileTxStateOnNodes(Set<String> nodeConsistentIds, UUID txId) {
@@ -472,15 +653,40 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                 .allMatch(n -> persistentTxState(n, txId, partId) != null);
     }
 
+    /**
+     * Waits for persistent tx state to be replicated on the given nodes.
+     *
+     * @param nodeConsistentIds Node names.
+     * @param txId Transaction id.
+     * @param partId Commit partition id.
+     * @param timeMs Time to wait.
+     */
     private void waitForTxStateReplication(Set<String> nodeConsistentIds, UUID txId, int partId, long timeMs)
             throws InterruptedException {
         assertTrue(waitForCondition(() -> checkPersistentTxStateOnNodes(nodeConsistentIds, txId, partId), timeMs));
     }
 
+    /**
+     * Waits for vacuum of volatile (and if needed, persistent) state of the given tx on all nodes of the cluster.
+     *
+     * @param txId Transaction id.
+     * @param partId Commit partition id to check the persistent tx state storage of this partition.
+     * @param checkPersistent Whether to wait for vacuum of persistent tx state as well.
+     * @param timeMs Time to wait.
+     */
     private void waitForTxStateVacuum(UUID txId, int partId, boolean checkPersistent, long timeMs) throws InterruptedException {
         waitForTxStateVacuum(cluster.runningNodes().map(IgniteImpl::name).collect(toSet()), txId, partId, checkPersistent, timeMs);
     }
 
+    /**
+     * Waits for vacuum of volatile (and if needed, persistent) state of the given tx on the given nodes.
+     *
+     * @param nodeConsistentIds Node names.
+     * @param txId Transaction id.
+     * @param partId Commit partition id to check the persistent tx state storage of this partition.
+     * @param checkPersistent Whether to wait for vacuum of persistent tx state as well.
+     * @param timeMs Time to wait.
+     */
     private void waitForTxStateVacuum(Set<String> nodeConsistentIds, UUID txId, int partId, boolean checkPersistent, long timeMs)
             throws InterruptedException {
         boolean r = waitForCondition(() -> {
@@ -546,14 +752,5 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                 .filter(n -> n != null && filter.test(n))
                 .findFirst()
                 .get();
-    }
-
-    private Transaction startTx(IgniteImpl coordinator) {
-        Transaction tx = coordinator.transactions().begin();
-        UUID txId = txId(tx);
-
-        log.info("Test: Transaction 0 [tx={}].", txId);
-
-        return tx;
     }
 }

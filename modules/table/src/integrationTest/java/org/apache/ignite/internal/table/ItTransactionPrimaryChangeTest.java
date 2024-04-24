@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTransaction;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.table.ItTransactionTestUtils.waitAndGetPrimaryReplica;
+import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.waitAndGetPrimaryReplica;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -163,7 +163,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             assertThat(fullTxReplicationAttemptFuture, willCompleteSuccessfully());
 
             // Changing the primary.
-            NodeUtils.transferPrimary(cluster.runningNodes().collect(toList()), tblReplicationGrp, name -> name.equals(txCrdNode.name()));
+            NodeUtils.transferPrimary(cluster.runningNodes().collect(toList()), tblReplicationGrp, txCrdNode.name());
 
             // Start a regular transaction that increments the value. It should see the initially inserted value and its commit should
             // succeed.

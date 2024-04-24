@@ -30,7 +30,6 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_R
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -170,66 +169,34 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     @Override
     public boolean compareAndSet(UUID txId, @Nullable TxState txStateExpected, TxMeta txMeta, long commandIndex, long commandTerm) {
-        return updateData(writeBatch -> {
-            byte[] txIdBytes = txIdToKey(txId);
-
-            byte[] txMetaExistingBytes = sharedStorage.db().get(sharedStorage.readOptions, txIdToKey(txId));
-
-            boolean result;
-
-            if (txMetaExistingBytes == null && txStateExpected == null) {
-                writeBatch.put(txIdBytes, toBytes(txMeta));
-
-                result = true;
-            } else {
-                if (txMetaExistingBytes != null) {
-                    TxMeta txMetaExisting = fromBytes(txMetaExistingBytes);
-
-                    if (txMetaExisting.txState() == txStateExpected) {
-                        writeBatch.put(txIdBytes, toBytes(txMeta));
-
-                        result = true;
-                    } else {
-                        result = txMetaExisting.txState() == txMeta.txState()
-                                && Objects.equals(txMetaExisting.commitTimestamp(), txMeta.commitTimestamp());
-                    }
-                } else {
-                    result = false;
-                }
-            }
-
-            return result;
-        }, commandIndex, commandTerm);
-    }
-
-    @Override
-    public void remove(UUID txId, long commandIndex, long commandTerm) {
-        updateData(writeBatch -> {
-            throwExceptionIfStorageInProgressOfRebalance();
-
-            writeBatch.delete(txIdToKey(txId));
-
-            return null;
-        }, commandIndex, commandTerm);
-    }
-
-    @Override
-    public void removeAll(Collection<UUID> txIds, long commandIndex, long commandTerm) {
-        updateData(writeBatch -> {
-            throwExceptionIfStorageInProgressOfRebalance();
-
-            for (UUID txId : txIds) {
-                writeBatch.delete(txIdToKey(txId));
-            }
-
-            return null;
-        }, commandIndex, commandTerm);
-    }
-
-    private <T> T updateData(WriteClosure writeClosure, long commandIndex, long commandTerm) {
-        return (T) busy(() -> {
+        return busy(() -> {
             try (WriteBatch writeBatch = new WriteBatch()) {
-                Object result = writeClosure.apply(writeBatch);
+                byte[] txIdBytes = txIdToKey(txId);
+
+                byte[] txMetaExistingBytes = sharedStorage.db().get(sharedStorage.readOptions, txIdToKey(txId));
+
+                boolean result;
+
+                if (txMetaExistingBytes == null && txStateExpected == null) {
+                    writeBatch.put(txIdBytes, toBytes(txMeta));
+
+                    result = true;
+                } else {
+                    if (txMetaExistingBytes != null) {
+                        TxMeta txMetaExisting = fromBytes(txMetaExistingBytes);
+
+                        if (txMetaExisting.txState() == txStateExpected) {
+                            writeBatch.put(txIdBytes, toBytes(txMeta));
+
+                            result = true;
+                        } else {
+                            result = txMetaExisting.txState() == txMeta.txState()
+                                    && Objects.equals(txMetaExisting.commitTimestamp(), txMeta.commitTimestamp());
+                        }
+                    } else {
+                        result = false;
+                    }
+                }
 
                 // If the store is in the process of rebalancing, then there is no need to update lastAppliedIndex and lastAppliedTerm.
                 // This is necessary to prevent a situation where, in the middle of the rebalance, the node will be restarted and we will
@@ -244,7 +211,35 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             } catch (RocksDBException e) {
                 throw new IgniteInternalException(
                         TX_STATE_STORAGE_ERR,
-                        format("Failed to update data in the storage: [{}]", createStorageInfo()),
+                        format("Failed perform CAS operation over a value in storage: [{}]", createStorageInfo()),
+                        e
+                );
+            }
+        });
+    }
+
+    @Override
+    public void remove(UUID txId, long commandIndex, long commandTerm) {
+        busy(() -> {
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                throwExceptionIfStorageInProgressOfRebalance();
+
+                writeBatch.delete(txIdToKey(txId));
+
+                // If the store is in the process of rebalancing, then there is no need to update lastAppliedIndex and lastAppliedTerm.
+                // This is necessary to prevent a situation where, in the middle of the rebalance, the node will be restarted and we will
+                // have non-consistent storage. They will be updated by either #abortRebalance() or #finishRebalance(long, long).
+                if (state.get() != StorageState.REBALANCE) {
+                    updateLastApplied(writeBatch, commandIndex, commandTerm);
+                }
+
+                sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
+
+                return null;
+            } catch (RocksDBException e) {
+                throw new IgniteInternalException(
+                        TX_STATE_STORAGE_ERR,
+                        format("Failed to remove a value from storage: [{}]", createStorageInfo()),
                         e
                 );
             }
@@ -659,13 +654,5 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
         /** Storage is in the process of cleanup. */
         CLEANUP
-    }
-
-    /**
-     * Write closure.
-     */
-    @FunctionalInterface
-    private interface WriteClosure<T> {
-        T apply(WriteBatch writeBatch) throws RocksDBException;
     }
 }

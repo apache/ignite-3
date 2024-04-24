@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.UUID;
@@ -104,20 +103,6 @@ public class TestTxStateStorage implements TxStateStorage {
         checkStorageClosedOrInProgressOfRebalance();
 
         storage.remove(txId);
-
-        if (rebalanceFutureReference.get() == null) {
-            lastAppliedIndex = commandIndex;
-            lastAppliedTerm = commandTerm;
-        }
-    }
-
-    @Override
-    public void removeAll(Collection<UUID> txIds, long commandIndex, long commandTerm) {
-        checkStorageClosedOrInProgressOfRebalance();
-
-        for (UUID txId : txIds) {
-            storage.remove(txId);
-        }
 
         if (rebalanceFutureReference.get() == null) {
             lastAppliedIndex = commandIndex;
