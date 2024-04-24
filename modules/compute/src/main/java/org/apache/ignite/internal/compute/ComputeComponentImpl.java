@@ -252,11 +252,12 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
     private <R> JobExecutionInternal<R> exec(JobContext context, ExecutionOptions options, String jobClassName, Object[] args) {
-        return executor.executeJob(
-                options,
-                ComputeUtils.jobClass(context.classLoader(), jobClassName),
-                args
-        );
+        try {
+            return executor.executeJob(options, ComputeUtils.jobClass(context.classLoader(), jobClassName), args);
+        } catch (RuntimeException e) {
+            context.close();
+            throw e;
+        }
     }
 
     @TestOnly

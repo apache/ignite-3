@@ -23,6 +23,7 @@ import static org.apache.ignite.compute.JobState.FAILED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
+import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
@@ -54,6 +55,9 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Base integration tests for Compute functionality. To add new compute job for testing both in embedded and standalone mode, add the
@@ -63,16 +67,58 @@ import org.junit.jupiter.api.Test;
 public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     protected abstract List<DeploymentUnit> units();
 
-    static String concatJobClassName() {
-        return ConcatJob.class.getName();
+    private static List<Arguments> wrongJobClassArguments() {
+        return List.of(
+                Arguments.of("org.example.NonExistentJob", CLASS_INITIALIZATION_ERR, "Cannot load job class by name"),
+                Arguments.of(NonComputeJob.class.getName(), CLASS_INITIALIZATION_ERR, "does not implement ComputeJob interface"),
+                Arguments.of(NonEmptyConstructorJob.class.getName(), CLASS_INITIALIZATION_ERR, "Cannot instantiate job")
+        );
     }
 
-    private static String getNodeNameJobClassName() {
-        return GetNodeNameJob.class.getName();
+    @ParameterizedTest
+    @MethodSource("wrongJobClassArguments")
+    void executesWrongJobClassLocally(String jobClassName, int errorCode, String msg) {
+        IgniteImpl entryNode = node(0);
+
+        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
+                .execute(Set.of(entryNode.node()), units(), jobClassName));
+
+        assertTraceableException(ex, ComputeException.class, errorCode, msg);
     }
 
-    private static String failingJobClassName() {
-        return FailingJob.class.getName();
+    @ParameterizedTest
+    @MethodSource("wrongJobClassArguments")
+    void executesWrongJobClassLocallyAsync(String jobClassName, int errorCode, String msg) {
+        IgniteImpl entryNode = node(0);
+
+        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
+                .executeAsync(Set.of(entryNode.node()), units(), jobClassName)
+                .get(1, TimeUnit.SECONDS));
+
+        assertTraceableException(ex, ComputeException.class, errorCode, msg);
+    }
+
+    @ParameterizedTest
+    @MethodSource("wrongJobClassArguments")
+    void executesWrongJobClassOnRemoteNodes(String jobClassName, int errorCode, String msg) {
+        Ignite entryNode = node(0);
+
+        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
+                .execute(Set.of(node(1).node(), node(2).node()), units(), jobClassName));
+
+        assertTraceableException(ex, ComputeException.class, errorCode, msg);
+    }
+
+    @ParameterizedTest
+    @MethodSource("wrongJobClassArguments")
+    void executesWrongJobClassOnRemoteNodesAsync(String jobClassName, int errorCode, String msg) {
+        Ignite entryNode = node(0);
+
+        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
+                .executeAsync(Set.of(node(1).node(), node(2).node()), units(), jobClassName)
+                .get(1, TimeUnit.SECONDS));
+
+        assertTraceableException(ex, ComputeException.class, errorCode, msg);
     }
 
     @Test
@@ -83,10 +129,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 .execute(Set.of(entryNode.node()), units(), concatJobClassName(), "a", 42);
 
         assertThat(result, is("a42"));
-    }
-
-    IgniteImpl node(int i) {
-        return CLUSTER.node(i);
     }
 
     @Test
@@ -306,7 +348,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     private List<String> allNodeNames() {
         return IntStream.range(0, initialNodes())
-                .mapToObj(this::node)
+                .mapToObj(ItComputeBaseTest::node)
                 .map(Ignite::name)
                 .collect(toList());
     }
@@ -337,11 +379,27 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         assertThat(execution.cancelAsync(), willBe(false));
     }
 
-    protected static void assertComputeException(Exception ex, Throwable cause) {
+    static IgniteImpl node(int i) {
+        return CLUSTER.node(i);
+    }
+
+    static String concatJobClassName() {
+        return ConcatJob.class.getName();
+    }
+
+    private static String getNodeNameJobClassName() {
+        return GetNodeNameJob.class.getName();
+    }
+
+    private static String failingJobClassName() {
+        return FailingJob.class.getName();
+    }
+
+    static void assertComputeException(Exception ex, Throwable cause) {
         assertComputeException(ex, cause.getClass().getName(), cause.getMessage());
     }
 
-    protected static void assertComputeException(Exception ex, Class<?> cause, String causeMsgSubstring) {
+    static void assertComputeException(Exception ex, Class<?> cause, String causeMsgSubstring) {
         assertComputeException(ex, cause.getName(), causeMsgSubstring);
     }
 
