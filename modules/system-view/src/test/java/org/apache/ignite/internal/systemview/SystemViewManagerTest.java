@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.systemview.SystemViewManagerImpl.NODE_A
 import static org.apache.ignite.internal.systemview.SystemViewManagerImpl.NODE_ATTRIBUTES_LIST_SEPARATOR;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -130,7 +129,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
         assertThrows(IllegalStateException.class, viewMgr::startAsync);
 
-        assertThat(viewMgr.startAsync(), willThrow(IllegalStateException.class));
+        assertThrows(IllegalStateException.class, viewMgr::startAsync);
 
         verifyNoMoreInteractions(catalog);
     }

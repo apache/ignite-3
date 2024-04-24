@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.storage;
 
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.fromCursor;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
@@ -93,6 +94,9 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
 
             return fromCursor(metaStorage.range(prefix.bytes(), metaStorage.nextKey(prefix.bytes())));
         });
+
+        when(mock.startAsync()).thenReturn(nullCompletedFuture());
+        when(mock.stopAsync()).thenReturn(nullCompletedFuture());
 
         return mock;
     }
