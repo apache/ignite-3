@@ -52,6 +52,7 @@ class LogSinkTest extends BaseIgniteAbstractTest {
     static void beforeAll() {
         String buildDirPath = System.getProperty("buildDirPath");
         eventlogPath = Path.of(buildDirPath).resolve("event.log");
+        //
     }
 
     @AfterAll
