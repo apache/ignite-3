@@ -206,7 +206,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     metaStorageManager
             );
 
-            assertThat(IgniteUtils.stopAsync(components), willCompleteSuccessfully());
+            assertThat(IgniteUtils.startAsync(components), willCompleteSuccessfully());
         }
 
         /**

@@ -52,6 +52,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
@@ -233,7 +234,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void testNoInteractionsAfterStop() throws Exception {
+    public void testNoInteractionsAfterStop() {
         clearInvocations(updateLog);
 
         CompletableFuture<Void> readyFuture = manager.catalogReadyFuture(1);
@@ -1105,6 +1106,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         ArgumentCaptor<OnUpdateHandler> updateHandlerCapture = ArgumentCaptor.forClass(OnUpdateHandler.class);
 
         doNothing().when(updateLogMock).registerUpdateHandler(updateHandlerCapture.capture());
+        when(updateLogMock.startAsync()).thenReturn(nullCompletedFuture());
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
         assertThat(manager.startAsync(), willCompleteSuccessfully());
@@ -1135,7 +1137,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void catalogActivationTime() throws Exception {
+    public void catalogActivationTime() {
         long delayDuration = TimeUnit.DAYS.toMillis(365);
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockService, delayDuration, 0);
@@ -1217,8 +1219,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void catalogServiceManagesUpdateLogLifecycle() throws Exception {
+    public void catalogServiceManagesUpdateLogLifecycle() {
         UpdateLog updateLogMock = mock(UpdateLog.class);
+        when(updateLogMock.startAsync()).thenReturn(nullCompletedFuture());
+        when(updateLogMock.stopAsync()).thenReturn(nullCompletedFuture());
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
 
@@ -1718,7 +1722,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void userFutureCompletesAfterClusterWideActivationHappens() throws Exception {
+    public void userFutureCompletesAfterClusterWideActivationHappens() {
         long delayDuration = TimeUnit.DAYS.toMillis(365);
 
         HybridTimestamp startTs = clock.now();
@@ -1747,7 +1751,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     // TODO: remove after IGNITE-20378 is implemented.
     @Test
-    public void userFutureCompletesAfterClusterWideActivationWithAdditionalIdleSafeTimePeriodHappens() throws Exception {
+    public void userFutureCompletesAfterClusterWideActivationWithAdditionalIdleSafeTimePeriodHappens() {
         long delayDuration = TimeUnit.DAYS.toMillis(365);
         long partitionIdleSafeTimePropagationPeriod = TimeUnit.DAYS.toDays(365);
 
