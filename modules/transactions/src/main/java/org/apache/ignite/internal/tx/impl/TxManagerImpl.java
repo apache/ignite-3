@@ -640,7 +640,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                             result.transactionState(),
                                             old == null ? null : old.txCoordinatorId(),
                                             commitPartition,
-                                            result.commitTimestamp()
+                                            result.commitTimestamp(),
+                                            old == null ? null : old.initialVacuumObservationTimestamp(),
+                                            old == null ? null : old.cleanupCompletionTimestamp()
                                     )
                             );
 
@@ -704,7 +706,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                     txResult.transactionState(),
                                     localNodeId,
                                     old == null ? null : old.commitPartitionId(),
-                                    txResult.commitTimestamp()
+                                    txResult.commitTimestamp(),
+                                    old == null ? null : old.initialVacuumObservationTimestamp(),
+                                    old == null ? null : old.cleanupCompletionTimestamp()
                             ));
 
                     assert isFinalState(updatedMeta.txState()) :

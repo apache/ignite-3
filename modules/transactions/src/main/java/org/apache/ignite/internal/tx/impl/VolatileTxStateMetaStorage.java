@@ -49,8 +49,6 @@ public class VolatileTxStateMetaStorage {
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
 
-    private final AtomicInteger persistentStatesVaccumizedLastIteration = new AtomicInteger();
-
     /**
      * Starts the storage.
      */
@@ -129,6 +127,8 @@ public class VolatileTxStateMetaStorage {
      *
      * @param vacuumObservationTimestamp Timestamp of the vacuum attempt.
      * @param txnResourceTtl Transactional resource time to live in milliseconds.
+     * @param persistentVacuumOp Persistent vacuum operation. Accepts the map of commit partition ids to set of
+     *     tx ids, returns a future with set of successfully vacuumized tx ids.
      */
     public void vacuum(
             long vacuumObservationTimestamp,
@@ -161,7 +161,7 @@ public class VolatileTxStateMetaStorage {
                                 cleanupCompletionTimestamp, txnResourceTtl, vacuumObservationTimestamp);
 
                         if (shouldBeVacuumized) {
-                            if (cleanupCompletionTimestamp == null) {
+                            if (meta0.commitPartitionId() == null) {
                                 vacuumizedTxnsCount.incrementAndGet();
 
                                 return null;
@@ -169,7 +169,9 @@ public class VolatileTxStateMetaStorage {
                                 Set<UUID> ids = txIds.computeIfAbsent(meta0.commitPartitionId(), k -> new HashSet<>());
                                 ids.add(txId);
 
-                                cleanupCompletionTimestamps.put(txId, cleanupCompletionTimestamp);
+                                if (cleanupCompletionTimestamp != null) {
+                                    cleanupCompletionTimestamps.put(txId, cleanupCompletionTimestamp);
+                                }
 
                                 return meta0;
                             }
@@ -186,23 +188,6 @@ public class VolatileTxStateMetaStorage {
             });
         });
 
-        int vacuumizedPersistentTxnStatesCount = persistentStatesVaccumizedLastIteration.getAndSet(0);
-
-        LOG.info("Vacuum finished [vacuumObservationTimestamp={}, txnResourceTtl={}, "
-                        + "vacuumizedTxnsCount={}, "
-                        + "vacuumizedPersistentTxnStatesCount={}, "
-                        + "markedAsInitiallyDetectedTxnsCount={}, "
-                        + "alreadyMarkedTxnsCount={}, "
-                        + "skippedForFurtherProcessingUnfinishedTxnsCount={}].",
-                vacuumObservationTimestamp,
-                txnResourceTtl,
-                vacuumizedTxnsCount,
-                vacuumizedPersistentTxnStatesCount,
-                markedAsInitiallyDetectedTxnsCount,
-                alreadyMarkedTxnsCount,
-                skippedForFurtherProcessingUnfinishedTxnsCount
-        );
-
         persistentVacuumOp.apply(txIds)
                 .thenAccept(successful -> {
                     for (UUID txId : successful) {
@@ -217,7 +202,21 @@ public class VolatileTxStateMetaStorage {
                         });
                     }
 
-                    persistentStatesVaccumizedLastIteration.addAndGet(successful.size());
+                    LOG.info("Vacuum finished [vacuumObservationTimestamp={}, "
+                                    + "txnResourceTtl={}, "
+                                    + "vacuumizedTxnsCount={}, "
+                                    + "vacuumizedPersistentTxnStatesCount={}, "
+                                    + "markedAsInitiallyDetectedTxnsCount={}, "
+                                    + "alreadyMarkedTxnsCount={}, "
+                                    + "skippedForFurtherProcessingUnfinishedTxnsCount={}].",
+                            vacuumObservationTimestamp,
+                            txnResourceTtl,
+                            vacuumizedTxnsCount,
+                            successful.size(),
+                            markedAsInitiallyDetectedTxnsCount,
+                            alreadyMarkedTxnsCount,
+                            skippedForFurtherProcessingUnfinishedTxnsCount
+                    );
                 });
     }
 
@@ -227,7 +226,8 @@ public class VolatileTxStateMetaStorage {
                 meta.txCoordinatorId(),
                 meta.commitPartitionId(),
                 meta.commitTimestamp(),
-                vacuumObservationTimestamp
+                vacuumObservationTimestamp,
+                meta.cleanupCompletionTimestamp()
         );
     }
 
