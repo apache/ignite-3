@@ -120,7 +120,7 @@ public class PersistentTxStateVacuumizer {
                         }
                     });
 
-                futures.add(future);
+            futures.add(future);
         });
 
         return allOf(futures.toArray(new CompletableFuture[0]))

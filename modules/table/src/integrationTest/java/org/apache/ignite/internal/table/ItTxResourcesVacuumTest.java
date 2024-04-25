@@ -20,7 +20,11 @@ package org.apache.ignite.internal.table;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.findTupleToBeHostedOnNode;
@@ -30,10 +34,6 @@ import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.table;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.tableId;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.txId;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.waitAndGetPrimaryReplica;
-import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -392,7 +392,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      * <ul>
      *     <li>Start a transaction;</li>
      *     <li>Upsert a value;</li>
-     *     <li>Block {@link TxCleanupMessage}-s;</></li>
+     *     <li>Block {@link TxCleanupMessage}-s;</li>
      *     <li>Start a tx commit;</li>
      *     <li>Transfer the primary replica;</li>
      *     <li>Unblock the {@link TxCleanupMessage}-s;</li>
