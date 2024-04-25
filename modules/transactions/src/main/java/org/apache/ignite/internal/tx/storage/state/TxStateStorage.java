@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.storage.state;
 
+import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -74,9 +75,21 @@ public interface TxStateStorage extends ManuallyCloseable {
      * Removes the tx meta from the storage.
      *
      * @param txId Tx id.
+     * @param commandIndex New value for {@link #lastAppliedIndex()}.
+     * @param commandTerm New value for {@link #lastAppliedTerm()}.
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
      */
-    void remove(UUID txId);
+    void remove(UUID txId, long commandIndex, long commandTerm);
+
+    /**
+     * Removes all the given transaction metas from the storage.
+     *
+     * @param txIds Tx ids.
+     * @param commandIndex New value for {@link #lastAppliedIndex()}.
+     * @param commandTerm New value for {@link #lastAppliedTerm()}.
+     * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
+     */
+    void removeAll(Collection<UUID> txIds, long commandIndex, long commandTerm);
 
     /**
      * Creates a cursor to scan all data in the storage.
