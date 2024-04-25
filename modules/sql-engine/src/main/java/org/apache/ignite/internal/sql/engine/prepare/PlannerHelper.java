@@ -160,7 +160,7 @@ public final class PlannerHelper {
             if (ex instanceof CannotPlanException) {
                 throw ex;
             } else if (ex.getClass() == RuntimeException.class && ex.getCause() instanceof SqlException) {
-                SqlException sqlEx = (SqlException)ex.getCause();
+                SqlException sqlEx = (SqlException) ex.getCause();
                 throw new SqlException(sqlEx.traceId(), sqlEx.code(), sqlEx.getMessage(), ex);
             } else {
                 throw new SqlException(Common.INTERNAL_ERR, "Unable to optimize plan due to internal error", ex);
