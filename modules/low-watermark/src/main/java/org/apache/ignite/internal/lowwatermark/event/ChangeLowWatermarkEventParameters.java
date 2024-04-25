@@ -15,8 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.event;
+package org.apache.ignite.internal.lowwatermark.event;
 
-/** Event parameters. This type is passed to the {@link EventListener#notify(EventParameters)}. */
-public interface EventParameters {
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+
+/** Low watermark change event parameters. */
+public class ChangeLowWatermarkEventParameters implements LowWatermarkEventParameters {
+    private final HybridTimestamp newLowWatermark;
+
+    /**
+     * Constructor.
+     *
+     * @param newLowWatermark New low watermark.
+     */
+    public ChangeLowWatermarkEventParameters(HybridTimestamp newLowWatermark) {
+        this.newLowWatermark = newLowWatermark;
+    }
+
+    /** Returns new low watermark. */
+    public HybridTimestamp newLowWatermark() {
+        return newLowWatermark;
+    }
 }

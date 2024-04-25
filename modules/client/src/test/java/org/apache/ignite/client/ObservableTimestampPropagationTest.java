@@ -27,8 +27,11 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -68,30 +71,35 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
     @Test
     @SuppressWarnings("resource")
     public void testClientPropagatesLatestKnownHybridTimestamp() {
+        ReliableChannel ch = IgniteTestUtils.getFieldValue(client, "ch");
+        TransactionOptions roOpts = new TransactionOptions().readOnly(true);
+
         assertNull(lastObservableTimestamp());
 
         // RW TX does not propagate timestamp.
-        client.transactions().begin();
+        var rwTx = client.transactions().begin();
+        ClientLazyTransaction.ensureStarted(rwTx, ch, null).join();
         assertNull(lastObservableTimestamp());
 
         // RO TX propagates timestamp.
-        client.transactions().begin(new TransactionOptions().readOnly(true));
+        var roTx = client.transactions().begin(roOpts);
+        ClientLazyTransaction.ensureStarted(roTx, ch, null).join();
         assertEquals(1, lastObservableTimestamp());
 
         // Increase timestamp on server - client does not know about it initially.
         currentServerTimestamp.set(11);
-        client.transactions().begin(new TransactionOptions().readOnly(true));
+        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
         assertEquals(1, lastObservableTimestamp());
 
         // Subsequent RO TX propagates latest known timestamp.
         client.tables().tables();
-        client.transactions().begin(new TransactionOptions().readOnly(true));
+        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
         assertEquals(11, lastObservableTimestamp());
 
         // Smaller timestamp from server is ignored by client.
         currentServerTimestamp.set(9);
-        client.transactions().begin(new TransactionOptions().readOnly(true));
-        client.transactions().begin(new TransactionOptions().readOnly(true));
+        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
+        ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
         assertEquals(11, lastObservableTimestamp());
 
         Statement statement = client.sql().statementBuilder()

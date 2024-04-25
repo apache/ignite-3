@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.event;
+package org.apache.ignite.internal.lowwatermark.event;
 
-/** Event parameters. This type is passed to the {@link EventListener#notify(EventParameters)}. */
-public interface EventParameters {
+import org.apache.ignite.internal.event.EventParameters;
+
+/** Low watermark event parameters. */
+public interface LowWatermarkEventParameters extends EventParameters {
 }

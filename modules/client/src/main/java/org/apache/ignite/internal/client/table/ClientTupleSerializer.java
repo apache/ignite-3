@@ -36,7 +36,7 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
-import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.util.HashCalculator;
@@ -420,12 +420,7 @@ public class ClientTupleSerializer {
      * @return Partition awareness provider.
      */
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(@Nullable Transaction tx, Tuple rec) {
-        if (tx != null) {
-            //noinspection resource
-            return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel().protocolContext().clusterNode().name());
-        }
-
-        return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, rec));
+        return PartitionAwarenessProvider.of(ClientLazyTransaction.get(tx), schema -> getColocationHash(schema, rec));
     }
 
     /**
@@ -437,12 +432,7 @@ public class ClientTupleSerializer {
      */
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(
             @Nullable Transaction tx, Mapper<?> mapper, Object rec) {
-        if (tx != null) {
-            //noinspection resource
-            return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel().protocolContext().clusterNode().name());
-        }
-
-        return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, mapper, rec));
+        return PartitionAwarenessProvider.of(ClientLazyTransaction.get(tx), schema -> getColocationHash(schema, mapper, rec));
     }
 
     /**

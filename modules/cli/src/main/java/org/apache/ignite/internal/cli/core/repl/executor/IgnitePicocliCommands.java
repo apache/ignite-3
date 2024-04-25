@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cli.core.repl.executor;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -221,8 +220,6 @@ public class IgnitePicocliCommands implements CommandRegistry {
                     candidates.add(staticCandidate(c));
                 }
             }
-
-            sortCandidates(candidates);
         }
 
         private Candidate dynamicCandidate(String one) {
@@ -235,37 +232,6 @@ public class IgnitePicocliCommands implements CommandRegistry {
 
         private Candidate staticCandidate(String one) {
             return new Candidate(one, one, null, null, null, null, true, 10);
-        }
-
-        /**
-         * When custom sort order is used, sort candidates list and reassign sort order according to candidates order.
-         * TODO https://issues.apache.org/jira/browse/IGNITE-21824
-         *
-         * @param candidates List of candidates.
-         */
-        private void sortCandidates(List<Candidate> candidates) {
-            boolean customOrder = candidates.stream().anyMatch(c -> c.sort() != 0);
-            if (!customOrder) {
-                return;
-            }
-            Collections.sort(candidates);
-            List<Candidate> newCandidates = new ArrayList<>(candidates.size());
-            for (int i = 0; i < candidates.size(); i++) {
-                Candidate candidate = candidates.get(i);
-                Candidate newCandidate = new Candidate(
-                        candidate.value(),
-                        candidate.displ(),
-                        candidate.group(),
-                        candidate.descr(),
-                        candidate.suffix(),
-                        candidate.key(),
-                        candidate.complete(),
-                        i // override sort order
-                );
-                newCandidates.add(newCandidate);
-            }
-            candidates.clear();
-            candidates.addAll(newCandidates);
         }
     }
 }
