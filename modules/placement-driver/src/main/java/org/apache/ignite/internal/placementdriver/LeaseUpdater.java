@@ -286,23 +286,6 @@ public class LeaseUpdater {
         }
 
         return primaryCandidate;
-        /*if (proposedConsistentId != null && assignments.contains(forPeer(proposedConsistentId))) {
-            ClusterNode proposedCandidate = topologyTracker.nodeByConsistentId(proposedConsistentId);
-
-            if (proposedCandidate != null) {
-                return proposedCandidate;
-            }
-        }
-
-        List<ClusterNode> onlineNodes = assignments.stream()
-                .map(a -> topologyTracker.nodeByConsistentId(a.consistentId()))
-                .filter(Objects::nonNull)
-                .sorted(comparing(ClusterNode::name))
-                .collect(toList());
-
-        int hash = abs(hash(assignments, grpId));
-
-        return onlineNodes.get(hash % onlineNodes.size());*/
     }
 
     /** Returns {@code true} if active. */
