@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.Collections.emptySet;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -174,6 +175,7 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.CatalogIndexStatusSupplierImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -532,22 +534,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 ServiceLoader.load(DataStorageModule.class)
         );
 
-        Path storagePath = getPartitionsStorePath(dir);
-
-        DataStorageManager dataStorageManager = new DataStorageManager(
-                dataStorageModules.createStorageEngines(
-                        name,
-                        nodeCfgMgr.configurationRegistry(),
-                        storagePath,
-                        null,
-                        failureProcessor,
-                        raftMgr.getLogSyncer()
-                ),
-                nodeCfgMgr.configurationRegistry().getConfiguration(StorageConfiguration.KEY)
-        );
-
-        TransactionConfiguration txConfiguration = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
-
         LongSupplier delayDurationMsSupplier = () -> TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
 
         var catalogManager = new CatalogManagerImpl(
@@ -556,6 +542,25 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 delayDurationMsSupplier,
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
+
+        Path storagePath = getPartitionsStorePath(dir);
+
+        var indexStatusSupplier = new CatalogIndexStatusSupplierImpl(catalogManager, lowWatermark);
+
+        DataStorageManager dataStorageManager = new DataStorageManager(
+                dataStorageModules.createStorageEngines(
+                        name,
+                        nodeCfgMgr.configurationRegistry(),
+                        storagePath,
+                        null,
+                        failureProcessor,
+                        raftMgr.getLogSyncer(),
+                        indexStatusSupplier
+                ),
+                nodeCfgMgr.configurationRegistry().getConfiguration(StorageConfiguration.KEY)
+        );
+
+        TransactionConfiguration txConfiguration = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
 
         SchemaManager schemaManager = new SchemaManager(registry, catalogManager);
 
@@ -664,10 +669,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         // Start.
 
-        vault.start();
+        assertThat(vault.start(), willCompleteSuccessfully());
         vault.putName(name);
 
-        nodeCfgMgr.start();
+        assertThat(nodeCfgMgr.start(), willCompleteSuccessfully());
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
@@ -686,9 +691,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 lowWatermark,
                 metaStorageMgr,
                 clusterCfgMgr,
-                dataStorageManager,
-                clockWaiter,
                 catalogManager,
+                clockWaiter,
+                dataStorageManager,
                 schemaManager,
                 distributionZoneManager,
                 tableManager,
@@ -697,11 +702,15 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 sqlRef.get()
         );
 
+        var startOtherComponentFutures = new ArrayList<CompletableFuture<Void>>();
+
         for (IgniteComponent component : otherComponents) {
-            component.start();
+            startOtherComponentFutures.add(component.start());
 
             components.add(component);
         }
+
+        assertThat(allOf(startOtherComponentFutures.toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
 
         lowWatermark.scheduleUpdates();
 

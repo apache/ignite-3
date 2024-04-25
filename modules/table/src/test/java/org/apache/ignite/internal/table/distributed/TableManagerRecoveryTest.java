@@ -102,6 +102,8 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
+import org.apache.ignite.internal.storage.index.impl.TestCatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -302,7 +304,17 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         lowWatermark = new TestLowWatermark();
         lowWatermark.updateWithoutNotify(savedWatermark);
+
         ClockService clockService = new TestClockService(clock);
+
+        dsm = createDataStorageManager(
+                mock(ConfigurationRegistry.class),
+                workDir,
+                storageConfiguration,
+                dataStorageModule,
+                catalogManager
+        );
+
         tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -317,7 +329,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 null,
                 null,
                 tm,
-                dsm = createDataStorageManager(mock(ConfigurationRegistry.class), workDir, storageConfiguration, dataStorageModule),
+                dsm,
                 workDir,
                 metaStorageManager,
                 sm = new SchemaManager(revisionUpdater, catalogManager),
@@ -387,7 +399,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             ConfigurationRegistry mockedRegistry,
             Path storagePath,
             StorageConfiguration config,
-            DataStorageModule dataStorageModule
+            DataStorageModule dataStorageModule,
+            CatalogManager catalogManager
     ) {
         when(mockedRegistry.getConfiguration(StorageConfiguration.KEY)).thenReturn(config);
 
@@ -400,7 +413,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         storagePath,
                         null,
                         mock(FailureProcessor.class),
-                        mock(LogSyncer.class)
+                        mock(LogSyncer.class),
+                        new TestCatalogIndexStatusSupplier(catalogManager)
                 ),
                 config
         );
@@ -449,14 +463,17 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                     Path storagePath,
                     @Nullable LongJvmPauseDetector longJvmPauseDetector,
                     FailureProcessor failureProcessor,
-                    LogSyncer logSyncer
+                    LogSyncer logSyncer,
+                    CatalogIndexStatusSupplier indexStatusSupplier
             ) throws StorageException {
-                return spy(super.createEngine(igniteInstanceName,
+                return spy(super.createEngine(
+                        igniteInstanceName,
                         configRegistry,
                         storagePath,
                         longJvmPauseDetector,
                         failureProcessor,
-                        logSyncer
+                        logSyncer,
+                        indexStatusSupplier
                 ));
             }
         };

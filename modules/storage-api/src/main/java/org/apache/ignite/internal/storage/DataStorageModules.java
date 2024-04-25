@@ -29,6 +29,7 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -83,7 +84,8 @@ public class DataStorageModules {
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureProcessor failureProcessor,
-            LogSyncer logSyncer
+            LogSyncer logSyncer,
+            CatalogIndexStatusSupplier indexStatusSupplier
     ) {
         return modules.entrySet().stream().collect(toUnmodifiableMap(
                 Entry::getKey,
@@ -93,7 +95,8 @@ public class DataStorageModules {
                         storagePath,
                         longJvmPauseDetector,
                         failureProcessor,
-                        logSyncer
+                        logSyncer,
+                        indexStatusSupplier
                 )
         ));
     }

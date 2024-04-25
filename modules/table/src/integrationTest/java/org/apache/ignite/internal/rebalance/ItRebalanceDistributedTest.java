@@ -176,6 +176,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.CatalogIndexStatusSupplierImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -981,6 +982,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final ScheduledExecutorService rebalanceScheduler;
 
+        private final CatalogIndexStatusSupplierImpl indexStatusSupplier;
+
         /**
          * Constructor that simply creates a subset of components of this node.
          */
@@ -1134,18 +1137,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             failureProcessor = new FailureProcessor(name);
 
-            dataStorageMgr = new DataStorageManager(
-                    dataStorageModules.createStorageEngines(
-                            name,
-                            nodeCfgMgr.configurationRegistry(),
-                            dir.resolve("storage"),
-                            null,
-                            failureProcessor,
-                            raftManager.getLogSyncer()
-                    ),
-                    storageConfiguration
-            );
-
             lowWatermark = new LowWatermarkImpl(
                     name,
                     gcConfig.lowWatermark(),
@@ -1153,6 +1144,30 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     vaultManager,
                     failureProcessor,
                     clusterService.messagingService()
+            );
+
+            LongSupplier delayDurationMsSupplier = () -> 10L;
+
+            catalogManager = new CatalogManagerImpl(
+                    new UpdateLogImpl(metaStorageManager),
+                    clockService,
+                    delayDurationMsSupplier,
+                    partitionIdleSafeTimePropagationPeriodMsSupplier
+            );
+
+            indexStatusSupplier = new CatalogIndexStatusSupplierImpl(catalogManager, lowWatermark);
+
+            dataStorageMgr = new DataStorageManager(
+                    dataStorageModules.createStorageEngines(
+                            name,
+                            nodeCfgMgr.configurationRegistry(),
+                            dir.resolve("storage"),
+                            null,
+                            failureProcessor,
+                            raftManager.getLogSyncer(),
+                            indexStatusSupplier
+                    ),
+                    storageConfiguration
             );
 
             txManager = new TxManagerImpl(
@@ -1181,15 +1196,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
                     new NoOpFailureProcessor()
             ));
-
-            LongSupplier delayDurationMsSupplier = () -> 10L;
-
-            catalogManager = new CatalogManagerImpl(
-                    new UpdateLogImpl(metaStorageManager),
-                    clockService,
-                    delayDurationMsSupplier,
-                    partitionIdleSafeTimePropagationPeriodMsSupplier
-            );
 
             schemaManager = new SchemaManager(registry, catalogManager);
 
@@ -1321,6 +1327,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                         clusterCfgMgr,
                         clockWaiter,
                         catalogManager,
+                        indexStatusSupplier,
                         distributionZoneManager,
                         replicaManager,
                         txManager,

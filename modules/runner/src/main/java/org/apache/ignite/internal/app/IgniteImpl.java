@@ -191,6 +191,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.ThreadAssertingStorageEngine;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
+import org.apache.ignite.internal.table.distributed.CatalogIndexStatusSupplierImpl;
 import org.apache.ignite.internal.table.distributed.PublicApiThreadingIgniteTables;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
@@ -373,7 +374,7 @@ public class IgniteImpl implements Ignite {
 
     private final RestAddressReporter restAddressReporter;
 
-    private final CatalogManager catalogManager;
+    private final CatalogManagerImpl catalogManager;
 
     private final AuthenticationManager authenticationManager;
 
@@ -396,6 +397,8 @@ public class IgniteImpl implements Ignite {
     private final RemotelyTriggeredResourceRegistry resourcesRegistry;
 
     private final Executor asyncContinuationExecutor = ForkJoinPool.commonPool();
+
+    private CatalogIndexStatusSupplierImpl catalogIndexStatusSupplier;
 
     /**
      * The Constructor.
@@ -636,6 +639,26 @@ public class IgniteImpl implements Ignite {
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
+        lowWatermark = new LowWatermarkImpl(
+                name,
+                gcConfig.lowWatermark(),
+                clockService,
+                vaultMgr,
+                failureProcessor,
+                clusterSvc.messagingService()
+        );
+
+        LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
+
+        catalogManager = new CatalogManagerImpl(
+                new UpdateLogImpl(metaStorageMgr),
+                clockService,
+                delayDurationMsSupplier,
+                partitionIdleSafeTimePropagationPeriodMsSupplier
+        );
+
+        catalogIndexStatusSupplier = new CatalogIndexStatusSupplierImpl(catalogManager, lowWatermark);
+
         LogSyncer logSyncer = raftMgr.getLogSyncer();
 
         Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
@@ -644,7 +667,8 @@ public class IgniteImpl implements Ignite {
                 storagePath,
                 longJvmPauseDetector,
                 failureProcessor,
-                logSyncer
+                logSyncer,
+                catalogIndexStatusSupplier
         );
 
         dataStorageMgr = new DataStorageManager(
@@ -656,21 +680,10 @@ public class IgniteImpl implements Ignite {
 
         outgoingSnapshotsManager = new OutgoingSnapshotsManager(name, clusterSvc.messagingService());
 
-        LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
-
-        CatalogManagerImpl catalogManager = new CatalogManagerImpl(
-                new UpdateLogImpl(metaStorageMgr),
-                clockService,
-                delayDurationMsSupplier,
-                partitionIdleSafeTimePropagationPeriodMsSupplier
-        );
-
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
         nodeAttributesCollector.register(systemViewManager);
         logicalTopology.addEventListener(systemViewManager);
         systemViewManager.register(catalogManager);
-
-        this.catalogManager = catalogManager;
 
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
         raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
@@ -700,15 +713,6 @@ public class IgniteImpl implements Ignite {
         );
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
-
-        lowWatermark = new LowWatermarkImpl(
-                name,
-                gcConfig.lowWatermark(),
-                clockService,
-                vaultMgr,
-                failureProcessor,
-                clusterSvc.messagingService()
-        );
 
         var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
 

@@ -30,6 +30,7 @@ import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfiguration;
 import org.jetbrains.annotations.Nullable;
@@ -39,13 +40,11 @@ import org.jetbrains.annotations.Nullable;
  */
 @AutoService(DataStorageModule.class)
 public class PersistentPageMemoryDataStorageModule implements DataStorageModule {
-    /** {@inheritDoc} */
     @Override
     public String name() {
         return ENGINE_NAME;
     }
 
-    /** {@inheritDoc} */
     @Override
     public StorageEngine createEngine(
             String igniteInstanceName,
@@ -53,7 +52,8 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureProcessor failureProcessor,
-            LogSyncer logSyncer
+            LogSyncer logSyncer,
+            CatalogIndexStatusSupplier indexStatusSupplier
     ) throws StorageException {
         PersistentPageMemoryStorageEngineConfiguration engineConfig =
                 ((PersistentPageMemoryStorageEngineExtensionConfiguration) configRegistry

@@ -24,6 +24,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,6 +47,7 @@ public interface DataStorageModule {
      * @param longJvmPauseDetector Long JVM pause detector.
      * @param failureProcessor Failure processor that is used to handle critical errors.
      * @param logSyncer Write-ahead log synchronizer.
+     * @param indexStatusSupplier Catalog index status supplier.
      * @throws StorageException If there is an error when creating the storage engine.
      */
     StorageEngine createEngine(
@@ -54,6 +56,7 @@ public interface DataStorageModule {
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureProcessor failureProcessor,
-            LogSyncer logSyncer
+            LogSyncer logSyncer,
+            CatalogIndexStatusSupplier indexStatusSupplier
     ) throws StorageException;
 }
