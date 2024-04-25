@@ -968,12 +968,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     boolean startedRaftNode = startGroupFut.join();
                     // TODO: have to figure out how to pass this condition between internal table updating and replica starting
-//                    if (localMemberAssignment == null || !startedRaftNode || replicaMgr.isReplicaStarted(replicaGrpId)) {
-//                        return;
-//                    }
+                    boolean shouldSkipReplicaStarting = localMemberAssignment == null
+                            || !startedRaftNode
+                            || replicaMgr.isReplicaStarted(replicaGrpId);
 
                     try {
                         replicaMgr.startReplica(
+                                        shouldSkipReplicaStarting,
                                         replicaGrpId,
                                         newConfiguration,
                                         (raftClient) -> {

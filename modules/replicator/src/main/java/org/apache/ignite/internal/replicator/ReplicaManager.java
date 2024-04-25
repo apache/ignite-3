@@ -20,7 +20,6 @@ package org.apache.ignite.internal.replicator;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
-import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
@@ -73,6 +72,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
@@ -174,47 +174,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private final ExecutorService executor;
 
     private String localNodeId;
-
-    /**
-     * Constructor for a replica service.
-     *
-     * @param nodeName Node name.
-     * @param clusterNetSvc Cluster network service.
-     * @param cmgMgr Cluster group manager.
-     * @param clockService Clock service.
-     * @param messageGroupsToHandle Message handlers.
-     * @param placementDriver A placement driver.
-     */
-    @TestOnly
-    // TODO: should we just remove it and pass in the call places DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS directly?
-    public ReplicaManager(
-            String nodeName,
-            ClusterService clusterNetSvc,
-            ClusterManagementGroupManager cmgMgr,
-            ClockService clockService,
-            Set<Class<?>> messageGroupsToHandle,
-            PlacementDriver placementDriver,
-            Executor requestsExecutor,
-            FailureProcessor failureProcessor,
-            Marshaller raftCommandsMarshaller,
-            TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
-            RaftManager raftManager
-    ) {
-        this(
-                nodeName,
-                clusterNetSvc,
-                cmgMgr,
-                clockService,
-                messageGroupsToHandle,
-                placementDriver,
-                requestsExecutor,
-                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                failureProcessor,
-                raftCommandsMarshaller,
-                raftGroupServiceFactory,
-                raftManager
-        );
-    }
 
     /**
      * Constructor for a replica service.
@@ -575,6 +534,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *         started.
      */
     public CompletableFuture<Replica> startReplica(
+            // TODO: nonsense name
+            boolean shouldSkipReplicaStarting,
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
             Function<RaftGroupService, ReplicaListener> createListener,
@@ -585,75 +546,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            return startReplicaInternal(replicaGrpId, newConfiguration, createListener, storageIndexTracker);
+            return startReplicaInternal(shouldSkipReplicaStarting, replicaGrpId, newConfiguration, createListener, storageIndexTracker);
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    /**
-     * REMOVE ME.
-     */
-    @TestOnly
-    public CompletableFuture<Replica> startReplica(
-            ReplicationGroupId replicaGrpId,
-            ReplicaListener listener,
-            RaftGroupService raftClient,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker
-    ) throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
-        }
-
-        try {
-            return startReplicaInternal(replicaGrpId, listener, raftClient, storageIndexTracker);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    private CompletableFuture<Replica> startReplicaInternal(
-            ReplicationGroupId replicaGrpId,
-            ReplicaListener listener,
-            RaftGroupService raftClient,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker
-    ) throws NodeStoppingException {
-        LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
-
-        ClusterNode localNode = clusterNetSvc.topologyService().localMember();
-
-        Replica newReplica = new Replica(
-                        replicaGrpId,
-                        listener,
-                        storageIndexTracker,
-                        localNode,
-                        executor,
-                        placementDriver,
-                        clockService);
-
-        CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
-            if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
-                assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
-                LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
-
-                return CompletableFuture.completedFuture(newReplica);
-            } else {
-                existingReplicaFuture.complete(newReplica);
-                LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
-
-                return existingReplicaFuture;
-            }
-        });
-
-        var eventParams = new LocalReplicaEventParameters(replicaGrpId);
-
-        return fireEvent(AFTER_REPLICA_STARTED, eventParams)
-                .exceptionally(e -> {
-                    LOG.error("Error when notifying about AFTER_REPLICA_STARTED event.", e);
-
-                    return null;
-                })
-                .thenCompose(v -> replicaFuture);
     }
 
     /**
@@ -665,6 +561,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param storageIndexTracker Storage index tracker.
      */
     private CompletableFuture<Replica> startReplicaInternal(
+            // TODO: nonsense name
+            boolean shouldSkipReplicaStarting,
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
             Function<RaftGroupService, ReplicaListener> createListener,
@@ -674,11 +572,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
-        CompletableFuture<Replica> newReplicaFut = raftManager
-                // TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
-                .startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller)
-                .thenApply(createListener)
-                .thenApply(listener -> new Replica(
+        CompletableFuture<ReplicaListener> newReplicaListenerFut = createRaftClientAsync(replicaGrpId, newConfiguration)
+                .thenApply(createListener);
+
+//        if (shouldSkipReplicaStarting) {
+//            return nullCompletedFuture();
+//        }
+
+        CompletableFuture<Replica> newReplicaFut = newReplicaListenerFut.thenApply(listener -> new Replica(
                         replicaGrpId,
                         listener,
                         storageIndexTracker,
@@ -711,6 +612,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     return null;
                 })
                 .thenCompose(v -> replicaFuture);
+    }
+
+    private CompletableFuture<TopologyAwareRaftGroupService> createRaftClientAsync(
+            ReplicationGroupId replicaGrpId,
+            PeersAndLearners newConfiguration)
+            throws NodeStoppingException {
+        // TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
+        return raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
     }
 
     /**

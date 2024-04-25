@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromConsistentIds;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
@@ -69,6 +70,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.TestRaftGroupListener;
@@ -192,6 +194,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     Set.of(ReplicaMessageTestGroup.class),
                     new TestPlacementDriver(primaryReplicaSupplier),
                     partitionOperationsExecutor,
+                    () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                     new NoOpFailureProcessor(),
                     // TODO can't pass ThreadLocalPartitionCommandsMarshaller there due to dependency loop
                     null,
@@ -476,9 +479,11 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             var rftNodeId = new RaftNodeId(groupId, peer);
 
+            PeersAndLearners newConfiguration = fromConsistentIds(nodes);
+
             CompletableFuture<TopologyAwareRaftGroupService> raftClientFut = raftManager.startRaftGroupNode(
                     rftNodeId,
-                    fromConsistentIds(nodes),
+                    newConfiguration,
                     new TestRaftGroupListener(),
                     RaftGroupEventsListener.noopLsnr,
                     RaftGroupOptions.defaults(),
@@ -507,9 +512,10 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     };
 
                     return replicaManager.startReplica(
+                            true,
                             groupId,
-                            listener,
-                            raftClient,
+                            newConfiguration,
+                            (unused) -> listener, //TODO
                             new PendingComparableValuesTracker<>(Long.MAX_VALUE));
                 } catch (NodeStoppingException e) {
                     throw new RuntimeException(e);
