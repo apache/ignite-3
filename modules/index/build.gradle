@@ -76,6 +76,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
     integrationTestImplementation testFixtures(project(':ignite-table'))
     integrationTestImplementation testFixtures(project(':ignite-storage-api'))
+    integrationTestImplementation testFixtures(project(':ignite-transactions'))
     integrationTestImplementation libs.jetbrains.annotations
 }
 
