@@ -125,7 +125,7 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-17557")
     @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
     @MethodSource("twoColumnsParameters")
-    public void colocationTwoColumns(NativeTypeSpec t0, NativeTypeSpec t1) throws Exception {
+    public void colocationTwoColumns(NativeTypeSpec t0, NativeTypeSpec t1) {
         sql(String.format("create table test0(id0 %s, id1 %s, v INTEGER, primary key(id0, id1))", sqlTypeName(t0), sqlTypeName(t1)));
 
         sql(String.format(
@@ -139,9 +139,9 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             sql("insert into test1 values(?, ?, ?, ?)", i, generateValueByType(i, t0), generateValueByType(i, t1), 0);
         }
 
-        int parts = ((TableViewInternal) CLUSTER.aliveNode().tables().table("test0")).internalTable().partitions();
-        TableViewInternal tbl0 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test0");
-        TableViewInternal tbl1 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test1");
+        int parts = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test0")).internalTable().partitions();
+        TableViewInternal tbl0 = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test0"));
+        TableViewInternal tbl1 = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test1"));
 
         Function<Tuple, Tuple> tupleColocationExtract = (t) -> {
             Tuple ret = Tuple.create();
@@ -249,9 +249,9 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             case INT64:
                 return (long) i;
             case FLOAT:
-                return (float) i + ((float) i / 1000);
+                return i + ((float) i / 1000);
             case DOUBLE:
-                return (double) i + ((double) i / 1000);
+                return i + ((double) i / 1000);
             case DECIMAL:
                 return BigDecimal.valueOf((double) i + ((double) i / 1000));
             case UUID:
