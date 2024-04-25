@@ -15,15 +15,10 @@
  * limitations under the License.
  */
 
-package org.my.job.compute.unit;
+package org.apache.ignite.internal.compute;
 
-import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.JobExecutionContext;
-
-/** Compute job. */
-public class UnitJob implements ComputeJob<Integer> {
-    @Override
-    public Integer execute(JobExecutionContext context, Object... args) {
-        return 1;
+class JobException extends RuntimeException {
+    JobException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

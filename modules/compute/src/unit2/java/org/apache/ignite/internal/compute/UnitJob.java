@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.my.job.compute.unit;
+package org.apache.ignite.internal.compute;
 
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;

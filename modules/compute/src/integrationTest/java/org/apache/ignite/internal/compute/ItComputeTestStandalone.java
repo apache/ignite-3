@@ -106,7 +106,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         assertComputeException(
                 ex0,
                 ClassNotFoundException.class,
-                "org.example.ConcatJob. Deployment unit non-existing:1.0.0 doesn't exist"
+                "org.apache.ignite.internal.compute.ConcatJob. Deployment unit non-existing:1.0.0 doesn't exist"
         );
     }
 
@@ -120,14 +120,14 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         deployJar(entryNode, firstVersion.name(), firstVersion.version(), "ignite-unit-test-job1-1.0-SNAPSHOT.jar");
 
         CompletableFuture<Integer> result1 = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), jobUnits, "org.my.job.compute.unit.UnitJob");
+                .executeAsync(Set.of(entryNode.node()), jobUnits, "org.apache.ignite.internal.compute.UnitJob");
         assertThat(result1, willBe(1));
 
         DeploymentUnit secondVersion = new DeploymentUnit("latest-unit", Version.parseVersion("1.0.1"));
         deployJar(entryNode, secondVersion.name(), secondVersion.version(), "ignite-unit-test-job2-1.0-SNAPSHOT.jar");
 
         CompletableFuture<String> result2 = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), jobUnits, "org.my.job.compute.unit.UnitJob");
+                .executeAsync(Set.of(entryNode.node()), jobUnits, "org.apache.ignite.internal.compute.UnitJob");
         assertThat(result2, willBe("Hello World!"));
     }
 
@@ -135,7 +135,7 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     void undeployAcquiredUnit() {
         IgniteImpl entryNode = node(0);
         CompletableFuture<Void> job = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units, "org.example.SleepJob", 3L);
+                .executeAsync(Set.of(entryNode.node()), units, "org.apache.ignite.internal.compute.SleepJob", 3L);
 
         assertThat(entryNode.deployment().undeployAsync(unit.name(), unit.version()), willCompleteSuccessfully());
 
@@ -157,12 +157,12 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     void executeJobWithObsoleteUnit() {
         IgniteImpl entryNode = node(0);
         CompletableFuture<Void> successJob = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units, "org.example.SleepJob", 2L);
+                .executeAsync(Set.of(entryNode.node()), units, "org.apache.ignite.internal.compute.SleepJob", 2L);
 
         assertThat(entryNode.deployment().undeployAsync(unit.name(), unit.version()), willCompleteSuccessfully());
 
         CompletableFuture<Void> failedJob = entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units, "org.example.SleepJob", 2L);
+                .executeAsync(Set.of(entryNode.node()), units, "org.apache.ignite.internal.compute.SleepJob", 2L);
 
         CompletionException ex0 = assertThrows(CompletionException.class, failedJob::join);
         assertComputeException(

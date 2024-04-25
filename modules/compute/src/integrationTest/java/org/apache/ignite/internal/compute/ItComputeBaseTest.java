@@ -53,9 +53,6 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.example.ConcatJob;
-import org.example.FailingJob;
-import org.example.GetNodeNameJob;
 import org.junit.jupiter.api.Test;
 
 /**

@@ -15,19 +15,15 @@
  * limitations under the License.
  */
 
-package org.example;
+package org.apache.ignite.internal.compute;
 
-import java.util.Arrays;
-import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
-/** Compute job that concatenates the string representation of its arguments. */
-public class ConcatJob implements ComputeJob<String> {
+/** Compute job that returns the node name. */
+public class GetNodeNameJob implements ComputeJob<String> {
     @Override
     public String execute(JobExecutionContext context, Object... args) {
-        return Arrays.stream(args)
-                .map(Object::toString)
-                .collect(Collectors.joining());
+        return context.ignite().name();
     }
 }

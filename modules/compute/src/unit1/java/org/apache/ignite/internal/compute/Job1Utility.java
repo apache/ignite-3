@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-package org.my.job.compute.unit;
+package org.apache.ignite.internal.compute;
 
 /** Utility class. */
-public class Job2Utility {
+public class Job1Utility {
 }

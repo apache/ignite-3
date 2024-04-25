@@ -84,4 +84,6 @@ dependencies {
     jobsImplementation project(':ignite-api')
     unit1Implementation project(':ignite-api')
     unit2Implementation project(':ignite-api')
+
+    integrationTestImplementation sourceSets.jobs.output
 }

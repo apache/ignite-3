@@ -15,15 +15,21 @@
  * limitations under the License.
  */
 
-package org.example;
+package org.apache.ignite.internal.compute;
 
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
-/** Compute job that returns the node name. */
-public class GetNodeNameJob implements ComputeJob<String> {
+/** Compute job that sleeps for a number of milliseconds passed in the argument. */
+public class SleepJob implements ComputeJob<Void> {
     @Override
-    public String execute(JobExecutionContext context, Object... args) {
-        return context.ignite().name();
+    public Void execute(JobExecutionContext jobExecutionContext, Object... args) {
+        try {
+            TimeUnit.SECONDS.sleep((Long) args[0]);
+            return null;
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
