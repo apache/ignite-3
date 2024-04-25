@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.lowwatermark;
+package org.apache.ignite.internal.compute;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
 
-/**
- * Low watermark event listener interface.
- *
- * @see LowWatermark
- */
-@FunctionalInterface
-public interface LowWatermarkChangedListener {
-    /**
-     * Low watermark changed callback.
-     *
-     * @param ts New low watermark.
-     * @return A future, which completes after the event has been processed.
-     */
-    CompletableFuture<Void> onLwmChanged(HybridTimestamp ts);
+/** Compute job that sleeps for a number of milliseconds passed in the argument. */
+public class SleepJob implements ComputeJob<Void> {
+    @Override
+    public Void execute(JobExecutionContext jobExecutionContext, Object... args) {
+        try {
+            TimeUnit.SECONDS.sleep((Long) args[0]);
+            return null;
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

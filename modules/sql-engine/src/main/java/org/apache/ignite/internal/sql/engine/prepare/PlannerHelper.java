@@ -93,7 +93,7 @@ public final class PlannerHelper {
             }
 
             // Transformation chain
-            rel = planner.transform(PlannerPhase.HEP_DECORRELATE, rel.getTraitSet(), rel);
+            rel = planner.transform(PlannerPhase.HEP_SUBQUERIES_TO_CORRELATES, rel.getTraitSet(), rel);
 
             rel = RelOptUtil.propagateRelHints(rel, false);
 

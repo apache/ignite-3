@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicCheckedException;
@@ -40,7 +39,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -83,21 +81,6 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     @Override
     protected List<DeploymentUnit> units() {
         return List.of();
-    }
-
-    @Override
-    protected String concatJobClassName() {
-        return ConcatJob.class.getName();
-    }
-
-    @Override
-    protected String getNodeNameJobClassName() {
-        return GetNodeNameJob.class.getName();
-    }
-
-    @Override
-    protected String failingJobClassName() {
-        return FailingJob.class.getName();
     }
 
     @ParameterizedTest
@@ -395,23 +378,6 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         return IntStream.range(0, initialNodes()).mapToObj(Arguments::of);
     }
 
-    private static class ConcatJob implements ComputeJob<String> {
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return Arrays.stream(args)
-                    .map(Object::toString)
-                    .collect(joining());
-        }
-    }
-
-    private static class GetNodeNameJob implements ComputeJob<String> {
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return context.ignite().name();
-        }
-    }
 
     private static class CustomFailingJob implements ComputeJob<String> {
         /** {@inheritDoc} */
@@ -421,19 +387,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         }
     }
 
-    private static class FailingJob implements ComputeJob<String> {
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            throw new JobException("Oops", new Exception());
-        }
-    }
 
-    private static class JobException extends RuntimeException {
-        private JobException(String message, Throwable cause) {
-            super(message, cause);
-        }
-    }
 
     private static List<Arguments> wrongJobClassArguments() {
         return List.of(

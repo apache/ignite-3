@@ -24,7 +24,9 @@ import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Collection;
 import java.util.List;
@@ -350,42 +352,56 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * </ol>
      */
     private void onElectedAsLeader(long term) {
-        LOG.info("CMG leader has been elected, executing onLeaderElected callback");
+        if (!busyLock.enterBusy()) {
+            LOG.info("Skipping onLeaderElected callback, because the node is stopping");
 
-        // The cluster state is broadcast via the messaging service; hence, the future must be completed here on the leader node.
-        // TODO: This needs to be reworked following the implementation of IGNITE-18275.
-        raftServiceAfterJoin()
-                .thenCompose(CmgRaftService::readClusterState)
-                .thenAccept(state -> initialClusterConfigurationFuture.complete(state.initialClusterConfiguration()));
+            return;
+        }
 
-        raftServiceAfterJoin()
-                .thenCompose(this::updateLogicalTopology)
-                .thenCompose(service -> service.updateLearners(term).thenApply(unused -> service))
-                .thenAccept(service -> {
-                    // Register a listener to send ClusterState messages to new nodes.
-                    TopologyService topologyService = clusterService.topologyService();
+        try {
+            LOG.info("CMG leader has been elected, executing onLeaderElected callback");
 
-                    // TODO: remove listeners if leadership is lost, see https://issues.apache.org/jira/browse/IGNITE-16842
-                    topologyService.addEventHandler(cmgLeaderTopologyEventHandler(service));
+            // The cluster state is broadcast via the messaging service; hence, the future must be completed here on the leader node.
+            // TODO: This needs to be reworked following the implementation of IGNITE-18275.
+            raftServiceAfterJoin().thenAccept(service -> inBusyLock(busyLock, () -> {
+                service.readClusterState()
+                        .thenAccept(state -> initialClusterConfigurationFuture.complete(state.initialClusterConfiguration()));
 
-                    // Send the ClusterStateMessage to all members of the physical topology. We do not wait for the send operation
-                    // because being unable to send ClusterState messages should not fail the CMG service startup.
-                    // TODO: IGNITE-18275 - use RAFT replication instead of message sending
-                    ClusterNode thisNode = topologyService.localMember();
+                updateLogicalTopology(service)
+                        .thenCompose(v -> inBusyLock(busyLock, () -> service.updateLearners(term)))
+                        .thenAccept(v -> inBusyLock(busyLock, () -> {
+                            // Register a listener to send ClusterState messages to new nodes.
+                            TopologyService topologyService = clusterService.topologyService();
 
-                    Collection<ClusterNode> otherNodes = topologyService.allMembers().stream()
-                            .filter(node -> !thisNode.equals(node))
-                            .collect(toList());
+                            // TODO: remove listeners if leadership is lost, see https://issues.apache.org/jira/browse/IGNITE-16842
+                            topologyService.addEventHandler(cmgLeaderTopologyEventHandler(service));
 
-                    sendClusterState(service, otherNodes);
-                })
-                .whenComplete((v, e) -> {
-                    if (e != null) {
-                        LOG.warn("Error when executing onLeaderElected callback", e);
-                    } else {
-                        LOG.info("onLeaderElected callback executed successfully");
-                    }
-                });
+                            // Send the ClusterStateMessage to all members of the physical topology. We do not wait for the send operation
+                            // because being unable to send ClusterState messages should not fail the CMG service startup.
+                            // TODO: IGNITE-18275 - use RAFT replication instead of message sending
+                            ClusterNode thisNode = topologyService.localMember();
+
+                            Collection<ClusterNode> otherNodes = topologyService.allMembers().stream()
+                                    .filter(node -> !thisNode.equals(node))
+                                    .collect(toList());
+
+                            sendClusterState(service, otherNodes);
+                        }))
+                        .whenComplete((v, e) -> {
+                            if (e != null) {
+                                if (unwrapCause(e) instanceof NodeStoppingException) {
+                                    LOG.info("Unable to execute onLeaderElected callback, because the node is stopping", e);
+                                } else {
+                                    LOG.error("Error when executing onLeaderElected callback", e);
+                                }
+                            } else {
+                                LOG.info("onLeaderElected callback executed successfully");
+                            }
+                        });
+            }));
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
@@ -393,9 +409,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * physical topology during the election. Newly appeared nodes will be added automatically after the new leader broadcasts the current
      * cluster state.
      */
-    private CompletableFuture<CmgRaftService> updateLogicalTopology(CmgRaftService service) {
+    private CompletableFuture<Void> updateLogicalTopology(CmgRaftService service) {
         return service.logicalTopology()
-                .thenCompose(logicalTopology -> {
+                .thenCompose(logicalTopology -> inBusyLock(busyLock, () -> {
                     Set<String> physicalTopologyIds = clusterService.topologyService().allMembers()
                             .stream()
                             .map(ClusterNode::id)
@@ -407,8 +423,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                     // TODO: IGNITE-18681 - respect removal timeout.
                     return nodesToRemove.isEmpty() ? nullCompletedFuture() : service.removeFromCluster(nodesToRemove);
-                })
-                .thenApply(v -> service);
+                }));
     }
 
     private void handleCancelInit(CancelInitMessage msg) {

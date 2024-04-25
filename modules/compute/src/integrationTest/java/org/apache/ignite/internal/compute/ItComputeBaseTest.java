@@ -56,16 +56,24 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 
 /**
- * Base integration tests for Compute functionality.
+ * Base integration tests for Compute functionality. To add new compute job for testing both in embedded and standalone mode, add the
+ * corresponding job class to the jobs source set. The integration tests depend on this source set so the job class will be visible and it
+ * will be automatically compiled and packed into the ignite-integration-test-jobs-1.0-SNAPSHOT.jar.
  */
 public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     protected abstract List<DeploymentUnit> units();
 
-    protected abstract String concatJobClassName();
+    static String concatJobClassName() {
+        return ConcatJob.class.getName();
+    }
 
-    protected abstract String getNodeNameJobClassName();
+    private static String getNodeNameJobClassName() {
+        return GetNodeNameJob.class.getName();
+    }
 
-    protected abstract String failingJobClassName();
+    private static String failingJobClassName() {
+        return FailingJob.class.getName();
+    }
 
     @Test
     void executesJobLocally() {
