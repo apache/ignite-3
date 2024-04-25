@@ -1153,29 +1153,25 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         delayDuration.set(TimeUnit.DAYS.toMillis(365));
         reset(updateLog, clockWaiter);
 
-        try {
-            CompletableFuture<Integer> createTableFuture = manager.execute(simpleTable(TABLE_NAME));
+        CompletableFuture<Integer> createTableFuture = manager.execute(simpleTable(TABLE_NAME));
 
-            assertFalse(createTableFuture.isDone());
+        assertFalse(createTableFuture.isDone());
 
-            verify(updateLog).append(any());
-            // TODO IGNITE-19400: recheck createTable future completion guarantees
+        verify(updateLog).append(any());
+        // TODO IGNITE-19400: recheck createTable future completion guarantees
 
-            // This waits till the new Catalog version lands in the internal structures.
-            verify(clockWaiter, timeout(10_000)).waitFor(any());
+        // This waits till the new Catalog version lands in the internal structures.
+        verify(clockWaiter, timeout(10_000)).waitFor(any());
 
-            int latestVersion = manager.latestCatalogVersion();
+        int latestVersion = manager.latestCatalogVersion();
 
-            assertSame(manager.schema(latestVersion - 1), manager.activeSchema(clock.nowLong()));
-            assertNull(manager.table(TABLE_NAME, clock.nowLong()));
+        assertSame(manager.schema(latestVersion - 1), manager.activeSchema(clock.nowLong()));
+        assertNull(manager.table(TABLE_NAME, clock.nowLong()));
 
-            clock.update(clock.now().addPhysicalTime(delayDuration.get()));
+        clock.update(clock.now().addPhysicalTime(delayDuration.get()));
 
-            assertSame(manager.schema(latestVersion), manager.activeSchema(clock.nowLong()));
-            assertNotNull(manager.table(TABLE_NAME, clock.nowLong()));
-        } finally {
-            manager.stop();
-        }
+        assertSame(manager.schema(latestVersion), manager.activeSchema(clock.nowLong()));
+        assertNotNull(manager.table(TABLE_NAME, clock.nowLong()));
     }
 
     @Test
@@ -1184,44 +1180,40 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         partitionIdleSafeTimePropagationPeriod.set(0);
         reset(updateLog);
 
-        try {
-            CatalogCommand createTableCommand = spy(simpleTable(TABLE_NAME));
+        CatalogCommand createTableCommand = spy(simpleTable(TABLE_NAME));
 
-            CompletableFuture<Integer> createTableFuture1 = manager.execute(createTableCommand);
+        CompletableFuture<Integer> createTableFuture1 = manager.execute(createTableCommand);
 
-            assertFalse(createTableFuture1.isDone());
+        assertFalse(createTableFuture1.isDone());
 
-            ArgumentCaptor<VersionedUpdate> appendCapture = ArgumentCaptor.forClass(VersionedUpdate.class);
+        ArgumentCaptor<VersionedUpdate> appendCapture = ArgumentCaptor.forClass(VersionedUpdate.class);
 
-            verify(updateLog).append(appendCapture.capture());
+        verify(updateLog).append(appendCapture.capture());
 
-            int catalogVerAfterTableCreate = appendCapture.getValue().version();
+        int catalogVerAfterTableCreate = appendCapture.getValue().version();
 
-            CompletableFuture<Integer> createTableFuture2 = manager.execute(createTableCommand);
+        CompletableFuture<Integer> createTableFuture2 = manager.execute(createTableCommand);
 
-            verify(createTableCommand, times(2)).get(any());
+        verify(createTableCommand, times(2)).get(any());
 
-            assertFalse(createTableFuture2.isDone());
+        assertFalse(createTableFuture2.isDone());
 
-            verify(clockWaiter, timeout(10_000).times(2)).waitFor(any());
+        verify(clockWaiter, timeout(10_000).times(2)).waitFor(any());
 
-            Catalog catalog0 = manager.catalog(manager.latestCatalogVersion());
+        Catalog catalog0 = manager.catalog(manager.latestCatalogVersion());
 
-            assertNotNull(catalog0);
+        assertNotNull(catalog0);
 
-            HybridTimestamp activationSkew = CatalogUtils.clusterWideEnsuredActivationTsSafeForRoReads(
-                    catalog0,
-                    () -> partitionIdleSafeTimePropagationPeriod.get(), clockService.maxClockSkewMillis());
+        HybridTimestamp activationSkew = CatalogUtils.clusterWideEnsuredActivationTsSafeForRoReads(
+                catalog0,
+                () -> partitionIdleSafeTimePropagationPeriod.get(), clockService.maxClockSkewMillis());
 
-            clock.update(activationSkew);
+        clock.update(activationSkew);
 
-            assertTrue(waitForCondition(createTableFuture1::isDone, 2_000));
-            assertTrue(waitForCondition(createTableFuture2::isDone, 2_000));
+        assertTrue(waitForCondition(createTableFuture1::isDone, 2_000));
+        assertTrue(waitForCondition(createTableFuture2::isDone, 2_000));
 
-            assertSame(manager.schema(catalogVerAfterTableCreate), manager.activeSchema(clock.nowLong()));
-        } finally {
-            manager.stop();
-        }
+        assertSame(manager.schema(catalogVerAfterTableCreate), manager.activeSchema(clock.nowLong()));
     }
 
     @Test
@@ -1733,22 +1725,18 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         reset(clockWaiter);
         HybridTimestamp startTs = clock.now();
 
-        try {
-            CompletableFuture<?> createTableFuture = manager.execute(simpleTable(TABLE_NAME));
+        CompletableFuture<?> createTableFuture = manager.execute(simpleTable(TABLE_NAME));
 
-            assertFalse(createTableFuture.isDone());
+        assertFalse(createTableFuture.isDone());
 
-            ArgumentCaptor<HybridTimestamp> tsCaptor = ArgumentCaptor.forClass(HybridTimestamp.class);
+        ArgumentCaptor<HybridTimestamp> tsCaptor = ArgumentCaptor.forClass(HybridTimestamp.class);
 
-            verify(clockWaiter, timeout(10_000)).waitFor(tsCaptor.capture());
-            HybridTimestamp userWaitTs = tsCaptor.getValue();
-            assertThat(
-                    userWaitTs.getPhysical() - startTs.getPhysical(),
-                    greaterThanOrEqualTo(delayDuration.get() + clockService.maxClockSkewMillis())
-            );
-        } finally {
-            manager.stop();
-        }
+        verify(clockWaiter, timeout(10_000)).waitFor(tsCaptor.capture());
+        HybridTimestamp userWaitTs = tsCaptor.getValue();
+        assertThat(
+                userWaitTs.getPhysical() - startTs.getPhysical(),
+                greaterThanOrEqualTo(delayDuration.get() + clockService.maxClockSkewMillis())
+        );
     }
 
     // TODO: remove after IGNITE-20378 is implemented.
@@ -1761,25 +1749,21 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         HybridTimestamp startTs = clock.now();
 
-        try {
-            CompletableFuture<?> createTableFuture = manager.execute(simpleTable(TABLE_NAME));
+        CompletableFuture<?> createTableFuture = manager.execute(simpleTable(TABLE_NAME));
 
-            assertFalse(createTableFuture.isDone());
+        assertFalse(createTableFuture.isDone());
 
-            ArgumentCaptor<HybridTimestamp> tsCaptor = ArgumentCaptor.forClass(HybridTimestamp.class);
+        ArgumentCaptor<HybridTimestamp> tsCaptor = ArgumentCaptor.forClass(HybridTimestamp.class);
 
-            verify(clockWaiter, timeout(10_000)).waitFor(tsCaptor.capture());
-            HybridTimestamp userWaitTs = tsCaptor.getValue();
-            assertThat(
-                    userWaitTs.getPhysical() - startTs.getPhysical(),
-                    greaterThanOrEqualTo(
-                            delayDuration.get() + clockService.maxClockSkewMillis()
-                                    + partitionIdleSafeTimePropagationPeriod.get() + clockService.maxClockSkewMillis()
-                    )
-            );
-        } finally {
-            manager.stop();
-        }
+        verify(clockWaiter, timeout(10_000)).waitFor(tsCaptor.capture());
+        HybridTimestamp userWaitTs = tsCaptor.getValue();
+        assertThat(
+                userWaitTs.getPhysical() - startTs.getPhysical(),
+                greaterThanOrEqualTo(
+                        delayDuration.get() + clockService.maxClockSkewMillis()
+                                + partitionIdleSafeTimePropagationPeriod.get() + clockService.maxClockSkewMillis()
+                )
+        );
     }
 
     @Test
