@@ -18,38 +18,28 @@
 package org.apache.ignite.internal.lowwatermark;
 
 import java.util.function.Consumer;
+import org.apache.ignite.internal.event.EventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
+import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEventParameters;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Low watermark is the node's local time, meaning that data (obsolete versions of table rows, remote indexes, remote tables, etc) that was
  * deleted before (less than or equal to) this time will be destroyed on the node, i.e. not available for reading.
  *
- * <p>Low watermark increases monotonically only after all {@link LowWatermarkChangedListener} have completed processing the new value.</p>
+ * <p>Low watermark increases monotonically only after all {@link org.apache.ignite.internal.event.EventListener} have completed processing
+ * the new value.</p>
  *
  * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-91%3A+Transaction+protocol">IEP-91</a>
  */
-public interface LowWatermark {
-    /**
-     * Returns the current low watermark, {@code null} means no low watermark has been assigned yet.
-     *
-     * <p>When called from method {@link LowWatermarkChangedListener#onLwmChanged(HybridTimestamp)}, the new value will be
-     * returned.</p>
-     */
+public interface LowWatermark extends EventProducer<LowWatermarkEvent, LowWatermarkEventParameters> {
+    /** Returns the current low watermark, {@code null} means no low watermark has been assigned yet. */
     @Nullable HybridTimestamp getLowWatermark();
-
-    /** Subscribes on watermark changes. */
-    void addUpdateListener(LowWatermarkChangedListener listener);
-
-    /** Unsubscribes on watermark changes. */
-    void removeUpdateListener(LowWatermarkChangedListener listener);
 
     /**
      * Runs the provided {@code consumer} under the {@code lock} preventing concurrent LWM update, {@code null} means no low watermark has
      * been assigned yet.
-     *
-     * <p>When called from method {@link LowWatermarkChangedListener#onLwmChanged(HybridTimestamp)}, the new value will be
-     * returned.</p>
      */
     void getLowWatermarkSafe(Consumer<@Nullable HybridTimestamp> consumer);
 

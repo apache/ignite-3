@@ -65,6 +65,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -239,7 +240,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     void testUpdateLowerWatermark() {
-        verify(lowWatermark).addUpdateListener(any());
+        verify(lowWatermark).listen(eq(LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE), any());
 
         // Let's check the absence of transactions.
         assertThat(lowWatermark.updateAndNotify(clockService.now()), willSucceedFast());
