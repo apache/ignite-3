@@ -194,7 +194,7 @@ public class TransactionStateResolver {
             assert localMeta.txState() == ABANDONED : "Unexpected transaction state [txId=" + txId + ", txStateMeta=" + localMeta + ']';
 
             // Still try to resolve the state from commit partition.
-             resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
+            resolveTxStateFromCommitPartition(txId, commitGrpId, txMetaFuture);
         }
     }
 
