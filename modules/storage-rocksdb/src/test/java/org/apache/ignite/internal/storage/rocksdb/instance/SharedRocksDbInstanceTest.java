@@ -48,6 +48,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataRegion;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
@@ -77,14 +78,22 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     @BeforeEach
     void setUp(
             @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\", size = 16777216, writeBufferSize = 16777216}")
-            StorageConfiguration storageConfiguration,
-            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig) throws Exception {
-        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
+            StorageConfiguration storageConfig,
+            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig
+    ) throws Exception {
+        engine = new RocksDbStorageEngine(
+                "test",
+                engineConfig,
+                storageConfig,
+                workDir,
+                mock(LogSyncer.class),
+                mock(CatalogIndexStatusSupplier.class)
+        );
 
         engine.start();
 
         dataRegion = new RocksDbDataRegion(
-                (RocksDbProfileView) storageConfiguration.profiles().get("default").value());
+                (RocksDbProfileView) storageConfig.profiles().get("default").value());
 
         dataRegion.start();
 

@@ -58,9 +58,7 @@ public class SharedRocksDbInstanceCreator {
     /** List of resources that must be closed if DB creation failed in the process. */
     private final List<AutoCloseable> resources = new ArrayList<>();
 
-    /**
-     * Creates an instance of {@link SharedRocksDbInstance}.
-     */
+    /** Creates an instance of {@link SharedRocksDbInstance}. */
     public SharedRocksDbInstance create(
             RocksDbStorageEngine engine,
             RocksDbDataRegion region,

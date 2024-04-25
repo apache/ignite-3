@@ -89,7 +89,7 @@ class RocksDbIndexes {
 
                     indexCfsToDestroy.add(cf);
                 } else {
-                    sortedIndices.put(indexId, SortedIndex.restoreExisting(tableId, cf, descriptor, rocksDb.meta));
+                    sortedIndices.put(indexId, SortedIndex.restoreExisting(tableId, cf, descriptor, rocksDb));
                 }
             }
 
@@ -104,7 +104,7 @@ class RocksDbIndexes {
     SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
         SortedIndex sortedIndex = sortedIndices.computeIfAbsent(
                 indexDescriptor.id(),
-                id -> SortedIndex.createNew(rocksDb, tableId, indexDescriptor, rocksDb.meta)
+                id -> SortedIndex.createNew(rocksDb, tableId, indexDescriptor)
         );
 
         return sortedIndex.getOrCreateStorage(partitionId);

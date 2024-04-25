@@ -34,6 +34,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
@@ -64,12 +65,15 @@ import org.rocksdb.WriteBatchWithIndex;
  *
  * <p>We use an empty array as values, because all required information can be extracted from the key.
  */
+// TODO: IGNITE-22039 реализовать
 public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage implements SortedIndexStorage {
     private final StorageSortedIndexDescriptor descriptor;
 
     private final ColumnFamily indexCf;
     private final byte[] partitionStartPrefix;
     private final byte[] partitionEndPrefix;
+
+    private final CatalogIndexStatusSupplier indexStatusSupplier;
 
     /**
      * Creates a storage.
@@ -79,18 +83,21 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
      * @param partitionId Partition ID.
      * @param indexCf Column family that stores the index data.
      * @param indexMetaStorage Index meta storage.
+     * @param indexStatusSupplier Catalog index status supplier.
      */
     public RocksDbSortedIndexStorage(
             StorageSortedIndexDescriptor descriptor,
             int tableId,
             int partitionId,
             ColumnFamily indexCf,
-            RocksDbMetaStorage indexMetaStorage
+            RocksDbMetaStorage indexMetaStorage,
+            CatalogIndexStatusSupplier indexStatusSupplier
     ) {
         super(tableId, descriptor.id(), partitionId, indexMetaStorage, descriptor.isPk());
 
         this.descriptor = descriptor;
         this.indexCf = indexCf;
+        this.indexStatusSupplier = indexStatusSupplier;
 
         this.partitionStartPrefix = ByteBuffer.allocate(PREFIX_WITH_IDS_LENGTH)
                 .order(KEY_BYTE_ORDER)

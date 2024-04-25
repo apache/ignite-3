@@ -62,6 +62,6 @@ public class RocksDbDataStorageModule implements DataStorageModule {
 
         assert engineConfig != null;
 
-        return new RocksDbStorageEngine(igniteInstanceName, engineConfig, storageConfig, storagePath, logSyncer);
+        return new RocksDbStorageEngine(igniteInstanceName, engineConfig, storageConfig, storagePath, logSyncer, indexStatusSupplier);
     }
 }

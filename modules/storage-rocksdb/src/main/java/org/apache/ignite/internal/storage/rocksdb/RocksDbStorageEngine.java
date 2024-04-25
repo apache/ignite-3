@@ -32,6 +32,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
@@ -73,7 +74,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     private final RocksDbStorageEngineConfiguration engineConfig;
 
-    private final StorageConfiguration storageConfiguration;
+    private final StorageConfiguration storageConfig;
 
     private final Path storagePath;
 
@@ -90,21 +91,31 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     private final LogSyncer logSyncer;
 
+    private final CatalogIndexStatusSupplier indexStatusSupplier;
+
     /**
      * Constructor.
      *
      * @param nodeName Node name.
      * @param engineConfig RocksDB storage engine configuration.
-     * @param storageConfiguration Storage configuration.
+     * @param storageConfig Root configuration of storage engines and profiles.
      * @param storagePath Storage path.
      * @param logSyncer Write-ahead log synchronizer.
+     * @param indexStatusSupplier Catalog index status supplier.
      */
-    public RocksDbStorageEngine(String nodeName, RocksDbStorageEngineConfiguration engineConfig,
-            StorageConfiguration storageConfiguration, Path storagePath, LogSyncer logSyncer) {
+    public RocksDbStorageEngine(
+            String nodeName,
+            RocksDbStorageEngineConfiguration engineConfig,
+            StorageConfiguration storageConfig,
+            Path storagePath,
+            LogSyncer logSyncer,
+            CatalogIndexStatusSupplier indexStatusSupplier
+    ) {
         this.engineConfig = engineConfig;
-        this.storageConfiguration = storageConfiguration;
+        this.storageConfig = storageConfig;
         this.storagePath = storagePath;
         this.logSyncer = logSyncer;
+        this.indexStatusSupplier = indexStatusSupplier;
 
         threadPool = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors(),
@@ -149,7 +160,7 @@ public class RocksDbStorageEngine implements StorageEngine {
     @Override
     public void start() throws StorageException {
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
-        storageConfiguration.profiles().value().stream().forEach(p -> {
+        storageConfig.profiles().value().stream().forEach(p -> {
             if (p instanceof RocksDbProfileView) {
                 registerDataRegion((RocksDbProfileView) p);
             }
@@ -219,5 +230,10 @@ public class RocksDbStorageEngine implements StorageEngine {
         for (RocksDbStorage rocksDbStorage : storageByRegionName.values()) {
             rocksDbStorage.rocksDbInstance.destroyTable(tableId);
         }
+    }
+
+    /** Returns catalog index status supplier. */
+    public CatalogIndexStatusSupplier indexStatusSupplier() {
+        return indexStatusSupplier;
     }
 }

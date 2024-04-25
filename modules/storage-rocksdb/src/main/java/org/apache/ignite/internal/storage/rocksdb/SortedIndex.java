@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.rocksdb;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
 
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
@@ -32,40 +33,43 @@ class SortedIndex extends Index<RocksDbSortedIndexStorage> {
 
     private final RocksDbMetaStorage indexMetaStorage;
 
+    private final CatalogIndexStatusSupplier indexStatusSupplier;
+
     private SortedIndex(
             int tableId,
             ColumnFamily indexCf,
             StorageSortedIndexDescriptor descriptor,
-            RocksDbMetaStorage indexMetaStorage
+            RocksDbMetaStorage indexMetaStorage,
+            CatalogIndexStatusSupplier indexStatusSupplier
     ) {
         super(tableId, descriptor.id(), indexCf);
 
         this.descriptor = descriptor;
         this.indexMetaStorage = indexMetaStorage;
+        this.indexStatusSupplier = indexStatusSupplier;
     }
 
     static SortedIndex createNew(
             SharedRocksDbInstance rocksDb,
             int tableId,
-            StorageSortedIndexDescriptor descriptor,
-            RocksDbMetaStorage indexMetaStorage
+            StorageSortedIndexDescriptor descriptor
     ) {
         ColumnFamily indexCf = rocksDb.getOrCreateSortedIndexCf(sortedIndexCfName(descriptor.columns()), descriptor.id(), tableId);
 
-        return new SortedIndex(tableId, indexCf, descriptor, indexMetaStorage);
+        return new SortedIndex(tableId, indexCf, descriptor, rocksDb.meta, rocksDb.engine.indexStatusSupplier());
     }
 
     static SortedIndex restoreExisting(
             int tableId,
             ColumnFamily indexCf,
             StorageSortedIndexDescriptor descriptor,
-            RocksDbMetaStorage indexMetaStorage
+            SharedRocksDbInstance rocksDb
     ) {
-        return new SortedIndex(tableId, indexCf, descriptor, indexMetaStorage);
+        return new SortedIndex(tableId, indexCf, descriptor, rocksDb.meta, rocksDb.engine.indexStatusSupplier());
     }
 
     @Override
     RocksDbSortedIndexStorage createStorage(int partitionId) {
-        return new RocksDbSortedIndexStorage(descriptor, tableId(), partitionId, columnFamily(), indexMetaStorage);
+        return new RocksDbSortedIndexStorage(descriptor, tableId(), partitionId, columnFamily(), indexMetaStorage, indexStatusSupplier);
     }
 }
