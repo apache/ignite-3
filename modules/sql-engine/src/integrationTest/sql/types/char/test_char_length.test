@@ -1,0 +1,65 @@
+# name: test/sql/types/char/test_char_length.test
+# description: E021-01 Character string types. CHARACTER data type. Check length of the CHAR datatype.
+# group: [char]
+
+# length shouldn't be negative;
+statement error
+CREATE TABLE t_negative(c1 CHAR(-1));
+
+# length shouldn't be zero;
+skipif ignite3
+statement ok
+CREATE TABLE t_zero(c1 CHAR(0));
+
+statement ok
+CREATE TABLE t_default(c1 CHAR);
+
+# If <length> is omitted, then a <length> of 1 (one) is implicit.
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18492
+statement error
+INSERT INTO t_default VALUES('12');
+
+statement ok
+INSERT INTO t_default VALUES('1');
+
+# possibility to insert empty string
+statement ok
+INSERT INTO t_default VALUES('');
+
+
+statement ok
+CREATE TABLE t_three (c1 CHAR(3), c2 CHARACTER(3));
+
+# MUST FAIL due to length
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18492
+statement error
+INSERT INTO t_three VALUES('1', '4444');
+
+# MUST FAIL due to length
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18492
+statement error
+INSERT INTO t_three VALUES('1234', '444');
+
+statement ok
+INSERT INTO t_three VALUES('123', '456'), ('1  ', '1'), (' 2 ', '2'), ('  3','3');
+
+# check keep spaces as prefix and trailing symbols
+query TT rowsort
+SELECT * FROM t_three;
+----
+  3	3
+ 2 	2
+1  	1
+123	456
+
+# check correct length of data
+query II rowsort
+SELECT LENGTH(c1), LENGTH(c2) FROM t_three;
+----
+3	1
+3	1
+3	1
+3	3
