@@ -90,7 +90,9 @@ import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -660,44 +662,54 @@ public class ItTxTestCluster {
                         clockServices.get(assignment)
                 );
 
-                try {
-                    CompletableFuture<Void> newReplicaFuture = replicaManagers.
-                            get(assignment)
-                            .startReplica(
-                                    true,
-                                    new TablePartitionId(tableId, partId),
-                                    configuration,
-                                    (raftClient) -> newReplicaListener(
-                                            mvPartStorage,
-                                            raftClient,
-                                            txManagers.get(assignment),
-                                            Runnable::run,
-                                            partId,
-                                            tableId,
-                                            () -> Map.of(pkLocker.id(), pkLocker),
-                                            pkStorage,
-                                            Map::of,
-                                            clockServices.get(assignment),
-                                            safeTime,
-                                            txStateStorage,
-                                            transactionStateResolver,
-                                            storageUpdateHandler,
-                                            new DummyValidationSchemasSource(schemaManager),
-                                            nodeResolver.getByConsistentId(assignment),
-                                            new AlwaysSyncedSchemaSyncService(),
-                                            catalogService,
-                                            placementDriver,
-                                            nodeResolver,
-                                            cursorRegistries.get(assignment),
-                                            schemaManager
-                                    ),
-                                    storageIndexTracker)
-                            .thenAccept(replica -> {});
+                CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
+                        new RaftNodeId(grpId, configuration.peer(assignment)),
+                        configuration,
+                        partitionListener,
+                        RaftGroupEventsListener.noopLsnr,
+                        topologyAwareRaftGroupServiceFactory
+                ).thenAccept(
+                        raftSvc -> {
+                            try {
+                                replicaManagers
+                                        .get(assignment)
+                                        .startReplica(
+                                                true,
+                                                new TablePartitionId(tableId, partId),
+                                                configuration,
+                                                (raftClient) -> newReplicaListener(
+                                                        mvPartStorage,
+                                                        raftClient,
+                                                        txManagers.get(assignment),
+                                                        Runnable::run,
+                                                        partId,
+                                                        tableId,
+                                                        () -> Map.of(pkLocker.id(), pkLocker),
+                                                        pkStorage,
+                                                        Map::of,
+                                                        clockServices.get(assignment),
+                                                        safeTime,
+                                                        txStateStorage,
+                                                        transactionStateResolver,
+                                                        storageUpdateHandler,
+                                                        new DummyValidationSchemasSource(schemaManager),
+                                                        nodeResolver.getByConsistentId(assignment),
+                                                        new AlwaysSyncedSchemaSyncService(),
+                                                        catalogService,
+                                                        placementDriver,
+                                                        nodeResolver,
+                                                        cursorRegistries.get(assignment),
+                                                        schemaManager
+                                                ),
+                                                storageIndexTracker);
 
-                    partitionReadyFutures.add(newReplicaFuture);
-                } catch (NodeStoppingException e) {
-                    fail("Unexpected node stopping", e);
-                }
+                            } catch (NodeStoppingException e) {
+                                fail("Unexpected node stopping", e);
+                            }
+                        }
+                );
+
+                partitionReadyFutures.add(partitionReadyFuture);
             }
 
             PeersAndLearners membersConf = PeersAndLearners.fromConsistentIds(partAssignments);
