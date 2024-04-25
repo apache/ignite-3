@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.DISABLE_RULE
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.ENFORCE_JOIN_ORDER;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
