@@ -1218,6 +1218,26 @@ public class IgniteUtils {
     }
 
     /**
+     * Asynchronously exec all stop functions.
+     *
+     * @param components Array of stop functions.
+     * @return CompletableFuture that will be completed when all components are stopped.
+     */
+    public static CompletableFuture<Void> stopAsync(Supplier<CompletableFuture<Void>>... components) {
+        return allOf(Stream.of(components)
+                .filter(Objects::nonNull)
+                .map(igniteComponent -> {
+                    try {
+                        return igniteComponent.get();
+                    } catch (Throwable e) {
+                        // Make sure a failure in the synchronous part will not interrupt the stopping process of other components.
+                        return failedFuture(e);
+                    }
+                })
+                .toArray(CompletableFuture[]::new));
+    }
+
+    /**
      * Asynchronously stops all ignite components.
      *
      * @param components Array of ignite components to stop.

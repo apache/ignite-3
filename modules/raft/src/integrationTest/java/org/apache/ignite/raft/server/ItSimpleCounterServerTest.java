@@ -102,7 +102,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
         server = new JraftServerImpl(service, workDir, raftConfiguration) {
             @Override
             public CompletableFuture<Void> stopAsync() {
-                return CompletableFuture.allOf(super.stopAsync(), service.stopAsync());
+                return IgniteUtils.stopAsync(super::stopAsync, service::stopAsync);
             }
         };
 

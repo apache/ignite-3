@@ -55,6 +55,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -93,7 +94,7 @@ public class CatalogTestUtils {
 
             @Override
             public CompletableFuture<Void> stopAsync() {
-                return allOf(super.stopAsync(), clockWaiter.stopAsync(), metastore.stopAsync());
+                return IgniteUtils.stopAsync(super::stopAsync, clockWaiter::stopAsync, metastore::stopAsync);
             }
         };
     }
@@ -125,7 +126,7 @@ public class CatalogTestUtils {
 
             @Override
             public CompletableFuture<Void> stopAsync() {
-                return allOf(super.stopAsync(), metastore.stopAsync());
+                return IgniteUtils.stopAsync(super::stopAsync, metastore::stopAsync);
             }
         };
     }
@@ -157,7 +158,7 @@ public class CatalogTestUtils {
 
             @Override
             public CompletableFuture<Void> stopAsync() {
-                return allOf(super.stopAsync(), clockWaiter.stopAsync());
+                return IgniteUtils.stopAsync(super::stopAsync, clockWaiter::stopAsync);
             }
         };
     }
@@ -203,7 +204,7 @@ public class CatalogTestUtils {
 
             @Override
             public CompletableFuture<Void> stopAsync() {
-                return allOf(super.stopAsync(), clockWaiter.stopAsync());
+                return IgniteUtils.stopAsync(super::stopAsync, clockWaiter::stopAsync);
             }
         };
     }
@@ -239,7 +240,7 @@ public class CatalogTestUtils {
 
             @Override
             public CompletableFuture<Void> stopAsync() {
-                return allOf(super.stopAsync(), clockWaiter.stopAsync());
+                return IgniteUtils.stopAsync(super::stopAsync, clockWaiter::stopAsync);
             }
         };
     }

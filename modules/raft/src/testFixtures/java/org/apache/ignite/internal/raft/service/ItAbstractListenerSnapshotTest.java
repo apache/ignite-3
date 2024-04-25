@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.raft.service;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -425,7 +424,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         JraftServerImpl server = new JraftServerImpl(service, jraft, raftConfiguration) {
             @Override
             public CompletableFuture<Void> stopAsync() {
-                return allOf(super.stopAsync(), service.stopAsync());
+                return IgniteUtils.stopAsync(super::stopAsync, service::stopAsync);
             }
         };
 

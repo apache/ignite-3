@@ -17,7 +17,6 @@
 
 package org.apache.ignite.raft.server;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -34,6 +33,7 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -111,7 +111,7 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
             public CompletableFuture<Void> stopAsync() {
                 servers.remove(this);
 
-                return allOf(super.stopAsync(), service.stopAsync());
+                return IgniteUtils.stopAsync(super::stopAsync, service::stopAsync);
             }
         };
     }
