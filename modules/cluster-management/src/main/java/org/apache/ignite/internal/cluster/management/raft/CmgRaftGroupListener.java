@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -105,7 +106,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     }
 
     private HashSet<LogicalNode> getValidatedNodes() {
-        Set<LogicalNode> validatedNodes = storage.getValidatedNodes();
+        List<LogicalNode> validatedNodes = storage.getValidatedNodes();
         Set<LogicalNode> logicalTopologyNodes = logicalTopology.getLogicalTopology().nodes();
 
         var result = new HashSet<LogicalNode>(capacity(validatedNodes.size() + logicalTopologyNodes.size()));
