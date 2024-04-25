@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.network.utils;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceF
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistryInitializer;
 import org.apache.ignite.internal.network.serialization.SerializationRegistryServiceLoader;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.worker.fixtures.NoOpCriticalWorkerRegistry;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
@@ -177,12 +177,12 @@ public class ClusterServiceTestUtils {
                                 )
                 ).join();
 
-                return allOf(bootstrapFactory.startAsync(), clusterSvc.startAsync());
+                return IgniteUtils.startAsync(bootstrapFactory, clusterSvc);
             }
 
             @Override
             public CompletableFuture<Void> stopAsync() {
-                return allOf(clusterSvc.stopAsync(), bootstrapFactory.stopAsync(), nodeConfigurationMgr.stopAsync());
+                return IgniteUtils.stopAsync(clusterSvc, bootstrapFactory, nodeConfigurationMgr);
             }
         };
     }

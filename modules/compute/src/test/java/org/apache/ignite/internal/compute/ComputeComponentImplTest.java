@@ -177,7 +177,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    void cleanup() throws Exception {
+    void cleanup() {
         assertThat(computeComponent.stopAsync(), willCompleteSuccessfully());
     }
 
@@ -446,7 +446,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void stoppedComponentReturnsExceptionOnLocalExecutionAttempt() throws Exception {
+    void stoppedComponentReturnsExceptionOnLocalExecutionAttempt() {
         assertThat(computeComponent.stopAsync(), willCompleteSuccessfully());
 
         CompletableFuture<String> result = executeLocally(SimpleJob.class.getName());
@@ -462,7 +462,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void stoppedComponentReturnsExceptionOnRemoteExecutionAttempt() throws Exception {
+    void stoppedComponentReturnsExceptionOnRemoteExecutionAttempt() {
         assertThat(computeComponent.stopAsync(), willCompleteSuccessfully());
 
         CompletableFuture<String> result = executeRemotely(SimpleJob.class.getName());
@@ -482,8 +482,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void stoppedComponentReturnsExceptionOnExecuteRequestAttempt() throws Exception {
-        computeComponent.stopAsync();
+    void stoppedComponentReturnsExceptionOnExecuteRequestAttempt() {
+        assertThat(computeComponent.stopAsync(), willCompleteSuccessfully());
 
         ExecuteRequest request = new ComputeMessagesFactory().executeRequest()
                 .executeOptions(DEFAULT)
@@ -499,7 +499,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void stoppedComponentReturnsExceptionOnJobResultRequestAttempt() throws Exception {
+    void stoppedComponentReturnsExceptionOnJobResultRequestAttempt() {
         assertThat(computeComponent.stopAsync(), willCompleteSuccessfully());
 
         JobResultRequest jobResultRequest = new ComputeMessagesFactory().jobResultRequest()
@@ -513,7 +513,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void stoppedComponentReturnsExceptionOnJobStatusRequestAttempt() throws Exception {
+    void stoppedComponentReturnsExceptionOnJobStatusRequestAttempt() {
         assertThat(computeComponent.stopAsync(), willCompleteSuccessfully());
 
         JobStatusRequest jobStatusRequest = new ComputeMessagesFactory().jobStatusRequest()
@@ -527,7 +527,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void stoppedComponentReturnsExceptionOnJobCancelRequestAttempt() throws Exception {
+    void stoppedComponentReturnsExceptionOnJobCancelRequestAttempt() {
         assertThat(computeComponent.stopAsync(), willCompleteSuccessfully());
 
         JobCancelRequest jobCancelRequest = new ComputeMessagesFactory().jobCancelRequest()
@@ -541,7 +541,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void stoppedComponentReturnsExceptionOnJobChangePriorityRequestAttempt() throws Exception {
+    void stoppedComponentReturnsExceptionOnJobChangePriorityRequestAttempt() {
         assertThat(computeComponent.stopAsync(), willCompleteSuccessfully());
 
         JobChangePriorityRequest jobChangePriorityRequest = new ComputeMessagesFactory().jobChangePriorityRequest()
@@ -564,7 +564,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void stopCausesCancellationExceptionOnLocalExecution() throws Exception {
+    void stopCausesCancellationExceptionOnLocalExecution() {
         // take the only executor thread
         executeLocally(LongJob.class.getName());
 
@@ -578,7 +578,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void stopCausesCancellationExceptionOnRemoteExecution() throws Exception {
+    void stopCausesCancellationExceptionOnRemoteExecution() {
         respondWithExecuteResponseWhenExecuteRequestIsSent(UUID.randomUUID());
         respondWithIncompleteFutureWhenJobResultRequestIsSent();
 

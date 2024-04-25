@@ -557,12 +557,12 @@ public class IgniteUtils {
      * @throws Exception If failed to close.
      */
     public static void closeAll(Stream<? extends AutoCloseable> closeables) throws Exception {
-        AtomicReference<Exception> ex = new AtomicReference<>();
+        AtomicReference<Throwable> ex = new AtomicReference<>();
 
         closeables.filter(Objects::nonNull).forEach(closeable -> {
             try {
                 closeable.close();
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 if (!ex.compareAndSet(null, e)) {
                     ex.get().addSuppressed(e);
                 }
@@ -570,7 +570,7 @@ public class IgniteUtils {
         });
 
         if (ex.get() != null) {
-            throw ex.get();
+            throw ExceptionUtils.sneakyThrow(ex.get());
         }
     }
 
@@ -604,12 +604,12 @@ public class IgniteUtils {
      * @throws Exception If failed to close.
      */
     public static void closeAllManually(Stream<? extends ManuallyCloseable> closeables) throws Exception {
-        AtomicReference<Exception> ex = new AtomicReference<>();
+        AtomicReference<Throwable> ex = new AtomicReference<>();
 
         closeables.filter(Objects::nonNull).forEach(closeable -> {
             try {
                 closeable.close();
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 if (!ex.compareAndSet(null, e)) {
                     ex.get().addSuppressed(e);
                 }
@@ -617,7 +617,7 @@ public class IgniteUtils {
         });
 
         if (ex.get() != null) {
-            throw ex.get();
+            throw ExceptionUtils.sneakyThrow(ex.get());
         }
     }
 
@@ -1206,7 +1206,14 @@ public class IgniteUtils {
     private static CompletableFuture<Void> stopAsync(Stream<? extends IgniteComponent> components) {
         return allOf(components
                 .filter(Objects::nonNull)
-                .map(IgniteComponent::stopAsync)
+                .map(igniteComponent -> {
+                    try {
+                        return igniteComponent.stopAsync();
+                    } catch (Throwable e) {
+                        // Make sure a failure in the synchronous part will not interrupt the stopping process of other components.
+                        return failedFuture(e);
+                    }
+                })
                 .toArray(CompletableFuture[]::new));
     }
 

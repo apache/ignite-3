@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -29,7 +30,6 @@ import org.apache.ignite.internal.storage.configurations.StorageProfileConfigura
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /** Data storage manager. */
@@ -69,7 +69,7 @@ public class DataStorageManager implements IgniteComponent {
     @Override
     public CompletableFuture<Void> stopAsync() {
         try {
-            IgniteUtils.closeAll(engines.values().stream().map(engine -> engine::stop));
+            closeAll(engines.values().stream().map(engine -> engine::stop));
         } catch (Exception e) {
             return failedFuture(e);
         }

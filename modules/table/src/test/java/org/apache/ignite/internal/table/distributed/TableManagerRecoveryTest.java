@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -29,6 +28,8 @@ import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -358,10 +359,14 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             }
         };
 
-        assertThat(allOf(metaStorageManager.startAsync(), metaStorageManager.recoveryFinishedFuture()), willCompleteSuccessfully());
-        assertThat(allOf(catalogManager.startAsync(), sm.startAsync(), tableManager.startAsync()), willCompleteSuccessfully());
-        assertThat(((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
-        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        assertThat(
+                metaStorageManager.startAsync()
+                        .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
+                        .thenCompose(unused -> startAsync(catalogManager, sm, tableManager))
+                        .thenCompose(unused -> ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart())
+                        .thenCompose(unused -> metaStorageManager.deployWatches()),
+                willCompleteSuccessfully()
+        );
     }
 
     /**
@@ -373,7 +378,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
         }
 
-        IgniteUtils.closeAll(
+        closeAll(
                 dsm == null ? null : () -> assertThat(dsm.stopAsync(), willCompleteSuccessfully()),
                 sm == null ? null : () -> assertThat(sm.stopAsync(), willCompleteSuccessfully()),
                 catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),

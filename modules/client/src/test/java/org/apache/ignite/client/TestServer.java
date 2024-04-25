@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -317,10 +318,7 @@ public class TestServer implements AutoCloseable {
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
-        assertThat(module.stopAsync(), willCompleteSuccessfully());
-        assertThat(authenticationManager.stopAsync(), willCompleteSuccessfully());
-        assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully());
-        assertThat(cfg.stopAsync(), willCompleteSuccessfully());
+        assertThat(stopAsync(module, authenticationManager, bootstrapFactory, cfg), willCompleteSuccessfully());
 
         generator.close();
     }

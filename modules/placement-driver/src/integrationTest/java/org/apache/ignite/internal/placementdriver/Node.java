@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.List;
@@ -55,12 +57,8 @@ class Node implements AutoCloseable {
     }
 
     CompletableFuture<Void> startAsync() {
-        assertThat(clusterService.startAsync(), willCompleteSuccessfully());
-        assertThat(loza.startAsync(), willCompleteSuccessfully());
-        assertThat(metastore.startAsync(), willCompleteSuccessfully());
-
-        return metastore
-                .recoveryFinishedFuture()
+        return IgniteUtils.startAsync(clusterService, loza, metastore)
+                .thenCompose(unused -> metastore.recoveryFinishedFuture())
                 .thenCompose(unused -> placementDriverManager.startAsync())
                 .thenCompose(unused -> metastore.notifyRevisionUpdateListenerOnStart())
                 .thenCompose(unused -> metastore.deployWatches());
@@ -70,9 +68,9 @@ class Node implements AutoCloseable {
     public void close() throws Exception {
         List<IgniteComponent> igniteComponents = List.of(placementDriverManager, metastore, loza, clusterService);
 
-        IgniteUtils.closeAll(Stream.concat(
+        closeAll(Stream.concat(
                 igniteComponents.stream().map(component -> component::beforeNodeStop),
-                Stream.of(() -> assertThat(IgniteUtils.stopAsync(igniteComponents), willCompleteSuccessfully()))
+                Stream.of(() -> assertThat(stopAsync(igniteComponents), willCompleteSuccessfully()))
         ));
     }
 }

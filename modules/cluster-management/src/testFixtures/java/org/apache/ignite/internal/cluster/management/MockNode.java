@@ -18,6 +18,10 @@
 package org.apache.ignite.internal.cluster.management;
 
 
+import static java.util.Collections.reverse;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,7 +45,6 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -143,7 +146,7 @@ public class MockNode {
      * Start fake node.
      */
     public CompletableFuture<Void> startComponents() {
-        return IgniteUtils.startAsync(components);
+        return startAsync(components);
     }
 
     /**
@@ -168,15 +171,14 @@ public class MockNode {
      * Stop fake node.
      */
     public void stop() {
-        ReverseIterator<IgniteComponent> it = new ReverseIterator<>(components);
+        List<IgniteComponent> componentsToStop = new ArrayList<>(components);
+        reverse(componentsToStop);
 
-        it.forEachRemaining(component -> {
-            try {
-                component.stopAsync().get(30, TimeUnit.SECONDS);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
+        try {
+            stopAsync(componentsToStop).get(30, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**

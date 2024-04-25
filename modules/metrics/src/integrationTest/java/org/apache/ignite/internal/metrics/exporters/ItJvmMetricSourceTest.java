@@ -49,7 +49,7 @@ public class ItJvmMetricSourceTest extends BaseIgniteAbstractTest {
     private MetricConfiguration simpleConfiguration;
 
     @Test
-    public void testMemoryUsageMetric() throws Exception {
+    public void testMemoryUsageMetric() {
         MetricManager metricManager = new MetricManager();
 
         metricManager.configure(simpleConfiguration);

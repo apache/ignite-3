@@ -155,13 +155,12 @@ public class IndexBuildingManager implements IgniteComponent {
                     indexBuilder,
                     indexAvailabilityController,
                     indexBuildController,
-                    changeIndexStatusTaskController
+                    changeIndexStatusTaskController,
+                    () -> shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)
             );
         } catch (Exception e) {
             return failedFuture(e);
         }
-
-        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         return nullCompletedFuture();
     }

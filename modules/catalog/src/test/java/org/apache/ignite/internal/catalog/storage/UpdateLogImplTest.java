@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -53,7 +54,6 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.junit.jupiter.api.AfterEach;
@@ -81,7 +81,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     public void tearDown() throws Exception {
-        IgniteUtils.closeAll(
+        closeAll(
                 metastore == null ? null : () -> assertThat(metastore.stopAsync(), willCompleteSuccessfully()),
                 keyValueStorage == null ? null : keyValueStorage::close
         );
@@ -186,7 +186,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private void restartMetastore() throws Exception {
+    private void restartMetastore() {
         long recoverRevision = metastore.appliedRevision();
 
         assertThat(metastore.stopAsync(), willCompleteSuccessfully());

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.reverse;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,7 +36,6 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
@@ -196,6 +196,6 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
 
         reverse(resources);
 
-        IgniteUtils.closeAll(resources);
+        closeAll(resources);
     }
 }

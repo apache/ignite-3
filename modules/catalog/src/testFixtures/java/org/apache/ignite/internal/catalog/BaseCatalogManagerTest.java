@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.STRING;
@@ -52,7 +54,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -102,16 +103,14 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 () -> CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD
         );
 
-        assertThat(metastore.startAsync(), willCompleteSuccessfully());
-        assertThat(clockWaiter.startAsync(), willCompleteSuccessfully());
-        assertThat(manager.startAsync(), willCompleteSuccessfully());
+        assertThat(startAsync(metastore, clockWaiter, manager), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
     }
 
     @AfterEach
-    public void tearDown() throws Exception {
-        assertThat(IgniteUtils.stopAsync(manager, clockWaiter, metastore), willCompleteSuccessfully());
+    public void tearDown() {
+        assertThat(stopAsync(manager, clockWaiter, metastore), willCompleteSuccessfully());
     }
 
     protected static CatalogCommand createHashIndexCommand(

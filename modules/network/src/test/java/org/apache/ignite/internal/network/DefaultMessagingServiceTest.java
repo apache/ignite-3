@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.contains;
@@ -566,10 +567,11 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
         @Override
         public void close() throws Exception {
-            IgniteUtils.closeAll(
+            closeAll(
                     connectionManager::initiateStopping, connectionManager::stop,
                     messagingService::stop,
-                    bootstrapFactory::beforeNodeStop, () -> assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully())
+                    bootstrapFactory::beforeNodeStop,
+                    () -> assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully())
             );
         }
     }

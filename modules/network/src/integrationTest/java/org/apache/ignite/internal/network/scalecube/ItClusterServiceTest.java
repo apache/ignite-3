@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.scalecube;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
@@ -38,7 +39,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
@@ -95,10 +95,7 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
             checkAllMeta(service1, Set.of(meta1, meta2));
             checkAllMeta(service2, Set.of(meta1, meta2));
         } finally {
-            IgniteUtils.closeAll(
-                    () -> assertThat(service1.stopAsync(), willCompleteSuccessfully()),
-                    () -> assertThat(service2.stopAsync(), willCompleteSuccessfully())
-            );
+            assertThat(stopAsync(service1, service2), willCompleteSuccessfully());
         }
     }
 

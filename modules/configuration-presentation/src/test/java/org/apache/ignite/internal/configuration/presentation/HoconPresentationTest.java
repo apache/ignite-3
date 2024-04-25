@@ -101,7 +101,7 @@ public class HoconPresentationTest {
      * After all.
      */
     @AfterAll
-    static void afterAll() throws Exception {
+    static void afterAll() {
         assertThat(cfgRegistry.stopAsync(), willCompleteSuccessfully());
         cfgRegistry = null;
 

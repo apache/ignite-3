@@ -106,11 +106,8 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
 
         toStop = () -> {
             nodeListener.stop();
-            try {
-                assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+
+            assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
         };
 
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());

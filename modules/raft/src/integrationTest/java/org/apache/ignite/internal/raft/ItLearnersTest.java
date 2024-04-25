@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -120,8 +121,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         }
 
         void start() {
-            assertThat(clusterService.startAsync(), willCompleteSuccessfully());
-            assertThat(loza.startAsync(), willCompleteSuccessfully());
+            assertThat(startAsync(clusterService, loza), willCompleteSuccessfully());
         }
 
         @Override

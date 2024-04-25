@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.app;
 
+import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +31,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.rest.api.node.State;
 import org.apache.ignite.internal.rest.node.StateProvider;
-import org.apache.ignite.internal.util.ReverseIterator;
 
 /**
  * Class for managing the lifecycle of Ignite components.
@@ -145,19 +146,18 @@ class LifecycleManager implements StateProvider {
      * start-reverse-order.
      */
     private synchronized void stopAllComponents() {
-        new ReverseIterator<>(startedComponents).forEachRemaining(component -> {
+        List<IgniteComponent> components = new ArrayList<>(startedComponents);
+        reverse(components);
+
+        for (IgniteComponent component : components) {
             try {
                 component.beforeNodeStop();
             } catch (Exception e) {
                 LOG.warn("Unable to execute before node stop [component={}, nodeName={}]", e, component, nodeName);
             }
-        });
+        }
 
-        List<CompletableFuture<Void>> allComponentsStopFuture = new ArrayList<>();
-
-        new ReverseIterator<>(startedComponents).forEachRemaining(component -> allComponentsStopFuture.add(component.stopAsync()));
-
-        allOf(allComponentsStopFuture.toArray(CompletableFuture[]::new))
+        stopAsync(components)
                 .whenComplete((v, e) -> stopFuture.complete(null));
     }
 }

@@ -80,7 +80,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         assertThat(catalogManager.stopAsync(), willCompleteSuccessfully());
     }
 

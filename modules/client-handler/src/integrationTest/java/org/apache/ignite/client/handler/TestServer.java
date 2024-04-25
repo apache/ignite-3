@@ -89,7 +89,7 @@ public class TestServer {
         this.idleTimeout = idleTimeout;
     }
 
-    void tearDown() throws Exception {
+    void tearDown() {
         assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully());
     }
 

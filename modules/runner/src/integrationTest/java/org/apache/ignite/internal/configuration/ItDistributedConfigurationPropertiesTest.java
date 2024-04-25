@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -225,9 +227,10 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
          * Starts the created components.
          */
         CompletableFuture<Void> start() {
-            assertThat(vaultManager.startAsync(), willCompleteSuccessfully());
-
-            assertThat(IgniteUtils.startAsync(clusterService, raftManager, cmgManager, metaStorageManager), willCompleteSuccessfully());
+            assertThat(
+                    startAsync(vaultManager, clusterService, raftManager, cmgManager, metaStorageManager),
+                    willCompleteSuccessfully()
+            );
 
             return CompletableFuture.runAsync(() -> assertThat(distributedCfgManager.startAsync(), willCompleteSuccessfully()));
         }
@@ -256,7 +259,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                 igniteComponent.beforeNodeStop();
             }
 
-            assertThat(IgniteUtils.stopAsync(components), willCompleteSuccessfully());
+            assertThat(stopAsync(components), willCompleteSuccessfully());
 
             generator.close();
         }

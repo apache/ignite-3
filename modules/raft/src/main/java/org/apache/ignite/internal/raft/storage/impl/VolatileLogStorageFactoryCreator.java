@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
 import java.io.IOException;
@@ -37,7 +38,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Platform;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -182,7 +182,7 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
         ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
 
         try {
-            IgniteUtils.closeAll(columnFamily, db, dbOptions);
+            closeAll(columnFamily, db, dbOptions);
         } catch (Exception e) {
             return failedFuture(e);
         }

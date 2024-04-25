@@ -116,7 +116,7 @@ public class DirectPropertiesTest {
     }
 
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         assertThat(registry.stopAsync(), willCompleteSuccessfully());
     }
 

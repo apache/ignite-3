@@ -44,10 +44,10 @@ public interface IgniteComponent {
     }
 
     /**
-     * Stops the component. It's guaranteed that during {@code IgniteComponent#stop())} all components beneath given one are still running,
-     * however the node is no longer part of the topology and, accordingly, network interaction is impossible.
+     * Stops the component. It's guaranteed that during {@code IgniteComponent#stopAsync())} all components beneath given one are still
+     * running, however the node is no longer part of the topology and, accordingly, network interaction is impossible.
      *
-     * @return Future that will be completed when the asynchronous part of the start is processed.
+     * @return Future that will be completed when the asynchronous part of the stop is processed.
      */
     CompletableFuture<Void> stopAsync();
 }

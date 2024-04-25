@@ -92,7 +92,7 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         assertThat(storage.stopAsync(), willCompleteSuccessfully());
     }
 

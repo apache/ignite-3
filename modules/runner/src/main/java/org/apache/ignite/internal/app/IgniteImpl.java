@@ -1181,25 +1181,30 @@ public class IgniteImpl implements Ignite {
 
         LOG.debug(errMsg, e);
 
+        IgniteException igniteException = new IgniteException(errMsg, e);
+
         try {
             lifecycleManager.stopNode().get();
         } catch (Exception ex) {
-            IgniteException igniteException = new IgniteException(errMsg, ex);
-            igniteException.addSuppressed(e);
-
-            return igniteException;
+            igniteException.addSuppressed(ex);
         }
 
-        return new IgniteException(errMsg, e);
+        return igniteException;
     }
 
     /**
-     * Stops ignite node.
+     * Synchronously stops ignite node.
      */
     public void stop() throws ExecutionException, InterruptedException {
-        lifecycleManager.stopNode().get();
+        stopAsync().get();
+    }
 
-        restAddressReporter.removeReport();
+    /**
+     * Asynchronously stops ignite node.
+     */
+    public CompletableFuture<Void> stopAsync() {
+        return lifecycleManager.stopNode()
+                .whenComplete((unused, throwable) -> restAddressReporter.removeReport());
     }
 
     /** {@inheritDoc} */

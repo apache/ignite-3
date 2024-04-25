@@ -198,7 +198,7 @@ public class ConfigurationListenerTest {
     }
 
     @AfterEach
-    public void after() throws Exception {
+    public void after() {
         assertThat(registry.stopAsync(), willCompleteSuccessfully());
         generator.close();
     }

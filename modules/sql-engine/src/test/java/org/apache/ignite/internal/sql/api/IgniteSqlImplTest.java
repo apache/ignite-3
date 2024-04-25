@@ -341,8 +341,6 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
         Thread thread = new Thread(() -> {
             try {
                 assertThat(igniteSql.stopAsync(), willCompleteSuccessfully());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
             } finally {
                 cursor2Fut.complete(cursor2);
             }

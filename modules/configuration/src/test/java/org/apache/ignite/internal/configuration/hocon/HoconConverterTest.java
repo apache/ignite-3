@@ -233,7 +233,7 @@ public class HoconConverterTest {
      * After all.
      */
     @AfterAll
-    public static void after() throws Exception {
+    public static void after() {
         assertThat(registry.stopAsync(), willCompleteSuccessfully());
 
         registry = null;

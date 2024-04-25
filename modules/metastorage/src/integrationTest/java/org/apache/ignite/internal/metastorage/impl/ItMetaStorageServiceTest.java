@@ -35,6 +35,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CursorUtils.emptyCursor;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -201,10 +203,9 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         }
 
         void start(PeersAndLearners configuration) {
-            assertThat(clusterService.startAsync(), willCompleteSuccessfully());
-            assertThat(raftManager.startAsync(), willCompleteSuccessfully());
-
-            CompletableFuture<RaftGroupService> raftService = startRaftService(configuration);
+            CompletableFuture<RaftGroupService> raftService =
+                    startAsync(clusterService, raftManager)
+                            .thenCompose(unused -> startRaftService(configuration));
 
             assertThat(raftService, willCompleteSuccessfully());
 
@@ -253,7 +254,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             Stream<AutoCloseable> beforeNodeStop = Stream.of(raftManager, clusterService).map(c -> c::beforeNodeStop);
 
             Stream<AutoCloseable> nodeStop = Stream.of(
-                    () -> assertThat(IgniteUtils.stopAsync(raftManager, clusterService), willCompleteSuccessfully())
+                    () -> assertThat(stopAsync(raftManager, clusterService), willCompleteSuccessfully())
             );
 
             IgniteUtils.closeAll(Stream.of(raftStop, beforeNodeStop, nodeStop).flatMap(Function.identity()));

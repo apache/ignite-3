@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.f
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -221,8 +223,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void start() {
-            assertThat(clusterService.startAsync(), willCompleteSuccessfully());
-            assertThat(loza.startAsync(), willCompleteSuccessfully());
+            assertThat(startAsync(clusterService, loza), willCompleteSuccessfully());
         }
 
         CompletableFuture<RaftGroupService> startRaftGroup(PeersAndLearners configuration) {
@@ -257,11 +258,8 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
             IgniteUtils.closeAll(Stream.of(shutdownService, stopRaftGroups, beforeNodeStop).flatMap(Function.identity()));
         }
 
-        void stop() throws Exception {
-            IgniteUtils.closeAll(
-                    () -> assertThat(loza.stopAsync(), willCompleteSuccessfully()),
-                    () -> assertThat(clusterService.stopAsync(), willCompleteSuccessfully())
-            );
+        void stop() {
+            assertThat(stopAsync(loza, clusterService), willCompleteSuccessfully());
         }
     }
 }

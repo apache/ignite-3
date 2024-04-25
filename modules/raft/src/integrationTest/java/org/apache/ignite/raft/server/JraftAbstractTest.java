@@ -173,7 +173,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         JraftServerImpl server = jraftServer(servers, idx, service, opts);
 
-        server.startAsync();
+        assertThat(server.startAsync(), willCompleteSuccessfully());
 
         clo.accept(server);
 

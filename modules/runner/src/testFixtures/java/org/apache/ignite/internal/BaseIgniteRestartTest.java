@@ -20,6 +20,7 @@ package org.apache.ignite.internal;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -56,7 +57,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.intellij.lang.annotations.Language;
@@ -146,7 +146,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             }
         }
 
-        IgniteUtils.closeAll(closeables);
+        closeAll(closeables);
 
         CLUSTER_NODES_NAMES.clear();
     }
@@ -438,11 +438,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             while (iter.hasPrevious()) {
                 IgniteComponent prev = iter.previous();
 
-                try {
-                    assertThat(prev.stopAsync(), willCompleteSuccessfully());
-                } catch (Exception e) {
-                    log.error("Error during component stop", e);
-                }
+                assertThat(prev.stopAsync(), willCompleteSuccessfully());
             }
 
             closeables.forEach(c -> {

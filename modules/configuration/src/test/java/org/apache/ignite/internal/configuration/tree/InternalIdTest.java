@@ -101,7 +101,7 @@ public class InternalIdTest {
     }
 
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         assertThat(registry.stopAsync(), willCompleteSuccessfully());
 
         generator.close();

@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -873,7 +875,7 @@ public class ItTxTestCluster {
      *
      */
     public void shutdownCluster() {
-        assertThat(IgniteUtils.stopAsync(cluster), willCompleteSuccessfully());
+        assertThat(stopAsync(cluster), willCompleteSuccessfully());
 
         if (client != null) {
             assertThat(client.stopAsync(), willCompleteSuccessfully());
@@ -1030,8 +1032,7 @@ public class ItTxTestCluster {
         );
 
         clientTxStateResolver.start();
-        assertThat(clientTxManager.startAsync(), willCompleteSuccessfully());
-        assertThat(clientResourceVacuumManager.startAsync(), willCompleteSuccessfully());
+        assertThat(startAsync(clientTxManager, clientResourceVacuumManager), willCompleteSuccessfully());
     }
 
     public Map<String, Loza> raftServers() {

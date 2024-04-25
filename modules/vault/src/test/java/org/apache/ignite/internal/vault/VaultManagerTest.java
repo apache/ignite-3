@@ -44,7 +44,7 @@ public class VaultManagerTest {
      * After each.
      */
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         vaultManager.beforeNodeStop();
 
         assertThat(vaultManager.stopAsync(), willCompleteSuccessfully());

@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -58,7 +60,6 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.NetworkAddress;
@@ -176,9 +177,10 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
          * Starts the created components.
          */
         void start() {
-            assertThat(vaultManager.startAsync(), willCompleteSuccessfully());
-
-            assertThat(IgniteUtils.startAsync(clusterService, raftManager, cmgManager, metaStorageManager), willCompleteSuccessfully());
+            assertThat(
+                    startAsync(vaultManager, clusterService, raftManager, cmgManager, metaStorageManager),
+                    willCompleteSuccessfully()
+            );
 
             // this is needed to avoid assertion errors
             cfgStorage.registerConfigurationListener(changedEntries -> nullCompletedFuture());
@@ -202,7 +204,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                 igniteComponent.beforeNodeStop();
             }
 
-            assertThat(IgniteUtils.stopAsync(components), willCompleteSuccessfully());
+            assertThat(stopAsync(components), willCompleteSuccessfully());
         }
 
         String name() {

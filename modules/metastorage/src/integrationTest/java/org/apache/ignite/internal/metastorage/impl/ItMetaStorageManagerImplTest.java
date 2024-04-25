@@ -29,6 +29,9 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
@@ -71,7 +74,6 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
@@ -139,20 +141,20 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 metaStorageConfiguration
         );
 
-        assertThat(clusterService.startAsync(), willCompleteSuccessfully());
-        assertThat(raftManager.startAsync(), willCompleteSuccessfully());
-        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
-
-        assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        assertThat(
+                startAsync(clusterService, raftManager, metaStorageManager)
+                        .thenCompose(unused -> metaStorageManager.deployWatches()),
+                willCompleteSuccessfully()
+        );
     }
 
     @AfterEach
     void tearDown() throws Exception {
         List<IgniteComponent> components = List.of(metaStorageManager, raftManager, clusterService);
 
-        IgniteUtils.closeAll(Stream.concat(
+        closeAll(Stream.concat(
                 components.stream().map(c -> c::beforeNodeStop),
-                Stream.of(() -> assertThat(IgniteUtils.stopAsync(components), willCompleteSuccessfully()))
+                Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()))
         ));
     }
 

@@ -58,7 +58,7 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
     }
 
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         assertThat(storage.stopAsync(), willCompleteSuccessfully());
     }
 
