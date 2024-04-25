@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -130,7 +131,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                                 new StorageSortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true)
                         ),
                         false
-                )
+                ),
+                indexId -> CatalogIndexStatus.AVAILABLE
         );
 
         TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(

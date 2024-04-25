@@ -142,6 +142,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.impl.TestCatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
@@ -496,7 +497,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         sortedIndexId,
                         List.of(new StorageSortedIndexColumnDescriptor("intVal", NativeTypes.INT32, false, true)),
                         false
-                )
+                ),
+                new TestCatalogIndexStatusSupplier(catalogService)
         );
 
         // 2 is the index of "intVal" in the list of all columns.

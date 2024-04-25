@@ -128,7 +128,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     protected StorageIndexDescriptor pkIdx;
 
-    private final CatalogService catalogService = mock(CatalogService.class);
+    protected final CatalogService catalogService = mock(CatalogService.class);
 
     protected final StorageIndexDescriptorSupplier indexDescriptorSupplier = new StorageIndexDescriptorSupplier() {
         @Override

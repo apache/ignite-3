@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 
 /**
@@ -31,6 +32,13 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 public class TestStorageEngine implements StorageEngine {
     /** Engine name. */
     public static final String ENGINE_NAME = "test";
+
+    private final CatalogIndexStatusSupplier indexStatusSupplier;
+
+    /** Constructor. */
+    public TestStorageEngine(CatalogIndexStatusSupplier indexStatusSupplier) {
+        this.indexStatusSupplier = indexStatusSupplier;
+    }
 
     @Override
     public String name() {
@@ -57,7 +65,7 @@ public class TestStorageEngine implements StorageEngine {
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier
     ) throws StorageException {
-        return spy(new TestMvTableStorage(tableDescriptor));
+        return spy(new TestMvTableStorage(tableDescriptor, indexStatusSupplier));
     }
 
     @Override

@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.storage.index.impl.TestCatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,7 +33,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
     @BeforeEach
     void beforeEach() {
-        var storage = new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT);
+        var storage = new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT, new TestCatalogIndexStatusSupplier(catalogService));
 
         initialize(storage);
     }

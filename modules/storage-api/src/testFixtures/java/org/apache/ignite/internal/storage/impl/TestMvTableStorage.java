@@ -33,6 +33,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -55,10 +56,10 @@ public class TestMvTableStorage implements MvTableStorage {
 
     private final StorageTableDescriptor tableDescriptor;
 
-    /**
-     * Class for storing Sorted Indices for a particular partition.
-     */
-    private static class SortedIndices {
+    private final CatalogIndexStatusSupplier indexStatusSupplier;
+
+    /** Class for storing Sorted Indices for a particular partition. */
+    private class SortedIndices {
         private final StorageSortedIndexDescriptor descriptor;
 
         final Map<Integer, TestSortedIndexStorage> storageByPartitionId = new ConcurrentHashMap<>();
@@ -68,7 +69,9 @@ public class TestMvTableStorage implements MvTableStorage {
         }
 
         TestSortedIndexStorage getOrCreateStorage(Integer partitionId) {
-            return storageByPartitionId.computeIfAbsent(partitionId, id -> spy(new TestSortedIndexStorage(id, descriptor)));
+            return storageByPartitionId.computeIfAbsent(
+                    partitionId,
+                    id -> spy(new TestSortedIndexStorage(id, descriptor, indexStatusSupplier)));
         }
     }
 
@@ -94,18 +97,21 @@ public class TestMvTableStorage implements MvTableStorage {
      *
      * @param tableId Table ID.
      * @param partitions Count of partitions.
+     * @param indexStatusSupplier Catalog index status supplier.
      */
-    public TestMvTableStorage(int tableId, int partitions) {
-        this(new StorageTableDescriptor(tableId, partitions, "none"));
+    public TestMvTableStorage(int tableId, int partitions, CatalogIndexStatusSupplier indexStatusSupplier) {
+        this(new StorageTableDescriptor(tableId, partitions, "none"), indexStatusSupplier);
     }
 
     /**
      * Constructor.
      *
      * @param tableDescriptor Table descriptor.
+     * @param indexStatusSupplier Catalog index status supplier.
      */
-    public TestMvTableStorage(StorageTableDescriptor tableDescriptor) {
+    public TestMvTableStorage(StorageTableDescriptor tableDescriptor, CatalogIndexStatusSupplier indexStatusSupplier) {
         this.tableDescriptor = tableDescriptor;
+        this.indexStatusSupplier = indexStatusSupplier;
 
         mvPartitionStorages = new MvPartitionStorages<>(tableDescriptor.getId(), tableDescriptor.getPartitions());
     }

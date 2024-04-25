@@ -81,6 +81,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
@@ -158,7 +159,11 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     private final MvPartitionStorage outgoingMvPartitionStorage = new TestMvPartitionStorage(PARTITION_ID);
     private final TxStateStorage outgoingTxStatePartitionStorage = new TestTxStateStorage();
 
-    private final MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT));
+    private final MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(
+            TABLE_ID,
+            DEFAULT_PARTITION_COUNT,
+            mock(CatalogIndexStatusSupplier.class)
+    ));
     private final TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
 
     private final long expLastAppliedIndex = 100500L;

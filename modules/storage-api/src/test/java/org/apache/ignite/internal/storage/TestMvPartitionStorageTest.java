@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.storage;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
@@ -29,6 +31,6 @@ import org.junit.jupiter.api.BeforeEach;
 public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
     @BeforeEach
     void setUp() {
-        initialize(new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT));
+        initialize(new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT, mock(CatalogIndexStatusSupplier.class)));
     }
 }

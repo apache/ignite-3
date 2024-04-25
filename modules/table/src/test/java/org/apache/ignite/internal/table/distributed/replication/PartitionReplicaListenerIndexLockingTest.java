@@ -77,6 +77,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.impl.TestCatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.HashIndexLocker;
@@ -183,14 +184,19 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         row2SortKeyConverter = new BinaryRowConverter(rowSchema, keySchema);
 
+        CatalogService catalogService = mock(CatalogService.class);
+
         TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 SORTED_INDEX_ID,
-                new TestSortedIndexStorage(PART_ID,
+                new TestSortedIndexStorage(
+                        PART_ID,
                         new StorageSortedIndexDescriptor(
                                 SORTED_INDEX_ID,
                                 List.of(new StorageSortedIndexColumnDescriptor("val", NativeTypes.INT32, false, true)),
                                 false
-                        )),
+                        ),
+                        new TestCatalogIndexStatusSupplier(catalogService)
+                ),
                 row2SortKeyConverter
         );
 
@@ -210,8 +216,6 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         );
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PART_ID, TEST_MV_PARTITION_STORAGE);
-
-        CatalogService catalogService = mock(CatalogService.class);
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
         when(tableDescriptor.tableVersion()).thenReturn(schemaDescriptor.version());

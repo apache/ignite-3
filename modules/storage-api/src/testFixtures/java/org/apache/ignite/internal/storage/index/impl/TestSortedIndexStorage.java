@@ -34,6 +34,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
@@ -45,18 +46,27 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Test implementation of MV sorted index storage.
  */
+// TODO: IGNITE-22039 реализовать
 public class TestSortedIndexStorage extends AbstractTestIndexStorage implements SortedIndexStorage {
     private final NavigableSet<IndexRow> index;
 
     private final StorageSortedIndexDescriptor descriptor;
 
+    private final CatalogIndexStatusSupplier indexStatusSupplier;
+
     /** Constructor. */
-    public TestSortedIndexStorage(int partitionId, StorageSortedIndexDescriptor descriptor) {
+    public TestSortedIndexStorage(
+            int partitionId,
+            StorageSortedIndexDescriptor descriptor,
+            CatalogIndexStatusSupplier indexStatusSupplier
+    ) {
         super(partitionId, descriptor);
+
+        this.descriptor = descriptor;
+        this.indexStatusSupplier = indexStatusSupplier;
 
         BinaryTupleComparator binaryTupleComparator = new BinaryTupleComparator(descriptor.columns());
 
-        this.descriptor = descriptor;
         this.index = new ConcurrentSkipListSet<>(
                 comparing((IndexRow indexRow) -> indexRow.indexColumns().byteBuffer(), binaryTupleComparator)
                         .thenComparing(IndexRow::rowId)

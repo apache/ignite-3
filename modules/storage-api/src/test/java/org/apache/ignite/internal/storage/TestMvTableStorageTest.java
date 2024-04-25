@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.storage.index.impl.TestCatalogIndexStatusSupplier;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
@@ -34,6 +35,6 @@ public class TestMvTableStorageTest extends AbstractMvTableStorageTest {
 
     @Override
     protected MvTableStorage createMvTableStorage() {
-        return new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT);
+        return new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT, new TestCatalogIndexStatusSupplier(catalogService));
     }
 }

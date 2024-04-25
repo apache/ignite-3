@@ -31,6 +31,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
@@ -57,7 +58,8 @@ class SortedIndexLockerTest extends BaseIgniteAbstractTest {
                         1,
                         List.of(new StorageSortedIndexColumnDescriptor("c1", NativeTypes.INT32, false, true)),
                         false
-                )
+                ),
+                mock(CatalogIndexStatusSupplier.class)
         );
         indexStorage.destroy();
 

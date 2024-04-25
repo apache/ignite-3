@@ -55,6 +55,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
@@ -107,7 +108,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void testMinMaxLastAppliedIndex() {
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT);
+        TestMvTableStorage mvTableStorage = createMvTableStorage();
         TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
@@ -146,7 +147,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void testMinMaxLastAppliedTerm() {
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT);
+        TestMvTableStorage mvTableStorage = createMvTableStorage();
         TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
@@ -181,7 +182,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void testAddWrite() {
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT);
+        TestMvTableStorage mvTableStorage = createMvTableStorage();
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
 
@@ -231,7 +232,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void testAddWriteCommitted() {
-        TestMvTableStorage mvTableStorage = new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT);
+        TestMvTableStorage mvTableStorage = createMvTableStorage();
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
 
@@ -318,5 +319,9 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
                 SCHEMA_REGISTRY,
                 mock(LowWatermark.class)
         );
+    }
+
+    private static TestMvTableStorage createMvTableStorage() {
+        return new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT, mock(CatalogIndexStatusSupplier.class));
     }
 }

@@ -51,6 +51,6 @@ public class TestDataStorageModule implements DataStorageModule {
             LogSyncer logSyncer,
             CatalogIndexStatusSupplier indexStatusSupplier
     ) throws StorageException {
-        return new TestStorageEngine();
+        return new TestStorageEngine(indexStatusSupplier);
     }
 }

@@ -18,13 +18,15 @@
 package org.apache.ignite.internal.table.distributed.gc;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.junit.jupiter.api.BeforeEach;
 
 class TestGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
     @BeforeEach
     void setUp() {
-        initialize(new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT));
+        initialize(new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT, mock(CatalogIndexStatusSupplier.class)));
     }
 }
