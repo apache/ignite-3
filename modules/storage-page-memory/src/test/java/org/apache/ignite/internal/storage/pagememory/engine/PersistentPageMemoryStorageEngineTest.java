@@ -26,6 +26,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -60,7 +61,8 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
                 workDir,
                 null,
                 mock(FailureProcessor.class),
-                logSyncer
+                logSyncer,
+                mock(CatalogIndexStatusSupplier.class)
         );
     }
 }

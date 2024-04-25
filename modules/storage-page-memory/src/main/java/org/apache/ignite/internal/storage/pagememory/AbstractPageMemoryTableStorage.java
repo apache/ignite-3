@@ -37,6 +37,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -66,19 +67,25 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     /** Index descriptor supplier. */
     private final StorageIndexDescriptorSupplier indexDescriptorSupplier;
 
+    /** Catalog index status supplier. */
+    private final CatalogIndexStatusSupplier indexStatusSupplier;
+
     /**
      * Constructor.
      *
      * @param tableDescriptor Table descriptor.
      * @param indexDescriptorSupplier Index descriptor supplier.
+     * @param indexStatusSupplier Catalog index status supplier.
      */
     AbstractPageMemoryTableStorage(
             StorageTableDescriptor tableDescriptor,
-            StorageIndexDescriptorSupplier indexDescriptorSupplier
+            StorageIndexDescriptorSupplier indexDescriptorSupplier,
+            CatalogIndexStatusSupplier indexStatusSupplier
     ) {
         this.tableDescriptor = tableDescriptor;
         this.indexDescriptorSupplier = indexDescriptorSupplier;
         this.mvPartitionStorages = new MvPartitionStorages<>(tableDescriptor.getId(), tableDescriptor.getPartitions());
+        this.indexStatusSupplier = indexStatusSupplier;
     }
 
     /**
@@ -329,5 +336,10 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     @Override
     public StorageTableDescriptor getTableDescriptor() {
         return tableDescriptor;
+    }
+
+    /** Returns catalog index status supplier. */
+    public CatalogIndexStatusSupplier getIndexStatusSupplier() {
+        return indexStatusSupplier;
     }
 }

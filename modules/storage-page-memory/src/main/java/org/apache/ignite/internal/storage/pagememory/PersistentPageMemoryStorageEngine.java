@@ -51,6 +51,7 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -76,7 +77,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     private final PersistentPageMemoryStorageEngineConfiguration engineConfig;
 
-    private final StorageConfiguration storageConfiguration;
+    private final StorageConfiguration storageConfig;
 
     private final PageIoRegistry ioRegistry;
 
@@ -102,35 +103,41 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     private final LogSyncer logSyncer;
 
+    private final CatalogIndexStatusSupplier indexStatusSupplier;
+
     /**
      * Constructor.
      *
-     * @param igniteInstanceName String igniteInstanceName
+     * @param igniteInstanceName Ignite instance name.
      * @param engineConfig PageMemory storage engine configuration.
+     * @param storageConfig Root configuration of storage engines and profiles.
      * @param ioRegistry IO registry.
      * @param storagePath Storage path.
-     * @param failureProcessor Failure processor that is used to handle critical errors.
      * @param longJvmPauseDetector Long JVM pause detector.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      * @param logSyncer Write-ahead log synchronizer.
+     * @param indexStatusSupplier Catalog index status supplier.
      */
     public PersistentPageMemoryStorageEngine(
             String igniteInstanceName,
             PersistentPageMemoryStorageEngineConfiguration engineConfig,
-            StorageConfiguration storageConfiguration,
+            StorageConfiguration storageConfig,
             PageIoRegistry ioRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureProcessor failureProcessor,
-            LogSyncer logSyncer
+            LogSyncer logSyncer,
+            CatalogIndexStatusSupplier indexStatusSupplier
     ) {
         this.igniteInstanceName = igniteInstanceName;
         this.engineConfig = engineConfig;
-        this.storageConfiguration = storageConfiguration;
+        this.storageConfig = storageConfig;
         this.ioRegistry = ioRegistry;
         this.storagePath = storagePath;
         this.longJvmPauseDetector = longJvmPauseDetector;
         this.failureProcessor = failureProcessor;
         this.logSyncer = logSyncer;
+        this.indexStatusSupplier = indexStatusSupplier;
     }
 
     /**
@@ -184,7 +191,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
         }
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
-        storageConfiguration.profiles().value().stream().forEach(p -> {
+        storageConfig.profiles().value().stream().forEach(p -> {
             if (p instanceof PersistentPageMemoryProfileView) {
                 addDataRegion(p.name());
             }
@@ -236,9 +243,16 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     ) throws StorageException {
         PersistentPageMemoryDataRegion dataRegion = regions.get(tableDescriptor.getStorageProfile());
 
-        assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getStorageProfile();
+        assert dataRegion != null : tableDescriptor;
 
-        return new PersistentPageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, this, dataRegion, destructionExecutor);
+        return new PersistentPageMemoryTableStorage(
+                tableDescriptor,
+                indexDescriptorSupplier,
+                indexStatusSupplier,
+                this,
+                dataRegion,
+                destructionExecutor
+        );
     }
 
     @Override
@@ -289,7 +303,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
      */
     private void addDataRegion(String name) {
         PersistentPageMemoryProfileConfiguration storageProfileConfiguration =
-                (PersistentPageMemoryProfileConfiguration) storageConfiguration.profiles().get(name);
+                (PersistentPageMemoryProfileConfiguration) storageConfig.profiles().get(name);
 
         int pageSize = engineConfig.pageSize().value();
 

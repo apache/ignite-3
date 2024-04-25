@@ -60,7 +60,8 @@ class RenewablePartitionStorageState {
                 partitionId,
                 indexMetaTree,
                 indexFreeList,
-                rowVersionFreeList
+                rowVersionFreeList,
+                tableStorage.getIndexStatusSupplier()
         );
     }
 

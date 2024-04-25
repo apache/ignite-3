@@ -30,6 +30,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
@@ -46,6 +47,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Implementation of Sorted index storage using Page Memory.
  */
+// TODO: IGNITE-22039 реализовать
 public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage<SortedIndexRowKey, SortedIndexRow, SortedIndexTree>
         implements SortedIndexStorage {
     /**
@@ -56,6 +58,8 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
     @Nullable
     private final StorageSortedIndexDescriptor descriptor;
 
+    private final CatalogIndexStatusSupplier indexStatusSupplier;
+
     /**
      * Constructor.
      *
@@ -64,6 +68,8 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
      * @param freeList Free list to store index columns.
      * @param indexTree Sorted index tree instance.
      * @param indexMetaTree Index meta tree instance.
+     * @param isVolatile {@code True} if this storage is volatile (i.e. stores its data in memory), or {@code false} if it's persistent.
+     * @param indexStatusSupplier Catalog index status supplier.
      */
     public PageMemorySortedIndexStorage(
             IndexMeta indexMeta,
@@ -71,11 +77,13 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
             IndexColumnsFreeList freeList,
             SortedIndexTree indexTree,
             IndexMetaTree indexMetaTree,
-            boolean isVolatile
+            boolean isVolatile,
+            CatalogIndexStatusSupplier indexStatusSupplier
     ) {
         super(indexMeta, indexTree.partitionId(), indexTree, freeList, indexMetaTree, isVolatile);
 
         this.descriptor = descriptor;
+        this.indexStatusSupplier = indexStatusSupplier;
     }
 
     @Override

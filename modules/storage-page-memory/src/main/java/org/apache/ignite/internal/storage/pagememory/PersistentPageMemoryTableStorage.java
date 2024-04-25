@@ -42,6 +42,7 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
@@ -69,17 +70,20 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      *
      * @param tableDescriptor Table descriptor.
      * @param indexDescriptorSupplier Index descriptor supplier.
+     * @param indexStatusSupplier Catalog index status supplier.
      * @param engine Storage engine instance.
      * @param dataRegion Data region for the table.
+     * @param destructionExecutor Executor used to destruct partitions.
      */
     PersistentPageMemoryTableStorage(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier,
+            CatalogIndexStatusSupplier indexStatusSupplier,
             PersistentPageMemoryStorageEngine engine,
             PersistentPageMemoryDataRegion dataRegion,
             ExecutorService destructionExecutor
     ) {
-        super(tableDescriptor, indexDescriptorSupplier);
+        super(tableDescriptor, indexDescriptorSupplier, indexStatusSupplier);
 
         this.engine = engine;
         this.dataRegion = dataRegion;

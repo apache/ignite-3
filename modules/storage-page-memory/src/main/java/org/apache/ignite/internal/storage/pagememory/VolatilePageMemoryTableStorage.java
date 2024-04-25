@@ -27,6 +27,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
@@ -47,16 +48,18 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
      *
      * @param tableDescriptor Table descriptor.
      * @param indexDescriptorSupplier Index descriptor supplier.
+     * @param indexStatusSupplier Catalog index status supplier.
      * @param dataRegion Data region for the table.
      * @param destructionExecutor Executor used to destruct partitions.
      */
     VolatilePageMemoryTableStorage(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier,
+            CatalogIndexStatusSupplier indexStatusSupplier,
             VolatilePageMemoryDataRegion dataRegion,
             ExecutorService destructionExecutor
     ) {
-        super(tableDescriptor, indexDescriptorSupplier);
+        super(tableDescriptor, indexDescriptorSupplier, indexStatusSupplier);
 
         this.dataRegion = dataRegion;
         this.destructionExecutor = destructionExecutor;

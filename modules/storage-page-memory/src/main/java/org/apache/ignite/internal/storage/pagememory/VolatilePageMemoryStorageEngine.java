@@ -39,6 +39,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -61,7 +62,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     private final String igniteInstanceName;
 
-    private final StorageConfiguration storageConfiguration;
+    private final StorageConfiguration storageConfig;
 
     private final VolatilePageMemoryStorageEngineConfiguration engineConfig;
 
@@ -73,24 +74,32 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     private volatile ExecutorService destructionExecutor;
 
+    private final CatalogIndexStatusSupplier indexStatusSupplier;
+
     /**
      * Constructor.
      *
+     * @param igniteInstanceName Ignite instance name.
      * @param engineConfig PageMemory storage engine configuration.
+     * @param storageConfig Root configuration of storage engines and profiles.
      * @param ioRegistry IO registry.
      * @param pageEvictionTracker Eviction tracker to use.
+     * @param indexStatusSupplier Catalog index status supplier.
      */
     public VolatilePageMemoryStorageEngine(
             String igniteInstanceName,
             VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            StorageConfiguration storageConfiguration,
+            StorageConfiguration storageConfig,
             PageIoRegistry ioRegistry,
-            PageEvictionTracker pageEvictionTracker) {
+            PageEvictionTracker pageEvictionTracker,
+            CatalogIndexStatusSupplier indexStatusSupplier
+    ) {
         this.igniteInstanceName = igniteInstanceName;
         this.engineConfig = engineConfig;
-        this.storageConfiguration = storageConfiguration;
+        this.storageConfig = storageConfig;
         this.ioRegistry = ioRegistry;
         this.pageEvictionTracker = pageEvictionTracker;
+        this.indexStatusSupplier = indexStatusSupplier;
     }
 
     @Override
@@ -100,7 +109,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     @Override
     public void start() throws StorageException {
-        storageConfiguration.profiles().value().stream().forEach(p -> {
+        storageConfig.profiles().value().stream().forEach(p -> {
             if (p instanceof VolatilePageMemoryProfileView) {
                 addDataRegion(p.name());
             }
@@ -148,9 +157,15 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
     ) throws StorageException {
         VolatilePageMemoryDataRegion dataRegion = regions.get(tableDescriptor.getStorageProfile());
 
-        assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getStorageProfile();
+        assert dataRegion != null : tableDescriptor;
 
-        return new VolatilePageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, dataRegion, destructionExecutor);
+        return new VolatilePageMemoryTableStorage(
+                tableDescriptor,
+                indexDescriptorSupplier,
+                indexStatusSupplier,
+                dataRegion,
+                destructionExecutor
+        );
     }
 
     @Override
@@ -165,7 +180,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
      */
     private void addDataRegion(String name) {
         VolatilePageMemoryProfileConfiguration storageProfileConfiguration =
-                (VolatilePageMemoryProfileConfiguration) storageConfiguration.profiles().get(name);
+                (VolatilePageMemoryProfileConfiguration) storageConfig.profiles().get(name);
 
         int pageSize = engineConfig.pageSize().value();
 

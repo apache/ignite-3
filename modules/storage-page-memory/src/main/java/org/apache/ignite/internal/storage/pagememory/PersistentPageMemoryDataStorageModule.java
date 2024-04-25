@@ -75,6 +75,8 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
                 storagePath,
                 longJvmPauseDetector,
                 failureProcessor,
-                logSyncer);
+                logSyncer,
+                indexStatusSupplier
+        );
     }
 }

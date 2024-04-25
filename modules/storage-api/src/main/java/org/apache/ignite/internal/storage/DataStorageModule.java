@@ -41,7 +41,7 @@ public interface DataStorageModule {
     /**
      * Creates a new storage engine.
      *
-     * @param igniteInstanceName String igniteInstanceName
+     * @param igniteInstanceName Ignite instance name.
      * @param configRegistry Configuration register.
      * @param storagePath Storage path.
      * @param longJvmPauseDetector Long JVM pause detector.

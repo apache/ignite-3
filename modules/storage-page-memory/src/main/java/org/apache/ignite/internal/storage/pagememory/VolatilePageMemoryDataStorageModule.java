@@ -66,7 +66,13 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
 
         ioRegistry.loadFromServiceLoader();
 
-        return new VolatilePageMemoryStorageEngine(igniteInstanceName, engineConfig,
-                configRegistry.getConfiguration(StorageConfiguration.KEY), ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
+        return new VolatilePageMemoryStorageEngine(
+                igniteInstanceName,
+                engineConfig,
+                configRegistry.getConfiguration(StorageConfiguration.KEY),
+                ioRegistry, 
+                PageEvictionTrackerNoOp.INSTANCE,
+                indexStatusSupplier
+        );
     }
 }

@@ -27,6 +27,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.index.CatalogIndexStatusSupplier;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
@@ -54,6 +55,8 @@ class IndexStorageFactory {
 
     private final ReuseList indexReuseList;
 
+    private final CatalogIndexStatusSupplier indexStatusSupplier;
+
     @FunctionalInterface
     private interface IndexTreeConstructor<T> {
         T createTree(long metaPageId) throws IgniteInternalCheckedException;
@@ -75,13 +78,15 @@ class IndexStorageFactory {
             int partitionId,
             IndexMetaTree indexMetaTree,
             IndexColumnsFreeList indexFreeList,
-            ReuseList indexReuseList
+            ReuseList indexReuseList,
+            CatalogIndexStatusSupplier indexStatusSupplier
     ) {
         this.tableStorage = tableStorage;
         this.partitionId = partitionId;
         this.indexMetaTree = indexMetaTree;
         this.indexFreeList = indexFreeList;
         this.indexReuseList = indexReuseList;
+        this.indexStatusSupplier = indexStatusSupplier;
     }
 
     /**
@@ -161,9 +166,7 @@ class IndexStorageFactory {
         }
     }
 
-    /**
-     * Creates a new Page Memory-based Sorted Index storage.
-     */
+    /** Creates a new Page Memory-based Sorted Index storage. */
     PageMemorySortedIndexStorage createSortedIndexStorage(StorageSortedIndexDescriptor indexDescriptor) {
         IndexTreeAndMeta<SortedIndexTree> treeAndMeta = createSortedIndexTreeAndMeta(indexDescriptor);
 
@@ -173,13 +176,12 @@ class IndexStorageFactory {
                 indexFreeList,
                 treeAndMeta.indexTree,
                 indexMetaTree,
-                tableStorage.isVolatile()
+                tableStorage.isVolatile(),
+                indexStatusSupplier
         );
     }
 
-    /**
-     * Restores an existing Page Memory-based Sorted Index storage.
-     */
+    /** Restores an existing Page Memory-based Sorted Index storage. */
     PageMemorySortedIndexStorage restoreSortedIndexStorage(StorageSortedIndexDescriptor indexDescriptor, IndexMeta indexMeta) {
         return new PageMemorySortedIndexStorage(
                 indexMeta,
@@ -187,13 +189,12 @@ class IndexStorageFactory {
                 indexFreeList,
                 restoreSortedIndexTree(indexDescriptor, indexMeta),
                 indexMetaTree,
-                tableStorage.isVolatile()
+                tableStorage.isVolatile(),
+                indexStatusSupplier
         );
     }
 
-    /**
-     * Restores an existing Page Memory-based Sorted Index storage that will be immediately be destroyed during recovery.
-     */
+    /** Restores an existing Page Memory-based Sorted Index storage that will be immediately be destroyed during recovery. */
     PageMemorySortedIndexStorage restoreSortedIndexStorageForDestroy(IndexMeta indexMeta) {
         return new PageMemorySortedIndexStorage(
                 indexMeta,
@@ -201,7 +202,8 @@ class IndexStorageFactory {
                 indexFreeList,
                 restoreSortedIndexTreeForDestroy(indexMeta),
                 indexMetaTree,
-                tableStorage.isVolatile()
+                tableStorage.isVolatile(),
+                indexStatusSupplier
         );
     }
 
