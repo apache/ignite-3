@@ -49,6 +49,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
@@ -189,6 +190,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     private final ReplicaService replicaService;
 
@@ -439,6 +442,10 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public synchronized CompletableFuture<Void> stopAsync() {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return nullCompletedFuture();
+        }
+
         busyLock.block();
 
         openedCursors.values().forEach(AsyncSqlCursor::closeAsync);
