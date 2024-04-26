@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <Sdk Name="Microsoft.DotNet.PackageValidation" Version="1.0.0-preview.7.21379.12" />
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <IsPackable>true</IsPackable>
+        <LangVersion>latest</LangVersion>
+
+        <PackageValidationBaselineVersion />
+        <GenerateCompatibilitySuppressionFile>false</GenerateCompatibilitySuppressionFile>
+        
+        <!-- TODO: Remove this -->
+        <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+        <AnalysisMode>None</AnalysisMode>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none" Version="8.0.4" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" PrivateAssets="none" Version="8.0.4" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Abstractions" PrivateAssets="none" Version="8.0.4" />
+        <PackageReference Include="Microsoft.Extensions.DependencyModel" PrivateAssets="none" Version="8.0.0" />
+
+        <PackageReference Include="JetBrains.Annotations" Version="2023.3.0" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Extensions\Internal\" />
+      <Folder Include="Properties\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Apache.Ignite\Apache.Ignite.csproj" />
+    </ItemGroup>
+
+</Project>
