@@ -15,29 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.cluster;
+package org.apache.ignite.internal.cli.commands.recovery;
 
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.config.ClusterConfigReplCommand;
-import org.apache.ignite.internal.cli.commands.cluster.init.ClusterInitReplCommand;
-import org.apache.ignite.internal.cli.commands.cluster.status.ClusterStatusReplCommand;
-import org.apache.ignite.internal.cli.commands.cluster.topology.TopologyReplCommand;
-import org.apache.ignite.internal.cli.commands.cluster.unit.ClusterUnitReplCommand;
 import org.apache.ignite.internal.cli.commands.recovery.partitions.PartitionStatesReplCommand;
 import picocli.CommandLine.Command;
 
-/**
- * Cluster command in REPL mode.
- */
-@Command(name = "cluster",
+/** Recovery command. */
+@Command(name = "recovery",
         subcommands = {
-                ClusterConfigReplCommand.class,
-                ClusterInitReplCommand.class,
-                ClusterStatusReplCommand.class,
-                TopologyReplCommand.class,
-                ClusterUnitReplCommand.class,
                 PartitionStatesReplCommand.class
         },
-        description = "Manages an Ignite cluster")
-public class ClusterReplCommand extends BaseCommand {
+        description = "Managers recovery of Ignite cluster")
+public class RecoveryReplCommand extends BaseCommand {
 }

@@ -27,6 +27,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
@@ -151,10 +152,32 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
                 .contains(expectedOutput);
     }
 
+    protected void assertOutputContainsAnyIgnoringCase(Set<String> expectedOutput) {
+        CharSequence[] expectedUpperCase = expectedOutput.stream().map(String::toUpperCase).toArray(CharSequence[]::new);
+
+        assertThat(sout.toString().toUpperCase())
+                .as("Expected command output to contain any of: " + expectedOutput + " but was " + sout.toString())
+                .containsAnyOf(expectedUpperCase);
+    }
+
+    protected void assertOutputContainsAllIgnoringCase(Set<String> expectedOutput) {
+        CharSequence[] expectedUpperCase = expectedOutput.stream().map(String::toUpperCase).toArray(CharSequence[]::new);
+
+        assertThat(sout.toString().toUpperCase())
+                .as("Expected command output to contain any of: " + expectedOutput + " but was " + sout.toString())
+                .contains(expectedUpperCase);
+    }
+
     protected void assertOutputDoesNotContain(String expectedOutput) {
         assertThat(sout.toString())
                 .as("Expected command output to not contain: " + expectedOutput + " but was " + sout.toString())
                 .doesNotContain(expectedOutput);
+    }
+
+    protected void assertOutputDoesNotContainIgnoreCase(Set<String> expectedOutput) {
+        assertThat(sout.toString())
+                .as("Expected command output to not contain: " + expectedOutput + " but was " + sout.toString())
+                .doesNotContainIgnoringCase(expectedOutput.toArray(CharSequence[]::new));
     }
 
     protected void assertOutputMatches(String regex) {
