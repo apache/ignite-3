@@ -15,25 +15,16 @@ public class IgniteRelationalCommandBuilder : IRelationalCommandBuilder
         Dependencies = dependencies;
     }
 
-    /// <summary>
-    ///     Relational provider-specific dependencies for this service.
-    /// </summary>
     protected virtual RelationalCommandBuilderDependencies Dependencies { get; }
 
-    /// <inheritdoc />
     [Obsolete("Code trying to add parameter should add type mapped parameter using TypeMappingSource directly.")]
-    public virtual IRelationalTypeMappingSource TypeMappingSource
-    {
-        get => Dependencies.TypeMappingSource;
-    }
+    public virtual IRelationalTypeMappingSource TypeMappingSource => Dependencies.TypeMappingSource;
 
-    /// <inheritdoc />
     public virtual IRelationalCommand Build()
     {
         return new IgniteRelationalCommand(Dependencies, _commandTextBuilder.ToString(), Parameters);
     }
 
-    /// <summary>Gets the command text.</summary>
     public override string ToString() => _commandTextBuilder.ToString();
 
     /// <inheritdoc />

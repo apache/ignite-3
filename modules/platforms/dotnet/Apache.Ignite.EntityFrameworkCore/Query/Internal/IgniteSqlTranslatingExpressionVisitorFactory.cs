@@ -11,9 +11,6 @@ public class IgniteSqlTranslatingExpressionVisitorFactory : IRelationalSqlTransl
         Dependencies = dependencies;
     }
 
-    /// <summary>
-    ///     Relational provider-specific dependencies for this service.
-    /// </summary>
     protected virtual RelationalSqlTranslatingExpressionVisitorDependencies Dependencies { get; }
 
     public virtual RelationalSqlTranslatingExpressionVisitor Create(

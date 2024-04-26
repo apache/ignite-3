@@ -13,14 +13,8 @@ public class IgniteQueryTranslationPostprocessorFactory : IQueryTranslationPostp
         RelationalDependencies = relationalDependencies;
     }
 
-    /// <summary>
-    ///     Dependencies for this service.
-    /// </summary>
     protected virtual QueryTranslationPostprocessorDependencies Dependencies { get; }
 
-    /// <summary>
-    ///     Relational provider-specific dependencies for this service.
-    /// </summary>
     protected virtual RelationalQueryTranslationPostprocessorDependencies RelationalDependencies { get; }
 
     public virtual QueryTranslationPostprocessor Create(QueryCompilationContext queryCompilationContext)

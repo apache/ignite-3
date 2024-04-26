@@ -1,7 +1,6 @@
 
 namespace Apache.Ignite.EntityFrameworkCore.Storage.Internal;
 
-using System;
 using System.Data.Common;
 using System.Linq;
 using DataCommon;
@@ -43,11 +42,6 @@ public class IgniteRelationalConnection : RelationalConnection, IIgniteRelationa
         InitializeDbConnection(connection);
 
         return connection;
-    }
-
-    public virtual IIgniteRelationalConnection CreateReadOnlyConnection()
-    {
-        throw new NotImplementedException();
     }
 
     private void InitializeDbConnection(DbConnection connection)

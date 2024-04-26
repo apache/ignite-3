@@ -9,15 +9,8 @@ public class IgniteParameterNameGeneratorFactory : IParameterNameGeneratorFactor
         Dependencies = dependencies;
     }
 
-    /// <summary>
-    ///     Relational provider-specific dependencies for this service.
-    /// </summary>
     protected virtual ParameterNameGeneratorDependencies Dependencies { get; }
 
-    /// <summary>
-    ///     Creates a new <see cref="ParameterNameGenerator" />.
-    /// </summary>
-    /// <returns>The newly created generator.</returns>
     public virtual ParameterNameGenerator Create()
         => new IgniteParameterNameGenerator();
 }

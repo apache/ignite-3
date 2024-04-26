@@ -33,11 +33,6 @@ public class IgniteUpdateSqlGenerator : UpdateAndSelectSqlGenerator
         return ResultSetMapping.NoResults;
     }
 
-    /// <summary>
-    ///     Appends a <c>WHERE</c> condition checking rows affected.
-    /// </summary>
-    /// <param name="commandStringBuilder">The builder to which the SQL should be appended.</param>
-    /// <param name="expectedRowsAffected">The expected number of rows affected.</param>
     protected override void AppendRowsAffectedWhereCondition(StringBuilder commandStringBuilder, int expectedRowsAffected)
     {
         Check.NotNull(commandStringBuilder, nameof(commandStringBuilder));

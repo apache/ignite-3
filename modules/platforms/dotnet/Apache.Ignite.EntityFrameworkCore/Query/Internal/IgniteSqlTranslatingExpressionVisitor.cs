@@ -228,7 +228,6 @@ public class IgniteSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExp
         return visitedExpression;
     }
 
-    /// <inheritdoc />
     protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)
     {
         var method = methodCallExpression.Method;

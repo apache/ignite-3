@@ -22,20 +22,11 @@ public class IgniteStringTypeMapping : StringTypeMapping
     {
     }
 
-    /// <summary>
-    ///     Initializes a new instance of the <see cref="IgniteStringTypeMapping" /> class.
-    /// </summary>
-    /// <param name="parameters">Parameter object for <see cref="RelationalTypeMapping" />.</param>
     protected IgniteStringTypeMapping(RelationalTypeMappingParameters parameters)
         : base(parameters)
     {
     }
 
-    /// <summary>
-    ///     Creates a copy of this mapping.
-    /// </summary>
-    /// <param name="parameters">The parameters for this mapping.</param>
-    /// <returns>The newly created mapping.</returns>
     protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
         => new IgniteStringTypeMapping(parameters);
 }
