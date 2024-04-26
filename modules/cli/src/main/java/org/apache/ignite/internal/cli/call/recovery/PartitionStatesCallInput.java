@@ -21,11 +21,8 @@ import java.util.List;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 
 public class PartitionStatesCallInput implements CallInput {
-
-    /** Cluster url. */
     private final String clusterUrl;
 
-    /** If local partition states should be returned. */
     private final boolean local;
 
     private final List<String> nodeNames;
@@ -34,10 +31,12 @@ public class PartitionStatesCallInput implements CallInput {
 
     private final List<Integer> partitionIds;
 
+    /** Cluster url. */
     public String clusterUrl() {
         return clusterUrl;
     }
 
+    /** If local partition states should be returned. */
     public boolean local() {
         return local;
     }
