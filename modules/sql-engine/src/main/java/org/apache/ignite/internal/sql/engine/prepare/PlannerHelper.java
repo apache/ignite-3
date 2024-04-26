@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.apache.calcite.plan.RelOptPlanner.CannotPlanException;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollations;
@@ -44,6 +45,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.sql.SqlException;
 
 /**
  * Utility class that encapsulates the query optimization pipeline.
@@ -154,7 +157,14 @@ public final class PlannerHelper {
                 LOG.debug(planner.dump());
             }
 
-            throw ex;
+            if (ex instanceof CannotPlanException) {
+                throw ex;
+            } else if (ex.getClass() == RuntimeException.class && ex.getCause() instanceof SqlException) {
+                SqlException sqlEx = (SqlException) ex.getCause();
+                throw new SqlException(sqlEx.traceId(), sqlEx.code(), sqlEx.getMessage(), ex);
+            } else {
+                throw new SqlException(Common.INTERNAL_ERR, "Unable to optimize plan due to internal error", ex);
+            }
         }
     }
 
