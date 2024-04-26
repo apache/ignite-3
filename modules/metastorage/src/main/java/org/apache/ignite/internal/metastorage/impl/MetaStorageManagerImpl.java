@@ -579,23 +579,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     /**
-     * Inserts or updates an entry with the given key and the given value and retrieves a previous entry for the given key.
-     *
-     * @see MetaStorageService#getAndPut(ByteArray, byte[])
-     */
-    public CompletableFuture<Entry> getAndPut(ByteArray key, byte[] val) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.getAndPut(key, val));
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
      * Inserts or updates entries with given keys and given values.
      *
      * @see MetaStorageService#putAll(Map)
@@ -608,23 +591,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         try {
             return metaStorageSvcFut.thenCompose(svc -> svc.putAll(vals));
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Inserts or updates entries with given keys and given values and retrieves a previous entries for given keys.
-     *
-     * @see MetaStorageService#getAndPutAll(Map)
-     */
-    public CompletableFuture<Map<ByteArray, Entry>> getAndPutAll(Map<ByteArray, byte[]> vals) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.getAndPutAll(vals));
         } finally {
             busyLock.leaveBusy();
         }
@@ -649,23 +615,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     /**
-     * Removes an entry for the given key.
-     *
-     * @see MetaStorageService#getAndRemove(ByteArray)
-     */
-    public CompletableFuture<Entry> getAndRemove(ByteArray key) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.getAndRemove(key));
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
      * Removes entries for given keys.
      *
      * @see MetaStorageService#removeAll(Set)
@@ -678,23 +627,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         try {
             return metaStorageSvcFut.thenCompose(svc -> svc.removeAll(keys));
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Removes entries for given keys and retrieves previous entries.
-     *
-     * @see MetaStorageService#getAndRemoveAll(Set)
-     */
-    public CompletableFuture<Map<ByteArray, Entry>> getAndRemoveAll(Set<ByteArray> keys) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.getAndRemoveAll(keys));
         } finally {
             busyLock.leaveBusy();
         }

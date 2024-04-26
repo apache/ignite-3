@@ -17,18 +17,11 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
-import java.io.Serializable;
-import java.util.Collection;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.command.GetAndPutAllCommand;
-import org.apache.ignite.internal.metastorage.command.GetAndPutCommand;
-import org.apache.ignite.internal.metastorage.command.GetAndRemoveAllCommand;
-import org.apache.ignite.internal.metastorage.command.GetAndRemoveCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
@@ -128,48 +121,24 @@ public class MetaStorageWriteHandler {
             storage.put(putCmd.key(), putCmd.value(), opTime);
 
             clo.result(null);
-        } else if (command instanceof GetAndPutCommand) {
-            GetAndPutCommand getAndPutCmd = (GetAndPutCommand) command;
-
-            Entry e = storage.getAndPut(getAndPutCmd.key(), getAndPutCmd.value(), opTime);
-
-            clo.result(e);
         } else if (command instanceof PutAllCommand) {
             PutAllCommand putAllCmd = (PutAllCommand) command;
 
             storage.putAll(putAllCmd.keys(), putAllCmd.values(), opTime);
 
             clo.result(null);
-        } else if (command instanceof GetAndPutAllCommand) {
-            GetAndPutAllCommand getAndPutAllCmd = (GetAndPutAllCommand) command;
-
-            Collection<Entry> entries = storage.getAndPutAll(getAndPutAllCmd.keys(), getAndPutAllCmd.values(), opTime);
-
-            clo.result((Serializable) entries);
         } else if (command instanceof RemoveCommand) {
             RemoveCommand rmvCmd = (RemoveCommand) command;
 
             storage.remove(rmvCmd.key(), opTime);
 
             clo.result(null);
-        } else if (command instanceof GetAndRemoveCommand) {
-            GetAndRemoveCommand getAndRmvCmd = (GetAndRemoveCommand) command;
-
-            Entry e = storage.getAndRemove(getAndRmvCmd.key(), opTime);
-
-            clo.result(e);
         } else if (command instanceof RemoveAllCommand) {
             RemoveAllCommand rmvAllCmd = (RemoveAllCommand) command;
 
             storage.removeAll(rmvAllCmd.keys(), opTime);
 
             clo.result(null);
-        } else if (command instanceof GetAndRemoveAllCommand) {
-            GetAndRemoveAllCommand getAndRmvAllCmd = (GetAndRemoveAllCommand) command;
-
-            Collection<Entry> entries = storage.getAndRemoveAll(getAndRmvAllCmd.keys(), opTime);
-
-            clo.result((Serializable) entries);
         } else if (command instanceof InvokeCommand) {
             InvokeCommand cmd = (InvokeCommand) command;
 
