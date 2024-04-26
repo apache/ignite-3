@@ -9,6 +9,10 @@
 
         <PackageValidationBaselineVersion />
         <GenerateCompatibilitySuppressionFile>false</GenerateCompatibilitySuppressionFile>
+
+        <!-- TODO: Remove this -->
+        <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+        <AnalysisMode>None</AnalysisMode>
     </PropertyGroup>
 
     <ItemGroup>

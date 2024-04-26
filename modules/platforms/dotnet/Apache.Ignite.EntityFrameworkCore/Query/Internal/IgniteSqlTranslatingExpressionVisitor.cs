@@ -28,8 +28,9 @@ using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 public class IgniteSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExpressionVisitor
 {
-    private readonly QueryCompilationContext _queryCompilationContext;
-    private readonly ISqlExpressionFactory _sqlExpressionFactory;
+    private const char LikeEscapeChar = '\\';
+
+    private const string LikeEscapeString = "\\";
 
     private static readonly MethodInfo StringStartsWithMethodInfo
         = typeof(string).GetRuntimeMethod(nameof(string.StartsWith), new[] { typeof(string) })!;
@@ -39,9 +40,6 @@ public class IgniteSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExp
 
     private static readonly MethodInfo EscapeLikePatternParameterMethod =
         typeof(IgniteSqlTranslatingExpressionVisitor).GetTypeInfo().GetDeclaredMethod(nameof(ConstructLikePatternParameter))!;
-
-    private const char LikeEscapeChar = '\\';
-    private const string LikeEscapeString = "\\";
 
     private static readonly IReadOnlyDictionary<ExpressionType, IReadOnlyCollection<Type>> RestrictedBinaryExpressions
         = new Dictionary<ExpressionType, IReadOnlyCollection<Type>>
@@ -110,6 +108,10 @@ public class IgniteSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExp
 
     private static readonly bool UseOldBehavior32432 =
         AppContext.TryGetSwitch("Microsoft.EntityFrameworkCore.Issue32432", out var enabled32432) && enabled32432;
+
+    private readonly QueryCompilationContext _queryCompilationContext;
+
+    private readonly ISqlExpressionFactory _sqlExpressionFactory;
 
     public IgniteSqlTranslatingExpressionVisitor(
         RelationalSqlTranslatingExpressionVisitorDependencies dependencies,
@@ -422,6 +424,11 @@ public class IgniteSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExp
                 ExpressionType.GreaterThan, ExpressionType.GreaterThanOrEqual, ExpressionType.LessThan, ExpressionType.LessThanOrEqual
             }.Contains(sqlBinary.OperatorType);
 
+    private static bool AttemptDecimalArithmetic(SqlBinaryExpression sqlBinary)
+        => AreOperandsDecimals(sqlBinary)
+           && new[] { ExpressionType.Add, ExpressionType.Subtract, ExpressionType.Multiply, ExpressionType.Divide }.Contains(
+               sqlBinary.OperatorType);
+
     private Expression DoDecimalCompare(SqlExpression visitedExpression, ExpressionType op, SqlExpression left, SqlExpression right)
     {
         var actual = Dependencies.SqlExpressionFactory.Function(
@@ -441,11 +448,6 @@ public class IgniteSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExp
             _ => visitedExpression
         };
     }
-
-    private static bool AttemptDecimalArithmetic(SqlBinaryExpression sqlBinary)
-        => AreOperandsDecimals(sqlBinary)
-            && new[] { ExpressionType.Add, ExpressionType.Subtract, ExpressionType.Multiply, ExpressionType.Divide }.Contains(
-                sqlBinary.OperatorType);
 
     [SuppressMessage("ReSharper", "SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault", Justification = "Reviewed.")]
     private Expression DoDecimalArithmetics(SqlExpression visitedExpression, ExpressionType op, SqlExpression left, SqlExpression right)

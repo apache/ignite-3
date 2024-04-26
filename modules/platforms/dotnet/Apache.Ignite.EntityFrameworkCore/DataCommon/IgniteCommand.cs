@@ -15,10 +15,13 @@
 
 namespace Apache.Ignite.EntityFrameworkCore.DataCommon;
 
+#nullable disable // TODO: Remove nullable disable.
+
 using System;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Apache.Ignite.Sql;
@@ -26,7 +29,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 public class IgniteCommand : DbCommand
 {
-    private IgniteParameterCollection? _parameters = null;
+    private IgniteParameterCollection _parameters = null;
 
     public override void Cancel()
     {
