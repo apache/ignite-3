@@ -8,6 +8,7 @@ CREATE TABLE t_negative(c1 CHAR(-1));
 
 # length shouldn't be zero;
 skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22120
 statement ok
 CREATE TABLE t_zero(c1 CHAR(0));
 
@@ -36,6 +37,12 @@ skipif ignite3
 # https://issues.apache.org/jira/browse/IGNITE-18492
 statement error
 INSERT INTO t_three VALUES('1', '4444');
+
+statement ok
+INSERT INTO t_three VALUES('1', '4444'::CHAR(3));
+
+statement ok
+DELETE FROM t_three WHERE c2 = '444';
 
 # MUST FAIL due to length
 skipif ignite3
