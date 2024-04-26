@@ -251,7 +251,7 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return inBusyLockAsync(busyLock, () -> {
             registerCatalogEventListenersOnStartManagerBusy();
 
@@ -276,9 +276,9 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -291,6 +291,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
         shutdownAndAwaitTermination(executor, 10, SECONDS);
         shutdownAndAwaitTermination(rebalanceScheduler, 10, SECONDS);
+
+        return nullCompletedFuture();
     }
 
     /**

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
@@ -99,7 +100,7 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
     private static ClusterService clusterService(TestInfo testInfo, int port, List<NetworkAddress> srvs) {
         var network = ClusterServiceTestUtils.clusterService(testInfo, port, new StaticNodeFinder(srvs));
 
-        network.start();
+        assertThat(network.startAsync(), willCompleteSuccessfully());
 
         return network;
     }
@@ -126,7 +127,7 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
 
             loza = new Loza(service, raftConfiguration, dataPath, new HybridClockImpl());
 
-            loza.start();
+            assertThat(loza.startAsync(), willCompleteSuccessfully());
 
             for (int i = 0; i < grpSrvcs.length; i++) {
                 // return an error on first invocation
@@ -154,11 +155,11 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
             }
 
             if (loza != null) {
-                loza.stop();
+                assertThat(loza.stopAsync(), willCompleteSuccessfully());
             }
 
             if (service != null) {
-                service.stop();
+                assertThat(service.stopAsync(), willCompleteSuccessfully());
             }
         }
     }

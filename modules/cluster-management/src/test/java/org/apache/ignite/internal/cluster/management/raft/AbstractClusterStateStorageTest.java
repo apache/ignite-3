@@ -55,12 +55,12 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
     void setUp(TestInfo testInfo) {
         storage = createStorage(testNodeName(testInfo, 0));
 
-        storage.start();
+        assertThat(storage.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        storage.stop();
+    void tearDown() {
+        assertThat(storage.stopAsync(), willCompleteSuccessfully());
     }
 
     /**
@@ -206,7 +206,7 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
      * Tests the {@link ClusterStateStorage#removeAll} method.
      */
     @Test
-    void testRemoveAll() throws Exception {
+    void testRemoveAll() {
         storage.put("key1".getBytes(UTF_8), "value1".getBytes(UTF_8));
         storage.put("key2".getBytes(UTF_8), "value2".getBytes(UTF_8));
         storage.put("key3".getBytes(UTF_8), "value3".getBytes(UTF_8));
@@ -224,7 +224,7 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
      * Tests the {@link ClusterStateStorage#getWithPrefix} method.
      */
     @Test
-    void testGetWithPrefix() throws Exception {
+    void testGetWithPrefix() {
         storage.put("key1".getBytes(UTF_8), "value1".getBytes(UTF_8));
         storage.put("key2".getBytes(UTF_8), "value2".getBytes(UTF_8));
         storage.put("foo".getBytes(UTF_8), "value3".getBytes(UTF_8));
@@ -236,7 +236,7 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
      * Tests the {@link ClusterStateStorage#getWithPrefix} method (corner case, when keys are close together lexicographically).
      */
     @Test
-    void testGetWithPrefixBorder() throws Exception {
+    void testGetWithPrefixBorder() {
         byte[] key1 = "key1".getBytes(UTF_8);
         byte[] key2 = RocksUtils.incrementPrefix(key1);
 
@@ -250,7 +250,7 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
      * Tests that {@link ClusterStateStorage#getWithPrefix} method works correctly over empty ranges.
      */
     @Test
-    void testGetWithPrefixEmpty() throws Exception {
+    void testGetWithPrefixEmpty() {
         storage.put("key1".getBytes(UTF_8), "value1".getBytes(UTF_8));
         storage.put("key2".getBytes(UTF_8), "value2".getBytes(UTF_8));
 
@@ -277,11 +277,11 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
 
         assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
-        storage.stop();
+        assertThat(storage.stopAsync(), willCompleteSuccessfully());
 
         storage = createStorage(testNodeName(testInfo, 1));
 
-        storage.start();
+        assertThat(storage.startAsync(), willCompleteSuccessfully());
 
         assertThat(storage.get(key1), is(nullValue()));
         assertThat(storage.get(key2), is(nullValue()));
@@ -331,8 +331,8 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
     }
 
     @Test
-    void throwsNodeStoppingException() throws Exception {
-        storage.stop();
+    void throwsNodeStoppingException() {
+        assertThat(storage.stopAsync(), willCompleteSuccessfully());
 
         assertThrowsWithCause(() -> storage.get(BYTE_EMPTY_ARRAY), NodeStoppingException.class);
         assertThrowsWithCause(() -> storage.put(BYTE_EMPTY_ARRAY, BYTE_EMPTY_ARRAY), NodeStoppingException.class);

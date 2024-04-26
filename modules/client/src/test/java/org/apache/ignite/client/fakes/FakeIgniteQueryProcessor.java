@@ -80,12 +80,12 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return nullCompletedFuture();
     }
 
     @Override
-    public void stop() {
-
+    public CompletableFuture<Void> stopAsync() {
+        return nullCompletedFuture();
     }
 }

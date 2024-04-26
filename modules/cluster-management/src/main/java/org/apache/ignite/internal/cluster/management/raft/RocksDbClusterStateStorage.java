@@ -96,7 +96,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return inBusyLockAsync(busyLock, () -> {
             try {
                 // Delete existing data, relying on log playback.
@@ -244,9 +244,9 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public void stop() {
+    public CompletableFuture<Void> stopAsync() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -254,5 +254,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
         RocksUtils.closeAll(db, options, defaultWriteOptions);
+
+        return nullCompletedFuture();
     }
 }

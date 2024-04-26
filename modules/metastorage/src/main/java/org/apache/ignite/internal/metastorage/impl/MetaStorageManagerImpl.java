@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -171,7 +172,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private CompletableFuture<Long> recover(MetaStorageServiceImpl service) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -254,7 +255,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
             return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(thisNodeName, raftService, busyLock, clusterTime));
         } catch (NodeStoppingException e) {
-            return CompletableFuture.failedFuture(e);
+            return failedFuture(e);
         }
     }
 
@@ -330,20 +331,20 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * <p>This method is needed to avoid the cyclic dependency between the Meta Storage and distributed configuration (built on top of the
      * Meta Storage).
      *
-     * <p>This method <b>must</b> always be called <b>before</b> calling {@link #start}.
+     * <p>This method <b>must</b> always be called <b>before</b> calling {@link #startAsync}.
      */
     public final void configure(MetaStorageConfiguration metaStorageConfiguration) {
         this.metaStorageConfiguration = metaStorageConfiguration;
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         storage.start();
 
         cmgMgr.metaStorageNodes()
                 .thenCompose(metaStorageNodes -> {
                     if (!busyLock.enterBusy()) {
-                        return CompletableFuture.failedFuture(new NodeStoppingException());
+                        return failedFuture(new NodeStoppingException());
                     }
 
                     try {
@@ -368,9 +369,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!isStopped.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -379,12 +380,18 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         recoveryFinishedFuture.cancel(true);
 
-        IgniteUtils.closeAllManually(
-                clusterTime,
-                () -> cancelOrConsume(metaStorageSvcFut, MetaStorageServiceImpl::close),
-                () -> raftMgr.stopRaftNodes(MetastorageGroupId.INSTANCE),
-                storage
-        );
+        try {
+            IgniteUtils.closeAllManually(
+                    clusterTime,
+                    () -> cancelOrConsume(metaStorageSvcFut, MetaStorageServiceImpl::close),
+                    () -> raftMgr.stopRaftNodes(MetastorageGroupId.INSTANCE),
+                    storage
+            );
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        return nullCompletedFuture();
     }
 
     @Override
@@ -415,7 +422,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Void> deployWatches() {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -448,7 +455,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Entry> get(ByteArray key) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -461,7 +468,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Entry> get(ByteArray key, long revUpperBound) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -526,7 +533,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -543,7 +550,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      */
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys, long revUpperBound) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -561,7 +568,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Void> put(ByteArray key, byte[] val) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -579,7 +586,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -597,7 +604,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Void> remove(ByteArray key) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -615,7 +622,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Void> removeAll(Set<ByteArray> keys) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -628,7 +635,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Boolean> invoke(Condition cond, Operation success, Operation failure) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -641,7 +648,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<Boolean> invoke(Condition cond, Collection<Operation> success, Collection<Operation> failure) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -654,7 +661,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     @Override
     public CompletableFuture<StatementResult> invoke(Iif iif) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -729,7 +736,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      */
     public CompletableFuture<Void> compact() {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {

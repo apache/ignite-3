@@ -354,7 +354,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         // Start a new node, but do not send the JoinReadyCommand.
         MockNode node = addNodeToCluster(cluster, testInfo, workDir);
 
-        node.startComponents();
+        assertThat(node.startComponents(), willCompleteSuccessfully());
 
         assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
 

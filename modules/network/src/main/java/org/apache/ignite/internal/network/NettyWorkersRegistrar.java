@@ -92,7 +92,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         List<NettyWorker> nettyWorkers = new ArrayList<>();
         for (EventLoopGroup group : bootstrapFactory.eventLoopGroups()) {
             registerWorkersFor(group, nettyWorkers);
@@ -140,7 +140,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         Future<?> heartBeatsTaskFuture = sendHearbeatsTaskFuture;
         if (heartBeatsTaskFuture != null) {
             heartBeatsTaskFuture.cancel(false);
@@ -152,6 +152,8 @@ public class NettyWorkersRegistrar implements IgniteComponent {
                 criticalWorkerRegistry.unregister(worker);
             }
         }
+
+        return nullCompletedFuture();
     }
 
     private static class NettyWorker implements CriticalWorker {

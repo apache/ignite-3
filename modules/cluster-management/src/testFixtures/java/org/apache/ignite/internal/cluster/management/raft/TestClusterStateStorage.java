@@ -59,7 +59,7 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return nullCompletedFuture();
     }
 
@@ -149,12 +149,14 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public void stop() {
+    public CompletableFuture<Void> stopAsync() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
+
+        return nullCompletedFuture();
     }
 
     private <T> T inBusyReadLock(Supplier<T> action) {
