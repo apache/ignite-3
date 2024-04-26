@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.metrics.sources;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.function.Function;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSource;
-import org.apache.ignite.internal.metrics.MovingAverageMetric;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -70,53 +72,97 @@ public class RaftMetricSource implements MetricSource {
     }
 
     private void initMetrics() {
+        long[] bounds = new long[] {10L, 20L, 30L, 40L, 50L};
+
         // jraft-fsmcaller-disruptor
-        metrics.put("jraft-fsmcaller-disruptor.average.bath",
-                new MovingAverageMetric(
-                        "jraft-fsmcaller-disruptor.average.bath",
+        metrics.put("jraft-fsmcaller-disruptor.average.batch",
+                new DistributionMetric(
+                        "jraft-fsmcaller-disruptor.average.batch",
                         "Average batch size in disruptor",
-                        d -> String.format("%,.2f", d)
+                        bounds,
+                        toStringBatchHistogram(bounds)
                 ));
         metrics.put("jraft-fsmcaller-disruptor.stripes.histogram",
-                new DistributionMetric("jraft-fsmcaller-disruptor.stripes.histogram",
+                new DistributionMetric(
+                        "jraft-fsmcaller-disruptor.stripes.histogram",
                         "Distribution tasks by stripes in disruptor",
-                        LongStream.range(0, stripeCount).toArray()));
+                        LongStream.range(0, stripeCount - 1).toArray(),
+                        Arrays::toString
+                ));
 
         // jraft-nodeimpl-disruptor
-        metrics.put("jraft-nodeimpl-disruptor.average.bath",
-                new MovingAverageMetric(
-                        "jraft-nodeimpl-disruptor.average.bath",
+        metrics.put("jraft-nodeimpl-disruptor.average.batch",
+                new DistributionMetric(
+                        "jraft-nodeimpl-disruptor.average.batch",
                         "Average batch size in disruptor",
-                        d -> String.format("%,.2f", d)
+                        bounds,
+                        toStringBatchHistogram(bounds)
                 ));
         metrics.put("jraft-nodeimpl-disruptor.stripes.histogram",
-                new DistributionMetric("jraft-nodeimpl-disruptor.stripes.histogram",
+                new DistributionMetric(
+                        "jraft-nodeimpl-disruptor.stripes.histogram",
                         "Distribution tasks by stripes in disruptor",
-                        LongStream.range(0, stripeCount).toArray()));
+                        LongStream.range(0, stripeCount - 1).toArray(),
+                        Arrays::toString
+                ));
 
         // jraft-readonlyservice-disruptor
-        metrics.put("jraft-readonlyservice-disruptor.average.bath",
-                new MovingAverageMetric(
-                        "jraft-readonlyservice-disruptor.average.bath",
+        metrics.put("jraft-readonlyservice-disruptor.average.batch",
+                new DistributionMetric(
+                        "jraft-readonlyservice-disruptor.average.batch",
                         "Average batch size in disruptor",
-                        d -> String.format("%,.2f", d)
+                        bounds,
+                        toStringBatchHistogram(bounds)
                 ));
         metrics.put("jraft-readonlyservice-disruptor.stripes.histogram",
-                new DistributionMetric("jraft-readonlyservice-disruptor.stripes.histogram",
+                new DistributionMetric(
+                        "jraft-readonlyservice-disruptor.stripes.histogram",
                         "Distribution tasks by stripes in disruptor",
-                        LongStream.range(0, stripeCount).toArray()));
+                        LongStream.range(0, stripeCount - 1).toArray(),
+                        Arrays::toString
+                ));
 
         // jraft-logmanager-disruptor
-        metrics.put("jraft-logmanager-disruptor.average.bath",
-                new MovingAverageMetric(
-                        "jraft-logmanager-disruptor.average.bath",
+        metrics.put("jraft-logmanager-disruptor.average.batch",
+                new DistributionMetric(
+                        "jraft-logmanager-disruptor.average.batch",
                         "Average batch size in disruptor",
-                        d -> String.format("%,.2f", d)
+                        bounds,
+                        toStringBatchHistogram(bounds)
                 ));
         metrics.put("jraft-logmanager-disruptor.stripes.histogram",
-                new DistributionMetric("jraft-logmanager-disruptor.stripes.histogram",
+                new DistributionMetric(
+                        "jraft-logmanager-disruptor.stripes.histogram",
                         "Distribution tasks by stripes in disruptor",
-                        LongStream.range(0, logStripeCount).toArray()));
+                        LongStream.range(0, logStripeCount - 1).toArray(),
+                        Arrays::toString
+                ));
+    }
+
+    /**
+     * Represents a string for the histogram metric.
+     *
+     * @param bounds Bounds.
+     * @return String representation of histogram metrics.
+     */
+    @NotNull
+    private Function<long[], String> toStringBatchHistogram(long[] bounds) {
+        return values -> {
+            assert bounds.length == values.length - 1 :
+                    "Bounds do not match with values [bounds=" + bounds.length + ", values=" + values.length + "].";
+
+            StringBuilder sb = new StringBuilder();
+
+            for (int i = 0; i < values.length; i++) {
+                sb.append(values[i]);
+
+                if (i != values.length - 1) {
+                    sb.append("<|").append(bounds[i]).append("|<");
+                }
+            }
+
+            return sb.toString();
+        };
     }
 
     /**
@@ -127,7 +173,7 @@ public class RaftMetricSource implements MetricSource {
      */
     public DisruptorMetrics disruptorMetrics(String name) {
         return new DisruptorMetrics(
-                (MovingAverageMetric) metrics.get(name.toLowerCase() + ".average.bath"),
+                (DistributionMetric) metrics.get(name.toLowerCase() + ".average.batch"),
                 (DistributionMetric) metrics.get(name.toLowerCase() + ".stripes.histogram")
         );
     }
@@ -146,11 +192,11 @@ public class RaftMetricSource implements MetricSource {
      * Striped disruptor metrics.
      */
     public class DisruptorMetrics {
-        private MovingAverageMetric averageBatchSizeMetric;
+        private DistributionMetric batchSizeHistogramMetric;
         private DistributionMetric stripeHistogramMetric;
 
-        public DisruptorMetrics(MovingAverageMetric averageBatchSizeMetric, DistributionMetric stripeHistogramMetric) {
-            this.averageBatchSizeMetric = averageBatchSizeMetric;
+        public DisruptorMetrics(DistributionMetric averageBatchSizeMetric, DistributionMetric stripeHistogramMetric) {
+            this.batchSizeHistogramMetric = averageBatchSizeMetric;
             this.stripeHistogramMetric = stripeHistogramMetric;
         }
 
@@ -159,7 +205,7 @@ public class RaftMetricSource implements MetricSource {
         }
 
         public void addBatchSize(long size) {
-            averageBatchSizeMetric.add(size);
+            batchSizeHistogramMetric.add(size);
         }
 
         public void hitToStripe(int stripe) {
