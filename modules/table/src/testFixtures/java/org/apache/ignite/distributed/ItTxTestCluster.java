@@ -399,15 +399,15 @@ public class ItTxTestCluster {
 
             // This test is run without Meta storage.
             when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
+
+            var commandMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
+
             var raftClientFactory = new TopologyAwareRaftGroupServiceFactory(
                     clusterService,
                     logicalTopologyService(clusterService),
                     Loza.FACTORY,
                     new RaftGroupEventsClientListener()
             );
-
-
-            var commandMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
 
             ReplicaManager replicaMgr = new ReplicaManager(
                     node.name(),
@@ -602,7 +602,6 @@ public class ItTxTestCluster {
                         placementDriver,
                         txMessageSender
                 );
-
                 transactionStateResolver.start();
 
                 ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
@@ -671,38 +670,38 @@ public class ItTxTestCluster {
                 ).thenAccept(
                         raftSvc -> {
                             try {
-                                replicaManagers
-                                        .get(assignment)
-                                        .startReplica(
-                                                true,
-                                                new TablePartitionId(tableId, partId),
-                                                configuration,
-                                                (raftClient) -> newReplicaListener(
-                                                        mvPartStorage,
-                                                        raftClient,
-                                                        txManagers.get(assignment),
-                                                        Runnable::run,
-                                                        partId,
-                                                        tableId,
-                                                        () -> Map.of(pkLocker.id(), pkLocker),
-                                                        pkStorage,
-                                                        Map::of,
-                                                        clockServices.get(assignment),
-                                                        safeTime,
-                                                        txStateStorage,
-                                                        transactionStateResolver,
-                                                        storageUpdateHandler,
-                                                        new DummyValidationSchemasSource(schemaManager),
-                                                        nodeResolver.getByConsistentId(assignment),
-                                                        new AlwaysSyncedSchemaSyncService(),
-                                                        catalogService,
-                                                        placementDriver,
-                                                        nodeResolver,
-                                                        cursorRegistries.get(assignment),
-                                                        schemaManager
-                                                ),
-                                                storageIndexTracker);
+                                PartitionReplicaListener listener = newReplicaListener(
+                                        mvPartStorage,
+                                        raftSvc,
+                                        txManagers.get(assignment),
+                                        Runnable::run,
+                                        partId,
+                                        tableId,
+                                        () -> Map.of(pkLocker.id(), pkLocker),
+                                        pkStorage,
+                                        Map::of,
+                                        clockServices.get(assignment),
+                                        safeTime,
+                                        txStateStorage,
+                                        transactionStateResolver,
+                                        storageUpdateHandler,
+                                        new DummyValidationSchemasSource(schemaManager),
+                                        nodeResolver.getByConsistentId(assignment),
+                                        new AlwaysSyncedSchemaSyncService(),
+                                        catalogService,
+                                        placementDriver,
+                                        nodeResolver,
+                                        cursorRegistries.get(assignment),
+                                        schemaManager
+                                );
 
+                                replicaManagers.get(assignment).startReplica(
+                                        true,
+                                        new TablePartitionId(tableId, partId),
+                                        configuration,
+                                        (unused) -> listener,
+                                        storageIndexTracker
+                                );
                             } catch (NodeStoppingException e) {
                                 fail("Unexpected node stopping", e);
                             }
