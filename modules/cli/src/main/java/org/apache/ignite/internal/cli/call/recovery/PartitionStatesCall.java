@@ -62,20 +62,16 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
                 );
 
                 List<String> content;
-                if (localStates.getStates() == null) {
-                    content = List.of();
-                } else {
-                    content = localStates.getStates().stream()
-                            .flatMap(state -> Stream.of(
-                                            state.getNodeName(),
-                                            state.getZoneName(),
-                                            state.getTableName(),
-                                            String.valueOf(state.getPartitionId()),
-                                            state.getState()
-                                    )
-                            )
-                            .collect(toList());
-                }
+                content = localStates.getStates().stream()
+                        .flatMap(state -> Stream.of(
+                                        state.getNodeName(),
+                                        state.getZoneName(),
+                                        state.getTableName(),
+                                        String.valueOf(state.getPartitionId()),
+                                        state.getState()
+                                )
+                        )
+                        .collect(toList());
 
                 return DefaultCallOutput.success(new Table(LOCAL_HEADERS, content));
             } else {
@@ -84,20 +80,15 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
                         input.partitionIds()
                 );
 
-                List<String> content;
-                if (globalStates.getStates() == null) {
-                    content = List.of();
-                } else {
-                    content = globalStates.getStates().stream()
-                            .flatMap(state -> Stream.of(
-                                            state.getZoneName(),
-                                            state.getTableName(),
-                                            String.valueOf(state.getPartitionId()),
-                                            state.getState()
-                                    )
-                            )
-                            .collect(toList());
-                }
+                List<String> content = globalStates.getStates().stream()
+                        .flatMap(state -> Stream.of(
+                                        state.getZoneName(),
+                                        state.getTableName(),
+                                        String.valueOf(state.getPartitionId()),
+                                        state.getState()
+                                )
+                        )
+                        .collect(toList());
 
                 return DefaultCallOutput.success(new Table(GLOBAL_HEADERS, content));
             }
