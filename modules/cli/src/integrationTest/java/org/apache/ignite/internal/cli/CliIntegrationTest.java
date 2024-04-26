@@ -164,7 +164,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         CharSequence[] expectedUpperCase = expectedOutput.stream().map(String::toUpperCase).toArray(CharSequence[]::new);
 
         assertThat(sout.toString().toUpperCase())
-                .as("Expected command output to contain any of: " + expectedOutput + " but was " + sout.toString())
+                .as("Expected command output to contain all of: " + expectedOutput + " but was " + sout.toString())
                 .contains(expectedUpperCase);
     }
 
