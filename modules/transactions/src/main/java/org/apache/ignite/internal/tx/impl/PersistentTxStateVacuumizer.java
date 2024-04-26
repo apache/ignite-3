@@ -90,9 +90,9 @@ public class PersistentTxStateVacuumizer {
         txIds.forEach((commitPartitionId, txs) -> {
             CompletableFuture<?> future = placementDriver.getPrimaryReplica(commitPartitionId, now)
                     .thenCompose(replicaMeta -> {
-                        // If the primary replica is absent this means that another replica would become primary and
-                        // the volatile state (as well as cleanup completion timestamp) would be updated there, and then
-                        // this operation would be called from there.
+                        // If the primary replica is absent or is not located on the local node, this means that the primary either is
+                        // on another node or would be re-elected on local one; then the volatile state (as well as cleanup completion
+                        // timestamp) would be updated there, and then this operation would be called from there.
                         // Also, we are going to send the vacuum request only to the local node.
                         if (replicaMeta != null && localNode.id().equals(replicaMeta.getLeaseholderId())) {
                             VacuumTxStateReplicaRequest request = TX_MESSAGES_FACTORY.vacuumTxStateReplicaRequest()

@@ -212,8 +212,8 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public void vacuum() {
-        // No-op.
+    public CompletableFuture<Void> vacuum() {
+        return nullCompletedFuture();
     }
 
     @Override

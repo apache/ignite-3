@@ -843,14 +843,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public void vacuum() {
+    public CompletableFuture<Void> vacuum() {
         if (persistentTxStateVacuumizer == null) {
-            return; // Not started yet.
+            return nullCompletedFuture(); // Not started yet.
         }
 
         long vacuumObservationTimestamp = System.currentTimeMillis();
 
-        txStateVolatileStorage.vacuum(vacuumObservationTimestamp, txConfig.txnResourceTtl().value(),
+        return txStateVolatileStorage.vacuum(vacuumObservationTimestamp, txConfig.txnResourceTtl().value(),
                 persistentTxStateVacuumizer::vacuumPersistentTxStates);
     }
 

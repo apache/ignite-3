@@ -185,8 +185,12 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> cleanup(String node, UUID txId);
 
-    /** Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile. */
-    void vacuum();
+    /**
+     * Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile.
+     *
+     * @return Vacuum complete future.
+     */
+    CompletableFuture<Void> vacuum();
 
     /**
      * Returns a number of finished transactions.
