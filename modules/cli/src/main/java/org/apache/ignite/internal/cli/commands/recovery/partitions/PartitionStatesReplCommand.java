@@ -78,9 +78,8 @@ public class PartitionStatesReplCommand extends BaseCommand implements Runnable 
 
     private PartitionStatesCallInput buildCallInput(String clusterUrl) {
         return PartitionStatesCallInput.builder()
-                .local(statesArgs.localGroup().local())
-                .global(statesArgs.global())
-                .nodeNames(statesArgs.localGroup().nodeNames())
+                .local(statesArgs.localGroup() != null)
+                .nodeNames(statesArgs.localGroup() == null ? List.of() : statesArgs.localGroup().nodeNames())
                 .zoneNames(zoneNames)
                 .partitionIds(partitionIds)
                 .clusterUrl(clusterUrl)

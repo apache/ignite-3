@@ -76,8 +76,7 @@ public class PartitionStatesCommand extends BaseCommand implements Callable<Inte
 
     private PartitionStatesCallInput buildCallInput() {
         return PartitionStatesCallInput.builder()
-                .local(statesArgs.localGroup() != null && statesArgs.localGroup().local())
-                .global(statesArgs.global())
+                .local(statesArgs.localGroup() != null)
                 .nodeNames(statesArgs.localGroup() == null ? List.of() : statesArgs.localGroup().nodeNames())
                 .zoneNames(zoneNames)
                 .partitionIds(partitionIds)

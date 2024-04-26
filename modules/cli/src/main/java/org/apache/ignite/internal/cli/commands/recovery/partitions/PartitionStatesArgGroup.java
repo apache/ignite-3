@@ -47,7 +47,7 @@ public class PartitionStatesArgGroup {
 
     /** Arguments specific to local partition states. */
     public static class LocalGroup {
-        @Option(names = RECOVERY_LOCAL_OPTION, description = RECOVERY_LOCAL_OPTION_DESC)
+        @Option(required = true, names = RECOVERY_LOCAL_OPTION, description = RECOVERY_LOCAL_OPTION_DESC)
         private boolean local;
 
         @Option(names = RECOVERY_NODE_NAMES_OPTION, description = RECOVERY_NODE_NAMES_OPTION_DESC, split = ",")

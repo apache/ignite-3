@@ -25,9 +25,8 @@ public class PartitionStatesCallInput implements CallInput {
     /** Cluster url. */
     private final String clusterUrl;
 
+    /** If local partition states should be returned. */
     private final boolean local;
-
-    private final boolean global;
 
     private final List<String> nodeNames;
 
@@ -43,18 +42,17 @@ public class PartitionStatesCallInput implements CallInput {
         return local;
     }
 
-    public boolean global() {
-        return global;
-    }
-
+    /** Returns node names to get partition states from. */
     public List<String> nodeNames() {
         return nodeNames;
     }
 
+    /** Names of zones to get partition states of. */
     public List<String> zoneNames() {
         return zoneNames;
     }
 
+    /** IDs of partitions to get states of. */
     public List<Integer> partitionIds() {
         return partitionIds;
     }
@@ -62,14 +60,12 @@ public class PartitionStatesCallInput implements CallInput {
     PartitionStatesCallInput(
             String clusterUrl,
             boolean local,
-            boolean global,
             List<String> nodeNames,
             List<String> zoneNames,
             List<Integer> partitionIds
     ) {
         this.clusterUrl = clusterUrl;
         this.local = local;
-        this.global = global;
         this.nodeNames = nodeNames;
         this.zoneNames = zoneNames;
         this.partitionIds = partitionIds;
@@ -84,8 +80,6 @@ public class PartitionStatesCallInput implements CallInput {
 
         private boolean local;
 
-        private boolean global;
-
         private List<String> nodeNames;
 
         private List<String> zoneNames;
@@ -97,33 +91,33 @@ public class PartitionStatesCallInput implements CallInput {
             return this;
         }
 
+        /** Set flag to get local partition states. */
         public PartitionStatesCallInputBuilder local(boolean local) {
             this.local = local;
             return this;
         }
 
-        public PartitionStatesCallInputBuilder global(boolean global) {
-            this.global = global;
-            return this;
-        }
-
+        /** Set names of zones to get partition states of. */
         public PartitionStatesCallInputBuilder nodeNames(List<String> nodeNames) {
             this.nodeNames = nodeNames;
             return this;
         }
 
+        /** Set names of zones to get partition states of. */
         public PartitionStatesCallInputBuilder zoneNames(List<String> zoneNames) {
             this.zoneNames = zoneNames;
             return this;
         }
 
+        /** Names of zones to get partition states of. */
         public PartitionStatesCallInputBuilder partitionIds(List<Integer> partitionIds) {
             this.partitionIds = partitionIds;
             return this;
         }
 
+        /** Set IDs of partitions to get states of. */
         public PartitionStatesCallInput build() {
-            return new PartitionStatesCallInput(clusterUrl, local, global, nodeNames, zoneNames, partitionIds);
+            return new PartitionStatesCallInput(clusterUrl, local, nodeNames, zoneNames, partitionIds);
         }
     }
 }
