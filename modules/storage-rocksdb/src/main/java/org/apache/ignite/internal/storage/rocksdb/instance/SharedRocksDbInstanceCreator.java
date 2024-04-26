@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.rocksdb.instance;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.toStringName;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -39,7 +40,6 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.index.AbstractRocksDbIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.BlockBasedTableConfig;
 import org.rocksdb.BloomFilter;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -154,7 +154,7 @@ public class SharedRocksDbInstanceCreator {
             Collections.reverse(resources);
 
             try {
-                IgniteUtils.closeAll(resources);
+                closeAll(resources);
             } catch (Exception e) {
                 t.addSuppressed(e);
             }

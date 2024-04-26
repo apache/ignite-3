@@ -757,7 +757,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return inBusyLockAsync(busyLock, () -> {
             localNodeId = topologyService.localMember().id();
 
@@ -792,9 +792,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -810,6 +810,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         lowWatermark.removeListener(LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE, lowWatermarkChangedListener);
 
         shutdownAndAwaitTermination(writeIntentSwitchPool, 10, TimeUnit.SECONDS);
+
+        return nullCompletedFuture();
     }
 
     @Override

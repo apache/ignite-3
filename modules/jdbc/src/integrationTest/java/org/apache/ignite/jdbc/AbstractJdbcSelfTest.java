@@ -19,6 +19,7 @@ package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -42,7 +43,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -110,7 +110,7 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
      */
     @AfterAll
     public static void afterAllBase(TestInfo testInfo) throws Exception {
-        IgniteUtils.closeAll(
+        closeAll(
                 conn != null && !conn.isClosed() ? conn : null,
                 () -> IgnitionManager.stop(testNodeName(testInfo, TEST_PORT))
         );

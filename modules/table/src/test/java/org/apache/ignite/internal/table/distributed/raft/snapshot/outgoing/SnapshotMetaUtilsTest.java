@@ -93,7 +93,7 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
         CatalogManager catalogManager = createTestCatalogManager("test", clock);
 
         try {
-            assertThat(catalogManager.start(), willCompleteSuccessfully());
+            assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
 
             String indexName0 = INDEX_NAME + 0;
             String indexName1 = INDEX_NAME + 1;
@@ -126,7 +126,7 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
                     is(Map.of(indexId2, nextRowIdToBuildIndex2.uuid()))
             );
         } finally {
-            closeAll(catalogManager::beforeNodeStop, catalogManager::stop);
+            closeAll(catalogManager::beforeNodeStop, () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()));
         }
     }
 }

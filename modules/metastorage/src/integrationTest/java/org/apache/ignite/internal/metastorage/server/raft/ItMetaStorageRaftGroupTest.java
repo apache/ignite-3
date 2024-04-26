@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.w
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -35,7 +36,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.ScheduledExecutorService;
@@ -165,7 +165,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         localAddresses.stream()
                 .map(addr -> ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder))
                 .forEach(clusterService -> {
-                    clusterService.start();
+                    assertThat(clusterService.startAsync(), willCompleteSuccessfully());
                     cluster.add(clusterService);
                 });
 
@@ -181,32 +181,31 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
     /**
      * Shutdown raft server and stop all cluster nodes.
      *
-     * @throws Exception If failed to shutdown raft server,
      */
     @AfterEach
-    public void afterTest() throws Exception {
+    public void afterTest() {
         if (metaStorageRaftSrv3 != null) {
             metaStorageRaftSrv3.stopRaftNodes(MetastorageGroupId.INSTANCE);
-            metaStorageRaftSrv3.stop();
+            assertThat(metaStorageRaftSrv3.stopAsync(), willCompleteSuccessfully());
             metaStorageRaftGrpSvc3.shutdown();
         }
 
         if (metaStorageRaftSrv2 != null) {
             metaStorageRaftSrv2.stopRaftNodes(MetastorageGroupId.INSTANCE);
-            metaStorageRaftSrv2.stop();
+            assertThat(metaStorageRaftSrv2.stopAsync(), willCompleteSuccessfully());
             metaStorageRaftGrpSvc2.shutdown();
         }
 
         if (metaStorageRaftSrv1 != null) {
             metaStorageRaftSrv1.stopRaftNodes(MetastorageGroupId.INSTANCE);
-            metaStorageRaftSrv1.stop();
+            assertThat(metaStorageRaftSrv1.stopAsync(), willCompleteSuccessfully());
             metaStorageRaftGrpSvc1.shutdown();
         }
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         for (ClusterService node : cluster) {
-            node.stop();
+            assertThat(node.stopAsync(), willCompleteSuccessfully());
         }
     }
 
@@ -297,8 +296,13 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
                                 // stop leader
                                 oldLeaderServer.stopRaftNodes(MetastorageGroupId.INSTANCE);
-                                oldLeaderServer.stop();
-                                cluster.stream().filter(c -> localMemberName(c).equals(oldLeaderId)).findFirst().orElseThrow().stop();
+                                assertThat(oldLeaderServer.stopAsync(), willCompleteSuccessfully());
+                                CompletableFuture<Void> stopFuture = cluster.stream()
+                                        .filter(c -> localMemberName(c).equals(oldLeaderId))
+                                        .findFirst()
+                                        .orElseThrow()
+                                        .stopAsync();
+                                assertThat(stopFuture, willCompleteSuccessfully());
 
                                 raftGroupServiceOfLiveServer.refreshLeader().get();
 
@@ -341,7 +345,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
     }
 
     private List<Pair<RaftServer, RaftGroupService>> prepareJraftMetaStorages(AtomicInteger replicatorStartedCounter,
-            AtomicInteger replicatorStoppedCounter) throws InterruptedException, ExecutionException {
+            AtomicInteger replicatorStoppedCounter) throws InterruptedException {
         PeersAndLearners membersConfiguration = cluster.stream()
                 .map(ItMetaStorageRaftGroupTest::localMemberName)
                 .collect(collectingAndThen(toSet(), PeersAndLearners::fromConsistentIds));
@@ -389,11 +393,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 new RaftGroupEventsClientListener()
         );
 
-        metaStorageRaftSrv1.start();
-
-        metaStorageRaftSrv2.start();
-
-        metaStorageRaftSrv3.start();
+        assertThat(startAsync(metaStorageRaftSrv1, metaStorageRaftSrv2, metaStorageRaftSrv3), willCompleteSuccessfully());
 
         var raftNodeId1 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(0))));
 

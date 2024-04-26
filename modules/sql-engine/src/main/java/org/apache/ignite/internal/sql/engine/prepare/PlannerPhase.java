@@ -74,8 +74,8 @@ import org.apache.ignite.internal.sql.engine.rule.logical.ProjectScanMergeRule;
  * Represents a planner phase with its description and a used rule set.
  */
 public enum PlannerPhase {
-    HEP_DECORRELATE(
-            "Heuristic phase to decorrelate subqueries",
+    HEP_SUBQUERIES_TO_CORRELATES(
+            "Heuristic phase to convert subqueries into correlates",
             CoreRules.FILTER_SUB_QUERY_TO_CORRELATE,
             CoreRules.PROJECT_SUB_QUERY_TO_CORRELATE,
             CoreRules.JOIN_SUB_QUERY_TO_CORRELATE

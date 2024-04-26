@@ -148,7 +148,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return inBusyLockAsync(busyLock, () -> {
             setLowWatermarkOnRecovery(readLowWatermarkFromVault());
 
@@ -170,9 +170,9 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public void stop() {
+    public CompletableFuture<Void> stopAsync() {
         if (!closeGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -184,6 +184,8 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
         }
 
         IgniteUtils.shutdownAndAwaitTermination(scheduledThreadPool, 10, TimeUnit.SECONDS);
+
+        return nullCompletedFuture();
     }
 
     @Override

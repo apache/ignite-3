@@ -396,7 +396,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         deployer.initUnitsFolder(workDir.resolve(configuration.deploymentLocation().value()));
         deploymentUnitStore.registerNodeStatusListener(nodeStatusWatchListener);
         deploymentUnitStore.registerClusterStatusListener(clusterStatusWatchListener);
@@ -408,13 +408,15 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         deployer.stop();
         nodeStatusWatchListener.stop();
         tracker.cancelAll();
         deploymentUnitStore.unregisterNodeStatusListener(nodeStatusWatchListener);
         deploymentUnitStore.unregisterClusterStatusListener(clusterStatusWatchListener);
         undeployer.stop();
+
+        return nullCompletedFuture();
     }
 
     private static void checkId(String id) {

@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
@@ -108,7 +108,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
      */
     @AfterAll
     public static void stopServer2() throws Exception {
-        IgniteUtils.closeAll(client2, testServer2);
+        closeAll(client2, testServer2);
     }
 
     @BeforeEach

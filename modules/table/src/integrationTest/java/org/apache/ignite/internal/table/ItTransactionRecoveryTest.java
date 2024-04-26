@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -1102,7 +1103,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
      * @return Transaction id.
      * @throws InterruptedException If interrupted.
      */
-    private UUID startTransactionAndStopNode(IgniteImpl node) throws InterruptedException {
+    private UUID startTransactionAndStopNode(IgniteImpl node) throws InterruptedException, ExecutionException {
         Transaction rwTx1 = createRwTransaction(node);
 
         String txCrdNodeId = node.id();

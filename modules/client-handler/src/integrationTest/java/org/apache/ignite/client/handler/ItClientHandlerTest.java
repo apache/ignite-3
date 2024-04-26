@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.client.handler.ItClientHandlerTestUtils.MAGIC;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.ErrorGroups.Authentication.INVALID_CREDENTIALS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Authentication.UNSUPPORTED_AUTHENTICATION_TYPE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
@@ -76,7 +77,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     public void tearDown() throws Exception {
-        serverModule.stop();
+        assertThat(serverModule.stopAsync(), willCompleteSuccessfully());
         testServer.tearDown();
     }
 

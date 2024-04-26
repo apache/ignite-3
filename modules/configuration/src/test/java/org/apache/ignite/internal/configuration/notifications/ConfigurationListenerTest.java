@@ -191,15 +191,15 @@ public class ConfigurationListenerTest {
                 new TestConfigurationValidator()
         );
 
-        registry.start();
+        assertThat(registry.startAsync(), willCompleteSuccessfully());
         assertThat(registry.onDefaultsPersisted(), willCompleteSuccessfully());
 
         config = registry.getConfiguration(ParentConfiguration.KEY);
     }
 
     @AfterEach
-    public void after() throws Exception {
-        registry.stop();
+    public void after() {
+        assertThat(registry.stopAsync(), willCompleteSuccessfully());
         generator.close();
     }
 

@@ -487,7 +487,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestLowWatermark()
         );
 
-        assertThat(txManager.start(), willCompleteSuccessfully());
+        assertThat(txManager.startAsync(), willCompleteSuccessfully());
 
         return txManager;
     }

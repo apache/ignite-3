@@ -20,7 +20,9 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -79,7 +81,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
     public void tearDown() throws Exception {
         for (PlacementDriverManager pdMgr : placementDriverManagers.values()) {
             pdMgr.beforeNodeStop();
-            pdMgr.stop();
+            assertThat(pdMgr.stopAsync(), willCompleteSuccessfully());
         }
 
         placementDriverManagers.clear();
@@ -133,17 +135,17 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
                 new TestClockService(new HybridClockImpl())
         );
 
-        placementDriverManager.start();
+        assertThat(placementDriverManager.startAsync(), willCompleteSuccessfully());
 
         placementDriverManagers.put(nodeName, placementDriverManager);
     }
 
     @Override
-    protected void afterNodeStop(String nodeName) throws Exception {
+    protected void afterNodeStop(String nodeName) {
         PlacementDriverManager placementDriverManager = placementDriverManagers.remove(nodeName);
 
         placementDriverManager.beforeNodeStop();
-        placementDriverManager.stop();
+        assertThat(placementDriverManager.stopAsync(), willCompleteSuccessfully());
     }
 
     private boolean checkSingleActiveActor(String leaderName) {

@@ -92,7 +92,7 @@ public class MetricManager implements IgniteComponent {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> start() {
+    @Override public CompletableFuture<Void> startAsync() {
         start(loadExporters());
 
         return nullCompletedFuture();
@@ -133,12 +133,14 @@ public class MetricManager implements IgniteComponent {
     }
 
     /** {@inheritDoc} */
-    @Override public void stop() throws Exception {
+    @Override public CompletableFuture<Void> stopAsync() {
         for (MetricExporter metricExporter : enabledMetricExporters.values()) {
             metricExporter.stop();
         }
 
         enabledMetricExporters.clear();
+
+        return nullCompletedFuture();
     }
 
     /**
