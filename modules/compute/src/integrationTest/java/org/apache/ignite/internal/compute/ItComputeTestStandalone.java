@@ -38,6 +38,7 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -47,14 +48,19 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings("resource")
 class ItComputeTestStandalone extends ItComputeBaseTest {
-
     private final DeploymentUnit unit = new DeploymentUnit("jobs", Version.parseVersion("1.0.0"));
+
     private final List<DeploymentUnit> units = List.of(unit);
 
     @BeforeEach
-    void setUp() throws IOException {
+    void deploy() throws IOException {
+        deployJar(node(0), unit.name(), unit.version(), "ignite-integration-test-jobs-1.0-SNAPSHOT.jar");
+    }
+
+    @AfterEach
+    void undeploy() {
         IgniteImpl entryNode = node(0);
-        // TODO https://issues.apache.org/jira/browse/IGNITE-19757
+
         try {
             entryNode.deployment().undeployAsync(unit.name(), unit.version()).join();
         } catch (Exception ignored) {
@@ -64,7 +70,6 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
                 () -> entryNode.deployment().clusterStatusAsync(unit.name(), unit.version()),
                 willBe(nullValue())
         );
-        deployJar(entryNode, unit.name(), unit.version(), "ignite-integration-test-jobs-1.0-SNAPSHOT.jar");
     }
 
     @Override
