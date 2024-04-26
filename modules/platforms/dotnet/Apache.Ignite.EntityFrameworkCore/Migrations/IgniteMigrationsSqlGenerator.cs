@@ -1,8 +1,23 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 namespace Apache.Ignite.EntityFrameworkCore.Migrations;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using Common;
@@ -712,17 +727,21 @@ public class IgniteMigrationsSqlGenerator : MigrationsSqlGenerator
         // No-op.
     }
 
+    [SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:Fields should be private", Justification = "Private class.")]
     private sealed class RebuildContext
     {
-        public ICollection<MigrationOperation> OperationsToReplace { get; } = new List<MigrationOperation>();
-        public IDictionary<string, AddColumnOperation> AddColumnsDeferred { get; } = new Dictionary<string, AddColumnOperation>();
-        public ICollection<string> DropColumnsDeferred { get; } = new HashSet<string>();
         public readonly IDictionary<string, AlterColumnOperation> AlterColumnsDeferred = new Dictionary<string, AlterColumnOperation>();
 
-        public readonly IDictionary<string, RenameColumnOperation> RenameColumnsDeferred =
-            new Dictionary<string, RenameColumnOperation>();
+        public readonly IDictionary<string, RenameColumnOperation> RenameColumnsDeferred = new Dictionary<string, RenameColumnOperation>();
+
+        public ICollection<MigrationOperation> OperationsToReplace { get; } = new List<MigrationOperation>();
+
+        public IDictionary<string, AddColumnOperation> AddColumnsDeferred { get; } = new Dictionary<string, AddColumnOperation>();
+
+        public ICollection<string> DropColumnsDeferred { get; } = new HashSet<string>();
 
         public ICollection<string> CreateIndexesDeferred { get; } = new HashSet<string>();
+
         public ICollection<MigrationOperation> OperationsToWarnFor { get; } = new List<MigrationOperation>();
     }
 }
