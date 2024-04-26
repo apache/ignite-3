@@ -239,7 +239,6 @@ public class TableTestUtils {
         return getTableStrict(catalogService, tableName, timestamp).id();
     }
 
-
     /**
      * Returns index ID form catalog, {@code null} if table is absent.
      *

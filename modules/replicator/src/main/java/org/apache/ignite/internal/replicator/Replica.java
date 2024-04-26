@@ -152,34 +152,39 @@ public class Replica {
                 request.groupId(),
                 replicaGrpId);
 
-        if (!waitForActualStateFuture.isDone() && request instanceof PrimaryReplicaRequest) {
+        if (request instanceof PrimaryReplicaRequest) {
             var targetPrimaryReq = (PrimaryReplicaRequest) request;
 
             if (request instanceof WaitReplicaStateMessage) {
-                return processWaitReplicaStateMessage((WaitReplicaStateMessage) request)
+                if (!waitForActualStateFuture.isDone()) {
+                    return processWaitReplicaStateMessage((WaitReplicaStateMessage) request)
+                            .thenComposeAsync(
+                                    v -> sendPrimaryReplicaChangeToReplicationGroup(targetPrimaryReq.enlistmentConsistencyToken()),
+                                    executor
+                            )
+                            .thenComposeAsync(
+                                    unused -> completedFuture(new ReplicaResult(null, null)),
+                                    executor
+                            );
+                } else {
+                    return completedFuture(new ReplicaResult(null, null));
+                }
+            }
+
+            if (!waitForActualStateFuture.isDone()) {
+                return placementDriver.addSubgroups(
+                                zonePartitionId,
+                                targetPrimaryReq.enlistmentConsistencyToken(),
+                                Set.of(replicaGrpId)
+                        )
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
+                        .thenComposeAsync(unused -> waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + 10_000), executor)
                         .thenComposeAsync(
                                 v -> sendPrimaryReplicaChangeToReplicationGroup(targetPrimaryReq.enlistmentConsistencyToken()),
                                 executor
                         )
-                        .thenComposeAsync(
-                                unused -> completedFuture(new ReplicaResult(null, null)),
-                                executor
-                        );
+                        .thenComposeAsync(unused -> listener.invoke(request, senderId), executor);
             }
-
-            return placementDriver.addSubgroups(
-                            zonePartitionId,
-                            targetPrimaryReq.enlistmentConsistencyToken(),
-                            Set.of(replicaGrpId)
-                    )
-                    .thenComposeAsync(unused -> waitForActualState(clockService.nowLong()), executor)
-                    .thenComposeAsync(
-                            v -> sendPrimaryReplicaChangeToReplicationGroup(targetPrimaryReq.enlistmentConsistencyToken()),
-                            executor
-                    )
-                    .thenComposeAsync(unused -> listener.invoke(request, senderId), executor);
-        } else if (request instanceof WaitReplicaStateMessage) {
-            return completedFuture(new ReplicaResult(null, null));
         }
 
         return listener.invoke(request, senderId);

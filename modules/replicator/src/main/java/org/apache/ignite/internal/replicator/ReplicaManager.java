@@ -725,7 +725,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                         WaitReplicaStateMessage req = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
                                                 .enlistmentConsistencyToken(meta.getStartTime().longValue())
                                                 .groupId(partId)
-                                                // TODO: discuss this timeout
+                                                // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
                                                 .timeout(10)
                                                 .build();
 
