@@ -25,15 +25,34 @@ select j.c21, j.c22 from (SELECT c21, c22 from t2 LEFT OUTER JOIN t1 ON (t2.c21 
 4	3
 
 query II rowsort
+select c11, j.c22 from (SELECT c21, c22 from t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) j INNER JOIN t1 t11 ON (t11.c12 = j.c22);
+----
+2	3
+2	3
+3	4
+
+query II rowsort
 select t1.c11, t2.c22 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t2 t22 ON (t22.c21 = c11);
 ----
 2	3
 3	4
 
 query II rowsort
+select c21, t11.c12 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t1 t11 ON (t11.c11 = t2.c22);
+----
+2	4
+4	4
+
+query II rowsort
 select t1.c11, t2.c21 from (t2 RIGHT OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t2 t22 ON (t22.c21 = c12);
 ----
 1	null
+2	2
+3	3
+
+query II rowsort
+select t11.c11, t2.c21 from (t2 RIGHT OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t1 t11 ON (t11.c12 = t2.c22);
+----
 2	2
 3	3
 
@@ -44,6 +63,13 @@ select t1.c11, t2.c21 from (t2 FULL OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JO
 2	2
 3	3
 
+query II rowsort
+select t1.c11, t2.c21 from (t2 FULL OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t1 t11 ON (t11.c12 = t2.c22);
+----
+null	4
+2	2
+3	3
+
 query III rowsort
 select t2.c21, t2.c22, t2.c23 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t2 t22 ON (t22.c23 = 'a');
 ----
@@ -51,5 +77,9 @@ select t2.c21, t2.c22, t2.c23 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) 
 3	4	b
 4	3	c
 
-
-
+query III rowsort
+select t1.c11, t1.c12, t1.c13 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t1 t11 ON (t11.c13 = 'a');
+----
+null	null	null
+2	3	b
+3	4	c
