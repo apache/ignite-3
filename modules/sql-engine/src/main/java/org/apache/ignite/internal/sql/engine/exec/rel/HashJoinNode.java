@@ -588,17 +588,10 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
             @Override
             public RowT next() {
-                if (innerIt.hasNext()) {
-                    return innerIt.next();
-                } else {
-                    advance();
-
-                    if (innerIt.hasNext()) {
-                        return innerIt.next();
-                    } else {
-                        throw new NoSuchElementException();
-                    }
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
                 }
+                return innerIt.next();
             }
 
             void advance() {
