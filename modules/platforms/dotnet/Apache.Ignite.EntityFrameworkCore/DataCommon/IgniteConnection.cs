@@ -43,7 +43,7 @@ public sealed class IgniteConnection : DbConnection
     public override string DataSource => string.Empty;
 
     // TODO: Set once connected.
-    public override string ServerVersion { get; }
+    public override string ServerVersion => "TODO";
 
     public int DefaultTimeout { get; set; }
 

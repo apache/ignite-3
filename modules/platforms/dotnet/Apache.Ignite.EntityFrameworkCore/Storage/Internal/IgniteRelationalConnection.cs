@@ -1,4 +1,3 @@
-
 namespace Apache.Ignite.EntityFrameworkCore.Storage.Internal;
 
 using System.Data.Common;
