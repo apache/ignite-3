@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.SubscriptionUtils.fromIterable;
@@ -110,7 +111,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void registerAfterStartFails() {
-        viewMgr.start();
+        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
 
         assertThrows(IllegalStateException.class, () -> viewMgr.register(() -> List.of(dummyView("test"))));
         verifyNoInteractions(catalog);
@@ -122,18 +123,20 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
         viewMgr.register(() -> List.of(dummyView("test")));
 
-        viewMgr.start();
+        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
 
         verify(catalog, only()).execute(anyList());
 
-        assertThrows(IllegalStateException.class, viewMgr::start);
+        assertThrows(IllegalStateException.class, viewMgr::startAsync);
+
+        assertThrows(IllegalStateException.class, viewMgr::startAsync);
 
         verifyNoMoreInteractions(catalog);
     }
 
     @Test
     public void registrationCompletesWithoutViews() {
-        viewMgr.start();
+        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
 
         verifyNoMoreInteractions(catalog);
 
@@ -148,7 +151,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         Mockito.when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         viewMgr.register(() -> List.of(dummyView("test", type)));
-        viewMgr.start();
+        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
 
         verify(catalog, only()).execute(anyList());
         assertTrue(viewMgr.completeRegistration().isDone());
@@ -162,7 +165,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
         viewMgr.register(() -> List.of(dummyView("test")));
 
-        viewMgr.start();
+        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
 
         verify(catalog, only()).execute(anyList());
 
@@ -180,7 +183,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(viewMgr.nodeAttributes(), aMapWithSize(0));
 
-        viewMgr.start();
+        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
 
         verify(catalog, only()).execute(anyList());
         verifyNoMoreInteractions(catalog);
@@ -190,32 +193,32 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void registrationFutureCompletesWhenComponentStops() throws Exception {
-        viewMgr.stop();
+    public void registrationFutureCompletesWhenComponentStops() {
+        assertThat(viewMgr.stopAsync(), willCompleteSuccessfully());
 
         assertThat(viewMgr.completeRegistration(), willThrowFast(NodeStoppingException.class));
     }
 
     @Test
-    public void startAfterStopFails() throws Exception {
-        viewMgr.stop();
+    public void startAfterStopFails() {
+        assertThat(viewMgr.stopAsync(), willCompleteSuccessfully());
 
         //noinspection ThrowableNotThrown
-        assertThrowsWithCause(viewMgr::start, NodeStoppingException.class);
+        assertThrowsWithCause(viewMgr::startAsync, NodeStoppingException.class);
     }
 
     @Test
-    public void registerAfterStopFails() throws Exception {
-        viewMgr.stop();
+    public void registerAfterStopFails() {
+        assertThat(viewMgr.stopAsync(), willCompleteSuccessfully());
 
         //noinspection ThrowableNotThrown
         assertThrowsWithCause(() -> viewMgr.register(() -> List.of(dummyView("test"))), NodeStoppingException.class);
     }
 
     @Test
-    public void stopAfterStopDoesNothing() throws Exception {
-        viewMgr.stop();
-        viewMgr.stop();
+    public void stopAfterStopDoesNothing() {
+        assertThat(viewMgr.stopAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.stopAsync(), willCompleteSuccessfully());
     }
 
     @Test
@@ -281,7 +284,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
                         .build()
         ));
 
-        viewMgr.start();
+        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
 
         {
             DrainAllSubscriber<InternalTuple> subs = new DrainAllSubscriber<>();

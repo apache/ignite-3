@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.configuration.notifications.Configurati
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnRename;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.configNamedListenerOnUpdate;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationListenerTestUtils.doNothingConsumer;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -168,7 +170,7 @@ public class ConfigurationAnyListenerTest {
                 new TestConfigurationValidator()
         );
 
-        registry.start();
+        assertThat(registry.startAsync(), willCompleteSuccessfully());
 
         rootConfig = registry.getConfiguration(RootConfiguration.KEY);
 
@@ -236,8 +238,8 @@ public class ConfigurationAnyListenerTest {
     }
 
     @AfterEach
-    public void after() throws Exception {
-        registry.stop();
+    public void after() {
+        assertThat(registry.stopAsync(), willCompleteSuccessfully());
         generator.close();
     }
 

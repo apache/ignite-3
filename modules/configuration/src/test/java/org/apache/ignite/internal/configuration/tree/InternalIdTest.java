@@ -97,12 +97,12 @@ public class InternalIdTest {
                 new TestConfigurationValidator()
         );
 
-        registry.start();
+        assertThat(registry.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        registry.stop();
+    void tearDown() {
+        assertThat(registry.stopAsync(), willCompleteSuccessfully());
 
         generator.close();
     }

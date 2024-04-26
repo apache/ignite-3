@@ -102,15 +102,12 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
         ClusterStatusWatchListener clusterListener = new ClusterStatusWatchListener(clusterEventCallback);
         metastore.registerClusterStatusListener(clusterListener);
 
-        metaStorageManager.start();
+        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
 
         toStop = () -> {
             nodeListener.stop();
-            try {
-                metaStorageManager.stop();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+
+            assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
         };
 
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());

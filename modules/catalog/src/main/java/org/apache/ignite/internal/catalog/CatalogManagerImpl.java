@@ -154,7 +154,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         int objectIdGen = 0;
 
         // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
@@ -183,22 +183,23 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 
-        updateLog.start();
+        return updateLog.startAsync()
+                .thenCompose(none -> {
+                    if (latestCatalogVersion() == emptyCatalog.version()) {
+                        // node have not seen any updates yet, let's try to initialise
+                        // catalog with default zone
+                        return createDefaultZone(emptyCatalog);
+                    }
 
-        if (latestCatalogVersion() == emptyCatalog.version()) {
-            // node have not seen any updates yet, let's try to initialise
-            // catalog with default zone
-            return createDefaultZone(emptyCatalog);
-        }
-
-        return nullCompletedFuture();
+                    return nullCompletedFuture();
+                });
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         busyLock.block();
         versionTracker.close();
-        updateLog.stop();
+        return updateLog.stopAsync();
     }
 
     @Override

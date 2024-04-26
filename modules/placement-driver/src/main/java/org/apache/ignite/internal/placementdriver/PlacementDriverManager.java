@@ -134,7 +134,7 @@ public class PlacementDriverManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         inBusyLock(busyLock, () -> {
             placementDriverNodesNamesProvider.get()
                     .thenCompose(placementDriverNodes -> {
@@ -187,9 +187,9 @@ public class PlacementDriverManager implements IgniteComponent {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -197,6 +197,8 @@ public class PlacementDriverManager implements IgniteComponent {
         withRaftClientIfPresent(TopologyAwareRaftGroupService::shutdown);
 
         leaseUpdater.deactivate();
+
+        return nullCompletedFuture();
     }
 
     private void withRaftClientIfPresent(Consumer<TopologyAwareRaftGroupService> closure) {

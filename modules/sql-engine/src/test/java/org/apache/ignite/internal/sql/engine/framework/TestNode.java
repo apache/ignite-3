@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.framework;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -302,12 +304,12 @@ public class TestNode implements LifecycleAware {
 
         @Override
         public void start() {
-            component.start();
+            assertThat(component.startAsync(), willCompleteSuccessfully());
         }
 
         @Override
-        public void stop() throws Exception {
-            component.stop();
+        public void stop() {
+            assertThat(component.stopAsync(), willCompleteSuccessfully());
         }
     }
 }

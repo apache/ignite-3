@@ -29,6 +29,9 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
@@ -71,7 +74,6 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
@@ -139,20 +141,20 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 metaStorageConfiguration
         );
 
-        clusterService.start();
-        raftManager.start();
-        metaStorageManager.start();
-
-        assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        assertThat(
+                startAsync(clusterService, raftManager, metaStorageManager)
+                        .thenCompose(unused -> metaStorageManager.deployWatches()),
+                willCompleteSuccessfully()
+        );
     }
 
     @AfterEach
     void tearDown() throws Exception {
         List<IgniteComponent> components = List.of(metaStorageManager, raftManager, clusterService);
 
-        IgniteUtils.closeAll(Stream.concat(
+        closeAll(Stream.concat(
                 components.stream().map(c -> c::beforeNodeStop),
-                components.stream().map(c -> c::stop)
+                Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()))
         ));
     }
 
@@ -196,7 +198,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     void testMetaStorageStopClosesRaftService() throws Exception {
         MetaStorageServiceImpl svc = metaStorageManager.metaStorageService().join();
 
-        metaStorageManager.stop();
+        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
 
         CompletableFuture<Entry> fut = svc.get(ByteArray.fromString("ignored"));
 
@@ -205,7 +207,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
     @Test
     void testMetaStorageStopBeforeRaftServiceStarted() throws Exception {
-        metaStorageManager.stop(); // Close MetaStorage that is created in setUp.
+        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully()); // Close MetaStorage that is created in setUp.
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
@@ -224,7 +226,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class)
         );
 
-        metaStorageManager.stop();
+        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
 
         // Unblock the future so raft service can be initialized. Although the future should be cancelled already by the
         // stop method.

@@ -89,7 +89,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
         indexChooser = new FullStateTransferIndexChooser(catalogManager, lowWatermark);
 
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
 
         indexChooser.start();
 
@@ -101,7 +101,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
         closeAllManually(
                 indexChooser,
                 catalogManager::beforeNodeStop,
-                catalogManager::stop
+                () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully())
         );
     }
 

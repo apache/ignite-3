@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -225,12 +227,12 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
          * Starts the created components.
          */
         CompletableFuture<Void> start() {
-            vaultManager.start();
+            assertThat(
+                    startAsync(vaultManager, clusterService, raftManager, cmgManager, metaStorageManager),
+                    willCompleteSuccessfully()
+            );
 
-            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
-                    .forEach(IgniteComponent::start);
-
-            return CompletableFuture.runAsync(distributedCfgManager::start);
+            return CompletableFuture.runAsync(() -> assertThat(distributedCfgManager.startAsync(), willCompleteSuccessfully()));
         }
 
         /**
@@ -243,7 +245,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
         /**
          * Stops the created components.
          */
-        void stop() throws Exception {
+        void stop() {
             var components = List.of(
                     distributedCfgManager,
                     cmgManager,
@@ -257,9 +259,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                 igniteComponent.beforeNodeStop();
             }
 
-            for (IgniteComponent component : components) {
-                component.stop();
-            }
+            assertThat(stopAsync(components), willCompleteSuccessfully());
 
             generator.close();
         }

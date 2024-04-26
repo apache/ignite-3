@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.Cache;
 import org.rocksdb.LRUCache;
 import org.rocksdb.WriteBufferManager;
@@ -62,7 +63,7 @@ public class RocksDbDataRegion {
      * Starts the rocksDb data region.
      */
     public void stop() throws Exception {
-        IgniteUtils.closeAll(writeBufferManager, cache);
+        closeAll(writeBufferManager, cache);
     }
 
     /**

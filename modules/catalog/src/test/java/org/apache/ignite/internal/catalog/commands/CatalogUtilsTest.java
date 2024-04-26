@@ -78,12 +78,12 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
     void setUp() {
         catalogManager = createCatalogManagerWithTestUpdateLog("test", clock);
 
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        catalogManager.stop();
+    void tearDown() {
+        assertThat(catalogManager.stopAsync(), willCompleteSuccessfully());
     }
 
     @Test

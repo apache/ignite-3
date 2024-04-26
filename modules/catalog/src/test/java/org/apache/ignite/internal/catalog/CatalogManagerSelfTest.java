@@ -53,6 +53,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
@@ -237,7 +238,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void testNoInteractionsAfterStop() throws Exception {
+    public void testNoInteractionsAfterStop() {
         clearInvocations(updateLog);
 
         int futureVersion = manager.latestCatalogVersion() + 1;
@@ -245,9 +246,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CompletableFuture<Void> readyFuture = manager.catalogReadyFuture(futureVersion);
         assertFalse(readyFuture.isDone());
 
-        manager.stop();
+        assertThat(manager.stopAsync(), willCompleteSuccessfully());
 
-        verify(updateLog).stop();
+        verify(updateLog).stopAsync();
 
         assertTrue(readyFuture.isDone());
 
@@ -1110,10 +1111,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         ArgumentCaptor<OnUpdateHandler> updateHandlerCapture = ArgumentCaptor.forClass(OnUpdateHandler.class);
 
         doNothing().when(updateLogMock).registerUpdateHandler(updateHandlerCapture.capture());
+        when(updateLogMock.startAsync()).thenReturn(nullCompletedFuture());
         when(updateLogMock.append(any())).thenReturn(CompletableFuture.completedFuture(true));
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
-        await(manager.start());
+        assertThat(manager.startAsync(), willCompleteSuccessfully());
 
         reset(updateLogMock);
 
@@ -1149,7 +1151,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void catalogActivationTime() throws Exception {
+    public void catalogActivationTime() {
         delayDuration.set(TimeUnit.DAYS.toMillis(365));
         reset(updateLog, clockWaiter);
 
@@ -1217,19 +1219,21 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void catalogServiceManagesUpdateLogLifecycle() throws Exception {
+    public void catalogServiceManagesUpdateLogLifecycle() {
         UpdateLog updateLogMock = mock(UpdateLog.class);
+        when(updateLogMock.startAsync()).thenReturn(nullCompletedFuture());
+        when(updateLogMock.stopAsync()).thenReturn(nullCompletedFuture());
         when(updateLogMock.append(any())).thenReturn(CompletableFuture.completedFuture(true));
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
 
-        manager.start();
+        assertThat(manager.startAsync(), willCompleteSuccessfully());
 
-        verify(updateLogMock).start();
+        verify(updateLogMock).startAsync();
 
-        manager.stop();
+        assertThat(manager.stopAsync(), willCompleteSuccessfully());
 
-        verify(updateLogMock).stop();
+        verify(updateLogMock).stopAsync();
     }
 
     @Test
@@ -1719,7 +1723,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void userFutureCompletesAfterClusterWideActivationHappens() throws Exception {
+    public void userFutureCompletesAfterClusterWideActivationHappens() {
         delayDuration.set(TimeUnit.DAYS.toMillis(365));
 
         reset(clockWaiter);
@@ -1741,7 +1745,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     // TODO: remove after IGNITE-20378 is implemented.
     @Test
-    public void userFutureCompletesAfterClusterWideActivationWithAdditionalIdleSafeTimePeriodHappens() throws Exception {
+    public void userFutureCompletesAfterClusterWideActivationWithAdditionalIdleSafeTimePeriodHappens() {
         delayDuration.set(TimeUnit.DAYS.toMillis(365));
         partitionIdleSafeTimePropagationPeriod.set(TimeUnit.DAYS.toDays(365));
 
