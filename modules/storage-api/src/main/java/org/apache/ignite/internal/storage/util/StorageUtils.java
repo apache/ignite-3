@@ -282,7 +282,7 @@ public class StorageUtils {
             throw new InconsistentIndexStateException("Unknown status of not built index: [{}]", storageInfoSupplier.get());
         }
 
-        if (!indexStatus.isAvailableOrLater()) {
+        if (indexStatus.isAvailableOrLater()) {
             throw new InconsistentIndexStateException("Index not built yet, but is already in readable status: [{}, status={}]");
         }
     }

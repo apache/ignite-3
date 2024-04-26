@@ -106,7 +106,6 @@ public interface SortedIndexStorage extends IndexStorage {
      * @throws StorageException If failed to read data.
      * @throws InconsistentIndexStateException If the index is in a readable status, but the index is not built.
      */
-    // TODO: IGNITE-22039 Implement throw an InconsistentIndexStateException if the index is not in a readable status and write tests
     PeekCursor<IndexRow> tolerantScan(
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,

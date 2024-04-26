@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.storage.BaseMvStoragesTest.getOrCreateMvPartition;
 import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -42,6 +43,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.util.Collection;
@@ -175,7 +177,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
         when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
 
-        createCatalogIndexDescriptor(tableId, pkIndexId, PK_INDEX_NAME, pkColumn.type());
+        createCatalogIndexDescriptor(tableId, pkIndexId, PK_INDEX_NAME, true, pkColumn.type());
     }
 
     /**
@@ -206,7 +208,13 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
      */
     protected abstract D indexDescriptor(S index);
 
-    abstract CatalogIndexDescriptor createCatalogIndexDescriptor(int tableId, int indexId, String indexName, ColumnType... columnTypes);
+    abstract CatalogIndexDescriptor createCatalogIndexDescriptor(
+            int tableId,
+            int indexId,
+            String indexName,
+            boolean built,
+            ColumnType... columnTypes
+    );
 
     /**
      * Tests the {@link IndexStorage#get} method.
@@ -467,8 +475,11 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
     }
 
     void addToCatalog(CatalogIndexDescriptor indexDescriptor) {
+        indexDescriptor = spy(indexDescriptor);
+
         when(catalogService.aliveIndex(eq(indexDescriptor.name()), anyLong())).thenReturn(indexDescriptor);
         when(catalogService.index(eq(indexDescriptor.id()), anyInt())).thenReturn(indexDescriptor);
+        when(catalogService.index(eq(indexDescriptor.id()), anyLong())).thenReturn(indexDescriptor);
     }
 
     S createPkIndexStorage() {
@@ -482,9 +493,24 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         );
     }
 
-    /** Completes the building of the index and makes read operations available from it. */
-    void completeBuildIndex(IndexStorage indexStorage) {
+    /** Completes the building of the index in catalog and storage and makes read operations available from it. */
+    void completeBuildIndex(S indexStorage) {
+        completeBuildIndexForStorageOnly(indexStorage);
+        completeBuildIndexInCatalogOnly(indexStorage);
+    }
+
+    /** Completes the building of the index storage only and makes read operations available from it. */
+    void completeBuildIndexForStorageOnly(S indexStorage) {
         TestStorageUtils.completeBuiltIndexes(partitionStorage, indexStorage);
+    }
+
+    /** Completes the building of the index in catalog only. */
+    void completeBuildIndexInCatalogOnly(S indexStorage) {
+        int indexId = indexDescriptor(indexStorage).id();
+
+        CatalogIndexDescriptor catalogIndexDescriptor = catalogService.index(indexId, clock.nowLong());
+
+        when(catalogIndexDescriptor.status()).thenReturn(AVAILABLE);
     }
 
     static IndexRow createIndexRow(BinaryTupleRowSerializer serializer, Object... values) {
