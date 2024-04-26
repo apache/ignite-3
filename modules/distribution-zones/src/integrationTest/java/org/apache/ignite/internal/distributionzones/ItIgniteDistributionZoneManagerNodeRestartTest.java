@@ -301,7 +301,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
 
         for (IgniteComponent component : otherComponents) {
-            // TODO: had to start without waiting as the test otherwise fails with timeout.
+            // TODO: IGNITE-22119 required to be able to wait on this future.
             component.startAsync();
 
             components.add(component);

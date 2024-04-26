@@ -698,8 +698,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         for (IgniteComponent component : otherComponents) {
-            // TODO: Had to remove `willCompleteSuccessfully()` here
-            //  as it was breaking tests like `tableRecoveryOnMultipleRestartingNodes()`
+            // TODO: IGNITE-22119 required to be able to wait on this future.
             component.startAsync();
 
             components.add(component);
