@@ -742,12 +742,7 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<R> fut = primaryReplicaFuture.thenCompose(primaryReplica -> {
             try {
-                ClusterNode node = clusterNodeResolver.getByConsistentId(primaryReplica.getLeaseholder());
-
-                if (node == null) {
-                    throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node [consistentId="
-                            + primaryReplica.getLeaseholder() + ']');
-                }
+                ClusterNode node = getClusterNode(primaryReplica.getLeaseholder());
 
                 return replicaSvc.invoke(node, op.apply(tablePartitionId, primaryReplica.getStartTime().longValue()));
             } catch (Throwable e) {
@@ -793,14 +788,10 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<R> fut = primaryReplicaFuture.thenCompose(primaryReplica -> {
             try {
-                ClusterNode node = clusterNodeResolver.getByConsistentId(primaryReplica.getLeaseholder());
-
-                if (node == null) {
-                    throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node [consistentId="
-                            + primaryReplica.getLeaseholder() + ']');
-                }
-
-                return replicaSvc.invoke(node, op.apply(tablePartitionId, primaryReplica.getStartTime().longValue()));
+                return replicaSvc.invoke(
+                        getClusterNode(primaryReplica.getLeaseholder()),
+                        op.apply(tablePartitionId, primaryReplica.getStartTime().longValue())
+                );
             } catch (Throwable e) {
                 throw new TransactionException(
                         INTERNAL_ERR,
@@ -1846,10 +1837,26 @@ public class InternalTableImpl implements InternalTable {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
         tx.assignCommitPartition(tablePartitionId);
 
+        return partitionMeta(tablePartitionId).thenApply(meta -> {
+            TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
+
+            return tx.enlist(partGroupId, new IgniteBiTuple<>(
+                    getClusterNode(meta.getLeaseholder()),
+                    meta.getStartTime().longValue())
+            );
+        });
+    }
+
+    @Override
+    public CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId partition) {
+        return partitionMeta(partition).thenApply(meta -> getClusterNode(meta.getLeaseholder()));
+    }
+
+    private CompletableFuture<ReplicaMeta> partitionMeta(ReplicationGroupId partition) {
         HybridTimestamp now = clock.now();
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
-                tablePartitionId,
+                partition,
                 now,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -1858,20 +1865,22 @@ public class InternalTableImpl implements InternalTable {
         return primaryReplicaFuture.handle((primaryReplica, e) -> {
             if (e != null) {
                 throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
-                        + " [tablePartitionId=" + tablePartitionId + ", awaitTimestamp=" + now + ']', e);
+                        + " [tablePartitionId=" + partition + ", awaitTimestamp=" + now + ']', e);
             }
 
-            ClusterNode node = clusterNodeResolver.getByConsistentId(primaryReplica.getLeaseholder());
-
-            if (node == null) {
-                throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node [consistentId="
-                        + primaryReplica.getLeaseholder() + ']');
-            }
-
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
-
-            return tx.enlist(partGroupId, new IgniteBiTuple<>(node, primaryReplica.getStartTime().longValue()));
+            return primaryReplica;
         });
+    }
+
+    private ClusterNode getClusterNode(String leaserHolder) {
+        ClusterNode node = clusterNodeResolver.getByConsistentId(leaserHolder);
+
+        if (node == null) {
+            throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node [consistentId="
+                    + leaserHolder + ']');
+        }
+
+        return node;
     }
 
     /**
@@ -2124,7 +2133,7 @@ public class InternalTableImpl implements InternalTable {
                         if (res == null) {
                             throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
                         } else {
-                            return clusterNodeResolver.getByConsistentId(res.getLeaseholder());
+                            return getClusterNode(res.getLeaseholder());
                         }
                     }
                 });

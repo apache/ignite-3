@@ -44,6 +44,7 @@ import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.partition.HashPartitionManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
@@ -51,6 +52,8 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.HashPartition;
+import org.apache.ignite.table.partition.PartitionManager;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -141,6 +144,11 @@ public class TableImpl implements TableViewInternal {
         return tbl;
     }
 
+    @Override
+    public PartitionManager<HashPartition> partitionManager() {
+        return new HashPartitionManagerImpl(tbl, schemaReg, marshallers);
+    }
+
     @Override public String name() {
         return tbl.name();
     }
@@ -166,7 +174,7 @@ public class TableImpl implements TableViewInternal {
 
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
-        return new RecordViewImpl<R>(tbl, schemaReg, schemaVersions, sql, marshallers, recMapper);
+        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, sql, marshallers, recMapper);
     }
 
     @Override
