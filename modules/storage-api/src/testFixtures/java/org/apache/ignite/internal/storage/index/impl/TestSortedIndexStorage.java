@@ -40,13 +40,13 @@ import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Test implementation of MV sorted index storage.
  */
-// TODO: IGNITE-22039 реализовать
 public class TestSortedIndexStorage extends AbstractTestIndexStorage implements SortedIndexStorage {
     private final NavigableSet<IndexRow> index;
 
@@ -220,6 +220,8 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
 
         if (onlyBuiltIndex) {
             throwExceptionIfIndexIsNotBuilt();
+        } else {
+            throwExceptionIfIndexIsNotBuiltInReadableStatus();
         }
 
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
@@ -258,5 +260,13 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
         pendingCursors.incrementAndGet();
 
         return new ScanCursor(navigableSet);
+    }
+
+    private void throwExceptionIfIndexIsNotBuiltInReadableStatus() {
+        StorageUtils.throwExceptionIfIndexIsNotBuiltInReadableStatus(
+                nextRowIdToBuild,
+                () -> indexStatusSupplier.get(indexId),
+                this::createStorageInfo
+        );
     }
 }

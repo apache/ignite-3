@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.util;
 
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.storage.RowId;
@@ -26,7 +27,9 @@ import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
+import org.apache.ignite.internal.storage.index.InconsistentIndexStateException;
 import org.apache.ignite.internal.storage.index.IndexNotBuiltException;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -253,4 +256,35 @@ public class StorageUtils {
             throw new IndexNotBuiltException("Index not built yet: [{}]", storageInfoSupplier.get());
         }
     }
+
+    /**
+     * Throws an {@link InconsistentIndexStateException} if the index has not yet been built and the index status is either unknown or
+     * readable.
+     *
+     * @param nextRowIdToBuild Next row ID to build, {@code null} if the index is built.
+     * @param indexStatusSupplier Index status supplier, return {@code null} if the status is unknown, for example the index is
+     *         destroyed.
+     * @param storageInfoSupplier Storage information supplier, for example in the format "indexId=5, partitionId=1".
+     * @see IndexStorage#getNextRowIdToBuild()
+     */
+    public static void throwExceptionIfIndexIsNotBuiltInReadableStatus(
+            @Nullable RowId nextRowIdToBuild,
+            Supplier<@Nullable CatalogIndexStatus> indexStatusSupplier,
+            Supplier<String> storageInfoSupplier
+    ) {
+        if (nextRowIdToBuild == null) {
+            return;
+        }
+
+        CatalogIndexStatus indexStatus = indexStatusSupplier.get();
+
+        if (indexStatus == null) {
+            throw new InconsistentIndexStateException("Unknown status of not built index: [{}]", storageInfoSupplier.get());
+        }
+
+        if (!indexStatus.isAvailableOrLater()) {
+            throw new InconsistentIndexStateException("Index not built yet, but is already in readable status: [{}, status={}]");
+        }
+    }
+
 }

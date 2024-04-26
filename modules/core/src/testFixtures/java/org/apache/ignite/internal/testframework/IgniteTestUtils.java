@@ -43,6 +43,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -62,10 +63,12 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.hamcrest.CustomMatcher;
 import org.jetbrains.annotations.Nullable;
@@ -995,5 +998,21 @@ public final class IgniteTestUtils {
         public boolean matches(Object o) {
             return predicate.test((DataT) o);
         }
+    }
+
+    /**
+     * Stops all components, unlike {@link IgniteUtils#stopAll(IgniteComponent...)}, at the beginning it
+     * {@link IgniteComponent#beforeNodeStop()} and then {@link IgniteComponent#stop()} for all components.
+     *
+     * @param components Components to stop, may contain {@code null}.
+     * @throws Exception If failed to stop.
+     */
+    public static void stopAll(IgniteComponent... components) throws Exception {
+        IgniteUtils.closeAll(
+                () -> IgniteUtils.closeAll(
+                        Stream.of(components).filter(Objects::nonNull).map(component -> component::beforeNodeStop)
+                ),
+                () -> IgniteUtils.stopAll(components)
+        );
     }
 }

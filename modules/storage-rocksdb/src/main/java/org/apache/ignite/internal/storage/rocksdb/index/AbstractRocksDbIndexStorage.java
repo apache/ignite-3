@@ -80,7 +80,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     protected final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /** Row ID for which the index needs to be built, {@code null} means that the index building has completed. */
-    private volatile @Nullable RowId nextRowIdToBuild;
+    volatile @Nullable RowId nextRowIdToBuild;
 
     AbstractRocksDbIndexStorage(int tableId, int indexId, int partitionId, RocksDbMetaStorage indexMetaStorage, boolean pk) {
         this.tableId = tableId;

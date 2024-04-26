@@ -82,13 +82,12 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
     protected volatile TreeT indexTree;
 
     /** Row ID for which the index needs to be built, {@code null} means that the index building has completed. */
-    private volatile @Nullable RowId nextRowIdToBuild;
+    protected volatile @Nullable RowId nextRowIdToBuild;
 
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Index ID. */
-    private final int indexId;
+    protected final int indexId;
 
     private final boolean isVolatile;
 

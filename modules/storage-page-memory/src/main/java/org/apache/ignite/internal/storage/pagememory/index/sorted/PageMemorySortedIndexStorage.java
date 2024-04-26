@@ -41,13 +41,13 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
+import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of Sorted index storage using Page Memory.
  */
-// TODO: IGNITE-22039 реализовать
 public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage<SortedIndexRowKey, SortedIndexRow, SortedIndexTree>
         implements SortedIndexStorage {
     /**
@@ -249,6 +249,8 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
             if (onlyBuiltIndex) {
                 throwExceptionIfIndexIsNotBuilt();
+            } else {
+                throwExceptionIfIndexIsNotBuiltInReadableStatus();
             }
 
             boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
@@ -308,5 +310,13 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
         public void close() {
             treeCursor.close();
         }
+    }
+
+    private void throwExceptionIfIndexIsNotBuiltInReadableStatus() {
+        StorageUtils.throwExceptionIfIndexIsNotBuiltInReadableStatus(
+                nextRowIdToBuild,
+                () -> indexStatusSupplier.get(indexId),
+                this::createStorageInfo
+        );
     }
 }

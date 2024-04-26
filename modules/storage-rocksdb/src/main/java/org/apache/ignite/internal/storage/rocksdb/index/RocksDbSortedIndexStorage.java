@@ -42,6 +42,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
+import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ReadOptions;
@@ -65,7 +66,6 @@ import org.rocksdb.WriteBatchWithIndex;
  *
  * <p>We use an empty array as values, because all required information can be extracted from the key.
  */
-// TODO: IGNITE-22039 реализовать
 public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage implements SortedIndexStorage {
     private final StorageSortedIndexDescriptor descriptor;
 
@@ -349,6 +349,8 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
 
             if (onlyBuiltIndex) {
                 throwExceptionIfIndexNotBuilt();
+            } else {
+                throwExceptionIfIndexIsNotBuiltInReadableStatus();
             }
 
             boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
@@ -356,5 +358,13 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
 
             return scan(lowerBound, upperBound, includeLower, includeUpper, this::decodeRow);
         });
+    }
+
+    private void throwExceptionIfIndexIsNotBuiltInReadableStatus() {
+        StorageUtils.throwExceptionIfIndexIsNotBuiltInReadableStatus(
+                nextRowIdToBuild,
+                () -> indexStatusSupplier.get(indexId),
+                this::createStorageInfo
+        );
     }
 }

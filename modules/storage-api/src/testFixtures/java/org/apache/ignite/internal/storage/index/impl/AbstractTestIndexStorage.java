@@ -40,13 +40,13 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
     private volatile boolean rebalance;
 
-    private volatile @Nullable RowId nextRowIdToBuild;
+    volatile @Nullable RowId nextRowIdToBuild;
 
     protected final int partitionId;
 
     private final boolean pk;
 
-    private final int indexId;
+    protected final int indexId;
 
     /** Amount of cursors that opened and still do not close. */
     protected final AtomicInteger pendingCursors = new AtomicInteger();
@@ -190,7 +190,7 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
         }
     }
 
-    private String createStorageInfo() {
+    String createStorageInfo() {
         return IgniteStringFormatter.format("indexId={}, partitionId={}", indexId, partitionId);
     }
 
