@@ -62,6 +62,7 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.tx.TransactionMeta;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
@@ -608,12 +609,20 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         assertThat(commitFut, willCompleteSuccessfully());
 
+        log.info("Test: commit completed.");
+
         Transaction roTxAfter = beginReadOnlyTx(anyNode());
 
-        waitForCondition(() -> volatileTxState(commitPartitionLeaseholder, txId) != null, 10_000);
+        waitForCondition(() -> {
+            TxStateMeta txStateMeta = (TxStateMeta) volatileTxState(commitPartitionLeaseholder, txId);
+
+            return txStateMeta != null && txStateMeta.cleanupCompletionTimestamp() != null;
+        }, 10_000);
+
+        log.info("Test: cleanup completed.");
 
         triggerVacuum();
-        assertTxStateVacuumized(txId, commitPartId, false);
+        assertTxStateVacuumized(txId, commitPartId, true);
 
         // Trying to read the data.
         Tuple key = Tuple.create().set("key", tuple.longValue("key"));
@@ -678,14 +687,14 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         tx0.commitAsync();
 
-        assertThat(cleanupStarted, willCompleteSuccessfully());
-
         // Check that the final tx state COMMITTED is saved to the persistent tx storage.
         assertTrue(waitForCondition(() -> cluster.runningNodes().filter(n -> commitPartitionNodes.contains(n.name())).allMatch(n -> {
             TransactionMeta meta = persistentTxState(n, txId0, commitPartId);
 
             return meta != null && meta.txState() == COMMITTED;
         }), 10_000));
+
+        assertThat(cleanupStarted, willCompleteSuccessfully());
 
         // Stop the first transaction coordinator.
         stopNode(coord0.name());
@@ -924,7 +933,13 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         boolean result = txStateIsAbsent(nodeConsistentIds, txId, tableName, partId, checkPersistent, true);
 
         if (!result) {
-            logCurrentTxState(nodeConsistentIds, txId, tableName, partId);
+            triggerVacuum();
+
+            result = txStateIsAbsent(nodeConsistentIds, txId, tableName, partId, checkPersistent, true);
+
+            if (!result) {
+                logCurrentTxState(nodeConsistentIds, txId, tableName, partId);
+            }
         }
 
         assertTrue(result);
