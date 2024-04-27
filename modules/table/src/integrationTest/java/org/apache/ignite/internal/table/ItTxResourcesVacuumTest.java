@@ -356,6 +356,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      * </ul>
      */
     @Test
+    @WithSystemProperty(key = RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "0")
     public void testVacuumWithCleanupDelay() throws InterruptedException {
         IgniteImpl node = anyNode();
 
@@ -428,8 +429,10 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Transaction roTxAfter = beginReadOnlyTx(anyNode());
 
+        waitForCondition(() -> volatileTxState(commitPartitionLeaseholder, txId) != null, 10_000);
+
         triggerVacuum();
-        waitForTxStateVacuum(txId, commitPartId, true, 10_000);
+        assertTxStateVacuumized(txId, commitPartId, true);
 
         // Trying to read the values.
         Tuple key0 = Tuple.create().set("key", tuple0.longValue("key"));
@@ -542,6 +545,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      * </ul>
      */
     @Test
+    @WithSystemProperty(key = RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "0")
     public void testVacuumPersistentStateAfterCleanupDelayAndVolatileStateVacuum() throws InterruptedException {
         IgniteImpl node = anyNode();
 
@@ -606,8 +610,10 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Transaction roTxAfter = beginReadOnlyTx(anyNode());
 
+        waitForCondition(() -> volatileTxState(commitPartitionLeaseholder, txId) != null, 10_000);
+
         triggerVacuum();
-        waitForTxStateVacuum(txId, commitPartId, true, 10_000);
+        assertTxStateVacuumized(txId, commitPartId, false);
 
         // Trying to read the data.
         Tuple key = Tuple.create().set("key", tuple.longValue("key"));
