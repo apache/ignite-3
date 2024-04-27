@@ -429,7 +429,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         Transaction roTxAfter = beginReadOnlyTx(anyNode());
 
         triggerVacuum();
-        assertTxStateVacuumized(txId, commitPartId, true);
+        waitForTxStateVacuum(txId, commitPartId, true, 10_000);
 
         // Trying to read the values.
         Tuple key0 = Tuple.create().set("key", tuple0.longValue("key"));
@@ -588,6 +588,8 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         CompletableFuture<Void> commitFut = tx.commitAsync();
 
+        waitForTxStateReplication(commitPartNodes, txId, commitPartId, 10_000);
+
         assertThat(cleanupStarted, willCompleteSuccessfully());
 
         // Wait for volatile tx state vacuum. This is possible because tx finish is complete.
@@ -605,7 +607,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         Transaction roTxAfter = beginReadOnlyTx(anyNode());
 
         triggerVacuum();
-        assertTxStateVacuumized(txId, commitPartId, true);
+        waitForTxStateVacuum(txId, commitPartId, true, 10_000);
 
         // Trying to read the data.
         Tuple key = Tuple.create().set("key", tuple.longValue("key"));
@@ -758,7 +760,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         triggerVacuum();
 
         assertTxStateVacuumized(rwTxId1, tableName, partitionIdForTuple(node, tableName, t1, rwTx1), true);
-        assertTxStateVacuumized(rwTxId2, tableName, partitionIdForTuple(node, tableName, t1, rwTx2), true);
+        assertTxStateVacuumized(rwTxId2, tableName, partitionIdForTuple(node, tableName, t2, rwTx2), true);
 
         Tuple keyRec = Tuple.create().set("key", 1L);
 
@@ -803,8 +805,8 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         runningNodes().forEach(node -> {
             log.info("Test: triggering vacuum manually on node: " + node.name());
 
-            CompletableFuture<Void> vacuum1 = node.txManager().vacuum();
-            assertThat(vacuum1, willCompleteSuccessfully());
+            CompletableFuture<Void> vacuumFut = node.txManager().vacuum();
+            assertThat(vacuumFut, willCompleteSuccessfully());
         });
     }
 
