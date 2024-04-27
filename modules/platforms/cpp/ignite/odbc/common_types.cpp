@@ -228,7 +228,6 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::STORAGE_REBALANCE:
         case error::code::ALREADY_DESTROYED:
         case error::code::INDEX_NOT_BUILT:
-        case error::code::INCONSISTENT_INDEX_STATE:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // DistributionZones group. Group code: 10
