@@ -441,8 +441,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         markFinished(txId, cmd.commit(), cmd.commitTimestamp(), null);
 
-        LOG.info("qqq switching wi-s commit={} txId={}", cmd.commit(), cmd.txId());
-
         storageUpdateHandler.switchWriteIntents(
                 txId,
                 cmd.commit(),

@@ -1871,8 +1871,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .requiredCatalogVersion(catalogVersion)
                 .build();
 
-        LOG.info("qqq switching wi-s for commit={}, tx={}", commit, transactionId);
-
         storageUpdateHandler.switchWriteIntents(
                 transactionId,
                 commit,
@@ -3696,16 +3694,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
             return txManager.executeWriteIntentSwitchAsync(() -> inBusyLock(busyLock,
-                    () -> {
-                        LOG.info("qqq switching wi-s async for commit={}, tx={}", txState == COMMITTED, txId);
-
-                        storageUpdateHandler.switchWriteIntents(
-                                txId,
-                                txState == COMMITTED,
-                                commitTimestamp,
-                                indexIdsAtRwTxBeginTs(txId)
-                        );
-                    }
+                   () -> storageUpdateHandler.switchWriteIntents(
+                           txId,
+                           txState == COMMITTED,
+                           commitTimestamp,
+                           indexIdsAtRwTxBeginTs(txId)
+                   )
             )).whenComplete((unused, e) -> {
                 if (e != null) {
                     LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
