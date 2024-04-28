@@ -17,19 +17,18 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
-
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.Cache;
 import org.rocksdb.LRUCache;
 import org.rocksdb.WriteBufferManager;
 
 /**
- * Data region implementation for {@link RocksDbStorageEngine}. Based on a {@link Cache}.
+ * Storage profile implementation for {@link RocksDbStorageEngine}. Based on a {@link Cache}.
  */
-public class RocksDbDataRegion {
-    /** Region configuration view. */
-    private final RocksDbProfileView storageProfileView;
+public class RocksDbStorageProfile {
+    /** Profile configuration view. */
+    private final RocksDbProfileView storageProfileConfig;
 
     /** RocksDB cache instance. */
     private Cache cache;
@@ -40,34 +39,34 @@ public class RocksDbDataRegion {
     /**
      * Constructor.
      *
-     * @param storageProfileView Storage profile configuration view.
+     * @param storageProfileConfig Storage profile configuration view.
      */
-    public RocksDbDataRegion(RocksDbProfileView storageProfileView) {
-        this.storageProfileView = storageProfileView;
+    public RocksDbStorageProfile(RocksDbProfileView storageProfileConfig) {
+        this.storageProfileConfig = storageProfileConfig;
     }
 
     /**
-     * Start the rocksDb data region.
+     * Start the profile.
      */
     public void start() {
-        long writeBufferSize = storageProfileView.writeBufferSize();
+        long writeBufferSize = storageProfileConfig.writeBufferSize();
 
-        long totalCacheSize = storageProfileView.size() + writeBufferSize;
+        long totalCacheSize = storageProfileConfig.size() + writeBufferSize;
 
-        cache = new LRUCache(totalCacheSize, storageProfileView.numShardBits(), false);
+        cache = new LRUCache(totalCacheSize, storageProfileConfig.numShardBits(), false);
 
         writeBufferManager = new WriteBufferManager(writeBufferSize, cache);
     }
 
     /**
-     * Starts the rocksDb data region.
+     * Closes and frees resources associated with this profile.
      */
     public void stop() throws Exception {
-        closeAll(writeBufferManager, cache);
+        IgniteUtils.closeAll(writeBufferManager, cache);
     }
 
     /**
-     * Returns write buffer manager associated with the region.
+     * Returns write buffer manager associated with the profile.
      */
     public WriteBufferManager writeBufferManager() {
         return writeBufferManager;
