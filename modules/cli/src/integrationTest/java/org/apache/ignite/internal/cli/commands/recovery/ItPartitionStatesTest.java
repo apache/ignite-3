@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAMES_OPTION;
 
+import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
@@ -37,9 +38,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class ItPartitionStatesTest extends CliIntegrationTest {
     private static final int DEFAULT_PARTITION_COUNT = 25;
 
-    private static final Set<String> FILLED_ZONES = Set.of("first_zone", "second_zone", "third_zone");
+    private static final Set<String> ZONES = Set.of("first_zone", "second_zone", "third_zone");
 
-    private static final Set<String> TABLE_NAMES = FILLED_ZONES.stream().map(it -> it + "_table").collect(toSet());
+    private static final Set<String> MIXED_ZONES = Set.of("mixed_case_zone", "MIXED_CASE_ZONE");
+
+    private static final Set<String> ALL_ZONES = new HashSet<>(CollectionUtils.concat(ZONES, MIXED_ZONES));
 
     private static final Set<String> STATES = Set.of("HEALTHY", "AVAILABLE");
 
@@ -47,12 +50,12 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
 
     @BeforeAll
     public static void createTables() {
-        FILLED_ZONES.forEach(name -> {
-            sql(String.format("CREATE ZONE %s WITH storage_profiles='%s'", name, DEFAULT_AIPERSIST_PROFILE_NAME));
-            sql("CREATE TABLE " + name + "_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = '" + name.toUpperCase() + "'");
+        ALL_ZONES.forEach(name -> {
+            sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", name, DEFAULT_AIPERSIST_PROFILE_NAME));
+            sql("CREATE TABLE \"" + name + "_table\" (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = '" + name + "'");
         });
 
-        sql("CREATE ZONE empty_zone WITH storage_profiles='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'");
+        sql("CREATE ZONE \"empty_zone\" WITH storage_profiles='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'");
 
         nodeNames = CLUSTER.runningNodes().map(IgniteImpl::name).collect(toSet());
     }
@@ -69,18 +72,15 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
             assertOutputContains(String.valueOf(i));
         }
 
-        checkOutput(global, FILLED_ZONES, TABLE_NAMES, nodeNames);
+        checkOutput(global, ALL_ZONES, nodeNames);
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void testPartitionStatesByZones(boolean global) {
-        Set<String> zoneNames = FILLED_ZONES.stream().sorted().limit(2).collect(toSet());
-        Set<String> tableNames = TABLE_NAMES.stream().sorted().limit(2).collect(toSet());
-
         execute("recovery", "partition-states",
                 CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_ZONE_NAMES_OPTION, String.join(",", zoneNames),
+                RECOVERY_ZONE_NAMES_OPTION, String.join(",", ZONES),
                 global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_LOCAL_OPTION
         );
 
@@ -92,7 +92,19 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
             assertOutputContains(String.valueOf(i));
         }
 
-        checkOutput(global, zoneNames, tableNames, nodeNames);
+        checkOutput(global, ZONES, nodeNames);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testPartitionStatesZonesMixedCase(boolean global) {
+        execute("recovery", "partition-states",
+                CLUSTER_URL_OPTION, NODE_URL,
+                RECOVERY_ZONE_NAMES_OPTION, String.join(",", MIXED_ZONES),
+                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_LOCAL_OPTION
+        );
+
+        checkOutput(global, MIXED_ZONES, nodeNames);
     }
 
     @ParameterizedTest
@@ -136,7 +148,7 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
                 RECOVERY_NODE_NAMES_OPTION, unknownNode,
                 RECOVERY_LOCAL_OPTION);
 
-        assertErrOutputContains("Some nodes are missing: [UNKNOWN_NODE]");
+        assertErrOutputContains("Some nodes are missing: [unknown_node]");
 
         assertOutputIsEmpty();
     }
@@ -151,10 +163,10 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
                 global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_LOCAL_OPTION
         );
 
-        checkOutput(global, Set.of(), Set.of(), Set.of());
+        checkOutput(global, Set.of(), Set.of());
     }
 
-    private void checkOutput(boolean global, Set<String> zoneNames, Set<String> tableNames, Set<String> nodes) {
+    private void checkOutput(boolean global, Set<String> zoneNames, Set<String> nodes) {
         assertErrOutputIsEmpty();
 
         if (global) {
@@ -178,15 +190,15 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
         assertOutputContains("Partition ID");
         assertOutputContains("State");
 
-        if (!tableNames.isEmpty()) {
+        if (!zoneNames.isEmpty()) {
+            assertOutputContainsAllIgnoringCase(zoneNames);
+
+            Set<String> tableNames = zoneNames.stream().map(it -> it + "_table").collect(toSet());
+
             assertOutputContainsAllIgnoringCase(tableNames);
         }
 
-        if (!zoneNames.isEmpty()) {
-            assertOutputContainsAllIgnoringCase(zoneNames);
-        }
-
-        Set<String> anotherZones = CollectionUtils.difference(FILLED_ZONES, zoneNames);
+        Set<String> anotherZones = CollectionUtils.difference(ZONES, zoneNames);
 
         if (!anotherZones.isEmpty()) {
             assertOutputDoesNotContainIgnoreCase(anotherZones);
