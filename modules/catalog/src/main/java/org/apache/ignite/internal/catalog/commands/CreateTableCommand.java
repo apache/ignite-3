@@ -109,9 +109,16 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, tableName);
 
-        CatalogZoneDescriptor zone = zoneName == null
-                ? catalog.defaultZone()
-                : zoneOrThrow(catalog, zoneName);
+        CatalogZoneDescriptor zone;
+        if (zoneName == null) {
+            if (catalog.defaultZone() == null) {
+                throw new CatalogValidationException("The zone is not specified. Please specify zone explicitly or set default one.");
+            }
+
+            zone = catalog.defaultZone();
+        } else {
+            zone = zoneOrThrow(catalog, zoneName);
+        }
 
         if (storageProfile == null) {
             storageProfile = zone.storageProfiles().defaultProfile().storageProfile();

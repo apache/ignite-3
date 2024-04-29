@@ -64,7 +64,7 @@ public class Catalog {
     private final long activationTimestamp;
     private final Map<String, CatalogSchemaDescriptor> schemasByName;
     private final Map<String, CatalogZoneDescriptor> zonesByName;
-    private final CatalogZoneDescriptor defaultZone;
+    private final @Nullable CatalogZoneDescriptor defaultZone;
 
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogSchemaDescriptor> schemasById;
@@ -98,7 +98,7 @@ public class Catalog {
             int objectIdGen,
             Collection<CatalogZoneDescriptor> zones,
             Collection<CatalogSchemaDescriptor> schemas,
-            int defaultZoneId
+            @Nullable Integer defaultZoneId
     ) {
         this.version = version;
         this.activationTimestamp = activationTimestamp;
@@ -115,10 +115,15 @@ public class Catalog {
         indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes())).collect(toMapById());
         indexesByTableId = unmodifiable(toIndexesByTableId(schemas));
         zonesById = zones.stream().collect(toMapById());
-        defaultZone = zonesById.get(defaultZoneId);
 
-        if (defaultZone == null) {
-            throw new IllegalStateException("The default zone was not found among the provided zones [id=" + defaultZoneId + ']');
+        if (defaultZoneId != null) {
+            defaultZone = zonesById.get((int) defaultZoneId);
+
+            if (defaultZone == null) {
+                throw new IllegalStateException("The default zone was not found among the provided zones [id=" + defaultZoneId + ']');
+            }
+        } else {
+            defaultZone = null;
         }
     }
 
@@ -178,7 +183,7 @@ public class Catalog {
         return zonesByName.values();
     }
 
-    public CatalogZoneDescriptor defaultZone() {
+    public @Nullable CatalogZoneDescriptor defaultZone() {
         return defaultZone;
     }
 

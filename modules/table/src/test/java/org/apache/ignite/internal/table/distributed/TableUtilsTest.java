@@ -62,7 +62,7 @@ import org.junit.jupiter.api.Test;
 public class TableUtilsTest extends IgniteAbstractTest {
     private final HybridClock clock = new HybridClockImpl();
 
-    private final CatalogManager catalogManager = CatalogTestUtils.createTestCatalogManager("test-node", clock);
+    private final CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test-node", clock);
 
     @BeforeEach
     void setUp() {
