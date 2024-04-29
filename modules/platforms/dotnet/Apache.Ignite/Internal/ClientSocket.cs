@@ -353,7 +353,18 @@ namespace Apache.Ignite.Internal
             var idleTimeoutMs = reader.ReadInt64();
             var clusterNodeId = reader.ReadString();
             var clusterNodeName = reader.ReadString();
+
             var clusterId = reader.ReadGuid();
+            var clusterName = reader.ReadString();
+
+            var observableTimestamp = reader.ReadInt64();
+
+            // Cluster version.
+            reader.Skip(); // Major.
+            reader.Skip(); // Minor.
+            reader.Skip(); // Maintenance.
+            reader.Skip(); // Patch.
+            reader.Skip(); // Pre-release.
 
             reader.Skip(); // Features.
             reader.Skip(); // Extensions.
