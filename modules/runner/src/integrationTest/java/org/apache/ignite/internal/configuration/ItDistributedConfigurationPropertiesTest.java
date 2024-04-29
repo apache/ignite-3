@@ -60,7 +60,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -156,7 +156,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-            raftManager = new Loza(clusterService, new MetricManager(), raftConfiguration, workDir, clock, raftGroupEventsClientListener);
+            raftManager = new Loza(clusterService, new NoOpMetricManager(), raftConfiguration, workDir, clock, raftGroupEventsClientListener);
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);

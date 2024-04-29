@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metrics.sources;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.Metric;
@@ -86,8 +87,8 @@ public class RaftMetricSource implements MetricSource {
                 new DistributionMetric(
                         "jraft-fsmcaller-disruptor.stripes.histogram",
                         "Distribution tasks by stripes in disruptor",
-                        LongStream.range(0, stripeCount - 1).toArray(),
-                        Arrays::toString
+                        LongStream.range(0, stripeCount).toArray(),
+                        toStringStripesHistogram()
                 ));
 
         // jraft-nodeimpl-disruptor
@@ -102,8 +103,8 @@ public class RaftMetricSource implements MetricSource {
                 new DistributionMetric(
                         "jraft-nodeimpl-disruptor.stripes.histogram",
                         "Distribution tasks by stripes in disruptor",
-                        LongStream.range(0, stripeCount - 1).toArray(),
-                        Arrays::toString
+                        LongStream.range(0, stripeCount).toArray(),
+                        toStringStripesHistogram()
                 ));
 
         // jraft-readonlyservice-disruptor
@@ -118,8 +119,8 @@ public class RaftMetricSource implements MetricSource {
                 new DistributionMetric(
                         "jraft-readonlyservice-disruptor.stripes.histogram",
                         "Distribution tasks by stripes in disruptor",
-                        LongStream.range(0, stripeCount - 1).toArray(),
-                        Arrays::toString
+                        LongStream.range(0, stripeCount).toArray(),
+                        toStringStripesHistogram()
                 ));
 
         // jraft-logmanager-disruptor
@@ -134,9 +135,20 @@ public class RaftMetricSource implements MetricSource {
                 new DistributionMetric(
                         "jraft-logmanager-disruptor.stripes.histogram",
                         "Distribution tasks by stripes in disruptor",
-                        LongStream.range(0, logStripeCount - 1).toArray(),
-                        Arrays::toString
+                        LongStream.range(0, logStripeCount).toArray(),
+                        toStringStripesHistogram()
                 ));
+    }
+
+    /**
+     * Represents the stripes histogram as a string.
+     *
+     * @return String representation of histogram metrics.
+     */
+    @NotNull
+    private Function<long[], String> toStringStripesHistogram() {
+        return longs -> Arrays.stream(longs, 0, longs.length - 1).mapToObj(String::valueOf)
+                .collect(Collectors.joining(", "));
     }
 
     /**

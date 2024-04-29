@@ -142,6 +142,7 @@ public class Loza implements RaftManager {
      * The constructor.
      *
      * @param clusterNetSvc Cluster network service.
+     * @param metricManager Metric manager.
      * @param raftConfiguration Raft configuration.
      * @param dataPath Data path.
      * @param clock A hybrid logical clock.
@@ -149,13 +150,14 @@ public class Loza implements RaftManager {
     @TestOnly
     public Loza(
             ClusterService clusterNetSvc,
+            MetricManager metricManager,
             RaftConfiguration raftConfiguration,
             Path dataPath,
             HybridClock clock
     ) {
         this(
                 clusterNetSvc,
-                new MetricManager(),
+                metricManager,
                 raftConfiguration,
                 dataPath,
                 clock,

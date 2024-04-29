@@ -74,7 +74,7 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -135,7 +135,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             var raftManager = new Loza(
                     clusterService,
-                    new MetricManager(),
+                    new NoOpMetricManager(),
                     raftConfiguration,
                     basePath.resolve("raft"),
                     clock,

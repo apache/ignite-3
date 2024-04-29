@@ -67,6 +67,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-metastorage'))
     integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
     integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
+    integrationTestImplementation testFixtures(project(':ignite-metrics:'))
 
     testFixturesImplementation project(':ignite-cluster-management')
     testFixturesImplementation project(':ignite-core')

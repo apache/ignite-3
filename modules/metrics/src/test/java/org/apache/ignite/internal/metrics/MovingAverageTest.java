@@ -33,21 +33,21 @@ public class MovingAverageTest extends AbstractDoubleMetricTest {
 
         addValue(avg);
 
-        ((MovingAverageMetric) metric).add(avg);
+        ((SimpleMovingAverage) metric).add(avg);
     }
 
     @Override
     protected void decrement0(DoubleMetric metric) {
         addValue(0);
 
-        ((MovingAverageMetric) metric).add(0);
+        ((SimpleMovingAverage) metric).add(0);
     }
 
     @Override
     protected void add0(DoubleMetric metric, double value) {
         addValue(value);
 
-        ((MovingAverageMetric) metric).add(value);
+        ((SimpleMovingAverage) metric).add(value);
     }
 
     @Override
@@ -55,13 +55,13 @@ public class MovingAverageTest extends AbstractDoubleMetricTest {
         for (int i = 0; i < items.length; i++) {
             addValue(value);
 
-            ((MovingAverageMetric) metric).add(value);
+            ((SimpleMovingAverage) metric).add(value);
         }
     }
 
     @Override
     protected DoubleMetric createMetric(String name, String description) {
-        return new MovingAverageMetric(name, description, Double::toString, items.length);
+        return new SimpleMovingAverage(name, description, Double::toString, items.length);
     }
 
     @Override

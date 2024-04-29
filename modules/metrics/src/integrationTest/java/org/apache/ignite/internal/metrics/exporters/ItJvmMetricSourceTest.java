@@ -27,6 +27,7 @@ import java.util.Map;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.SizeFormatUtil;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
@@ -51,7 +52,7 @@ public class ItJvmMetricSourceTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testMemoryUsageMetric() {
-        MetricManager metricManager = new MetricManager();
+        MetricManager metricManager = new MetricManagerImpl();
 
         metricManager.configure(simpleConfiguration);
 

@@ -51,6 +51,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-network'))
     integrationTestImplementation testFixtures(project(':ignite-placement-driver-api'))
     integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
+    integrationTestImplementation testFixtures(project(':ignite-metrics'))
 
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-placement-driver-api'))

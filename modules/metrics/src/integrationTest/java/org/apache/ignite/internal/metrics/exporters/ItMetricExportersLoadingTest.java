@@ -28,6 +28,7 @@ import java.util.concurrent.locks.LockSupport;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
@@ -52,7 +53,7 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
 
     @Test
     public void test() throws Exception {
-        MetricManager metricManager = new MetricManager();
+        MetricManager metricManager = new MetricManagerImpl();
 
         metricManager.configure(metricConfiguration);
 

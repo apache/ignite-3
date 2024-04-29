@@ -1264,7 +1264,6 @@ public class NodeImpl implements Node, RaftServerService {
                 false,
                 false,
                 null
-                //opts.getRaftMetrics().disruptorMetrics("JRaft-FSMCaller-Disruptor")
             ));
         }
 

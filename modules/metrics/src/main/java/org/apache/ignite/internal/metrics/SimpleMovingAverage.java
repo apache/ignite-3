@@ -24,8 +24,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * The metric calculates the average value for the last several operations.
  */
-public class MovingAverageMetric extends AbstractMetric implements DoubleMetric {
-    /** Default rate. */
+public class SimpleMovingAverage extends AbstractMetric implements DoubleMetric {
+    /** Default window size. */
     public static final int DFLT_ITEMS = 100;
 
     /** Size. */
@@ -44,7 +44,7 @@ public class MovingAverageMetric extends AbstractMetric implements DoubleMetric 
      * @param desc Description.
      * @param stringFormatter String formatter to get a readable value.
      */
-    public MovingAverageMetric(String name, @Nullable String desc, @Nullable DoubleFunction<String> stringFormatter) {
+    public SimpleMovingAverage(String name, @Nullable String desc, @Nullable DoubleFunction<String> stringFormatter) {
         this(name, desc, stringFormatter, DFLT_ITEMS);
     }
 
@@ -56,7 +56,7 @@ public class MovingAverageMetric extends AbstractMetric implements DoubleMetric 
      * @param stringFormatter String formatter to get a readable value.
      * @param items Quantity items to calculate average value.
      */
-    public MovingAverageMetric(String name, @Nullable String desc, DoubleFunction<String> stringFormatter, int items) {
+    public SimpleMovingAverage(String name, @Nullable String desc, DoubleFunction<String> stringFormatter, int items) {
         super(name, desc);
 
         this.stringFormatter = stringFormatter;
