@@ -66,7 +66,6 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-distribution-zones')))
     integrationTestImplementation(testFixtures(project(':ignite-runner')))
     integrationTestImplementation(testFixtures(project(':ignite-replicator')))
-    integrationTestImplementation(testFixtures(project(':ignite-transactions')))
 
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-metastorage')))

@@ -20,9 +20,6 @@ package org.apache.ignite.internal.tx.test;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTransaction;
-import static org.apache.ignite.internal.TestWrappers.unwrapRecordBinaryViewImpl;
-import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -46,6 +43,9 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
+import org.apache.ignite.internal.wrapper.Wrappers;
+import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -202,5 +202,32 @@ public class ItTransactionTestUtils {
         assertThat(primaryReplicaFut, willCompleteSuccessfully());
 
         return primaryReplicaFut.join();
+    }
+
+    /**
+     * Unwraps {@link RecordBinaryViewImpl} from a {@link RecordView}.
+     *
+     * @param view View to unwrap.
+     */
+    private static RecordBinaryViewImpl unwrapRecordBinaryViewImpl(RecordView view) {
+        return Wrappers.unwrap(view, RecordBinaryViewImpl.class);
+    }
+
+    /**
+     * Unwraps {@link TableImpl} from a {@link Table}.
+     *
+     * @param table Table to unwrap.
+     */
+    private static TableImpl unwrapTableImpl(Table table) {
+        return Wrappers.unwrap(table, TableImpl.class);
+    }
+
+    /**
+     * Unwraps {@link Transaction} from an {@link Transaction}.
+     *
+     * @param tx Object to unwrap.
+     */
+    private static Transaction unwrapIgniteTransaction(Transaction tx) {
+        return Wrappers.unwrap(tx, Transaction.class);
     }
 }

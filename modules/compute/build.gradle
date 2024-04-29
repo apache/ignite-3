@@ -59,7 +59,6 @@ dependencies {
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
-    integrationTestImplementation testFixtures(project(':ignite-transactions'))
 }
 
 description = 'ignite-compute'

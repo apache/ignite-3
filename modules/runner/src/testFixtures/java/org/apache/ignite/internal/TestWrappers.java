@@ -18,13 +18,11 @@
 package org.apache.ignite.internal;
 
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
-import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -100,14 +98,5 @@ public class TestWrappers {
      */
     public static Transaction unwrapIgniteTransaction(Transaction tx) {
         return Wrappers.unwrap(tx, Transaction.class);
-    }
-
-    /**
-     * Unwraps {@link RecordBinaryViewImpl} from a {@link RecordView}.
-     *
-     * @param view View to unwrap.
-     */
-    public static RecordBinaryViewImpl unwrapRecordBinaryViewImpl(RecordView view) {
-        return Wrappers.unwrap(view, RecordBinaryViewImpl.class);
     }
 }
