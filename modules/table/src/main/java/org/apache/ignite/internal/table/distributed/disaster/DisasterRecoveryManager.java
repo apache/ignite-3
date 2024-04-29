@@ -295,7 +295,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
         return allOf(futures).handle((unused, throwable) -> result);
     }
 
-    private Set<NodeWithAttributes> getNodes(Set<String> nodeNames) throws NodesNotFoundException{
+    private Set<NodeWithAttributes> getNodes(Set<String> nodeNames) throws NodesNotFoundException {
         if (nodeNames.isEmpty()) {
             return dzManager.logicalTopology();
         }
