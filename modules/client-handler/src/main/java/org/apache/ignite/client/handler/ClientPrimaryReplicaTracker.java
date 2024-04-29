@@ -20,9 +20,7 @@ package org.apache.ignite.client.handler;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.tableIdNotFoundException;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,7 +39,8 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
-import org.apache.ignite.internal.lowwatermark.LowWatermarkChangedListener;
+import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
+import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
@@ -89,7 +88,7 @@ public class ClientPrimaryReplicaTracker {
 
     private final LowWatermark lowWatermark;
 
-    private final LowWatermarkChangedListener lwmListener = this::onLwmChanged;
+    private final EventListener<ChangeLowWatermarkEventParameters> lwmListener = fromConsumer(this::onLwmChanged);
     private final EventListener<DropTableEventParameters> dropTableEventListener = fromConsumer(this::onTableDrop);
     private final EventListener<PrimaryReplicaEventParameters> primaryReplicaEventListener = fromConsumer(this::onPrimaryReplicaChanged);
 
@@ -275,7 +274,7 @@ public class ClientPrimaryReplicaTracker {
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaEventListener);
         catalogService.listen(CatalogEvent.TABLE_DROP, dropTableEventListener);
-        lowWatermark.addUpdateListener(lwmListener);
+        lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED, lwmListener);
     }
 
     void stop() {
@@ -285,7 +284,7 @@ public class ClientPrimaryReplicaTracker {
 
         busyLock.block();
 
-        lowWatermark.removeUpdateListener(lwmListener);
+        lowWatermark.removeListener(LowWatermarkEvent.LOW_WATERMARK_CHANGED, lwmListener);
         catalogService.removeListener(CatalogEvent.TABLE_DROP, dropTableEventListener);
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaEventListener);
         primaryReplicas.clear();
@@ -318,15 +317,13 @@ public class ClientPrimaryReplicaTracker {
         });
     }
 
-    private CompletableFuture<Void> onLwmChanged(HybridTimestamp ts) {
-        return inBusyLockAsync(busyLock, () -> {
-            int earliestVersion = catalogService.activeCatalogVersion(HybridTimestamp.hybridTimestampToLong(ts));
+    private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
+            int earliestVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
             List<DestroyTableEvent> events = destructionEventsQueue.drainUpTo(earliestVersion);
 
             events.forEach(event -> removeTable(event.tableId(), event.partitions()));
-
-            return nullCompletedFuture();
         });
     }
 

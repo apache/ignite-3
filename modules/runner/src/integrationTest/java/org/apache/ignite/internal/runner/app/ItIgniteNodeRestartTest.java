@@ -670,10 +670,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         // Start.
 
-        vault.start();
+        assertThat(vault.startAsync(), willCompleteSuccessfully());
         vault.putName(name);
 
-        nodeCfgMgr.start();
+        assertThat(nodeCfgMgr.startAsync(), willCompleteSuccessfully());
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
@@ -704,7 +704,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         for (IgniteComponent component : otherComponents) {
-            component.start();
+            // TODO: IGNITE-22119 required to be able to wait on this future.
+            component.startAsync();
 
             components.add(component);
         }
@@ -1300,7 +1301,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * metastorage group starts again.
      */
     @Test
-    @Disabled(value = "https://issues.apache.org/jira/browse/IGNITE-18919")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18919")
     public void testMetastorageStop() throws NodeStoppingException {
         int cfgGap = 4;
 

@@ -49,8 +49,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbDataRegion;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageProfile;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -70,7 +70,7 @@ import org.rocksdb.RocksDBException;
 class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     private RocksDbStorageEngine engine;
 
-    private RocksDbDataRegion dataRegion;
+    private RocksDbStorageProfile storageProfile;
 
     private SharedRocksDbInstance rocksDb;
 
@@ -78,15 +78,17 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     void setUp(
             @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\", size = 16777216, writeBufferSize = 16777216}")
             StorageConfiguration storageConfiguration,
-            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig) throws Exception {
+            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig
+    ) throws Exception {
         engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
 
         engine.start();
 
-        dataRegion = new RocksDbDataRegion(
-                (RocksDbProfileView) storageConfiguration.profiles().get("default").value());
+        var profileConfig = (RocksDbProfileView) storageConfiguration.profiles().get("default").value();
 
-        dataRegion.start();
+        storageProfile = new RocksDbStorageProfile(profileConfig);
+
+        storageProfile.start();
 
         rocksDb = createDb();
     }
@@ -95,13 +97,13 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     void tearDown() throws Exception {
         IgniteUtils.closeAllManually(
                 rocksDb == null ? null : rocksDb::stop,
-                dataRegion == null ? null : dataRegion::stop,
+                storageProfile == null ? null : storageProfile::stop,
                 engine == null ? null : engine::stop
         );
     }
 
     private SharedRocksDbInstance createDb() throws Exception {
-        return new SharedRocksDbInstanceCreator().create(engine, dataRegion, workDir);
+        return new SharedRocksDbInstanceCreator().create(engine, storageProfile, workDir);
     }
 
     @Test

@@ -100,18 +100,6 @@ public interface MetaStorageService extends ManuallyCloseable {
     CompletableFuture<Void> put(ByteArray key, byte[] value);
 
     /**
-     * Inserts or updates an entry with the given key and the given value and retrieves a previous entry for the given key.
-     *
-     * @param key The key. Couldn't be {@code null}.
-     * @param value The value. Couldn't be {@code null}.
-     * @return A previous entry for the given key. Couldn't be {@code null}.
-     * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
-     * @see ByteArray
-     * @see Entry
-     */
-    CompletableFuture<Entry> getAndPut(ByteArray key, byte[] value);
-
-    /**
      * Inserts or updates entries with given keys and given values.
      *
      * @param vals The map of keys and corresponding values. Couldn't be {@code null} or empty.
@@ -121,17 +109,6 @@ public interface MetaStorageService extends ManuallyCloseable {
      * @see Entry
      */
     CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals);
-
-    /**
-     * Inserts or updates entries with given keys and given values and retrieves a previous entries for given keys.
-     *
-     * @param vals The map of keys and corresponding values. Couldn't be {@code null} or empty.
-     * @return A map of entries for given keys. Couldn't be {@code null}.
-     * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
-     * @see ByteArray
-     * @see Entry
-     */
-    CompletableFuture<Map<ByteArray, Entry>> getAndPutAll(Map<ByteArray, byte[]> vals);
 
     /**
      * Removes an entry for the given key.
@@ -145,17 +122,6 @@ public interface MetaStorageService extends ManuallyCloseable {
     CompletableFuture<Void> remove(ByteArray key);
 
     /**
-     * Removes an entry for the given key.
-     *
-     * @param key The key. Couldn't be {@code null}.
-     * @return A previous entry for the given key. Couldn't be {@code null}.
-     * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
-     * @see ByteArray
-     * @see Entry
-     */
-    CompletableFuture<Entry> getAndRemove(ByteArray key);
-
-    /**
      * Removes entries for given keys.
      *
      * @param keys The keys set. Couldn't be {@code null} or empty.
@@ -165,18 +131,6 @@ public interface MetaStorageService extends ManuallyCloseable {
      * @see Entry
      */
     CompletableFuture<Void> removeAll(Set<ByteArray> keys);
-
-    /**
-     * Removes entries for given keys and retrieves previous entries.
-     *
-     * @param keys The keys collection. Couldn't be {@code null}.
-     * @return A map of previous entries for given keys.. The order of entries in the result list corresponds to the traversal order of
-     *      {@code keys} collection. Couldn't be {@code null}.
-     * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
-     * @see ByteArray
-     * @see Entry
-     */
-    CompletableFuture<Map<ByteArray, Entry>> getAndRemoveAll(Set<ByteArray> keys);
 
     /**
      * Updates an entry for the given key conditionally.

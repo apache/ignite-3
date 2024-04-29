@@ -20,6 +20,8 @@ package org.apache.ignite.internal.rest;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.rest.RestState.INITIALIZATION;
 import static org.apache.ignite.internal.rest.RestState.INITIALIZED;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -75,7 +77,7 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 generator,
                 new TestConfigurationValidator()
         );
-        configurationManager.start();
+        assertThat(configurationManager.startAsync(), willCompleteSuccessfully());
 
         ConfigurationRegistry configurationRegistry = configurationManager.configurationRegistry();
         RestConfiguration restConfiguration = configurationRegistry.getConfiguration(RestConfiguration.KEY);
@@ -103,14 +105,14 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 restConfiguration
         );
 
-        restComponent.start();
+        assertThat(restComponent.startAsync(), willCompleteSuccessfully());
 
         client = new DefaultHttpClient(URI.create("http://localhost:" + restConfiguration.port().value() + "/management/v1/"));
     }
 
     @AfterEach
-    public void cleanup() throws Exception {
-        restComponent.stop();
+    public void cleanup() {
+        assertThat(restComponent.stopAsync(), willCompleteSuccessfully());
     }
 
     @Test

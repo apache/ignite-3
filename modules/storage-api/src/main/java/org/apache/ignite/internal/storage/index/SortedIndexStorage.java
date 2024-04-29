@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.index;
 
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.Cursor;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.Nullable;
@@ -58,6 +59,8 @@ public interface SortedIndexStorage extends IndexStorage {
      *      are {@link #GREATER_OR_EQUAL}, {@link #LESS_OR_EQUAL}.
      * @return Cursor with fetched index rows.
      * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.
+     * @throws StorageException If failed to read data.
+     * @throws IndexNotBuiltException If the index has not yet been built.
      */
     PeekCursor<IndexRow> scan(
             @Nullable BinaryTuplePrefix lowerBound,
@@ -76,6 +79,8 @@ public interface SortedIndexStorage extends IndexStorage {
      *      are {@link #GREATER_OR_EQUAL}, {@link #LESS_OR_EQUAL}.
      * @return Cursor with fetched index rows.
      * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.
+     * @throws StorageException If failed to read data.
+     * @throws IndexNotBuiltException If the index has not yet been built.
      */
     default Cursor<IndexRow> readOnlyScan(
             @Nullable BinaryTuplePrefix lowerBound,
@@ -84,4 +89,25 @@ public interface SortedIndexStorage extends IndexStorage {
     ) {
         return scan(lowerBound, upperBound, flags);
     }
+
+    /**
+     * Returns a range of updatable index values between the lower bound and the upper bound, supporting read-write transactions.
+     *
+     * <p>Unlike method {@link #scan(BinaryTuplePrefix, BinaryTuplePrefix, int)}, it allows you to read from an unbuilt index.</p>
+     *
+     * @param lowerBound Lower bound. Exclusivity is controlled by a {@link #GREATER_OR_EQUAL} or {@link #GREATER} flag.
+     *      {@code null} means unbounded.
+     * @param upperBound Upper bound. Exclusivity is controlled by a {@link #LESS} or {@link #LESS_OR_EQUAL} flag.
+     *      {@code null} means unbounded.
+     * @param flags Control flags. {@link #GREATER} | {@link #LESS} by default. Other available values
+     *      are {@link #GREATER_OR_EQUAL}, {@link #LESS_OR_EQUAL}.
+     * @return Cursor with fetched index rows.
+     * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.
+     * @throws StorageException If failed to read data.
+     */
+    PeekCursor<IndexRow> tolerantScan(
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
+    );
 }

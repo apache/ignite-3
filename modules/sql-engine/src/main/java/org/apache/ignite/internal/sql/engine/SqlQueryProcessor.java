@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
@@ -48,6 +49,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
@@ -128,7 +130,6 @@ import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncWrapper;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -142,7 +143,7 @@ import org.jetbrains.annotations.TestOnly;
  *  Main implementation of {@link QueryProcessor}.
  */
 public class SqlQueryProcessor implements QueryProcessor {
-    /** Default time zone ID. */
+    /** Default time-zone ID. */
     public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
 
     /** The logger. */
@@ -157,7 +158,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private static final int SCHEMA_CACHE_SIZE = 128;
 
     /** Name of the default schema. */
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+    public static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     private static final SqlProperties DEFAULT_PROPERTIES = SqlPropertiesHelper.newBuilder()
             .set(QueryProperty.DEFAULT_SCHEMA, DEFAULT_SCHEMA_NAME)
@@ -189,6 +190,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     private final ReplicaService replicaService;
 
@@ -278,7 +281,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized CompletableFuture<Void> start() {
+    public synchronized CompletableFuture<Void> startAsync() {
         var nodeName = clusterSrvc.topologyService().localMember().name();
 
         taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value(), failureProcessor));
@@ -438,7 +441,11 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void stop() throws Exception {
+    public synchronized CompletableFuture<Void> stopAsync() {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return nullCompletedFuture();
+        }
+
         busyLock.block();
 
         openedCursors.values().forEach(AsyncSqlCursor::closeAsync);
@@ -452,7 +459,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         Collections.reverse(services);
 
-        IgniteUtils.closeAll(services.stream().map(s -> s::stop));
+        try {
+            closeAll(services.stream().map(s -> s::stop));
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */

@@ -18,17 +18,15 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
-import java.util.Set;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -103,12 +101,8 @@ class RaftStorageManager {
     /**
      * Returns a collection of nodes that passed the validation but have not yet joined the logical topology.
      */
-    Set<LogicalNode> getValidatedNodes() {
-        Cursor<LogicalNode> cursor = storage.getWithPrefix(VALIDATED_NODE_PREFIX, (k, v) -> fromBytes(v));
-
-        try (cursor) {
-            return cursor.stream().collect(toSet());
-        }
+    List<LogicalNode> getValidatedNodes() {
+        return storage.getWithPrefix(VALIDATED_NODE_PREFIX, (k, v) -> fromBytes(v));
     }
 
     /**

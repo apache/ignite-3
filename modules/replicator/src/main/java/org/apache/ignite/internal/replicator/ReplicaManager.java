@@ -424,7 +424,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            Set<ReplicationGroupId> replicationGroupIds = zonePartIdToTablePartId.get((ZonePartitionId) msg.groupId());
+            Set<ReplicationGroupId> replicationGroupIds = zonePartIdToTablePartId.getOrDefault((ZonePartitionId) msg.groupId(), Set.of());
 
             CompletableFuture<LeaseGrantedMessageResponse>[] futures = new CompletableFuture[replicationGroupIds.size()];
 
@@ -660,7 +660,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         ExecutorChooser<NetworkMessage> replicaMessagesExecutorChooser = message -> requestsExecutor;
 
         clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, replicaMessagesExecutorChooser, handler);
@@ -754,9 +754,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -771,6 +771,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         for (CompletableFuture<Replica> replicaFuture : replicas.values()) {
             replicaFuture.completeExceptionally(new NodeStoppingException());
         }
+
+        return nullCompletedFuture();
     }
 
     /**

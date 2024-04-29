@@ -39,6 +39,7 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -173,6 +174,7 @@ import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.rest.deployment.CodeDeploymentRestFactory;
 import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
+import org.apache.ignite.internal.rest.recovery.DisasterRecoveryFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
@@ -947,6 +949,7 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> deploymentCodeRestFactory = () -> new CodeDeploymentRestFactory(deploymentManager);
         Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
         Supplier<RestFactory> computeRestFactory = () -> new ComputeRestFactory(compute);
+        Supplier<RestFactory> disasterRecoveryFactory = () -> new DisasterRecoveryFactory(disasterRecoveryManager);
 
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestConfiguration.KEY);
 
@@ -958,7 +961,8 @@ public class IgniteImpl implements Ignite {
                         deploymentCodeRestFactory,
                         authProviderFactory,
                         restManagerFactory,
-                        computeRestFactory
+                        computeRestFactory,
+                        disasterRecoveryFactory
                 ),
                 restManager,
                 restConfiguration
@@ -1189,17 +1193,30 @@ public class IgniteImpl implements Ignite {
 
         LOG.debug(errMsg, e);
 
-        lifecycleManager.stopNode();
+        IgniteException igniteException = new IgniteException(errMsg, e);
 
-        return new IgniteException(errMsg, e);
+        try {
+            lifecycleManager.stopNode().get();
+        } catch (Exception ex) {
+            igniteException.addSuppressed(ex);
+        }
+
+        return igniteException;
     }
 
     /**
-     * Stops ignite node.
+     * Synchronously stops ignite node.
      */
-    public void stop() {
-        lifecycleManager.stopNode();
-        restAddressReporter.removeReport();
+    public void stop() throws ExecutionException, InterruptedException {
+        stopAsync().get();
+    }
+
+    /**
+     * Asynchronously stops ignite node.
+     */
+    public CompletableFuture<Void> stopAsync() {
+        return lifecycleManager.stopNode()
+                .whenComplete((unused, throwable) -> restAddressReporter.removeReport());
     }
 
     /** {@inheritDoc} */

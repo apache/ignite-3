@@ -1,5 +1,6 @@
 # name: test/sql/subquery/scalar/test_delete_subquery.test
 # description: Test subqueries in delete
+# feature: E153
 # group: [scalar]
 
 statement ok

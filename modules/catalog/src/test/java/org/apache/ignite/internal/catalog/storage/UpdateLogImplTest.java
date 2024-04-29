@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -53,7 +54,6 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.junit.jupiter.api.AfterEach;
@@ -76,13 +76,13 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         metastore = StandaloneMetaStorageManager.create(keyValueStorage);
 
         keyValueStorage.start();
-        metastore.start();
+        assertThat(metastore.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
     public void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                metastore == null ? null : metastore::stop,
+        closeAll(
+                metastore == null ? null : () -> assertThat(metastore.stopAsync(), willCompleteSuccessfully()),
                 keyValueStorage == null ? null : keyValueStorage::close
         );
     }
@@ -99,7 +99,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         appendUpdates(updateLogImpl, expectedUpdates);
 
         // Let's restart the log and metastore with recovery.
-        updateLogImpl.stop();
+        assertThat(updateLogImpl.stopAsync(), willCompleteSuccessfully());
 
         restartMetastore();
 
@@ -132,7 +132,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         compactCatalog(updateLogImpl, snapshotEntryOfVersion(2));
 
         // Let's restart the log and metastore with recovery.
-        updateLogImpl.stop();
+        assertThat(updateLogImpl.stopAsync(), willCompleteSuccessfully());
 
         restartMetastore();
 
@@ -170,7 +170,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         UpdateLogImpl updateLogImpl = createUpdateLogImpl();
 
         updateLogImpl.registerUpdateHandler(onUpdateHandler);
-        updateLogImpl.start();
+        assertThat(updateLogImpl.startAsync(), willCompleteSuccessfully());
 
         return updateLogImpl;
     }
@@ -186,13 +186,13 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private void restartMetastore() throws Exception {
+    private void restartMetastore() {
         long recoverRevision = metastore.appliedRevision();
 
-        metastore.stop();
+        assertThat(metastore.stopAsync(), willCompleteSuccessfully());
 
         metastore = StandaloneMetaStorageManager.create(keyValueStorage);
-        metastore.start();
+        assertThat(metastore.startAsync(), willCompleteSuccessfully());
 
         assertThat(metastore.recoveryFinishedFuture(), willBe(recoverRevision));
     }
@@ -203,7 +203,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         IgniteInternalException ex = assertThrows(
                 IgniteInternalException.class,
-                updateLog::start
+                updateLog::startAsync
         );
 
         assertThat(
@@ -229,7 +229,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         long revisionBefore = metastore.appliedRevision();
 
-        updateLog.start();
+        assertThat(updateLog.startAsync(), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 

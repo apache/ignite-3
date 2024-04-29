@@ -36,6 +36,7 @@ import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguratio
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.TestStorageUtils;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
@@ -180,6 +181,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 indexUpdateHandler,
                 storageUpdateConfiguration
         );
+
+        TestStorageUtils.completeBuiltIndexes(storage, hashInnerStorage, sortedInnerStorage);
     }
 
     List<ReadResult> getRowVersions(RowId rowId) {

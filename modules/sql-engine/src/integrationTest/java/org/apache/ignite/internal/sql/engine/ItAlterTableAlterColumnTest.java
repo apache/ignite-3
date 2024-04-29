@@ -121,10 +121,21 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void testDecimalDecreasePrecision() {
-        sql("CREATE TABLE t1 (ID INT PRIMARY KEY, DECIMAL_C2 DECIMAL(2))");
-        sql("ALTER TABLE t1 ALTER COLUMN DECIMAL_C2 SET DATA TYPE DECIMAL");
-        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Decreasing the precision",
-                () -> sql("ALTER TABLE t1 ALTER COLUMN DECIMAL_C2 SET DATA TYPE DECIMAL(1)"));
+        sql("CREATE TABLE t1 (ID INT PRIMARY KEY, DECIMAL_C2 DECIMAL(2) NOT NULL)");
+
+        // Increase precision.
+        sql("ALTER TABLE t1 ALTER COLUMN DECIMAL_C2 SET DATA TYPE DECIMAL(3)");
+
+        sql("INSERT INTO t1 VALUES (1, 123)");
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Numeric field overflow",
+                () -> sql("INSERT INTO t1 VALUES (2, 1234)"));
+
+        // Increase precision and drop NOT NULL.
+        sql("ALTER TABLE t1 ALTER COLUMN DECIMAL_C2 SET DATA TYPE DECIMAL NULL");
+        sql("INSERT INTO t1 VALUES (2, 1234), (3, NULL)");
+
+        assertThrowsSqlException(STMT_VALIDATION_ERR, "Decreasing the precision",
+                () -> sql("ALTER TABLE t1 ALTER COLUMN DECIMAL_C2 SET DATA TYPE DECIMAL(3)"));
     }
 
     @Test
@@ -139,17 +150,33 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void testChangeNullability() {
-        sql("CREATE TABLE t (id INT PRIMARY KEY, val VARCHAR(10) NOT NULL)");
+        sql("CREATE TABLE t (id INT PRIMARY KEY, val VARCHAR(10) NOT NULL, val2 VARCHAR(10) NOT NULL)");
         sql("ALTER TABLE t ALTER COLUMN val SET DATA TYPE VARCHAR(10)");
 
         assertThrowsSqlException(CONSTRAINT_VIOLATION_ERR, "does not allow NULLs",
-                () -> sql("INSERT INTO t VALUES(1, NULL)"));
+                () -> sql("INSERT INTO t VALUES(1, NULL, NULL)"));
 
-        sql("ALTER TABLE t ALTER COLUMN val SET DATA TYPE VARCHAR(10) NULL");
+        // NOT NULL -> NOT NULL is allowed.
+        sql("ALTER TABLE t ALTER COLUMN val SET DATA TYPE VARCHAR(11) NOT NULL");
+        // NOT NULL -> NULL is allowed.
+        sql("ALTER TABLE t ALTER COLUMN val2 SET DATA TYPE VARCHAR(11) NULL");
+
+        // NOT NULL -> NULL is allowed.
         sql("ALTER TABLE t ALTER COLUMN val DROP NOT NULL");
+        // NULL -> NULL is allowed.
+        sql("ALTER TABLE t ALTER COLUMN val2 DROP NOT NULL");
 
+        sql("INSERT INTO t VALUES(1, NULL, NULL)");
+
+        // NULL -> NOT NULL is forbidden.
         assertThrowsSqlException(STMT_VALIDATION_ERR, "Adding NOT NULL constraint is not allowed",
                 () -> sql("ALTER TABLE t ALTER COLUMN val SET NOT NULL"));
+        assertThrowsSqlException(STMT_VALIDATION_ERR, "Adding NOT NULL constraint is not allowed",
+                () -> sql("ALTER TABLE t ALTER COLUMN val2 SET NOT NULL"));
+        assertThrowsSqlException(STMT_VALIDATION_ERR, "Adding NOT NULL constraint is not allowed",
+                () -> sql("ALTER TABLE t ALTER COLUMN val SET DATA TYPE VARCHAR(100) NOT NULL"));
+        assertThrowsSqlException(STMT_VALIDATION_ERR, "Adding NOT NULL constraint is not allowed",
+                () -> sql("ALTER TABLE t ALTER COLUMN val2 SET DATA TYPE VARCHAR(100) NOT NULL"));
     }
 
     @Override

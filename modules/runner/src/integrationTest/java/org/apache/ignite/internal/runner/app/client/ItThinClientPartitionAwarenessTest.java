@@ -29,19 +29,22 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.runner.app.client.proxy.IgniteClientProxy;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Thin client partition awareness test with real cluster.
  */
 public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest {
-    List<IgniteClientProxy> proxies = new ArrayList<>();
+    private final List<IgniteClientProxy> proxies = new ArrayList<>();
 
-    IgniteClient proxyClient;
+    private IgniteClient proxyClient;
 
     @BeforeAll
     void createProxies() throws Exception {
@@ -71,8 +74,9 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
         }
     }
 
-    @Test
-    void testGetRequestIsRoutedToPrimaryNode() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testGetRequestIsRoutedToPrimaryNode(boolean withTx) {
         // Warm up.
         RecordView<Tuple> view = proxyClient.tables().table(TABLE_NAME).recordView();
         view.get(null, Tuple.create().set("key", 1));
@@ -85,10 +89,19 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
 
             // Perform request and check routing with proxy.
             resetRequestCount();
+
+            Transaction tx = withTx
+                    ? proxyClient.transactions().begin(new TransactionOptions().readOnly(key % 2 == 0))
+                    : null;
+
             view.get(null, keyTuple);
             String requestNodeName = getLastRequestNodeName();
 
             assertEquals(primaryNodeName, requestNodeName, "Key: " + key);
+
+            if (tx != null) {
+                tx.rollback();
+            }
         }
     }
 
@@ -108,6 +121,7 @@ public class ItThinClientPartitionAwarenessTest extends ItAbstractThinClientTest
     private static class NodeNameJob implements ComputeJob<String> {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
+            //noinspection resource
             return context.ignite().name() + Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_"));
         }
     }

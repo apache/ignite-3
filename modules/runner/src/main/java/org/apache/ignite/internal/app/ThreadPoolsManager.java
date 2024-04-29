@@ -83,16 +83,18 @@ public class ThreadPoolsManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         // No-op.
         return nullCompletedFuture();
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         IgniteUtils.shutdownAndAwaitTermination(tableIoExecutor, 10, SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(commonScheduler, 10, SECONDS);
+
+        return nullCompletedFuture();
     }
 
     /**

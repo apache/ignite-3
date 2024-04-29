@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cluster.management;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.file.Path;
 import java.util.Collection;
@@ -34,7 +35,6 @@ import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -94,7 +94,7 @@ public abstract class BaseItClusterManagementTest extends BaseIgniteAbstractTest
     }
 
     protected static void stopNodes(Collection<MockNode> nodes) throws Exception {
-        IgniteUtils.closeAll(Stream.concat(
+        closeAll(Stream.concat(
                 nodes.stream().map(node -> node::beforeNodeStop),
                 nodes.stream().map(node -> node::stop)
         ));

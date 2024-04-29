@@ -115,7 +115,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
         // Use aggregates that are the same for both MAP and REDUCE phases.
         String sql = "SELECT SUM(s.id), SUM(h.id) FROM SMALL s RIGHT JOIN HUGE h on h.id = s.id";
 
-        IgniteRel phys = physicalPlan(sql, publicSchema, "MergeJoinConverter", "CorrelatedNestedLoopJoin");
+        IgniteRel phys = physicalPlan(sql, publicSchema, "HashJoinConverter", "MergeJoinConverter", "CorrelatedNestedLoopJoin");
 
         assertNotNull(phys);
 
@@ -127,7 +127,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
 
         assertEquals(JoinRelType.LEFT, join.getJoinType());
 
-        PlanningContext ctx = plannerCtx(sql, publicSchema, "MergeJoinConverter", "CorrelatedNestedLoopJoin");
+        PlanningContext ctx = plannerCtx(sql, publicSchema, "HashJoinConverter", "MergeJoinConverter", "CorrelatedNestedLoopJoin");
 
         RelOptPlanner pl = ctx.cluster().getPlanner();
 
@@ -139,7 +139,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        phys = physicalPlan(sql, publicSchema, "MergeJoinConverter", "CorrelatedNestedLoopJoin", "JoinCommuteRule");
+        phys = physicalPlan(sql, publicSchema, "HashJoinConverter", "MergeJoinConverter", "CorrelatedNestedLoopJoin", "JoinCommuteRule");
 
         join = findFirstNode(phys, byClass(IgniteNestedLoopJoin.class));
 
@@ -150,7 +150,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
         // no commute
         assertEquals(JoinRelType.RIGHT, join.getJoinType());
 
-        ctx = plannerCtx(sql, publicSchema, "MergeJoinConverter", "CorrelatedNestedLoopJoin", "JoinCommuteRule");
+        ctx = plannerCtx(sql, publicSchema, "HashJoinConverter", "MergeJoinConverter", "CorrelatedNestedLoopJoin", "JoinCommuteRule");
 
         pl = ctx.cluster().getPlanner();
 
@@ -166,7 +166,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
         // Use aggregates that are the same for both MAP and REDUCE phases.
         String sql = "SELECT SUM(s.id), SUM(h.id) FROM SMALL s JOIN HUGE h on h.id = s.id";
 
-        IgniteRel phys = physicalPlan(sql, publicSchema, "MergeJoinConverter", "CorrelatedNestedLoopJoin");
+        IgniteRel phys = physicalPlan(sql, publicSchema, "HashJoinConverter", "MergeJoinConverter", "CorrelatedNestedLoopJoin");
 
         assertNotNull(phys);
 
@@ -194,7 +194,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
 
         assertEquals(JoinRelType.INNER, join.getJoinType());
 
-        PlanningContext ctx = plannerCtx(sql, publicSchema, "MergeJoinConverter", "CorrelatedNestedLoopJoin");
+        PlanningContext ctx = plannerCtx(sql, publicSchema, "HashJoinConverter", "MergeJoinConverter", "CorrelatedNestedLoopJoin");
 
         RelOptPlanner pl = ctx.cluster().getPlanner();
 
@@ -205,7 +205,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        phys = physicalPlan(sql, publicSchema, "MergeJoinConverter", "CorrelatedNestedLoopJoin", "JoinCommuteRule");
+        phys = physicalPlan(sql, publicSchema, "HashJoinConverter", "MergeJoinConverter", "CorrelatedNestedLoopJoin", "JoinCommuteRule");
 
         join = findFirstNode(phys, byClass(IgniteNestedLoopJoin.class));
         proj = findFirstNode(phys, byClass(IgniteProject.class));
@@ -231,7 +231,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
         // no commute
         assertEquals(JoinRelType.INNER, join.getJoinType());
 
-        ctx = plannerCtx(sql, publicSchema, "MergeJoinConverter", "CorrelatedNestedLoopJoin", "JoinCommuteRule");
+        ctx = plannerCtx(sql, publicSchema, "HashJoinConverter", "MergeJoinConverter", "CorrelatedNestedLoopJoin", "JoinCommuteRule");
 
         pl = ctx.cluster().getPlanner();
 
@@ -301,7 +301,6 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
      * The same as {@link #commuteIsDisabledForBigJoinsOfTables()}, but with table functions as source of data.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18937")
     public void commuteIsDisabledForBigJoinsOfTableFunctions() throws Exception {
         int joinSize = 50;
 

@@ -92,7 +92,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         if (DISABLED) {
             log.debug("JVM Pause Detector is disabled");
 
@@ -166,12 +166,14 @@ public class LongJvmPauseDetector implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void stop() {
+    public CompletableFuture<Void> stopAsync() {
         final Thread worker = workerRef.getAndSet(null);
 
         if (worker != null && worker.isAlive() && !worker.isInterrupted()) {
             worker.interrupt();
         }
+
+        return nullCompletedFuture();
     }
 
     /**

@@ -340,6 +340,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schema);
 
         StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
+        when(pkIndexDescriptor.isPk()).thenReturn(true);
 
         when(pkIndexDescriptor.columns()).then(
                 invocation -> Collections.nCopies(schema.keyColumns().size(), mock(StorageHashIndexColumnDescriptor.class))
@@ -486,7 +487,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestLowWatermark()
         );
 
-        assertThat(txManager.start(), willCompleteSuccessfully());
+        assertThat(txManager.startAsync(), willCompleteSuccessfully());
 
         return txManager;
     }

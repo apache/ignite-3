@@ -42,8 +42,6 @@ import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -59,8 +57,6 @@ import org.jetbrains.annotations.Nullable;
  * Simple in-memory key/value storage for tests.
  */
 public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
-    private static final IgniteLogger LOG = Loggers.forClass(SimpleInMemoryKeyValueStorage.class);
-
     /** Lexicographical comparator. */
     private static final Comparator<byte[]> CMP = Arrays::compareUnsigned;
 
@@ -154,41 +150,12 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public Entry getAndPut(byte[] key, byte[] bytes, HybridTimestamp opTs) {
-        synchronized (mux) {
-            long curRev = rev + 1;
-
-            long lastRev = doPut(key, bytes, curRev);
-
-            updateRevision(curRev, opTs);
-
-            // Return previous value.
-            return doGetValue(key, lastRev);
-        }
-    }
-
-    @Override
     public void putAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs) {
         synchronized (mux) {
             long curRev = rev + 1;
 
             doPutAll(curRev, keys, values, opTs);
         }
-    }
-
-    @Override
-    public Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs) {
-        Collection<Entry> res;
-
-        synchronized (mux) {
-            long curRev = rev + 1;
-
-            res = doGetAll(keys, curRev);
-
-            doPutAll(curRev, keys, values, opTs);
-        }
-
-        return res;
     }
 
     @Override
@@ -239,19 +206,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public Entry getAndRemove(byte[] key, HybridTimestamp opTs) {
-        synchronized (mux) {
-            Entry e = doGet(key, rev);
-
-            if (e.empty() || e.tombstone()) {
-                return e;
-            }
-
-            return getAndPut(key, TOMBSTONE, opTs);
-        }
-    }
-
-    @Override
     public void removeAll(List<byte[]> keys, HybridTimestamp opTs) {
         synchronized (mux) {
             long curRev = rev + 1;
@@ -274,37 +228,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
             doPutAll(curRev, existingKeys, vals, opTs);
         }
-    }
-
-    @Override
-    public Collection<Entry> getAndRemoveAll(List<byte[]> keys, HybridTimestamp opTs) {
-        Collection<Entry> res = new ArrayList<>(keys.size());
-
-        synchronized (mux) {
-            long curRev = rev + 1;
-
-            List<byte[]> existingKeys = new ArrayList<>(keys.size());
-
-            List<byte[]> vals = new ArrayList<>(keys.size());
-
-            for (byte[] key : keys) {
-                Entry e = doGet(key, rev);
-
-                res.add(e);
-
-                if (e.empty() || e.tombstone()) {
-                    continue;
-                }
-
-                existingKeys.add(key);
-
-                vals.add(TOMBSTONE);
-            }
-
-            doPutAll(curRev, existingKeys, vals, opTs);
-        }
-
-        return res;
     }
 
     @Override
