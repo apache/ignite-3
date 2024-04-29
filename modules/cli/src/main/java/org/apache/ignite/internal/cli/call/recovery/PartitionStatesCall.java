@@ -32,6 +32,7 @@ import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.GlobalPartitionStatesResponse;
 import org.apache.ignite.rest.client.model.LocalPartitionStatesResponse;
 
+/** Call to get partition states. */
 @Singleton
 public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table> {
     private final ApiClientFactory clientFactory;

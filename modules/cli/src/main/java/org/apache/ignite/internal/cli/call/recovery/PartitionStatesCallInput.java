@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cli.call.recovery;
 import java.util.List;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 
+/** Input for the {@link PartitionStatesCall} call. */
 public class PartitionStatesCallInput implements CallInput {
     private final String clusterUrl;
 
@@ -70,10 +71,16 @@ public class PartitionStatesCallInput implements CallInput {
         this.partitionIds = partitionIds;
     }
 
+    /**
+     * Builder method provider.
+     *
+     * @return new instance of {@link PartitionStatesCallInputBuilder}.
+     */
     public static PartitionStatesCallInputBuilder builder() {
         return new PartitionStatesCallInputBuilder();
     }
 
+    /** Builder for {@link PartitionStatesCallInput}. */
     public static class PartitionStatesCallInputBuilder {
         private String clusterUrl;
 
@@ -85,6 +92,7 @@ public class PartitionStatesCallInput implements CallInput {
 
         private List<Integer> partitionIds;
 
+        /** Set cluster URL. */
         public PartitionStatesCallInputBuilder clusterUrl(String clusterUrl) {
             this.clusterUrl = clusterUrl;
             return this;

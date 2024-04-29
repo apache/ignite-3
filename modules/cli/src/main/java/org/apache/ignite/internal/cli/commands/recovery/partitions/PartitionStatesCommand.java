@@ -38,6 +38,7 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
+/** Command to get partition states. */
 @Command(name = "partition-states", description = "Returns partition states.")
 public class PartitionStatesCommand extends BaseCommand implements Callable<Integer> {
     /** Cluster endpoint URL option. */

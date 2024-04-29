@@ -28,6 +28,7 @@ import java.util.List;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Option;
 
+/** Arguments for {@link PartitionStatesCommand} and {@link PartitionStatesReplCommand}. */
 public class PartitionStatesArgGroup {
     @Option(names = RECOVERY_PARTITION_GLOBAL_OPTION, description = RECOVERY_PARTITION_GLOBAL_OPTION_DESC)
     private boolean global;
