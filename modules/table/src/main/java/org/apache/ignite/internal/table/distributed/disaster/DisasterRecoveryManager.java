@@ -199,8 +199,8 @@ public class DisasterRecoveryManager implements IgniteComponent {
      * Returns states of partitions in the cluster. Result is a mapping of {@link TablePartitionId} to the mapping
      * between a node name and a partition state.
      *
-     * @param zoneNames Names specifying zones to get partition states from. Empty set means "all zones".
-     * @param nodeNames Names specifying nodes to get partition states from. Empty set means "all nodes".
+     * @param zoneNames Names specifying zones to get partition states from. Case-sensitive, empty set means "all zones".
+     * @param nodeNames Names specifying nodes to get partition states from. Case-sensitive, empty set means "all nodes".
      * @param partitionIds IDs of partitions to get states of. Empty set means "all partitions".
      * @return Future with the mapping.
      */
@@ -219,7 +219,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
      * Returns states of partitions in the cluster. Result is a mapping of {@link TablePartitionId} to the global
      * partition state enum value.
      *
-     * @param zoneNames Names specifying zones to get partition states. Empty set means "all zones".
+     * @param zoneNames Names specifying zones to get partition states. Case-sensitive, empty set means "all zones".
      * @param partitionIds IDs of partitions to get states of. Empty set means "all partitions".
      * @return Future with the mapping.
      */
