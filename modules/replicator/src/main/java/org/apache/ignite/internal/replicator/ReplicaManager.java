@@ -605,6 +605,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         var eventParams = new LocalReplicaEventParameters(replicaGrpId);
 
+        replicaFuture.join(); // TODO: BAD
+
         return fireEvent(AFTER_REPLICA_STARTED, eventParams)
                 .exceptionally(e -> {
                     LOG.error("Error when notifying about AFTER_REPLICA_STARTED event.", e);
