@@ -26,7 +26,6 @@ import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSource;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -145,7 +144,6 @@ public class RaftMetricSource implements MetricSource {
      *
      * @return String representation of histogram metrics.
      */
-    @NotNull
     private Function<long[], String> toStringStripesHistogram() {
         return longs -> Arrays.stream(longs, 0, longs.length - 1).mapToObj(String::valueOf)
                 .collect(Collectors.joining(", "));
@@ -157,7 +155,6 @@ public class RaftMetricSource implements MetricSource {
      * @param bounds Bounds.
      * @return String representation of histogram metrics.
      */
-    @NotNull
     private Function<long[], String> toStringBatchHistogram(long[] bounds) {
         return values -> {
             assert bounds.length == values.length - 1 :
