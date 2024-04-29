@@ -30,11 +30,13 @@ import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
+import org.apache.ignite.internal.cli.commands.recovery.partitions.PartitionStatesCommand;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+/** Tests for {@link PartitionStatesCommand}. */
 public class ItPartitionStatesTest extends CliIntegrationTest {
     private static final int DEFAULT_PARTITION_COUNT = 25;
 
