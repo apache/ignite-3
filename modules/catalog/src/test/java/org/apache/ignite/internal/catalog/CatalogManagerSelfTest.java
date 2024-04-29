@@ -1141,6 +1141,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                         .zoneName("TEST_ZONE")
                         .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                         .build(),
+                AlterZoneSetDefaultCatalogCommand.builder()
+                        .zoneName("TEST_ZONE")
+                        .build(),
                 simpleTable("T")
         ));
 

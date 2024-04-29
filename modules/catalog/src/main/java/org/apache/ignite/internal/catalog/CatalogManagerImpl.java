@@ -46,6 +46,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCatalogCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -186,7 +187,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return updateLog.startAsync()
                 .thenCompose(none -> {
                     if (latestCatalogVersion() == emptyCatalog.version()) {
-                        // node have not seen any updates yet, let's try to initialise
+                        // node has not seen any updates yet, let's try to initialise
                         // catalog with default zone
                         return createDefaultZone(emptyCatalog);
                     }
@@ -363,18 +364,22 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     private CompletableFuture<Void> createDefaultZone(Catalog emptyCatalog) {
-        List<UpdateEntry> createZoneEntries = CreateZoneCommand.builder()
-                .zoneName(DEFAULT_ZONE_NAME)
-                .partitions(DEFAULT_PARTITION_COUNT)
-                .replicas(DEFAULT_REPLICA_COUNT)
-                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
-                .filter(DEFAULT_FILTER)
-                .storageProfilesParams(
-                        List.of(StorageProfileParams.builder().storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE).build())
-                )
-                .build()
-                .get(emptyCatalog);
+        List<UpdateEntry> createZoneEntries = new BulkUpdateProducer(List.of(
+                CreateZoneCommand.builder()
+                        .zoneName(DEFAULT_ZONE_NAME)
+                        .partitions(DEFAULT_PARTITION_COUNT)
+                        .replicas(DEFAULT_REPLICA_COUNT)
+                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
+                        .filter(DEFAULT_FILTER)
+                        .storageProfilesParams(
+                                List.of(StorageProfileParams.builder().storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE).build())
+                        )
+                        .build(),
+                AlterZoneSetDefaultCatalogCommand.builder()
+                        .zoneName(DEFAULT_ZONE_NAME)
+                        .build()
+        )).get(emptyCatalog);
 
         return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, createZoneEntries))
                 .handle((result, error) -> {

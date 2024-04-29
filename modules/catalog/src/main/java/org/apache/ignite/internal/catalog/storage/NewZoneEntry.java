@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
+
 import java.io.IOException;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -72,17 +74,13 @@ public class NewZoneEntry implements UpdateEntry, Fireable {
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
         descriptor.updateToken(causalityToken);
 
-        int defaultZoneId = catalog.defaultZone() != null
-                ? catalog.defaultZone().id()
-                : descriptor.id();
-
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 CollectionUtils.concat(catalog.zones(), List.of(descriptor)),
                 catalog.schemas(),
-                defaultZoneId
+                defaultZoneIdOpt(catalog)
         );
     }
 
