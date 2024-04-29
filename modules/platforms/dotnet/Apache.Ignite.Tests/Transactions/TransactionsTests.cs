@@ -285,6 +285,15 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
+        public async Task TestObservableTimestampIsInitializedFromHandshake()
+        {
+            using var client = await IgniteClient.StartAsync(new() { Endpoints = { "127.0.0.1:" + ServerPort } });
+            var observableTimestamp = client.GetFieldValue<ClientFailoverSocket>("_socket").ObservableTimestamp;
+
+            Assert.Greater(observableTimestamp, 0);
+        }
+
+        [Test]
         public async Task TestObservableTimestampPropagation([Values(true, false)] bool sql)
         {
             using var server = new FakeServer
