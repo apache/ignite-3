@@ -34,9 +34,9 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils;
 import org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.ColumnFamilyType;
 import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbDataRegion;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageProfile;
 import org.apache.ignite.internal.storage.rocksdb.index.AbstractRocksDbIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -63,7 +63,7 @@ public class SharedRocksDbInstanceCreator {
      */
     public SharedRocksDbInstance create(
             RocksDbStorageEngine engine,
-            RocksDbDataRegion region,
+            RocksDbStorageProfile profile,
             Path path
     ) throws RocksDBException, IOException {
         var busyLock = new IgniteSpinBusyLock();
@@ -90,7 +90,7 @@ public class SharedRocksDbInstanceCreator {
                     // Atomic flush must be enabled to guarantee consistency between different column families when WAL is disabled.
                     .setAtomicFlush(true)
                     .setListeners(List.of(flusher.listener()))
-                    .setWriteBufferManager(region.writeBufferManager())
+                    .setWriteBufferManager(profile.writeBufferManager())
             );
 
             RocksDB db = add(RocksDB.open(dbOptions, path.toAbsolutePath().toString(), cfDescriptors, cfHandles));
