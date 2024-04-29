@@ -127,7 +127,14 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-            raftManager = new Loza(clusterService, new NoOpMetricManager(), raftConfiguration, workDir, clock, raftGroupEventsClientListener);
+            raftManager = new Loza(
+                    clusterService,
+                    new NoOpMetricManager(),
+                    raftConfiguration,
+                    workDir,
+                    clock,
+                    raftGroupEventsClientListener
+            );
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
