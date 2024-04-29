@@ -75,7 +75,11 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
         TransactionOptions roOpts = new TransactionOptions().readOnly(true);
 
         // +2 because logical time is incremented on every call to nowLong - for replica tracker and for handshake.
-        assertEquals((currentServerTimestamp.get() << LOGICAL_TIME_BITS_SIZE) + 2, ch.observableTimestamp());
+        assertEquals(
+                (currentServerTimestamp.get() << LOGICAL_TIME_BITS_SIZE) + 2,
+                ch.observableTimestamp(),
+                "Handshake should initialize observable timestamp");
+
         assertNull(lastObservableTimestamp());
 
         // RW TX does not propagate timestamp.
