@@ -42,11 +42,11 @@ import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 
 /** HashJoin implementor. */
 public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNode<RowT> {
-    Map<RowWrapper<RowT>, TouchedCollection<RowT>> hashStore = new Object2ObjectOpenHashMap<>();
+    final Map<RowWrapper<RowT>, TouchedCollection<RowT>> hashStore = new Object2ObjectOpenHashMap<>();
     protected final RowHandler<RowT> handler;
 
-    private final Collection<Integer> leftJoinPositions;
-    private final Collection<Integer> rightJoinPositions;
+    private final List<Integer> leftJoinPositions;
+    private final List<Integer> rightJoinPositions;
 
     final boolean touchResults;
 
