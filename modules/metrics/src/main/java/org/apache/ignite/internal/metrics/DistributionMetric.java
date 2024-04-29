@@ -75,7 +75,7 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
      *               greater or equal to {@code 0}.
      */
     public DistributionMetric(String name, @Nullable String desc, long[] bounds) {
-            this(name, desc, bounds, null);
+        this(name, desc, bounds, null);
     }
 
     /**
@@ -154,7 +154,7 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
     @Override
     public String getValueAsString() {
         if (stringFormatter != null) {
-            return stringFormatter.apply(asScalarMetrics().stream().mapToLong(m -> ((LongMetric)m).value()).toArray());
+            return stringFormatter.apply(asScalarMetrics().stream().mapToLong(m -> ((LongMetric) m).value()).toArray());
         }
 
         StringBuilder sb = new StringBuilder("[");
