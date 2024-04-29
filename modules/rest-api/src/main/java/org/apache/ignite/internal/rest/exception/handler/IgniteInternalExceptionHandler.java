@@ -26,6 +26,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
+import org.apache.ignite.lang.ErrorGroups.DisasterRecovery;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 
 /**
@@ -37,9 +38,11 @@ public class IgniteInternalExceptionHandler implements ExceptionHandler<IgniteIn
 
     @Override
     public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteInternalException exception) {
-        if (exception.code() == DistributionZones.ZONE_NOT_FOUND_ERR) {
+        if (exception.code() == DistributionZones.ZONE_NOT_FOUND_ERR
+                || exception.code() == DisasterRecovery.PARTITIONS_NOT_FOUND_ERR
+                || exception.code() == DisasterRecovery.NODES_NOT_FOUND_ERR) {
             return HttpProblemResponse.from(
-                    Problem.fromHttpCode(HttpCode.NOT_FOUND)
+                    Problem.fromHttpCode(HttpCode.BAD_REQUEST)
                             .detail(exception.getMessage())
                             .traceId(exception.traceId())
                             .code(exception.codeAsString())

@@ -15,24 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.disaster;
+package org.apache.ignite.internal.table.distributed.disaster.exceptions;
 
-/**
- * Global partition state.
- */
-public class GlobalPartitionState {
-    public final String tableName;
+import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_NOT_FOUND_ERR;
 
-    public final String zoneName;
+import java.util.Set;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
-    public final int partitionId;
+/** Exception is thrown when appropriate node can`t be found. */
+public class ZonesNotFoundException extends IgniteInternalException {
+    private static final long serialVersionUID = -8475588176132321568L;
 
-    public final GlobalPartitionStateEnum state;
-
-    GlobalPartitionState(String tableName, String zoneName, int partitionId, GlobalPartitionStateEnum state) {
-        this.tableName = tableName;
-        this.zoneName = zoneName;
-        this.partitionId = partitionId;
-        this.state = state;
+    public ZonesNotFoundException(Set<String> missingZones) {
+        super(ZONE_NOT_FOUND_ERR, "Some distribution zones are missing: " + missingZones);
     }
 }

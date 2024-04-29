@@ -25,6 +25,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.rest.api.recovery.DisasterRecoveryApi;
@@ -50,23 +52,29 @@ public class DisasterRecoveryController implements DisasterRecoveryApi {
     }
 
     @Override
-    public CompletableFuture<LocalPartitionStatesResponse> getLocalPartitionStates() {
-        return disasterRecoveryManager.localPartitionStates(null).thenApply(DisasterRecoveryController::convertLocalStates);
+    public CompletableFuture<LocalPartitionStatesResponse> getLocalPartitionStates(
+            Optional<Set<String>> zoneNames,
+            Optional<Set<String>> nodeNames,
+            Optional<Set<Integer>> partitionIds
+    ) {
+        return disasterRecoveryManager.localPartitionStates(
+                        zoneNames.orElse(Set.of()),
+                        nodeNames.orElse(Set.of()),
+                        partitionIds.orElse(Set.of())
+                )
+                .thenApply(DisasterRecoveryController::convertLocalStates);
     }
 
     @Override
-    public CompletableFuture<LocalPartitionStatesResponse> getLocalPartitionStates(String zoneName) {
-        return disasterRecoveryManager.localPartitionStates(zoneName).thenApply(DisasterRecoveryController::convertLocalStates);
-    }
-
-    @Override
-    public CompletableFuture<GlobalPartitionStatesResponse> getGlobalPartitionStates() {
-        return disasterRecoveryManager.globalPartitionStates(null).thenApply(DisasterRecoveryController::convertGlobalStates);
-    }
-
-    @Override
-    public CompletableFuture<GlobalPartitionStatesResponse> getGlobalPartitionStates(String zoneName) {
-        return disasterRecoveryManager.globalPartitionStates(zoneName).thenApply(DisasterRecoveryController::convertGlobalStates);
+    public CompletableFuture<GlobalPartitionStatesResponse> getGlobalPartitionStates(
+            Optional<Set<String>> zoneNames,
+            Optional<Set<Integer>> partitionIds
+    ) {
+        return disasterRecoveryManager.globalPartitionStates(
+                        zoneNames.orElse(Set.of()),
+                        partitionIds.orElse(Set.of())
+                )
+                .thenApply(DisasterRecoveryController::convertGlobalStates);
     }
 
     private static LocalPartitionStatesResponse convertLocalStates(Map<TablePartitionId, Map<String, LocalPartitionState>> localStates) {
@@ -80,6 +88,7 @@ public class DisasterRecoveryController implements DisasterRecoveryApi {
                 states.add(new LocalPartitionStateResponse(
                         state.partitionId,
                         state.tableName,
+                        state.zoneName,
                         nodeName,
                         state.state.name()
                 ));
@@ -101,6 +110,7 @@ public class DisasterRecoveryController implements DisasterRecoveryApi {
             states.add(new GlobalPartitionStateResponse(
                     state.partitionId,
                     state.tableName,
+                    state.zoneName,
                     state.state.name()
             ));
         }

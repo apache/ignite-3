@@ -48,6 +48,7 @@ namespace Apache.Ignite
             Catalog.GroupCode => Catalog.GroupName,
             PlacementDriver.GroupCode => PlacementDriver.GroupName,
             CriticalWorkers.GroupCode => CriticalWorkers.GroupName,
+            DisasterRecovery.GroupCode => DisasterRecovery.GroupName,
 
             _ => UnknownGroupName
         };
@@ -570,6 +571,22 @@ namespace Apache.Ignite
 
             /// <summary> SystemCriticalOperationTimeout error. </summary>
             public const int SystemCriticalOperationTimeout = (GroupCode << 16) | (2 & 0xFFFF);
+        }
+
+        /// <summary> DisasterRecovery errors. </summary>
+        public static class DisasterRecovery
+        {
+            /// <summary> DisasterRecovery group code. </summary>
+            public const short GroupCode = 20;
+
+            /// <summary> DisasterRecovery group name. </summary>
+            public const String GroupName = "RECOVERY";
+
+            /// <summary> PartitionsNotFound error. </summary>
+            public const int PartitionsNotFound = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> NodesNotFound error. </summary>
+            public const int NodesNotFound = (GroupCode << 16) | (3 & 0xFFFF);
         }
     }
 }
