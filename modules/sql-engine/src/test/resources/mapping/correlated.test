@@ -129,11 +129,10 @@ Fragment#0 root
   exchangeSourceNodes: {1=[N1]}
   tree:
     Project
-      MergeJoin
+      HashJoin
         Receiver(sourceFragment=1, exchange=1, distribution=single)
-        Sort
-          Filter
-            TableFunctionScan(source=2, distribution=single)
+        Filter
+          TableFunctionScan(source=2, distribution=single)
 
 Fragment#1
   targetNodes: [N0]
@@ -142,8 +141,7 @@ Fragment#1
   partitions: {N1=[0:1]}
   tree:
     Sender(targetFragment=0, exchange=1, distribution=single)
-      Sort
-        TableScan(name=PUBLIC.T_N1, source=3, partitions=1, distribution=random)
+      TableScan(name=PUBLIC.T_N1, source=3, partitions=1, distribution=random)
 ---
 
 N0

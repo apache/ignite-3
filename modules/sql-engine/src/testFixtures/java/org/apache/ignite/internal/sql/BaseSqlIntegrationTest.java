@@ -111,19 +111,29 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
         NESTED_LOOP(
                 "CorrelatedNestedLoopJoin",
                 "JoinCommuteRule",
-                "MergeJoinConverter"
+                "MergeJoinConverter",
+                "HashJoinConverter"
         ),
 
         MERGE(
                 "CorrelatedNestedLoopJoin",
                 "JoinCommuteRule",
-                "NestedLoopJoinConverter"
+                "NestedLoopJoinConverter",
+                "HashJoinConverter"
         ),
 
         CORRELATED(
                 "MergeJoinConverter",
                 "JoinCommuteRule",
-                "NestedLoopJoinConverter"
+                "NestedLoopJoinConverter",
+                "HashJoinConverter"
+        ),
+
+        HASHJOIN(
+                "MergeJoinConverter",
+                "JoinCommuteRule",
+                "NestedLoopJoinConverter",
+                "CorrelatedNestedLoopJoin"
         );
 
         private final String[] disabledRules;

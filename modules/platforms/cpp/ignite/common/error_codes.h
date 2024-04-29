@@ -148,7 +148,6 @@ enum class code : underlying_t {
     STORAGE_REBALANCE = 0x90004,
     ALREADY_DESTROYED = 0x90005,
     INDEX_NOT_BUILT = 0x90006,
-    INCONSISTENT_INDEX_STATE = 0x90007,
 
     // DistributionZones group. Group code: 10
     ZONE_NOT_FOUND = 0xa0001,

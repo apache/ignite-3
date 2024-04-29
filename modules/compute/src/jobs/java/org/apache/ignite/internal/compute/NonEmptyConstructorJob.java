@@ -15,12 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.rel;
+package org.apache.ignite.internal.compute;
 
-/** Nested loop join execution tests. */
-public class NestedLoopJoinExecutionTest extends AbstractJoinExecutionTest {
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
+
+/** A compute job without default constructor. */
+public class NonEmptyConstructorJob implements ComputeJob<String> {
+    private NonEmptyConstructorJob(String s) {
+    }
+
+    /** {@inheritDoc} */
     @Override
-    JoinAlgo joinAlgo() {
-        return JoinAlgo.NESTED_LOOP;
+    public String execute(JobExecutionContext context, Object... args) {
+        return "";
     }
 }
