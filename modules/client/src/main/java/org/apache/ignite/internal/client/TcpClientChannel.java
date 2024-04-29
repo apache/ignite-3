@@ -630,14 +630,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var clusterId = unpacker.unpackUuid();
             var clusterName = unpacker.unpackString();
 
+            long observableTimestamp = unpacker.unpackLong();
+            observableTimestampListener.accept(observableTimestamp);
+
             unpacker.unpackByte(); // cluster version major
             unpacker.unpackByte(); // cluster version minor
             unpacker.unpackByte(); // cluster version maintenance
             unpacker.unpackByteNullable(); // cluster version patch
             unpacker.unpackStringNullable(); // cluster version pre release
-
-            long observableTimestamp = unpacker.unpackLong();
-            observableTimestampListener.accept(observableTimestamp);
 
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValues(featuresLen);
