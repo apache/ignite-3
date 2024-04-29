@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.index;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -30,7 +31,6 @@ import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,7 +68,7 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedI
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(
+        closeAll(
                 tableStorage == null ? null : tableStorage::close,
                 engine == null ? null : engine::stop
         );

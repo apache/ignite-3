@@ -81,6 +81,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     public static final int DEFAULT_PAGE_SIZE = 1024;
 
     private static final IgniteLogger LOG = Loggers.forClass(IgniteSqlImpl.class);
+
     private static final int AWAIT_CURSOR_CLOSE_ON_STOP_IN_SECONDS = 10;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -90,7 +91,6 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     private final AtomicInteger cursorIdGen = new AtomicInteger();
 
     private final ConcurrentMap<Integer, AsyncSqlCursor<?>> openedCursors = new ConcurrentHashMap<>();
-
 
     private final QueryProcessor queryProcessor;
 
@@ -123,14 +123,14 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return nullCompletedFuture();
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!closed.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -169,6 +169,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 // this future has timeout of AWAIT_CURSOR_CLOSE_ON_STOP_IN_SECONDS,
                 // so we won't be waiting forever on this join() call
                 .join();
+
+        return nullCompletedFuture();
     }
 
     private static @Nullable Throwable gatherExceptions(CompletableFuture<?>... futures) {
@@ -286,7 +288,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             String query,
             @Nullable Object... arguments
     ) {
-        return executeAsyncInternal(transaction, query, DEFAULT_PAGE_SIZE, arguments);
+        return executeAsyncInternal(transaction, new StatementImpl(query), arguments);
     }
 
     /** {@inheritDoc} */
@@ -296,14 +298,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             Statement statement,
             @Nullable Object... arguments
     ) {
-        int pageSize = statement.pageSize();
-
-        if (pageSize <= 0) {
-            pageSize = DEFAULT_PAGE_SIZE;
-        }
-
-        // TODO: IGNITE-17440 use all statement properties.
-        return executeAsyncInternal(transaction, statement.query(), pageSize, arguments);
+        return executeAsyncInternal(transaction, statement, arguments);
     }
 
     /** {@inheritDoc} */
@@ -327,11 +322,12 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     private CompletableFuture<AsyncResultSet<SqlRow>> executeAsyncInternal(
             @Nullable Transaction transaction,
-            String query,
-            int pageSize,
+            Statement statement,
             @Nullable Object... arguments
     ) {
-        assert pageSize > 0 : pageSize;
+        assert statement.pageSize() > 0 : statement.pageSize();
+
+        int pageSize = statement.pageSize();
 
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(nodeIsStoppingException());
@@ -342,9 +338,11 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         try {
             SqlProperties properties = SqlPropertiesHelper.newBuilder()
                     .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
+                    .set(QueryProperty.TIME_ZONE_ID, statement.timeZoneId())
+                    .set(QueryProperty.DEFAULT_SCHEMA, statement.defaultSchema())
                     .build();
 
-            result = queryProcessor.queryAsync(properties, transactions, (InternalTransaction) transaction, query, arguments)
+            result = queryProcessor.queryAsync(properties, transactions, (InternalTransaction) transaction, statement.query(), arguments)
                     .thenCompose(cur -> {
                                 if (!busyLock.enterBusy()) {
                                     cur.closeAsync();

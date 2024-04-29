@@ -1,0 +1,85 @@
+# name: sql/join/inner/test_table_from_outer_join_used_in_inner.test
+# description: SQL feature F041-07 (The inner table in a left or right outer join can also be used in an inner join)
+# group: [Basic joined table]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE t1(c11 INTEGER, c12 INTEGER, c13 CHAR);
+
+statement ok
+INSERT INTO t1 VALUES (1, 2, 'a'), (2, 3, 'b'), (3, 4, 'c')
+
+statement ok
+CREATE TABLE t2 (c21 INTEGER, c22 INTEGER, c23 CHAR);
+
+statement ok
+INSERT INTO t2 VALUES (2, 3, 'a'), (3, 4, 'b'), (4, 3, 'c')
+
+query II rowsort
+select j.c21, j.c22 from (SELECT c21, c22 from t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) j INNER JOIN t2 t22 ON (t22.c21 = j.c22);
+----
+2	3
+3	4
+4	3
+
+query II rowsort
+select c11, j.c22 from (SELECT c21, c22 from t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) j INNER JOIN t1 t11 ON (t11.c12 = j.c22);
+----
+2	3
+2	3
+3	4
+
+query II rowsort
+select t1.c11, t2.c22 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t2 t22 ON (t22.c21 = c11);
+----
+2	3
+3	4
+
+query II rowsort
+select c21, t11.c12 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t1 t11 ON (t11.c11 = t2.c22);
+----
+2	4
+4	4
+
+query II rowsort
+select t1.c11, t2.c21 from (t2 RIGHT OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t2 t22 ON (t22.c21 = c12);
+----
+1	null
+2	2
+3	3
+
+query II rowsort
+select t11.c11, t2.c21 from (t2 RIGHT OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t1 t11 ON (t11.c12 = t2.c22);
+----
+2	2
+3	3
+
+query II rowsort
+select t1.c11, t2.c21 from (t2 FULL OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t2 t22 ON (t22.c21 = c12);
+----
+1	null
+2	2
+3	3
+
+query II rowsort
+select t1.c11, t2.c21 from (t2 FULL OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t1 t11 ON (t11.c12 = t2.c22);
+----
+null	4
+2	2
+3	3
+
+query III rowsort
+select t2.c21, t2.c22, t2.c23 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t2 t22 ON (t22.c23 = 'a');
+----
+2	3	a
+3	4	b
+4	3	c
+
+query III rowsort
+select t1.c11, t1.c12, t1.c13 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) INNER JOIN t1 t11 ON (t11.c13 = 'a');
+----
+null	null	null
+2	3	b
+3	4	c

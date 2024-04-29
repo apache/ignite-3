@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCata
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.concurrent.CompletableFuture;
@@ -53,18 +54,17 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     void before() {
         HybridClock clock = new HybridClockImpl();
         catalogManager = createTestCatalogManager("test", clock);
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
 
         clockWaiter = new ClockWaiter("test", clock);
-        assertThat(clockWaiter.start(), willCompleteSuccessfully());
+        assertThat(clockWaiter.startAsync(), willCompleteSuccessfully());
 
         commandHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);
     }
 
     @AfterEach
-    public void after() throws Exception {
-        clockWaiter.stop();
-        catalogManager.stop();
+    public void after() {
+        assertThat(stopAsync(clockWaiter, catalogManager), willCompleteSuccessfully());
     }
 
     @Test

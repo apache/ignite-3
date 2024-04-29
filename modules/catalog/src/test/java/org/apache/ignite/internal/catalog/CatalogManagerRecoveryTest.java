@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.INDEX_NAME;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.INDEX_NAME_2;
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.TABLE_NAME;
@@ -30,6 +29,8 @@ import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.simpleTa
 import static org.apache.ignite.internal.catalog.BaseCatalogManagerTest.startBuildingIndexCommand;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
@@ -58,7 +59,6 @@ import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -81,12 +81,12 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     private TestUpdateHandlerInterceptor interceptor;
 
     @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.stopAll(catalogManager, metaStorageManager);
+    void tearDown() {
+        assertThat(stopAsync(catalogManager, metaStorageManager), willCompleteSuccessfully());
     }
 
     @Test
-    void testRecoveryCatalogVersionTimestamps() throws Exception {
+    void testRecoveryCatalogVersionTimestamps() {
         createAndStartComponents();
 
         // Let's create a couple of versions of the catalog.
@@ -126,7 +126,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testRecoveryCatalogAfterCompaction() throws Exception {
+    void testRecoveryCatalogAfterCompaction() {
         createAndStartComponents();
 
         // Let's create a couple of versions of the catalog.
@@ -175,7 +175,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testRecoveryIndexCreationCatalogVersion() throws Exception {
+    void testRecoveryIndexCreationCatalogVersion() {
         createAndStartComponents();
 
         assertThat(catalogManager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
@@ -212,11 +212,14 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     }
 
     private void startComponentsAndDeployWatches() {
-        assertThat(allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
-        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        assertThat(
+                startAsync(metaStorageManager, catalogManager)
+                        .thenCompose(unused -> metaStorageManager.deployWatches()),
+                willCompleteSuccessfully()
+        );
     }
 
-    private void stopComponents() throws Exception {
-        IgniteUtils.stopAll(catalogManager, metaStorageManager);
+    private void stopComponents() {
+        assertThat(stopAsync(catalogManager, metaStorageManager), willCompleteSuccessfully());
     }
 }

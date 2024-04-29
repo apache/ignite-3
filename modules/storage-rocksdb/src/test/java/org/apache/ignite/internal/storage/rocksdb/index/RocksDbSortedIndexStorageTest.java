@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -67,7 +67,7 @@ public class RocksDbSortedIndexStorageTest extends AbstractSortedIndexStorageTes
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(
+        closeAll(
                 tableStorage == null ? null : tableStorage::close,
                 engine == null ? null : engine::stop
         );

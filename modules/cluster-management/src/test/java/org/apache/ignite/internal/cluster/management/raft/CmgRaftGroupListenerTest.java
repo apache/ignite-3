@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
@@ -85,14 +86,14 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        storage.start();
+        assertThat(storage.startAsync(), willCompleteSuccessfully());
 
         listener = new CmgRaftGroupListener(storage, logicalTopology, onLogicalTopologyChanged);
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        storage.stop();
+    void tearDown() {
+        assertThat(storage.stopAsync(), willCompleteSuccessfully());
     }
 
     /**

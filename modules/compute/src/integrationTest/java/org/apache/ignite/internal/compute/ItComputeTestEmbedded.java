@@ -18,17 +18,14 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicCheckedException;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicException;
-import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -40,20 +37,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
@@ -83,67 +75,6 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     @Override
     protected List<DeploymentUnit> units() {
         return List.of();
-    }
-
-    @Override
-    protected String concatJobClassName() {
-        return ConcatJob.class.getName();
-    }
-
-    @Override
-    protected String getNodeNameJobClassName() {
-        return GetNodeNameJob.class.getName();
-    }
-
-    @Override
-    protected String failingJobClassName() {
-        return FailingJob.class.getName();
-    }
-
-    @ParameterizedTest
-    @MethodSource("wrongJobClassArguments")
-    void executesWrongJobClassLocally(String jobClassName, int errorCode, String msg) {
-        IgniteImpl entryNode = node(0);
-
-        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
-                .execute(Set.of(entryNode.node()), units(), jobClassName));
-
-        assertTraceableException(ex, ComputeException.class, errorCode, msg);
-    }
-
-    @ParameterizedTest
-    @MethodSource("wrongJobClassArguments")
-    void executesWrongJobClassLocallyAsync(String jobClassName, int errorCode, String msg) {
-        IgniteImpl entryNode = node(0);
-
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
-                .executeAsync(Set.of(entryNode.node()), units(), jobClassName)
-                .get(1, TimeUnit.SECONDS));
-
-        assertTraceableException(ex, ComputeException.class, errorCode, msg);
-    }
-
-    @ParameterizedTest
-    @MethodSource("wrongJobClassArguments")
-    void executesWrongJobClassOnRemoteNodes(String jobClassName, int errorCode, String msg) {
-        Ignite entryNode = node(0);
-
-        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
-                .execute(Set.of(node(1).node(), node(2).node()), units(), jobClassName));
-
-        assertTraceableException(ex, ComputeException.class, errorCode, msg);
-    }
-
-    @ParameterizedTest
-    @MethodSource("wrongJobClassArguments")
-    void executesWrongJobClassOnRemoteNodesAsync(String jobClassName, int errorCode, String msg) {
-        Ignite entryNode = node(0);
-
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
-                .executeAsync(Set.of(node(1).node(), node(2).node()), units(), jobClassName)
-                .get(1, TimeUnit.SECONDS));
-
-        assertTraceableException(ex, ComputeException.class, errorCode, msg);
     }
 
     @Test
@@ -395,68 +326,12 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         return IntStream.range(0, initialNodes()).mapToObj(Arguments::of);
     }
 
-    private static class ConcatJob implements ComputeJob<String> {
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return Arrays.stream(args)
-                    .map(Object::toString)
-                    .collect(joining());
-        }
-    }
-
-    private static class GetNodeNameJob implements ComputeJob<String> {
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return context.ignite().name();
-        }
-    }
 
     private static class CustomFailingJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override
         public String execute(JobExecutionContext context, Object... args) {
             throw ExceptionUtils.sneakyThrow((Throwable) args[0]);
-        }
-    }
-
-    private static class FailingJob implements ComputeJob<String> {
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            throw new JobException("Oops", new Exception());
-        }
-    }
-
-    private static class JobException extends RuntimeException {
-        private JobException(String message, Throwable cause) {
-            super(message, cause);
-        }
-    }
-
-    private static List<Arguments> wrongJobClassArguments() {
-        return List.of(
-                Arguments.of("org.example.NonExistentJob", CLASS_INITIALIZATION_ERR, "Cannot load job class by name"),
-                Arguments.of(NonComputeJob.class.getName(), CLASS_INITIALIZATION_ERR, "does not implement ComputeJob interface"),
-                Arguments.of(NonEmptyConstructorJob.class.getName(), CLASS_INITIALIZATION_ERR, "Cannot instantiate job")
-        );
-    }
-
-    private static class NonComputeJob {
-        public String execute(JobExecutionContext context, Object... args) {
-            return "";
-        }
-    }
-
-    private static class NonEmptyConstructorJob implements ComputeJob<String> {
-        private NonEmptyConstructorJob(String s) {
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public String execute(JobExecutionContext context, Object... args) {
-            return "";
         }
     }
 

@@ -28,7 +28,7 @@ import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
-import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStateMessage;
 import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesRequest;
 import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
@@ -216,7 +216,7 @@ public interface TableMessageGroup {
      * Messages for {@link DisasterRecoveryManager}.
      */
     interface DisasterRecoveryMessages {
-        /** Message type for {@link LocalPartitionState}. */
+        /** Message type for {@link LocalPartitionStateMessage}. */
         short LOCAL_PARTITION_STATE = 100;
 
         /** Message type for {@link LocalPartitionStatesRequest}. */

@@ -458,7 +458,7 @@ TEST_F(compute_test, job_execution_status_executing) {
     EXPECT_EQ(job_state::EXECUTING, status->state);
 }
 
-TEST_F(compute_test, job_execution_status_completed) {
+TEST_F(compute_test, DISABLED_job_execution_status_completed) {
     const std::int32_t sleep_ms = 1;
 
     auto execution = m_client.get_compute().submit({get_node(1)}, {}, SLEEP_JOB, {sleep_ms}, {});

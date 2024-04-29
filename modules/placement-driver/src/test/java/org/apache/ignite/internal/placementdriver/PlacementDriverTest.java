@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -65,7 +66,6 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeResolver;
@@ -157,7 +157,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             return nullCompletedFuture();
         });
 
-        metastore.start();
+        assertThat(metastore.startAsync(), willCompleteSuccessfully());
 
         CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
 
@@ -172,9 +172,9 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(
+        closeAll(
                 placementDriver == null ? null : placementDriver::stopTrack,
-                metastore == null ? null : metastore::stop
+                metastore == null ? null : () -> assertThat(metastore.stopAsync(), willCompleteSuccessfully())
         );
     }
 

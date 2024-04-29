@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
@@ -65,6 +66,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -166,13 +168,14 @@ public class TxManagerTest extends IgniteAbstractTest {
                 lowWatermark
         );
 
-        txManager.start();
+        assertThat(txManager.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
-    public void tearDown() throws Exception {
+    public void tearDown() {
         txManager.beforeNodeStop();
-        txManager.stop();
+
+        assertThat(txManager.stopAsync(), willCompleteSuccessfully());
     }
 
     @Test
@@ -239,7 +242,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     void testUpdateLowerWatermark() {
-        verify(lowWatermark).addUpdateListener(any());
+        verify(lowWatermark).listen(eq(LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE), any());
 
         // Let's check the absence of transactions.
         assertThat(lowWatermark.updateAndNotify(clockService.now()), willSucceedFast());

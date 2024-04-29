@@ -66,14 +66,14 @@ public class TableUtilsTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() throws Exception {
         closeAll(
                 catalogManager::beforeNodeStop,
-                catalogManager::stop
+                () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully())
         );
     }
 

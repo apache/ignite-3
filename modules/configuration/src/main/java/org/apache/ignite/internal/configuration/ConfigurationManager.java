@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.RootKey;
@@ -58,17 +56,15 @@ public class ConfigurationManager implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> start() {
-        registry.start();
-
-        return nullCompletedFuture();
+    public CompletableFuture<Void> startAsync() {
+        return registry.startAsync();
     }
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         // TODO: IGNITE-15161 Implement component's stop.
-        registry.stop();
+        return registry.stopAsync();
     }
 
     /**

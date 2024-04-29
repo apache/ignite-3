@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -40,7 +41,6 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.Transaction;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -49,7 +49,6 @@ import org.junit.jupiter.api.Test;
 @SuppressWarnings("ThrowableNotThrown")
 public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
     public void pageSequence() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
@@ -68,17 +67,19 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         var p0 = ars0.currentPage();
         AsyncResultSet<SqlRow> ars1 = await(ars0.fetchNextPage());
         var p1 = ars1.currentPage();
-        AsyncResultSet<SqlRow> ars2 = await(ars1.fetchNextPage().toCompletableFuture());
+        AsyncResultSet<SqlRow> ars2 = await(ars1.fetchNextPage());
         var p2 = ars2.currentPage();
         AsyncResultSet<SqlRow> ars3 = await(ars1.fetchNextPage());
         var p3 = ars3.currentPage();
         AsyncResultSet<SqlRow> ars4 = await(ars0.fetchNextPage());
         var p4 = ars4.currentPage();
 
-        assertSame(ars0, ars1);
-        assertSame(ars0, ars2);
-        assertSame(ars0, ars3);
-        assertSame(ars0, ars4);
+        AsyncResultSet<?> ars0unwrapped = Wrappers.unwrap(ars0, AsyncResultSet.class);
+
+        assertSame(ars0unwrapped, Wrappers.unwrap(ars1, AsyncResultSet.class));
+        assertSame(ars0unwrapped, Wrappers.unwrap(ars2, AsyncResultSet.class));
+        assertSame(ars0unwrapped, Wrappers.unwrap(ars3, AsyncResultSet.class));
+        assertSame(ars0unwrapped, Wrappers.unwrap(ars4, AsyncResultSet.class));
 
         List<SqlRow> res = Stream.of(p0, p1, p2, p3, p4)
                 .flatMap(p -> StreamSupport.stream(p.spliterator(), false))
@@ -92,27 +93,6 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         for (int i = 0; i < ROW_COUNT; ++i) {
             assertEquals(i, res.get(i).intValue(0));
         }
-    }
-
-    @Override
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
-    public void select() {
-        super.select();
-    }
-
-    @Override
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
-    public void resultSetCloseShouldFinishImplicitTransaction() {
-        super.resultSetCloseShouldFinishImplicitTransaction();
-    }
-
-    @Override
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
-    public void errors() throws InterruptedException {
-        super.errors();
     }
 
     @Override

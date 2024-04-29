@@ -101,7 +101,7 @@ public class RestComponent implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         RestView restConfigurationView = restConfiguration.value();
         RestSslView sslConfigurationView = restConfigurationView.ssl();
 
@@ -264,12 +264,14 @@ public class RestComponent implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void stop() throws Exception {
+    public synchronized CompletableFuture<Void> stopAsync() {
         // TODO: IGNITE-16636 Use busy-lock approach to guard stopping RestComponent
         if (context != null) {
             context.stop();
             context = null;
         }
+
+        return nullCompletedFuture();
     }
 
     /**

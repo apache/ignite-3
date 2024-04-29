@@ -41,24 +41,10 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public String query() {
-        return query;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public StatementBuilder query(String sql) {
-        query = sql;
+    public StatementBuilder query(String query) {
+        this.query = query;
 
         return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long queryTimeout(TimeUnit timeUnit) {
-        Objects.requireNonNull(timeUnit);
-
-        return timeUnit.convert(queryTimeoutMs == null ? 0 : queryTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */
@@ -73,12 +59,6 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public String defaultSchema() {
-        return defaultSchema;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public StatementBuilder defaultSchema(String schema) {
         defaultSchema = schema;
 
@@ -87,22 +67,10 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public int pageSize() {
-        return pageSize == null ? 0 : pageSize;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public StatementBuilder pageSize(int pageSize) {
         this.pageSize = pageSize;
 
         return this;
-    }
-
-    @Override
-    public ZoneId timeZoneId() {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-21568
-        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     @Override

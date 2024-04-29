@@ -60,6 +60,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.TestStorageUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -150,9 +151,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         createTestTable();
     }
 
-    /**
-     * Configures a test table with columns of all supported types.
-     */
+    /** Configures a test table with columns of all supported types. */
     private void createTestTable() {
         ColumnParams pkColumn = ColumnParams.builder().name("pk").type(ColumnType.INT32).nullable(false).build();
 
@@ -168,7 +167,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
                 TABLE_NAME,
                 zoneId,
                 Stream.concat(Stream.of(pkColumn), ALL_TYPES_COLUMN_PARAMS.stream()).map(CatalogUtils::fromParams).collect(toList()),
-                List.of("pk"),
+                List.of(pkColumn.name()),
                 null,
                 DEFAULT_STORAGE_PROFILE
         );
@@ -182,9 +181,25 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
     /**
      * Creates an IndexStorage instance using the given columns.
      *
+     * @param name Index name.
+     * @param built {@code True} to create a built index, {@code false} if you need to build it later.
+     * @param columnTypes Column types.
      * @see #columnName(ColumnType)
+     * @see #completeBuildIndex(IndexStorage)
      */
-    protected abstract S createIndexStorage(String name, ColumnType... columnTypes);
+    protected abstract S createIndexStorage(String name, boolean built, ColumnType... columnTypes);
+
+    /**
+     * Creates a built IndexStorage instance using the given columns.
+     *
+     * @param name Index name.
+     * @param columnTypes Column types.
+     * @see #columnName(ColumnType)
+     * @see #completeBuildIndex(IndexStorage)
+     */
+    protected S createIndexStorage(String name, ColumnType... columnTypes) {
+        return createIndexStorage(name, true, columnTypes);
+    }
 
     /**
      * Provides safe access to the index descriptor of the storage.
@@ -364,7 +379,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
             assertNull(indexStorage.getNextRowIdToBuild());
         } else {
-            indexStorage = createIndexStorage(INDEX_NAME, ColumnType.INT32);
+            indexStorage = createIndexStorage(INDEX_NAME, false, ColumnType.INT32);
 
             assertEquals(initialRowIdToBuild(TEST_PARTITION), indexStorage.getNextRowIdToBuild());
         }
@@ -378,6 +393,30 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         });
 
         assertEquals(newNextRowIdToBuild, newNextRowIdToBuild);
+    }
+
+    @Test
+    void testGetFromPkIndex() {
+        S pkIndex = createPkIndexStorage();
+        var serializer = new BinaryTupleRowSerializer(indexDescriptor(pkIndex));
+
+        IndexRow indexRow = createIndexRow(serializer, 1);
+
+        assertDoesNotThrow(() -> getAll(pkIndex, indexRow));
+    }
+
+    @Test
+    void testGetAfterBuiltIndex() {
+        S index = createIndexStorage(INDEX_NAME, false, ColumnType.INT32);
+        var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
+
+        IndexRow indexRow = createIndexRow(serializer, 1);
+
+        assertThrows(IndexNotBuiltException.class, () -> getAll(index, indexRow));
+
+        completeBuildIndex(index);
+
+        assertDoesNotThrow(() -> getAll(index, indexRow));
     }
 
     protected static Collection<RowId> getAll(IndexStorage index, IndexRow row) {
@@ -432,14 +471,23 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         when(catalogService.index(eq(indexDescriptor.id()), anyInt())).thenReturn(indexDescriptor);
     }
 
-    IndexStorage createPkIndexStorage() {
+    S createPkIndexStorage() {
         CatalogTableDescriptor tableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
 
         CatalogIndexDescriptor pkIndexDescriptor = catalogService.aliveIndex(PK_INDEX_NAME, clock.nowLong());
 
-        return tableStorage.getOrCreateIndex(
+        return (S) tableStorage.getOrCreateIndex(
                 TEST_PARTITION,
                 StorageIndexDescriptor.create(tableDescriptor, pkIndexDescriptor)
         );
+    }
+
+    /** Completes the building of the index and makes read operations available from it. */
+    void completeBuildIndex(IndexStorage indexStorage) {
+        TestStorageUtils.completeBuiltIndexes(partitionStorage, indexStorage);
+    }
+
+    static IndexRow createIndexRow(BinaryTupleRowSerializer serializer, Object... values) {
+        return serializer.serializeRow(values, new RowId(TEST_PARTITION));
     }
 }

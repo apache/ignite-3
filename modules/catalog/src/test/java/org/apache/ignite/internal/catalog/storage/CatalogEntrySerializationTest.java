@@ -21,13 +21,27 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_F
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-import java.io.Serializable;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.BitSet;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.ConstantValue;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
@@ -45,19 +59,35 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.apache.ignite.sql.ColumnType;
 import org.assertj.core.api.BDDAssertions;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests to verify catalog storage entries serialization.
  */
 public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
+    private static final long SEED = System.nanoTime();
+
+    private static final Random RND = new Random(SEED);
+
     private final UpdateLogMarshallerImpl marshaller = new UpdateLogMarshallerImpl();
+
+    @BeforeEach
+    public void setup() {
+        log.info("Seed: {}", SEED);
+    }
 
     @ParameterizedTest
     @EnumSource(value = MarshallableEntryType.class, names = "VERSIONED_UPDATE", mode = Mode.EXCLUDE)
@@ -144,6 +174,85 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("values")
+    public void testConstantDefaultAllTypes(ColumnType columnType, Object value) throws IOException {
+        ConstantValue val = (ConstantValue) DefaultValue.constant(value);
+
+        log.info("{}: {}", columnType, value);
+
+        try (IgniteUnsafeDataOutput os = new IgniteUnsafeDataOutput(128)) {
+            DefaultValue.writeTo(val, os);
+
+            try (IgniteUnsafeDataInput in = new IgniteUnsafeDataInput(os.internalArray())) {
+                DefaultValue actual = DefaultValue.readFrom(in);
+                assertEquals(val, actual);
+            }
+        }
+    }
+
+    private static Stream<Arguments> values() {
+        List<Object> list = new ArrayList<>();
+
+        list.add(null);
+        list.add(RND.nextBoolean());
+
+        list.add((byte) RND.nextInt());
+        list.add((short) RND.nextInt());
+        list.add(RND.nextInt());
+        list.add(RND.nextLong());
+        list.add((float) RND.nextDouble());
+        list.add(RND.nextDouble());
+
+        list.add(BigDecimal.valueOf(RND.nextLong()));
+        list.add(BigDecimal.valueOf(RND.nextLong(), RND.nextInt(100)));
+
+        list.add(BigInteger.valueOf(RND.nextLong()));
+
+        list.add(LocalTime.of(RND.nextInt(24), RND.nextInt(60), RND.nextInt(60), RND.nextInt(100_000)));
+        list.add(LocalDate.of(RND.nextInt(4000) - 1000, RND.nextInt(12) + 1, RND.nextInt(27) + 1));
+        list.add(LocalDateTime.of(
+                LocalDate.of(RND.nextInt(4000) - 1000, RND.nextInt(12) + 1, RND.nextInt(27) + 1),
+                LocalTime.of(RND.nextInt(24), RND.nextInt(60), RND.nextInt(60), RND.nextInt(100_000))
+        ));
+
+        byte[] bytes = new byte[RND.nextInt(1000)];
+        RND.nextBytes(bytes);
+        list.add(Base64.getEncoder().encodeToString(bytes));
+
+        list.add(UUID.randomUUID());
+
+        // TODO Include ignored values to test after https://issues.apache.org/jira/browse/IGNITE-15200
+        //  list.add(Duration.of(11, ChronoUnit.HOURS));
+        //  list.add(Period.of(5, 4, 3));
+
+        BitSet bitSet = new BitSet();
+        for (int i = 0; i < RND.nextInt(100); i++) {
+            int b = RND.nextInt(1024);
+            bitSet.set(b);
+        }
+        list.add(bitSet);
+
+        return list.stream().map(val -> {
+            NativeType nativeType = NativeTypes.fromObject(val);
+            return Arguments.of(nativeType == null ? ColumnType.NULL : nativeType.spec().asColumnType(), val);
+        });
+    }
+
+    @Test
+    public void testFunctionCallDefault() throws IOException {
+        FunctionCall val = (FunctionCall) DefaultValue.functionCall("func");
+
+        try (IgniteUnsafeDataOutput os = new IgniteUnsafeDataOutput(128)) {
+            DefaultValue.writeTo(val, os);
+
+            try (IgniteUnsafeDataInput in = new IgniteUnsafeDataInput(os.internalArray())) {
+                DefaultValue actual = DefaultValue.readFrom(in);
+                assertEquals(val, actual);
+            }
+        }
+    }
+
     private void checkAlterZoneEntry() {
         CatalogStorageProfilesDescriptor profiles =
                 new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor("default")));
@@ -168,7 +277,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
     private void checkAlterColumnEntry() {
         CatalogTableColumnDescriptor desc1 = newCatalogTableColumnDescriptor("c0", null);
         CatalogTableColumnDescriptor desc2 =
-                newCatalogTableColumnDescriptor("c1", DefaultValue.constant(new CustomDefaultValue(Integer.MAX_VALUE)));
+                newCatalogTableColumnDescriptor("c1", DefaultValue.constant(UUID.randomUUID()));
         CatalogTableColumnDescriptor desc3 =
                 newCatalogTableColumnDescriptor("c2", DefaultValue.functionCall("function"));
         CatalogTableColumnDescriptor desc4 = newCatalogTableColumnDescriptor("c3", DefaultValue.constant(null));
@@ -372,20 +481,5 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 colCols,
                 "default"
         );
-    }
-
-    private static class CustomDefaultValue implements Serializable {
-        private static final long serialVersionUID = 0L;
-
-        private final int field;
-
-        CustomDefaultValue(int field) {
-            this.field = field;
-        }
-
-        @Override
-        public String toString() {
-            return S.toString(this);
-        }
     }
 }

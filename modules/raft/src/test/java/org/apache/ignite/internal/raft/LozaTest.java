@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
@@ -65,10 +67,10 @@ public class LozaTest extends IgniteAbstractTest {
 
         Loza loza = new Loza(clusterNetSvc, raftConfiguration, workDir, new HybridClockImpl());
 
-        loza.start();
+        assertThat(loza.startAsync(), willCompleteSuccessfully());
 
         loza.beforeNodeStop();
-        loza.stop();
+        assertThat(loza.stopAsync(), willCompleteSuccessfully());
 
         TestReplicationGroupId raftGroupId = new TestReplicationGroupId("test_raft_group");
 
