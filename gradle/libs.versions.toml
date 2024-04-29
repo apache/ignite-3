@@ -80,7 +80,7 @@ awaitility = "4.2.1"
 progressBar = "0.9.4"
 guava = "33.1.0-jre"
 jna = "5.14.0"
-tree-sitter = "0.22.2"
+tree-sitter = "0.22.5"
 tree-sitter-json = "0.21.0"
 tree-sitter-sql = "gh-pages"
 
