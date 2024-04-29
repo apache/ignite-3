@@ -106,19 +106,21 @@ public class ResourceVacuumManager implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> startAsync() {
-        resourceVacuumExecutor.scheduleAtFixedRate(
-                this::runVacuumOperations,
-                0,
-                resourceVacuumIntervalMilliseconds,
-                TimeUnit.MILLISECONDS
-        );
+        if (resourceVacuumIntervalMilliseconds > 0) {
+            resourceVacuumExecutor.scheduleAtFixedRate(
+                    this::runVacuumOperations,
+                    0,
+                    resourceVacuumIntervalMilliseconds,
+                    TimeUnit.MILLISECONDS
+            );
 
-        resourceVacuumExecutor.scheduleAtFixedRate(
-                finishedReadOnlyTransactionTracker::broadcastClosedTransactions,
-                0,
-                resourceVacuumIntervalMilliseconds,
-                TimeUnit.MILLISECONDS
-        );
+            resourceVacuumExecutor.scheduleAtFixedRate(
+                    finishedReadOnlyTransactionTracker::broadcastClosedTransactions,
+                    0,
+                    resourceVacuumIntervalMilliseconds,
+                    TimeUnit.MILLISECONDS
+            );
+        }
 
         finishedTransactionBatchRequestHandler.start();
 

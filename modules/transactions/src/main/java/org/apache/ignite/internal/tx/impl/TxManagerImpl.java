@@ -187,7 +187,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final MessagingService messagingService;
 
     /** Local node network identity. This id is available only after the network has started. */
-    private String localNodeId;
+    private volatile String localNodeId;
 
     /** Server cleanup processor. */
     private final TxCleanupRequestHandler txCleanupRequestHandler;
@@ -210,6 +210,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final Executor partitionOperationsExecutor;
 
     private final TransactionInflights transactionInflights;
+
+    private final ReplicaService replicaService;
+
+    private volatile PersistentTxStateVacuumizer persistentTxStateVacuumizer;
 
     /**
      * Test-only constructor.
@@ -310,6 +314,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.transactionInflights = transactionInflights;
         this.lowWatermark = lowWatermark;
+        this.replicaService = replicaService;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
@@ -643,7 +648,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                             result.transactionState(),
                                             old == null ? null : old.txCoordinatorId(),
                                             commitPartition,
-                                            result.commitTimestamp()
+                                            result.commitTimestamp(),
+                                            old == null ? null : old.initialVacuumObservationTimestamp(),
+                                            old == null ? null : old.cleanupCompletionTimestamp()
                                     )
                             );
 
@@ -707,7 +714,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                     txResult.transactionState(),
                                     localNodeId,
                                     old == null ? null : old.commitPartitionId(),
-                                    txResult.commitTimestamp()
+                                    txResult.commitTimestamp(),
+                                    old == null ? null : old.initialVacuumObservationTimestamp(),
+                                    old == null ? null : old.cleanupCompletionTimestamp()
                             ));
 
                     assert isFinalState(updatedMeta.txState()) :
@@ -753,6 +762,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             localNodeId = topologyService.localMember().id();
 
             messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
+
+            persistentTxStateVacuumizer = new PersistentTxStateVacuumizer(replicaService, topologyService.localMember(), clockService,
+                    placementDriver);
 
             txStateVolatileStorage.start();
 
@@ -833,10 +845,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public void vacuum() {
+    public CompletableFuture<Void> vacuum() {
+        if (persistentTxStateVacuumizer == null) {
+            return nullCompletedFuture(); // Not started yet.
+        }
+
         long vacuumObservationTimestamp = System.currentTimeMillis();
 
-        txStateVolatileStorage.vacuum(vacuumObservationTimestamp, txConfig.txnResourceTtl().value());
+        return txStateVolatileStorage.vacuum(vacuumObservationTimestamp, txConfig.txnResourceTtl().value(),
+                persistentTxStateVacuumizer::vacuumPersistentTxStates);
     }
 
     @Override
