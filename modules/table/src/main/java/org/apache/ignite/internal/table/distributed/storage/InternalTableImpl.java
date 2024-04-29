@@ -788,9 +788,9 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<R> fut = primaryReplicaFuture.thenCompose(primaryReplica -> {
             try {
-                return replicaSvc.invoke(
-                        getClusterNode(primaryReplica.getLeaseholder()),
-                        op.apply(tablePartitionId, primaryReplica.getStartTime().longValue())
+                ClusterNode node = getClusterNode(primaryReplica.getLeaseholder());
+
+                return replicaSvc.invoke(node, op.apply(tablePartitionId, primaryReplica.getStartTime().longValue())
                 );
             } catch (Throwable e) {
                 throw new TransactionException(
@@ -1848,15 +1848,15 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId partition) {
-        return partitionMeta(partition).thenApply(meta -> getClusterNode(meta.getLeaseholder()));
+    public CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId tablePartitionId) {
+        return partitionMeta(tablePartitionId).thenApply(meta -> getClusterNode(meta.getLeaseholder()));
     }
 
-    private CompletableFuture<ReplicaMeta> partitionMeta(ReplicationGroupId partition) {
+    private CompletableFuture<ReplicaMeta> partitionMeta(ReplicationGroupId tablePartitionId) {
         HybridTimestamp now = clock.now();
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
-                partition,
+                tablePartitionId,
                 now,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -1865,14 +1865,14 @@ public class InternalTableImpl implements InternalTable {
         return primaryReplicaFuture.handle((primaryReplica, e) -> {
             if (e != null) {
                 throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
-                        + " [tablePartitionId=" + partition + ", awaitTimestamp=" + now + ']', e);
+                        + " [tablePartitionId=" + tablePartitionId + ", awaitTimestamp=" + now + ']', e);
             }
 
             return primaryReplica;
         });
     }
 
-    private ClusterNode getClusterNode(String leaserHolder) {
+    private ClusterNode getClusterNode(@Nullable String leaserHolder) {
         ClusterNode node = clusterNodeResolver.getByConsistentId(leaserHolder);
 
         if (node == null) {

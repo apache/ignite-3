@@ -489,7 +489,7 @@ public interface InternalTable extends ManuallyCloseable {
     ScheduledExecutorService streamerFlushExecutor();
 
     /**
-     * Returns cluster node {@link ClusterNode} where located primary replica of replication group.
+     * Returns {@link ClusterNode} where primary replica of replication group is located.
      *
      * @param partition Replication group identifier.
      * @return Cluster node with primary replica.

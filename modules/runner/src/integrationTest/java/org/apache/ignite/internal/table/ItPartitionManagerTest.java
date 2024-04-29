@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -38,6 +39,9 @@ import org.apache.ignite.table.partition.PartitionManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Test suite for {@link PartitionManager}.
+ */
 public class ItPartitionManagerTest extends ClusterPerTestIntegrationTest {
     private static final String TABLE_NAME = "tableName";
 
@@ -45,7 +49,11 @@ public class ItPartitionManagerTest extends ClusterPerTestIntegrationTest {
 
     @BeforeEach
     public void setup() {
-        String zoneSql = "create zone test_zone with partitions=" + PARTITIONS + ", replicas=3, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
+        String zoneSql = "create zone test_zone with"
+                + " partitions=" + PARTITIONS + ","
+                + " replicas=3,"
+                + " storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
+
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) with primary_zone='TEST_ZONE'";
 
         cluster.doInSession(0, session -> {
@@ -102,6 +110,6 @@ public class ItPartitionManagerTest extends ClusterPerTestIntegrationTest {
             });
         }
 
-        assertThat(CompletableFuture.allOf(futures), willCompleteSuccessfully());
+        assertThat(allOf(futures), willCompleteSuccessfully());
     }
 }

@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.table.partition;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.marshaller.MarshallerException;
@@ -73,8 +76,6 @@ public class HashPartitionManagerImpl implements PartitionManager<HashPartition>
 
     @Override
     public CompletableFuture<Map<HashPartition, ClusterNode>> allPartitionsAsync() {
-        Map<HashPartition, ClusterNode> resultMap = new ConcurrentHashMap<>();
-
         HashPartition[] allPartitions = IntStream.range(0, table.partitions())
                 .mapToObj(HashPartition::new)
                 .toArray(HashPartition[]::new);
@@ -82,12 +83,17 @@ public class HashPartitionManagerImpl implements PartitionManager<HashPartition>
         CompletableFuture<?>[] futures = new CompletableFuture<?>[allPartitions.length];
         for (int i = 0; i < allPartitions.length; i++) {
             HashPartition partition = allPartitions[i];
-            futures[i] = table.partitionLocation(new TablePartitionId(table.tableId(), partition.partitionId()))
-                    .thenAccept(node -> resultMap.put(partition, node));
+            futures[i] = table.partitionLocation(new TablePartitionId(table.tableId(), partition.partitionId()));
         }
 
-        return CompletableFuture.allOf(futures)
-                .thenApply(unused -> resultMap);
+        return allOf(futures)
+                .thenApply(unused -> {
+                    Map<HashPartition, ClusterNode> result = new HashMap<>();
+                    for (int i = 0; i < allPartitions.length; i++) {
+                        result.put(allPartitions[i], (ClusterNode) futures[i].join());
+                    }
+                    return result;
+                });
     }
 
     @Override
@@ -99,11 +105,11 @@ public class HashPartitionManagerImpl implements PartitionManager<HashPartition>
         var marshaller = new KvMarshallerImpl<>(schemaReg.lastKnownSchema(), marshallers, mapper, mapper);
         try {
             keyRow = marshaller.marshal(key);
+
+            return completedFuture(new HashPartition(table.partition(keyRow)));
         } catch (MarshallerException e) {
             throw new IgniteInternalException("Cannot marshal key", e);
         }
-
-        return CompletableFuture.completedFuture(new HashPartition(table.partition(keyRow)));
     }
 
     @Override
@@ -115,7 +121,7 @@ public class HashPartitionManagerImpl implements PartitionManager<HashPartition>
             // columns never change (so they are the same for all schema versions of the table),
             Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
 
-            return CompletableFuture.completedFuture(new HashPartition(table.partition(keyRow)));
+            return completedFuture(new HashPartition(table.partition(keyRow)));
         } catch (TupleMarshallerException e) {
             throw new IgniteInternalException(e);
         }
