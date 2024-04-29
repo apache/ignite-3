@@ -573,13 +573,21 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         CompletableFuture<ReplicaListener> newReplicaListenerFut = createRaftClientAsync(replicaGrpId, newConfiguration)
                 .thenApply(createListener);
 
-//        if (shouldSkipReplicaStarting) {
-//            return nullCompletedFuture();
-//        }
+        // if (shouldSkipReplicaStarting) {
+        //     return nullCompletedFuture();
+        // }
 
         return temporalInternalCreateReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
     }
 
+    /**
+     * TODO.
+     *
+     * @param replicaGrpId TODO
+     * @param storageIndexTracker TODO
+     * @param newReplicaListenerFut TODO
+     * @return TODO
+     */
     public CompletableFuture<Replica> temporalInternalCreateReplica(
             ReplicationGroupId replicaGrpId,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
