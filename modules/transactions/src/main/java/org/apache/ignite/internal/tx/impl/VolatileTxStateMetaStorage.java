@@ -22,11 +22,13 @@ import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
 import java.util.Collection;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.LifecycleAwareComponent;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.jetbrains.annotations.Nullable;
@@ -34,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * The class represents volatile transaction state storage that stores a transaction state meta until the node stops.
  */
-public class VolatileTxStateMetaStorage {
+public class VolatileTxStateMetaStorage extends LifecycleAwareComponent {
     private static final IgniteLogger LOG = Loggers.forClass(VolatileTxStateMetaStorage.class);
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
@@ -42,15 +44,17 @@ public class VolatileTxStateMetaStorage {
     /**
      * Starts the storage.
      */
-    public void start() {
-        txStateMap = new ConcurrentHashMap<>();
+    @Override
+    public CompletableFuture<Void> startAsync() {
+        return startAsync(() -> txStateMap = new ConcurrentHashMap<>());
     }
 
     /**
      * Stops the detector.
      */
-    public void stop() {
-        txStateMap.clear();
+    @Override
+    public CompletableFuture<Void> stopAsync() {
+        return stopAsync(() -> txStateMap.clear());
     }
 
     /**

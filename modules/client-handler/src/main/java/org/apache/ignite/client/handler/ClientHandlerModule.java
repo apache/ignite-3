@@ -17,8 +17,6 @@
 
 package org.apache.ignite.client.handler;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Network.PORT_IN_USE_ERR;
@@ -37,7 +35,6 @@ import java.net.InetSocketAddress;
 import java.nio.channels.UnresolvedAddressException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
@@ -52,6 +49,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.manager.LifecycleAwareComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
@@ -62,7 +60,6 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -70,7 +67,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Client handler module maintains TCP endpoint for thin client connections.
  */
-public class ClientHandlerModule implements IgniteComponent {
+public class ClientHandlerModule extends LifecycleAwareComponent implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientHandlerModule.class);
 
@@ -118,10 +115,6 @@ public class ClientHandlerModule implements IgniteComponent {
     private final CatalogService catalogService;
 
     private final ClientPrimaryReplicaTracker primaryReplicaTracker;
-
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     private final ClientConnectorConfiguration clientConnectorConfiguration;
 
@@ -200,46 +193,38 @@ public class ClientHandlerModule implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> startAsync() {
-        if (channel != null) {
-            throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule is already started.");
-        }
+        return startFutureAsync(() -> {
+            if (channel != null) {
+                throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule is already started.");
+            }
 
-        var configuration = clientConnectorConfiguration.value();
+            var configuration = clientConnectorConfiguration.value();
 
-        metricManager.registerSource(metrics);
-        if (configuration.metricsEnabled()) {
-            metrics.enable();
-        }
+            metricManager.registerSource(metrics);
+            if (configuration.metricsEnabled()) {
+                metrics.enable();
+            }
 
-        primaryReplicaTracker.start();
+            primaryReplicaTracker.start();
 
-        return startEndpoint(configuration).thenAccept(ch -> channel = ch);
+            return startEndpoint(configuration).thenAccept(ch -> channel = ch);
+        });
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> stopAsync() {
-        if (!stopGuard.compareAndSet(false, true)) {
-            return nullCompletedFuture();
-        }
+        return stopAsync(() -> {
+            metricManager.unregisterSource(metrics);
+            primaryReplicaTracker.stop();
 
-        busyLock.block();
-
-        metricManager.unregisterSource(metrics);
-        primaryReplicaTracker.stop();
-
-        var ch = channel;
-        if (ch != null) {
-            try {
+            var ch = channel;
+            if (ch != null) {
                 ch.close().await();
-            } catch (InterruptedException e) {
-                return failedFuture(e);
+
+                channel = null;
             }
-
-            channel = null;
-        }
-
-        return nullCompletedFuture();
+        });
     }
 
     /**
@@ -274,12 +259,7 @@ public class ClientHandlerModule implements IgniteComponent {
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
-                        if (!busyLock.enterBusy()) {
-                            ch.close();
-                            return;
-                        }
-
-                        try {
+                        withLifecycle(() -> {
                             long connectionId = CONNECTION_ID_GEN.incrementAndGet();
 
                             if (LOG.isDebugEnabled()) {
@@ -311,9 +291,11 @@ public class ClientHandlerModule implements IgniteComponent {
                             );
 
                             metrics.connectionsInitiatedIncrement();
-                        } finally {
-                            busyLock.leaveBusy();
-                        }
+                        }).whenComplete((unused, throwable) -> {
+                            if (throwable != null) {
+                                ch.close();
+                            }
+                        });
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());

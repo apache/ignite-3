@@ -22,16 +22,12 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
-import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -43,23 +39,16 @@ import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.TableEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.manager.LifecycleAwareComponent;
 import org.apache.ignite.internal.schema.catalog.CatalogToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * This class services management of table schemas.
  */
-public class SchemaManager implements IgniteComponent {
-    /** Busy lock to stop synchronously. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    /** Prevents double stopping of the component. */
-    private final AtomicBoolean stopGuard = new AtomicBoolean();
+public class SchemaManager extends LifecycleAwareComponent implements IgniteComponent {
 
     private final CatalogService catalogService;
 
@@ -132,11 +121,7 @@ public class SchemaManager implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onTableCreatedOrAltered(CatalogTableDescriptor tableDescriptor, long causalityToken) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
+        return withLifecycle(() -> {
             int tableId = tableDescriptor.id();
             int newSchemaVersion = tableDescriptor.tableVersion();
 
@@ -156,7 +141,7 @@ public class SchemaManager implements IgniteComponent {
                 return failedFuture(e);
             }
 
-            return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
+            return registriesVv.update(causalityToken, (registries, e) -> {
                 if (e != null) {
                     return failedFuture(new IgniteInternalException(format(
                             "Cannot create a schema for the table [tblId={}, ver={}]", tableId, newSchemaVersion), e)
@@ -166,10 +151,8 @@ public class SchemaManager implements IgniteComponent {
                 registerSchema(tableId, newSchema);
 
                 return nullCompletedFuture();
-            })).thenApply(ignored -> false);
-        } finally {
-            busyLock.leaveBusy();
-        }
+            }).thenApply(ignored -> false);
+        });
     }
 
     private void setColumnMapping(SchemaDescriptor schema, int tableId) throws ExecutionException, InterruptedException {
@@ -245,7 +228,7 @@ public class SchemaManager implements IgniteComponent {
      */
     private SchemaRegistryImpl createSchemaRegistry(int tableId, SchemaDescriptor initialSchema) {
         return new SchemaRegistryImpl(
-                ver -> inBusyLock(busyLock, () -> loadSchemaDescriptor(tableId, ver)),
+                ver -> loadSchemaDescriptor(tableId, ver),
                 initialSchema
         );
     }
@@ -277,16 +260,8 @@ public class SchemaManager implements IgniteComponent {
      * @return A future which will be completed when schema registries for given causality token are ready.
      */
     public CompletableFuture<SchemaRegistry> schemaRegistry(long causalityToken, int tableId) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
-        }
-
-        try {
-            return registriesVv.get(causalityToken)
-                    .thenApply(unused -> inBusyLock(busyLock, () -> registriesById.get(tableId)));
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return withLifecycle(() -> registriesVv.get(causalityToken)
+                .thenApply(unused -> registriesById.get(tableId)));
     }
 
     /**
@@ -305,7 +280,7 @@ public class SchemaManager implements IgniteComponent {
      * @param tableId Table id.
      */
     public CompletableFuture<?> dropRegistryAsync(int tableId) {
-        return inBusyLockAsync(busyLock, () -> {
+        return withLifecycle(() -> {
             SchemaRegistryImpl removedRegistry = registriesById.remove(tableId);
             removedRegistry.close();
 
@@ -315,19 +290,6 @@ public class SchemaManager implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> stopAsync() {
-        if (!stopGuard.compareAndSet(false, true)) {
-            return nullCompletedFuture();
-        }
-
-        busyLock.block();
-
-        //noinspection ConstantConditions
-        try {
-            closeAllManually(registriesById.values());
-        } catch (Exception e) {
-            return failedFuture(e);
-        }
-
-        return nullCompletedFuture();
+        return stopAsync(() -> closeAllManually(registriesById.values()));
     }
 }

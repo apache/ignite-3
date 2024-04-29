@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.manager.LifecycleAwareComponent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxState;
@@ -46,7 +47,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Sends TX Cleanup request.
  */
-public class TxCleanupRequestSender {
+public class TxCleanupRequestSender extends LifecycleAwareComponent {
     /** Placement driver helper. */
     private final PlacementDriverHelper placementDriverHelper;
 
@@ -78,15 +79,20 @@ public class TxCleanupRequestSender {
     /**
      * Starts the request sender.
      */
-    public void start() {
-        txMessageSender.messagingService().addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
-            if (msg instanceof TxCleanupMessageResponse && correlationId == null) {
-                CleanupReplicatedInfo result = ((TxCleanupMessageResponse) msg).result();
+    @Override
+    public CompletableFuture<Void> startAsync() {
+        return startAsync(() -> {
+            txMessageSender.messagingService().addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
+                withLifecycle(() -> {
+                    if (msg instanceof TxCleanupMessageResponse && correlationId == null) {
+                        CleanupReplicatedInfo result = ((TxCleanupMessageResponse) msg).result();
 
-                if (result != null) {
-                    onCleanupReplicated(result);
-                }
-            }
+                        if (result != null) {
+                            onCleanupReplicated(result);
+                        }
+                    }
+                });
+            });
         });
     }
 
@@ -125,7 +131,7 @@ public class TxCleanupRequestSender {
      * @return Completable future of Void.
      */
     public CompletableFuture<Void> cleanup(String node, UUID txId) {
-        return sendCleanupMessageWithRetries(false, null, txId, node, null);
+        return withLifecycle(() -> sendCleanupMessageWithRetries(false, null, txId, node, null));
     }
 
     /**
@@ -143,14 +149,16 @@ public class TxCleanupRequestSender {
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        // Start tracking the partitions we want to learn the replication confirmation from.
-        writeIntentsReplicated.put(txId, new CleanupContext(enlistedPartitions.keySet(), commit ? TxState.COMMITTED : TxState.ABORTED));
+        return withLifecycle(() -> {
+            // Start tracking the partitions we want to learn the replication confirmation from.
+            writeIntentsReplicated.put(txId, new CleanupContext(enlistedPartitions.keySet(), commit ? TxState.COMMITTED : TxState.ABORTED));
 
-        Map<String, Set<TablePartitionId>> partitions = new HashMap<>();
-        enlistedPartitions.forEach((partitionId, nodeId) ->
-                partitions.computeIfAbsent(nodeId, node -> new HashSet<>()).add(partitionId));
+            Map<String, Set<TablePartitionId>> partitions = new HashMap<>();
+            enlistedPartitions.forEach((partitionId, nodeId) ->
+                    partitions.computeIfAbsent(nodeId, node -> new HashSet<>()).add(partitionId));
 
-        return cleanupPartitions(partitions, commit, commitTimestamp, txId);
+            return cleanupPartitions(partitions, commit, commitTimestamp, txId);
+        });
     }
 
     /**
@@ -168,12 +176,14 @@ public class TxCleanupRequestSender {
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
-        return placementDriverHelper.findPrimaryReplicas(partitionIds)
-                .thenCompose(partitionData -> {
-                    cleanupPartitionsWithoutPrimary(commit, commitTimestamp, txId, partitionData.partitionsWithoutPrimary);
+        return withLifecycle(() ->
+                placementDriverHelper.findPrimaryReplicas(partitionIds)
+                        .thenCompose(partitionData -> {
+                            cleanupPartitionsWithoutPrimary(commit, commitTimestamp, txId, partitionData.partitionsWithoutPrimary);
 
-                    return cleanupPartitions(partitionData.partitionsByNode, commit, commitTimestamp, txId);
-                });
+                            return cleanupPartitions(partitionData.partitionsByNode, commit, commitTimestamp, txId);
+                        })
+        );
     }
 
     private void cleanupPartitionsWithoutPrimary(

@@ -32,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
@@ -48,7 +47,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -196,17 +194,14 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
             // Refresh listener, to forget the old "last value".
             raftGroupListener = new TestRaftGroupListener();
 
-            try {
-                serviceFuture = raftMgr.startRaftGroupNode(
-                        new RaftNodeId(GROUP_ID, new Peer(nodeName)),
-                        raftGroupConfiguration,
-                        raftGroupListener,
-                        RaftGroupEventsListener.noopLsnr,
-                        RaftGroupOptions.defaults().setLogStorageFactory(logStorageFactory)
-                );
-            } catch (NodeStoppingException e) {
-                fail(e.getMessage());
-            }
+            serviceFuture = raftMgr.startRaftGroupNode(
+                    new RaftNodeId(GROUP_ID, new Peer(nodeName)),
+                    raftGroupConfiguration,
+                    raftGroupListener,
+                    RaftGroupEventsListener.noopLsnr,
+                    RaftGroupOptions.defaults().setLogStorageFactory(logStorageFactory)
+            );
+
         }
 
         RaftGroupService getService() {
@@ -220,11 +215,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
             if (serviceFuture != null) {
                 serviceFuture = null;
 
-                try {
-                    raftMgr.stopRaftNode(new RaftNodeId(GROUP_ID, new Peer(nodeName)));
-                } catch (NodeStoppingException e) {
-                    fail(e.getMessage());
-                }
+                raftMgr.stopRaftNode(new RaftNodeId(GROUP_ID, new Peer(nodeName)));
             }
         }
     }

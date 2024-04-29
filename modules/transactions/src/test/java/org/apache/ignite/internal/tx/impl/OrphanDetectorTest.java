@@ -34,6 +34,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -99,7 +100,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     private TransactionIdGenerator idGenerator;
 
     @BeforeEach
-    public void setup() {
+    public void setup() throws ExecutionException, InterruptedException {
         idGenerator = new TransactionIdGenerator(LOCAL_NODE.name().hashCode());
 
         PlacementDriverHelper placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
@@ -108,7 +109,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         txStateMetaStorage = new VolatileTxStateMetaStorage();
 
-        txStateMetaStorage.start();
+        txStateMetaStorage.startAsync().get();
 
         orphanDetector.start(txStateMetaStorage, txConfiguration.abandonedCheckTs());
     }

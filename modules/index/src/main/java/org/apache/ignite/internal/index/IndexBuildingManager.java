@@ -17,19 +17,15 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
@@ -38,12 +34,12 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.manager.LifecycleAwareComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
  * Component is responsible for building indexes and making them {@link CatalogIndexStatus#AVAILABLE available}. Both in a running cluster
@@ -51,7 +47,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
  *
  * @see CatalogIndexDescriptor#status()
  */
-public class IndexBuildingManager implements IgniteComponent {
+public class IndexBuildingManager extends LifecycleAwareComponent implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexBuildingManager.class);
 
     private final MetaStorageManager metaStorageManager;
@@ -65,10 +61,6 @@ public class IndexBuildingManager implements IgniteComponent {
     private final IndexBuildController indexBuildController;
 
     private final ChangeIndexStatusTaskController changeIndexStatusTaskController;
-
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Constructor. */
     public IndexBuildingManager(
@@ -129,7 +121,7 @@ public class IndexBuildingManager implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> startAsync() {
-        return inBusyLockAsync(busyLock, () -> {
+        return startAsync(() -> {
             CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
 
             assert recoveryFinishedFuture.isDone();
@@ -137,31 +129,18 @@ public class IndexBuildingManager implements IgniteComponent {
             long recoveryRevision = recoveryFinishedFuture.join();
 
             indexAvailabilityController.recover(recoveryRevision);
-
-            return nullCompletedFuture();
         });
     }
 
     @Override
     public CompletableFuture<Void> stopAsync() {
-        if (!stopGuard.compareAndSet(false, true)) {
-            return nullCompletedFuture();
-        }
-
-        busyLock.block();
-
-        try {
-            closeAllManually(
-                    indexBuilder,
-                    indexAvailabilityController,
-                    indexBuildController,
-                    changeIndexStatusTaskController,
-                    () -> shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)
-            );
-        } catch (Exception e) {
-            return failedFuture(e);
-        }
-
-        return nullCompletedFuture();
+        return stopAsync(() ->
+                closeAllManually(
+                        indexBuilder,
+                        indexAvailabilityController,
+                        indexBuildController,
+                        changeIndexStatusTaskController,
+                        () -> shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)
+                ));
     }
 }

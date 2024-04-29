@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.manager.LifecycleAwareComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -25,7 +27,7 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 /**
  * Handles Cursor Cleanup request ({@link FinishedTransactionsBatchMessage}).
  */
-public class FinishedTransactionBatchRequestHandler {
+public class FinishedTransactionBatchRequestHandler extends LifecycleAwareComponent {
     /** Messaging service. */
     private final MessagingService messagingService;
 
@@ -51,19 +53,22 @@ public class FinishedTransactionBatchRequestHandler {
         this.asyncExecutor = asyncExecutor;
     }
 
-    /**
-     * Starts the processor.
-     */
-    public void start() {
-        messagingService.addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
-            if (msg instanceof FinishedTransactionsBatchMessage) {
-                processTxCleanup((FinishedTransactionsBatchMessage) msg);
-            }
-        });
+    @Override
+    public CompletableFuture<Void> startAsync() {
+        return startAsync(() ->
+                messagingService.addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
+                    if (msg instanceof FinishedTransactionsBatchMessage) {
+                        processTxCleanup((FinishedTransactionsBatchMessage) msg);
+                    }
+                })
+        );
     }
 
     private void processTxCleanup(FinishedTransactionsBatchMessage closeCursorsMessage) {
-        asyncExecutor.execute(() -> closeCursorsMessage.transactions().forEach(resourcesRegistry::close));
+        asyncExecutor.execute(() ->
+                withLifecycle(() ->
+                        closeCursorsMessage.transactions().forEach(resourcesRegistry::close)
+                )
+        );
     }
-
 }

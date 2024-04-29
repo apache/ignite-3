@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
@@ -29,7 +28,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -38,6 +36,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.LifecycleAwareComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
@@ -80,7 +79,7 @@ import org.jetbrains.annotations.TestOnly;
  *     <li>Providing corresponding Meta storage service proxy interface</li>
  * </ul>
  */
-public class MetaStorageManagerImpl implements MetaStorageManager {
+public class MetaStorageManagerImpl extends LifecycleAwareComponent implements MetaStorageManager {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageManagerImpl.class);
 
     private final ClusterService clusterService;
@@ -100,9 +99,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    /** Prevents double stopping of the component. */
-    private final AtomicBoolean isStopped = new AtomicBoolean();
 
     /**
      * Future which completes when MetaStorage manager finished local recovery. The value of the future is the revision which must be used
@@ -339,59 +335,51 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     @Override
     public CompletableFuture<Void> startAsync() {
-        storage.start();
+        return startAsync(() -> {
+            storage.start();
 
-        cmgMgr.metaStorageNodes()
-                .thenCompose(metaStorageNodes -> {
-                    if (!busyLock.enterBusy()) {
-                        return failedFuture(new NodeStoppingException());
-                    }
+            cmgMgr.metaStorageNodes()
+                    .thenCompose(metaStorageNodes -> {
+                        if (!busyLock.enterBusy()) {
+                            return failedFuture(new NodeStoppingException());
+                        }
 
-                    try {
-                        return initializeMetaStorage(metaStorageNodes);
-                    } finally {
-                        busyLock.leaveBusy();
-                    }
-                })
-                .thenCompose(service -> recover(service).thenApply(rev -> service))
-                .whenComplete((service, e) -> {
-                    if (e != null) {
-                        metaStorageSvcFut.completeExceptionally(e);
-                        recoveryFinishedFuture.completeExceptionally(e);
-                    } else {
-                        assert service != null;
+                        try {
+                            return initializeMetaStorage(metaStorageNodes);
+                        } finally {
+                            busyLock.leaveBusy();
+                        }
+                    })
+                    .thenCompose(service -> recover(service).thenApply(rev -> service))
+                    .whenComplete((service, e) -> {
+                        if (e != null) {
+                            metaStorageSvcFut.completeExceptionally(e);
+                            recoveryFinishedFuture.completeExceptionally(e);
+                        } else {
+                            assert service != null;
 
-                        metaStorageSvcFut.complete(service);
-                    }
-                });
-
-        return nullCompletedFuture();
+                            metaStorageSvcFut.complete(service);
+                        }
+                    });
+        });
     }
 
     @Override
     public CompletableFuture<Void> stopAsync() {
-        if (!isStopped.compareAndSet(false, true)) {
-            return nullCompletedFuture();
-        }
+        return stopAsync(() -> {
+            busyLock.block();
 
-        busyLock.block();
+            deployWatchesFuture.cancel(true);
 
-        deployWatchesFuture.cancel(true);
+            recoveryFinishedFuture.cancel(true);
 
-        recoveryFinishedFuture.cancel(true);
-
-        try {
             IgniteUtils.closeAllManually(
                     clusterTime,
                     () -> cancelOrConsume(metaStorageSvcFut, MetaStorageServiceImpl::close),
                     () -> raftMgr.stopRaftNodes(MetastorageGroupId.INSTANCE),
                     storage
             );
-        } catch (Exception e) {
-            return failedFuture(e);
-        }
-
-        return nullCompletedFuture();
+        });
     }
 
     @Override
