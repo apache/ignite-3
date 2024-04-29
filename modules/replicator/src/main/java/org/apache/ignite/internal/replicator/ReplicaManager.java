@@ -570,23 +570,32 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     ) throws NodeStoppingException {
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
-        ClusterNode localNode = clusterNetSvc.topologyService().localMember();
-
         CompletableFuture<ReplicaListener> newReplicaListenerFut = createRaftClientAsync(replicaGrpId, newConfiguration)
                 .thenApply(createListener);
 
-//        if (shouldSkipReplicaStarting) {
-//            return nullCompletedFuture();
-//        }
+        if (shouldSkipReplicaStarting) {
+            return nullCompletedFuture();
+        }
+
+        return temporalInternalCreateReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
+    }
+
+    public CompletableFuture<Replica> temporalInternalCreateReplica(
+            ReplicationGroupId replicaGrpId,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
+            CompletableFuture<ReplicaListener> newReplicaListenerFut
+    ) {
+
+        ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
         CompletableFuture<Replica> newReplicaFut = newReplicaListenerFut.thenApply(listener -> new Replica(
-                        replicaGrpId,
-                        listener,
-                        storageIndexTracker,
-                        localNode,
-                        executor,
-                        placementDriver,
-                        clockService));
+                replicaGrpId,
+                listener,
+                storageIndexTracker,
+                localNode,
+                executor,
+                placementDriver,
+                clockService));
 
         CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
             if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
