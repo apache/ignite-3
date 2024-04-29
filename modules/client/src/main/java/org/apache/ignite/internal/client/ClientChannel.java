@@ -72,18 +72,4 @@ public interface ClientChannel extends AutoCloseable {
      * @return Protocol context.
      */
     ProtocolContext protocolContext();
-
-    /**
-     * Add topology change listener.
-     *
-     * @param listener Listener.
-     */
-    void addPartitionAssignmentChangeListener(Consumer<Long> listener);
-
-    /**
-     * Add observable timestamp listener.
-     *
-     * @param listener Listener.
-     */
-    void addObservableTimestampListener(Consumer<Long> listener);
 }
