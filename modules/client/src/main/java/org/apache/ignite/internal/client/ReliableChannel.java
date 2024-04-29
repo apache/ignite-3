@@ -810,12 +810,14 @@ public final class ReliableChannel implements AutoCloseable {
                             new IgniteClientConnectionException(CONNECTION_ERR, "Reconnect is not allowed due to applied throttling"));
                 }
 
-                chFut0 = chFactory.create(
+                CompletableFuture<ClientChannel> createFut = chFactory.create(
                         chCfg,
                         connMgr,
                         metrics,
                         ReliableChannel.this::onPartitionAssignmentChanged,
-                        ReliableChannel.this::onObservableTimestampReceived).thenApply(ch -> {
+                        ReliableChannel.this::onObservableTimestampReceived);
+
+                chFut0 = createFut.thenApply(ch -> {
                     var oldClusterId = clusterId.compareAndExchange(null, ch.protocolContext().clusterId());
 
                     if (oldClusterId != null && !oldClusterId.equals(ch.protocolContext().clusterId())) {

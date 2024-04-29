@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 import org.jetbrains.annotations.Nullable;
 
 /**
