@@ -110,6 +110,7 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
                 index.unique(),
                 newStatus,
                 txWaitCatalogVersion,
+                index.zoneId(),
                 index.columns()
         );
     }
@@ -124,6 +125,7 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
                 index.unique(),
                 newStatus,
                 txWaitCatalogVersion,
+                index.zoneId(),
                 index.columns()
         );
     }

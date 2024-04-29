@@ -42,11 +42,11 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplica
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
-import org.apache.ignite.internal.replicator.message.EmptyPrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.WaitReplicaStateMessage;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -152,34 +152,39 @@ public class Replica {
                 request.groupId(),
                 replicaGrpId);
 
-        if (!waitForActualStateFuture.isDone() && request instanceof PrimaryReplicaRequest) {
+        if (request instanceof PrimaryReplicaRequest) {
             var targetPrimaryReq = (PrimaryReplicaRequest) request;
 
-            if (request instanceof EmptyPrimaryReplicaRequest) {
-                return waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + 10_000)
+            if (request instanceof WaitReplicaStateMessage) {
+                if (!waitForActualStateFuture.isDone()) {
+                    return processWaitReplicaStateMessage((WaitReplicaStateMessage) request)
+                            .thenComposeAsync(
+                                    v -> sendPrimaryReplicaChangeToReplicationGroup(targetPrimaryReq.enlistmentConsistencyToken()),
+                                    executor
+                            )
+                            .thenComposeAsync(
+                                    unused -> completedFuture(new ReplicaResult(null, null)),
+                                    executor
+                            );
+                } else {
+                    return completedFuture(new ReplicaResult(null, null));
+                }
+            }
+
+            if (!waitForActualStateFuture.isDone()) {
+                return placementDriver.addSubgroups(
+                                zonePartitionId,
+                                targetPrimaryReq.enlistmentConsistencyToken(),
+                                Set.of(replicaGrpId)
+                        )
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
+                        .thenComposeAsync(unused -> waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + 10_000), executor)
                         .thenComposeAsync(
                                 v -> sendPrimaryReplicaChangeToReplicationGroup(targetPrimaryReq.enlistmentConsistencyToken()),
                                 executor
                         )
-                        .thenComposeAsync(
-                                unused -> completedFuture(new ReplicaResult(null, null)),
-                                executor
-                        );
+                        .thenComposeAsync(unused -> listener.invoke(request, senderId), executor);
             }
-
-            return placementDriver.addSubgroups(
-                            zonePartitionId,
-                            targetPrimaryReq.enlistmentConsistencyToken(),
-                            Set.of(replicaGrpId)
-                    )
-                    .thenComposeAsync(unused -> waitForActualState(clockService.nowLong()), executor)
-                    .thenComposeAsync(
-                            v -> sendPrimaryReplicaChangeToReplicationGroup(targetPrimaryReq.enlistmentConsistencyToken()),
-                            executor
-                    )
-                    .thenComposeAsync(unused -> listener.invoke(request, senderId), executor);
-        } else if (request instanceof EmptyPrimaryReplicaRequest) {
-            return completedFuture(new ReplicaResult(null, null));
         }
 
         return listener.invoke(request, senderId);
@@ -279,6 +284,18 @@ public class Replica {
                 }
             }
         }));
+    }
+
+    /**
+     * Process {@link WaitReplicaStateMessage}.
+     *
+     * @param msg Message to process.
+     * @return Future that contains a result.
+     */
+    private CompletableFuture<Void> processWaitReplicaStateMessage(WaitReplicaStateMessage msg) {
+        LOG.info("WaitReplicaStateMessage was received [groupId = {}]", groupId());
+
+        return waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + TimeUnit.SECONDS.toMillis(msg.timeout()));
     }
 
     private CompletableFuture<Void> sendPrimaryReplicaChangeToReplicationGroup(long leaseStartTime) {

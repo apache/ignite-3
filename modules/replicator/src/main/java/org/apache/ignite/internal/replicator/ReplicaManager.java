@@ -77,7 +77,6 @@ import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.AwaitReplicaRequest;
-import org.apache.ignite.internal.replicator.message.EmptyPrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
@@ -85,6 +84,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.replicator.message.WaitReplicaStateMessage;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.PublicApiThreading;
@@ -722,9 +722,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                     ArrayList<CompletableFuture<?>> requestToReplicas = new ArrayList<>();
 
                                     for (ReplicationGroupId partId : diff) {
-                                        EmptyPrimaryReplicaRequest req = REPLICA_MESSAGES_FACTORY.emptyPrimaryReplicaRequest()
+                                        WaitReplicaStateMessage req = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
                                                 .enlistmentConsistencyToken(meta.getStartTime().longValue())
                                                 .groupId(partId)
+                                                // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
+                                                .timeout(10)
                                                 .build();
 
                                         CompletableFuture<Replica> replicaFut = replicas.get(repGrp);

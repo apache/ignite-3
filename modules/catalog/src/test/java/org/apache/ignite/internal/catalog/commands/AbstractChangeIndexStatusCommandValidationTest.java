@@ -88,6 +88,7 @@ public abstract class AbstractChangeIndexStatusCommandValidationTest extends Abs
                                 false,
                                 invalidPreviousIndexStatus,
                                 version,
+                                0,
                                 List.of(columnName)
                         )
                 },

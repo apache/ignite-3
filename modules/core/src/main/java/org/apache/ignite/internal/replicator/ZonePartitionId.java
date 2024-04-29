@@ -23,11 +23,10 @@ import java.util.Objects;
  * The class is used to identify a zone replication group id for a given partition.
  */
 public class ZonePartitionId implements ReplicationGroupId {
-
-    /** Zone id. */
     private final int zoneId;
 
-    /** Partition id. */
+    private final int tableId;
+
     private final int partId;
 
     /**
@@ -39,6 +38,20 @@ public class ZonePartitionId implements ReplicationGroupId {
     public ZonePartitionId(int zoneId, int partId) {
         this.zoneId = zoneId;
         this.partId = partId;
+        this.tableId = -1;
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param zoneId Zone id.
+     * @param tableId Table id.
+     * @param partId Partition id.
+     */
+    public ZonePartitionId(int zoneId, int tableId, int partId) {
+        this.zoneId = zoneId;
+        this.tableId = tableId;
+        this.partId = partId;
     }
 
     /**
@@ -48,6 +61,15 @@ public class ZonePartitionId implements ReplicationGroupId {
      */
     public int zoneId() {
         return zoneId;
+    }
+
+    /**
+     * Get the table id.
+     *
+     * @return Table id.
+     */
+    public int tableId() {
+        return tableId;
     }
 
     /**
@@ -88,11 +110,11 @@ public class ZonePartitionId implements ReplicationGroupId {
 
         ZonePartitionId that = (ZonePartitionId) o;
 
-        return zoneId == that.zoneId && partId == that.partId;
+        return zoneId == that.zoneId && partId == that.partId && tableId == that.tableId;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(zoneId, partId);
+        return Objects.hash(zoneId, partId, tableId);
     }
 }

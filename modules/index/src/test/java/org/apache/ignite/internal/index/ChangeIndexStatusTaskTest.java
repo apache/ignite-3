@@ -83,6 +83,7 @@ import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitException;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -142,7 +143,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
                 createLocalNodeReplicaMeta(HybridTimestamp.MIN_VALUE, HybridTimestamp.MAX_VALUE)
         );
 
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(localNodeReplicaMetaFuture);
+        when(placementDriver.awaitPrimaryReplicaForTable(any(), any(), anyLong(), any())).thenReturn(localNodeReplicaMetaFuture);
 
         CompletableFuture<LogicalTopologySnapshot> logicalTopologySnapshotFuture = completedFuture(
                 new LogicalTopologySnapshot(1, List.of(LOGICAL_LOCAL_NODE))
@@ -186,7 +187,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
 
         verify(executor, atLeast(3)).execute(any());
         verify(clockWaiter, atLeast(2)).waitFor(any());
-        verify(placementDriver).awaitPrimaryReplica(any(), any(), anyLong(), any());
+        verify(placementDriver).awaitPrimaryReplicaForTable(any(), any(), anyLong(), any());
         verify(logicalTopologyService).logicalTopologyOnLeader();
         verify(logicalTopologyService).addEventListener(any());
         verify(logicalTopologyService).removeEventListener(any());
@@ -201,7 +202,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
                 createLocalNodeReplicaMeta(HybridTimestamp.MIN_VALUE, HybridTimestamp.MAX_VALUE)
         );
 
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(
+        when(placementDriver.awaitPrimaryReplicaForTable(any(), any(), anyLong(), any())).thenReturn(
                 awaitPrimaryReplicaFuture0,
                 awaitPrimaryReplicaFuture1
         );
@@ -209,7 +210,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
         assertThat(task.start(), willCompleteSuccessfully());
         assertEquals(BUILDING, actualIndexStatus());
 
-        verify(placementDriver, times(2)).awaitPrimaryReplica(any(), any(), anyLong(), any());
+        verify(placementDriver, times(2)).awaitPrimaryReplicaForTable(any(), any(), anyLong(), any());
     }
 
     @Test
@@ -220,7 +221,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
                 createLocalNodeReplicaMeta(HybridTimestamp.MIN_VALUE, HybridTimestamp.MIN_VALUE.addPhysicalTime(1))
         );
 
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(
+        when(placementDriver.awaitPrimaryReplicaForTable(any(), any(), anyLong(), any())).thenReturn(
                 awaitPrimaryReplicaFuture0,
                 awaitPrimaryReplicaFuture1
         );
@@ -228,7 +229,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
         assertThat(task.start(), willThrow(IndexTaskStoppingException.class));
         assertEquals(REGISTERED, actualIndexStatus());
 
-        verify(placementDriver, times(2)).awaitPrimaryReplica(any(), any(), anyLong(), any());
+        verify(placementDriver, times(2)).awaitPrimaryReplicaForTable(any(), any(), anyLong(), any());
     }
 
     @Test
@@ -237,7 +238,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
 
         CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture1 = failedFuture(primaryReplicaAwaitException());
 
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(
+        when(placementDriver.awaitPrimaryReplicaForTable(any(), any(), anyLong(), any())).thenReturn(
                 awaitPrimaryReplicaFuture0,
                 awaitPrimaryReplicaFuture1
         );
@@ -245,7 +246,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
         assertThat(task.start(), willThrow(PrimaryReplicaAwaitException.class));
         assertEquals(REGISTERED, actualIndexStatus());
 
-        verify(placementDriver, times(2)).awaitPrimaryReplica(any(), any(), anyLong(), any());
+        verify(placementDriver, times(2)).awaitPrimaryReplicaForTable(any(), any(), anyLong(), any());
     }
 
     @Test
@@ -323,7 +324,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
     }
 
     private ReplicaMeta createLocalNodeReplicaMeta(HybridTimestamp startTime, HybridTimestamp expirationTime) {
-        return newPrimaryReplicaMeta(LOCAL_NODE, new TablePartitionId(indexDescriptor.tableId(), 0), startTime, expirationTime);
+        return newPrimaryReplicaMeta(LOCAL_NODE, new ZonePartitionId(0, indexDescriptor.tableId(), 0), startTime, expirationTime);
     }
 
     private static ClusterService createClusterService() {

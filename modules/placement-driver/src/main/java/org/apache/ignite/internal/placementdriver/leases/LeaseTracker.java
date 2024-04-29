@@ -503,11 +503,15 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      * @param expiredLease Expired lease.
      */
     private void fireEventPrimaryReplicaExpired(ReplicationGroupId groupId, long causalityToken, Lease expiredLease) {
+        TablePartitionId tablePartitionId = (TablePartitionId) groupId;
+
+        ZonePartitionId zonePartitionId = (ZonePartitionId) expiredLease.replicationGroupId();
+
         CompletableFuture<Void> fut = fireEvent(
                 PRIMARY_REPLICA_EXPIRED,
                 new PrimaryReplicaEventParameters(
                         causalityToken,
-                        groupId,
+                        new ZonePartitionId(zonePartitionId.zoneId(), tablePartitionId.tableId(), zonePartitionId.partitionId()),
                         expiredLease.getLeaseholderId(),
                         expiredLease.getLeaseholder(),
                         expiredLease.getStartTime()
@@ -535,13 +539,17 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     private CompletableFuture<Void> fireEventReplicaBecomePrimary(ReplicationGroupId groupId, long causalityToken, Lease lease) {
         String leaseholderId = lease.getLeaseholderId();
 
+        ZonePartitionId zonePartitionId = (ZonePartitionId) lease.replicationGroupId();
+
+        TablePartitionId tablePartitionId = (TablePartitionId) groupId;
+
         assert leaseholderId != null : lease;
 
         return fireEvent(
                 PRIMARY_REPLICA_ELECTED,
                 new PrimaryReplicaEventParameters(
                         causalityToken,
-                        groupId,
+                        new ZonePartitionId(zonePartitionId.zoneId(), tablePartitionId.tableId(), zonePartitionId.partitionId()),
                         leaseholderId,
                         lease.getLeaseholder(),
                         lease.getStartTime()

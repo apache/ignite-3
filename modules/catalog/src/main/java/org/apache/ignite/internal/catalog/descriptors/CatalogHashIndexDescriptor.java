@@ -45,11 +45,20 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param unique Unique flag.
      * @param txWaitCatalogVersion Catalog version used in special index status updates to wait for RW transactions, started before
      *         this version, to finish.
+     * @param zoneId Zone id where table for the index is presented.
      * @param columns A list of indexed columns. Must not contains duplicates.
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
-    public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, int txWaitCatalogVersion, List<String> columns) {
-        this(id, name, tableId, unique, CatalogIndexStatus.REGISTERED, txWaitCatalogVersion, columns, INITIAL_CAUSALITY_TOKEN);
+    public CatalogHashIndexDescriptor(
+            int id,
+            String name,
+            int tableId,
+            boolean unique,
+            int txWaitCatalogVersion,
+            int zoneId,
+            List<String> columns
+    ) {
+        this(id, name, tableId, unique, CatalogIndexStatus.REGISTERED, txWaitCatalogVersion, zoneId, columns, INITIAL_CAUSALITY_TOKEN);
     }
 
     /**
@@ -72,9 +81,10 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
             boolean unique,
             CatalogIndexStatus status,
             int txWaitCatalogVersion,
+            int zoneId,
             List<String> columns
     ) {
-        this(id, name, tableId, unique, status, txWaitCatalogVersion, columns, INITIAL_CAUSALITY_TOKEN);
+        this(id, name, tableId, unique, status, txWaitCatalogVersion, zoneId, columns, INITIAL_CAUSALITY_TOKEN);
     }
 
     /**
@@ -98,10 +108,11 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
             boolean unique,
             CatalogIndexStatus status,
             int txWaitCatalogVersion,
+            int zoneId,
             List<String> columns,
             long causalityToken
     ) {
-        super(CatalogIndexDescriptorType.HASH, id, name, tableId, unique, status, txWaitCatalogVersion, causalityToken);
+        super(CatalogIndexDescriptorType.HASH, id, name, tableId, unique, status, txWaitCatalogVersion, zoneId, causalityToken);
 
         this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
     }
@@ -126,9 +137,10 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
             boolean unique = input.readBoolean();
             CatalogIndexStatus status = CatalogIndexStatus.forId(input.readByte());
             int txWaitCatalogVersion = input.readInt();
+            int zoneId = input.readInt();
             List<String> columns = readStringCollection(input, ArrayList::new);
 
-            return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, txWaitCatalogVersion, columns, updateToken);
+            return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, txWaitCatalogVersion, zoneId, columns, updateToken);
         }
 
         @Override
@@ -140,6 +152,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
             output.writeBoolean(descriptor.unique());
             output.writeByte(descriptor.status().id());
             output.writeInt(descriptor.txWaitCatalogVersion());
+            output.writeInt(descriptor.zoneId());
             writeStringCollection(descriptor.columns(), output);
         }
     }

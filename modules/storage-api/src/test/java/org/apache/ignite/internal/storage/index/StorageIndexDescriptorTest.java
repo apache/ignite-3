@@ -76,6 +76,7 @@ public class StorageIndexDescriptorTest {
                 false,
                 AVAILABLE,
                 1,
+                0,
                 List.of(COLUMN_NAME)
         );
     }
@@ -88,6 +89,7 @@ public class StorageIndexDescriptorTest {
                 false,
                 AVAILABLE,
                 1,
+                0,
                 List.of(new CatalogIndexColumnDescriptor(COLUMN_NAME, ASC_NULLS_FIRST))
         );
     }

@@ -82,6 +82,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -347,11 +348,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             Consumer<TablePartitionId> action
     ) {
         return inBusyLock(busyLock, () -> {
-            if (!(eventParameters.groupId() instanceof TablePartitionId)) {
+            if (!(eventParameters.groupId() instanceof ZonePartitionId)) {
                 return falseCompletedFuture();
             }
 
-            TablePartitionId groupId = (TablePartitionId) eventParameters.groupId();
+            ZonePartitionId zonePartitionId = (ZonePartitionId) eventParameters.groupId();
+
+            TablePartitionId groupId = new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId());
 
             action.accept(groupId);
 

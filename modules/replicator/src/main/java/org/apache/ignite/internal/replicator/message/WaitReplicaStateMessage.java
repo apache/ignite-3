@@ -20,9 +20,9 @@ package org.apache.ignite.internal.replicator.message;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * It is a marker to identify an empty request.
- * The request is used when there is a there is a need to wait or initiate a replica becoming primary.
+ * Wait for replica state being up to date with a leader.
  */
-@Transferable(ReplicaMessageGroup.EMPTY_PRIMARY_REPLICA_REQUEST)
-public interface EmptyPrimaryReplicaRequest extends PrimaryReplicaRequest {
+@Transferable(ReplicaMessageGroup.WAIT_REPLICA_STATE)
+public interface WaitReplicaStateMessage extends PrimaryReplicaRequest {
+    long timeout();
 }

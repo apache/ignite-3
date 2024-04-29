@@ -157,6 +157,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
+import org.apache.ignite.internal.replicator.ReplicaAwareLeaseTracker;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -815,7 +816,7 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 metaStorageMgr,
                 indexManager,
-                placementDriverMgr.placementDriver(),
+                new ReplicaAwareLeaseTracker(placementDriverMgr.placementDriver(), replicaSvc, clusterSvc.topologyService()),
                 clusterSvc,
                 logicalTopologyService,
                 clockService

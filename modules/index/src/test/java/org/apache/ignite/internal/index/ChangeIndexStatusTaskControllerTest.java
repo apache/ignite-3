@@ -49,7 +49,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -188,15 +188,19 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     }
 
     private void setPrimaryReplica(ClusterNode clusterNode) {
-        TablePartitionId groupId = new TablePartitionId(tableId(), 0);
+        ZonePartitionId zonePartId = new ZonePartitionId(zoneId(), tableId(), 0);
 
-        ReplicaMeta replicaMeta = newPrimaryReplicaMeta(clusterNode, groupId, HybridTimestamp.MIN_VALUE, HybridTimestamp.MAX_VALUE);
+        ReplicaMeta replicaMeta = newPrimaryReplicaMeta(clusterNode, zonePartId, HybridTimestamp.MIN_VALUE, HybridTimestamp.MAX_VALUE);
 
-        assertThat(placementDriver.setPrimaryReplicaMeta(0, groupId, completedFuture(replicaMeta)), willCompleteSuccessfully());
+        assertThat(placementDriver.setPrimaryReplicaMeta(0, zonePartId, completedFuture(replicaMeta)), willCompleteSuccessfully());
     }
 
     private int tableId() {
         return TestIndexManagementUtils.tableId(catalogManager, TABLE_NAME, clock);
+    }
+
+    private int zoneId() {
+        return catalogManager.catalog(catalogManager.latestCatalogVersion()).table(tableId()).zoneId();
     }
 
     private CatalogIndexDescriptor indexDescriptor() {

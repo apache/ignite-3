@@ -62,6 +62,30 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
     );
 
     /**
+     * Temporary solution for awaiting {@link ReplicaMeta}. Waits for
+     * {@link ReplicaMeta} for {@link org.apache.ignite.internal.replicator.TablePartitionId}
+     * based on the {@link ZonePartitionId#tableId()}.
+     *
+     * @param groupId Replication group id.
+     * @param timestamp CLOCK_SKEW aware timestamp reference value.
+     * @param timeout How long to wait before completing exceptionally with a TimeoutException, in units of unit.
+     * @param unit A TimeUnit determining how to interpret the timeout parameter.
+     * @return Primary replica future.
+     * @throws PrimaryReplicaAwaitTimeoutException If primary replica await timed out.
+     * @throws PrimaryReplicaAwaitException If primary replica await failed with any other reason except timeout.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20362
+    @Deprecated
+    default CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
+        return awaitPrimaryReplica(groupId, timestamp, timeout, unit);
+    }
+
+    /**
      * Same as {@link #awaitPrimaryReplica(ReplicationGroupId, HybridTimestamp, long, TimeUnit)} despite the fact that given method await
      * logic is bounded. It will wait for a primary replica for a reasonable period of time, and complete a future with null if a matching
      * lease isn't found. Generally speaking reasonable here means enough for distribution across cluster nodes.

@@ -45,6 +45,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -291,11 +292,13 @@ public class ClientPrimaryReplicaTracker {
 
     private void onPrimaryReplicaChanged(PrimaryReplicaEventParameters primaryReplicaEvent) {
         inBusyLock(busyLock, () -> {
-            if (!(primaryReplicaEvent.groupId() instanceof TablePartitionId)) {
+            if (!(primaryReplicaEvent.groupId() instanceof ZonePartitionId)) {
                 return;
             }
 
-            TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
+            ZonePartitionId zonePartitionId = (ZonePartitionId) primaryReplicaEvent.groupId();
+
+            TablePartitionId tablePartitionId = new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId());
 
             updatePrimaryReplica(tablePartitionId, primaryReplicaEvent.startTime(), primaryReplicaEvent.leaseholder());
         });

@@ -29,7 +29,6 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.CompletableFutures;
 
@@ -59,7 +58,7 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
     CompletableFuture<Void> setPrimaryReplicaMeta(
             long causalityToken,
-            TablePartitionId replicaId,
+            ZonePartitionId replicaId,
             CompletableFuture<ReplicaMeta> replicaMetaFuture
     ) {
         primaryReplicaMetaFutureById.put(replicaId, replicaMetaFuture);
