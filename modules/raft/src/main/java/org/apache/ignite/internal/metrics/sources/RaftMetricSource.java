@@ -72,68 +72,68 @@ public class RaftMetricSource implements MetricSource {
     }
 
     private void initMetrics() {
-        long[] bounds = new long[] {10L, 20L, 30L, 40L, 50L};
+        long[] bounds = new long[]{10L, 20L, 30L, 40L, 50L};
 
         // jraft-fsmcaller-disruptor
-        metrics.put("jraft-fsmcaller-disruptor.average.batch",
+        metrics.put("jraft.fsmcaller.disruptor.Batch",
                 new DistributionMetric(
-                        "jraft-fsmcaller-disruptor.average.batch",
-                        "Average batch size in disruptor",
+                        "jraft.fsmcaller.disruptor.Batch",
+                        "The histogram of the batch size to handle in the state machine for partitions",
                         bounds,
                         toStringBatchHistogram(bounds)
                 ));
-        metrics.put("jraft-fsmcaller-disruptor.stripes.histogram",
+        metrics.put("jraft.fsmcaller.disruptor.Stripes",
                 new DistributionMetric(
-                        "jraft-fsmcaller-disruptor.stripes.histogram",
-                        "Distribution tasks by stripes in disruptor",
+                        "jraft.fsmcaller.disruptor.Stripes",
+                        "The histogram of distribution data by stripes in the state machine for partitions",
                         LongStream.range(0, stripeCount).toArray(),
                         toStringStripesHistogram()
                 ));
 
         // jraft-nodeimpl-disruptor
-        metrics.put("jraft-nodeimpl-disruptor.average.batch",
+        metrics.put("jraft.nodeimpl.disruptor.Batch",
                 new DistributionMetric(
-                        "jraft-nodeimpl-disruptor.average.batch",
-                        "Average batch size in disruptor",
+                        "jraft.nodeimpl.disruptor.Batch",
+                        "The histogram of the batch size to handle node operations for partitions",
                         bounds,
                         toStringBatchHistogram(bounds)
                 ));
-        metrics.put("jraft-nodeimpl-disruptor.stripes.histogram",
+        metrics.put("jraft.nodeimpl.disruptor.Stripes",
                 new DistributionMetric(
-                        "jraft-nodeimpl-disruptor.stripes.histogram",
-                        "Distribution tasks by stripes in disruptor",
+                        "jraft.nodeimpl.disruptor.Stripes",
+                        "The histogram of distribution data by stripes for node operations for partitions",
                         LongStream.range(0, stripeCount).toArray(),
                         toStringStripesHistogram()
                 ));
 
         // jraft-readonlyservice-disruptor
-        metrics.put("jraft-readonlyservice-disruptor.average.batch",
+        metrics.put("jraft.readonlyservice.disruptor.Batch",
                 new DistributionMetric(
-                        "jraft-readonlyservice-disruptor.average.batch",
-                        "Average batch size in disruptor",
+                        "jraft.readonlyservice.disruptor.Batch",
+                        "The histogram of the batch size to handle readonly operations for partitions",
                         bounds,
                         toStringBatchHistogram(bounds)
                 ));
-        metrics.put("jraft-readonlyservice-disruptor.stripes.histogram",
+        metrics.put("jraft.readonlyservice.disruptor.Stripes",
                 new DistributionMetric(
-                        "jraft-readonlyservice-disruptor.stripes.histogram",
-                        "Distribution tasks by stripes in disruptor",
+                        "jraft.readonlyservice.disruptor.Stripes",
+                        "The histogram of distribution data by stripes readonly operations for partitions",
                         LongStream.range(0, stripeCount).toArray(),
                         toStringStripesHistogram()
                 ));
 
         // jraft-logmanager-disruptor
-        metrics.put("jraft-logmanager-disruptor.average.batch",
+        metrics.put("jraft.logmanager.disruptor.Batch",
                 new DistributionMetric(
-                        "jraft-logmanager-disruptor.average.batch",
-                        "Average batch size in disruptor",
+                        "jraft.logmanager.disruptor.Batch",
+                        "The histogram of the batch size to handle in the log for partitions",
                         bounds,
                         toStringBatchHistogram(bounds)
                 ));
-        metrics.put("jraft-logmanager-disruptor.stripes.histogram",
+        metrics.put("jraft.logmanager.disruptor.Stripes",
                 new DistributionMetric(
-                        "jraft-logmanager-disruptor.stripes.histogram",
-                        "Distribution tasks by stripes in disruptor",
+                        "jraft.logmanager.disruptor.Stripes",
+                        "The histogram of distribution data by stripes in the log for partitions",
                         LongStream.range(0, logStripeCount).toArray(),
                         toStringStripesHistogram()
                 ));
@@ -182,8 +182,8 @@ public class RaftMetricSource implements MetricSource {
      */
     public DisruptorMetrics disruptorMetrics(String name) {
         return new DisruptorMetrics(
-                (DistributionMetric) metrics.get(name.toLowerCase() + ".average.batch"),
-                (DistributionMetric) metrics.get(name.toLowerCase() + ".stripes.histogram")
+                (DistributionMetric) metrics.get(name.replace('-', '.').toLowerCase() + ".Batch"),
+                (DistributionMetric) metrics.get(name.replace('-', '.').toLowerCase() + ".Stripes")
         );
     }
 
