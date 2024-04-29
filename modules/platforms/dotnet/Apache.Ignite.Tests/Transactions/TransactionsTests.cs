@@ -23,6 +23,7 @@ namespace Apache.Ignite.Tests.Transactions
     using System.Threading.Tasks;
     using System.Transactions;
     using Ignite.Transactions;
+    using Internal;
     using NUnit.Framework;
     using Table;
     using TransactionOptions = Ignite.Transactions.TransactionOptions;
@@ -286,8 +287,17 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestObservableTimestampPropagation([Values(true, false)] bool sql)
         {
-            using var server = new FakeServer();
+            using var server = new FakeServer
+            {
+                ObservableTimestamp = 111
+            };
+
             using var client = await server.ConnectClientAsync();
+
+            Assert.AreEqual(
+                server.ObservableTimestamp,
+                client.GetFieldValue<ClientFailoverSocket>("_socket").ObservableTimestamp,
+                "Handshake should initialize observable timestamp");
 
             server.ObservableTimestamp = 123;
 
