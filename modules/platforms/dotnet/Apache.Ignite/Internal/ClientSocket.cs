@@ -213,7 +213,7 @@ namespace Apache.Ignite.Internal
                     logger.LogSslConnectionEstablishedDebug(socket.RemoteEndPoint, sslStream.NegotiatedCipherSuite);
                 }
 
-                var context = await HandshakeAsync(stream, endPoint, configuration, cts.Token)
+                var context = await HandshakeAsync(stream, endPoint, configuration, listener, cts.Token)
                     .WaitAsync(configuration.SocketTimeout, cts.Token)
                     .ConfigureAwait(false);
 
@@ -287,11 +287,13 @@ namespace Apache.Ignite.Internal
         /// <param name="stream">Network stream.</param>
         /// <param name="endPoint">Endpoint.</param>
         /// <param name="configuration">Configuration.</param>
+        /// <param name="listener">Client socket event listener.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         private static async Task<ConnectionContext> HandshakeAsync(
             Stream stream,
             SocketEndpoint endPoint,
             IgniteClientConfiguration configuration,
+            IClientSocketEventListener listener,
             CancellationToken cancellationToken)
         {
             await stream.WriteAsync(ProtoCommon.MagicBytes, cancellationToken).ConfigureAwait(false);
@@ -305,7 +307,7 @@ namespace Apache.Ignite.Internal
             using var response = await ReadResponseAsync(stream, new byte[4], endPoint.MetricsContext, CancellationToken.None)
                 .ConfigureAwait(false);
 
-            return ReadHandshakeResponse(response.GetReader(), endPoint, GetSslInfo(stream));
+            return ReadHandshakeResponse(response.GetReader(), endPoint, GetSslInfo(stream), listener);
         }
 
         private static async ValueTask CheckMagicBytesAsync(
@@ -336,7 +338,11 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static ConnectionContext ReadHandshakeResponse(MsgPackReader reader, SocketEndpoint endPoint, ISslInfo? sslInfo)
+        private static ConnectionContext ReadHandshakeResponse(
+            MsgPackReader reader,
+            SocketEndpoint endPoint,
+            ISslInfo? sslInfo,
+            IClientSocketEventListener listener)
         {
             var serverVer = new ClientProtocolVersion(reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16());
 
@@ -358,6 +364,7 @@ namespace Apache.Ignite.Internal
             var clusterName = reader.ReadString();
 
             var observableTimestamp = reader.ReadInt64();
+            listener.OnObservableTimestampChanged(observableTimestamp);
 
             // Cluster version.
             reader.Skip(); // Major.
@@ -374,6 +381,7 @@ namespace Apache.Ignite.Internal
                 TimeSpan.FromMilliseconds(idleTimeoutMs),
                 new ClusterNode(clusterNodeId, clusterNodeName, endPoint.EndPoint, endPoint.MetricsContext),
                 clusterId,
+                clusterName,
                 sslInfo);
         }
 
