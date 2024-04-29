@@ -280,22 +280,19 @@ public class DisasterRecoveryManager implements IgniteComponent {
             });
         }
 
-        CompletableFuture<Map<TablePartitionId, Map<String, LocalPartitionStateMessage>>> stateMessages =
-                allOf(futures).handle((unused, throwable) -> result);
-
         if (!partitionIds.isEmpty()) {
-            return stateMessages.thenApply(res -> {
-                Set<Integer> foundPartitionIds = res.keySet().stream()
+            return allOf(futures).thenApply(ignored -> {
+                Set<Integer> foundPartitionIds = result.keySet().stream()
                         .map(TablePartitionId::partitionId)
                         .collect(toSet());
 
                 checkPartitions(foundPartitionIds, partitionIds);
 
-                return res;
+                return result;
             });
         }
 
-        return stateMessages;
+        return allOf(futures).handle((unused, throwable) -> result);
     }
 
     private Set<NodeWithAttributes> getNodes(Set<String> nodeNames) throws NodesNotFoundException{
