@@ -204,16 +204,6 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         }
 
         @Override
-        public void addPartitionAssignmentChangeListener(Consumer<Long> listener) {
-            // No-op.
-        }
-
-        @Override
-        public void addObservableTimestampListener(Consumer<Long> listener) {
-            // No-op.
-        }
-
-        @Override
         public void close() {
             // No-op.
         }
