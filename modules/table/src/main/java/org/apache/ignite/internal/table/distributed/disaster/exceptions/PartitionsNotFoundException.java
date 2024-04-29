@@ -26,7 +26,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 public class PartitionsNotFoundException extends IgniteInternalException {
     private static final long serialVersionUID = -9215416423159317425L;
 
-    public PartitionsNotFoundException(Set<Integer> missingPartitions) {
-        super(PARTITIONS_NOT_FOUND_ERR, "Some partitions are missing: " + missingPartitions);
+    public PartitionsNotFoundException(Set<Integer> missingPartitionIds) {
+        super(PARTITIONS_NOT_FOUND_ERR, "Some partitions are missing: " + missingPartitionIds);
     }
 }

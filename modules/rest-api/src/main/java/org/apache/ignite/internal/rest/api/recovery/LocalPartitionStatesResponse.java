@@ -29,6 +29,7 @@ import java.util.List;
  */
 @Schema(description = "Information about local partition states.")
 public class LocalPartitionStatesResponse {
+    // Using JsonInclude to handle empty list correctly.
     @Schema
     @JsonInclude
     private final List<LocalPartitionStateResponse> states;

@@ -23,6 +23,7 @@ import static java.util.stream.IntStream.range;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -55,7 +56,9 @@ import org.junit.jupiter.api.Test;
 public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + Cluster.BASE_HTTP_PORT;
 
-    private static final Set<String> FILLED_ZONES = Set.of("first_zone", "second_zone", "third_zone");
+    private static final Set<String> FILLED_ZONES = Set.of("first_ZONE", "second_ZONE", "third_ZONE");
+
+    private static final String EMPTY_ZONE = "empty_ZONE";
 
     private static final Set<String> TABLE_NAMES = FILLED_ZONES.stream().map(it -> it + "_table").collect(toSet());
 
@@ -70,11 +73,11 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     @BeforeAll
     public static void setUp() {
         FILLED_ZONES.forEach(name -> {
-            sql(String.format("CREATE ZONE %s WITH storage_profiles='%s'", name, DEFAULT_AIPERSIST_PROFILE_NAME));
-            sql("CREATE TABLE " + name + "_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = '" + name.toUpperCase() + "'");
+            sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", name, DEFAULT_AIPERSIST_PROFILE_NAME));
+            sql("CREATE TABLE \"" + name + "_table\" (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = '" + name + "'");
         });
 
-        sql("CREATE ZONE empty_zone WITH storage_profiles='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'");
+        sql("CREATE ZONE \"" + EMPTY_ZONE + "\" WITH storage_profiles='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'");
 
         nodeNames = CLUSTER.runningNodes().map(IgniteImpl::name).collect(toSet());
     }
@@ -103,6 +106,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
+        assertThat(thrown.getMessage(), containsString("Some nodes are missing: [no-such-node]"));
     }
 
     @Test
@@ -113,6 +117,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
+        assertThat(thrown.getMessage(), containsString("Some distribution zones are missing: [no-such-zone]"));
     }
 
     @Test
@@ -128,7 +133,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     @Test
     void testLocalPartitionsEmptyResult() {
         HttpResponse<LocalPartitionStatesResponse> response = client.toBlocking().exchange(
-                "/state/local?zoneNames=empty_zone",
+                "/state/local?zoneNames=" + EMPTY_ZONE,
                 LocalPartitionStatesResponse.class
         );
 
@@ -138,7 +143,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     void testLocalPartitionStatesByZones() {
-        Set<String> zoneNames = Set.of("first_zone", "second_zone");
+        Set<String> zoneNames = FILLED_ZONES.stream().limit(FILLED_ZONES.size() - 1).collect(toSet());
 
         String url = "state/local?zoneNames=" + String.join(",", zoneNames);
 
@@ -160,6 +165,20 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         assertEquals(HttpStatus.OK, response.status());
 
         checkLocalStates(response.body().states(), FILLED_ZONES, nodeNames);
+    }
+
+    @Test
+    void testLocalPartitionStatesByNodesIsCaseSensitive() {
+        Set<String> nodeNames = Set.of(CLUSTER.node(0).node().name(), CLUSTER.node(1).node().name());
+
+        String url = "state/local?nodeNames=" + String.join(",", nodeNames).toUpperCase();
+
+        HttpClientResponseException thrown = assertThrows(
+                HttpClientResponseException.class,
+                () -> client.toBlocking().exchange(url, LocalPartitionStatesResponse.class)
+        );
+
+        nodeNames.forEach(nodeName -> assertThat(thrown.getMessage(), containsString(nodeName.toUpperCase())));
     }
 
     @Test
@@ -200,10 +219,11 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     void testGlobalPartitionStatesZoneNotFound() {
         HttpClientResponseException thrown = assertThrows(
                 HttpClientResponseException.class,
-                () -> client.toBlocking().exchange("/state/global?zoneNames=no-such-zone/", GlobalPartitionStatesResponse.class)
+                () -> client.toBlocking().exchange("/state/global?zoneNames=no-such-zone", GlobalPartitionStatesResponse.class)
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
+        assertThat(thrown.getMessage(), containsString("Some distribution zones are missing: [no-such-zone]"));
     }
 
     @Test
@@ -214,12 +234,13 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
+        assertThat(thrown.getMessage(), containsString("Some partitions are missing: [-1]"));
     }
 
     @Test
     void testGlobalPartitionsEmptyResult() {
         HttpResponse<GlobalPartitionStatesResponse> response = client.toBlocking().exchange(
-                "/state/global?zoneNames=empty_zone",
+                "/state/global?zoneNames=" + EMPTY_ZONE,
                 GlobalPartitionStatesResponse.class
         );
 
@@ -229,7 +250,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     void testGlobalPartitionStatesByZones() {
-        Set<String> zoneNames = Set.of("first_zone", "second_zone");
+        Set<String> zoneNames = FILLED_ZONES.stream().limit(FILLED_ZONES.size() - 1).collect(toSet());
 
         String url = "state/global?zoneNames=" + String.join(",", zoneNames);
 
@@ -244,9 +265,9 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         assertFalse(states.isEmpty());
 
         states.forEach(state -> {
-            assertThat(zoneNames, hasItem(state.zoneName().toLowerCase()));
+            assertThat(zoneNames, hasItem(state.zoneName()));
             assertThat(nodes, hasItem(state.nodeName()));
-            assertThat(TABLE_NAMES, hasItem(state.tableName().toLowerCase()));
+            assertThat(TABLE_NAMES, hasItem(state.tableName()));
             assertThat(STATES, hasItem(state.state()));
         });
     }
@@ -255,8 +276,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         assertFalse(states.isEmpty());
 
         states.forEach(state -> {
-            assertThat(zoneNames, hasItem(state.zoneName().toLowerCase()));
-            assertThat(TABLE_NAMES, hasItem(state.tableName().toLowerCase()));
+            assertThat(zoneNames, hasItem(state.zoneName()));
+            assertThat(TABLE_NAMES, hasItem(state.tableName()));
             assertThat(STATES, hasItem(state.state()));
         });
     }

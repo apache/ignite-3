@@ -583,10 +583,10 @@ namespace Apache.Ignite
             public const String GroupName = "RECOVERY";
 
             /// <summary> PartitionsNotFound error. </summary>
-            public const int PartitionsNotFound = (GroupCode << 16) | (2 & 0xFFFF);
+            public const int PartitionsNotFound = (GroupCode << 16) | (1 & 0xFFFF);
 
             /// <summary> NodesNotFound error. </summary>
-            public const int NodesNotFound = (GroupCode << 16) | (3 & 0xFFFF);
+            public const int NodesNotFound = (GroupCode << 16) | (2 & 0xFFFF);
         }
     }
 }

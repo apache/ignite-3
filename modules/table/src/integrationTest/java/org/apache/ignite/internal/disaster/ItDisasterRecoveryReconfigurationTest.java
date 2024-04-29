@@ -326,7 +326,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private List<Integer> getRealAssignments(IgniteImpl node0, int partId) {
-        var partitionStatesFut = node0.disasterRecoveryManager().localPartitionStates(Set.of(zoneName), Set.of(), Set.of());
+        CompletableFuture<Map<TablePartitionId, Map<String, LocalPartitionState>>> partitionStatesFut = node0.disasterRecoveryManager()
+                .localPartitionStates(Set.of(zoneName), Set.of(), Set.of());
         assertThat(partitionStatesFut, willCompleteSuccessfully());
 
         Map<String, LocalPartitionState> partitionStates = partitionStatesFut.join().get(new TablePartitionId(tableId, partId));

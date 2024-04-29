@@ -29,6 +29,7 @@ import java.util.List;
  */
 @Schema(description = "Information about global partition states.")
 public class GlobalPartitionStatesResponse {
+    // Using JsonInclude to handle empty list correctly.
     @Schema
     @JsonInclude
     private final List<GlobalPartitionStateResponse> states;

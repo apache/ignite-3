@@ -48,11 +48,13 @@ public interface DisasterRecoveryApi {
     @Produces(MediaType.APPLICATION_JSON)
     CompletableFuture<LocalPartitionStatesResponse> getLocalPartitionStates(
             @QueryValue
-            @Schema(description = "Names specifying zones to get partition states from.") Optional<Set<String>> zoneNames,
+            @Schema(description = "Names specifying zones to get partition states from. All zones if empty.")
+            Optional<Set<String>> zoneNames,
             @QueryValue
-            @Schema(description = "Names specifying nodes to get partition states from.") Optional<Set<String>> nodeNames,
+            @Schema(description = "Names specifying nodes to get partition states from. All nodes if empty.")
+            Optional<Set<String>> nodeNames,
             @QueryValue
-            @Schema(description = "IDs of partitions to get states.") Optional<Set<Integer>> partitionIds
+            @Schema(description = "IDs of partitions to get states. All partitions if empty.") Optional<Set<Integer>> partitionIds
     );
 
     @Get("state/global")
@@ -65,8 +67,10 @@ public interface DisasterRecoveryApi {
     @Produces(MediaType.APPLICATION_JSON)
     CompletableFuture<GlobalPartitionStatesResponse> getGlobalPartitionStates(
             @QueryValue
-            @Schema(description = "Names specifying zones to get partition states from.") Optional<Set<String>> zoneNames,
+            @Schema(description = "Names specifying zones to get partition states from. All zones if empty.")
+            Optional<Set<String>> zoneNames,
             @QueryValue
-            @Schema(description = "IDs of partitions to get states of.") Optional<Set<Integer>> partitionIds
+            @Schema(description = "IDs of partitions to get states of. All partitions if empty.")
+            Optional<Set<Integer>> partitionIds
     );
 }

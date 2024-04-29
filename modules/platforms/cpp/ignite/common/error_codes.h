@@ -208,8 +208,8 @@ enum class code : underlying_t {
     SYSTEM_CRITICAL_OPERATION_TIMEOUT = 0x130002,
 
     // DisasterRecovery group. Group code: 20
-    PARTITIONS_NOT_FOUND = 0x140002,
-    NODES_NOT_FOUND = 0x140003
+    PARTITIONS_NOT_FOUND = 0x140001,
+    NODES_NOT_FOUND = 0x140002
 };
 
 } // namespace error

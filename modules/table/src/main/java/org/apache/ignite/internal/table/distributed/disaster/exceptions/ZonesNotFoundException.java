@@ -26,7 +26,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 public class ZonesNotFoundException extends IgniteInternalException {
     private static final long serialVersionUID = -8475588176132321568L;
 
-    public ZonesNotFoundException(Set<String> missingZones) {
-        super(ZONE_NOT_FOUND_ERR, "Some distribution zones are missing: " + missingZones);
+    public ZonesNotFoundException(Set<String> missingZoneNames) {
+        super(ZONE_NOT_FOUND_ERR, "Some distribution zones are missing: " + missingZoneNames);
     }
 }

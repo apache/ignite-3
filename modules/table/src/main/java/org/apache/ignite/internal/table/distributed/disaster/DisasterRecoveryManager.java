@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.Collections.emptyList;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -211,7 +212,6 @@ public class DisasterRecoveryManager implements IgniteComponent {
         Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
 
         return localPartitionStatesInternal(zoneNames, nodeNames, partitionIds, catalog)
-                .thenApply(res -> checkPartitions(res, partitionIds))
                 .thenApply(res -> normalizeLocal(res, catalog));
     }
 
@@ -230,7 +230,6 @@ public class DisasterRecoveryManager implements IgniteComponent {
         Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
 
         return localPartitionStatesInternal(zoneNames, Set.of(), partitionIds, catalog)
-                .thenApply(res -> checkPartitions(res, partitionIds))
                 .thenApply(res -> normalizeLocal(res, catalog))
                 .thenApply(res -> assembleGlobal(res, catalog));
     }
@@ -241,50 +240,9 @@ public class DisasterRecoveryManager implements IgniteComponent {
             Set<Integer> partitionIds,
             Catalog catalog
     ) {
-        Set<Integer> zoneIds;
-        if (zoneNames.isEmpty()) {
-            zoneIds = Set.of();
-        } else {
-            Set<String> uppercaseZoneNames = zoneNames.stream()
-                    .map(String::toUpperCase)
-                    .collect(toSet());
+        Set<Integer> zoneIds = getZoneIds(zoneNames, catalog);
 
-            List<CatalogZoneDescriptor> zoneDescriptors = catalog.zones().stream()
-                    .filter(catalogZoneDescriptor -> uppercaseZoneNames.contains(catalogZoneDescriptor.name().toUpperCase()))
-                    .collect(toList());
-
-            if (zoneDescriptors.size() != zoneNames.size()) {
-                Set<String> foundZoneNames = zoneDescriptors.stream()
-                        .map(descriptor -> descriptor.name().toUpperCase())
-                        .collect(toSet());
-
-                Set<String> missingZones = CollectionUtils.difference(uppercaseZoneNames, foundZoneNames);
-
-                return CompletableFuture.failedFuture(new ZonesNotFoundException(missingZones));
-            }
-
-            zoneIds = zoneDescriptors.stream()
-                    .map(CatalogObjectDescriptor::id)
-                    .collect(toSet());
-        }
-
-        Set<String> uppercaseNodeNames = nodeNames.stream()
-                .map(String::toUpperCase)
-                .collect(toSet());
-
-        Set<NodeWithAttributes> nodes = dzManager.logicalTopology().stream()
-                .filter(node -> nodeNames.isEmpty() || uppercaseNodeNames.contains(node.nodeName().toUpperCase()))
-                .collect(toSet());
-
-        if (!nodeNames.isEmpty() && nodes.size() != uppercaseNodeNames.size()) {
-            Set<String> foundNodeNames = nodes.stream()
-                    .map(node -> node.nodeName().toUpperCase())
-                    .collect(toSet());
-
-            Set<String> missingNodes = CollectionUtils.difference(uppercaseNodeNames, foundNodeNames);
-
-            return CompletableFuture.failedFuture(new NodesNotFoundException(missingNodes));
-        }
+        Set<NodeWithAttributes> nodes = getNodes(nodeNames);
 
         LocalPartitionStatesRequest localPartitionStatesRequest = MSG_FACTORY.localPartitionStatesRequest()
                 .zoneIds(zoneIds)
@@ -322,7 +280,68 @@ public class DisasterRecoveryManager implements IgniteComponent {
             });
         }
 
-        return CompletableFuture.allOf(futures).handle((unused, throwable) -> result);
+        CompletableFuture<Map<TablePartitionId, Map<String, LocalPartitionStateMessage>>> stateMessages =
+                allOf(futures).handle((unused, throwable) -> result);
+
+        if (!partitionIds.isEmpty()) {
+            return stateMessages.thenApply(res -> {
+                Set<Integer> foundPartitionIds = res.keySet().stream()
+                        .map(TablePartitionId::partitionId)
+                        .collect(toSet());
+
+                checkPartitions(foundPartitionIds, partitionIds);
+
+                return res;
+            });
+        }
+
+        return stateMessages;
+    }
+
+    private Set<NodeWithAttributes> getNodes(Set<String> nodeNames) throws NodesNotFoundException{
+        if (nodeNames.isEmpty()) {
+            return dzManager.logicalTopology();
+        }
+
+        Set<NodeWithAttributes> nodes = dzManager.logicalTopology().stream()
+                .filter(node -> nodeNames.contains(node.nodeName()))
+                .collect(toSet());
+
+        Set<String> foundNodeNames = nodes.stream()
+                .map(NodeWithAttributes::nodeName)
+                .collect(toSet());
+
+        if (!nodeNames.equals(foundNodeNames)) {
+            Set<String> missingNodeNames = CollectionUtils.difference(nodeNames, foundNodeNames);
+
+            throw new NodesNotFoundException(missingNodeNames);
+        }
+
+        return nodes;
+    }
+
+    private static Set<Integer> getZoneIds(Set<String> zoneNames, Catalog catalog) throws ZonesNotFoundException {
+        if (zoneNames.isEmpty()) {
+            return Set.of();
+        }
+
+        List<CatalogZoneDescriptor> zoneDescriptors = catalog.zones().stream()
+                .filter(catalogZoneDescriptor -> zoneNames.contains(catalogZoneDescriptor.name()))
+                .collect(toList());
+
+        if (zoneDescriptors.size() != zoneNames.size()) {
+            Set<String> foundZoneNames = zoneDescriptors.stream()
+                    .map(CatalogObjectDescriptor::name)
+                    .collect(toSet());
+
+            Set<String> missingZoneNames = CollectionUtils.difference(zoneNames, foundZoneNames);
+
+            throw new ZonesNotFoundException(missingZoneNames);
+        }
+
+        return zoneDescriptors.stream()
+                .map(CatalogObjectDescriptor::id)
+                .collect(toSet());
     }
 
     /**
@@ -467,21 +486,21 @@ public class DisasterRecoveryManager implements IgniteComponent {
         }
     }
 
-    /** Checks that resulting states contain all partitions IDs from the request. */
-    private static Map<TablePartitionId, Map<String, LocalPartitionStateMessage>> checkPartitions(
-            Map<TablePartitionId, Map<String, LocalPartitionStateMessage>> states,
-            Set<Integer> requestedIds
-    ) {
-        Set<Integer> foundPartitions = states.keySet().stream()
-                .map(TablePartitionId::partitionId)
-                .collect(toSet());
+    /**
+     * Checks that resulting states contain all partitions IDs from the request.
+     *
+     * @param foundPartitionIds Found partition IDs.
+     * @param requestedPartitionIds Requested partition IDs.
+     * @throws PartitionsNotFoundException if some IDs are missing.
+     */
+    private static void checkPartitions(
+            Set<Integer> foundPartitionIds,
+            Set<Integer> requestedPartitionIds
+    ) throws PartitionsNotFoundException {
+        if (!requestedPartitionIds.equals(foundPartitionIds)) {
+            Set<Integer> missingPartitionIds = CollectionUtils.difference(requestedPartitionIds, foundPartitionIds);
 
-        if (!requestedIds.isEmpty() && requestedIds.size() != foundPartitions.size()) {
-            Set<Integer> missingPartitions = CollectionUtils.difference(requestedIds, foundPartitions);
-
-            throw new PartitionsNotFoundException(missingPartitions);
-        } else {
-            return states;
+            throw new PartitionsNotFoundException(missingPartitionIds);
         }
     }
 
