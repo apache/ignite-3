@@ -261,6 +261,7 @@ private:
 
     /** Configuration. */
     const ignite_client_configuration &m_configuration;
+    void on_observable_timestamp_changed(int64_t observable_timestamp) const;
 };
 
 } // namespace ignite::detail
