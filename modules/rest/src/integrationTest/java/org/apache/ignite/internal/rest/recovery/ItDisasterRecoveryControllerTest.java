@@ -37,6 +37,7 @@ import io.micronaut.http.client.annotation.Client;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.Cluster;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStateResponse
 import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStatesResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStatesResponse;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -58,9 +60,14 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     private static final Set<String> FILLED_ZONES = Set.of("first_ZONE", "second_ZONE", "third_ZONE");
 
+    private static final Set<String> MIXED_CASE_ZONES = Set.of("mixed_first_zone", "MIXED_FIRST_ZONE", "mixed_second_zone",
+            "MIXED_SECOND_ZONE");
+
+    private static final Set<String> ALL_ZONES = new HashSet<>(CollectionUtils.concat(FILLED_ZONES, MIXED_CASE_ZONES));
+
     private static final String EMPTY_ZONE = "empty_ZONE";
 
-    private static final Set<String> TABLE_NAMES = FILLED_ZONES.stream().map(it -> it + "_table").collect(toSet());
+    private static final Set<String> TABLE_NAMES = ALL_ZONES.stream().map(it -> it + "_table").collect(toSet());
 
     private static final Set<String> STATES = Set.of("HEALTHY", "AVAILABLE");
 
@@ -72,7 +79,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @BeforeAll
     public static void setUp() {
-        FILLED_ZONES.forEach(name -> {
+        ALL_ZONES.forEach(name -> {
             sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", name, DEFAULT_AIPERSIST_PROFILE_NAME));
             sql("CREATE TABLE \"" + name + "_table\" (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = '" + name + "'");
         });
@@ -95,7 +102,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         List<Integer> partitionIds = states.stream().map(LocalPartitionStateResponse::partitionId).distinct().collect(toList());
         assertEquals(range(0, DEFAULT_PARTITION_COUNT).boxed().collect(toList()), partitionIds);
 
-        checkLocalStates(states, FILLED_ZONES, nodeNames);
+        checkLocalStates(states, ALL_ZONES, nodeNames);
     }
 
     @Test
@@ -143,15 +150,24 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     void testLocalPartitionStatesByZones() {
-        Set<String> zoneNames = FILLED_ZONES.stream().limit(FILLED_ZONES.size() - 1).collect(toSet());
-
-        String url = "state/local?zoneNames=" + String.join(",", zoneNames);
+        String url = "state/local?zoneNames=" + String.join(",", FILLED_ZONES);
 
         var response = client.toBlocking().exchange(url, LocalPartitionStatesResponse.class);
 
         assertEquals(HttpStatus.OK, response.status());
 
-        checkLocalStates(response.body().states(), zoneNames, nodeNames);
+        checkLocalStates(response.body().states(), FILLED_ZONES, nodeNames);
+    }
+
+    @Test
+    void testLocalPartitionStatesByZonesCheckCase() {
+        String url = "state/local?zoneNames=" + String.join(",", MIXED_CASE_ZONES);
+
+        var response = client.toBlocking().exchange(url, LocalPartitionStatesResponse.class);
+
+        assertEquals(HttpStatus.OK, response.status());
+
+        checkLocalStates(response.body().states(), MIXED_CASE_ZONES, nodeNames);
     }
 
     @Test
@@ -164,7 +180,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         assertEquals(HttpStatus.OK, response.status());
 
-        checkLocalStates(response.body().states(), FILLED_ZONES, nodeNames);
+        checkLocalStates(response.body().states(), ALL_ZONES, nodeNames);
     }
 
     @Test
@@ -197,7 +213,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
             assertTrue(partitionIds.contains((String.valueOf(state.partitionId()))));
         }
 
-        checkLocalStates(states, FILLED_ZONES, nodeNames);
+        checkLocalStates(states, ALL_ZONES, nodeNames);
     }
 
     @Test
@@ -212,7 +228,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         List<Integer> partitionIds = states.stream().map(GlobalPartitionStateResponse::partitionId).distinct().collect(toList());
         assertEquals(range(0, DEFAULT_PARTITION_COUNT).boxed().collect(toList()), partitionIds);
 
-        checkGlobalStates(states, FILLED_ZONES);
+        checkGlobalStates(states, ALL_ZONES);
     }
 
     @Test
@@ -250,15 +266,24 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     void testGlobalPartitionStatesByZones() {
-        Set<String> zoneNames = FILLED_ZONES.stream().limit(FILLED_ZONES.size() - 1).collect(toSet());
-
-        String url = "state/global?zoneNames=" + String.join(",", zoneNames);
+        String url = "state/global?zoneNames=" + String.join(",", FILLED_ZONES);
 
         var response = client.toBlocking().exchange(url, GlobalPartitionStatesResponse.class);
 
         assertEquals(HttpStatus.OK, response.status());
 
-        checkGlobalStates(response.body().states(), zoneNames);
+        checkGlobalStates(response.body().states(), FILLED_ZONES);
+    }
+
+    @Test
+    void testGlobalPartitionStatesByZonesCheckCase() {
+        String url = "state/global?zoneNames=" + String.join(",", MIXED_CASE_ZONES);
+
+        var response = client.toBlocking().exchange(url, GlobalPartitionStatesResponse.class);
+
+        assertEquals(HttpStatus.OK, response.status());
+
+        checkGlobalStates(response.body().states(), MIXED_CASE_ZONES);
     }
 
     private static void checkLocalStates(List<LocalPartitionStateResponse> states, Set<String> zoneNames, Set<String> nodes) {
