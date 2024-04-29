@@ -326,11 +326,11 @@ public class DisasterRecoveryManager implements IgniteComponent {
                 .filter(catalogZoneDescriptor -> zoneNames.contains(catalogZoneDescriptor.name()))
                 .collect(toList());
 
-        if (zoneDescriptors.size() != zoneNames.size()) {
-            Set<String> foundZoneNames = zoneDescriptors.stream()
-                    .map(CatalogObjectDescriptor::name)
-                    .collect(toSet());
+        Set<String> foundZoneNames = zoneDescriptors.stream()
+                .map(CatalogObjectDescriptor::name)
+                .collect(toSet());
 
+        if (!zoneNames.equals(foundZoneNames)) {
             Set<String> missingZoneNames = CollectionUtils.difference(zoneNames, foundZoneNames);
 
             throw new ZonesNotFoundException(missingZoneNames);
