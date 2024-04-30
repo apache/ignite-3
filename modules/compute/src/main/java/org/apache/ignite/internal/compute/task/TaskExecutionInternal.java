@@ -30,9 +30,11 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -205,7 +207,32 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
 
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-        return completedFuture(splitExecution.changePriority(newPriority));
+        // If the split job is not started
+        if (splitExecution.changePriority(newPriority)) {
+            return trueCompletedFuture();
+        }
+
+        // This future is complete when reduce execution job is submitted, try to change its priority.
+        if (reduceExecutionFuture.isDone()) {
+            return reduceExecutionFuture.thenApply(reduceExecution -> reduceExecution.changePriority(newPriority));
+        }
+
+        return executionsFuture.thenCompose(executions -> {
+            CompletableFuture<Boolean>[] cancelFutures = executions.stream()
+                    .map(JobExecution::cancelAsync)
+                    .toArray(CompletableFuture[]::new);
+
+            return allOf(cancelFutures).thenApply(unused -> {
+                List<@Nullable Boolean> results = Arrays.stream(cancelFutures).map(CompletableFuture::join).collect(toList());
+                if (results.stream().allMatch(b -> b == Boolean.TRUE)) {
+                    return true;
+                }
+                if (results.stream().anyMatch(Objects::isNull)) {
+                    return null;
+                }
+                return false;
+            });
+        });
     }
 
     CompletableFuture<List<@Nullable JobStatus>> statusesAsync() {
