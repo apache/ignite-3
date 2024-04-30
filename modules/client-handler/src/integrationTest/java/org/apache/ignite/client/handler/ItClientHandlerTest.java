@@ -135,6 +135,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             final var nodeName = unpacker.unpackString();
             unpacker.skipValue(); // Cluster id.
             unpacker.skipValue(); // Cluster name.
+            unpacker.skipValue(); // Observable timestamp.
 
             unpacker.skipValue(); // Major.
             unpacker.skipValue(); // Minor.
@@ -150,7 +151,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(72, len);
+            assertEquals(81, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
@@ -275,6 +276,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             final var nodeName = unpacker.unpackString();
             unpacker.skipValue(); // Cluster id.
             unpacker.skipValue(); // Cluster name.
+            unpacker.skipValue(); // Observable timestamp.
 
             unpacker.skipValue(); // Major.
             unpacker.skipValue(); // Minor.
@@ -289,7 +291,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(72, len);
+            assertEquals(81, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
