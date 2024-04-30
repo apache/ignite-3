@@ -44,7 +44,7 @@ public class LogManagerOptions {
 
     public void setLogStripes(List<Stripe> logStripes) {
             this.logStripes = logStripes;
-        }
+    }
 
     public List<Stripe> getLogStripes() {
         return this.logStripes;
