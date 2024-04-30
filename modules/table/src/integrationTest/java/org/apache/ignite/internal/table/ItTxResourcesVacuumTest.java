@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.findTupleToBeHostedOnNode;
@@ -430,7 +429,11 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Transaction roTxAfter = beginReadOnlyTx(anyNode());
 
-        waitForCondition(() -> volatileTxState(commitPartitionLeaseholder, txId) != null, 10_000);
+        waitForCondition(() -> {
+            TxStateMeta txStateMeta = (TxStateMeta) volatileTxState(commitPartitionLeaseholder, txId);
+
+            return txStateMeta != null && txStateMeta.cleanupCompletionTimestamp() != null;
+        }, 10_000);
 
         triggerVacuum();
         assertTxStateVacuumized(txId, commitPartId, true);
@@ -729,8 +732,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     public void testRoReadTheCorrectDataInBetween() {
-        setTxResourceTtl(0);
-
         IgniteImpl node = anyNode();
 
         String tableName = TABLE_NAME + "_1";
