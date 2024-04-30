@@ -169,6 +169,11 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 checkSerialization(new SetDefaultZoneEntry(1), new SetDefaultZoneEntry(Integer.MAX_VALUE));
                 break;
 
+            case NEW_SCHEMA:
+                checkSerialization(new NewSchemaEntry(new CatalogSchemaDescriptor(
+                        0, "S", new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0], 0)));
+                break;
+
             default:
                 throw new UnsupportedOperationException("Test not implemented " + type);
         }
