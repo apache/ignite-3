@@ -218,17 +218,18 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
         }
 
         return executionsFuture.thenCompose(executions -> {
-            CompletableFuture<Boolean>[] cancelFutures = executions.stream()
-                    .map(JobExecution::cancelAsync)
+            CompletableFuture<Boolean>[] changePriorityFutures = executions.stream()
+                    .map(execution -> execution.changePriorityAsync(newPriority))
                     .toArray(CompletableFuture[]::new);
 
-            return allOf(cancelFutures).thenApply(unused -> {
-                List<@Nullable Boolean> results = Arrays.stream(cancelFutures).map(CompletableFuture::join).collect(toList());
+            return allOf(changePriorityFutures).thenApply(unused -> {
+                List<@Nullable Boolean> results = Arrays.stream(changePriorityFutures).map(CompletableFuture::join).collect(toList());
                 if (results.stream().allMatch(b -> b == Boolean.TRUE)) {
                     return true;
                 }
                 if (results.stream().anyMatch(Objects::isNull)) {
-                    return null;
+                    //noinspection RedundantCast this cast is to satisfy spotbugs
+                    return (Boolean) null;
                 }
                 return false;
             });
