@@ -60,7 +60,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
@@ -326,10 +326,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private List<Integer> getRealAssignments(IgniteImpl node0, int partId) {
-        var partitionStatesFut = node0.disasterRecoveryManager().localPartitionStates(zoneName);
+        CompletableFuture<Map<TablePartitionId, LocalPartitionStateByNode>> partitionStatesFut = node0.disasterRecoveryManager()
+                .localPartitionStates(Set.of(zoneName), Set.of(), Set.of());
         assertThat(partitionStatesFut, willCompleteSuccessfully());
 
-        Map<String, LocalPartitionState> partitionStates = partitionStatesFut.join().get(new TablePartitionId(tableId, partId));
+        LocalPartitionStateByNode partitionStates = partitionStatesFut.join().get(new TablePartitionId(tableId, partId));
 
         return partitionStates.keySet()
                 .stream()

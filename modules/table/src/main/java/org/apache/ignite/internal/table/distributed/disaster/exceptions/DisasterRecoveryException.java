@@ -15,24 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.disaster;
+package org.apache.ignite.internal.table.distributed.disaster.exceptions;
 
-/**
- * Global partition state.
- */
-public class GlobalPartitionState {
-    public final String tableName;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
-    public final String zoneName;
+/** Common exception for disaster recovery. */
+public class DisasterRecoveryException extends IgniteInternalException {
+    private static final long serialVersionUID = -3565357739782565015L;
 
-    public final int partitionId;
+    public DisasterRecoveryException(int code, Throwable cause) {
+        super(code, cause);
+    }
 
-    public final GlobalPartitionStateEnum state;
-
-    GlobalPartitionState(String tableName, String zoneName, int partitionId, GlobalPartitionStateEnum state) {
-        this.tableName = tableName;
-        this.zoneName = zoneName;
-        this.partitionId = partitionId;
-        this.state = state;
+    public DisasterRecoveryException(int code, String message) {
+        super(code, message);
     }
 }

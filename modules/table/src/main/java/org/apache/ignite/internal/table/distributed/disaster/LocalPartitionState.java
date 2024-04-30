@@ -23,12 +23,15 @@ package org.apache.ignite.internal.table.distributed.disaster;
 public class LocalPartitionState {
     public final String tableName;
 
+    public final String zoneName;
+
     public final int partitionId;
 
     public final LocalPartitionStateEnum state;
 
-    LocalPartitionState(String tableName, int partitionId, LocalPartitionStateEnum state) {
+    LocalPartitionState(String tableName, String zoneName, int partitionId, LocalPartitionStateEnum state) {
         this.tableName = tableName;
+        this.zoneName = zoneName;
         this.partitionId = partitionId;
         this.state = state;
     }

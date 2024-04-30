@@ -17,22 +17,31 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
-/**
- * Global partition state.
- */
-public class GlobalPartitionState {
-    public final String tableName;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
-    public final String zoneName;
+/** Container for LocalPartitionState to node name map. */
+public class LocalPartitionStateByNode {
+    private final Map<String, LocalPartitionState> map;
 
-    public final int partitionId;
+    public LocalPartitionStateByNode(Map<String, LocalPartitionState> map) {
+        this.map = Map.copyOf(map);
+    }
 
-    public final GlobalPartitionStateEnum state;
+    /** Returns collection of local partition states. */
+    public Collection<LocalPartitionState> values() {
+        return map.values();
+    }
 
-    GlobalPartitionState(String tableName, String zoneName, int partitionId, GlobalPartitionStateEnum state) {
-        this.tableName = tableName;
-        this.zoneName = zoneName;
-        this.partitionId = partitionId;
-        this.state = state;
+    /** Returns set of map entries. */
+    public Set<Entry<String, LocalPartitionState>> entrySet() {
+        return map.entrySet();
+    }
+
+    /** Returns set of node names. */
+    public Set<String> keySet() {
+        return map.keySet();
     }
 }

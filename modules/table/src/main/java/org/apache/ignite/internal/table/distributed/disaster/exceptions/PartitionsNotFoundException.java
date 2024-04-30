@@ -15,24 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.disaster;
+package org.apache.ignite.internal.table.distributed.disaster.exceptions;
 
-/**
- * Global partition state.
- */
-public class GlobalPartitionState {
-    public final String tableName;
+import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITIONS_NOT_FOUND_ERR;
 
-    public final String zoneName;
+import java.util.Set;
 
-    public final int partitionId;
+/** Exception is thrown when appropriate partition can`t be found. */
+public class PartitionsNotFoundException extends DisasterRecoveryException {
+    private static final long serialVersionUID = -9215416423159317425L;
 
-    public final GlobalPartitionStateEnum state;
-
-    GlobalPartitionState(String tableName, String zoneName, int partitionId, GlobalPartitionStateEnum state) {
-        this.tableName = tableName;
-        this.zoneName = zoneName;
-        this.partitionId = partitionId;
-        this.state = state;
+    public PartitionsNotFoundException(Set<Integer> missingPartitionIds) {
+        super(PARTITIONS_NOT_FOUND_ERR, "Some partitions are missing: " + missingPartitionIds);
     }
 }
