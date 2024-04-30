@@ -1020,7 +1020,6 @@ public class RexImpTable {
       defineMethod(IgniteSqlOperatorTable.DECIMAL_DIVIDE, IgniteMethod.DECIMAL_DIVIDE.method(), NullPolicy.ARG0);
 
       map.put(TYPEOF, systemFunctionImplementor);
-      map.put(SYSTEM_RANGE, systemFunctionImplementor);
       return this;
     }
 
@@ -1034,17 +1033,7 @@ public class RexImpTable {
       Expression implementSafe(final RexToLixTranslator translator,
               final RexCall call, final List<Expression> argValueList) {
         final SqlOperator op = call.getOperator();
-        if (op == SYSTEM_RANGE) {
-          if (call.getOperands().size() == 2) {
-            return createTableFunctionImplementor(IgniteMethod.SYSTEM_RANGE2.method())
-                    .implement(translator, call, NullAs.NULL);
-          }
-
-          if (call.getOperands().size() == 3) {
-            return createTableFunctionImplementor(IgniteMethod.SYSTEM_RANGE3.method())
-                    .implement(translator, call, NullAs.NULL);
-          }
-        } else if (op == TYPEOF) {
+        if (op == TYPEOF) {
           if (call.getOperands().size() == 1) {
             CallImplementor implementor = createTypeOfImplementor();
 

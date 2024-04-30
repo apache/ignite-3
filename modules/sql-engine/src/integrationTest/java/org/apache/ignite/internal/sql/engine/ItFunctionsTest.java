@@ -169,6 +169,8 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
 
         assertEquals(0, sql("SELECT * FROM table(system_range(null, 1))").size());
 
+        assertEquals(0, sql("SELECT * FROM table(system_range(1, null))").size());
+
         assertThrowsSqlException(
                 Sql.RUNTIME_ERR,
                 "Increment can't be 0",

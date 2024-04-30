@@ -38,6 +38,7 @@ import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.Minus;
 import org.apache.calcite.rel.core.Spool;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
@@ -51,6 +52,8 @@ import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionImplementor;
+import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractSetOpNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.CorrelatedNestedLoopJoinNode;
@@ -667,14 +670,9 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteTableFunctionScan rel) {
-        Supplier<Iterable<Object[]>> dataSupplier = expressionFactory.execute(rel.getCall());
+        TableFunctionImplementor converter = new TableFunctionProvider();
 
-        RelDataType rowType = rel.getRowType();
-
-        RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
-        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
-
-        return new ScanNode<>(ctx, new TableFunctionScan<>(dataSupplier, rowFactory));
+        return new ScanNode<>(ctx, converter.toTableFunction(ctx, (RexCall) rel.getCall()));
     }
 
     /** {@inheritDoc} */

@@ -86,16 +86,6 @@ public class IgniteSqlFunctions {
         // No-op.
     }
 
-    /** SQL SYSTEM_RANGE(start, end) table function. */
-    public static ScannableTable systemRange(Object rangeStart, Object rangeEnd) {
-        return new RangeTable(rangeStart, rangeEnd, 1L);
-    }
-
-    /** SQL SYSTEM_RANGE(start, end, increment) table function. */
-    public static ScannableTable systemRange(Object rangeStart, Object rangeEnd, Object increment) {
-        return new RangeTable(rangeStart, rangeEnd, increment);
-    }
-
     /** Just a stub. Validates Date\Time literal, still use calcite implementation for numeric representation.
      * Otherwise need to fix {@code DateTimeUtils#unixTimestampToString} usage additionally.
      */
