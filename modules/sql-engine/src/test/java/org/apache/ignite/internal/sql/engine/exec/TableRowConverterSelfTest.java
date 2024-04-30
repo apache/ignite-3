@@ -133,7 +133,7 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 schemaRegistry,
                 schema
         );
-        BinaryRowEx convertedRow = converter.toBinaryRow(executionContext, wrapper, false);
+        BinaryRowEx convertedRow = converter.toFullRow(executionContext, wrapper);
 
         BinaryTupleReader reader = new BinaryTupleReader(schema.length(), convertedRow.tupleSlice());
 
@@ -183,7 +183,7 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 schema
         ).create(null);
 
-        BinaryRowEx convertedRow = converter.toBinaryRow(executionContext, wrapper, true);
+        BinaryRowEx convertedRow = converter.toKeyRow(executionContext, wrapper);
 
         List<Column> keyColumns = schema.keyColumns();
         BinaryTuple reader = new BinaryTuple(keyColumns.size(), convertedRow.tupleSlice());
