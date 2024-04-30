@@ -31,9 +31,6 @@ public class SimpleMovingAverage extends AbstractMetric implements DoubleMetric 
     /** Size. */
     private final int items;
 
-    /** Function to format a readable value. */
-    private final DoubleFunction<String> stringFormatter;
-
     /** Elements. */
     ConcurrentLinkedDeque<Double> queue = new ConcurrentLinkedDeque<>();
 
@@ -59,7 +56,6 @@ public class SimpleMovingAverage extends AbstractMetric implements DoubleMetric 
     public SimpleMovingAverage(String name, @Nullable String desc, DoubleFunction<String> stringFormatter, int items) {
         super(name, desc);
 
-        this.stringFormatter = stringFormatter;
         this.items = items;
     }
 
@@ -80,14 +76,5 @@ public class SimpleMovingAverage extends AbstractMetric implements DoubleMetric 
     @Override
     public double value() {
         return queue.stream().mapToDouble(a -> a).average().orElse(0.);
-    }
-
-    @Override
-    public String getValueAsString() {
-        if (stringFormatter == null) {
-            return Double.toString(value());
-        }
-
-        return stringFormatter.apply(value());
     }
 }
