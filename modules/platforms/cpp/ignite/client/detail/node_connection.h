@@ -232,6 +232,13 @@ private:
      */
     std::shared_ptr<response_handler> find_handler_unsafe(std::int64_t req_id);
 
+    /**
+     * Notify event handler about observable timestamp change.
+     *
+     * @param observable_timestamp New observable timestamp.
+     */
+    void on_observable_timestamp_changed(int64_t observable_timestamp) const;
+
     /** Handshake complete. */
     bool m_handshake_complete{false};
 
@@ -261,7 +268,6 @@ private:
 
     /** Configuration. */
     const ignite_client_configuration &m_configuration;
-    void on_observable_timestamp_changed(int64_t observable_timestamp) const;
 };
 
 } // namespace ignite::detail
