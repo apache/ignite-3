@@ -297,6 +297,12 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::SYSTEM_WORKER_BLOCKED:
         case error::code::SYSTEM_CRITICAL_OPERATION_TIMEOUT:
             return sql_state::SHY000_GENERAL_ERROR;
+
+        // DisasterRecovery group. Group code: 20
+        case error::code::NODES_NOT_FOUND:
+        case error::code::PARTITIONS_NOT_FOUND:
+        case error::code::PARTITION_STATE:
+            return sql_state::SHY000_GENERAL_ERROR;
     }
 
     return sql_state::SHY000_GENERAL_ERROR;
