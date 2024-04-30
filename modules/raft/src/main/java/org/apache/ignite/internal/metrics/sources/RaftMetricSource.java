@@ -136,8 +136,8 @@ public class RaftMetricSource implements MetricSource {
      */
     public DisruptorMetrics disruptorMetrics(String name) {
         return new DisruptorMetrics(
-                (DistributionMetric) metrics.get(name.replace('-', '.').toLowerCase() + ".Batch"),
-                (DistributionMetric) metrics.get(name.replace('-', '.').toLowerCase() + ".Stripes")
+                (DistributionMetric) metrics.get(name + ".Batch"),
+                (DistributionMetric) metrics.get(name + ".Stripes")
         );
     }
 

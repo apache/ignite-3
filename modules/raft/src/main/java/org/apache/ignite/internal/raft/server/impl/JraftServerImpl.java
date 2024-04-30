@@ -334,7 +334,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getStripes(),
                     false,
                     false,
-                    opts.getRaftMetrics().disruptorMetrics("JRaft-FSMCaller-Disruptor")
+                    opts.getRaftMetrics().disruptorMetrics("raft.fsmcaller.disruptor")
             ));
         }
 
@@ -347,7 +347,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getStripes(),
                     false,
                     false,
-                    opts.getRaftMetrics().disruptorMetrics("JRaft-NodeImpl-Disruptor")
+                    opts.getRaftMetrics().disruptorMetrics("raft.nodeimpl.disruptor")
             ));
         }
 
@@ -360,7 +360,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getStripes(),
                     false,
                     false,
-                    opts.getRaftMetrics().disruptorMetrics("JRaft-ReadOnlyService-Disruptor")
+                    opts.getRaftMetrics().disruptorMetrics("raft.readonlyservice.disruptor")
             ));
         }
 
@@ -373,7 +373,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getLogStripesCount(),
                     true,
                     opts.isLogYieldStrategy(),
-                    opts.getRaftMetrics().disruptorMetrics("JRaft-LogManager-Disruptor")
+                    opts.getRaftMetrics().disruptorMetrics("raft.logmanager.disruptor")
             ));
 
             opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
