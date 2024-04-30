@@ -540,8 +540,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             HybridTimestamp timestamp = explicitTransaction != null ? explicitTransaction.startTimestamp() : clockService.now();
 
-            System.err.println("sqlSchemaActivationTimestamp: " + timestamp);
-
             return prepareParsedStatement(schemaName, result, timestamp, queryCancel, params)
                     .thenApply(plan -> new QueryMetadata(plan.metadata(), plan.parameterMetadata()));
         });
@@ -675,10 +673,10 @@ public class SqlQueryProcessor implements QueryProcessor {
             return schemaSyncService.waitForMetadataCompleteness(timestamp).thenApply(unused -> {
                 SchemaPlus schema = sqlSchemaManager.schema(timestamp.longValue()).getSubSchema(schemaName);
 
-                System.err.println("sqlSchemaActivationTimestamp: " + timestamp);
-                System.err.println("sqlSchemaCurrentTimestamp: " + clockService.now());
-
                 if (schema == null) {
+                    System.err.println("sqlSchemaCurrentTimestamp: " + clockService.now());
+                    System.err.println("sqlSchemaActivationTimestamp: " + timestamp);
+
                     throw new SchemaNotFoundException(schemaName);
                 }
 

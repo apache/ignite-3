@@ -112,4 +112,6 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
      * @param version Catalog version to wait for.
      */
     CompletableFuture<Void> catalogReadyFuture(int version);
+
+    CompletableFuture<Void> catalogInitializationFuture();
 }

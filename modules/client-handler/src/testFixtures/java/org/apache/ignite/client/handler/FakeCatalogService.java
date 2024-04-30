@@ -162,6 +162,11 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
+    public CompletableFuture<Void> catalogInitializationFuture() {
+        return null;
+    }
+
+    @Override
     public void listen(CatalogEvent evt, EventListener<? extends CatalogEventParameters> listener) {
 
     }

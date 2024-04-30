@@ -177,9 +177,10 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                                 .handle((r, e) -> catalogInitializationFuture.complete(null));
 
                         return initCatalog(emptyCatalog);
+                    } else {
+                        catalogInitializationFuture.complete(null);
+                        return nullCompletedFuture();
                     }
-
-                    return nullCompletedFuture();
                 });
     }
 
@@ -314,6 +315,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public CompletableFuture<Void> catalogReadyFuture(int version) {
         return versionTracker.waitFor(version);
+    }
+
+    @Override
+    public CompletableFuture<Void> catalogInitializationFuture() {
+        return catalogInitializationFuture;
     }
 
     @Override
