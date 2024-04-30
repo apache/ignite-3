@@ -111,9 +111,9 @@ public class NextColocatedWorkerSelector<K> implements NextWorkerSelector {
 
     private ZonePartitionId zonePartitionId() {
         if (key != null && keyMapper != null) {
-            return new ZonePartitionId(table.internalTable().zoneId(), table.partition(key, keyMapper), table.tableId());
+            return new ZonePartitionId(table.internalTable().zoneId(), table.tableId(), table.partition(key, keyMapper));
         } else {
-            return new ZonePartitionId(table.internalTable().zoneId(), table.partition(tuple), table.tableId());
+            return new ZonePartitionId(table.internalTable().zoneId(), table.tableId(), table.partition(tuple));
         }
     }
 }

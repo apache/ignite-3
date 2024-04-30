@@ -409,7 +409,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             int partitionId = partId;
             ReplicationGroupId partGroupId = new TablePartitionId(table.id(), partitionId);
 
-            ZonePartitionId zonePartitionId = new ZonePartitionId(table.zoneId(), partId, table.id());
+            ZonePartitionId zonePartitionId = new ZonePartitionId(table.zoneId(), table.id(), partId);
 
             CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplicaForTable(
                     zonePartitionId,

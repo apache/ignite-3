@@ -748,7 +748,7 @@ public class InternalTableImpl implements InternalTable {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(
-                new ZonePartitionId(zoneId, partId, tableId),
+                new ZonePartitionId(zoneId, tableId, partId),
                 tx.startTimestamp(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -799,7 +799,7 @@ public class InternalTableImpl implements InternalTable {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(
-                new ZonePartitionId(zoneId, partId, tableId),
+                new ZonePartitionId(zoneId, tableId, partId),
                 tx.startTimestamp(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -1883,7 +1883,7 @@ public class InternalTableImpl implements InternalTable {
         HybridTimestamp now = clock.now();
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(
-                new ZonePartitionId(zoneId, partId, tableId),
+                new ZonePartitionId(zoneId, tableId, partId),
                 now,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -2148,7 +2148,7 @@ public class InternalTableImpl implements InternalTable {
      * @return Cluster node to evalute read-only request.
      */
     protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
-        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partId, tableId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, partId);
 
         return placementDriver.awaitPrimaryReplicaForTable(zonePartitionId, clock.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
                 .handle((res, e) -> {

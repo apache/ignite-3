@@ -84,7 +84,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     private static final ByteArray FAKE_KEY = new ByteArray("foobar");
 
     private static final TablePartitionId GROUP_1 = new TablePartitionId(1000, 0);
-    private static final ZonePartitionId ZONE_GROUP_1 = new ZonePartitionId(1000, 0);
+    private static final ZonePartitionId ZONE_GROUP_1 = new ZonePartitionId(2000, 0);
 
     private static final String LEASEHOLDER_1 = "leaseholder1";
 

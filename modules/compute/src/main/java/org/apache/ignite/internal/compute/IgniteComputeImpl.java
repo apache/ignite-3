@@ -338,7 +338,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     private CompletableFuture<ClusterNode> primaryReplicaForPartition(TableViewInternal table, int partitionIndex) {
-        ZonePartitionId zonePartitionId = new ZonePartitionId(table.internalTable().zoneId(), partitionIndex, table.tableId());
+        ZonePartitionId zonePartitionId = new ZonePartitionId(table.internalTable().zoneId(), table.tableId(), partitionIndex);
 
         return placementDriver.awaitPrimaryReplicaForTable(zonePartitionId, clock.now(), 30, TimeUnit.SECONDS)
                 .thenApply(replicaMeta -> {
