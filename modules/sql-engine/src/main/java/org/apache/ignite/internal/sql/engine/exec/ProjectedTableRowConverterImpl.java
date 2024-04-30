@@ -25,6 +25,7 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.util.FieldDeserializingProjectedTuple;
 import org.apache.ignite.internal.sql.engine.util.FormatAwareProjectedTuple;
 
@@ -63,7 +64,7 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
     }
 
     @Override
-    protected InternalTuple asInternalTuple(BinaryRow tableRow) {
+    public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow tableRow, RowFactory<RowT> factory) {
         InternalTuple tuple;
         if (tableRow.schemaVersion() == schemaDescriptor.version()) {
             BinaryTuple tableTuple = new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice());
@@ -78,6 +79,7 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
                     requiredColumnsMapping
             );
         }
-        return tuple;
+
+        return factory.create(tuple);
     }
 }

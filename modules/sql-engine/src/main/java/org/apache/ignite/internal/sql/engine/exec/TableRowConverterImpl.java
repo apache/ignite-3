@@ -57,18 +57,14 @@ public class TableRowConverterImpl implements TableRowConverter {
             BinaryRow tableRow,
             RowHandler.RowFactory<RowT> factory
     ) {
-        InternalTuple tuple = asInternalTuple(tableRow);
-
-        return factory.create(tuple);
-    }
-
-    protected InternalTuple asInternalTuple(BinaryRow tableRow) {
         InternalTuple tuple;
+
         if (tableRow.schemaVersion() == schemaDescriptor.version()) {
             tuple = new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice());
         } else {
             tuple= schemaRegistry.resolve(tableRow, schemaDescriptor);
         }
-        return tuple;
+
+        return factory.create(tuple);
     }
 }
