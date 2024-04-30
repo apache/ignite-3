@@ -62,7 +62,7 @@ public class TableRowConverterImpl implements TableRowConverter {
         if (tableRow.schemaVersion() == schemaDescriptor.version()) {
             tuple = new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice());
         } else {
-            tuple= schemaRegistry.resolve(tableRow, schemaDescriptor);
+            tuple = schemaRegistry.resolve(tableRow, schemaDescriptor);
         }
 
         return factory.create(tuple);
