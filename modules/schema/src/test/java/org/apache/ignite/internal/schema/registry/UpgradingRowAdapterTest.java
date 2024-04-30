@@ -34,12 +34,18 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
@@ -55,6 +61,7 @@ import org.junit.jupiter.api.Test;
  * Tests row assembling and reading.
  */
 public class UpgradingRowAdapterTest {
+    public static final String NULL_COLUMN_NAME = "valNullCol";
     /** Random. */
     private Random rnd;
 
@@ -71,15 +78,52 @@ public class UpgradingRowAdapterTest {
     }
 
     @Test
-    public void testVariousColumnTypes() {
-        SchemaDescriptor schema = new SchemaDescriptor(1,
-                new Column[]{new Column("keyUuidCol", NativeTypes.UUID, false)},
-                new Column[]{
-                        new Column("valBooleanCol", BOOLEAN, true),
+    public void testUpgradeRowWithVariousColumnTypes() {
+        SchemaDescriptor schema = createSchemaDescriptorWithColumnsOfAllTypes();
+        SchemaDescriptor schema2 = applyAddingValueColumn(schema, 1, new Column("added", INT8, true));
+
+        var schemaRegistry = new SchemaRegistryImpl(
+                v -> v == 1 ? schema : schema2,
+                schema2
+        );
+
+        List<Object> values = generateRowValues(schema);
+        BinaryRow originalBinaryRow = serializeValuesToRow(schema, values);
+
+        Row originalRow = Row.wrapBinaryRow(schema, originalBinaryRow);
+        Row resolvedRow = schemaRegistry.resolve(originalBinaryRow, schema2);
+
+        // validate UpgradedRowAdapter methods.
+        assertThat("Colocation hash mismatch", resolvedRow.colocationHash(), equalTo(originalRow.colocationHash()));
+        assertThat("KeyOnly flag mismatch", resolvedRow.keyOnly(), equalTo(originalRow.keyOnly()));
+        assertThat("Unexpected element count", resolvedRow.elementCount(), equalTo(originalRow.elementCount() + 1));
+
+        assertNotNull(resolvedRow.byteBuffer());
+        assertNull(resolvedRow.binaryTuple(), "Underlying binary tuple must never be used");
+        assertThrows(UnsupportedOperationException.class, resolvedRow::tupleSlice, "Underlying binary tuple must never be used");
+        assertThrows(UnsupportedOperationException.class, resolvedRow::tupleSliceLength, "Underlying binary tuple must never be used");
+
+        // Validate original row.
+        validateRow(values, originalRow);
+
+        // Validate upgraded row.
+        values.add(1, null);
+        validateRow(values, resolvedRow);
+
+        BinaryRowImpl restoredRow = new BinaryRowImpl(schema2.version(), resolvedRow.byteBuffer());
+        assertThat(restoredRow.schemaVersion(), equalTo(schema2.version()));
+        validateRow(values, Row.wrapBinaryRow(schema2, restoredRow));
+    }
+
+    private static SchemaDescriptor createSchemaDescriptorWithColumnsOfAllTypes() {
+        return new SchemaDescriptor(1,
+                List.of(new Column("valBooleanCol", BOOLEAN, true),
                         new Column("valByteCol", INT8, true),
                         new Column("valShortCol", INT16, true),
                         new Column("valIntCol", INT32, true),
+                        new Column("keyUuidCol", NativeTypes.UUID, false),
                         new Column("valLongCol", INT64, true),
+                        new Column(NULL_COLUMN_NAME, INT64, true),
                         new Column("valFloatCol", FLOAT, true),
                         new Column("valDoubleCol", DOUBLE, true),
                         new Column("valDateCol", DATE, true),
@@ -90,44 +134,34 @@ public class UpgradingRowAdapterTest {
                         new Column("valBytesCol", BYTES, false),
                         new Column("valStringCol", STRING, false),
                         new Column("valNumberCol", NativeTypes.numberOf(20), false),
-                        new Column("valDecimalCol", NativeTypes.decimalOf(25, 5), false),
-                }
+                        new Column("valDecimalCol", NativeTypes.decimalOf(25, 5), false)),
+                List.of("keyUuidCol"),
+                null
+        );
+    }
+
+    private static SchemaDescriptor applyAddingValueColumn(SchemaDescriptor desc, int position, Column newColumn) {
+        List<Column> columns = new ArrayList<>(desc.columns());
+        columns.add(position, newColumn);
+
+        SchemaDescriptor newSchema = new SchemaDescriptor(
+                desc.version() + 1,
+                columns,
+                desc.keyColumns().stream().map(Column::name).collect(Collectors.toList()),
+                desc.colocationColumns().stream().map(Column::name).collect(Collectors.toList())
         );
 
-        SchemaDescriptor schema2 = new SchemaDescriptor(2,
-                new Column[]{new Column("keyUuidCol", NativeTypes.UUID, false)},
-                new Column[]{
-                        new Column("added", INT8, true),
-                        new Column("valBooleanCol", BOOLEAN, true),
-                        new Column("valByteCol", INT8, true),
-                        new Column("valShortCol", INT16, true),
-                        new Column("valIntCol", INT32, true),
-                        new Column("valLongCol", INT64, true),
-                        new Column("valFloatCol", FLOAT, true),
-                        new Column("valDoubleCol", DOUBLE, true),
-                        new Column("valDateCol", DATE, true),
-                        new Column("valTimeCol", time(0), true),
-                        new Column("valDateTimeCol", datetime(6), true),
-                        new Column("valTimeStampCol", timestamp(6), true),
-                        new Column("valBitmask1Col", NativeTypes.bitmaskOf(22), true),
-                        new Column("valBytesCol", BYTES, false),
-                        new Column("valStringCol", STRING, false),
-                        new Column("valNumberCol", NativeTypes.numberOf(20), false),
-                        new Column("valDecimalCol", NativeTypes.decimalOf(25, 5), false),
-                }
-        );
+        int addedColumnIndex = newSchema.column(newColumn.name()).positionInRow();
 
-        int addedColumnIndex = schema2.column("added").positionInRow();
-
-        schema2.columnMapping(new ColumnMapper() {
+        newSchema.columnMapping(new ColumnMapper() {
             @Override
             public ColumnMapper add(Column col) {
-                return null;
+                return fail();
             }
 
             @Override
             public ColumnMapper add(int from, int to) {
-                return null;
+                return fail();
             }
 
             @Override
@@ -137,41 +171,20 @@ public class UpgradingRowAdapterTest {
 
             @Override
             public Column mappedColumn(int idx) {
-                return idx == addedColumnIndex ? schema2.column(idx) : null;
+                return idx == addedColumnIndex ? newSchema.column(idx) : null;
             }
         });
 
-        List<Object> values = generateRowValues(schema);
-
-        BinaryRow row = serializeValuesToRow(schema, values);
-
-        var schemaRegistry = new SchemaRegistryImpl(
-                v -> v == 1 ? schema : schema2,
-                schema
-        );
-
-        // Validate row.
-        validateRow(values, schemaRegistry, row);
-
-        // Validate upgraded row.
-        values.add(addedColumnIndex, null);
-
-        var schema2Registry = new SchemaRegistryImpl(
-                v -> v == 1 ? schema : schema2,
-                schema2
-        );
-
-        validateRow(values, schema2Registry, row);
+        return newSchema;
     }
 
-    private void validateRow(List<Object> values, SchemaRegistryImpl schemaRegistry, BinaryRow binaryRow) {
-        Row row = schemaRegistry.resolve(binaryRow, schemaRegistry.lastKnownSchemaVersion());
-
+    private static void validateRow(List<Object> values, Row row) {
         SchemaDescriptor schema = row.schema();
 
         for (int i = 0; i < values.size(); i++) {
             Column col = schema.column(i);
 
+            assertThat("Failed for column: " + col, row.hasNullValue(col.positionInRow()), is(equalTo(values.get(i) == null)));
             assertThat("Failed for column: " + col, row.value(col.positionInRow()), is(equalTo(values.get(i))));
         }
     }
@@ -188,7 +201,11 @@ public class UpgradingRowAdapterTest {
         for (int i = 0; i < schema.length(); i++) {
             NativeType type = schema.column(i).type();
 
-            res.add(SchemaTestUtils.generateRandomValue(rnd, type));
+            if (NULL_COLUMN_NAME.equals(schema.column(i).name())) {
+                res.add(null);
+            } else {
+                res.add(SchemaTestUtils.generateRandomValue(rnd, type));
+            }
         }
 
         return res;
@@ -198,7 +215,7 @@ public class UpgradingRowAdapterTest {
      * Validates row values after serialization-then-deserialization.
      *
      * @param schema Row schema.
-     * @param vals   Row values.
+     * @param vals Row values.
      * @return Row bytes.
      */
     private static BinaryRow serializeValuesToRow(SchemaDescriptor schema, List<Object> vals) {
