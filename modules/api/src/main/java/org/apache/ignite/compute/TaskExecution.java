@@ -29,11 +29,23 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Task result type.
  */
 public interface TaskExecution<R> extends JobExecution<R> {
-    CompletableFuture<@Nullable List<JobStatus>> statusesAsync();
+    /**
+     * Returns a collection of statuses of the jobs which are executing under this task. The resulting future is completed only after the
+     * jobs are submitted for execution. The list could contain {@code null} values if the time for retaining job status has been exceeded.
+     *
+     * @return A list of current statuses of the jobs.
+     */
+    CompletableFuture<List<@Nullable JobStatus>> statusesAsync();
 
-    default CompletableFuture<@Nullable List<UUID>> idsAsync() {
-        return statusesAsync().thenApply(statuses ->
-                statuses != null ? statuses.stream().map(JobStatus::id).collect(Collectors.toList()) : null
-        );
+    /**
+     * Returns a collection of ids of the jobs which are executing under this task. The resulting future is completed only after the
+     * jobs are submitted for execution. The list could contain {@code null} values if the time for retaining job status has been exceeded.
+     *
+     * @return A list of ids of the jobs.
+     */
+    default CompletableFuture<List<@Nullable UUID>> idsAsync() {
+        return statusesAsync().thenApply(statuses -> statuses.stream()
+                .map(jobStatus -> jobStatus != null ? jobStatus.id() : null)
+                .collect(Collectors.toList()));
     }
 }

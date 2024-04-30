@@ -208,7 +208,7 @@ public class TaskExecutionInternal<R> implements JobExecution<R> {
         return completedFuture(splitExecution.changePriority(newPriority));
     }
 
-    CompletableFuture<List<JobStatus>> statusesAsync() {
+    CompletableFuture<List<@Nullable JobStatus>> statusesAsync() {
         return executionsFuture.thenCompose(executions -> {
             CompletableFuture<JobStatus>[] statusFutures = executions.stream()
                     .map(JobExecution::statusAsync)

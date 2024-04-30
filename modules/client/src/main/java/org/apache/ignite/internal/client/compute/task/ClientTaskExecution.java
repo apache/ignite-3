@@ -46,7 +46,7 @@ public class ClientTaskExecution<R> implements TaskExecution<R> {
     }
 
     @Override
-    public CompletableFuture<@Nullable List<JobStatus>> statusesAsync() {
+    public CompletableFuture<List<@Nullable JobStatus>> statusesAsync() {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 }

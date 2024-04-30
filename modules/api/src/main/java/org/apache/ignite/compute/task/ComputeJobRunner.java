@@ -17,122 +17,199 @@
 
 package org.apache.ignite.compute.task;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.network.ClusterNode;
 
+/**
+ * A description of the job to be submitted as a result of the split step of the {@link MapReduceTask}. Reflects the parameters of the
+ * {@link org.apache.ignite.compute.IgniteCompute#submit(Set, List, String, JobExecutionOptions, Object...) IgniteCompute#submit} method.
+ */
 public class ComputeJobRunner {
-    private final String jobClassName;
-
     private final Set<ClusterNode> nodes;
 
-    private final JobExecutionOptions jobOptions;
-
     private final List<DeploymentUnit> units;
+
+    private final String jobClassName;
+
+    private final JobExecutionOptions options;
 
     private final Object[] args;
 
     private ComputeJobRunner(
-            String jobClassName,
             Set<ClusterNode> nodes,
-            JobExecutionOptions jobOptions,
             List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
             Object[] args
     ) {
-        this.jobClassName = jobClassName;
         this.nodes = Collections.unmodifiableSet(nodes);
-        this.jobOptions = jobOptions;
         this.units = units;
+        this.jobClassName = jobClassName;
+        this.options = options;
         this.args = args;
     }
 
-    public String jobClassName() {
-        return jobClassName;
-    }
-
+    /**
+     * Candidate nodes; the job will be executed on one of them.
+     *
+     * @return A set of candidate nodes.
+     */
     public Set<ClusterNode> nodes() {
         return nodes;
     }
 
-    public JobExecutionOptions options() {
-        return jobOptions;
-    }
-
+    /**
+     * Deployment units. Can be empty.
+     *
+     * @return Deployment units.
+     */
     public List<DeploymentUnit> units() {
         return units;
     }
 
+    /**
+     * Name of the job class to execute.
+     *
+     * @return Name of the job class to execute.
+     */
+    public String jobClassName() {
+        return jobClassName;
+    }
+
+    /**
+     * Job execution options (priority, max retries).
+     *
+     * @return Job execution options.
+     */
+    public JobExecutionOptions options() {
+        return options;
+    }
+
+    /**
+     * Arguments of the job.
+     *
+     * @return Arguments of the job.
+     */
     public Object[] args() {
         return args;
     }
 
-    public JobExecutionParametersBuilder toBuilder() {
-        return builder().jobClassName(jobClassName).nodes(nodes).options(jobOptions).units(units);
+    /**
+     * Returns new builder using this definition.
+     *
+     * @return New builder.
+     */
+    public ComputeJobRunnerBuilder toBuilder() {
+        return builder().nodes(nodes).units(units).jobClassName(jobClassName).options(options).args(args);
     }
 
-    public static JobExecutionParametersBuilder builder() {
-        return new JobExecutionParametersBuilder();
+    /**
+     * Returns new builder.
+     *
+     * @return New builder.
+     */
+    public static ComputeJobRunnerBuilder builder() {
+        return new ComputeJobRunnerBuilder();
     }
 
-    public static class JobExecutionParametersBuilder {
-        private String jobClassName;
-
+    /**
+     * Job submit parameters builder.
+     */
+    public static class ComputeJobRunnerBuilder {
         private final Set<ClusterNode> nodes = new HashSet<>();
 
-        private JobExecutionOptions jobOptions = JobExecutionOptions.DEFAULT;
+        private final List<DeploymentUnit> units = new ArrayList<>();
 
-        private List<DeploymentUnit> units = Collections.emptyList();
+        private String jobClassName;
+
+        private JobExecutionOptions options = JobExecutionOptions.DEFAULT;
 
         private Object[] args;
 
-        public JobExecutionParametersBuilder jobClassName(String jobClassName) {
-            this.jobClassName = jobClassName;
-            return this;
-        }
-
-        public JobExecutionParametersBuilder nodes(Set<ClusterNode> nodes) {
+        /**
+         * Adds nodes to the set of candidate nodes.
+         *
+         * @param nodes A collection of candidate nodes.
+         * @return Builder instance.
+         */
+        public ComputeJobRunnerBuilder nodes(Collection<ClusterNode> nodes) {
             this.nodes.addAll(nodes);
             return this;
         }
 
-        public JobExecutionParametersBuilder options(JobExecutionOptions options) {
-            this.jobOptions = options;
+        /**
+         * Adds a node to the set of candidate nodes.
+         *
+         * @param node Candidate node.
+         * @return Builder instance.
+         */
+        public ComputeJobRunnerBuilder node(ClusterNode node) {
+            nodes.add(node);
             return this;
         }
 
-        public JobExecutionParametersBuilder units(List<DeploymentUnit> units) {
-            this.units = units;
+        /**
+         * Adds deployment units.
+         *
+         * @param units A collection of deployment units.
+         * @return Builder instance.
+         */
+        public ComputeJobRunnerBuilder units(Collection<DeploymentUnit> units) {
+            this.units.addAll(units);
             return this;
         }
 
-        public JobExecutionParametersBuilder args(Object... args) {
+        /**
+         * Sets the name of the job class to execute.
+         *
+         * @param jobClassName A job class name.
+         * @return Builder instance.
+         */
+        public ComputeJobRunnerBuilder jobClassName(String jobClassName) {
+            this.jobClassName = jobClassName;
+            return this;
+        }
+
+        /**
+         * Sets job execution options (priority, max retries).
+         *
+         * @param options Job execution options.
+         * @return Builder instance.
+         */
+        public ComputeJobRunnerBuilder options(JobExecutionOptions options) {
+            this.options = options;
+            return this;
+        }
+
+        /**
+         * Sets arguments of the job.
+         *
+         * @param args Arguments of the job.
+         * @return Builder instance.
+         */
+        public ComputeJobRunnerBuilder args(Object... args) {
             this.args = args;
             return this;
         }
 
+        /**
+         * Constructs a compute job description object.
+         *
+         * @return Description object.
+         */
         public ComputeJobRunner build() {
-            Objects.requireNonNull(nodes);
             if (nodes.isEmpty()) {
                 throw new IllegalArgumentException();
             }
 
-            return new ComputeJobRunner(
-                    jobClassName,
-                    nodes,
-                    jobOptions,
-                    units,
-                    args
-            );
-        }
-
-        public JobExecutionParametersBuilder node(ClusterNode value) {
-            nodes.add(value);
-            return this;
+            return new ComputeJobRunner(nodes, units, jobClassName, options, args);
         }
     }
 }

@@ -65,7 +65,7 @@ public class AntiHijackTaskExecution<R> implements TaskExecution<R> {
     }
 
     @Override
-    public CompletableFuture<@Nullable List<JobStatus>> statusesAsync() {
+    public CompletableFuture<List<@Nullable JobStatus>> statusesAsync() {
         return preventThreadHijack(execution.statusesAsync());
     }
 

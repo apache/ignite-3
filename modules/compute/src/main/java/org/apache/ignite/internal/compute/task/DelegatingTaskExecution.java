@@ -41,7 +41,7 @@ public class DelegatingTaskExecution<R> implements TaskExecution<R> {
     }
 
     @Override
-    public CompletableFuture<@Nullable List<JobStatus>> statusesAsync() {
+    public CompletableFuture<List<@Nullable JobStatus>> statusesAsync() {
         return delegate.thenCompose(TaskExecutionInternal::statusesAsync);
     }
 

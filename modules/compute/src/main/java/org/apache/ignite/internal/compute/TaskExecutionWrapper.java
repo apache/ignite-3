@@ -39,7 +39,7 @@ class TaskExecutionWrapper<R> extends JobExecutionWrapper<R> implements TaskExec
     }
 
     @Override
-    public CompletableFuture<@Nullable List<JobStatus>> statusesAsync() {
+    public CompletableFuture<List<@Nullable JobStatus>> statusesAsync() {
         return convertToPublicFuture(delegate.statusesAsync());
     }
 }

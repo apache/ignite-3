@@ -47,7 +47,7 @@ public interface IgniteCompute {
      * @param nodes Candidate nodes; the job will be executed on one of them.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
-     * @param options job execution options (priority, max retries).
+     * @param options Job execution options (priority, max retries).
      * @param args Arguments of the job.
      * @return Job execution object.
      */
@@ -87,7 +87,7 @@ public interface IgniteCompute {
      * @param nodes Candidate nodes; the job will be executed on one of them.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
-     * @param options job execution options (priority, max retries).
+     * @param options Job execution options (priority, max retries).
      * @param args Arguments of the job.
      * @return Job result future.
      */
@@ -128,7 +128,7 @@ public interface IgniteCompute {
      * @param nodes Candidate nodes; the job will be executed on one of them.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
-     * @param options job execution options (priority, max retries).
+     * @param options Job execution options (priority, max retries).
      * @param args Arguments of the job.
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
@@ -170,7 +170,7 @@ public interface IgniteCompute {
      * @param key Key that identifies the node to execute the job on.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
-     * @param options job execution options (priority, max retries).
+     * @param options Job execution options (priority, max retries).
      * @param args Arguments of the job.
      * @param <R> Job result type.
      * @return Job execution object.
@@ -216,7 +216,7 @@ public interface IgniteCompute {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param args Arguments of the job.
-     * @param options job execution options (priority, max retries).
+     * @param options Job execution options (priority, max retries).
      * @param <R> Job result type.
      * @return Job execution object.
      */
@@ -262,7 +262,7 @@ public interface IgniteCompute {
      * @param key Key that identifies the node to execute the job on.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
-     * @param options job execution options (priority, max retries).
+     * @param options Job execution options (priority, max retries).
      * @param args Arguments of the job.
      * @param <R> Job result type.
      * @return Job result future.
@@ -311,7 +311,7 @@ public interface IgniteCompute {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param args Arguments of the job.
-     * @param options job execution options (priority, max retries).
+     * @param options Job execution options (priority, max retries).
      * @param <R> Job result type.
      * @return Job result future.
      */
@@ -360,7 +360,7 @@ public interface IgniteCompute {
      * @param key Key that identifies the node to execute the job on.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
-     * @param options job execution options (priority, max retries).
+     * @param options Job execution options (priority, max retries).
      * @param args Arguments of the job.
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
@@ -406,7 +406,7 @@ public interface IgniteCompute {
      * @param keyMapper Mapper used to map the key to a binary representation.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
-     * @param options job execution options (priority, max retries).
+     * @param options Job execution options (priority, max retries).
      * @param args Arguments of the job.
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
@@ -452,7 +452,7 @@ public interface IgniteCompute {
      * @param nodes Nodes to execute the job on.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
-     * @param options job execution options (priority, max retries).
+     * @param options Job execution options (priority, max retries).
      * @param args Arguments of the job.
      * @return Map from node to job execution object.
      */
@@ -491,7 +491,7 @@ public interface IgniteCompute {
      * @param nodes Nodes to execute the job on.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
-     * @param options job execution options (priority, max retries).
+     * @param options Job execution options (priority, max retries).
      * @param args Arguments of the job.
      * @return Map from node to job result.
      */
@@ -545,7 +545,7 @@ public interface IgniteCompute {
      * @param nodes Nodes to execute the job on.
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
-     * @param options job execution options (priority, max retries).
+     * @param options Job execution options (priority, max retries).
      * @param args Arguments of the job.
      * @return Map from node to job result.
      * @throws ComputeException If there is any problem executing the job.
