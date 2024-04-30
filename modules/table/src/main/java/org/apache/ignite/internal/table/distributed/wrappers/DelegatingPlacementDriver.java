@@ -28,8 +28,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
-import org.jetbrains.annotations.Nullable;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
  * A base for a {@link PlacementDriver} that delegates some of its methods to another {@link PlacementDriver}.
@@ -59,7 +57,7 @@ abstract class DelegatingPlacementDriver implements PlacementDriver {
 
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
-            ZonePartitionId groupId,
+            ReplicationGroupId groupId,
             HybridTimestamp timestamp,
             long timeout,
             TimeUnit unit

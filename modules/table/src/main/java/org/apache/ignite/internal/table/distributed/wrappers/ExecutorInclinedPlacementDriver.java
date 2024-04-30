@@ -53,7 +53,7 @@ public class ExecutorInclinedPlacementDriver extends DelegatingPlacementDriver {
 
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
-            ZonePartitionId groupId,
+            ReplicationGroupId groupId,
             HybridTimestamp timestamp,
             long timeout,
             TimeUnit unit
