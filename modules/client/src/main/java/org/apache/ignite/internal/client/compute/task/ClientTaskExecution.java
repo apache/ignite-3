@@ -23,7 +23,12 @@ import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.TaskExecution;
 import org.jetbrains.annotations.Nullable;
 
-//TODO https://issues.apache.org/jira/browse/IGNITE-22124
+// TODO https://issues.apache.org/jira/browse/IGNITE-22124
+/**
+ * Client compute task implementation.
+ *
+ * @param <R> Task result type.
+ */
 public class ClientTaskExecution<R> implements TaskExecution<R> {
     @Override
     public CompletableFuture<R> resultAsync() {
