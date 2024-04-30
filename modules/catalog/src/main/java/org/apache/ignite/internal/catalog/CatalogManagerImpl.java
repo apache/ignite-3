@@ -173,7 +173,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         int initializedCatalogVersion = emptyCatalog.version() + 1;
 
                         this.catalogReadyFuture(initializedCatalogVersion)
-                                .thenCompose(ignored -> awaitVersionActivation(initializedCatalogVersion))
+                                .thenCompose(ignored -> awaitVersionActivation2(initializedCatalogVersion))
                                 .handle((r, e) -> catalogInitializationFuture.complete(null));
 
                         return initCatalog(emptyCatalog);
@@ -447,6 +447,18 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         Catalog catalog = catalogByVer.get(version);
 
         HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
+
+        System.err.println("Catalog activation timestamp: " + tsSafeForRoReadingInPastOptimization);
+
+        return clockService.waitFor(tsSafeForRoReadingInPastOptimization).thenApply(unused -> version);
+    }
+
+    private CompletableFuture<Integer> awaitVersionActivation2(int version) {
+        Catalog catalog = catalogByVer.get(version);
+
+        HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
+
+        System.err.println("CatalogInitTimestamp: " + tsSafeForRoReadingInPastOptimization);
 
         return clockService.waitFor(tsSafeForRoReadingInPastOptimization).thenApply(unused -> version);
     }
