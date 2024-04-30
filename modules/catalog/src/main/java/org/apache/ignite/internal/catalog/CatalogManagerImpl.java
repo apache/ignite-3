@@ -133,6 +133,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    private final CompletableFuture<Void> catalogInitializationFuture = new CompletableFuture<>();
+
     /**
      * Constructor.
      */
@@ -168,6 +170,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return updateLog.startAsync()
                 .thenCompose(none -> {
                     if (latestCatalogVersion() == emptyCatalog.version()) {
+                        int initializedCatalogVersion = emptyCatalog.version() + 1;
+
+                        this.catalogReadyFuture(initializedCatalogVersion)
+                                .thenCompose(ignored -> awaitVersionActivation(initializedCatalogVersion))
+                                .handle((r, e) -> catalogInitializationFuture.complete(null));
+
                         return initCatalog(emptyCatalog);
                     }
 
@@ -400,13 +408,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         CompletableFuture<Integer> resultFuture = new CompletableFuture<>();
 
         saveUpdate(updateProducer, 0)
-                .thenCompose(newVersion -> {
-                    Catalog catalog = catalogByVer.get(newVersion);
-
-                    HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
-
-                    return clockService.waitFor(tsSafeForRoReadingInPastOptimization).thenApply(unused -> newVersion);
-                })
+                .thenCompose(this::awaitVersionActivation)
                 .whenComplete((newVersion, err) -> {
                     if (err != null) {
                         Throwable errUnwrapped = ExceptionUtils.unwrapCause(err);
@@ -439,6 +441,14 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 });
 
         return resultFuture;
+    }
+
+    private CompletableFuture<Integer> awaitVersionActivation(int version) {
+        Catalog catalog = catalogByVer.get(version);
+
+        HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
+
+        return clockService.waitFor(tsSafeForRoReadingInPastOptimization).thenApply(unused -> version);
     }
 
     private HybridTimestamp calcClusterWideEnsureActivationTime(Catalog catalog) {
