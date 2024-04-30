@@ -77,10 +77,18 @@ public class TableRowConverterImpl implements TableRowConverter {
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> BinaryRowEx toBinaryRow(ExecutionContext<RowT> ectx, RowT row, boolean key) {
+    public <RowT> BinaryRowEx toFullRow(ExecutionContext<RowT> ectx, RowT row) {
         BinaryTuple binaryTuple = ectx.rowHandler().toBinaryTuple(row);
 
-        return SqlOutputBinaryRow.newRow(schemaDescriptor, key, binaryTuple);
+        return SqlOutputBinaryRow.newRow(schemaDescriptor, binaryTuple);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <RowT> BinaryRowEx toKeyRow(ExecutionContext<RowT> ectx, RowT row) {
+        BinaryTuple binaryTuple = ectx.rowHandler().toBinaryTuple(row);
+
+        return SqlOutputBinaryRow.newKeyRow(schemaDescriptor, binaryTuple);
     }
 
     /** {@inheritDoc} */
