@@ -108,7 +108,7 @@ public class HashPartitionManagerImpl implements PartitionManager<HashPartition>
 
             return completedFuture(new HashPartition(table.partition(keyRow)));
         } catch (MarshallerException e) {
-            throw new IgniteInternalException("Cannot marshal key", e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 
@@ -123,7 +123,7 @@ public class HashPartitionManagerImpl implements PartitionManager<HashPartition>
 
             return completedFuture(new HashPartition(table.partition(keyRow)));
         } catch (TupleMarshallerException e) {
-            throw new IgniteInternalException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 }

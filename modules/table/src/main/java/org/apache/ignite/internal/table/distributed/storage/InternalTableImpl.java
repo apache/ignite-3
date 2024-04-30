@@ -790,8 +790,7 @@ public class InternalTableImpl implements InternalTable {
             try {
                 ClusterNode node = getClusterNode(primaryReplica.getLeaseholder());
 
-                return replicaSvc.invoke(node, op.apply(tablePartitionId, primaryReplica.getStartTime().longValue())
-                );
+                return replicaSvc.invoke(node, op.apply(tablePartitionId, primaryReplica.getStartTime().longValue()));
             } catch (Throwable e) {
                 throw new TransactionException(
                         INTERNAL_ERR,

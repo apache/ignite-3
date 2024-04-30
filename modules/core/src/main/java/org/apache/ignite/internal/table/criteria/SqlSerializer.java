@@ -126,6 +126,7 @@ public class SqlSerializer implements CriteriaVisitor<Void> {
     }
 
     @Override
+    // TODO: IGNITE-22153
     public void visit(Partition partition, @Nullable Void context) {
         throw new UnsupportedOperationException("This operation doesn't implemented yet.");
     }

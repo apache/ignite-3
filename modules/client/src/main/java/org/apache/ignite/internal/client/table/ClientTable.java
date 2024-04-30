@@ -133,6 +133,7 @@ public class ClientTable implements Table {
     }
 
     @Override
+    // TODO: IGNITE-22149
     public PartitionManager<HashPartition> partitionManager() {
         throw new UnsupportedOperationException("This operation doesn't implemented yet.");
     }

@@ -203,7 +203,7 @@ public class TableImpl implements TableViewInternal {
 
             return tbl.partition(keyRow);
         } catch (TupleMarshallerException e) {
-            throw new IgniteInternalException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 
@@ -217,7 +217,7 @@ public class TableImpl implements TableViewInternal {
         try {
             keyRow = marshaller.marshal(key);
         } catch (MarshallerException e) {
-            throw new IgniteInternalException("Cannot marshal key", e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
 
         return tbl.partition(keyRow);

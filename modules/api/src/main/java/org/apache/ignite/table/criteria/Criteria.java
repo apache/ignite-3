@@ -70,23 +70,6 @@ public interface Criteria {
     }
 
     /**
-     * Creates a predicate that test whether the partition value is supply to the give condition.
-     *
-     * @param partition Partition value.
-     * @param condition Target condition.
-     * @return The created expression instance.
-     */
-    static Expression partitionValue(Partition partition, Condition condition) {
-        Criteria[] oldElements = condition.getElements();
-        var newElements = new Criteria[oldElements.length + 1];
-
-        newElements[0] = partition;
-        System.arraycopy(oldElements, 0, newElements, 1, oldElements.length);
-
-        return new Expression(condition.getOperator(), newElements);
-    }
-
-    /**
      * Creates the negation of the predicate.
      *
      * <p>For example:
