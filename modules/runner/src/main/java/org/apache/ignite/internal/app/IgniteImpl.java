@@ -1112,6 +1112,7 @@ public class IgniteImpl implements Ignite {
                         return cmgMgr.onJoinReady();
                     }, startupExecutor)
                     .thenComposeAsync(ignored -> awaitSelfInLocalLogicalTopology(), startupExecutor)
+                    .thenCompose(c -> systemViewManager.completeRegistration())
                     .thenRunAsync(() -> {
                         try {
                             // Enable watermark events.
