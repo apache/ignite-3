@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.table.distributed.disaster.exceptions;
 
-import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.NODES_NOT_FOUND_ERR;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
-import java.util.Set;
+/** Common exception for disaster recovery. */
+public class DisasterRecoveryException extends IgniteInternalException {
+    private static final long serialVersionUID = -3565357739782565015L;
 
-/** Exception is thrown when appropriate node can`t be found. */
-public class NodesNotFoundException extends DisasterRecoveryException {
-    private static final long serialVersionUID = -6295004626426857228L;
+    public DisasterRecoveryException(int code, Throwable cause) {
+        super(code, cause);
+    }
 
-    public NodesNotFoundException(Set<String> missingNodes) {
-        super(NODES_NOT_FOUND_ERR, "Some nodes are missing: " + missingNodes);
+    public DisasterRecoveryException(int code, String message) {
+        super(code, message);
     }
 }

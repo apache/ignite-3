@@ -20,10 +20,9 @@ package org.apache.ignite.internal.table.distributed.disaster.exceptions;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITIONS_NOT_FOUND_ERR;
 
 import java.util.Set;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /** Exception is thrown when appropriate partition can`t be found. */
-public class PartitionsNotFoundException extends IgniteInternalException {
+public class PartitionsNotFoundException extends DisasterRecoveryException {
     private static final long serialVersionUID = -9215416423159317425L;
 
     public PartitionsNotFoundException(Set<Integer> missingPartitionIds) {
