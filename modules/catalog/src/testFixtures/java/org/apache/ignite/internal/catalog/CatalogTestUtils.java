@@ -20,10 +20,13 @@ package org.apache.ignite.internal.catalog;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Set;
@@ -484,6 +487,30 @@ public class CatalogTestUtils {
             }
 
             return delegate().handle(update, metaStorageUpdateTimestamp, causalityToken);
+        }
+    }
+
+    /**
+     * Waits till default zone appears in latest version of catalog.
+     *
+     * @param manager Catalog manager to monitor.
+     */
+    public static void awaitDefaultZoneCreation(CatalogManager manager) {
+        try {
+            int[] versionHolder = new int[1];
+
+            assertTrue(waitForCondition(() -> {
+                int latestVersion = manager.latestCatalogVersion();
+
+                versionHolder[0] = latestVersion;
+
+                return manager.catalog(latestVersion).defaultZone() != null;
+            }, 5_000));
+
+            // additionally we have to wait till all listeners complete handling of event
+            await(manager.catalogReadyFuture(versionHolder[0]));
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
     }
 }

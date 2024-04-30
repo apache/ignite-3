@@ -39,6 +39,7 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
@@ -205,6 +206,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     }
 
     protected CatalogZoneDescriptor getDefaultZone() {
+        CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
+
         return DistributionZonesTestUtil.getDefaultZone(catalogManager, clock.nowLong());
     }
 }

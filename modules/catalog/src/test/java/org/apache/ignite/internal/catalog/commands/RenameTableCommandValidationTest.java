@@ -79,7 +79,7 @@ public class RenameTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void exceptionIsThrownIfSchemaDoesNotExist() {
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = RenameTableCommand.builder()
                 .schemaName("TEST")
@@ -96,7 +96,7 @@ public class RenameTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void exceptionIsThrownIfTableWithGivenNameNotFound() {
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = RenameTableCommand.builder()
                 .schemaName(SCHEMA_NAME)

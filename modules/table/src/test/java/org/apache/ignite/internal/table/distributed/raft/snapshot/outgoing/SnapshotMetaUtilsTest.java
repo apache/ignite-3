@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createCatalogManagerWithTestUpdateLog;
 import static org.apache.ignite.internal.table.TableTestUtils.INDEX_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.createSimpleHashIndex;
@@ -90,7 +90,7 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
     void testCollectNextRowIdToBuildIndexes() throws Exception {
         HybridClock clock = new HybridClockImpl();
 
-        CatalogManager catalogManager = createTestCatalogManager("test", clock);
+        CatalogManager catalogManager = createCatalogManagerWithTestUpdateLog("test", clock);
 
         try {
             assertThat(catalogManager.startAsync(), willCompleteSuccessfully());

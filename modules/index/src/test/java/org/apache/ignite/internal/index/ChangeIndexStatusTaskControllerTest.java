@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createCatalogManagerWithTestUpdateLog;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
@@ -39,7 +40,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -67,11 +67,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest {
     private final HybridClock clock = new HybridClockImpl();
 
-    private final CatalogManager catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock);
-
     private final TestPlacementDriver placementDriver = new TestPlacementDriver();
 
     private final ClusterService clusterService = createClusterService();
+
+    private CatalogManager catalogManager;
 
     @Mock
     private ChangeIndexStatusTaskScheduler changeIndexStatusTaskScheduler;
@@ -80,6 +80,8 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
 
     @BeforeEach
     void setUp() {
+        catalogManager = createCatalogManagerWithTestUpdateLog(NODE_NAME, clock);
+
         assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);

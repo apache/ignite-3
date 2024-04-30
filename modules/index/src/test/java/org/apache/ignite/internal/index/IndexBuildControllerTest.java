@@ -19,7 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createCatalogManagerWithTestUpdateLog;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
@@ -102,7 +102,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
         ClusterService clusterService = mock(ClusterService.class, invocation -> mock(TopologyService.class, invocation1 -> LOCAL_NODE));
 
-        catalogManager = createTestCatalogManager(NODE_NAME, clock);
+        catalogManager = createCatalogManagerWithTestUpdateLog(NODE_NAME, clock);
         assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
 
         indexBuildController = new IndexBuildController(

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createCatalogManagerWithTestUpdateLog;
 import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -88,7 +88,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
     ) {
         String nodeName = testNodeName(testInfo, 0);
 
-        catalogManager = createTestCatalogManager(nodeName, clock);
+        catalogManager = createCatalogManagerWithTestUpdateLog(nodeName, clock);
 
         lowWatermark = new TestLowWatermark();
 

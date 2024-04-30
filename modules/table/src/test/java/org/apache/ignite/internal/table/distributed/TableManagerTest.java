@@ -267,6 +267,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertThat(catalogMetastore.deployWatches(), willCompleteSuccessfully());
 
+        CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
+
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
 
         TopologyService topologyService = mock(TopologyService.class);
@@ -689,7 +691,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(trueCompletedFuture());
         when(msm.get(any())).thenReturn(nullCompletedFuture());
 
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(2L));
 
         when(msm.prefixLocally(any(), anyLong())).thenReturn(CursorUtils.emptyCursor());
     }
