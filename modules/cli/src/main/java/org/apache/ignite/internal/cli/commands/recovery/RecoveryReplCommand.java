@@ -21,11 +21,11 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.recovery.partitions.PartitionStatesReplCommand;
 import picocli.CommandLine.Command;
 
-/** Recovery command. */
+/** Disaster recovery command. */
 @Command(name = "recovery",
         subcommands = {
                 PartitionStatesReplCommand.class
         },
-        description = "Managers recovery of Ignite cluster")
+        description = "Managers disaster recovery of Ignite cluster")
 public class RecoveryReplCommand extends BaseCommand {
 }

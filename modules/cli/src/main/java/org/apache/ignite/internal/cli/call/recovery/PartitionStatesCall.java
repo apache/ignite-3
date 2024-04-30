@@ -52,50 +52,67 @@ public class PartitionStatesCall implements Call<PartitionStatesCallInput, Table
         RecoveryApi client = new RecoveryApi(clientFactory.getClient(input.clusterUrl()));
 
         List<String> trimmedZoneNames = trim(input.zoneNames());
-        List<String> trimmedNodeNames = trim(input.nodeNames());
 
         try {
             if (input.local()) {
-                LocalPartitionStatesResponse localStates = client.getLocalPartitionStates(
-                        trimmedZoneNames,
-                        trimmedNodeNames,
-                        input.partitionIds()
-                );
-
-                List<String> content;
-                content = localStates.getStates().stream()
-                        .flatMap(state -> Stream.of(
-                                        state.getNodeName(),
-                                        state.getZoneName(),
-                                        state.getTableName(),
-                                        String.valueOf(state.getPartitionId()),
-                                        state.getState()
-                                )
-                        )
-                        .collect(toList());
-
-                return DefaultCallOutput.success(new Table(LOCAL_HEADERS, content));
+                return getLocalPartitionStatesOutput(client, trimmedZoneNames, input);
             } else {
-                GlobalPartitionStatesResponse globalStates = client.getGlobalPartitionStates(
-                        trimmedZoneNames,
-                        input.partitionIds()
-                );
-
-                List<String> content = globalStates.getStates().stream()
-                        .flatMap(state -> Stream.of(
-                                        state.getZoneName(),
-                                        state.getTableName(),
-                                        String.valueOf(state.getPartitionId()),
-                                        state.getState()
-                                )
-                        )
-                        .collect(toList());
-
-                return DefaultCallOutput.success(new Table(GLOBAL_HEADERS, content));
+                return getGlobalPartitionStatesOutput(input, client, trimmedZoneNames);
             }
         } catch (ApiException e) {
             return DefaultCallOutput.failure(new IgniteCliApiException(e, input.clusterUrl()));
         }
+    }
+
+    private static DefaultCallOutput<Table> getGlobalPartitionStatesOutput(
+            PartitionStatesCallInput input,
+            RecoveryApi client,
+            List<String> trimmedZoneNames
+    ) throws ApiException {
+        GlobalPartitionStatesResponse globalStates = client.getGlobalPartitionStates(
+                trimmedZoneNames,
+                input.partitionIds()
+        );
+
+        List<String> content = globalStates.getStates().stream()
+                .flatMap(state -> Stream.of(
+                                state.getZoneName(),
+                                state.getTableName(),
+                                String.valueOf(state.getPartitionId()),
+                                state.getState()
+                        )
+                )
+                .collect(toList());
+
+        return DefaultCallOutput.success(new Table(GLOBAL_HEADERS, content));
+    }
+
+    private static DefaultCallOutput<Table> getLocalPartitionStatesOutput(
+            RecoveryApi client,
+            List<String> trimmedZoneNames,
+            PartitionStatesCallInput input)
+            throws ApiException {
+        List<String> trimmedNodeNames = trim(input.nodeNames());
+
+        LocalPartitionStatesResponse localStates = client.getLocalPartitionStates(
+                trimmedZoneNames,
+                trimmedNodeNames,
+                input.partitionIds()
+        );
+
+        List<String> content;
+        content = localStates.getStates().stream()
+                .flatMap(state -> Stream.of(
+                                state.getNodeName(),
+                                state.getZoneName(),
+                                state.getTableName(),
+                                String.valueOf(state.getPartitionId()),
+                                state.getState()
+                        )
+                )
+                .collect(toList());
+
+        return DefaultCallOutput.success(new Table(LOCAL_HEADERS, content));
     }
 
     private static List<String> trim(List<String> names) {

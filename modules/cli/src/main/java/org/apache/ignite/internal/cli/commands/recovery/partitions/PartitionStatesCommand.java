@@ -17,48 +17,21 @@
 
 package org.apache.ignite.internal.cli.commands.recovery.partitions;
 
-import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAMES_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAMES_OPTION_DESC;
-
 import jakarta.inject.Inject;
-import java.util.List;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.recovery.PartitionStatesCall;
 import org.apache.ignite.internal.cli.call.recovery.PartitionStatesCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.decorators.TableDecorator;
-import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Option;
 
 /** Command to get partition states. */
 @Command(name = "partition-states", description = "Returns partition states.")
 public class PartitionStatesCommand extends BaseCommand implements Callable<Integer> {
-    /** Cluster endpoint URL option. */
     @Mixin
-    private ClusterUrlMixin clusterUrl;
-
-    /** Specific local / global states filters. */
-    @ArgGroup(exclusive = true, multiplicity = "1")
-    private PartitionStatesArgGroup statesArgs;
-
-    /** IDs of partitions to get states of. */
-    @Option(names = RECOVERY_PARTITION_IDS_OPTION, description = RECOVERY_PARTITION_IDS_OPTION_DESC, split = ",")
-    private List<Integer> partitionIds;
-
-    /** Names of zones to get partition states of. */
-    @Option(names = RECOVERY_ZONE_NAMES_OPTION, description = RECOVERY_ZONE_NAMES_OPTION_DESC, split = ",")
-    private List<String> zoneNames;
-
-    @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
-    private boolean plain;
+    private PartitionStatesMixin options;
 
     @Inject
     private PartitionStatesCall call;
@@ -66,22 +39,12 @@ public class PartitionStatesCommand extends BaseCommand implements Callable<Inte
     @Override
     public Integer call() {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(this::buildCallInput)
+                .inputProvider(() -> PartitionStatesCallInput.of(options))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new TableDecorator(plain))
+                .decorator(new TableDecorator(options.plain()))
                 .verbose(verbose)
                 .build()
                 .runPipeline();
-    }
-
-    private PartitionStatesCallInput buildCallInput() {
-        return PartitionStatesCallInput.builder()
-                .local(statesArgs.localGroup() != null)
-                .nodeNames(statesArgs.localGroup() == null ? List.of() : statesArgs.localGroup().nodeNames())
-                .zoneNames(zoneNames)
-                .partitionIds(partitionIds)
-                .clusterUrl(clusterUrl.getClusterUrl())
-                .build();
     }
 }

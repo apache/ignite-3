@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.call.recovery;
 
 import java.util.List;
+import org.apache.ignite.internal.cli.commands.recovery.partitions.PartitionStatesMixin;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 
 /** Input for the {@link PartitionStatesCall} call. */
@@ -42,7 +43,7 @@ public class PartitionStatesCallInput implements CallInput {
         return local;
     }
 
-    /** Returns node names to get partition states from. */
+    /** Returns node names to get local partition states from. */
     public List<String> nodeNames() {
         return nodeNames;
     }
@@ -57,7 +58,7 @@ public class PartitionStatesCallInput implements CallInput {
         return partitionIds;
     }
 
-    PartitionStatesCallInput(
+    private PartitionStatesCallInput(
             String clusterUrl,
             boolean local,
             List<String> nodeNames,
@@ -66,9 +67,23 @@ public class PartitionStatesCallInput implements CallInput {
     ) {
         this.clusterUrl = clusterUrl;
         this.local = local;
-        this.nodeNames = nodeNames;
-        this.zoneNames = zoneNames;
-        this.partitionIds = partitionIds;
+        this.nodeNames = nodeNames == null ? List.of() : List.copyOf(nodeNames);
+        this.zoneNames = zoneNames == null ? List.of() :List.copyOf(zoneNames);
+        this.partitionIds = partitionIds == null ? List.of() : List.copyOf(partitionIds);
+    }
+
+    public static PartitionStatesCallInput of(PartitionStatesMixin statesArgs) {
+        return of(statesArgs, statesArgs.clusterUrl());
+    }
+
+    public static PartitionStatesCallInput of(PartitionStatesMixin statesArgs, String clusterUrl) {
+        return builder()
+                .local(statesArgs.local())
+                .nodeNames(statesArgs.nodeNames())
+                .zoneNames(statesArgs.zoneNames())
+                .partitionIds(statesArgs.partitionIds())
+                .clusterUrl(clusterUrl)
+                .build();
     }
 
     /**
@@ -76,12 +91,12 @@ public class PartitionStatesCallInput implements CallInput {
      *
      * @return new instance of {@link PartitionStatesCallInputBuilder}.
      */
-    public static PartitionStatesCallInputBuilder builder() {
+    private static PartitionStatesCallInputBuilder builder() {
         return new PartitionStatesCallInputBuilder();
     }
 
     /** Builder for {@link PartitionStatesCallInput}. */
-    public static class PartitionStatesCallInputBuilder {
+    private static class PartitionStatesCallInputBuilder {
         private String clusterUrl;
 
         private boolean local;
@@ -93,37 +108,37 @@ public class PartitionStatesCallInput implements CallInput {
         private List<Integer> partitionIds;
 
         /** Set cluster URL. */
-        public PartitionStatesCallInputBuilder clusterUrl(String clusterUrl) {
+        PartitionStatesCallInputBuilder clusterUrl(String clusterUrl) {
             this.clusterUrl = clusterUrl;
             return this;
         }
 
         /** Set flag to get local partition states. */
-        public PartitionStatesCallInputBuilder local(boolean local) {
+        PartitionStatesCallInputBuilder local(boolean local) {
             this.local = local;
             return this;
         }
 
         /** Set names of zones to get partition states of. */
-        public PartitionStatesCallInputBuilder nodeNames(List<String> nodeNames) {
+        PartitionStatesCallInputBuilder nodeNames(List<String> nodeNames) {
             this.nodeNames = nodeNames;
             return this;
         }
 
         /** Set names of zones to get partition states of. */
-        public PartitionStatesCallInputBuilder zoneNames(List<String> zoneNames) {
+        PartitionStatesCallInputBuilder zoneNames(List<String> zoneNames) {
             this.zoneNames = zoneNames;
             return this;
         }
 
         /** Names of zones to get partition states of. */
-        public PartitionStatesCallInputBuilder partitionIds(List<Integer> partitionIds) {
+        PartitionStatesCallInputBuilder partitionIds(List<Integer> partitionIds) {
             this.partitionIds = partitionIds;
             return this;
         }
 
         /** Set IDs of partitions to get states of. */
-        public PartitionStatesCallInput build() {
+        PartitionStatesCallInput build() {
             return new PartitionStatesCallInput(clusterUrl, local, nodeNames, zoneNames, partitionIds);
         }
     }
