@@ -113,5 +113,11 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
      */
     CompletableFuture<Void> catalogReadyFuture(int version);
 
+    /**
+     * Returns a future, which completes, when catalog initialization completes.
+     */
     CompletableFuture<Void> catalogInitializationFuture();
+
+
+
 }

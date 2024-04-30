@@ -449,12 +449,20 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return resultFuture;
     }
 
+    /*
+     CatalogInitTimestamp: HybridTimestamp [physical=2024-04-30 13:14:22:902 +0000, logical=0, composite=112360348903145472]
+     CatalogAwaitVersionActivationTimestamp: HybridTimestamp [physical=2024-04-30 13:14:23:986 +0000, logical=0, composite=112360348974186496]
+
+     sqlSchemaCurrentTimestamp: HybridTimestamp [physical=2024-04-30 13:14:21:017 +0000, logical=0, composite=112360348779610112]
+     sqlSchemaActivationTimestamp: HybridTimestamp [physical=2024-04-30 13:14:19:516 +0000, logical=0, composite=112360348681240576]
+     */
+
     private CompletableFuture<Integer> awaitVersionActivation(int version) {
         Catalog catalog = catalogByVer.get(version);
 
         HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
 
-        System.err.println("Catalog activation timestamp: " + tsSafeForRoReadingInPastOptimization);
+        System.err.println("CatalogAwaitVersionActivationTimestamp:  VER " + version + " TS " + tsSafeForRoReadingInPastOptimization);
 
         return clockService.waitFor(tsSafeForRoReadingInPastOptimization).thenApply(unused -> version);
     }
@@ -464,7 +472,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
 
-        System.err.println("CatalogInitTimestamp: " + tsSafeForRoReadingInPastOptimization);
+        System.err.println("CatalogInitTimestamp: VER " + version + " TS " + tsSafeForRoReadingInPastOptimization);
 
         return clockService.waitFor(tsSafeForRoReadingInPastOptimization).thenApply(unused -> version);
     }
