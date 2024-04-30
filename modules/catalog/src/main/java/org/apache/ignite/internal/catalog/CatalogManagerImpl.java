@@ -184,7 +184,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public @Nullable CatalogTableDescriptor table(String tableName, long timestamp) {
-        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).table(tableName);
+        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME);
+        if (schema == null) {
+            return null;
+        }
+        return schema.table(tableName);
     }
 
     @Override
@@ -204,7 +208,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public @Nullable CatalogIndexDescriptor aliveIndex(String indexName, long timestamp) {
-        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).aliveIndex(indexName);
+        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME);
+        if (schema == null) {
+            return null;
+        }
+        return schema.aliveIndex(indexName);
     }
 
     @Override
@@ -486,6 +494,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         if (result) {
                             return completedFuture(newVersion);
                         }
+
+                        System.err.println("RESULT? " + result);
 
                         return saveUpdate(updateProducer, attemptNo + 1);
                     });
