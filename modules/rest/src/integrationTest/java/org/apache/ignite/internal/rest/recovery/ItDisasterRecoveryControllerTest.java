@@ -58,16 +58,16 @@ import org.junit.jupiter.api.Test;
 public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + Cluster.BASE_HTTP_PORT;
 
-    private static final Set<String> FILLED_ZONES = Set.of("first_ZONE", "second_ZONE", "third_ZONE");
+    private static final Set<String> ZONES = Set.of("first_ZONE", "second_ZONE", "third_ZONE");
 
     private static final Set<String> MIXED_CASE_ZONES = Set.of("mixed_first_zone", "MIXED_FIRST_ZONE", "mixed_second_zone",
             "MIXED_SECOND_ZONE");
 
-    private static final Set<String> ALL_ZONES = new HashSet<>(CollectionUtils.concat(FILLED_ZONES, MIXED_CASE_ZONES));
+    private static final Set<String> ZONES_CONTAINING_TABLES = new HashSet<>(CollectionUtils.concat(ZONES, MIXED_CASE_ZONES));
 
     private static final String EMPTY_ZONE = "empty_ZONE";
 
-    private static final Set<String> TABLE_NAMES = ALL_ZONES.stream().map(it -> it + "_table").collect(toSet());
+    private static final Set<String> TABLE_NAMES = ZONES_CONTAINING_TABLES.stream().map(it -> it + "_table").collect(toSet());
 
     private static final Set<String> STATES = Set.of("HEALTHY", "AVAILABLE");
 
@@ -79,12 +79,12 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @BeforeAll
     public static void setUp() {
-        ALL_ZONES.forEach(name -> {
+        ZONES_CONTAINING_TABLES.forEach(name -> {
             sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", name, DEFAULT_AIPERSIST_PROFILE_NAME));
-            sql("CREATE TABLE \"" + name + "_table\" (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = '" + name + "'");
+            sql(String.format("CREATE TABLE \"%s_table\" (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = '%1$s'", name));
         });
 
-        sql("CREATE ZONE \"" + EMPTY_ZONE + "\" WITH storage_profiles='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'");
+        sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", EMPTY_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
 
         nodeNames = CLUSTER.runningNodes().map(IgniteImpl::name).collect(toSet());
     }
@@ -102,7 +102,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         List<Integer> partitionIds = states.stream().map(LocalPartitionStateResponse::partitionId).distinct().collect(toList());
         assertEquals(range(0, DEFAULT_PARTITION_COUNT).boxed().collect(toList()), partitionIds);
 
-        checkLocalStates(states, ALL_ZONES, nodeNames);
+        checkLocalStates(states, ZONES_CONTAINING_TABLES, nodeNames);
     }
 
     @Test
@@ -150,13 +150,13 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     void testLocalPartitionStatesByZones() {
-        String url = "state/local?zoneNames=" + String.join(",", FILLED_ZONES);
+        String url = "state/local?zoneNames=" + String.join(",", ZONES);
 
         var response = client.toBlocking().exchange(url, LocalPartitionStatesResponse.class);
 
         assertEquals(HttpStatus.OK, response.status());
 
-        checkLocalStates(response.body().states(), FILLED_ZONES, nodeNames);
+        checkLocalStates(response.body().states(), ZONES, nodeNames);
     }
 
     @Test
@@ -180,7 +180,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         assertEquals(HttpStatus.OK, response.status());
 
-        checkLocalStates(response.body().states(), ALL_ZONES, nodeNames);
+        checkLocalStates(response.body().states(), ZONES_CONTAINING_TABLES, nodeNames);
     }
 
     @Test
@@ -213,7 +213,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
             assertTrue(partitionIds.contains((String.valueOf(state.partitionId()))));
         }
 
-        checkLocalStates(states, ALL_ZONES, nodeNames);
+        checkLocalStates(states, ZONES_CONTAINING_TABLES, nodeNames);
     }
 
     @Test
@@ -228,7 +228,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         List<Integer> partitionIds = states.stream().map(GlobalPartitionStateResponse::partitionId).distinct().collect(toList());
         assertEquals(range(0, DEFAULT_PARTITION_COUNT).boxed().collect(toList()), partitionIds);
 
-        checkGlobalStates(states, ALL_ZONES);
+        checkGlobalStates(states, ZONES_CONTAINING_TABLES);
     }
 
     @Test
@@ -266,13 +266,13 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     void testGlobalPartitionStatesByZones() {
-        String url = "state/global?zoneNames=" + String.join(",", FILLED_ZONES);
+        String url = "state/global?zoneNames=" + String.join(",", ZONES);
 
         var response = client.toBlocking().exchange(url, GlobalPartitionStatesResponse.class);
 
         assertEquals(HttpStatus.OK, response.status());
 
-        checkGlobalStates(response.body().states(), FILLED_ZONES);
+        checkGlobalStates(response.body().states(), ZONES);
     }
 
     @Test

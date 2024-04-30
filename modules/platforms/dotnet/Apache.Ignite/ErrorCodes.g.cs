@@ -587,6 +587,9 @@ namespace Apache.Ignite
 
             /// <summary> NodesNotFound error. </summary>
             public const int NodesNotFound = (GroupCode << 16) | (2 & 0xFFFF);
+
+            /// <summary> PartitionState error. </summary>
+            public const int PartitionState = (GroupCode << 16) | (3 & 0xFFFF);
         }
     }
 }

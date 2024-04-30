@@ -36,6 +36,7 @@ import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.rest.exception.handler.IgniteInternalExceptionHandler;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
+import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.LocalPartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState;
 
@@ -77,10 +78,10 @@ public class DisasterRecoveryController implements DisasterRecoveryApi {
                 .thenApply(DisasterRecoveryController::convertGlobalStates);
     }
 
-    private static LocalPartitionStatesResponse convertLocalStates(Map<TablePartitionId, Map<String, LocalPartitionState>> localStates) {
+    private static LocalPartitionStatesResponse convertLocalStates(Map<TablePartitionId, LocalPartitionStateByNode> localStates) {
         List<LocalPartitionStateResponse> states = new ArrayList<>();
 
-        for (Map<String, LocalPartitionState> map : localStates.values()) {
+        for (LocalPartitionStateByNode map : localStates.values()) {
             for (Entry<String, LocalPartitionState> entry : map.entrySet()) {
                 String nodeName = entry.getKey();
                 LocalPartitionState state = entry.getValue();

@@ -620,5 +620,8 @@ public class ErrorGroups {
 
         /** Nodes were not found. */
         public static final int NODES_NOT_FOUND_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Error while returning partition states. */
+        public static final int PARTITION_STATE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 3);
     }
 }
