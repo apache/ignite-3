@@ -72,13 +72,13 @@ public class RaftMetricSource implements MetricSource {
         long[] bounds = new long[]{10L, 20L, 30L, 40L, 50L};
 
         // jraft-fsmcaller-disruptor
-        metrics.put("jraft.fsmcaller.disruptor.Batch",
+        metrics.put("raft.fsmcaller.disruptor.Batch",
                 new DistributionMetric(
                         "jraft.fsmcaller.disruptor.Batch",
                         "The histogram of the batch size to handle in the state machine for partitions",
                         bounds
                 ));
-        metrics.put("jraft.fsmcaller.disruptor.Stripes",
+        metrics.put("raft.fsmcaller.disruptor.Stripes",
                 new DistributionMetric(
                         "jraft.fsmcaller.disruptor.Stripes",
                         "The histogram of distribution data by stripes in the state machine for partitions",
@@ -86,13 +86,13 @@ public class RaftMetricSource implements MetricSource {
                 ));
 
         // jraft-nodeimpl-disruptor
-        metrics.put("jraft.nodeimpl.disruptor.Batch",
+        metrics.put("raft.nodeimpl.disruptor.Batch",
                 new DistributionMetric(
                         "jraft.nodeimpl.disruptor.Batch",
                         "The histogram of the batch size to handle node operations for partitions",
                         bounds
                 ));
-        metrics.put("jraft.nodeimpl.disruptor.Stripes",
+        metrics.put("raft.nodeimpl.disruptor.Stripes",
                 new DistributionMetric(
                         "jraft.nodeimpl.disruptor.Stripes",
                         "The histogram of distribution data by stripes for node operations for partitions",
@@ -100,13 +100,13 @@ public class RaftMetricSource implements MetricSource {
                 ));
 
         // jraft-readonlyservice-disruptor
-        metrics.put("jraft.readonlyservice.disruptor.Batch",
+        metrics.put("raft.readonlyservice.disruptor.Batch",
                 new DistributionMetric(
                         "jraft.readonlyservice.disruptor.Batch",
                         "The histogram of the batch size to handle readonly operations for partitions",
                         bounds
                 ));
-        metrics.put("jraft.readonlyservice.disruptor.Stripes",
+        metrics.put("raft.readonlyservice.disruptor.Stripes",
                 new DistributionMetric(
                         "jraft.readonlyservice.disruptor.Stripes",
                         "The histogram of distribution data by stripes readonly operations for partitions",
@@ -114,13 +114,13 @@ public class RaftMetricSource implements MetricSource {
                 ));
 
         // jraft-logmanager-disruptor
-        metrics.put("jraft.logmanager.disruptor.Batch",
+        metrics.put("raft.logmanager.disruptor.Batch",
                 new DistributionMetric(
                         "jraft.logmanager.disruptor.Batch",
                         "The histogram of the batch size to handle in the log for partitions",
                         bounds
                 ));
-        metrics.put("jraft.logmanager.disruptor.Stripes",
+        metrics.put("raft.logmanager.disruptor.Stripes",
                 new DistributionMetric(
                         "jraft.logmanager.disruptor.Stripes",
                         "The histogram of distribution data by stripes in the log for partitions",
