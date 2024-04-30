@@ -442,6 +442,12 @@ public class UpgradingRowAdapter extends Row {
 
     /** {@inheritDoc} */
     @Override
+    public int elementCount() {
+        return newBinaryTupleSchema.elementCount();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public BinaryTuple binaryTuple() {
         // Underlying binary tuple can not be used directly.
         return null;
