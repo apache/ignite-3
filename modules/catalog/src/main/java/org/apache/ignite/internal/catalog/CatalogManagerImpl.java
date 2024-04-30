@@ -47,6 +47,8 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCatalogCommand;
+import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
+import org.apache.ignite.internal.catalog.commands.CreateSchemaCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -159,26 +161,26 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         int objectIdGen = 0;
 
         // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
-        CatalogSchemaDescriptor publicSchema = new CatalogSchemaDescriptor(
-                objectIdGen++,
-                DEFAULT_SCHEMA_NAME,
-                new CatalogTableDescriptor[0],
-                new CatalogIndexDescriptor[0],
-                new CatalogSystemViewDescriptor[0],
-                INITIAL_CAUSALITY_TOKEN
-        );
+//        CatalogSchemaDescriptor publicSchema = new CatalogSchemaDescriptor(
+//                objectIdGen++,
+//                DEFAULT_SCHEMA_NAME,
+//                new CatalogTableDescriptor[0],
+//                new CatalogIndexDescriptor[0],
+//                new CatalogSystemViewDescriptor[0],
+//                INITIAL_CAUSALITY_TOKEN
+//        );
+//
+//        // TODO: IGNITE-19082 Move system schema objects initialization to cluster init procedure.
+//        CatalogSchemaDescriptor systemSchema = new CatalogSchemaDescriptor(
+//                objectIdGen++,
+//                SYSTEM_SCHEMA_NAME,
+//                new CatalogTableDescriptor[0],
+//                new CatalogIndexDescriptor[0],
+//                new CatalogSystemViewDescriptor[0],
+//                INITIAL_CAUSALITY_TOKEN
+//        );
 
-        // TODO: IGNITE-19082 Move system schema objects initialization to cluster init procedure.
-        CatalogSchemaDescriptor systemSchema = new CatalogSchemaDescriptor(
-                objectIdGen++,
-                SYSTEM_SCHEMA_NAME,
-                new CatalogTableDescriptor[0],
-                new CatalogIndexDescriptor[0],
-                new CatalogSystemViewDescriptor[0],
-                INITIAL_CAUSALITY_TOKEN
-        );
-
-        Catalog emptyCatalog = new Catalog(0, 0L, objectIdGen, List.of(), List.of(publicSchema, systemSchema), null);
+        Catalog emptyCatalog = new Catalog(0, 0L, objectIdGen, List.of(), List.of(), null);
 
         registerCatalog(emptyCatalog);
 
@@ -364,7 +366,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     private CompletableFuture<Void> createDefaultZone(Catalog emptyCatalog) {
-        List<UpdateEntry> createZoneEntries = new BulkUpdateProducer(List.of(
+        List<CatalogCommand> commands = List.of(
                 CreateZoneCommand.builder()
                         .zoneName(DEFAULT_ZONE_NAME)
                         .partitions(DEFAULT_PARTITION_COUNT)
@@ -378,10 +380,14 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         .build(),
                 AlterZoneSetDefaultCatalogCommand.builder()
                         .zoneName(DEFAULT_ZONE_NAME)
-                        .build()
-        )).get(emptyCatalog);
+                        .build(),
+                CreateSchemaCommand.builder().name(DEFAULT_SCHEMA_NAME).build(),
+                CreateSchemaCommand.builder().name(SYSTEM_SCHEMA_NAME).build()
+        );
 
-        return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, createZoneEntries))
+        List<UpdateEntry> entries = new BulkUpdateProducer(commands).get(emptyCatalog);
+
+        return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, entries))
                 .handle((result, error) -> {
                     if (error != null) {
                         LOG.warn("Unable to create default zone.", error);

@@ -274,7 +274,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertNotNull(schema);
         assertEquals(SCHEMA_NAME, schema.name());
-        assertSame(schema, manager.activeSchema(0L));
+        assertSame(schema, manager.activeSchema(1L));
         assertSame(schema, manager.activeSchema(123L));
 
         assertNull(schema.table(TABLE_NAME));
