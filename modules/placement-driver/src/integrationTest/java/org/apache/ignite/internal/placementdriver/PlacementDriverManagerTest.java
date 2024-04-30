@@ -72,6 +72,7 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -180,6 +181,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         raftManager = new Loza(
                 clusterService,
+                new NoOpMetricManager(),
                 raftConfiguration,
                 workDir.resolve("loza"),
                 nodeClock,

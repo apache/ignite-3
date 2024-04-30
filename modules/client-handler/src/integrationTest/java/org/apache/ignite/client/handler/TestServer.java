@@ -31,7 +31,7 @@ import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -124,7 +124,7 @@ public class TestServer {
                 clusterService,
                 bootstrapFactory,
                 () -> CompletableFuture.completedFuture(ClusterTag.clusterTag(msgFactory, "Test Server")),
-                mock(MetricManager.class),
+                mock(MetricManagerImpl.class),
                 metrics,
                 authenticationManager,
                 new TestClockService(new HybridClockImpl()),

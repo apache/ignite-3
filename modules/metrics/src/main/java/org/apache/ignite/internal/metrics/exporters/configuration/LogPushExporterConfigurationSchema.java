@@ -15,33 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics;
+package org.apache.ignite.internal.metrics.exporters.configuration;
 
-import java.util.function.LongSupplier;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
 
 /**
- * Implementation based on primitive supplier.
+ * Configuration for log push exporter.
  */
-public class LongGauge extends AbstractMetric implements LongMetric {
-    /** Value supplier. */
-    private final LongSupplier val;
-
-    /**
-     * The constructor.
-     *
-     * @param name Name.
-     * @param desc Description.
-     * @param val Supplier.
-     */
-    public LongGauge(String name, @Nullable String desc, LongSupplier val) {
-        super(name, desc);
-
-        this.val = val;
-    }
-
-    /** {@inheritDoc} */
-    @Override public long value() {
-        return val.getAsLong();
-    }
+@PolymorphicConfigInstance(LogPushExporter.EXPORTER_NAME)
+public class LogPushExporterConfigurationSchema extends ExporterConfigurationSchema {
+    @Value(hasDefault = true)
+    public int period = 30_000;
 }
