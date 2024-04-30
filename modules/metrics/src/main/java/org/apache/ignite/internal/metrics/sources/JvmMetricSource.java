@@ -26,7 +26,6 @@ import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.MetricSource;
-import org.apache.ignite.internal.metrics.SizeFormatUtil;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -78,46 +77,45 @@ public class JvmMetricSource implements MetricSource {
                 new LongGauge(
                         "memory.heap.Init",
                         "Initial amount of heap memory",
-                        () -> heapMemoryUsage.get().getInit(),
-                        SizeFormatUtil::byteCountToDisplaySize
+                        () -> heapMemoryUsage.get().getInit()
                 ));
         metrics.put("memory.heap.Used",
                 new LongGauge("memory.heap.Used",
                         "Current used amount of heap memory",
-                        () -> heapMemoryUsage.get().getUsed(),
-                        SizeFormatUtil::byteCountToDisplaySize));
+                        () -> heapMemoryUsage.get().getUsed()
+                ));
         metrics.put("memory.heap.Committed",
                 new LongGauge("memory.heap.Committed",
                         "Committed amount of heap memory",
-                        () -> heapMemoryUsage.get().getCommitted(),
-                        SizeFormatUtil::byteCountToDisplaySize));
+                        () -> heapMemoryUsage.get().getCommitted()
+                ));
         metrics.put("memory.heap.Max",
                 new LongGauge("memory.heap.Max",
                         "Maximum amount of heap memory",
-                        () -> heapMemoryUsage.get().getMax(),
-                        SizeFormatUtil::byteCountToDisplaySize));
+                        () -> heapMemoryUsage.get().getMax()
+                ));
 
         CachedMemoryUsage nonHeapMemoryUsage = new CachedMemoryUsage(memoryMxBean::getNonHeapMemoryUsage, MEMORY_USAGE_CACHE_TIMEOUT);
         metrics.put("memory.non-heap.Init",
                 new LongGauge("memory.non-heap.Init",
                         "Initial amount of non-heap memory",
-                        () -> nonHeapMemoryUsage.get().getInit(),
-                        SizeFormatUtil::byteCountToDisplaySize));
+                        () -> nonHeapMemoryUsage.get().getInit()
+                ));
         metrics.put("memory.non-heap.Used",
                 new LongGauge("memory.non-heap.Used",
                         "Used amount of non-heap memory",
-                        () -> nonHeapMemoryUsage.get().getUsed(),
-                        SizeFormatUtil::byteCountToDisplaySize));
+                        () -> nonHeapMemoryUsage.get().getUsed()
+                ));
         metrics.put("memory.non-heap.Committed",
                 new LongGauge("memory.non-heap.Committed",
                         "Committed amount of non-heap memory",
-                        () -> nonHeapMemoryUsage.get().getCommitted(),
-                        SizeFormatUtil::byteCountToDisplaySize));
+                        () -> nonHeapMemoryUsage.get().getCommitted()
+                ));
         metrics.put("memory.non-heap.Max",
                 new LongGauge("memory.non-heap.Max",
                         "Maximum amount of non-heap memory",
-                        () -> nonHeapMemoryUsage.get().getMax(),
-                        SizeFormatUtil::byteCountToDisplaySize));
+                        () -> nonHeapMemoryUsage.get().getMax()
+                ));
 
         enabled = true;
 

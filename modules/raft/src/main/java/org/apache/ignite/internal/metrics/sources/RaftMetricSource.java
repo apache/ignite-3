@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal.metrics.sources;
 
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.metrics.DistributionMetric;
 import org.apache.ignite.internal.metrics.Metric;
@@ -79,15 +76,13 @@ public class RaftMetricSource implements MetricSource {
                 new DistributionMetric(
                         "jraft.fsmcaller.disruptor.Batch",
                         "The histogram of the batch size to handle in the state machine for partitions",
-                        bounds,
-                        toStringBatchHistogram(bounds)
+                        bounds
                 ));
         metrics.put("jraft.fsmcaller.disruptor.Stripes",
                 new DistributionMetric(
                         "jraft.fsmcaller.disruptor.Stripes",
                         "The histogram of distribution data by stripes in the state machine for partitions",
-                        LongStream.range(0, stripeCount).toArray(),
-                        toStringStripesHistogram()
+                        LongStream.range(0, stripeCount).toArray()
                 ));
 
         // jraft-nodeimpl-disruptor
@@ -95,15 +90,13 @@ public class RaftMetricSource implements MetricSource {
                 new DistributionMetric(
                         "jraft.nodeimpl.disruptor.Batch",
                         "The histogram of the batch size to handle node operations for partitions",
-                        bounds,
-                        toStringBatchHistogram(bounds)
+                        bounds
                 ));
         metrics.put("jraft.nodeimpl.disruptor.Stripes",
                 new DistributionMetric(
                         "jraft.nodeimpl.disruptor.Stripes",
                         "The histogram of distribution data by stripes for node operations for partitions",
-                        LongStream.range(0, stripeCount).toArray(),
-                        toStringStripesHistogram()
+                        LongStream.range(0, stripeCount).toArray()
                 ));
 
         // jraft-readonlyservice-disruptor
@@ -111,15 +104,13 @@ public class RaftMetricSource implements MetricSource {
                 new DistributionMetric(
                         "jraft.readonlyservice.disruptor.Batch",
                         "The histogram of the batch size to handle readonly operations for partitions",
-                        bounds,
-                        toStringBatchHistogram(bounds)
+                        bounds
                 ));
         metrics.put("jraft.readonlyservice.disruptor.Stripes",
                 new DistributionMetric(
                         "jraft.readonlyservice.disruptor.Stripes",
                         "The histogram of distribution data by stripes readonly operations for partitions",
-                        LongStream.range(0, stripeCount).toArray(),
-                        toStringStripesHistogram()
+                        LongStream.range(0, stripeCount).toArray()
                 ));
 
         // jraft-logmanager-disruptor
@@ -127,51 +118,14 @@ public class RaftMetricSource implements MetricSource {
                 new DistributionMetric(
                         "jraft.logmanager.disruptor.Batch",
                         "The histogram of the batch size to handle in the log for partitions",
-                        bounds,
-                        toStringBatchHistogram(bounds)
+                        bounds
                 ));
         metrics.put("jraft.logmanager.disruptor.Stripes",
                 new DistributionMetric(
                         "jraft.logmanager.disruptor.Stripes",
                         "The histogram of distribution data by stripes in the log for partitions",
-                        LongStream.range(0, logStripeCount).toArray(),
-                        toStringStripesHistogram()
+                        LongStream.range(0, logStripeCount).toArray()
                 ));
-    }
-
-    /**
-     * Represents the stripes histogram as a string.
-     *
-     * @return String representation of histogram metrics.
-     */
-    private Function<long[], String> toStringStripesHistogram() {
-        return longs -> Arrays.stream(longs, 0, longs.length - 1).mapToObj(String::valueOf)
-                .collect(Collectors.joining(", "));
-    }
-
-    /**
-     * Represents a string for the histogram metric.
-     *
-     * @param bounds Bounds.
-     * @return String representation of histogram metrics.
-     */
-    private Function<long[], String> toStringBatchHistogram(long[] bounds) {
-        return values -> {
-            assert bounds.length == values.length - 1 :
-                    "Bounds do not match with values [bounds=" + bounds.length + ", values=" + values.length + "].";
-
-            StringBuilder sb = new StringBuilder();
-
-            for (int i = 0; i < values.length; i++) {
-                sb.append(values[i]);
-
-                if (i != values.length - 1) {
-                    sb.append("<|").append(bounds[i]).append("|<");
-                }
-            }
-
-            return sb.toString();
-        };
     }
 
     /**

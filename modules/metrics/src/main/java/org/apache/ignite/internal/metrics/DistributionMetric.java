@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -60,23 +59,8 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
     /** Bounds of measurements. */
     private final long[] bounds;
 
-    /** Value string formatter or {@code null} to use default formatter. */
-    private final Function<long[], String> stringFormatter;
-
     /** List of scalar metrics. */
     private volatile List<Metric> scalarMetrics = null;
-
-    /**
-     * Constructor.
-     *
-     * @param name Name.
-     * @param desc Description.
-     * @param bounds Bounds of the buckets. The array must be sorted and its elements must be unique. The 0-th bound must be
-     *               greater or equal to {@code 0}.
-     */
-    public DistributionMetric(String name, @Nullable String desc, long[] bounds) {
-        this(name, desc, bounds, null);
-    }
 
     /**
      * The constructor.
@@ -85,9 +69,8 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
      * @param desc Description.
      * @param bounds Bounds of the buckets. The array must be sorted and its elements must be unique. The 0-th bound must be
      *               greater or equal to {@code 0}.
-     * @param stringFormatter Formatter to represent the metric as a string or {@code null} to use the default formatter.
      */
-    public DistributionMetric(String name, @Nullable String desc, long[] bounds, @Nullable Function<long[], String> stringFormatter) {
+    public DistributionMetric(String name, @Nullable String desc, long[] bounds) {
         super(name, desc);
 
         assert bounds != null && bounds.length > 0;
@@ -96,7 +79,6 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
 
         this.bounds = bounds;
         this.measurements = new AtomicLongArray(bounds.length + 1);
-        this.stringFormatter = stringFormatter;
     }
 
     /**
@@ -153,10 +135,6 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
     /** {@inheritDoc} */
     @Override
     public String getValueAsString() {
-        if (stringFormatter != null) {
-            return stringFormatter.apply(asScalarMetrics().stream().mapToLong(m -> ((LongMetric) m).value()).toArray());
-        }
-
         StringBuilder sb = new StringBuilder("[");
 
         List<Metric> scalarMetrics = asScalarMetrics();
