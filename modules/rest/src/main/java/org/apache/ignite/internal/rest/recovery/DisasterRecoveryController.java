@@ -36,9 +36,9 @@ import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.rest.exception.handler.IgniteInternalExceptionHandler;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
-import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.LocalPartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
 
 /**
  * Disaster recovery controller.
