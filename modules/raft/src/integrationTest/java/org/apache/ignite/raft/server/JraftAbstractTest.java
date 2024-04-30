@@ -20,8 +20,10 @@ package org.apache.ignite.raft.server;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -146,7 +148,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
             server.beforeNodeStop();
 
-            server.stop();
+            assertThat(server.stopAsync(), willCompleteSuccessfully());
         }
 
         servers.clear();
@@ -171,7 +173,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         JraftServerImpl server = jraftServer(servers, idx, service, opts);
 
-        server.start();
+        assertThat(server.startAsync(), willCompleteSuccessfully());
 
         clo.accept(server);
 

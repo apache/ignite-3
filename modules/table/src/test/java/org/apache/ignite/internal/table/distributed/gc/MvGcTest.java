@@ -44,6 +44,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -70,9 +71,11 @@ public class MvGcTest extends BaseIgniteAbstractTest {
     @InjectConfiguration("mock.threads = 1")
     private GcConfiguration gcConfig;
 
+    private final TestLowWatermark lowWatermark = new TestLowWatermark();
+
     @BeforeEach
     void setUp() {
-        gc = new MvGc("test", gcConfig);
+        gc = new MvGc("test", gcConfig, lowWatermark);
 
         gc.start();
     }
@@ -96,7 +99,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
     void testAddStorageWithLowWatermark() {
         HybridTimestamp lowWatermark = new HybridTimestamp(1, 1);
 
-        gc.onLwmChanged(lowWatermark);
+        this.lowWatermark.updateAndNotify(lowWatermark);
 
         CompletableFuture<Void> invokeVacuumMethodFuture = new CompletableFuture<>();
 
@@ -119,7 +122,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
         gc.addStorage(createTablePartitionId(), gcUpdateHandler0);
         gc.addStorage(createTablePartitionId(), gcUpdateHandler1);
 
-        gc.onLwmChanged(lowWatermark0);
+        lowWatermark.updateAndNotify(lowWatermark0);
 
         // We expect GcUpdateHandler#vacuum to be called with the set lowWatermark0.
         assertThat(invokeVacuumMethodFuture0, willCompleteSuccessfully());
@@ -134,7 +137,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
         completeFutureOnVacuum(gcUpdateHandler0, invokeVacuumMethodFuture2, lowWatermark1);
         completeFutureOnVacuum(gcUpdateHandler1, invokeVacuumMethodFuture3, lowWatermark1);
 
-        gc.onLwmChanged(lowWatermark1);
+        lowWatermark.updateAndNotify(lowWatermark1);
 
         // We expect GcUpdateHandler#vacuum to be called with the set lowWatermark0.
         assertThat(invokeVacuumMethodFuture2, willCompleteSuccessfully());
@@ -154,7 +157,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
         gc.addStorage(createTablePartitionId(), gcUpdateHandler0);
         gc.addStorage(createTablePartitionId(), gcUpdateHandler1);
 
-        gc.onLwmChanged(firstLowWatermark);
+        lowWatermark.updateAndNotify(firstLowWatermark);
 
         // We expect GcUpdateHandler#vacuum to be called with the set lowWatermark0.
         assertThat(invokeVacuumMethodFuture0, willCompleteSuccessfully());
@@ -169,7 +172,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
         completeFutureOnVacuum(gcUpdateHandler0, invokeVacuumMethodFutureForSame0, sameLowWatermark);
         completeFutureOnVacuum(gcUpdateHandler1, invokeVacuumMethodFutureForSame1, sameLowWatermark);
 
-        gc.onLwmChanged(sameLowWatermark);
+        lowWatermark.updateAndNotify(sameLowWatermark);
 
         // We expect that GcUpdateHandler#vacuum will not be called.
         assertThat(invokeVacuumMethodFutureForSame0, willTimeoutFast());
@@ -184,7 +187,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
         completeFutureOnVacuum(gcUpdateHandler0, invokeVacuumMethodFutureForLower0, lowerLowWatermark);
         completeFutureOnVacuum(gcUpdateHandler1, invokeVacuumMethodFutureForLower1, lowerLowWatermark);
 
-        gc.onLwmChanged(lowerLowWatermark);
+        lowWatermark.updateAndNotify(lowerLowWatermark);
 
         // We expect that GcUpdateHandler#vacuum will not be called.
         assertThat(invokeVacuumMethodFutureForSame0, willTimeoutFast());
@@ -201,7 +204,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
 
         gc.addStorage(createTablePartitionId(), gcUpdateHandler);
 
-        gc.onLwmChanged(new HybridTimestamp(2, 2));
+        lowWatermark.updateAndNotify(new HybridTimestamp(2, 2));
 
         assertTrue(latch.await(200, TimeUnit.MILLISECONDS));
     }
@@ -219,7 +222,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
 
         gc.addStorage(tablePartitionId, createWithCompleteFutureOnVacuum(invokeVacuumMethodFuture, null));
 
-        gc.onLwmChanged(new HybridTimestamp(1, 1));
+        lowWatermark.updateAndNotify(new HybridTimestamp(1, 1));
 
         assertThat(invokeVacuumMethodFuture, willCompleteSuccessfully());
         assertThat(gc.removeStorage(tablePartitionId), willCompleteSuccessfully());
@@ -237,7 +240,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
 
         gc.addStorage(tablePartitionId, createWithWaitFinishVacuum(startInvokeVacuumMethodFuture, finishInvokeVacuumMethodFuture));
 
-        gc.onLwmChanged(new HybridTimestamp(1, 1));
+        lowWatermark.updateAndNotify(new HybridTimestamp(1, 1));
 
         assertThat(startInvokeVacuumMethodFuture, willCompleteSuccessfully());
 
@@ -259,7 +262,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
 
         gc.addStorage(tablePartitionId, createWithWaitFinishVacuum(startInvokeVacuumMethodFuture, finishInvokeVacuumMethodFuture));
 
-        gc.onLwmChanged(new HybridTimestamp(1, 1));
+        lowWatermark.updateAndNotify(new HybridTimestamp(1, 1));
 
         assertThat(startInvokeVacuumMethodFuture, willCompleteSuccessfully());
 
@@ -282,7 +285,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
 
         gc.addStorage(tablePartitionId, gcUpdateHandler);
 
-        gc.onLwmChanged(new HybridTimestamp(1, 1));
+        lowWatermark.updateAndNotify(new HybridTimestamp(1, 1));
 
         assertThat(invokeVacuumMethodFuture0, willCompleteSuccessfully());
         assertThat(gc.removeStorage(tablePartitionId), willCompleteSuccessfully());
@@ -301,7 +304,6 @@ public class MvGcTest extends BaseIgniteAbstractTest {
 
         assertThrowsClosed(() -> gc.addStorage(createTablePartitionId(), createGcUpdateHandler()));
         assertThrowsClosed(() -> gc.removeStorage(createTablePartitionId()));
-        assertThrowsClosed(() -> gc.onLwmChanged(new HybridTimestamp(1, 1)));
 
         assertDoesNotThrow(gc::close);
     }
@@ -313,11 +315,11 @@ public class MvGcTest extends BaseIgniteAbstractTest {
 
         gc.close();
 
-        gc = new MvGc("test", gcConfig);
+        gc = new MvGc("test", gcConfig, lowWatermark);
 
         gc.start();
 
-        gc.onLwmChanged(new HybridTimestamp(1, 1));
+        lowWatermark.updateAndNotify(new HybridTimestamp(1, 1));
 
         for (int i = 0; i < 100; i++) {
             CountDownLatch latch = new CountDownLatch(5);
@@ -357,7 +359,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
         gc.addStorage(createTablePartitionId(), gcUpdateHandler);
 
         // Let's update the low watermark and see that we didn't start the garbage collection because we didn't reach the safe time.
-        gc.onLwmChanged(lvm);
+        lowWatermark.updateAndNotify(lvm);
 
         assertThat(invokeVacuumMethodFuture, willTimeoutFast());
         verify(safeTimeTracker).waitFor(lvm);

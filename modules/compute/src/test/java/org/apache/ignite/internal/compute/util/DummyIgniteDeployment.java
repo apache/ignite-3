@@ -118,13 +118,13 @@ public class DummyIgniteDeployment implements IgniteDeployment {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return nullCompletedFuture();
     }
 
     @Override
-    public void stop() throws Exception {
-
+    public CompletableFuture<Void> stopAsync() {
+        return nullCompletedFuture();
     }
 
     private Path path(String id, Version version) {

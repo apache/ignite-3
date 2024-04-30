@@ -123,14 +123,14 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return nullCompletedFuture();
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!closed.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -169,6 +169,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 // this future has timeout of AWAIT_CURSOR_CLOSE_ON_STOP_IN_SECONDS,
                 // so we won't be waiting forever on this join() call
                 .join();
+
+        return nullCompletedFuture();
     }
 
     private static @Nullable Throwable gatherExceptions(CompletableFuture<?>... futures) {

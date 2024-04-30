@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.client.AbstractClientTest.getClient;
 import static org.apache.ignite.client.AbstractClientTest.getClusterNodes;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,7 +29,6 @@ import java.util.stream.IntStream;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,7 +56,7 @@ public class RequestBalancingTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(server1, server2);
+        closeAll(server1, server2);
     }
 
     @Test

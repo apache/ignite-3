@@ -17,26 +17,29 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
@@ -53,7 +56,6 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -123,10 +125,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
-        assertThat(
-                allOf(components.stream().map(IgniteComponent::start).collect(toList()).toArray(CompletableFuture[]::new)),
-                willCompleteSuccessfully()
-        );
+        assertThat(startAsync(components), willCompleteSuccessfully());
     }
 
     @AfterEach
@@ -135,15 +134,20 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
             components.add(distributionZoneManager);
         }
 
-        Collections.reverse(components);
+        reverse(components);
 
-        IgniteUtils.closeAll(components.stream().map(c -> c::beforeNodeStop));
-        IgniteUtils.closeAll(components.stream().map(c -> c::stop));
+        closeAll(Stream.concat(
+                components.stream().map(c -> c::beforeNodeStop),
+                Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()))
+        ));
     }
 
     void startDistributionZoneManager() {
-        assertThat(allOf(distributionZoneManager.start()), willCompleteSuccessfully());
-        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        assertThat(
+                distributionZoneManager.startAsync()
+                        .thenCompose(unused -> metaStorageManager.deployWatches()),
+                willCompleteSuccessfully()
+        );
     }
 
     protected void createZone(
@@ -202,6 +206,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     }
 
     protected CatalogZoneDescriptor getDefaultZone() {
+        CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
+
         return DistributionZonesTestUtil.getDefaultZone(catalogManager, clock.nowLong());
     }
 }

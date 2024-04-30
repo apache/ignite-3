@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.client.handler.ItClientHandlerTestUtils.MAGIC;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.lang.ErrorGroups.Authentication.INVALID_CREDENTIALS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Authentication.UNSUPPORTED_AUTHENTICATION_TYPE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
@@ -76,7 +77,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     public void tearDown() throws Exception {
-        serverModule.stop();
+        assertThat(serverModule.stopAsync(), willCompleteSuccessfully());
         testServer.tearDown();
     }
 
@@ -134,6 +135,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             final var nodeName = unpacker.unpackString();
             unpacker.skipValue(); // Cluster id.
             unpacker.skipValue(); // Cluster name.
+            unpacker.skipValue(); // Observable timestamp.
 
             unpacker.skipValue(); // Major.
             unpacker.skipValue(); // Minor.
@@ -149,7 +151,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(72, len);
+            assertEquals(81, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
@@ -274,6 +276,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             final var nodeName = unpacker.unpackString();
             unpacker.skipValue(); // Cluster id.
             unpacker.skipValue(); // Cluster name.
+            unpacker.skipValue(); // Observable timestamp.
 
             unpacker.skipValue(); // Major.
             unpacker.skipValue(); // Minor.
@@ -288,7 +291,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(72, len);
+            assertEquals(81, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);

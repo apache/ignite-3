@@ -577,7 +577,7 @@ public class DistributionZonesTestUtil {
 
         Objects.requireNonNull(catalog);
 
-        return catalog.defaultZone();
+        return Objects.requireNonNull(catalog.defaultZone());
     }
 
     /**

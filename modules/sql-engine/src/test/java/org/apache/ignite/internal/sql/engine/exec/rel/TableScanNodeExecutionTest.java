@@ -174,15 +174,20 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new TestLowWatermark()
             );
 
-            assertThat(txManager.start(), willCompleteSuccessfully());
+            assertThat(txManager.startAsync(), willCompleteSuccessfully());
 
-            closeables.add(txManager::stop);
+            closeables.add(() -> assertThat(txManager.stopAsync(), willCompleteSuccessfully()));
 
             TestInternalTableImpl internalTable = new TestInternalTableImpl(replicaSvc, size, timestampTracker, txManager);
 
             TableRowConverter rowConverter = new TableRowConverter() {
                 @Override
-                public <RowT> BinaryRowEx toBinaryRow(ExecutionContext<RowT> ectx, RowT row, boolean key) {
+                public <RowT> BinaryRowEx toFullRow(ExecutionContext<RowT> ectx, RowT row) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public <RowT> BinaryRowEx toKeyRow(ExecutionContext<RowT> ectx, RowT row) {
                     throw new UnsupportedOperationException();
                 }
 

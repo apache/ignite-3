@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
@@ -27,7 +28,6 @@ import java.util.ArrayList;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -45,7 +45,7 @@ public class ClientLoggingTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(server, server2);
+        closeAll(server, server2);
     }
 
     @Test

@@ -118,12 +118,12 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
                 Executors.newSingleThreadExecutor()
         );
 
-        fileTransferService.start();
+        assertThat(fileTransferService.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() {
-        fileTransferService.stop();
+        assertThat(fileTransferService.stopAsync(), willCompleteSuccessfully());
     }
 
     @Test

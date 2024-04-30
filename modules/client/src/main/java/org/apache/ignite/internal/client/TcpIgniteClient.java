@@ -218,7 +218,7 @@ public class TcpIgniteClient implements IgniteClient {
         ch.close();
 
         if (metricManager != null) {
-            metricManager.stop();
+            metricManager.stopAsync().join();
         }
     }
 
