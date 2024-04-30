@@ -252,7 +252,7 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
             assertOutputContainsAny(STATES);
         }
 
-        if (partitions != DONT_CHECK_PARTITIONS && partitions != DEFAULT_PARTITION_COUNT) {
+        if (partitions != DONT_CHECK_PARTITIONS) {
             for (int i = 0; i < partitions; i++) {
                 assertOutputContains("\t" + i + "\t");
             }

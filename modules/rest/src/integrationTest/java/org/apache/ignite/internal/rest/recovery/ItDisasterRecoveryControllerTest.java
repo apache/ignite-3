@@ -286,6 +286,25 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         checkGlobalStates(response.body().states(), MIXED_CASE_ZONES);
     }
 
+    @Test
+    void testGlobalPartitionStatesByPartitions() {
+        Set<String> partitionIds = Set.of("1", "2");
+
+        String url = "state/global?partitionIds=" + String.join(",", partitionIds);
+
+        var response = client.toBlocking().exchange(url, GlobalPartitionStatesResponse.class);
+
+        assertEquals(HttpStatus.OK, response.status());
+
+        List<GlobalPartitionStateResponse> states = response.body().states();
+
+        for (GlobalPartitionStateResponse state : states) {
+            assertTrue(partitionIds.contains((String.valueOf(state.partitionId()))));
+        }
+
+        checkGlobalStates(states, ZONES_CONTAINING_TABLES);
+    }
+
     private static void checkLocalStates(List<LocalPartitionStateResponse> states, Set<String> zoneNames, Set<String> nodes) {
         assertFalse(states.isEmpty());
 

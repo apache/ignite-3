@@ -236,7 +236,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
         return localPartitionStatesInternal(zoneNames, Set.of(), partitionIds, catalog)
                 .thenApply(res -> normalizeLocal(res, catalog))
-                .thenApply(res -> assembleGlobal(res, catalog));
+                .thenApply(res -> assembleGlobal(res, partitionIds, catalog));
     }
 
     private CompletableFuture<Map<TablePartitionId, LocalPartitionStateMessageByNode>> localPartitionStatesInternal(
@@ -565,6 +565,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
     private static Map<TablePartitionId, GlobalPartitionState> assembleGlobal(
             Map<TablePartitionId, LocalPartitionStateByNode> localResult,
+            Set<Integer> partitionIds,
             Catalog catalog
     ) {
         Map<TablePartitionId, GlobalPartitionState> result = localResult.entrySet().stream()
@@ -575,6 +576,15 @@ public class DisasterRecoveryManager implements IgniteComponent {
                     return assembleGlobalStateFromLocal(catalog, tablePartitionId, map);
                 }));
 
+        if (partitionIds.isEmpty()) {
+            makeMissingPartitionsUnavailable(localResult, catalog, result);
+        }
+
+        return result;
+    }
+
+    private static void makeMissingPartitionsUnavailable(Map<TablePartitionId, LocalPartitionStateByNode> localResult, Catalog catalog,
+            Map<TablePartitionId, GlobalPartitionState> result) {
         localResult.keySet().stream()
                 .map(TablePartitionId::tableId)
                 .distinct()
@@ -583,18 +593,15 @@ public class DisasterRecoveryManager implements IgniteComponent {
                     CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
                     int partitions = zoneDescriptor.partitions();
 
-                    // Make missing partitions explicitly unavailable.
                     for (int partitionId = 0; partitionId < partitions; partitionId++) {
                         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
 
                         result.computeIfAbsent(tablePartitionId, key ->
-                                new GlobalPartitionState(catalog.table(key.tableId()).name(), zoneDescriptor.name(),  key.partitionId(),
+                                new GlobalPartitionState(catalog.table(key.tableId()).name(), zoneDescriptor.name(), key.partitionId(),
                                         GlobalPartitionStateEnum.UNAVAILABLE)
                         );
                     }
                 });
-
-        return result;
     }
 
     private static GlobalPartitionState assembleGlobalStateFromLocal(
