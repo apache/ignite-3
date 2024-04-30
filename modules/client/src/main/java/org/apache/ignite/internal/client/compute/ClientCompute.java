@@ -252,7 +252,8 @@ public class ClientCompute implements IgniteCompute {
 
     @Override
     public <R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
-        return null;
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22124
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     @Override
