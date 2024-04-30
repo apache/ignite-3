@@ -52,8 +52,8 @@ import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
-import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionImplementor;
-import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionProvider;
+import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunction;
+import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractSetOpNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.CorrelatedNestedLoopJoinNode;
@@ -150,6 +150,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
     private final ResolvedDependencies resolvedDependencies;
 
+    private final TableFunctionRegistry tableFunctionRegistry;
+
     /**
      * Constructor.
      *
@@ -157,16 +159,20 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
      * @param mailboxRegistry Mailbox registry.
      * @param exchangeSvc Exchange service.
      * @param resolvedDependencies Dependencies required to execute this query.
+     * @param tableFunctionRegistry Table function registry.
      */
     public LogicalRelImplementor(
             ExecutionContext<RowT> ctx,
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSvc,
-            ResolvedDependencies resolvedDependencies) {
+            ResolvedDependencies resolvedDependencies,
+            TableFunctionRegistry tableFunctionRegistry
+    ) {
         this.mailboxRegistry = mailboxRegistry;
         this.exchangeSvc = exchangeSvc;
         this.ctx = ctx;
         this.resolvedDependencies = resolvedDependencies;
+        this.tableFunctionRegistry = tableFunctionRegistry;
 
         expressionFactory = ctx.expressionFactory();
         destinationFactory = new DestinationFactory<>(ctx.rowHandler(), resolvedDependencies);
@@ -670,9 +676,9 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteTableFunctionScan rel) {
-        TableFunctionImplementor converter = new TableFunctionProvider();
+        TableFunction<RowT> tableFunction = tableFunctionRegistry.getTableFunction(ctx, (RexCall) rel.getCall());
 
-        return new ScanNode<>(ctx, converter.toTableFunction(ctx, (RexCall) rel.getCall()));
+        return new ScanNode<>(ctx, tableFunction);
     }
 
     /** {@inheritDoc} */

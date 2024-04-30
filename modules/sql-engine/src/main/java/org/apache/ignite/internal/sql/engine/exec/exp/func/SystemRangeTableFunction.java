@@ -28,7 +28,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link IgniteSqlOperatorTable#SYSTEM_RANGE system range function}. */
-public final class SystemRangeFunction<RowT> implements TableFunction<RowT> {
+public final class SystemRangeTableFunction<RowT> implements TableFunction<RowT> {
 
     private final RowSchema rowSchema = RowSchema.builder()
             .addField(NativeTypes.INT64)
@@ -41,9 +41,9 @@ public final class SystemRangeFunction<RowT> implements TableFunction<RowT> {
     private final Supplier<Long> incrementExpr;
 
     /** Constructor. */
-    public SystemRangeFunction(Supplier<Long> startExpr,  Supplier<Long> endExpr, @Nullable Supplier<Long> incrementExpr) {
+    public SystemRangeTableFunction(Supplier<Long> startExpr,  Supplier<Long> endExpr, @Nullable Supplier<Long> incrementExpr) {
         this.startExpr = Objects.requireNonNull(startExpr, "startExpr");
-        this.endExpr =  Objects.requireNonNull(endExpr, "endExpr");
+        this.endExpr = Objects.requireNonNull(endExpr, "endExpr");
         this.incrementExpr = incrementExpr != null ? incrementExpr : () -> 1L;
     }
 

@@ -55,6 +55,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
@@ -138,6 +139,8 @@ public class TestNode implements LifecycleAware {
                 tableRegistry, view -> () -> systemViewManager.scanView(view.name())
         );
 
+        TableFunctionRegistryImpl tableFunctionRegistry = new TableFunctionRegistryImpl();
+
         executionService = registerService(ExecutionServiceImpl.create(
                 topologyService,
                 messageService,
@@ -150,6 +153,7 @@ public class TestNode implements LifecycleAware {
                 mappingService,
                 tableRegistry,
                 dependencyResolver,
+                tableFunctionRegistry,
                 clockService,
                 5_000
         ));

@@ -20,9 +20,16 @@ package org.apache.ignite.internal.sql.engine.exec.exp.func;
 import org.apache.calcite.rex.RexCall;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
-/** Provides implementations of table functions. */
-public interface TableFunctionImplementor {
+/** Registry of available table functions. */
+public interface TableFunctionRegistry {
 
-    /** Converts the given rex call to a {@link TableFunction table function implementation}. */
-    <RowT> TableFunction<RowT> toTableFunction(ExecutionContext<RowT> ctx, RexCall rexCall);
+    /**
+     * Returns implementation of the given table function call.
+     *
+     * @param <RowT> Row type.
+     * @param ctx Context.
+     * @param rexCall Table function call.
+     * @return Table function implementation.
+     */
+    <RowT> TableFunction<RowT> getTableFunction(ExecutionContext<RowT> ctx, RexCall rexCall);
 }

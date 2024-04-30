@@ -175,6 +175,19 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
                 Sql.RUNTIME_ERR,
                 "Increment can't be 0",
                 () -> sql("SELECT * FROM table(system_range(1, 1, 0))"));
+
+        assertQuery("SELECT (SELECT * FROM table(system_range(4, 1)))")
+                .returns(null)
+                .check();
+
+        assertQuery("SELECT (SELECT * FROM table(system_range(1, 1)))")
+                .returns(1L)
+                .check();
+
+        assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "Subquery returned more than 1 value",
+                () -> sql("SELECT (SELECT * FROM table(system_range(1, 10)))"));
     }
 
     @Test

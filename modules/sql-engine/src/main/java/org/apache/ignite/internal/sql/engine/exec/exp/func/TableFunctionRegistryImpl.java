@@ -23,31 +23,32 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
+import org.jetbrains.annotations.Nullable;
 
-/** Converts table functions to their implementations. */
-public class TableFunctionProvider implements TableFunctionImplementor {
+/** Implementation of {@link TableFunctionRegistry} */
+public class TableFunctionRegistryImpl implements TableFunctionRegistry {
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> TableFunction<RowT> toTableFunction(ExecutionContext<RowT> ctx, RexCall rexCall) {
+    public <RowT> TableFunction<RowT> getTableFunction(ExecutionContext<RowT> ctx, RexCall rexCall) {
         if (rexCall.getOperator() == IgniteSqlOperatorTable.SYSTEM_RANGE) {
-            Supplier<Long> start = implementExpr(ctx.expressionFactory(), rexCall.operands.get(0));
-            Supplier<Long> end = implementExpr(ctx.expressionFactory(), rexCall.operands.get(1));
+            Supplier<Long> start = implementGetLongExpr(ctx.expressionFactory(), rexCall.operands.get(0));
+            Supplier<Long> end = implementGetLongExpr(ctx.expressionFactory(), rexCall.operands.get(1));
             Supplier<Long> increment;
 
             if (rexCall.operands.size() > 2) {
-                increment = implementExpr(ctx.expressionFactory(), rexCall.operands.get(2));
+                increment = implementGetLongExpr(ctx.expressionFactory(), rexCall.operands.get(2));
             } else {
                 increment = null;
             }
 
-            return new SystemRangeFunction<>(start, end, increment);
+            return new SystemRangeTableFunction<>(start, end, increment);
         } else {
             throw new IllegalArgumentException("Unsupported table function: " + rexCall.getOperator());
         }
     }
 
-    private static <RowT> Supplier<Long> implementExpr(ExpressionFactory<RowT> expressionFactory, RexNode expr) {
+    private static <RowT> @Nullable Supplier<Long> implementGetLongExpr(ExpressionFactory<RowT> expressionFactory, RexNode expr) {
         if (expr == null) {
             return null;
         }

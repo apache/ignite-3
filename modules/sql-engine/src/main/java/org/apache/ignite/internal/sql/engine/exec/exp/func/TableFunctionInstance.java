@@ -25,10 +25,7 @@ import java.util.NoSuchElementException;
  *
  * @param <RowT> Row type.
  */
-public interface TableFunctionInstance<RowT> extends Iterator<RowT> {
-
-    /** Releases resources associated with this instance. */
-    void close();
+public interface TableFunctionInstance<RowT> extends Iterator<RowT>, AutoCloseable {
 
     /** Returns a table function that always produces no results. */
     static <RowT> TableFunctionInstance<RowT> empty() {
