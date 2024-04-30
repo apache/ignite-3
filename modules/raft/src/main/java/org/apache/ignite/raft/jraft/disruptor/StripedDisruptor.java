@@ -29,6 +29,7 @@ import com.lmax.disruptor.dsl.ProducerType;
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -47,6 +48,9 @@ import org.jetbrains.annotations.Nullable;
 public class StripedDisruptor<T extends NodeIdAware> {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(StripedDisruptor.class);
+
+    /** The counter is used to generate the next stripe to subscribe to in order to be a round-robin hash. */
+    private final AtomicInteger incrementalCounter = new AtomicInteger();
 
     /** Array of disruptors. Each Disruptor in the appropriate stripe. */
     private final Disruptor<T>[] disruptors;
@@ -152,7 +156,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
                 .setWaitStrategy(useYieldStrategy ? new YieldingWaitStrategy() : new BlockingWaitStrategy())
                 .build();
 
-            eventHandlers.add(new StripeEntryHandler());
+            eventHandlers.add(new StripeEntryHandler(i));
             exceptionHandlers.add(new StripeExceptionHandler(name));
 
             disruptor.handleEventsWith(eventHandlers.get(i));
@@ -202,12 +206,16 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @return Disruptor queue appropriate to the group.
      */
     public RingBuffer<T> subscribe(NodeId nodeId, EventHandler<T> handler, BiConsumer<T, Throwable> exceptionHandler) {
-        eventHandlers.get(getStripe(nodeId)).subscribe(nodeId, handler);
+        assert getStripe(nodeId) == -1 : "The double subscriber for the one replication group [nodeId=" + nodeId + "].";
+
+        int stripeId = nextStripeToSubscribe();
+
+        eventHandlers.get(stripeId).subscribe(nodeId, handler);
 
         if (exceptionHandler != null)
-            exceptionHandlers.get(getStripe(nodeId)).subscribe(nodeId, exceptionHandler);
+            exceptionHandlers.get(stripeId).subscribe(nodeId, exceptionHandler);
 
-        return queues[getStripe(nodeId)];
+        return queues[stripeId];
     }
 
     /**
@@ -216,18 +224,37 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param nodeId Node id.
      */
     public void unsubscribe(NodeId nodeId) {
-        eventHandlers.get(getStripe(nodeId)).unsubscribe(nodeId);
-        exceptionHandlers.get(getStripe(nodeId)).unsubscribe(nodeId);
+        int stripeId = getStripe(nodeId);
+
+        assert stripeId != -1 : "The replication group has not subscribed yet [nodeId=" + nodeId + "].";
+
+        eventHandlers.get(stripeId).unsubscribe(nodeId);
+        exceptionHandlers.get(stripeId).unsubscribe(nodeId);
     }
 
     /**
-     * Determines a stripe by a node id and returns a stripe number.
+     * If the replication group is already subscribed, this method determines a stripe by a node id and returns a stripe number.
+     * If the replication group did not subscribed yet, this method returns {@code -1};
      *
      * @param nodeId Node id.
      * @return Stripe of the Striped disruptor.
      */
     public int getStripe(NodeId nodeId) {
-        return Math.abs(nodeId.hashCode() % stripes);
+        for (StripeEntryHandler handler : eventHandlers) {
+            if (handler.isSubscribed(nodeId)) {
+                return handler.stripeId;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Generates the next stripe number in a round-robin manner.
+     * @return The stripe number.
+     */
+    private int nextStripeToSubscribe() {
+        return Math.abs(incrementalCounter.getAndIncrement() % stripes);
     }
 
     /**
@@ -237,7 +264,11 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @return Disruptor queue appropriate to the group.
      */
     public RingBuffer<T> queue(NodeId nodeId) {
-        return queues[getStripe(nodeId)];
+        int stripeId = getStripe(nodeId);
+
+        assert stripeId != -1 : "The replication group has not subscribed yet [nodeId=" + nodeId + "].";
+
+        return queues[stripeId];
     }
 
     /**
@@ -245,16 +276,28 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * It routs an event to the event handler for a group.
      */
     private class StripeEntryHandler implements EventHandler<T> {
-        private final ConcurrentHashMap<NodeId, EventHandler<T>> subscribers;
+        private final ConcurrentHashMap<NodeId, EventHandler<T>> subscribers = new ConcurrentHashMap<>();
 
         /** Size of the batch that is currently being handled. */
         private int currentBatchSize = 0;
 
+        /** Stripe id. */
+        private final int stripeId;
+
         /**
          * The constructor.
          */
-        StripeEntryHandler() {
-            subscribers = new ConcurrentHashMap<>();
+        StripeEntryHandler(int stripeId) {
+            this.stripeId = stripeId;
+        }
+
+        /**
+         * Checks the replication group is subscribed to this stripe or not.
+         * @param nodeId Replication group node id.
+         * @return True if the group is subscribed, false otherwise.
+         */
+        public boolean isSubscribed(NodeId nodeId) {
+            return subscribers.containsKey(nodeId);
         }
 
         /**
@@ -283,7 +326,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
             // TODO: IGNITE-20536 Need to add assert that handler is not null and to implement a no-op handler.
             if (handler != null) {
                 if (metrics != null && metrics.enabled()) {
-                    metrics.hitToStripe(getStripe(event.nodeId()));
+                    metrics.hitToStripe(stripeId);
 
                     if (endOfBatch) {
                         metrics.addBatchSize(currentBatchSize + 1);
