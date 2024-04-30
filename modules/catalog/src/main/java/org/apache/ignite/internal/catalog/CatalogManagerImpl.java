@@ -48,7 +48,6 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCatalogCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
-import org.apache.ignite.internal.catalog.commands.CreateSchemaCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -160,26 +159,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public CompletableFuture<Void> startAsync() {
         int objectIdGen = 0;
 
-        // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
-//        CatalogSchemaDescriptor publicSchema = new CatalogSchemaDescriptor(
-//                objectIdGen++,
-//                DEFAULT_SCHEMA_NAME,
-//                new CatalogTableDescriptor[0],
-//                new CatalogIndexDescriptor[0],
-//                new CatalogSystemViewDescriptor[0],
-//                INITIAL_CAUSALITY_TOKEN
-//        );
-//
-//        // TODO: IGNITE-19082 Move system schema objects initialization to cluster init procedure.
-//        CatalogSchemaDescriptor systemSchema = new CatalogSchemaDescriptor(
-//                objectIdGen++,
-//                SYSTEM_SCHEMA_NAME,
-//                new CatalogTableDescriptor[0],
-//                new CatalogIndexDescriptor[0],
-//                new CatalogSystemViewDescriptor[0],
-//                INITIAL_CAUSALITY_TOKEN
-//        );
-
         Catalog emptyCatalog = new Catalog(0, 0L, objectIdGen, List.of(), List.of(), null);
 
         registerCatalog(emptyCatalog);
@@ -189,9 +168,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return updateLog.startAsync()
                 .thenCompose(none -> {
                     if (latestCatalogVersion() == emptyCatalog.version()) {
-                        // node has not seen any updates yet, let's try to initialise
-                        // catalog with default zone
-                        return createDefaultZone(emptyCatalog);
+                        return initCatalog(emptyCatalog);
                     }
 
                     return nullCompletedFuture();
@@ -365,8 +342,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return updateLog.saveSnapshot(new SnapshotEntry(catalog));
     }
 
-    private CompletableFuture<Void> createDefaultZone(Catalog emptyCatalog) {
-        List<CatalogCommand> commands = List.of(
+    private CompletableFuture<Void> initCatalog(Catalog emptyCatalog) {
+        List<CatalogCommand> initCommands = List.of(
+                // Init default zone
                 CreateZoneCommand.builder()
                         .zoneName(DEFAULT_ZONE_NAME)
                         .partitions(DEFAULT_PARTITION_COUNT)
@@ -381,11 +359,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 AlterZoneSetDefaultCatalogCommand.builder()
                         .zoneName(DEFAULT_ZONE_NAME)
                         .build(),
+                // Add schemas
                 CreateSchemaCommand.builder().name(DEFAULT_SCHEMA_NAME).build(),
                 CreateSchemaCommand.builder().name(SYSTEM_SCHEMA_NAME).build()
         );
 
-        List<UpdateEntry> entries = new BulkUpdateProducer(commands).get(emptyCatalog);
+        List<UpdateEntry> entries = new BulkUpdateProducer(initCommands).get(emptyCatalog);
 
         return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, entries))
                 .handle((result, error) -> {
