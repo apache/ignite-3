@@ -1199,7 +1199,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertFalse(createTableFuture2.isDone());
 
-        verify(clockWaiter, timeout(10_000).times(2)).waitFor(any());
+        verify(clockWaiter, timeout(10_000).times(3)).waitFor(any());
 
         Catalog catalog0 = manager.catalog(manager.latestCatalogVersion());
 

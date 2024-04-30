@@ -39,10 +39,12 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.only;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -70,6 +72,7 @@ import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -86,14 +89,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     private static final String LOCAL_NODE_NAME = "LOCAL_NODE_NAME";
 
-    @Mock
-    private CatalogManager catalog;
+    private final CatalogManager catalog = Mockito.mock(CatalogManager.class);
 
     private SystemViewManagerImpl viewMgr;
 
     @BeforeEach
     void setUp() {
         viewMgr = new SystemViewManagerImpl(LOCAL_NODE_NAME, catalog);
+
+        when(catalog.catalogInitializationFuture()).thenReturn(CompletableFuture.completedFuture(null));
+        when(catalog.catalogReadyFuture(1)).thenReturn(CompletableFuture.completedFuture(null));
     }
 
     @Test
@@ -119,13 +124,14 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void startAfterStartFails() {
-        Mockito.when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
+        when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         viewMgr.register(() -> List.of(dummyView("test")));
 
         assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
 
-        verify(catalog, only()).execute(anyList());
+        verify(catalog, times(1)).execute(anyList());
+        reset(catalog);
 
         assertThrows(IllegalStateException.class, viewMgr::startAsync);
 
@@ -148,12 +154,12 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     public void registerAllColumnTypes(NativeTypeSpec typeSpec) {
         NativeType type = SchemaTestUtils.specToType(typeSpec);
 
-        Mockito.when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
+        when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         viewMgr.register(() -> List.of(dummyView("test", type)));
         assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
 
-        verify(catalog, only()).execute(anyList());
+        verify(catalog, times(1)).execute(anyList());
         assertTrue(viewMgr.completeRegistration().isDone());
     }
 
@@ -161,20 +167,20 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     public void managerStartsSuccessfullyEvenIfCatalogRespondsWithError() {
         CatalogValidationException expected = new CatalogValidationException("Expected exception.");
 
-        Mockito.when(catalog.execute(anyList())).thenReturn(failedFuture(expected));
+        when(catalog.execute(anyList())).thenReturn(failedFuture(expected));
 
         viewMgr.register(() -> List.of(dummyView("test")));
 
         assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
 
-        verify(catalog, only()).execute(anyList());
+        verify(catalog, times(1)).execute(anyList());
 
         assertThat(viewMgr.completeRegistration(), willBe(nullValue()));
     }
 
     @Test
     public void nodeAttributesUpdatedAfterStart() {
-        Mockito.when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
+        when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         String name1 = "view1";
         String name2 = "view2";
@@ -184,9 +190,6 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         assertThat(viewMgr.nodeAttributes(), aMapWithSize(0));
 
         assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
-
-        verify(catalog, only()).execute(anyList());
-        verifyNoMoreInteractions(catalog);
 
         assertThat(viewMgr.nodeAttributes(), is(Map.of(NODE_ATTRIBUTES_KEY, String.join(NODE_ATTRIBUTES_LIST_SEPARATOR, name1.toUpperCase(
                 Locale.ROOT), name2.toUpperCase(Locale.ROOT)))));
@@ -251,7 +254,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void viewScanTest() {
-        Mockito.when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
+        when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         String nodeView = "NODE_VIEW";
         String clusterView = "CLUSTER_VIEW";
