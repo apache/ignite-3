@@ -28,8 +28,6 @@ import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writ
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.Storable;
-import org.apache.ignite.internal.pagememory.io.DataPageIo;
-import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
@@ -162,11 +160,6 @@ public final class RowVersion implements Storable {
     public int headerSize() {
         return HYBRID_TIMESTAMP_SIZE + DATA_TYPE_SIZE_BYTES + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES
                 + SCHEMA_VERSION_SIZE_BYTES;
-    }
-
-    @Override
-    public IoVersions<DataPageIo> ioVersions() {
-        return DataPageIo.VERSIONS;
     }
 
     @Override

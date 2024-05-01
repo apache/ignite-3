@@ -558,7 +558,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                 if (pageId == 0L) {
                     pageId = allocateDataPage(row.partition());
 
-                    initIo = row.ioVersions().latest();
+                    initIo = DataPageIo.VERSIONS.latest();
                 }
 
                 written = write(pageId, writeRowsHnd, initIo, it, written, FAIL_I, statHolder);
@@ -639,7 +639,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
         if (pageId == 0L) {
             pageId = allocateDataPage(row.partition());
 
-            initIo = row.ioVersions().latest();
+            initIo = DataPageIo.VERSIONS.latest();
         }
 
         written = write(pageId, writeRowHnd, initIo, row, written, FAIL_I, statHolder);
@@ -663,7 +663,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
 
         if (size < minSizeForDataPage) {
             for (int b = bucket(size, false) + 1; b < REUSE_BUCKET; b++) {
-                pageId = takeEmptyPage(b, row.ioVersions(), statHolder);
+                pageId = takeEmptyPage(b, DataPageIo.VERSIONS, statHolder);
 
                 if (pageId != 0L) {
                     break;
@@ -673,12 +673,12 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
 
         if (pageId == 0L) { // Handle reuse bucket.
             if (reuseList == this) {
-                pageId = takeEmptyPage(REUSE_BUCKET, row.ioVersions(), statHolder);
+                pageId = takeEmptyPage(REUSE_BUCKET, DataPageIo.VERSIONS, statHolder);
             } else {
                 pageId = reuseList.takeRecycledPage();
 
                 if (pageId != 0) {
-                    pageId = reuseList.initRecycledPage(pageId, FLAG_DATA, row.ioVersions().latest());
+                    pageId = reuseList.initRecycledPage(pageId, FLAG_DATA, DataPageIo.VERSIONS.latest());
                 }
             }
         }
@@ -688,7 +688,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
         }
 
         assert PageIdUtils.flag(pageId) == FLAG_DATA
-                : "rowVersions=" + row.ioVersions() + ", pageId=" + PageIdUtils.toDetailString(pageId);
+                : "rowVersions=" + DataPageIo.VERSIONS + ", pageId=" + PageIdUtils.toDetailString(pageId);
 
         return PageIdUtils.changePartitionId(pageId, row.partition());
     }
@@ -716,7 +716,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                         reusedPageAddr,
                         row.partition(),
                         FLAG_DATA,
-                        row.ioVersions().latest()
+                        DataPageIo.VERSIONS.latest()
                 );
             } finally {
                 writeUnlock(reusedPageId, reusedPage, reusedPageAddr, true);

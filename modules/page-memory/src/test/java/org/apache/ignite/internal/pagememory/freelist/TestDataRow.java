@@ -20,8 +20,6 @@ package org.apache.ignite.internal.pagememory.freelist;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.Storable;
-import org.apache.ignite.internal.pagememory.io.DataPageIo;
-import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 
 /**
@@ -69,12 +67,6 @@ class TestDataRow implements Storable {
     @Override
     public int headerSize() {
         return 0;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IoVersions<DataPageIo> ioVersions() {
-        return DataPageIo.VERSIONS;
     }
 
     @Override

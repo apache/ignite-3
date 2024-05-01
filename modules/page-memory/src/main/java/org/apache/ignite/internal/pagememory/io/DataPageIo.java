@@ -1002,7 +1002,6 @@ public class DataPageIo extends PageIo {
      * @param row Data row.
      * @param rowSize Row size.
      * @param pageSize Page size.
-     * @throws IgniteInternalCheckedException If failed.
      */
     public void addRow(
             final long pageId,
@@ -1010,7 +1009,7 @@ public class DataPageIo extends PageIo {
             Storable row,
             final int rowSize,
             final int pageSize
-    ) throws IgniteInternalCheckedException {
+    ) {
         assert rowSize <= getFreeSpace(pageAddr) : "can't call addRow if not enough space for the whole row";
         assert rowSize <= 0xFFFF : "Row size is too big: " + rowSize;
         assertPageType(pageAddr);
@@ -1022,7 +1021,7 @@ public class DataPageIo extends PageIo {
 
         int dataOff = getDataOffsetForWrite(pageAddr, fullEntrySize, directCnt, indirectCnt, pageSize);
 
-        writeRowData(pageAddr, dataOff, rowSize, row, true);
+        row.writeRowData(pageAddr, dataOff, rowSize, true, this::assertPageType);
 
         int itemId = addItem(pageAddr, fullEntrySize, directCnt, indirectCnt, dataOff, pageSize);
 
@@ -1161,7 +1160,7 @@ public class DataPageIo extends PageIo {
 
         int rowOff = rowSize - written - payloadSize;
 
-        writeFragmentData(row, buf, rowOff, payloadSize);
+        row.writeFragmentData(buf, rowOff, payloadSize, this::assertPageType);
 
         int itemId = addItem(pageAddr, fullEntrySize, directCnt, indirectCnt, dataOff, pageSize);
 
@@ -1181,70 +1180,6 @@ public class DataPageIo extends PageIo {
      */
     private void setLinkByPageId(Storable row, long pageId, int itemId) {
         row.link(PageIdUtils.link(pageId, itemId));
-    }
-
-    /**
-     * Writes row data fragment.
-     *
-     * @param row Row.
-     * @param pageBuf Byte buffer.
-     * @param rowOff Offset in row data bytes.
-     * @param payloadSize Data length that should be written in a fragment.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    protected void writeFragmentData(
-            Storable row,
-            ByteBuffer pageBuf,
-            int rowOff,
-            int payloadSize
-    ) throws IgniteInternalCheckedException {
-        assertPageType(pageBuf);
-
-        int headerSize = row.headerSize();
-
-        int bufferOffset;
-        int bufferSize;
-        if (rowOff == 0) {
-            // First fragment.
-            assert headerSize <= payloadSize : "Header must entirely fit in the first fragment, but header size is "
-                    + headerSize + " and payload size is " + payloadSize;
-
-            row.writeHeader(pageBuf);
-
-            bufferOffset = 0;
-            bufferSize = payloadSize - row.valueOffset();
-        } else {
-            // Not a first fragment.
-            assert rowOff >= row.headerSize();
-
-            bufferOffset = rowOff - row.valueOffset();
-            bufferSize = payloadSize;
-        }
-
-        if (row.valueBuffer() != null) {
-            putValueBufferIntoPage(pageBuf, row.valueBuffer(), bufferOffset, bufferSize);
-        }
-    }
-
-    /**
-     * Writes a content of a byte buffer into a page.
-     *
-     * @param pageBuffer Direct page buffer.
-     * @param valueBuffer Byte buffer with value bytes.
-     * @param offset Offset within the value buffer.
-     * @param payloadSize Number of bytes to write.
-     */
-    protected static void putValueBufferIntoPage(ByteBuffer pageBuffer, ByteBuffer valueBuffer, int offset, int payloadSize) {
-        int oldPosition = valueBuffer.position();
-        int oldLimit = valueBuffer.limit();
-
-        valueBuffer.position(offset);
-        valueBuffer.limit(offset + payloadSize);
-
-        pageBuffer.put(valueBuffer);
-
-        valueBuffer.position(oldPosition);
-        valueBuffer.limit(oldLimit);
     }
 
     /**
@@ -1414,33 +1349,6 @@ public class DataPageIo extends PageIo {
                 + ", cap=" + pageSize + ']';
 
         PageUtils.copyMemory(addr, off, addr, off + step, cnt);
-    }
-
-    /**
-     * Writes a row.
-     *
-     * @param pageAddr Page address.
-     * @param dataOff Data offset.
-     * @param payloadSize Payload size.
-     * @param row Data row.
-     * @param newRow {@code False} if existing cache entry is updated, in this case skip key data write.
-     */
-    protected void writeRowData(
-            long pageAddr,
-            int dataOff,
-            int payloadSize,
-            Storable row,
-            boolean newRow
-    ) {
-        assertPageType(pageAddr);
-
-        if (newRow) {
-            putShort(pageAddr, dataOff, (short) payloadSize);
-        }
-
-        int offset = dataOff + Short.BYTES;
-
-        row.writeToPage(pageAddr, offset);
     }
 
     @Override

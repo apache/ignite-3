@@ -25,8 +25,6 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.Storable;
-import org.apache.ignite.internal.pagememory.io.DataPageIo;
-import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -115,11 +113,6 @@ public class IndexColumns implements Storable {
     }
 
     @Override
-    public IoVersions<DataPageIo> ioVersions() {
-        return DataPageIo.VERSIONS;
-    }
-
-    @Override
     public void writeHeader(ByteBuffer pageBuf) {
         pageBuf.put(DATA_TYPE);
         pageBuf.putInt(valueSize());
@@ -131,7 +124,7 @@ public class IndexColumns implements Storable {
 
         putInt(pageAddr, offset + SIZE_OFFSET, valueSize());
 
-        putByteBuffer(pageAddr, offset + VALUE_OFFSET, valueBuffer());
+        putByteBuffer(pageAddr, offset + VALUE_OFFSET, valueBuffer);
     }
 
     @Override

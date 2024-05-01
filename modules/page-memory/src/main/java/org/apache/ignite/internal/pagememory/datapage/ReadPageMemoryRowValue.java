@@ -77,6 +77,7 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
         }
     }
 
+    /** Returns type of the data row. */
     protected abstract byte dataType();
 
     private int readValueSize(long pageAddr, DataPagePayload payload) {
