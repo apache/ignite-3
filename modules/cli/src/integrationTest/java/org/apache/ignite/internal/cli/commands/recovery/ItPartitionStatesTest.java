@@ -21,25 +21,24 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_LOCAL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_NODE_NAMES_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_GLOBAL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_LOCAL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAMES_OPTION;
 
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
-import org.apache.ignite.internal.cli.commands.recovery.partitions.PartitionStatesCommand;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** Tests for {@link PartitionStatesCommand}. */
-public class ItPartitionStatesTest extends CliIntegrationTest {
+/** Base test class for Recovery partition states commands. */
+public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     private static final int DEFAULT_PARTITION_COUNT = 25;
 
     private static final Set<String> ZONES = Set.of("first_ZONE", "second_ZONE", "third_ZONE");
@@ -72,11 +71,9 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void testPartitionStates(boolean global) {
-        execute("recovery", "partition-states",
-                CLUSTER_URL_OPTION, NODE_URL,
-                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_LOCAL_OPTION,
-                PLAIN_OPTION
-        );
+        execute(CLUSTER_URL_OPTION, NODE_URL,
+                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_PARTITION_LOCAL_OPTION,
+                PLAIN_OPTION);
 
         checkOutput(global, ZONES_CONTAINING_TABLES, nodeNames, DEFAULT_PARTITION_COUNT);
     }
@@ -84,10 +81,9 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void testPartitionStatesByZones(boolean global) {
-        execute("recovery", "partition-states",
-                CLUSTER_URL_OPTION, NODE_URL,
+        execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_ZONE_NAMES_OPTION, String.join(",", ZONES),
-                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_LOCAL_OPTION,
+                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_PARTITION_LOCAL_OPTION,
                 PLAIN_OPTION
         );
 
@@ -99,10 +95,9 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
     void testPartitionStatesByPartitions(boolean global) {
         String partitions = "0,1";
 
-        execute("recovery", "partition-states",
-                CLUSTER_URL_OPTION, NODE_URL,
+        execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_PARTITION_IDS_OPTION, partitions,
-                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_LOCAL_OPTION,
+                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_PARTITION_LOCAL_OPTION,
                 PLAIN_OPTION
         );
 
@@ -113,10 +108,9 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
     void testLocalPartitionStatesByNodes() {
         Set<String> nodes = nodeNames.stream().limit(nodeNames.size() - 1).collect(toSet());
 
-        execute("recovery", "partition-states",
-                CLUSTER_URL_OPTION, NODE_URL,
+        execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_NODE_NAMES_OPTION, String.join(",", nodes),
-                RECOVERY_LOCAL_OPTION,
+                RECOVERY_PARTITION_LOCAL_OPTION,
                 PLAIN_OPTION
         );
 
@@ -129,10 +123,9 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
 
         String url = "state/local?nodeNames=" + String.join(",", nodeNames).toUpperCase();
 
-        execute("recovery", "partition-states",
-                CLUSTER_URL_OPTION, NODE_URL,
+        execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_NODE_NAMES_OPTION, String.join(",", nodeNames).toUpperCase(),
-                RECOVERY_LOCAL_OPTION,
+                RECOVERY_PARTITION_LOCAL_OPTION,
                 PLAIN_OPTION
         );
 
@@ -146,10 +139,9 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void testPartitionStatesZonesMixedCase(boolean global) {
-        execute("recovery", "partition-states",
-                CLUSTER_URL_OPTION, NODE_URL,
+        execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_ZONE_NAMES_OPTION, String.join(",", MIXED_CASE_ZONES),
-                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_LOCAL_OPTION,
+                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_PARTITION_LOCAL_OPTION,
                 PLAIN_OPTION
         );
 
@@ -161,10 +153,9 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
     void testPartitionStatesMissingZone(boolean global) {
         String unknownZone = "UNKNOWN_ZONE";
 
-        execute("recovery", "partition-states",
-                CLUSTER_URL_OPTION, NODE_URL,
+        execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_ZONE_NAMES_OPTION, unknownZone,
-                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_LOCAL_OPTION,
+                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_PARTITION_LOCAL_OPTION,
                 PLAIN_OPTION
         );
 
@@ -178,10 +169,9 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
     void testPartitionStatesMissingPartition(boolean global) {
         String unknownPartition = "-1";
 
-        execute("recovery", "partition-states",
-                CLUSTER_URL_OPTION, NODE_URL,
+        execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_PARTITION_IDS_OPTION, unknownPartition,
-                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_LOCAL_OPTION,
+                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_PARTITION_LOCAL_OPTION,
                 PLAIN_OPTION
         );
 
@@ -194,10 +184,9 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
     void testPartitionStatesMissingNode() {
         String unknownNode = "unknown_node";
 
-        execute("recovery", "partition-states",
-                CLUSTER_URL_OPTION, NODE_URL,
+        execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_NODE_NAMES_OPTION, unknownNode,
-                RECOVERY_LOCAL_OPTION, PLAIN_OPTION
+                RECOVERY_PARTITION_LOCAL_OPTION, PLAIN_OPTION
         );
 
         assertErrOutputContains("Some nodes are missing: [unknown_node]");
@@ -208,14 +197,51 @@ public class ItPartitionStatesTest extends CliIntegrationTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void testPartitionStatesEmptyResult(boolean global) {
-        execute("recovery", "partition-states",
-                CLUSTER_URL_OPTION, NODE_URL,
+        execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_ZONE_NAMES_OPTION, EMPTY_ZONE,
-                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_LOCAL_OPTION,
+                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_PARTITION_LOCAL_OPTION,
                 PLAIN_OPTION
         );
 
         checkOutput(global, Set.of(), Set.of(), 0);
+    }
+
+    @Test
+    void testOutputFormatGlobal() {
+        String zoneName = ZONES.stream().findAny().get();
+
+        execute(CLUSTER_URL_OPTION, NODE_URL,
+                RECOVERY_PARTITION_GLOBAL_OPTION,
+                RECOVERY_ZONE_NAMES_OPTION, zoneName,
+                RECOVERY_PARTITION_IDS_OPTION, "1",
+                PLAIN_OPTION);
+
+        assertErrOutputIsEmpty();
+        assertOutputMatches(String.format(
+                "Zone name\tTable name\tPartition ID\tState\r\n%1$s\t%1$s_table\t1\t(HEALTHY|AVAILABLE)\r\n",
+                zoneName));
+    }
+
+    @Test
+    void testOutputFormatLocal() {
+        String zoneName = ZONES.stream().findAny().get();
+
+        String possibleNodeNames = String.join("|", nodeNames);
+
+        execute(CLUSTER_URL_OPTION, NODE_URL,
+                RECOVERY_ZONE_NAMES_OPTION, zoneName,
+                RECOVERY_PARTITION_IDS_OPTION, "1",
+                RECOVERY_PARTITION_LOCAL_OPTION,
+                PLAIN_OPTION
+        );
+
+        assertErrOutputIsEmpty();
+
+        assertOutputMatches(String.format(
+                "Node name\tZone name\tTable name\tPartition ID\tState\r\n(%1$s)\t%2$s\t%2$s_table\t1\t(HEALTHY|AVAILABLE)\r\n",
+                possibleNodeNames,
+                zoneName)
+        );
     }
 
     private void checkOutput(boolean global, Set<String> zoneNames, Set<String> nodes, int partitions) {

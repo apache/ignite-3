@@ -287,9 +287,9 @@ public enum Options {
 
         public static final String RECOVERY_PARTITION_GLOBAL_OPTION_DESC = "Get global partitions states";
 
-        public static final String RECOVERY_LOCAL_OPTION = "--local";
+        public static final String RECOVERY_PARTITION_LOCAL_OPTION = "--local";
 
-        public static final String RECOVERY_LOCAL_OPTION_DESC = "Get local partition states";
+        public static final String RECOVERY_PARTITION_LOCAL_OPTION_DESC = "Get local partition states";
 
         public static final String RECOVERY_PARTITION_IDS_OPTION = "--partitions";
 
