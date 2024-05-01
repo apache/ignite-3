@@ -111,37 +111,6 @@ public class IndexColumns implements Storable {
         // Size of the tuple and its header. For further use in future optimizations.
         return VALUE_OFFSET + Byte.BYTES;
     }
-//
-//    @Override
-//    public void writeRowData(
-//            long pageAddr,
-//            int dataOff,
-//            int payloadSize,
-//            boolean newRow
-//    ) {
-//        PageUtils.putByte(pageAddr, dataOff + DATA_TYPE_OFFSET, DATA_TYPE);
-//
-//        PageUtils.putInt(pageAddr, dataOff + SIZE_OFFSET, valueSize());
-//
-//        PageUtils.putByteBuffer(pageAddr, dataOff + VALUE_OFFSET, valueBuffer);
-//    }
-
-    /*
-    @Override
-    public void writeHeader(ByteBuffer pageBuf) {
-        pageBuf.put(DATA_TYPE);
-        pageBuf.putInt(valueSize());
-    }
-
-    @Override
-    public void writeToPage(long pageAddr, int offset) {
-        putByte(pageAddr, offset + DATA_TYPE_OFFSET, DATA_TYPE);
-
-        putInt(pageAddr, offset + SIZE_OFFSET, valueSize());
-
-        putByteBuffer(pageAddr, offset + VALUE_OFFSET, valueBuffer());
-    }
-    */
 
     @Override
     public void writeRowData(long pageAddr, int dataOff, int payloadSize, boolean newRow) {

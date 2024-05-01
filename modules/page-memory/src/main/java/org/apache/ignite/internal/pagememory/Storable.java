@@ -89,6 +89,14 @@ public interface Storable {
             int payloadSize
     );
 
+    /**
+     * Writes content of the byte buffer into the page.
+     *
+     * @param pageBuffer Direct page buffer.
+     * @param valueBuffer Byte buffer with value bytes.
+     * @param offset Offset within the value buffer.
+     * @param payloadSize Number of bytes to write.
+     */
     static void putValueBufferIntoPage(ByteBuffer pageBuffer, ByteBuffer valueBuffer, int offset, int payloadSize) {
         int oldPosition = valueBuffer.position();
         int oldLimit = valueBuffer.limit();

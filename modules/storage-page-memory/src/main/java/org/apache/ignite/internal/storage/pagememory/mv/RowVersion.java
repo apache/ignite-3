@@ -177,7 +177,7 @@ public final class RowVersion implements Storable {
 
             PageUtils.putByteBuffer(pageAddr, dataOff + VALUE_OFFSET, value.tupleSlice());
         } else {
-            PageUtils.putShort(pageAddr, dataOff + VALUE_OFFSET, (short) 0);
+            PageUtils.putShort(pageAddr, dataOff + SCHEMA_VERSION_OFFSET, (short) 0);
         }
     }
 
