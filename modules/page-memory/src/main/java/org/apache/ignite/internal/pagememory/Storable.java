@@ -62,7 +62,7 @@ public interface Storable {
     int headerSize();
 
     /**
-     * Writes a row.
+     * Writes the row.
      *
      * @param pageAddr Page address.
      * @param dataOff Data offset.

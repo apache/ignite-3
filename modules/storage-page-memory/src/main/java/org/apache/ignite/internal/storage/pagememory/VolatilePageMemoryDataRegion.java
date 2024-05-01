@@ -41,6 +41,8 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
 
     private static final int FREE_LIST_PARTITION_ID = 0;
 
+    private static final String FREE_LIST_NAME = String.format("VolatileFreeList_%d_%d", FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID);
+
     private final VolatilePageMemoryProfileConfiguration cfg;
 
     private final PageIoRegistry ioRegistry;
@@ -98,6 +100,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         return new FreeListImpl(
                 FREE_LIST_GROUP_ID,
                 FREE_LIST_PARTITION_ID,
+                FREE_LIST_NAME,
                 pageMemory,
                 null,
                 PageLockListenerNoOp.INSTANCE,

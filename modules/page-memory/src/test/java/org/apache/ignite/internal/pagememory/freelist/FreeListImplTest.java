@@ -146,6 +146,7 @@ public class FreeListImplTest extends BaseIgniteAbstractTest {
         return new FreeListImpl(
                 0,
                 1,
+                "TestFreeList",
                 pageMemory,
                 null,
                 PageLockListenerNoOp.INSTANCE,

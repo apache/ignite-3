@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.io;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -308,7 +307,7 @@ public class DataPageIo extends PageIo {
         assert dataOff >= ITEMS_OFF + ITEM_SIZE && dataOff <= pageSize : dataOff;
         assertPageType(pageAddr);
 
-        putShort(pageAddr, FIRST_ENTRY_OFF, (short) dataOff);
+        PageUtils.putShort(pageAddr, FIRST_ENTRY_OFF, (short) dataOff);
     }
 
     /**
@@ -332,7 +331,7 @@ public class DataPageIo extends PageIo {
         assert freeSpace == actualFreeSpace(pageAddr, pageSize) : freeSpace + " != " + actualFreeSpace(pageAddr, pageSize);
         assertPageType(pageAddr);
 
-        putShort(pageAddr, FREE_SPACE_OFF, (short) freeSpace);
+        PageUtils.putShort(pageAddr, FREE_SPACE_OFF, (short) freeSpace);
     }
 
     /**
@@ -755,7 +754,7 @@ public class DataPageIo extends PageIo {
     private void setItem(long pageAddr, int idx, short item) {
         assertPageType(pageAddr);
 
-        putShort(pageAddr, itemOffset(idx), item);
+        PageUtils.putShort(pageAddr, itemOffset(idx), item);
     }
 
     /**

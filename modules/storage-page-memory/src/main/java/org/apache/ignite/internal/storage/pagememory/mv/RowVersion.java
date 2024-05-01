@@ -19,14 +19,12 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.Storable;
+import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
@@ -165,23 +163,27 @@ public final class RowVersion implements Storable {
     public void writeRowData(long pageAddr, int dataOff, int payloadSize, boolean newRow) {
         int offset = dataOff;
 
-        putShort(pageAddr, offset, (short) payloadSize);
+        PageUtils.putByte(pageAddr, offset, DATA_TYPE);
+
+        offset += Byte.BYTES;
+
+        PageUtils.putShort(pageAddr, offset, (short) payloadSize);
         offset += Short.BYTES;
 
         offset += HybridTimestamps.writeTimestampToMemory(pageAddr, offset, timestamp());
 
         offset += writePartitionless(pageAddr + offset, nextLink());
 
-        putInt(pageAddr, offset, valueSize());
+        PageUtils.putInt(pageAddr, offset, valueSize());
         offset += Integer.BYTES;
 
         if (value != null) {
-            putShort(pageAddr, offset, (short) value.schemaVersion());
+            PageUtils.putShort(pageAddr, offset, (short) value.schemaVersion());
             offset += Short.BYTES;
 
-            putByteBuffer(pageAddr, offset, value.tupleSlice());
+            PageUtils.putByteBuffer(pageAddr, offset, value.tupleSlice());
         } else {
-            putShort(pageAddr, offset, (short) 0);
+            PageUtils.putShort(pageAddr, offset, (short) 0);
         }
     }
 
@@ -196,6 +198,8 @@ public final class RowVersion implements Storable {
             // first fragment
             assert headerSize <= payloadSize : "Header must entirely fit in the first fragment, but header size is "
                     + headerSize + " and payload size is " + payloadSize;
+
+            pageBuf.put(DATA_TYPE);
 
             HybridTimestamps.writeTimestampToBuffer(pageBuf, timestamp());
 

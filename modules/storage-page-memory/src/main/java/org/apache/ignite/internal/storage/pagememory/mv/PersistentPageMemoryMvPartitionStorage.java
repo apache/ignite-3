@@ -358,7 +358,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         RenewablePartitionStorageState localState = renewableState;
 
         resourcesToClose.add(localState.freeList()::close);
-        resourcesToClose.add(localState.freeList()::close);
         resourcesToClose.add(blobStorage::close);
 
         return resourcesToClose;
@@ -430,7 +429,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         RenewablePartitionStorageState localState = renewableState;
 
         return List.of(
-                localState.freeList()::close,
                 localState.freeList()::close,
                 localState.versionChainTree()::close,
                 localState.indexMetaTree()::close,

@@ -57,13 +57,13 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
 
     private static final int REUSE_BUCKET = BUCKETS - 1;
 
+    private static final Integer COMPLETE = Integer.MAX_VALUE;
+
     private static final Integer FAIL_I = Integer.MIN_VALUE;
 
     private static final Long FAIL_L = Long.MAX_VALUE;
 
-    static final Integer COMPLETE = Integer.MAX_VALUE;
-
-    static final int MIN_PAGE_FREE_SPACE = 8;
+    private static final int MIN_PAGE_FREE_SPACE = 8;
 
     /**
      * Step between buckets in free list, measured in powers of two. For example, for page size 4096 and 256 buckets, shift is 4 and step is
@@ -353,6 +353,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
     public FreeListImpl(
             int grpId,
             int partId,
+            String name,
             PageMemory pageMem,
             @Nullable ReuseList reuseList,
             PageLockListener lockLsnr,
@@ -363,7 +364,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
             IoStatisticsHolder statHolder
     ) throws IgniteInternalCheckedException {
         super(
-                "FreeList_" + grpId,
+                name,
                 grpId,
                 partId,
                 pageMem,
@@ -473,7 +474,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
      * @param freeSpace Page free space.
      * @param allowReuse {@code True} if it is allowed to get reuse bucket.
      */
-    int bucket(int freeSpace, boolean allowReuse) {
+    private int bucket(int freeSpace, boolean allowReuse) {
         assert freeSpace > 0 : freeSpace;
 
         int bucket = freeSpace >>> shift;
@@ -609,7 +610,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
      *      than the max payload of an empty data page.
      * @throws IgniteInternalCheckedException If failed.
      */
-    int writeWholePages(Storable row, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+    private int writeWholePages(Storable row, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
         assert row.link() == 0 : row.link();
 
         int written = 0;

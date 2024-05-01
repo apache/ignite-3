@@ -305,7 +305,7 @@ public class BlobStorage extends DataStructure {
     /**
      * Recycles a page and adds it to a {@link ReuseBag}.
      */
-    private static class RecycleAndAddToReuseBag implements PageHandler<ReuseBag, Long> {
+    private class RecycleAndAddToReuseBag implements PageHandler<ReuseBag, Long> {
         @Override
         public Long run(int groupId, long pageId, long page, long pageAddr, PageIo io, ReuseBag reuseBag, int unused,
                 IoStatisticsHolder statHolder) {

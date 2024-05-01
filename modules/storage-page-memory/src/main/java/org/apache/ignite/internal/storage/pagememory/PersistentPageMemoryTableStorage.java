@@ -55,6 +55,9 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of {@link AbstractPageMemoryTableStorage} for persistent case.
  */
 public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+    /** String to format free list's name. */
+    private static final String FREE_LIST_NAME = "PersistentFreeList_%d_%d";
+
     /** Storage engine instance. */
     private final PersistentPageMemoryStorageEngine engine;
 
@@ -173,6 +176,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             return new FreeListImpl(
                     getTableId(),
                     partId,
+                    String.format(FREE_LIST_NAME, getTableId(), partId),
                     dataRegion.pageMemory(),
                     null,
                     PageLockListenerNoOp.INSTANCE,

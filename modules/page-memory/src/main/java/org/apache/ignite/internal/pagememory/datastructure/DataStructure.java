@@ -436,7 +436,7 @@ public abstract class DataStructure implements ManuallyCloseable {
      * @return Page ID with the incremented rotation ID.
      * @see FullPageId
      */
-    public static long recyclePage(long pageId, long pageAddr) {
+    protected static long recyclePage(long pageId, long pageAddr) {
         long recycled = 0;
 
         if (flag(pageId) == FLAG_DATA) {
@@ -463,7 +463,7 @@ public abstract class DataStructure implements ManuallyCloseable {
     /**
      * Returns a page size without the encryption overhead, in bytes.
      */
-    public int pageSize() {
+    protected int pageSize() {
         return pageMem.realPageSize(grpId);
     }
 

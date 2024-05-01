@@ -18,13 +18,11 @@
 package org.apache.ignite.internal.storage.pagememory.index.freelist;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.Storable;
+import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -121,14 +119,19 @@ public class IndexColumns implements Storable {
             int payloadSize,
             boolean newRow
     ) {
+        int offset = dataOff;
 
-        putShort(pageAddr, dataOff, (short) payloadSize);
+        PageUtils.putByte(pageAddr, offset, DATA_TYPE);
 
-        dataOff += Short.BYTES;
+        offset += Byte.BYTES;
 
-        putInt(pageAddr, dataOff + SIZE_OFFSET, valueSize());
+        PageUtils.putShort(pageAddr, offset, (short) payloadSize);
 
-        putByteBuffer(pageAddr, dataOff + VALUE_OFFSET, valueBuffer);
+        offset += Short.BYTES;
+
+        PageUtils.putInt(pageAddr, offset + SIZE_OFFSET, valueSize());
+
+        PageUtils.putByteBuffer(pageAddr, offset + VALUE_OFFSET, valueBuffer);
     }
 
     @Override
@@ -140,6 +143,8 @@ public class IndexColumns implements Storable {
         if (rowOff == 0) {
             // First fragment.
             assert headerSize() <= payloadSize;
+
+            pageBuf.put(DATA_TYPE);
 
             pageBuf.putInt(valueSize());
 
