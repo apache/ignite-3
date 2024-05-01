@@ -72,13 +72,11 @@ import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -96,9 +94,6 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         viewMgr = new SystemViewManagerImpl(LOCAL_NODE_NAME, catalog);
-
-        when(catalog.catalogInitializationFuture()).thenReturn(CompletableFuture.completedFuture(null));
-        when(catalog.catalogReadyFuture(1)).thenReturn(CompletableFuture.completedFuture(null));
     }
 
     @Test
@@ -124,6 +119,8 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void startAfterStartFails() {
+        when(catalog.catalogInitializationFuture()).thenReturn(nullCompletedFuture());
+        when(catalog.catalogReadyFuture(1)).thenReturn(nullCompletedFuture());
         when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         viewMgr.register(() -> List.of(dummyView("test")));
@@ -154,6 +151,8 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     public void registerAllColumnTypes(NativeTypeSpec typeSpec) {
         NativeType type = SchemaTestUtils.specToType(typeSpec);
 
+        when(catalog.catalogInitializationFuture()).thenReturn(nullCompletedFuture());
+        when(catalog.catalogReadyFuture(1)).thenReturn(nullCompletedFuture());
         when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         viewMgr.register(() -> List.of(dummyView("test", type)));
@@ -167,6 +166,8 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     public void managerStartsSuccessfullyEvenIfCatalogRespondsWithError() {
         CatalogValidationException expected = new CatalogValidationException("Expected exception.");
 
+        when(catalog.catalogInitializationFuture()).thenReturn(nullCompletedFuture());
+        when(catalog.catalogReadyFuture(1)).thenReturn(nullCompletedFuture());
         when(catalog.execute(anyList())).thenReturn(failedFuture(expected));
 
         viewMgr.register(() -> List.of(dummyView("test")));
@@ -180,6 +181,8 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void nodeAttributesUpdatedAfterStart() {
+        when(catalog.catalogInitializationFuture()).thenReturn(nullCompletedFuture());
+        when(catalog.catalogReadyFuture(1)).thenReturn(nullCompletedFuture());
         when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         String name1 = "view1";
@@ -254,6 +257,8 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void viewScanTest() {
+        when(catalog.catalogInitializationFuture()).thenReturn(nullCompletedFuture());
+        when(catalog.catalogReadyFuture(1)).thenReturn(nullCompletedFuture());
         when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         String nodeView = "NODE_VIEW";

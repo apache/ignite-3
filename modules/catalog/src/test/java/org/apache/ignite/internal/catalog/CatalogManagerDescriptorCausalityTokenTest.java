@@ -108,7 +108,6 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
         assertNotNull(schema);
         assertEquals(SCHEMA_NAME, schema.name());
-//        assertSame(schema, manager.activeSchema(123L));
         assertEquals(1, schema.updateToken());
 
         assertNull(schema.table(TABLE_NAME));
