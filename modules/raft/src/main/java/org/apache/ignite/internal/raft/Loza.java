@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft;
 
 import static java.util.Objects.requireNonNullElse;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.file.Path;
 import java.util.Set;
@@ -156,7 +157,7 @@ public class Loza implements RaftManager {
 
     /**
      * Sets {@link AppendEntriesRequestInterceptor} to use. Should only be called from the same thread that is used
-     * to {@link #start()} the component.
+     * to {@link #startAsync()} the component.
      *
      * @param appendEntriesRequestInterceptor Interceptor to use.
      */
@@ -166,7 +167,7 @@ public class Loza implements RaftManager {
 
     /**
      * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used
-     * to {@link #start()} the component.
+     * to {@link #startAsync()} the component.
      *
      * @param actionRequestInterceptor Interceptor to use.
      */
@@ -176,7 +177,7 @@ public class Loza implements RaftManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         RaftView raftConfig = raftConfiguration.value();
 
         opts.setRpcInstallSnapshotTimeout(raftConfig.rpcInstallSnapshotTimeout());
@@ -186,21 +187,21 @@ public class Loza implements RaftManager {
 
         opts.getRaftOptions().setSync(raftConfig.fsync());
 
-        return raftServer.start();
+        return raftServer.startAsync();
     }
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
-        raftServer.stop();
+        return raftServer.stopAsync();
     }
 
     @Override

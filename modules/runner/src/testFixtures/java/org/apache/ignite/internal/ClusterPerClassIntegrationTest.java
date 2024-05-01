@@ -155,9 +155,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         CatalogManager catalogManager = CLUSTER.aliveNode().catalogManager();
         int latestCatalogVersion = catalogManager.latestCatalogVersion();
         Catalog catalog = Objects.requireNonNull(catalogManager.catalog(latestCatalogVersion));
+        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
         for (CatalogZoneDescriptor z : catalogManager.zones(latestCatalogVersion)) {
             String zoneName = z.name();
-            if (zoneName.equals(catalog.defaultZone().name())) {
+            if (defaultZone != null && zoneName.equals(defaultZone.name())) {
                 continue;
             }
             sql("DROP ZONE " + zoneName);

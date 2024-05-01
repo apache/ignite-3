@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.TupleMatcher.tupleValue;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
@@ -61,7 +62,6 @@ import java.util.stream.StreamSupport;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.CursorClosedException;
@@ -131,7 +131,7 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
 
     @AfterAll
     void stopClient() throws Exception {
-        IgniteUtils.closeAll(CLIENT);
+        closeAll(CLIENT);
     }
 
     private static Stream<Arguments> testRecordViewQuery() {

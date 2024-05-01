@@ -26,6 +26,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -107,15 +109,14 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         }
 
         void start() {
-            clusterService.start();
-            raftManager.start();
+            assertThat(startAsync(clusterService, raftManager), willCompleteSuccessfully());
         }
 
         void afterNodeStart() {
             try {
                 assertTrue(waitForCondition(() -> clusterService.topologyService().allMembers().size() == cluster.size(), 1000));
 
-                raftStorage.start();
+                assertThat(raftStorage.startAsync(), willCompleteSuccessfully());
 
                 PeersAndLearners configuration = clusterService.topologyService().allMembers().stream()
                         .map(ClusterNode::name)
@@ -156,15 +157,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         }
 
         void stop() {
-            try {
-                IgniteUtils.closeAll(
-                        raftManager::stop,
-                        raftStorage::stop,
-                        clusterService::stop
-                );
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+            assertThat(stopAsync(raftManager, raftStorage, clusterService), willCompleteSuccessfully());
         }
 
         ClusterNode localMember() {

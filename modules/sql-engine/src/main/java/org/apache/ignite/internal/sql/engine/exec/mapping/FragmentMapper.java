@@ -36,6 +36,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
+import org.apache.ignite.internal.sql.engine.rel.IgniteHashJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
@@ -150,6 +151,11 @@ class FragmentMapper {
 
         @Override
         public Mapping visit(IgniteNestedLoopJoin rel) {
+            return mapBiRel(rel);
+        }
+
+        @Override
+        public Mapping visit(IgniteHashJoin rel) {
             return mapBiRel(rel);
         }
 

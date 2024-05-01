@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.benchmark;
 
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.table.criteria.Criteria.columnValue;
 import static org.apache.ignite.table.criteria.Criteria.equalTo;
 
@@ -25,8 +26,8 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.Cursor;
+import org.apache.ignite.raft.jraft.storage.snapshot.remote.Session;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
@@ -223,7 +224,7 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
          */
         @TearDown
         public void tearDown() throws Exception {
-            IgniteUtils.closeAll(client);
+            closeAll(client);
         }
 
         @Nullable Tuple get(Tuple key) {
@@ -273,7 +274,7 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
                 tx.rollback();
             }
 
-            IgniteUtils.closeAll(client);
+            closeAll(client);
         }
     }
 

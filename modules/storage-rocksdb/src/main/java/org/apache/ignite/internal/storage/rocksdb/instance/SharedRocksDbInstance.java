@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PART
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstanceCreator.sortedIndexCfOptions;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -51,7 +52,6 @@ import org.apache.ignite.internal.storage.rocksdb.IndexIdCursor.TableAndIndexId;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
@@ -209,7 +209,7 @@ public final class SharedRocksDbInstance {
         try {
             Collections.reverse(resources);
 
-            IgniteUtils.closeAll(resources);
+            closeAll(resources);
         } catch (Exception e) {
             throw new StorageException("Failed to stop RocksDB storage: " + path, e);
         }

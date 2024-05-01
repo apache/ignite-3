@@ -113,7 +113,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(ectx, row);
+            BinaryRowEx binaryRow = rowConverter.toFullRow(ectx, row);
 
             rowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
@@ -184,7 +184,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
     public <RowT> CompletableFuture<Void> insert(InternalTransaction tx, ExecutionContext<RowT> ectx, RowT row) {
         validateNotNullConstraint(ectx.rowHandler(), row);
 
-        BinaryRowEx tableRow = rowConverter.toBinaryRow(ectx, row, false);
+        BinaryRowEx tableRow = rowConverter.toFullRow(ectx, row);
 
         return table.insert(tableRow, tx)
                 .thenApply(success -> {
@@ -253,7 +253,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         int i = 0;
 
         for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(ectx, row);
+            BinaryRowEx binaryRow = rowConverter.toFullRow(ectx, row);
 
             rowBatchByPartitionId.computeIfAbsent(partitionExtractor.fromRow(binaryRow), partitionId -> new RowBatch()).add(binaryRow, i++);
         }
@@ -276,7 +276,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertKeyOnlyRow(ectx, row);
+            BinaryRowEx binaryRow = rowConverter.toKeyRow(ectx, row);
 
             keyRowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
@@ -308,14 +308,6 @@ public final class UpdatableTableImpl implements UpdatableTable {
         }
 
         return CompletableFuture.allOf(futures);
-    }
-
-    private <RowT> BinaryRowEx convertRow(ExecutionContext<RowT> ctx, RowT row) {
-        return rowConverter.toBinaryRow(ctx, row, false);
-    }
-
-    private <RowT> BinaryRowEx convertKeyOnlyRow(ExecutionContext<RowT> ctx, RowT row) {
-        return rowConverter.toBinaryRow(ctx, row, true);
     }
 
     private <RowT> CompletableFuture<List<RowT>> handleInsertResults(

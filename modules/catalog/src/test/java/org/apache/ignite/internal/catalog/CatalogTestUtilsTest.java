@@ -49,7 +49,7 @@ class CatalogTestUtilsTest extends BaseIgniteAbstractTest {
     void testManagerWorksAsExpected() throws Exception {
         CatalogManager manager = createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
 
-        assertThat(manager.start(), willCompleteSuccessfully());
+        assertThat(manager.startAsync(), willCompleteSuccessfully());
 
         CreateTableCommandBuilder createTableTemplate = CreateTableCommand.builder()
                 .schemaName("PUBLIC")
@@ -80,7 +80,7 @@ class CatalogTestUtilsTest extends BaseIgniteAbstractTest {
         assertThat(tablesOfVersion2, hasItem(descriptorWithName("T1")));
         assertThat(tablesOfVersion2, hasItem(descriptorWithName("T2")));
 
-        manager.stop();
+        assertThat(manager.stopAsync(), willCompleteSuccessfully());
     }
 
     private static Matcher<CatalogTableDescriptor> descriptorWithName(String name) {

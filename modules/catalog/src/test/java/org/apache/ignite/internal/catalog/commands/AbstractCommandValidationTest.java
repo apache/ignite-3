@@ -84,6 +84,24 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     static Catalog emptyCatalog() {
+        return new Catalog(
+                0,
+                0L,
+                1,
+                List.of(),
+                List.of(new CatalogSchemaDescriptor(
+                        0,
+                        SCHEMA_NAME,
+                        new CatalogTableDescriptor[0],
+                        new CatalogIndexDescriptor[0],
+                        new CatalogSystemViewDescriptor[0],
+                        INITIAL_CAUSALITY_TOKEN
+                )),
+                null
+        );
+    }
+
+    static Catalog catalogWithDefaultZone() {
         return catalog(1, new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
     }
 
@@ -176,7 +194,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     static Catalog catalog(CatalogCommand... commandsToApply) {
-        return applyCommandsToCatalog(emptyCatalog(), commandsToApply);
+        return applyCommandsToCatalog(catalogWithDefaultZone(), commandsToApply);
     }
 
     static Catalog catalog(

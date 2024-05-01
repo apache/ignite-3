@@ -136,14 +136,14 @@ public class ReplicatorUtilsTest extends IgniteAbstractTest {
     }
 
     private void withCatalogManager(Consumer<CatalogManager> consumer) throws Exception {
-        CatalogManager catalogManager = CatalogTestUtils.createTestCatalogManager("test-node", clock);
+        CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test-node", clock);
 
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
 
         try {
             consumer.accept(catalogManager);
         } finally {
-            closeAll(catalogManager::beforeNodeStop, catalogManager::stop);
+            closeAll(catalogManager::beforeNodeStop, () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()));
         }
     }
 

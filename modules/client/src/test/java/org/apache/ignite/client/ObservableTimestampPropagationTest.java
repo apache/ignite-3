@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.TransactionOptions;
@@ -65,7 +65,7 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
 
     @AfterAll
     public static void stopServer2() throws Exception {
-        IgniteUtils.closeAll(client, testServer, ignite);
+        closeAll(client, testServer, ignite);
     }
 
     @Test
@@ -73,6 +73,12 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
     public void testClientPropagatesLatestKnownHybridTimestamp() {
         ReliableChannel ch = IgniteTestUtils.getFieldValue(client, "ch");
         TransactionOptions roOpts = new TransactionOptions().readOnly(true);
+
+        // +2 because logical time is incremented on every call to nowLong - for replica tracker and for handshake.
+        assertEquals(
+                (currentServerTimestamp.get() << LOGICAL_TIME_BITS_SIZE) + 2,
+                ch.observableTimestamp(),
+                "Handshake should initialize observable timestamp");
 
         assertNull(lastObservableTimestamp());
 

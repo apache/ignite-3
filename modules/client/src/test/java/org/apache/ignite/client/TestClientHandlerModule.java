@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -151,7 +152,7 @@ public class TestClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         if (channel != null) {
             throw new IgniteException("ClientHandlerModule is already started.");
         }
@@ -167,12 +168,18 @@ public class TestClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (channel != null) {
-            channel.close().await();
+            try {
+                channel.close().await();
+            } catch (InterruptedException e) {
+                return failedFuture(e);
+            }
 
             channel = null;
         }
+
+        return nullCompletedFuture();
     }
 
     /**

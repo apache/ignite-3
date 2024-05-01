@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREAT
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexToTable;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -124,14 +126,14 @@ public class IndexManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         LOG.debug("Index manager is about to start");
 
         recoverDestructionQueue();
 
         catalogService.listen(INDEX_CREATE, (CreateIndexEventParameters parameters) -> onIndexCreate(parameters));
         catalogService.listen(INDEX_REMOVED, fromConsumer(this::onIndexRemoved));
-        lowWatermark.addUpdateListener(this::onLwmChanged);
+        lowWatermark.listen(LOW_WATERMARK_CHANGED, parameters -> onLwmChanged((ChangeLowWatermarkEventParameters) parameters));
 
         LOG.info("Index manager started");
 
@@ -139,18 +141,20 @@ public class IndexManager implements IgniteComponent {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         LOG.debug("Index manager is about to stop");
 
         if (!stopGuard.compareAndSet(false, true)) {
             LOG.debug("Index manager already stopped");
 
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
 
         LOG.info("Index manager stopped");
+
+        return nullCompletedFuture();
     }
 
     /**
@@ -217,16 +221,16 @@ public class IndexManager implements IgniteComponent {
         });
     }
 
-    private CompletableFuture<Void> onLwmChanged(HybridTimestamp ts) {
+    private CompletableFuture<Boolean> onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
-            int newEarliestCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(ts));
+            int newEarliestCatalogVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
             List<DestroyIndexEvent> events = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion);
 
             return runAsync(
                     () -> events.forEach(event -> destroyIndex(event.indexId(), event.tableId())),
                     ioExecutor
-            );
+            ).thenApply(unused -> false);
         });
     }
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.util.Collections.reverse;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -30,7 +31,6 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -147,7 +147,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
             }
 
             reverse(resources);
-            IgniteUtils.closeAll(resources);
+            closeAll(resources);
         } catch (Exception e) {
             throw new IgniteInternalException("Failed to stop transaction state storage of the table: " + id, e);
         }

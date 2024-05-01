@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metrics.exporters;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -70,7 +72,7 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
 
             assertEquals(0, pushOutputStream.toString().length());
 
-            metricManager.start();
+            assertThat(metricManager.startAsync(), willCompleteSuccessfully());
 
             src.inc();
 
@@ -82,7 +84,7 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
             waitForOutput(pullOutputStream, "TestMetricsSource:\nMetric:1");
             assertTrue(pullOutputStream.toString().contains("TestMetricsSource:\nMetric:1"));
 
-            metricManager.stop();
+            assertThat(metricManager.stopAsync(), willCompleteSuccessfully());
         }
     }
 

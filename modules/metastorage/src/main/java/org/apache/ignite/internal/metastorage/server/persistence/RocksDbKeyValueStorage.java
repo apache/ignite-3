@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.metastorage.server.persistence.StorageC
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_ERR;
@@ -367,7 +368,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         try {
             // there's no way to easily remove all data from RocksDB, so we need to re-create it from scratch
-            IgniteUtils.closeAll(db, options);
+            closeAll(db, options);
 
             destroyRocksDb();
 
@@ -499,33 +500,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public Entry getAndPut(byte[] key, byte[] value, HybridTimestamp opTs) {
-        rwLock.writeLock().lock();
-
-        try (WriteBatch batch = new WriteBatch()) {
-            long curRev = rev + 1;
-            long cntr = updCntr + 1;
-
-            long[] revs = getRevisions(key);
-
-            long lastRev = revs.length == 0 ? 0 : lastRevision(revs);
-
-            addDataToBatch(batch, key, value, curRev, cntr);
-
-            updateKeysIndex(batch, key, curRev);
-
-            fillAndWriteBatch(batch, curRev, cntr, opTs);
-
-            // Return previous value.
-            return doGetValue(key, lastRev);
-        } catch (RocksDBException e) {
-            throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            rwLock.writeLock().unlock();
-        }
-    }
-
-    @Override
     public void putAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs) {
         rwLock.writeLock().lock();
 
@@ -544,33 +518,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         } finally {
             rwLock.writeLock().unlock();
         }
-    }
-
-    @Override
-    public Collection<Entry> getAndPutAll(List<byte[]> keys, List<byte[]> values, HybridTimestamp opTs) {
-        Collection<Entry> res;
-
-        rwLock.writeLock().lock();
-
-        try (WriteBatch batch = new WriteBatch()) {
-            long curRev = rev + 1;
-
-            res = doGetAll(keys, curRev);
-
-            long counter = addAllToBatch(batch, keys, values, curRev);
-
-            for (byte[] key : keys) {
-                updateKeysIndex(batch, key, curRev);
-            }
-
-            fillAndWriteBatch(batch, curRev, counter, opTs);
-        } catch (RocksDBException e) {
-            throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            rwLock.writeLock().unlock();
-        }
-
-        return res;
     }
 
     @Override
@@ -649,23 +596,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public Entry getAndRemove(byte[] key, HybridTimestamp opTs) {
-        rwLock.writeLock().lock();
-
-        try {
-            Entry e = doGet(key, rev);
-
-            if (e.empty() || e.tombstone()) {
-                return e;
-            }
-
-            return getAndPut(key, TOMBSTONE, opTs);
-        } finally {
-            rwLock.writeLock().unlock();
-        }
-    }
-
-    @Override
     public void removeAll(List<byte[]> keys, HybridTimestamp opTs) {
         rwLock.writeLock().lock();
 
@@ -694,49 +624,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         } finally {
             rwLock.writeLock().unlock();
         }
-    }
-
-    @Override
-    public Collection<Entry> getAndRemoveAll(List<byte[]> keys, HybridTimestamp opTs) {
-        Collection<Entry> res = new ArrayList<>(keys.size());
-
-        rwLock.writeLock().lock();
-
-        try (WriteBatch batch = new WriteBatch()) {
-            long curRev = rev + 1;
-
-            List<byte[]> existingKeys = new ArrayList<>(keys.size());
-
-            List<byte[]> vals = new ArrayList<>(keys.size());
-
-            for (byte[] key : keys) {
-                Entry e = doGet(key, curRev);
-
-                res.add(e);
-
-                if (e.empty() || e.tombstone()) {
-                    continue;
-                }
-
-                existingKeys.add(key);
-
-                vals.add(TOMBSTONE);
-            }
-
-            long counter = addAllToBatch(batch, existingKeys, vals, curRev);
-
-            for (byte[] key : existingKeys) {
-                updateKeysIndex(batch, key, curRev);
-            }
-
-            fillAndWriteBatch(batch, curRev, counter, opTs);
-        } catch (RocksDBException e) {
-            throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            rwLock.writeLock().unlock();
-        }
-
-        return res;
     }
 
     @Override

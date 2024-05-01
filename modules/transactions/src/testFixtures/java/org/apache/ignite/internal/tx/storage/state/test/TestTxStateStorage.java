@@ -99,10 +99,15 @@ public class TestTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public void remove(UUID txId) {
+    public void remove(UUID txId, long commandIndex, long commandTerm) {
         checkStorageClosedOrInProgressOfRebalance();
 
         storage.remove(txId);
+
+        if (rebalanceFutureReference.get() == null) {
+            lastAppliedIndex = commandIndex;
+            lastAppliedTerm = commandTerm;
+        }
     }
 
     @Override

@@ -359,9 +359,6 @@ namespace Apache.Ignite
 
             /// <summary> IndexNotBuilt error. </summary>
             public const int IndexNotBuilt = (GroupCode << 16) | (6 & 0xFFFF);
-
-            /// <summary> InconsistentIndexState error. </summary>
-            public const int InconsistentIndexState = (GroupCode << 16) | (7 & 0xFFFF);
         }
 
         /// <summary> DistributionZones errors. </summary>

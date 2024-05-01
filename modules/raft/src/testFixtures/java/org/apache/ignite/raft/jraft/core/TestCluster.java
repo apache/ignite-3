@@ -19,6 +19,8 @@ package org.apache.ignite.raft.jraft.core;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -271,7 +273,7 @@ public class TestCluster {
 
             var rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
 
-            clusterService.start();
+            assertThat(clusterService.startAsync(), willCompleteSuccessfully());
 
             if (optsClo != null)
                 optsClo.accept(nodeOptions);
@@ -288,7 +290,7 @@ public class TestCluster {
 
                     // Network service must be stopped after a node because raft initiates timeoutnowrequest on stop for faster
                     // leader election.
-                    clusterService.stop();
+                    assertThat(clusterService.stopAsync(), willCompleteSuccessfully());
                 }
             };
 

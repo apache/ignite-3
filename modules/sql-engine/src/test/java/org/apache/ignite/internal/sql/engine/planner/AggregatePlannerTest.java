@@ -270,7 +270,8 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
      */
     @Test
     public void noSortAppendingWithCorrectCollation() throws Exception {
-        String[] additionalRulesToDisable = {"NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "CorrelateToNestedLoopRule"};
+        String[] additionalRulesToDisable = {"NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "CorrelateToNestedLoopRule",
+                "HashJoinConverter"};
 
         assertPlan(TestCase.CASE_16,
                 not(nodeOrAnyChild(isInstanceOf(IgniteSort.class)))

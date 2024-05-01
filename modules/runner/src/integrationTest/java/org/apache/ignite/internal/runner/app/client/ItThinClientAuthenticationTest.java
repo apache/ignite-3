@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app.client;
 import static org.apache.ignite.internal.configuration.hocon.HoconConverter.hoconSource;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -32,7 +33,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -97,7 +97,7 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(clientWithAuth);
+        closeAll(clientWithAuth);
     }
 
     @Test

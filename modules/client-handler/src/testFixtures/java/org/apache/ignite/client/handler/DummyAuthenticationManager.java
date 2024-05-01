@@ -42,13 +42,13 @@ public class DummyAuthenticationManager implements AuthenticationManager {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return nullCompletedFuture();
     }
 
     @Override
-    public void stop() throws Exception {
-
+    public CompletableFuture<Void> stopAsync() {
+        return nullCompletedFuture();
     }
 
     @Override
