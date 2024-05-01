@@ -129,7 +129,7 @@ public final class MarshallerUtil {
      * Calculates byte size for BigDecimal value.
      */
     public static int sizeInBytes(BigDecimal val) {
-        return sizeInBytes(val.unscaledValue());
+        return sizeInBytes(val.unscaledValue()) + Short.BYTES /* Size of scale */;
     }
 
     /**

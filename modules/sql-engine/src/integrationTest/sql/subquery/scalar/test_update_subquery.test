@@ -1,5 +1,6 @@
 # name: test/sql/subquery/scalar/test_update_subquery.test
 # description: Test subqueries in update
+# feature: E153
 # group: [scalar]
 
 statement ok
@@ -56,6 +57,22 @@ SELECT id, i FROM integers ORDER BY id
 ----
 1	NULL
 2	2
+3	2
+4	3
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-15616
+# use DEFAULT with correlated subquery in WHERE
+statement ok
+UPDATE integers i1 SET i=DEFAULT WHERE i=(SELECT MIN(i) FROM integers WHERE i1.id<id);
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-15616
+query II
+SELECT id, i FROM integers ORDER BY id
+----
+1	NULL
+2	NULL
 3	2
 4	3
 
