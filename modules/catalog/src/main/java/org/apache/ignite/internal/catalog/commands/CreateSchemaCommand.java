@@ -68,6 +68,7 @@ public class CreateSchemaCommand implements CatalogCommand {
         return new Builder();
     }
 
+    /** Implementation of {@link CreateSchemaCommandBuilder}. */
     public static class Builder implements CreateSchemaCommandBuilder {
 
         private String name;

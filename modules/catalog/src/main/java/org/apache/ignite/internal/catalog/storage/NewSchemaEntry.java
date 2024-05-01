@@ -31,19 +31,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * New schema entry.
  */
 public class NewSchemaEntry implements UpdateEntry {
-
-    public static CatalogObjectSerializer<NewSchemaEntry> SERIALIZER = new CatalogObjectSerializer<NewSchemaEntry>() {
-        @Override
-        public NewSchemaEntry readFrom(IgniteDataInput input) throws IOException {
-            CatalogSchemaDescriptor schemaDescriptor = CatalogSchemaDescriptor.SERIALIZER.readFrom(input);
-            return new NewSchemaEntry(schemaDescriptor);
-        }
-
-        @Override
-        public void writeTo(NewSchemaEntry value, IgniteDataOutput output) throws IOException {
-            CatalogSchemaDescriptor.SERIALIZER.writeTo(value.descriptor, output);
-        }
-    };
+    public static final CatalogObjectSerializer<NewSchemaEntry> SERIALIZER = new Serializer();
 
     private final CatalogSchemaDescriptor descriptor;
 
@@ -79,5 +67,18 @@ public class NewSchemaEntry implements UpdateEntry {
     @Override
     public int typeId() {
         return MarshallableEntryType.NEW_SCHEMA.id();
+    }
+
+    private static class Serializer implements CatalogObjectSerializer<NewSchemaEntry> {
+        @Override
+        public NewSchemaEntry readFrom(IgniteDataInput input) throws IOException {
+            CatalogSchemaDescriptor schemaDescriptor = CatalogSchemaDescriptor.SERIALIZER.readFrom(input);
+            return new NewSchemaEntry(schemaDescriptor);
+        }
+
+        @Override
+        public void writeTo(NewSchemaEntry value, IgniteDataOutput output) throws IOException {
+            CatalogSchemaDescriptor.SERIALIZER.writeTo(value.descriptor, output);
+        }
     }
 }
