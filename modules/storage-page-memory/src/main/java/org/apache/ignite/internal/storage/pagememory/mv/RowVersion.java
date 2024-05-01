@@ -161,29 +161,23 @@ public final class RowVersion implements Storable {
 
     @Override
     public void writeRowData(long pageAddr, int dataOff, int payloadSize, boolean newRow) {
-        int offset = dataOff;
+        PageUtils.putShort(pageAddr, dataOff, (short) payloadSize);
+        dataOff += Short.BYTES;
 
-        PageUtils.putByte(pageAddr, offset, DATA_TYPE);
+        PageUtils.putByte(pageAddr, dataOff + DATA_TYPE_OFFSET, DATA_TYPE);
 
-        offset += Byte.BYTES;
+        HybridTimestamps.writeTimestampToMemory(pageAddr, dataOff + TIMESTAMP_OFFSET, timestamp());
 
-        PageUtils.putShort(pageAddr, offset, (short) payloadSize);
-        offset += Short.BYTES;
+        writePartitionless(pageAddr + dataOff + NEXT_LINK_OFFSET, nextLink());
 
-        offset += HybridTimestamps.writeTimestampToMemory(pageAddr, offset, timestamp());
-
-        offset += writePartitionless(pageAddr + offset, nextLink());
-
-        PageUtils.putInt(pageAddr, offset, valueSize());
-        offset += Integer.BYTES;
+        PageUtils.putInt(pageAddr, dataOff + VALUE_SIZE_OFFSET, valueSize());
 
         if (value != null) {
-            PageUtils.putShort(pageAddr, offset, (short) value.schemaVersion());
-            offset += Short.BYTES;
+            PageUtils.putShort(pageAddr, dataOff + SCHEMA_VERSION_OFFSET, (short) value.schemaVersion());
 
-            PageUtils.putByteBuffer(pageAddr, offset, value.tupleSlice());
+            PageUtils.putByteBuffer(pageAddr, dataOff + VALUE_OFFSET, value.tupleSlice());
         } else {
-            PageUtils.putShort(pageAddr, offset, (short) 0);
+            PageUtils.putShort(pageAddr, dataOff + VALUE_OFFSET, (short) 0);
         }
     }
 
