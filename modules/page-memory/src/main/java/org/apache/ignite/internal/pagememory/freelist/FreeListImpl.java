@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+
 package org.apache.ignite.internal.pagememory.freelist;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
@@ -24,6 +25,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -43,7 +45,6 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
-import org.apache.ignite.internal.util.CachedIterator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -86,14 +87,254 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
     protected final PageEvictionTracker evictionTracker;
 
     /** Write a single row on a single page. */
-    private final WriteRowHandler writeRowHnd = new WriteRowHandler(this);
+    private final WriteRowHandler writeRowHnd = new WriteRowHandler();
 
     /** Write multiple rows on a single page. */
-    private final WriteRowsHandler writeRowsHnd = new WriteRowsHandler(this);
+    private final WriteRowsHandler writeRowsHnd = new WriteRowsHandler();
 
     private final PageHandler<ReuseBag, Long> rmvRow;
 
     private final IoStatisticsHolder statHolder;
+
+    private class WriteRowHandler implements PageHandler<Storable, Integer> {
+        @Override
+        public Integer run(
+                int cacheId,
+                long pageId,
+                long page,
+                long pageAddr,
+                PageIo iox,
+                Storable row,
+                int written,
+                IoStatisticsHolder statHolder
+        ) throws IgniteInternalCheckedException {
+            written = addRow(pageId, pageAddr, iox, row, written);
+
+            putPage(((DataPageIo) iox).getFreeSpace(pageAddr), pageId, pageAddr, statHolder);
+
+            return written;
+        }
+
+        /**
+         * Writes row to data page.
+         *
+         * @param pageId Page ID.
+         * @param pageAddr Page address.
+         * @param iox IO.
+         * @param row Row to write.
+         * @param written Written size.
+         * @return Number of bytes written, {@link #COMPLETE} if the row was fully written.
+         * @throws IgniteInternalCheckedException If failed.
+         */
+        protected Integer addRow(
+                long pageId,
+                long pageAddr,
+                PageIo iox,
+                Storable row,
+                int written
+        ) throws IgniteInternalCheckedException {
+            DataPageIo io = (DataPageIo) iox;
+
+            int rowSize = row.size();
+            int oldFreeSpace = io.getFreeSpace(pageAddr);
+
+            assert oldFreeSpace > 0 : oldFreeSpace;
+
+            // If the full row does not fit into this page write only a fragment.
+            written = (written == 0 && oldFreeSpace >= rowSize) ? addRowFull(pageId, pageAddr, io, row, rowSize) :
+                    addRowFragment(pageId, pageAddr, io, row, written, rowSize);
+
+            if (written == rowSize) {
+                evictionTracker.touchPage(pageId);
+            }
+
+            // Avoid boxing with garbage generation for usual case.
+            return written == rowSize ? COMPLETE : written;
+        }
+
+        /**
+         * Adds row to this data page and sets respective link to the given row object.
+         *
+         * @param pageId Page ID.
+         * @param pageAddr Page address.
+         * @param io IO.
+         * @param row Row.
+         * @param rowSize Row size.
+         * @return Written size which is always equal to row size here.
+         * @throws IgniteInternalCheckedException If failed.
+         */
+        protected int addRowFull(
+                long pageId,
+                long pageAddr,
+                DataPageIo io,
+                Storable row,
+                int rowSize
+        ) throws IgniteInternalCheckedException {
+            io.addRow(pageId, pageAddr, row, rowSize, pageSize());
+
+            return rowSize;
+        }
+
+        /**
+         * Adds maximum possible fragment of the given row to this data page and sets respective link to the row.
+         *
+         * @param pageId Page ID.
+         * @param pageAddr Page address.
+         * @param io IO.
+         * @param row Row.
+         * @param written Written size.
+         * @param rowSize Row size.
+         * @return Updated written size.
+         * @throws IgniteInternalCheckedException If failed.
+         */
+        protected int addRowFragment(
+                long pageId,
+                long pageAddr,
+                DataPageIo io,
+                Storable row,
+                int written,
+                int rowSize
+        ) throws IgniteInternalCheckedException {
+            int payloadSize = io.addRowFragment(pageMem, pageId, pageAddr, row, written, rowSize, pageSize());
+
+            assert payloadSize > 0 : payloadSize;
+
+            return written + payloadSize;
+        }
+
+        /**
+         * Put page into the free list if needed.
+         *
+         * @param freeSpace Page free space.
+         * @param pageId Page ID.
+         * @param pageAddr Page address.
+         * @param statHolder Statistics holder to track IO operations.
+         */
+        protected void putPage(
+                int freeSpace,
+                long pageId,
+                long pageAddr,
+                IoStatisticsHolder statHolder
+        ) throws IgniteInternalCheckedException {
+            if (freeSpace > MIN_PAGE_FREE_SPACE) {
+                int bucket = bucket(freeSpace, false);
+
+                put(null, pageId, pageAddr, bucket, statHolder);
+            }
+        }
+    }
+
+    private final class WriteRowsHandler implements PageHandler<CachedIterator, Integer> {
+        /** {@inheritDoc} */
+        @Override
+        public Integer run(
+                int cacheId,
+                long pageId,
+                long page,
+                long pageAddr,
+                PageIo iox,
+                CachedIterator it,
+                int written,
+                IoStatisticsHolder statHolder
+        ) throws IgniteInternalCheckedException {
+            DataPageIo io = (DataPageIo) iox;
+
+            // Fill the page up to the end.
+            while (written != COMPLETE || (!evictionTracker.evictionRequired() && it.hasNext())) {
+                Storable row = it.get();
+
+                if (written == COMPLETE) {
+                    row = it.next();
+
+                    // If the data row was completely written without remainder, proceed to the next.
+                    if ((written = writeWholePages(row, statHolder)) == COMPLETE) {
+                        continue;
+                    }
+
+                    if (io.getFreeSpace(pageAddr) < row.size() - written) {
+                        break;
+                    }
+                }
+
+                written = writeRowHnd.addRow(pageId, pageAddr, io, row, written);
+
+                assert written == COMPLETE;
+
+                evictionTracker.touchPage(pageId);
+            }
+
+            writeRowHnd.putPage(io.getFreeSpace(pageAddr), pageId, pageAddr, statHolder);
+
+            return written;
+        }
+    }
+
+    private final class RemoveRowHandler implements PageHandler<ReuseBag, Long> {
+        /** Indicates whether partition ID should be masked from page ID. */
+        private final boolean maskPartId;
+
+        /**
+         * Constructor.
+         *
+         * @param maskPartId Indicates whether partition ID should be masked from page ID.
+         */
+        RemoveRowHandler(boolean maskPartId) {
+            this.maskPartId = maskPartId;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Long run(
+                int cacheId,
+                long pageId,
+                long page,
+                long pageAddr,
+                PageIo iox,
+                ReuseBag reuseBag,
+                int itemId,
+                IoStatisticsHolder statHolder
+        ) throws IgniteInternalCheckedException {
+            DataPageIo io = (DataPageIo) iox;
+
+            int oldFreeSpace = io.getFreeSpace(pageAddr);
+
+            assert oldFreeSpace >= 0 : oldFreeSpace;
+
+            long nextLink = io.removeRow(pageAddr, itemId, pageSize());
+
+            int newFreeSpace = io.getFreeSpace(pageAddr);
+
+            if (newFreeSpace > MIN_PAGE_FREE_SPACE) {
+                int newBucket = bucket(newFreeSpace, false);
+
+                boolean putIsNeeded = oldFreeSpace <= MIN_PAGE_FREE_SPACE;
+
+                if (!putIsNeeded) {
+                    int oldBucket = bucket(oldFreeSpace, false);
+
+                    if (oldBucket != newBucket) {
+                        // It is possible that page was concurrently taken for put, in this case put will handle bucket change.
+                        pageId = maskPartId ? PageIdUtils.maskPartitionId(pageId) : pageId;
+
+                        putIsNeeded = removeDataPage(pageId, pageAddr, io, oldBucket, statHolder);
+                    }
+                }
+
+                if (io.isEmpty(pageAddr)) {
+                    evictionTracker.forgetPage(pageId);
+
+                    if (putIsNeeded) {
+                        reuseBag.addFreePage(recyclePage(pageId, pageAddr));
+                    }
+                } else if (putIsNeeded) {
+                    put(null, pageId, pageAddr, newBucket, statHolder);
+                }
+            }
+
+            // For common case boxed 0L will be cached inside of Long, so no garbage will be produced.
+            return nextLink;
+        }
+    }
 
     /**
      * Constructor.
@@ -138,7 +379,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
 
         this.reuseList = reuseList == null ? this : reuseList;
 
-        rmvRow = new RemoveRowHandler(this, grpId == 0);
+        rmvRow = new RemoveRowHandler(grpId == 0);
 
         int pageSize = pageMem.pageSize();
 
@@ -292,7 +533,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
     @Override
     public void insertDataRows(Collection<? extends Storable> rows) throws IgniteInternalCheckedException {
         try {
-            CachedIterator<Storable> it = new CachedIterator<>(rows.iterator());
+            CachedIterator it = new CachedIterator(rows.iterator());
 
             int written = COMPLETE;
 
@@ -326,6 +567,35 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
             }
         } catch (RuntimeException e) {
             throw new CorruptedFreeListException("Failed to insert data rows", e, grpId);
+        }
+    }
+
+    /**
+     * {@link Iterator} implementation that allows to access the current element multiple times.
+     */
+    private static class CachedIterator implements Iterator<Storable> {
+        private final Iterator<? extends Storable> it;
+
+        private Storable next;
+
+        CachedIterator(Iterator<? extends Storable> it) {
+            this.it = it;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return it.hasNext();
+        }
+
+        @Override
+        public Storable next() {
+            next = it.next();
+
+            return next;
+        }
+
+        Storable get() {
+            return next;
         }
     }
 
@@ -622,16 +892,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
     /** Returns page eviction tracker. */
     public PageEvictionTracker evictionTracker() {
         return evictionTracker;
-    }
-
-    /** Returns page memory. */
-    public PageMemory pageMemory() {
-        return pageMem;
-    }
-
-    /** Returns write row handler. */
-    public WriteRowHandler writeRowHandler() {
-        return writeRowHnd;
     }
 
     @Override
