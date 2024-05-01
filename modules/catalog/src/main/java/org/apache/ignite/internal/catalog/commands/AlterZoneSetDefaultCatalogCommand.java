@@ -37,14 +37,18 @@ public class AlterZoneSetDefaultCatalogCommand extends AbstractZoneCommand {
         return new AlterZoneSetDefaultCatalogCommand.Builder();
     }
 
+    private final boolean ifExists;
+
     /**
      * Constructor.
      *
      * @param zoneName Name of the zone.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
-    private AlterZoneSetDefaultCatalogCommand(String zoneName) throws CatalogValidationException {
+    private AlterZoneSetDefaultCatalogCommand(String zoneName, boolean ifExists) throws CatalogValidationException {
         super(zoneName);
+
+        this.ifExists = ifExists;
     }
 
     @Override
@@ -60,11 +64,16 @@ public class AlterZoneSetDefaultCatalogCommand extends AbstractZoneCommand {
         return List.of(new SetDefaultZoneEntry(zone.id()));
     }
 
+    public boolean ifExists() {
+        return ifExists;
+    }
+
     /**
      * Builder of a command that set specified zone as default.
      */
     public static class Builder implements AbstractZoneCommandBuilder<Builder> {
         private String zoneName;
+        private boolean ifExists;
 
         @Override
         public Builder zoneName(String zoneName) {
@@ -73,9 +82,16 @@ public class AlterZoneSetDefaultCatalogCommand extends AbstractZoneCommand {
             return this;
         }
 
+        /** Sets IF EXISTS flag. */
+        public Builder ifExists(boolean ifExists) {
+            this.ifExists = ifExists;
+
+            return this;
+        }
+
         @Override
         public CatalogCommand build() {
-            return new AlterZoneSetDefaultCatalogCommand(zoneName);
+            return new AlterZoneSetDefaultCatalogCommand(zoneName, ifExists);
         }
     }
 }

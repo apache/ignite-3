@@ -32,6 +32,8 @@ public interface AbstractTableCommandBuilder<T extends AbstractTableCommandBuild
     /** A name of the table. Should not be null or blank. */
     T tableName(String tableName);
 
+    T ifTableExists(boolean ifTableExists);
+
     /** Returns a command with specified parameters. */
     CatalogCommand build();
 }

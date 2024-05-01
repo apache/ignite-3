@@ -76,6 +76,7 @@ public class CreateTableCommand extends AbstractTableCommand {
      *
      * @param tableName Name of the table to create. Should not be null or blank.
      * @param schemaName Name of the schema to create table in. Should not be null or blank.
+     * @param ifExists IF EXISTS flag.
      * @param primaryKey Primary key.
      * @param colocationColumns Name of the columns participating in distribution calculation.
      *      Should be subset of the primary key columns.
@@ -86,13 +87,14 @@ public class CreateTableCommand extends AbstractTableCommand {
     private CreateTableCommand(
             String tableName,
             String schemaName,
+            boolean ifExists,
             TablePrimaryKey primaryKey,
             List<String> colocationColumns,
             List<ColumnParams> columns,
             @Nullable String zoneName,
             String storageProfile
     ) throws CatalogValidationException {
-        super(schemaName, tableName);
+        super(schemaName, tableName, ifExists);
 
         this.primaryKey = primaryKey;
         this.colocationColumns = copyOrNull(colocationColumns);
@@ -251,6 +253,8 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         private String tableName;
 
+        private boolean ifExists;
+
         private TablePrimaryKey primaryKey;
 
         private List<String> colocationColumns;
@@ -269,6 +273,13 @@ public class CreateTableCommand extends AbstractTableCommand {
         @Override
         public CreateTableCommandBuilder tableName(String tableName) {
             this.tableName = tableName;
+
+            return this;
+        }
+
+        @Override
+        public CreateTableCommandBuilder ifTableExists(boolean ifTableExists) {
+            this.ifExists = ifTableExists;
 
             return this;
         }
@@ -325,6 +336,7 @@ public class CreateTableCommand extends AbstractTableCommand {
             return new CreateTableCommand(
                     tableName,
                     schemaName,
+                    ifExists,
                     primaryKey,
                     colocationColumns,
                     columns,

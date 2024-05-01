@@ -96,7 +96,7 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvide
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCatalogCommandConverter;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
@@ -623,7 +623,7 @@ public class TestBuilders {
 
             var parserService = new ParserServiceImpl();
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
+                    new DdlSqlToCatalogCommandConverter(), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
                     mock(MetricManagerImpl.class));
 
             Map<String, List<String>> owningNodesByTableName = new HashMap<>();

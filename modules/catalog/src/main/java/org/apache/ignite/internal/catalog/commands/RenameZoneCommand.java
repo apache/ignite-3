@@ -39,6 +39,8 @@ public class RenameZoneCommand extends AbstractZoneCommand {
         return new RenameZoneCommand.Builder();
     }
 
+    private final boolean ifExists;
+
     private final String newZoneName;
 
     /**
@@ -48,12 +50,17 @@ public class RenameZoneCommand extends AbstractZoneCommand {
      * @param newZoneName New name of the zone.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
-    private RenameZoneCommand(String zoneName, String newZoneName) throws CatalogValidationException {
+    private RenameZoneCommand(String zoneName, boolean ifExists, String newZoneName) throws CatalogValidationException {
         super(zoneName);
 
+        this.ifExists = ifExists;
         this.newZoneName = newZoneName;
 
         validate();
+    }
+
+    public boolean ifExists() {
+        return ifExists;
     }
 
     @Override
@@ -88,11 +95,19 @@ public class RenameZoneCommand extends AbstractZoneCommand {
      */
     private static class Builder implements RenameZoneCommandBuilder {
         private String zoneName;
+        private boolean ifExists;
         private String newZoneName;
 
         @Override
         public RenameZoneCommandBuilder zoneName(String zoneName) {
             this.zoneName = zoneName;
+
+            return this;
+        }
+
+        @Override
+        public RenameZoneCommandBuilder ifExists(boolean ifExists) {
+            this.ifExists = ifExists;
 
             return this;
         }
@@ -106,7 +121,7 @@ public class RenameZoneCommand extends AbstractZoneCommand {
 
         @Override
         public CatalogCommand build() {
-            return new RenameZoneCommand(zoneName, newZoneName);
+            return new RenameZoneCommand(zoneName, ifExists, newZoneName);
         }
     }
 }

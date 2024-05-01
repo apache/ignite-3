@@ -38,14 +38,19 @@ public class DropZoneCommand extends AbstractZoneCommand {
         return new Builder();
     }
 
+    private final boolean ifExists;
+
     /**
      * Constructor.
      *
      * @param zoneName Name of the zone.
+     * @param ifExists TODO
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
-    private DropZoneCommand(String zoneName) throws CatalogValidationException {
+    private DropZoneCommand(String zoneName, boolean ifExists) throws CatalogValidationException {
         super(zoneName);
+
+        this.ifExists = ifExists;
     }
 
     @Override
@@ -69,11 +74,16 @@ public class DropZoneCommand extends AbstractZoneCommand {
         return List.of(new DropZoneEntry(zone.id()));
     }
 
+    public boolean ifExists() {
+        return ifExists;
+    }
+
     /**
      * Implementation of {@link DropZoneCommandBuilder}.
      */
     private static class Builder implements DropZoneCommandBuilder {
         private String zoneName;
+        private boolean ifExists;
 
         @Override
         public DropZoneCommandBuilder zoneName(String zoneName) {
@@ -83,8 +93,15 @@ public class DropZoneCommand extends AbstractZoneCommand {
         }
 
         @Override
+        public DropZoneCommandBuilder ifExists(boolean ifExists) {
+            this.ifExists = ifExists;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
-            return new DropZoneCommand(zoneName);
+            return new DropZoneCommand(zoneName, ifExists);
         }
     }
 }

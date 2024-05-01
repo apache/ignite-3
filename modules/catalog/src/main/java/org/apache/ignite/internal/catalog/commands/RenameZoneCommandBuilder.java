@@ -25,6 +25,8 @@ package org.apache.ignite.internal.catalog.commands;
  * side effects on builder's state or any object created by the same builder.
  */
 public interface RenameZoneCommandBuilder extends AbstractZoneCommandBuilder<RenameZoneCommandBuilder> {
+    RenameZoneCommandBuilder ifExists(boolean ifExists);
+
     /** A new name of already existing zone. */
     RenameZoneCommandBuilder newZoneName(String newZoneName);
 }

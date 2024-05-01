@@ -55,10 +55,11 @@ public class DropIndexCommand extends AbstractIndexCommand {
      *
      * @param schemaName Name of the schema to look up index in. Should not be null or blank.
      * @param indexName Name of the index to drop. Should not be null or blank.
+     * @param ifNotExists TODO
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
-    private DropIndexCommand(String schemaName, String indexName) throws CatalogValidationException {
-        super(schemaName, indexName);
+    private DropIndexCommand(String schemaName, String indexName, boolean ifNotExists) throws CatalogValidationException {
+        super(schemaName, indexName, ifNotExists);
     }
 
     @Override
@@ -92,6 +93,8 @@ public class DropIndexCommand extends AbstractIndexCommand {
 
         private String indexName;
 
+        private boolean ifNotExists;
+
         @Override
         public Builder schemaName(String schemaName) {
             this.schemaName = schemaName;
@@ -107,10 +110,18 @@ public class DropIndexCommand extends AbstractIndexCommand {
         }
 
         @Override
+        public DropIndexCommandBuilder ifNotExists(boolean ifNotExists) {
+            this.ifNotExists = ifNotExists;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             return new DropIndexCommand(
                     schemaName,
-                    indexName
+                    indexName,
+                    ifNotExists
             );
         }
     }

@@ -33,11 +33,26 @@ public abstract class AbstractIndexCommand implements CatalogCommand {
 
     protected final String indexName;
 
-    AbstractIndexCommand(String schemaName, String indexName) throws CatalogValidationException {
+    private final boolean ifNotExists;
+
+    AbstractIndexCommand(String schemaName, String indexName, boolean ifNotExists) throws CatalogValidationException {
         this.schemaName = schemaName;
         this.indexName = indexName;
+        this.ifNotExists = ifNotExists;
 
         validate();
+    }
+
+    public String schemaName() {
+        return schemaName;
+    }
+
+    public String indexName() {
+        return indexName;
+    }
+
+    public boolean ifNotExists() {
+        return ifNotExists;
     }
 
     private void validate() {

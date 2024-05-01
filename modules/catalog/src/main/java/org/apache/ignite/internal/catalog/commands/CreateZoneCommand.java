@@ -51,6 +51,8 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         return new Builder();
     }
 
+    private final boolean ifNotExists;
+
     private final @Nullable Integer partitions;
 
     private final @Nullable Integer replicas;
@@ -69,6 +71,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
      * Constructor.
      *
      * @param zoneName Name of the zone.
+     * @param ifNotExists TODO
      * @param partitions Number of partitions.
      * @param replicas Number of replicas.
      * @param dataNodesAutoAdjust Timeout in seconds between node added or node left topology event itself and data nodes switch.
@@ -80,6 +83,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
      */
     private CreateZoneCommand(
             String zoneName,
+            boolean ifNotExists,
             @Nullable Integer partitions,
             @Nullable Integer replicas,
             @Nullable Integer dataNodesAutoAdjust,
@@ -89,7 +93,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
             List<StorageProfileParams> storageProfileParams
     ) throws CatalogValidationException {
         super(zoneName);
-
+        this.ifNotExists = ifNotExists;
         this.partitions = partitions;
         this.replicas = replicas;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
@@ -99,6 +103,10 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         this.storageProfileParams = storageProfileParams;
 
         validate();
+    }
+
+    public boolean ifNotExists() {
+        return ifNotExists;
     }
 
     @Override
@@ -158,6 +166,8 @@ public class CreateZoneCommand extends AbstractZoneCommand {
     private static class Builder implements CreateZoneCommandBuilder {
         private String zoneName;
 
+        private boolean ifNotExits;
+
         private @Nullable Integer partitions;
 
         private @Nullable Integer replicas;
@@ -175,6 +185,13 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         @Override
         public CreateZoneCommandBuilder zoneName(String zoneName) {
             this.zoneName = zoneName;
+
+            return this;
+        }
+
+        @Override
+        public CreateZoneCommandBuilder ifNotExists(boolean ifNotExists) {
+            this.ifNotExits = ifNotExists;
 
             return this;
         }
@@ -232,6 +249,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         public CatalogCommand build() {
             return new CreateZoneCommand(
                     zoneName,
+                    ifNotExits,
                     partitions,
                     replicas,
                     dataNodesAutoAdjust,

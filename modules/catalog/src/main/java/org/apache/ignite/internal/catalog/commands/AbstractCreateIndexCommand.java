@@ -49,9 +49,9 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
 
     protected final List<String> columns;
 
-    AbstractCreateIndexCommand(String schemaName, String indexName, String tableName, boolean unique, List<String> columns)
-            throws CatalogValidationException {
-        super(schemaName, indexName);
+    AbstractCreateIndexCommand(String schemaName, String indexName, boolean ifNotExists, String tableName, boolean unique,
+            List<String> columns) throws CatalogValidationException {
+        super(schemaName, indexName, ifNotExists);
 
         validate(tableName, columns);
 

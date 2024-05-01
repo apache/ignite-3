@@ -51,7 +51,7 @@ import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCatalogCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -94,7 +94,7 @@ public class PrepareServiceImpl implements PrepareService {
     private final UUID prepareServiceId = UUID.randomUUID();
     private final AtomicLong planIdGen = new AtomicLong();
 
-    private final DdlSqlToCommandConverter ddlConverter;
+    private final DdlSqlToCatalogCommandConverter ddlConverter;
 
     private final Cache<CacheKey, CompletableFuture<QueryPlan>> cache;
 
@@ -132,7 +132,7 @@ public class PrepareServiceImpl implements PrepareService {
                 nodeName,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 cacheFactory,
-                new DdlSqlToCommandConverter(),
+                new DdlSqlToCatalogCommandConverter(),
                 clusterCfg.planner().maxPlanningTime().value(),
                 nodeCfg.planner().threadCount().value(),
                 metricManager
@@ -153,7 +153,7 @@ public class PrepareServiceImpl implements PrepareService {
             String nodeName,
             int cacheSize,
             CacheFactory cacheFactory,
-            DdlSqlToCommandConverter ddlConverter,
+            DdlSqlToCatalogCommandConverter ddlConverter,
             long plannerTimeout,
             int plannerThreadCount,
             MetricManager metricManager

@@ -44,6 +44,8 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         return new Builder();
     }
 
+    private final boolean ifExists;
+
     private final @Nullable Integer partitions;
 
     private final @Nullable Integer replicas;
@@ -73,6 +75,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
      */
     private AlterZoneCommand(
             String zoneName,
+            boolean ifExists,
             @Nullable Integer partitions,
             @Nullable Integer replicas,
             @Nullable Integer dataNodesAutoAdjust,
@@ -83,6 +86,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
     ) throws CatalogValidationException {
         super(zoneName);
 
+        this.ifExists = ifExists;
         this.partitions = partitions;
         this.replicas = replicas;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
@@ -92,6 +96,10 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         this.storageProfileParams = storageProfileParams;
 
         validate();
+    }
+
+    public boolean ifExists() {
+        return ifExists;
     }
 
     @Override
@@ -156,6 +164,8 @@ public class AlterZoneCommand extends AbstractZoneCommand {
     private static class Builder implements AlterZoneCommandBuilder {
         private String zoneName;
 
+        private boolean ifExists;
+
         private @Nullable Integer partitions;
 
         private @Nullable Integer replicas;
@@ -173,6 +183,13 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         @Override
         public AlterZoneCommandBuilder zoneName(String zoneName) {
             this.zoneName = zoneName;
+
+            return this;
+        }
+
+        @Override
+        public AlterZoneCommandBuilder ifExists(boolean ifExists) {
+            this.ifExists = ifExists;
 
             return this;
         }
@@ -230,6 +247,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         public CatalogCommand build() {
             return new AlterZoneCommand(
                     zoneName,
+                    ifExists,
                     partitions,
                     replicas,
                     dataNodesAutoAdjust,

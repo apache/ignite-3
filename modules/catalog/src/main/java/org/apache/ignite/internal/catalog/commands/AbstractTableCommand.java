@@ -34,11 +34,19 @@ public abstract class AbstractTableCommand implements CatalogCommand {
 
     protected final String tableName;
 
-    AbstractTableCommand(String schemaName, String tableName) throws CatalogValidationException {
+    protected final boolean ifExists;
+
+    AbstractTableCommand(String schemaName, String tableName, boolean ifExists) throws CatalogValidationException {
         this.schemaName = schemaName;
         this.tableName = tableName;
+        this.ifExists = ifExists;
 
         validate();
+    }
+
+    // TODO ifTableExists?
+    public boolean ifTableExists() {
+        return ifExists;
     }
 
     private void validate() {

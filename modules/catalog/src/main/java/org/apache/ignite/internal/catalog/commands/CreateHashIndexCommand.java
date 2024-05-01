@@ -37,14 +37,15 @@ public class CreateHashIndexCommand extends AbstractCreateIndexCommand {
      *
      * @param schemaName Name of the schema to create index in. Should not be null or blank.
      * @param indexName Name of the index to create. Should not be null or blank.
+     * @param ifNotExists TODO
      * @param tableName Name of the table the index belong to. Should not be null or blank.
      * @param unique A flag denoting whether index keeps at most one row per every key or not.
      * @param columns List of the indexed columns. There should be at least one column.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
-    private CreateHashIndexCommand(String schemaName, String indexName, String tableName, boolean unique, List<String> columns)
-            throws CatalogValidationException {
-        super(schemaName, indexName, tableName, unique, columns);
+    private CreateHashIndexCommand(String schemaName, String indexName, boolean ifNotExists, String tableName, boolean unique,
+            List<String> columns) throws CatalogValidationException {
+        super(schemaName, indexName, ifNotExists, tableName, unique, columns);
     }
 
     @Override
@@ -57,6 +58,7 @@ public class CreateHashIndexCommand extends AbstractCreateIndexCommand {
     private static class Builder implements CreateHashIndexCommandBuilder {
         private String schemaName;
         private String indexName;
+        private boolean ifNotExists;
         private String tableName;
         private List<String> columns;
         private boolean unique;
@@ -97,9 +99,16 @@ public class CreateHashIndexCommand extends AbstractCreateIndexCommand {
         }
 
         @Override
+        public CreateHashIndexCommandBuilder ifNotExists(boolean ifNotExists) {
+            this.ifNotExists = ifNotExists;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             return new CreateHashIndexCommand(
-                    schemaName, indexName, tableName, unique, columns
+                    schemaName, indexName, ifNotExists, tableName, unique, columns
             );
         }
     }
