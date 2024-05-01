@@ -1021,7 +1021,7 @@ public class DataPageIo extends PageIo {
 
         int dataOff = getDataOffsetForWrite(pageAddr, fullEntrySize, directCnt, indirectCnt, pageSize);
 
-        row.writeRowData(pageAddr, dataOff, rowSize, true, this::assertPageType);
+        row.writeRowData(pageAddr, dataOff, rowSize, true);
 
         int itemId = addItem(pageAddr, fullEntrySize, directCnt, indirectCnt, dataOff, pageSize);
 
@@ -1160,7 +1160,7 @@ public class DataPageIo extends PageIo {
 
         int rowOff = rowSize - written - payloadSize;
 
-        row.writeFragmentData(buf, rowOff, payloadSize, this::assertPageType);
+        row.writeFragmentData(buf, rowOff, payloadSize);
 
         int itemId = addItem(pageAddr, fullEntrySize, directCnt, indirectCnt, dataOff, pageSize);
 

@@ -17,12 +17,8 @@
 
 package org.apache.ignite.internal.pagememory;
 
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
-
 import java.nio.ByteBuffer;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Simple interface for data, store in some RowStore.
@@ -65,28 +61,6 @@ public interface Storable {
      */
     int headerSize();
 
-    /** Returns row value buffer. */
-    @Nullable
-    ByteBuffer valueBuffer();
-
-    /**
-     * Writes row header to page buffer and moves its pointer to {@link #valueOffset()}.
-     *
-     * @param pageBuf page buffer to write header to.
-     */
-    void writeHeader(ByteBuffer pageBuf);
-
-    /**
-     * Writes row header and value to page.
-     *
-     * @param pageAddr Page address.
-     * @param offset Data offset.
-     */
-    void writeToPage(long pageAddr, int offset);
-
-    /** Returns value offset from the start of the row. */
-    int valueOffset();
-
     /**
      * Writes a row.
      *
@@ -95,23 +69,12 @@ public interface Storable {
      * @param payloadSize Payload size.
      * @param newRow {@code False} if existing cache entry is updated, in this case skip key data write.
      */
-    default void writeRowData(
+    void writeRowData(
             long pageAddr,
             int dataOff,
             int payloadSize,
-            boolean newRow,
-            Consumer<Long> assertPageType
-    ) {
-        assertPageType.accept(pageAddr);
-
-        if (newRow) {
-            putShort(pageAddr, dataOff, (short) payloadSize);
-        }
-
-        int offset = dataOff + Short.BYTES;
-
-        writeToPage(pageAddr, offset);
-    }
+            boolean newRow
+    );
 
     /**
      * Writes row data fragment.
@@ -120,46 +83,20 @@ public interface Storable {
      * @param rowOff Offset in row data bytes.
      * @param payloadSize Data length that should be written in a fragment.
      */
-    default void writeFragmentData(
+    void writeFragmentData(
             ByteBuffer pageBuf,
             int rowOff,
-            int payloadSize,
-            Consumer<ByteBuffer> assertPageType
-    ) {
-        assertPageType.accept(pageBuf);
+            int payloadSize
+    );
 
-        int headerSize = headerSize();
+    static void putValueBufferIntoPage(ByteBuffer pageBuffer, ByteBuffer valueBuffer, int offset, int payloadSize) {
+        int oldPosition = valueBuffer.position();
+        int oldLimit = valueBuffer.limit();
 
-        int bufferOffset;
-        int bufferSize;
-        if (rowOff == 0) {
-            // First fragment.
-            assert headerSize <= payloadSize : "Header must entirely fit in the first fragment, but header size is "
-                    + headerSize + " and payload size is " + payloadSize;
-
-            writeHeader(pageBuf);
-
-            bufferOffset = 0;
-            bufferSize = payloadSize - valueOffset();
-        } else {
-            // Not a first fragment.
-            assert rowOff >= headerSize();
-
-            bufferOffset = rowOff - valueOffset();
-            bufferSize = payloadSize;
-        }
-
-        if (valueBuffer() != null) {
-            int oldPosition = valueBuffer().position();
-            int oldLimit = valueBuffer().limit();
-
-            valueBuffer().position(bufferOffset);
-            valueBuffer().limit(bufferOffset + bufferSize);
-
-            pageBuf.put(valueBuffer());
-
-            valueBuffer().position(oldPosition);
-            valueBuffer().limit(oldLimit);
-        }
+        valueBuffer.position(offset);
+        valueBuffer.limit(offset + payloadSize);
+        pageBuffer.put(valueBuffer);
+        valueBuffer.position(oldPosition);
+        valueBuffer.limit(oldLimit);
     }
 }

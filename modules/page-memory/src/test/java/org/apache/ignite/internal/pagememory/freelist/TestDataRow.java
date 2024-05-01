@@ -70,22 +70,24 @@ class TestDataRow implements Storable {
     }
 
     @Override
-    public ByteBuffer valueBuffer() {
-        return ByteBuffer.wrap(bytes);
+    public void writeRowData(long pageAddr, int dataOff, int payloadSize, boolean newRow) {
+        long addr = pageAddr + dataOff;
+
+        if (newRow) {
+            PageUtils.putShort(addr, 0, (short) payloadSize);
+
+            addr += 2;
+        } else {
+            addr += 2;
+        }
+
+        PageUtils.putBytes(addr, 0, bytes);
     }
 
     @Override
-    public void writeToPage(long pageAddr, int offset) {
-        PageUtils.putBytes(pageAddr, offset, bytes);
-    }
-
-    @Override
-    public void writeHeader(ByteBuffer pageBuf) {
-        // No-op.
-    }
-
-    @Override
-    public int valueOffset() {
-        return 0;
+    public void writeFragmentData(ByteBuffer pageBuf, int rowOff, int payloadSize) {
+        if (payloadSize > 0) {
+            pageBuf.put(bytes, rowOff, payloadSize);
+        }
     }
 }
