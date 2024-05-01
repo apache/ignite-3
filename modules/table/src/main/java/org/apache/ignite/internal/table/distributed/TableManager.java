@@ -91,6 +91,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
@@ -151,6 +152,7 @@ import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -973,23 +975,26 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             || replicaMgr.isReplicaStarted(replicaGrpId);
 
                     try {
+                        Function<RaftGroupService, ReplicaListener> createListener = (raftClient) -> {
+                            ((InternalTableImpl) internalTbl)
+                                    .tableRaftService()
+                                    .updateInternalTableRaftGroupService(partId, raftClient);
+                            return createReplicaListener(
+                                    replicaGrpId,
+                                    table,
+                                    safeTimeTracker,
+                                    partitionStorages.getMvPartitionStorage(),
+                                    partitionStorages.getTxStateStorage(),
+                                    partitionUpdateHandlers,
+                                    raftClient);
+                        };
+
                         replicaMgr.startReplica(
                                         shouldSkipReplicaStarting,
                                         replicaGrpId,
                                         newConfiguration,
-                                        (raftClient) -> {
-                                            ((InternalTableImpl) internalTbl)
-                                                    .tableRaftService()
-                                                    .updateInternalTableRaftGroupService(partId, raftClient);
-                                            return createReplicaListener(
-                                                    replicaGrpId,
-                                                    table,
-                                                    safeTimeTracker,
-                                                    partitionStorages.getMvPartitionStorage(),
-                                                    partitionStorages.getTxStateStorage(),
-                                                    partitionUpdateHandlers,
-                                                    raftClient);
-                                        },
+                                        raftClientCacheClojure(internalTbl, replicaGrpId),
+                                        createListener,
                                         storageIndexTracker)
                                 .join();
                     } catch (NodeStoppingException ex) {
@@ -1007,6 +1012,27 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 });
 
         return resultFuture;
+    }
+
+    /**
+     * Temporal.
+     *
+     * @param internalTable temporal
+     * @param replicaGrpId temporal
+     * @return temporal
+     */
+    public static Supplier<RaftGroupService> raftClientCacheClojure(InternalTable internalTable, TablePartitionId replicaGrpId) {
+        return () -> {
+            try {
+                // Return existing service if it's already started.
+                return ((InternalTableImpl) internalTable)
+                        .tableRaftService()
+                        .partitionRaftGroupService(replicaGrpId.partitionId());
+            } catch (IgniteInternalException e) {
+                // We use "IgniteInternalException" in accordance with the javadoc of "partitionRaftGroupService" method.
+                return null;
+            }
+        };
     }
 
     private PartitionReplicaListener createReplicaListener(

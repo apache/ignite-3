@@ -276,7 +276,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(topologyService.localMember()).thenReturn(node);
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
-        when(replicaMgr.startReplica(anyBoolean(), any(), any(), any(), any())).thenReturn(nullCompletedFuture());
+        when(replicaMgr.startReplica(anyBoolean(), any(), any(), any(), any(), any())).thenReturn(nullCompletedFuture());
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
 
         try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {

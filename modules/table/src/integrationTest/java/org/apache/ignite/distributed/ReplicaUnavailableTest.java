@@ -237,6 +237,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                                 true,
                                 tablePartitionId,
                                 newConfiguration,
+                                () -> null,
                                 (unused) -> listener,
                                 new PendingComparableValuesTracker<>(0L)
                         );
@@ -347,6 +348,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 try {
                     log.info("Replica msg " + message.getClass().getSimpleName());
 
+                    // TODO remove?
                     TopologyAwareRaftGroupService raftClient = mock(TopologyAwareRaftGroupService.class);
 
                     ReplicaListener listener = replicaListenerCreator.apply((r, id) -> new CompletableFuture<>());
@@ -355,6 +357,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                             true,
                             tablePartitionId,
                             newConfiguration,
+                            () -> null,
                             (unused) -> listener,
                             new PendingComparableValuesTracker<>(0L)
                     );

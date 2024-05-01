@@ -46,6 +46,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -538,6 +539,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             boolean shouldSkipReplicaStarting,
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
+            Supplier<RaftGroupService> raftClientCache,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) throws NodeStoppingException {
@@ -546,7 +548,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            return startReplicaInternal(shouldSkipReplicaStarting, replicaGrpId, newConfiguration, createListener, storageIndexTracker);
+            return startReplicaInternal(
+                    shouldSkipReplicaStarting,
+                    replicaGrpId, newConfiguration,
+                    raftClientCache,
+                    createListener,
+                    storageIndexTracker
+            );
+
         } finally {
             busyLock.leaveBusy();
         }
@@ -565,17 +574,25 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             boolean shouldSkipReplicaStarting,
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
+            Supplier<RaftGroupService> raftClientCache,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) throws NodeStoppingException {
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
-        CompletableFuture<ReplicaListener> newReplicaListenerFut = createRaftClientAsync(replicaGrpId, newConfiguration)
-                .thenApply(createListener);
+        var raftClient = raftClientCache.get();
+        CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut;
+        if (raftClient == null) {
+            newRaftClientFut = createRaftClientAsync(replicaGrpId, newConfiguration);
+        } else {
+            newRaftClientFut = CompletableFuture.completedFuture((TopologyAwareRaftGroupService) raftClient);
+        }
 
-        // if (shouldSkipReplicaStarting) {
-        //     return nullCompletedFuture();
-        // }
+        CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
+
+        if (shouldSkipReplicaStarting) {
+            return nullCompletedFuture();
+        }
 
         return temporalInternalCreateReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
     }
