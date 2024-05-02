@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
-import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultLength;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.lang.reflect.Type;
@@ -663,37 +659,5 @@ public class TypeUtils {
         } else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
-    }
-
-    /**
-     * Get column's precision.
-     */
-    public static @Nullable Integer deriveColumnPrecision(RelDataType type, ColumnType colType) {
-        colType = Objects.requireNonNullElse(colType, Objects.requireNonNull(columnType(type), "colType"));
-        Integer precision = colType.lengthAllowed() ? PRECISION_NOT_SPECIFIED : type.getPrecision();
-        precision = precision == PRECISION_NOT_SPECIFIED ? null : precision;
-
-        return type.getSqlTypeName().allowsPrec() ? precision : null;
-    }
-
-    /**
-     * Get column's scale.
-     */
-    public static @Nullable Integer deriveColumnScale(RelDataType type, ColumnType colType) {
-        Integer scale = colType.lengthAllowed() ? SCALE_NOT_SPECIFIED : type.getScale();
-        scale = scale == SCALE_NOT_SPECIFIED ? null : scale;
-
-        return type.getSqlTypeName().allowsScale() ? scale : null;
-    }
-
-    /**
-     * Get column's length.
-     */
-    public static @Nullable Integer deriveColumnLength(RelDataType type, ColumnType colType) {
-        colType = Objects.requireNonNullElse(colType, Objects.requireNonNull(columnType(type), "colType"));
-        int length = type.getPrecision();
-        length = length == PRECISION_NOT_SPECIFIED ? defaultLength(colType, DEFAULT_LENGTH) : length;
-
-        return colType.lengthAllowed() ? length : null;
     }
 }

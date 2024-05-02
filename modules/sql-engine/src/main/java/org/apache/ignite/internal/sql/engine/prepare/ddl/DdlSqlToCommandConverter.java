@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultLength;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.TableOptionEnum.PRIMARY_ZONE;
@@ -35,9 +37,6 @@ import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToByt
 import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToIntExact;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToShortExact;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.deriveColumnLength;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.deriveColumnPrecision;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.deriveColumnScale;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.fromInternal;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
@@ -172,7 +171,7 @@ public class DdlSqlToCommandConverter {
         zoneOptionInfos = new EnumMap<>(Map.of(
                 REPLICAS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::replicas),
                 PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::partitions),
-                // TODO issue
+                // TODO https://issues.apache.org/jira/browse/IGNITE-22162 Setter method should be used
                 AFFINITY_FUNCTION, new DdlOptionInfo<>(String.class, null, (builder, params) -> {}),
                 DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, CreateZoneCommandBuilder::filter),
                 DATA_NODES_AUTO_ADJUST,
@@ -388,13 +387,31 @@ public class DdlSqlToCommandConverter {
 
         assert colType != null;
 
+        Integer precision = null;
+        Integer scale = null;
+        Integer length = null;
+
+        if (relType.getSqlTypeName().allowsPrec()) {
+            precision = colType.lengthAllowed() ? PRECISION_NOT_SPECIFIED : relType.getPrecision();
+            precision = precision == PRECISION_NOT_SPECIFIED ? null : precision;
+        }
+
+        if (relType.getSqlTypeName().allowsScale()) {
+            scale = colType.lengthAllowed() ? SCALE_NOT_SPECIFIED : relType.getScale();
+            scale = scale == SCALE_NOT_SPECIFIED ? null : scale;
+        }
+
+        if (colType.lengthAllowed()) {
+            length = relType.getPrecision() == PRECISION_NOT_SPECIFIED ? defaultLength(colType, DEFAULT_LENGTH) : relType.getPrecision();
+        }
+
         return ColumnParams.builder()
                 .name(name)
                 .type(colType)
                 .nullable(relType.isNullable())
-                .precision(deriveColumnPrecision(relType, colType))
-                .scale(deriveColumnScale(relType, colType))
-                .length(deriveColumnLength(relType, colType))
+                .precision(precision)
+                .scale(scale)
+                .length(length)
                 .defaultValue(convertDefault(col.expression, relType, name))
                 .build();
     }

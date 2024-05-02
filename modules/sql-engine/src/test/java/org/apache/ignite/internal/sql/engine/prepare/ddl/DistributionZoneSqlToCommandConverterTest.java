@@ -107,7 +107,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
             assertThat(desc.partitions(), equalTo(2));
             assertThat(desc.replicas(), equalTo(3));
-            // TODO affinity
+            // TODO https://issues.apache.org/jira/browse/IGNITE-22162
             // assertThat(desc.affinity(), equalTo("rendezvous"));
             assertThat(desc.filter(), equalTo("$[?(@.region == \"US\")]"));
             assertThat(desc.dataNodesAutoAdjust(), equalTo(300));

@@ -165,20 +165,12 @@ public class DdlCommandHandler implements LifecycleAware {
 
     /** Handles add column command. */
     private CompletableFuture<Boolean> handleAlterAddColumn(AlterTableAddColumnCommand cmd) {
-        //        if (nullOrEmpty(cmd.columns())) {
-        //            return falseCompletedFuture();
-        //        }
-
         return catalogManager.execute(cmd)
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundValidationException.class));
     }
 
     /** Handles drop column command. */
     private CompletableFuture<Boolean> handleAlterDropColumn(AlterTableDropColumnCommand cmd) {
-        //        if (nullOrEmpty(cmd.columns())) {
-        //            return falseCompletedFuture();
-        //        }
-
         return catalogManager.execute(cmd)
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundValidationException.class));
     }
