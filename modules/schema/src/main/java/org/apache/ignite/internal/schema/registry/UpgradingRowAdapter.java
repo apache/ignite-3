@@ -60,8 +60,6 @@ public class UpgradingRowAdapter implements Row {
     private final Row row;
 
     private UpgradingRowAdapter(SchemaDescriptor newSchema, BinaryTupleSchema newBinaryTupleSchema, Row row, ColumnMapper mapper) {
-        assert !row.keyOnly() : "Can't upgrade special purpose row representing a key.";
-
         this.row = row;
 
         this.newSchema = newSchema;
