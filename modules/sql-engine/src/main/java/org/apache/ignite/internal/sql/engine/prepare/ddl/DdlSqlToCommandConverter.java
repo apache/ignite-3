@@ -658,8 +658,8 @@ public class DdlSqlToCommandConverter {
      * @param dropZoneNode Root node of the given AST.
      * @param ctx Planning context.
      */
-    private DropZoneCommand convertDropZone(IgniteSqlDropZone dropZoneNode, PlanningContext ctx) {
-        DropZoneCommand dropZoneCmd = new DropZoneCommand();
+    private DropZoneCommandToRemove convertDropZone(IgniteSqlDropZone dropZoneNode, PlanningContext ctx) {
+        DropZoneCommandToRemove dropZoneCmd = new DropZoneCommandToRemove();
 
         dropZoneCmd.schemaName(deriveSchemaName(dropZoneNode.name(), ctx));
         dropZoneCmd.zoneName(deriveObjectName(dropZoneNode.name(), ctx, "zoneName"));

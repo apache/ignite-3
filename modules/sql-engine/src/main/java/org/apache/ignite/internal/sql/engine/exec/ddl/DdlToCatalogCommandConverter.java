@@ -54,7 +54,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommandToRemove;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.sql.ColumnType;
@@ -123,7 +123,7 @@ class DdlToCatalogCommandConverter {
                 .build();
     }
 
-    static CatalogCommand convert(DropZoneCommand cmd) {
+    static CatalogCommand convert(DropZoneCommandToRemove cmd) {
         return org.apache.ignite.internal.catalog.commands.DropZoneCommand.builder()
                 .zoneName(cmd.zoneName())
                 .build();

@@ -181,7 +181,7 @@ public class DdlSqlToCatalogCommandConverter {
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::dataNodesAutoAdjustScaleUp),
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::dataNodesAutoAdjustScaleDown),
-                STORAGE_PROFILES, new DdlOptionInfo<>(String.class, null,
+                STORAGE_PROFILES, new DdlOptionInfo<>(String.class, this::checkEmptyString,
                         (builder, params) -> builder.storageProfilesParams(parseStorageProfiles(params)))
         ));
 
