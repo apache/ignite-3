@@ -713,21 +713,6 @@ public class DdlSqlToCommandConverter {
         }
     }
 
-    /**
-     * Checks that there are no ID duplicates.
-     *
-     * @param set0 Set of string identifiers.
-     * @param set1 Set of string identifiers.
-     * @throws IllegalStateException If there is a duplicate ID.
-     */
-    static void checkDuplicates(Set<String> set0, Set<String> set1) {
-        for (String id : set1) {
-            if (set0.contains(id)) {
-                throw new IllegalStateException("Duplicate id: " + id);
-            }
-        }
-    }
-
     private <S, T> void updateCommandOption(
             String sqlObjName,
             Object optId,

@@ -25,7 +25,6 @@ import static org.apache.calcite.sql.type.SqlTypeName.NUMERIC_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.REAL;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.checkDuplicates;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateValueByType;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
@@ -669,6 +668,21 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             testItems.add(DynamicTest.dynamicTest(String.format("NOT ALLOW: %s", sql), () ->
                     assertThrowsSqlException(STMT_VALIDATION_ERR, "Invalid default value for column", () ->
                             converter.convert((SqlDdl) parse(sql), ctx))));
+        }
+    }
+
+    /**
+     * Checks that there are no ID duplicates.
+     *
+     * @param set0 Set of string identifiers.
+     * @param set1 Set of string identifiers.
+     * @throws IllegalStateException If there is a duplicate ID.
+     */
+    static void checkDuplicates(Set<String> set0, Set<String> set1) {
+        for (String id : set1) {
+            if (set0.contains(id)) {
+                throw new IllegalStateException("Duplicate id: " + id);
+            }
         }
     }
 }

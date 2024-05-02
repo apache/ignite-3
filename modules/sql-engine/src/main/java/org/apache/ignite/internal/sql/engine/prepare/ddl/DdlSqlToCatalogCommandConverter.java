@@ -114,7 +114,6 @@ import org.apache.ignite.internal.catalog.commands.TableSortedPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand.PrimaryKeyIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn;
@@ -322,8 +321,8 @@ public class DdlSqlToCatalogCommandConverter {
         List<String> pkColumns = new ArrayList<>(columnNodes.size());
         List<CatalogColumnCollation> pkCollations = new ArrayList<>(columnNodes.size());
 
-        PrimaryKeyIndexType pkIndexType = convertPrimaryIndexType(pkConstraint.getIndexType());
-        boolean supportCollation = pkIndexType == PrimaryKeyIndexType.SORTED;
+        IgniteSqlPrimaryKeyIndexType pkIndexType = pkConstraint.getIndexType();
+        boolean supportCollation = pkIndexType != IgniteSqlPrimaryKeyIndexType.HASH;
 
         parseColumnList(pkConstraint.getColumnList(), pkColumns, pkCollations, supportCollation);
 
@@ -786,21 +785,6 @@ public class DdlSqlToCatalogCommandConverter {
         }
     }
 
-    /**
-     * Checks that there are no ID duplicates.
-     *
-     * @param set0 Set of string identifiers.
-     * @param set1 Set of string identifiers.
-     * @throws IllegalStateException If there is a duplicate ID.
-     */
-    static void checkDuplicates(Set<String> set0, Set<String> set1) {
-        for (String id : set1) {
-            if (set0.contains(id)) {
-                throw new IllegalStateException("Duplicate id: " + id);
-            }
-        }
-    }
-
     private <S, T> void updateCommandOption(
             String sqlObjName,
             Object optId,
@@ -883,18 +867,6 @@ public class DdlSqlToCatalogCommandConverter {
     private void checkEmptyString(String string) {
         if (string.isEmpty()) {
             throw new SqlException(STMT_VALIDATION_ERR, "String cannot be empty");
-        }
-    }
-
-    private PrimaryKeyIndexType convertPrimaryIndexType(IgniteSqlPrimaryKeyIndexType type) {
-        switch (type) {
-            case SORTED:
-                return PrimaryKeyIndexType.SORTED;
-            case HASH:
-            case IMPLICIT_HASH:
-                return PrimaryKeyIndexType.HASH;
-            default:
-                throw new AssertionError("Unknown index type [type=" + type + "]");
         }
     }
 
