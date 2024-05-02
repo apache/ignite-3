@@ -145,7 +145,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             throw new IllegalArgumentException(message);
         }
 
-        if (Set.copyOf(primaryKeyColumns).containsAll(colocationColumns)) {
+        if (!Set.copyOf(primaryKeyColumns).containsAll(colocationColumns)) {
             String message = format(
                     "Primary key columns must contain all colocation columns. Primary keys: {}. Colocation columns: {}",
                     primaryKeyColumns, colocationColumns
