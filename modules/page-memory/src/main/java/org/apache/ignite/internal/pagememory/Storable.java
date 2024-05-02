@@ -103,7 +103,9 @@ public interface Storable {
 
         valueBuffer.position(offset);
         valueBuffer.limit(offset + payloadSize);
+
         pageBuffer.put(valueBuffer);
+
         valueBuffer.position(oldPosition);
         valueBuffer.limit(oldLimit);
     }

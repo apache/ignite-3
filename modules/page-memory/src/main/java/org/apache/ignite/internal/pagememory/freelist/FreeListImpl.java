@@ -890,11 +890,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
         saveMetadata(statHolder);
     }
 
-    /** Returns page eviction tracker. */
-    public PageEvictionTracker evictionTracker() {
-        return evictionTracker;
-    }
-
     @Override
     public String toString() {
         return "FreeListImpl [name=" + name() + ']';

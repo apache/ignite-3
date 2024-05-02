@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
  * Index columns to store in free list.
  */
 public class IndexColumns implements Storable {
-    public static final byte DATA_TYPE = 0;
+    public static final byte DATA_TYPE = 1;
 
     /** Size offset. */
     public static final int SIZE_OFFSET = DATA_TYPE_OFFSET + DATA_TYPE_SIZE_BYTES;

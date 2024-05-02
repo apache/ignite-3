@@ -35,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
  * Represents row version inside row version chain.
  */
 public final class RowVersion implements Storable {
-    public static final byte DATA_TYPE = 1;
+    public static final byte DATA_TYPE = 0;
     private static final int NEXT_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
     private static final int VALUE_SIZE_STORE_SIZE_BYTES = Integer.BYTES;
     private static final int SCHEMA_VERSION_SIZE_BYTES = Short.BYTES;

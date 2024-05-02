@@ -146,11 +146,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         return freeList;
     }
 
-    /** Returns pages eviction tracker. */
-    public PageEvictionTracker evictionTracker() {
-        return pageEvictionTracker;
-    }
-
     /**
      * Checks that the data region has started.
      *

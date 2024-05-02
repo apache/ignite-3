@@ -81,6 +81,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
             RowId rowId,
             HybridTimestamp timestamp,
             long link,
+            UpdateNextLinkHandler updateNextLinkHandler,
             AbstractPageMemoryMvPartitionStorage storage
     ) {
         this.rowId = rowId;
@@ -93,13 +94,13 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
         this.freeList = localState.freeList();
         this.gcQueue = localState.gcQueue();
 
-        this.updateNextLinkHandler = new UpdateNextLinkHandler(localState.freeList().evictionTracker());
+        this.updateNextLinkHandler = updateNextLinkHandler;
     }
 
-    private static class UpdateNextLinkHandler implements PageHandler<Long, Object> {
+    static class UpdateNextLinkHandler implements PageHandler<Long, Object> {
         private final PageEvictionTracker evictionTracker;
 
-        private UpdateNextLinkHandler(PageEvictionTracker evictionTracker) {
+        UpdateNextLinkHandler(PageEvictionTracker evictionTracker) {
             this.evictionTracker = evictionTracker;
         }
 

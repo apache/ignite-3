@@ -74,23 +74,28 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private final UpdateTimestampHandler updateTimestampHandler;
 
-    CommitWriteInvokeClosure(RowId rowId, HybridTimestamp timestamp, AbstractPageMemoryMvPartitionStorage storage) {
+    CommitWriteInvokeClosure(
+            RowId rowId,
+            HybridTimestamp timestamp,
+            UpdateTimestampHandler updateTimestampHandler,
+            AbstractPageMemoryMvPartitionStorage storage
+    ) {
         this.rowId = rowId;
         this.timestamp = timestamp;
         this.storage = storage;
+        this.updateTimestampHandler = updateTimestampHandler;
 
         RenewablePartitionStorageState localState = storage.renewableState;
 
         this.freeList = localState.freeList();
         this.gcQueue = localState.gcQueue();
 
-        this.updateTimestampHandler = new UpdateTimestampHandler(localState.freeList().evictionTracker());
     }
 
-    private static class UpdateTimestampHandler implements PageHandler<HybridTimestamp, Object> {
+    static class UpdateTimestampHandler implements PageHandler<HybridTimestamp, Object> {
         private final PageEvictionTracker evictionTracker;
 
-        private UpdateTimestampHandler(PageEvictionTracker evictionTracker) {
+        UpdateTimestampHandler(PageEvictionTracker evictionTracker) {
             this.evictionTracker = evictionTracker;
         }
 

@@ -31,14 +31,14 @@ public interface MvPageTypes {
     short T_VERSION_CHAIN_LEAF_IO = 11;
 
     /** Blob fragment page IO type. */
-    short T_BLOB_FRAGMENT_IO = 13;
+    short T_BLOB_FRAGMENT_IO = 12;
 
     /** Garbage collection queue meta page IO type. */
-    short T_GC_META_IO = 14;
+    short T_GC_META_IO = 13;
 
     /** Garbage collection queue inner page IO type. */
-    short T_GC_INNER_IO = 15;
+    short T_GC_INNER_IO = 14;
 
     /** Garbage collection queue leaf page IO type. */
-    short T_GC_LEAF_IO = 16;
+    short T_GC_LEAF_IO = 15;
 }

@@ -30,6 +30,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.DataRegion;
+import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
@@ -82,6 +83,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param partitionId Partition id.
      * @param meta Partition meta.
      * @param freeList Free list.
+     * @param pageEvictionTracker Page eviction tracker.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param gcQueue Garbage collection queue.
@@ -91,6 +93,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             int partitionId,
             PartitionMeta meta,
             FreeListImpl freeList,
+            PageEvictionTracker pageEvictionTracker,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue,
@@ -99,6 +102,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         super(
                 partitionId,
                 tableStorage,
+                pageEvictionTracker,
                 new RenewablePartitionStorageState(
                         tableStorage,
                         partitionId,
