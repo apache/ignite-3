@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.descriptors;
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -130,17 +131,27 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
 
         this.columnsMap = columns.stream().collect(Collectors.toMap(CatalogTableColumnDescriptor::name, Function.identity()));
 
-        this.schemaVersions = schemaVersions;
+        this.schemaVersions =  Objects.requireNonNull(schemaVersions, "No catalog schema versions.");
 
         this.creationToken = creationToken;
-        this.storageProfile = storageProfile;
+        this.storageProfile = Objects.requireNonNull(storageProfile, "No storage profile.");
 
         if (columnsMap.isEmpty()) {
             throw new IllegalArgumentException("Columns are not specified");
         }
 
-        assert primaryKeyColumns.stream().noneMatch(c -> Objects.requireNonNull(columnsMap.get(c), c).nullable());
-        assert Set.copyOf(primaryKeyColumns).containsAll(colocationColumns);
+        if (primaryKeyColumns.stream().anyMatch(c -> Objects.requireNonNull(columnsMap.get(c), c).nullable())) {
+            String message = format("Primary key columns contain nullable keys. Primary keys: {}", primaryKeyColumns);
+            throw new IllegalArgumentException(message);
+        }
+
+        if (Set.copyOf(primaryKeyColumns).containsAll(colocationColumns)) {
+            String message = format(
+                    "Primary key columns must contain all colocation columns. Primary keys: {}. Colocation columns: {}",
+                    primaryKeyColumns, colocationColumns
+            );
+            throw new IllegalArgumentException(message);
+        }
     }
 
     /**
