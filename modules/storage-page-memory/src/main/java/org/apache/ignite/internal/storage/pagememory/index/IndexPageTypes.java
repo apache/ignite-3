@@ -22,16 +22,16 @@ package org.apache.ignite.internal.storage.pagememory.index;
  */
 public interface IndexPageTypes {
     /** Index meta tree meta IO type. */
-    short T_INDEX_META_TREE_META_IO = 101;
+    short T_INDEX_META_TREE_META_IO = 100;
 
     /** Index meta tree inner IO type. */
-    short T_INDEX_META_INNER_IO = 102;
+    short T_INDEX_META_INNER_IO = 101;
 
     /** Index meta tree leaf IO type. */
-    short T_INDEX_META_LEAF_IO = 103;
+    short T_INDEX_META_LEAF_IO = 102;
 
     /** Hash index tree meta IO type. */
-    short T_HASH_INDEX_META_IO = 104;
+    short T_HASH_INDEX_META_IO = 103;
 
     /** Starting hash index tree inner IO type. No more than the {@link InlineUtils#MAX_BINARY_TUPLE_INLINE_SIZE}. */
     short T_HASH_INDEX_INNER_IO_START = 10_000;
@@ -40,7 +40,7 @@ public interface IndexPageTypes {
     short T_HASH_INDEX_LEAF_IO_START = 15_000;
 
     /** Sorted index tree meta IO type. */
-    short T_SORTED_INDEX_META_IO = 105;
+    short T_SORTED_INDEX_META_IO = 104;
 
     /** Starting sorted index tree inner IO type. No more than the {@link InlineUtils#MAX_BINARY_TUPLE_INLINE_SIZE}. */
     short T_SORTED_INDEX_INNER_IO_START = 20_000;
