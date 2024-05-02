@@ -45,6 +45,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNodeResolver;
@@ -75,7 +76,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
                 msManager,
                 mock(ClusterNodeResolver.class),
                 new TestClockService(new HybridClockImpl()),
-                tablePartitionId -> new ZonePartitionId(0, tablePartitionId.tableId(), tablePartitionId.partitionId())
+                tablePartitionId -> new ZonePartitionId(123, tablePartitionId.partitionId())
         );
         leaseTracker.startTrack(0L);
 
@@ -85,8 +86,11 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
             return falseCompletedFuture();
         });
 
-        ZonePartitionId partId0 = new ZonePartitionId(0, 0);
-        ZonePartitionId partId1 = new ZonePartitionId(0, 1);
+        ZonePartitionId partId0 = new ZonePartitionId(123, 0);
+        ZonePartitionId partId1 = new ZonePartitionId(123, 1);
+
+        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        ZonePartitionId partId1FromEvent = new ZonePartitionId(123, 1, 1);
 
         HybridTimestamp startTime = new HybridTimestamp(1, 0);
         HybridTimestamp expirationTime = new HybridTimestamp(1000, 0);
@@ -96,7 +100,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
 
         Lease lease0 = new Lease(leaseholder0, leaseholder0 + "_id", startTime, expirationTime, partId0);
         Lease lease1 = new Lease(leaseholder1, leaseholder1 + "_id", startTime, expirationTime, partId1)
-                .acceptLease(new HybridTimestamp(2000, 0), Set.of(partId1));
+                .acceptLease(new HybridTimestamp(2000, 0), Set.of(tablePartitionId));
 
         // In entry0, there are leases for partition ids partId0 and partId1. In entry1, there is only partId0, so partId1 is expired.
         Entry entry0 = new EntryImpl(PLACEMENTDRIVER_LEASES_KEY.bytes(), new LeaseBatch(List.of(lease0, lease1)).bytes(), 0, 0);
@@ -108,7 +112,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
         // Check that the absence of accepted lease triggers the event.
         listenerRef.get().onUpdate(new WatchEvent(new EntryEvent(emptyEntry, entry1)));
         assertNotNull(parametersRef.get());
-        assertEquals(partId1, parametersRef.get().groupId());
+        assertEquals(partId1FromEvent, parametersRef.get().groupId());
 
         // Check that the absence of not accepted lease doesn't trigger the event.
         parametersRef.set(null);
