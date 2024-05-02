@@ -290,7 +290,6 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3})
-    @Disabled("IGNITE-21992 Data Streamer removal does not work for a new key in the same batch")
     public void testSameItemInsertUpdateRemove(int pageSize) {
         RecordView<Tuple> view = defaultTable().recordView();
         CompletableFuture<Void> streamerFut;
