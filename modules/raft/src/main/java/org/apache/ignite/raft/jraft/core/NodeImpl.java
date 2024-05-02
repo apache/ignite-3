@@ -2169,6 +2169,21 @@ public class NodeImpl implements Node, RaftServerService {
                 return rb.build();
             }
 
+            if (!this.conf.contains(serverId)) {
+                LOG.warn("Node {} ignore AppendEntriesRequest from {} which is not in the configuration {}, term={}, currTerm={}.", getNodeId(),
+                    request.serverId(), this.conf, request.term(), this.currTerm);
+                AppendEntriesResponseBuilder rb = raftOptions.getRaftMessagesFactory()
+                        .appendEntriesResponse()
+                        .success(false)
+                        .term(request.term());
+
+                if (request.timestamp() != null) {
+                    rb.timestampLong(clock.update(request.timestamp()).longValue());
+                }
+
+                return rb.build();
+            }
+
             // Check term and state to step down
             checkStepDown(request.term(), serverId);
             if (!serverId.equals(this.leaderId)) {
