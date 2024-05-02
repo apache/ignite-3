@@ -48,8 +48,8 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand.PrimaryKeyIndexType;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommandToRemove;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommandToRemove.PrimaryKeyIndexType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
@@ -63,7 +63,7 @@ import org.apache.ignite.sql.ColumnType;
  * Converter for DDL command classes to Catalog command params classes.
  */
 class DdlToCatalogCommandConverter {
-    static CatalogCommand convert(CreateTableCommand cmd) {
+    static CatalogCommand convert(CreateTableCommandToRemove cmd) {
         List<ColumnParams> columns = cmd.columns().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
 
         PrimaryKeyIndexType pkIndexType = cmd.primaryIndexType();

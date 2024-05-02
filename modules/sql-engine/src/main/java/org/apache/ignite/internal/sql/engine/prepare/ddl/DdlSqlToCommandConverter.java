@@ -84,7 +84,7 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand.Type;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand.PrimaryKeyIndexType;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommandToRemove.PrimaryKeyIndexType;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn;
@@ -117,7 +117,7 @@ import org.jetbrains.annotations.Nullable;
 // TODO: IGNITE-15859 Add documentation
 public class DdlSqlToCommandConverter {
     /** Mapping: Table option ID -> DDL option info. */
-    private final Map<TableOptionEnum, DdlOptionInfo<CreateTableCommand, ?>> tableOptionInfos;
+    private final Map<TableOptionEnum, DdlOptionInfo<CreateTableCommandToRemove, ?>> tableOptionInfos;
 
     /** Mapping: Zone option ID -> DDL option info. */
     private final Map<ZoneOptionEnum, DdlOptionInfo<CreateZoneCommand, ?>> zoneOptionInfos;
@@ -138,8 +138,8 @@ public class DdlSqlToCommandConverter {
                 .collect(Collectors.toSet());
 
         this.tableOptionInfos = new EnumMap<>(Map.of(
-                PRIMARY_ZONE, new DdlOptionInfo<>(String.class, null, CreateTableCommand::zone),
-                STORAGE_PROFILE, new DdlOptionInfo<>(String.class, this::checkEmptyString, CreateTableCommand::storageProfile)
+                PRIMARY_ZONE, new DdlOptionInfo<>(String.class, null, CreateTableCommandToRemove::zone),
+                STORAGE_PROFILE, new DdlOptionInfo<>(String.class, this::checkEmptyString, CreateTableCommandToRemove::storageProfile)
         ));
 
         // CREATE ZONE options.
@@ -237,8 +237,8 @@ public class DdlSqlToCommandConverter {
      * @param createTblNode Root node of the given AST.
      * @param ctx Planning context.
      */
-    private CreateTableCommand convertCreateTable(IgniteSqlCreateTable createTblNode, PlanningContext ctx) {
-        CreateTableCommand createTblCmd = new CreateTableCommand();
+    private CreateTableCommandToRemove convertCreateTable(IgniteSqlCreateTable createTblNode, PlanningContext ctx) {
+        CreateTableCommandToRemove createTblCmd = new CreateTableCommandToRemove();
 
         createTblCmd.schemaName(deriveSchemaName(createTblNode.name(), ctx));
         createTblCmd.tableName(deriveObjectName(createTblNode.name(), ctx, "tableName"));
@@ -254,7 +254,7 @@ public class DdlSqlToCommandConverter {
                 String optionKey = option.key().getSimple().toUpperCase();
 
                 try {
-                    DdlOptionInfo<CreateTableCommand, ?> tblOptionInfo = tableOptionInfos.get(TableOptionEnum.valueOf(optionKey));
+                    DdlOptionInfo<CreateTableCommandToRemove, ?> tblOptionInfo = tableOptionInfos.get(TableOptionEnum.valueOf(optionKey));
 
                     updateCommandOption("Table", optionKey, option.value(), tblOptionInfo, ctx.query(), createTblCmd);
                 } catch (IllegalArgumentException ignored) {

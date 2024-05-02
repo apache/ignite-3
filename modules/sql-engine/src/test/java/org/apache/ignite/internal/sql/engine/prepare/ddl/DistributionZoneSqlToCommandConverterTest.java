@@ -24,10 +24,8 @@ import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
@@ -72,8 +70,6 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             "DATA_NODES_FILTER",
             "STORAGE_PROFILES"
     );
-
-    private final Catalog catalog = mock(Catalog.class);
 
     @Test
     public void testCreateZone() throws SqlParseException {
@@ -449,15 +445,5 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         assertThat(ex.code(), equalTo(Sql.STMT_VALIDATION_ERR));
         assertThat(ex.getMessage(), containsString("Duplicate zone option has been specified [option=" + option));
-    }
-
-    private static <T> T castFirstEntry(List<UpdateEntry> entries, Class<T> expected) {
-        assertThat(entries, not(empty()));
-
-        UpdateEntry entry = entries.get(0);
-
-        assertThat(entry, Matchers.instanceOf(expected));
-
-        return (T) entry;
     }
 }

@@ -19,6 +19,10 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.not;
+import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.UUID;
@@ -26,19 +30,24 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.hamcrest.Matchers;
 
 /**
- * Common methods for {@link DdlSqlToCommandConverter} testing.
+ * Common methods for {@link DdlSqlToCatalogCommandConverter} testing.
  */
 class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
     /** DDL SQL to command converter. */
-    DdlSqlToCatalogCommandConverter converter = new DdlSqlToCatalogCommandConverter();
+    final DdlSqlToCatalogCommandConverter converter = new DdlSqlToCatalogCommandConverter();
+
+    final Catalog catalog = mock(Catalog.class);
 
     /**
      * Parses a given statement and returns a resulting AST.
@@ -66,5 +75,15 @@ class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
                         .build())
                 .query("")
                 .build();
+    }
+
+    static <T> T castFirstEntry(List<UpdateEntry> entries, Class<T> expected) {
+        assertThat(entries, not(empty()));
+
+        UpdateEntry entry = entries.get(0);
+
+        assertThat(entry, Matchers.instanceOf(expected));
+
+        return (T) entry;
     }
 }

@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * CREATE TABLE statement.
  */
-public class CreateTableCommand extends AbstractTableDdlCommand {
+public class CreateTableCommandToRemove extends AbstractTableDdlCommand {
 
     /** Primary key index type. */
     public enum PrimaryKeyIndexType {

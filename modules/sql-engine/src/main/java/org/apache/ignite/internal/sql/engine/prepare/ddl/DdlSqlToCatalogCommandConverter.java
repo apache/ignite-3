@@ -322,7 +322,7 @@ public class DdlSqlToCatalogCommandConverter {
         List<CatalogColumnCollation> pkCollations = new ArrayList<>(columnNodes.size());
 
         IgniteSqlPrimaryKeyIndexType pkIndexType = pkConstraint.getIndexType();
-        boolean supportCollation = pkIndexType != IgniteSqlPrimaryKeyIndexType.HASH;
+        boolean supportCollation = pkIndexType == IgniteSqlPrimaryKeyIndexType.SORTED;
 
         parseColumnList(pkConstraint.getColumnList(), pkColumns, pkCollations, supportCollation);
 
@@ -336,6 +336,7 @@ public class DdlSqlToCatalogCommandConverter {
                         .build();
                 break;
             case HASH:
+            case IMPLICIT_HASH:
                 primaryKey = TableHashPrimaryKey.builder()
                         .columns(pkColumns)
                         .build();
