@@ -170,7 +170,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
 
         assertThat(sout.toString())
                 .as("Expected command output to contain any of: " + expectedOutput + " but was " + sout.toString())
-                .containsAnyOf( expectedOutput.toArray(CharSequence[]::new));
+                .containsAnyOf(expectedOutput.toArray(CharSequence[]::new));
     }
 
     protected void assertOutputContainsAllIgnoringCase(Set<String> expectedOutput) {

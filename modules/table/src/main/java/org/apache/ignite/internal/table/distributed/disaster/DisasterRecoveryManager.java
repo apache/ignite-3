@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.Collections.emptyList;
-import static java.util.Collections.min;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
@@ -70,8 +69,8 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
-import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNotFoundException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalPartitionIdException;
+import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNotFoundException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.ZonesNotFoundException;
 import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStateMessage;
 import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesRequest;

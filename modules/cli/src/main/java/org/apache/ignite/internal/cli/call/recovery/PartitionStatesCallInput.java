@@ -68,7 +68,7 @@ public class PartitionStatesCallInput implements CallInput {
         this.clusterUrl = clusterUrl;
         this.local = local;
         this.nodeNames = nodeNames == null ? List.of() : List.copyOf(nodeNames);
-        this.zoneNames = zoneNames == null ? List.of() :List.copyOf(zoneNames);
+        this.zoneNames = zoneNames == null ? List.of() : List.copyOf(zoneNames);
         this.partitionIds = partitionIds == null ? List.of() : List.copyOf(partitionIds);
     }
 
@@ -76,6 +76,7 @@ public class PartitionStatesCallInput implements CallInput {
         return of(statesArgs, statesArgs.clusterUrl());
     }
 
+    /** Returns {@link PartitionStatesCallInput} with specified arguments. */
     public static PartitionStatesCallInput of(PartitionStatesMixin statesArgs, String clusterUrl) {
         return builder()
                 .local(statesArgs.local())

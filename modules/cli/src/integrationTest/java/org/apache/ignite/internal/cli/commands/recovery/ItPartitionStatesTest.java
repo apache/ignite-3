@@ -202,6 +202,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         assertOutputIsEmpty();
     }
+
     @Test
     void testPartitionStatesMissingNode() {
         String unknownNode = "unknown_node";
