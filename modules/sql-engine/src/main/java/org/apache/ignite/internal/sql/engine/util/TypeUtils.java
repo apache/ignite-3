@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
@@ -52,6 +54,7 @@ import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
@@ -70,6 +73,7 @@ import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -658,6 +662,34 @@ public class TypeUtils {
             throw new IllegalArgumentException("Collection types is not supported: " + type);
         } else {
             throw new IllegalArgumentException("Unexpected type: " + type);
+        }
+    }
+
+    /** Check limitation for character types and throws exception if row contains character sequence more than type defined. */
+    public static <RowT> void validateCharactersOverflow(RelDataType rowType, RowT row, RowHandler<RowT> rowHandler) {
+        int colCount = rowType.getFieldList().size();
+
+        for (int i = 0; i < colCount; ++i) {
+            RelDataType colType = rowType.getFieldList().get(i).getType();
+            if (CHAR_TYPES.contains(colType.getSqlTypeName())) {
+                Object data = rowHandler.get(i, row);
+
+                if (data == null) {
+                    continue;
+                }
+
+                assert data instanceof String;
+
+                String str = (String) data;
+
+                int colPrecision = colType.getPrecision();
+
+                assert colPrecision != RelDataType.PRECISION_NOT_SPECIFIED;
+
+                if (str.stripTrailing().length() > colPrecision) {
+                    throw new SqlException(STMT_VALIDATION_ERR, "Value too long for type: " + colType);
+                }
+            }
         }
     }
 }

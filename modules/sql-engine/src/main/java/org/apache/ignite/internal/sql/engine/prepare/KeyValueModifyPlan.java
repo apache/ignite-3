@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.validateCharactersOverflow;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -129,6 +132,12 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
                             .rowSource(expressions);
 
                     UpdatableTable updatableTable = execTable.updatableTable();
+
+                    RowT row = rowSupplier.get();
+
+                    RelDataType rowType = table().getRowType(ctx.getTypeFactory());
+
+                    validateCharactersOverflow(rowType, row, ctx.rowHandler());
 
                     return updatableTable.insert(
                             tx, ctx, rowSupplier.get()

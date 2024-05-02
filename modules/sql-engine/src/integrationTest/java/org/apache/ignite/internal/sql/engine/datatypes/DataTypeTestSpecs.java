@@ -73,7 +73,6 @@ public final class DataTypeTestSpecs {
             TestDataSamples.Builder<UUID> samples = TestDataSamples.builder();
 
             samples.add(values, SqlTypeName.VARCHAR, String::valueOf);
-            samples.add(values, SqlTypeName.CHAR, String::valueOf);
 
             return samples.build();
         }

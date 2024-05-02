@@ -35,6 +35,9 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.rel.core.TableModify.Operation;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
@@ -46,6 +49,7 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -82,6 +86,14 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
     void setUpMock() {
         when(descriptors.columnsCount()).thenReturn(2);
         when(updatableTable.descriptor()).thenReturn(descriptors);
+
+        Builder rowTypeBuilder = new Builder(Commons.typeFactory());
+
+        rowTypeBuilder = rowTypeBuilder.add("col1", SqlTypeName.INTEGER)
+                .add("col2", SqlTypeName.BIGINT);
+
+        RelDataType rowType =  rowTypeBuilder.build();
+        when(descriptors.rowType(any(), any())).thenReturn(rowType);
     }
 
 
@@ -114,7 +126,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         assertThat(result.get(0), notNullValue());
         assertThat(handler.get(0, result.get(0)), is((long) sourceSize));
         verify(updatableTable, times(numberOfBatches(sourceSize))).insertAll(any(), any(), any());
-        verify(updatableTable, times(2)).descriptor();
+        verify(updatableTable, times(3)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -147,7 +159,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         assertThat(result.get(0), notNullValue());
         assertThat(handler.get(0, result.get(0)), is((long) sourceSize));
         verify(updatableTable, times(numberOfBatches(sourceSize))).upsertAll(any(), any(), any());
-        verify(updatableTable, times(2)).descriptor();
+        verify(updatableTable, times(3)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -180,7 +192,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         assertThat(result.get(0), notNullValue());
         assertThat(handler.get(0, result.get(0)), is((long) sourceSize));
         verify(updatableTable, times(numberOfBatches(sourceSize))).deleteAll(any(), any(), any());
-        verify(updatableTable, times(2)).descriptor();
+        verify(updatableTable, times(3)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -208,7 +220,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).insertAll(any(), any(), any());
-        verify(updatableTable, times(2)).descriptor();
+        verify(updatableTable, times(3)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -236,7 +248,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).upsertAll(any(), any(), any());
-        verify(updatableTable, times(2)).descriptor();
+        verify(updatableTable, times(3)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -264,7 +276,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).deleteAll(any(), any(), any());
-        verify(updatableTable, times(2)).descriptor();
+        verify(updatableTable, times(3)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
