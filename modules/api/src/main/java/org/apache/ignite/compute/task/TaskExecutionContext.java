@@ -15,20 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.compute.task;
 
-/**
- * A Compute job that may be executed on a single Ignite node, on several nodes, or on the entire cluster.
- *
- * @param <R> Job result type.
- */
-public interface ComputeJob<R> {
+import org.apache.ignite.Ignite;
+
+/** Context of the compute task execution. */
+public interface TaskExecutionContext {
     /**
-     * Executes the job on an Ignite node.
+     * Ignite API entry point.
      *
-     * @param context The execution context.
-     * @param args Job arguments.
-     * @return Job result.
+     * @return Ignite instance.
      */
-    R execute(JobExecutionContext context, Object... args);
+    Ignite ignite();
 }

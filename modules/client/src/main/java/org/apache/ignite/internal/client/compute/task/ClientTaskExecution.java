@@ -15,51 +15,43 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.client.compute.task;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
-import org.apache.ignite.internal.thread.PublicApiThreading;
+import org.apache.ignite.compute.TaskExecution;
 import org.jetbrains.annotations.Nullable;
 
+// TODO https://issues.apache.org/jira/browse/IGNITE-22124
 /**
- * Wrapper around {@link JobExecution} that adds protection against thread hijacking by users.
+ * Client compute task implementation.
+ *
+ * @param <R> Task result type.
  */
-public class AntiHijackJobExecution<R> implements JobExecution<R> {
-    private final JobExecution<R> execution;
-    private final Executor asyncContinuationExecutor;
-
-    /**
-     * Constructor.
-     */
-    public AntiHijackJobExecution(JobExecution<R> execution, Executor asyncContinuationExecutor) {
-        this.execution = execution;
-        this.asyncContinuationExecutor = asyncContinuationExecutor;
-    }
-
+public class ClientTaskExecution<R> implements TaskExecution<R> {
     @Override
     public CompletableFuture<R> resultAsync() {
-        return preventThreadHijack(execution.resultAsync());
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     @Override
     public CompletableFuture<@Nullable JobStatus> statusAsync() {
-        return preventThreadHijack(execution.statusAsync());
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return preventThreadHijack(execution.cancelAsync());
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-        return preventThreadHijack(execution.changePriorityAsync(newPriority));
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    protected <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {
-        return PublicApiThreading.preventThreadHijack(originalFuture, asyncContinuationExecutor);
+    @Override
+    public CompletableFuture<List<@Nullable JobStatus>> statusesAsync() {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 }
