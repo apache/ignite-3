@@ -207,7 +207,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * Test scenario when we have lagged node, and tables with the same name are deleted and created again.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18379")
     public void testGetTableFromLaggedNode() {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
@@ -217,7 +216,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         Table tbl = createTable(ignite0, TABLE_NAME);
 
-        final Tuple tableKey = Tuple.create()
+        Tuple tableKey = Tuple.create()
                 .set("key", 123L);
 
         Tuple value = Tuple.create()
