@@ -118,7 +118,7 @@ public class FakeInternalTable implements InternalTable {
 
     @Override
     public int zoneId() {
-        return 0;
+        return 123;
     }
 
     @Override

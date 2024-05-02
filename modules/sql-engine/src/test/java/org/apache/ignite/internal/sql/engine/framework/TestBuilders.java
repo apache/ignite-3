@@ -807,7 +807,7 @@ public class TestBuilders {
         private int size = 100_000;
         private Integer tableId;
         private int partitions = CatalogUtils.DEFAULT_PARTITION_COUNT;
-        private int zoneId = 0;
+        private int zoneId = 123;
 
         /** {@inheritDoc} */
         @Override

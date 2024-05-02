@@ -62,7 +62,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         InternalTableImpl internalTable = new InternalTableImpl(
                 "test",
                 1,
-                0,
+                123,
                 1,
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
@@ -113,7 +113,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         InternalTableImpl internalTable = new InternalTableImpl(
                 "test",
                 1,
-                0,
+                123,
                 3,
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),

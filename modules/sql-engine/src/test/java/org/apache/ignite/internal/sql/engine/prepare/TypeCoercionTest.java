@@ -666,7 +666,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
 
         @Override
         public int zoneId() {
-            return 0;
+            return 123;
         }
 
         @Override
