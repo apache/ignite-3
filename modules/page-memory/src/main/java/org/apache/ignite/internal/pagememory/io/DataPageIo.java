@@ -158,7 +158,7 @@ import org.apache.ignite.internal.pagememory.util.PageUtils;
  */
 public class DataPageIo extends PageIo {
     /** Data page IO type. */
-    private static final short T_DATA_PAGE_IO = 12;
+    private static final short T_DATA_PAGE_IO = 1000;
 
     private static final int SHOW_ITEM = 0b0001;
 
