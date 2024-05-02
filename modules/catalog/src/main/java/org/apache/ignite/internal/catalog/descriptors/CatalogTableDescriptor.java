@@ -20,14 +20,12 @@ package org.apache.ignite.internal.catalog.descriptors;
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
@@ -126,32 +124,12 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         this.pkIndexId = pkIndexId;
         this.zoneId = zoneId;
         this.columns = Objects.requireNonNull(columns, "No columns defined.");
-        primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
-        colocationColumns = colocationCols == null || colocationCols.isEmpty() ? pkCols : colocationCols;
-
+        this.primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
         this.columnsMap = columns.stream().collect(Collectors.toMap(CatalogTableColumnDescriptor::name, Function.identity()));
-
+        this.colocationColumns = Objects.requireNonNullElseGet(colocationCols, List::of);
         this.schemaVersions =  Objects.requireNonNull(schemaVersions, "No catalog schema versions.");
-
-        this.creationToken = creationToken;
         this.storageProfile = Objects.requireNonNull(storageProfile, "No storage profile.");
-
-        if (columnsMap.isEmpty()) {
-            throw new IllegalArgumentException("Columns are not specified");
-        }
-
-        if (primaryKeyColumns.stream().anyMatch(c -> Objects.requireNonNull(columnsMap.get(c), c).nullable())) {
-            String message = format("Primary key columns contain nullable keys. Primary keys: {}", primaryKeyColumns);
-            throw new IllegalArgumentException(message);
-        }
-
-        if (!Set.copyOf(primaryKeyColumns).containsAll(colocationColumns)) {
-            String message = format(
-                    "Primary key columns must contain all colocation columns. Primary keys: {}. Colocation columns: {}",
-                    primaryKeyColumns, colocationColumns
-            );
-            throw new IllegalArgumentException(message);
-        }
+        this.creationToken = creationToken;
     }
 
     /**

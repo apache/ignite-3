@@ -120,6 +120,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     /** Versioned catalog descriptors sorted in chronological order. */
     private final NavigableMap<Long, Catalog> catalogByTs = new ConcurrentSkipListMap<>();
 
+    /** A future that completes when an empty catalog is initialised. If catalog is not empty this future when this completes starts. */
+    private final CompletableFuture<Void> catalogInitializationFuture = new CompletableFuture<>();
+
     private final UpdateLog updateLog;
 
     private final PendingComparableValuesTracker<Integer, Void> versionTracker = new PendingComparableValuesTracker<>(0);
@@ -132,8 +135,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    private final CompletableFuture<Void> catalogInitializationFuture = new CompletableFuture<>();
 
     /**
      * Constructor.
@@ -510,8 +511,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         if (result) {
                             return completedFuture(newVersion);
                         }
-
-                        System.err.println("RESULT? " + result);
 
                         return saveUpdate(updateProducer, attemptNo + 1);
                     });
