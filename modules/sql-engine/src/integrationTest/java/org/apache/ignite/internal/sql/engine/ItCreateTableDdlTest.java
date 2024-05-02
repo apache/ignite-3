@@ -288,25 +288,6 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Checks that schema version is updated even if column names are intersected.
-     */
-    // Need to be removed after https://issues.apache.org/jira/browse/IGNITE-19082
-    @Test
-    public void checkSchemaUpdatedWithEqAlterColumn() {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-
-        IgniteImpl node = CLUSTER.aliveNode();
-
-        int tableVersionBefore = getTableStrict(node.catalogManager(), "TEST", node.clock().nowLong()).tableVersion();
-
-        sql("ALTER TABLE TEST ADD COLUMN (VAL1 INT)");
-
-        int tableVersionAfter = getTableStrict(node.catalogManager(), "TEST", node.clock().nowLong()).tableVersion();
-
-        assertEquals(tableVersionBefore + 1, tableVersionAfter);
-    }
-
-    /**
      * Check explicit colocation columns configuration.
      */
     @Test

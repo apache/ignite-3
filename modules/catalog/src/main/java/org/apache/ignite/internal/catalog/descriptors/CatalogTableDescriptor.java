@@ -134,10 +134,9 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
 
         this.creationToken = creationToken;
 
-        this.storageProfile = storageProfile;
-
-        // TODO: IGNITE-19082 Throw proper exceptions.
-        assert !columnsMap.isEmpty() : "No columns.";
+        if (columnsMap.isEmpty()) {
+            throw new IllegalArgumentException("Columns are not specified");
+        }
 
         assert primaryKeyColumns.stream().noneMatch(c -> Objects.requireNonNull(columnsMap.get(c), c).nullable());
         assert Set.copyOf(primaryKeyColumns).containsAll(colocationColumns);
