@@ -54,9 +54,7 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
 
         fullRowConverter = new TableRowConverterImpl(
                 schemaRegistry,
-                fullTupleSchema,
-                schemaDescriptor,
-                null
+                schemaDescriptor
         );
     }
 
@@ -66,7 +64,7 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
             return fullRowConverter;
         }
 
-        return new TableRowConverterImpl(
+        return new ProjectedTableRowConverterImpl(
                 schemaRegistry,
                 fullTupleSchema,
                 schemaDescriptor,
