@@ -133,6 +133,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         this.schemaVersions = schemaVersions;
 
         this.creationToken = creationToken;
+        this.storageProfile = storageProfile;
 
         if (columnsMap.isEmpty()) {
             throw new IllegalArgumentException("Columns are not specified");
