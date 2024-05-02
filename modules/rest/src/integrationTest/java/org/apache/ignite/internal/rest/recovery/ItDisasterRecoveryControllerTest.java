@@ -131,7 +131,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     void testLocalPartitionStatesNegativePartition() {
         HttpClientResponseException thrown = assertThrows(
                 HttpClientResponseException.class,
-                () -> client.toBlocking().exchange("/state/local?partitionIds=-1,-10", LocalPartitionStatesResponse.class)
+                () -> client.toBlocking().exchange("/state/local?partitionIds=0,1,-1,-10", LocalPartitionStatesResponse.class)
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
@@ -145,7 +145,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         HttpClientResponseException thrown = assertThrows(
                 HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(
-                        "/state/local?partitionIds=100,1000&zoneNames=" + zoneName,
+                        String.format("/state/local?partitionIds=0,4,%d&zoneNames=%s", DEFAULT_PARTITION_COUNT, zoneName),
                         LocalPartitionStatesResponse.class
                 )
         );
@@ -154,9 +154,9 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         assertThat(thrown.getMessage(), containsString(
                         String.format(
                                 "Partition IDs should be in range [0, %d] for zone %s, found: %d",
-                                DEFAULT_PARTITION_COUNT,
+                                DEFAULT_PARTITION_COUNT - 1,
                                 zoneName,
-                                1000
+                                DEFAULT_PARTITION_COUNT
                         )
                 ));
     }

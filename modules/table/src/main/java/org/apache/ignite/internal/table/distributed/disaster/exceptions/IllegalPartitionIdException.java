@@ -32,7 +32,7 @@ public class IllegalPartitionIdException extends DisasterRecoveryException {
     public IllegalPartitionIdException(int partitionId, int partitions, String zoneName) {
         super(
                 ILLEGAL_PARTITION_ID_ERR,
-                String.format("Partition IDs should be in range [0, %d] for zone %s, found: %d", partitions, zoneName, partitionId)
+                String.format("Partition IDs should be in range [0, %d] for zone %s, found: %d", partitions - 1, zoneName, partitionId)
         );
     }
 }

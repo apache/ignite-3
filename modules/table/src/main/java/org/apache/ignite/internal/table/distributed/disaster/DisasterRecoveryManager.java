@@ -258,7 +258,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
             int maxPartition = partitionIds.stream().max(Integer::compare).get();
 
             zones.forEach(zone -> {
-                if (maxPartition > zone.partitions()) {
+                if (maxPartition >= zone.partitions()) {
                     throw new IllegalPartitionIdException(maxPartition, zone.partitions(), zone.name());
                 }
             });

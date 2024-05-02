@@ -166,20 +166,42 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void testPartitionStatesMissingPartition(boolean global) {
-        String unknownPartition = "-1";
+    void testLocalPartitionStatesNegativePartition(boolean global) {
+        String partitions = "1,-100,0";
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
-                RECOVERY_PARTITION_IDS_OPTION, unknownPartition,
+                RECOVERY_PARTITION_IDS_OPTION, partitions,
                 global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_PARTITION_LOCAL_OPTION,
                 PLAIN_OPTION
         );
 
-        assertErrOutputContains("Some partitions are missing: [-1]");
+        assertErrOutputContains("Partition ID can't be negative, found: -100");
 
         assertOutputIsEmpty();
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testLocalPartitionStatesPartitionOutOfRange(boolean global) {
+        String partitions = "0,1," + DEFAULT_PARTITION_COUNT;
+        String zoneName = ZONES_CONTAINING_TABLES.stream().findAny().get();
+
+        execute(CLUSTER_URL_OPTION, NODE_URL,
+                RECOVERY_PARTITION_IDS_OPTION, partitions,
+                RECOVERY_ZONE_NAMES_OPTION, zoneName,
+                global ? RECOVERY_PARTITION_GLOBAL_OPTION : RECOVERY_PARTITION_LOCAL_OPTION,
+                PLAIN_OPTION
+        );
+
+        assertErrOutputContains(String.format(
+                "Partition IDs should be in range [0, %d] for zone %s, found: %d",
+                DEFAULT_PARTITION_COUNT - 1,
+                zoneName,
+                DEFAULT_PARTITION_COUNT
+        ));
+
+        assertOutputIsEmpty();
+    }
     @Test
     void testPartitionStatesMissingNode() {
         String unknownNode = "unknown_node";
