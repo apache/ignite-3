@@ -41,11 +41,11 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.hamcrest.Matchers;
 
 /**
- * Common methods for {@link DdlSqlToCatalogCommandConverter} testing.
+ * Common methods for {@link DdlSqlToCommandConverter} testing.
  */
 class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
     /** DDL SQL to command converter. */
-    final DdlSqlToCatalogCommandConverter converter = new DdlSqlToCatalogCommandConverter();
+    final DdlSqlToCommandConverter converter = new DdlSqlToCommandConverter();
 
     final Catalog catalog = mock(Catalog.class);
 

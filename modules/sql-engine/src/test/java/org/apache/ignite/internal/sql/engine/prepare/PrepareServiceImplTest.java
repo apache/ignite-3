@@ -38,7 +38,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCatalogCommandConverter;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
@@ -293,7 +293,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
     private static PrepareService createPlannerService() {
         PrepareService service = new PrepareServiceImpl("test", 1_000, CaffeineCacheFactory.INSTANCE,
-                mock(DdlSqlToCatalogCommandConverter.class), 5_000, 2, mock(MetricManagerImpl.class));
+                mock(DdlSqlToCommandConverter.class), 5_000, 2, mock(MetricManagerImpl.class));
 
         createdServices.add(service);
 
