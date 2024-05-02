@@ -218,7 +218,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
         assertErrOutputIsEmpty();
         assertOutputMatches(String.format(
-                "Zone name\tTable name\tPartition ID\tState\r\n%1$s\t%1$s_table\t1\t(HEALTHY|AVAILABLE)\r\n",
+                "Zone name\tTable name\tPartition ID\tState\\r?\\n%1$s\t%1$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n",
                 zoneName));
     }
 
@@ -238,7 +238,7 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
         assertErrOutputIsEmpty();
 
         assertOutputMatches(String.format(
-                "Node name\tZone name\tTable name\tPartition ID\tState\r\n(%1$s)\t%2$s\t%2$s_table\t1\t(HEALTHY|AVAILABLE)\r\n",
+                "Node name\tZone name\tTable name\tPartition ID\tState\\r?\\n(%1$s)\t%2$s\t%2$s_table\t1\t(HEALTHY|AVAILABLE)\\r?\\n",
                 possibleNodeNames,
                 zoneName)
         );
