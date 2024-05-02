@@ -536,6 +536,37 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         });
     }
 
+    @Test
+    public void testPutIndexAndVersionRowToMemoryFragmented() {
+        MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
+        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+
+        // Should be large enough to exceed memory page size.
+        byte[] bytes = new byte[16385];
+        new Random().nextBytes(bytes);
+        String str = new String(bytes);
+
+        BinaryRow binaryRow = binaryRow(new TestKey(10, "foo"), new TestValue(20, str));
+
+        var serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        IndexRow indexRow = serializer.serializeRow(new Object[]{str}, new RowId(PARTITION_ID));
+        partitionStorage.runConsistently(locker -> {
+            indexStorage.put(indexRow);
+
+            return null;
+        });
+
+        partitionStorage.runConsistently(locker -> {
+            RowId rowId = new RowId(PARTITION_ID);
+            locker.tryLock(rowId);
+
+            partitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, PARTITION_ID);
+
+            return null;
+        });
+    }
+
     private static void checkStorageDestroyed(IndexStorage storage) {
         assertThrows(StorageDestroyedException.class, () -> storage.get(mock(BinaryTuple.class)));
 

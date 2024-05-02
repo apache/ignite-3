@@ -139,12 +139,12 @@ public class IndexColumns implements Storable {
 
             pageBuf.putInt(valueSize());
 
-            Storable.putValueBufferIntoPage(pageBuf, valueBuffer, 0, valueSize());
+            Storable.putValueBufferIntoPage(pageBuf, valueBuffer, 0, payloadSize - VALUE_OFFSET);
         } else {
             // Not a first fragment.
             assert rowOff >= headerSize();
 
-            Storable.putValueBufferIntoPage(pageBuf, valueBuffer, rowOff - VALUE_OFFSET, valueSize());
+            Storable.putValueBufferIntoPage(pageBuf, valueBuffer, rowOff - VALUE_OFFSET, payloadSize);
         }
     }
 }
