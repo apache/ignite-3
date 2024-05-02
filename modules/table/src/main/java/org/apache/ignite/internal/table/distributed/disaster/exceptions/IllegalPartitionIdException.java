@@ -17,15 +17,22 @@
 
 package org.apache.ignite.internal.table.distributed.disaster.exceptions;
 
-import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITIONS_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.ILLEGAL_PARTITION_ID_ERR;
 
-import java.util.Set;
-
-/** Exception is thrown when appropriate partition can`t be found. */
-public class PartitionsNotFoundException extends DisasterRecoveryException {
+/** Exception is thrown when illegal partition was requested. */
+public class IllegalPartitionIdException extends DisasterRecoveryException {
     private static final long serialVersionUID = -9215416423159317425L;
 
-    public PartitionsNotFoundException(Set<Integer> missingPartitionIds) {
-        super(PARTITIONS_NOT_FOUND_ERR, "Some partitions are missing: " + missingPartitionIds);
+    /** Creates exception that partition ID is negative. */
+    public IllegalPartitionIdException(int partitionId) {
+        super(ILLEGAL_PARTITION_ID_ERR, "Partition ID can't be negative, found: " + partitionId);
+    }
+
+    /** Creates exception that partition ID is bigger that partition count for zone. */
+    public IllegalPartitionIdException(int partitionId, int partitions, String zoneName) {
+        super(
+                ILLEGAL_PARTITION_ID_ERR,
+                String.format("Partition IDs should be in range [0, %d] for zone %s, found: %d", partitions, zoneName, partitionId)
+        );
     }
 }
