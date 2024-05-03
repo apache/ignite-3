@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryRep
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.Set;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParamete
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
@@ -143,14 +145,27 @@ class IndexBuildController implements ManuallyCloseable {
 
             for (TablePartitionId primaryReplicaId : primaryReplicaIds) {
                 if (primaryReplicaId.tableId() == indexDescriptor.tableId()) {
-                    CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                            .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, clockService.now())
-                                    .thenAccept(replicaMeta -> tryScheduleBuildIndex(
-                                            primaryReplicaId,
-                                            indexDescriptor,
-                                            mvTableStorage,
-                                            replicaMeta
-                                    ))
+                    int tableId = indexDescriptor.tableId();
+
+                    CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), tableId)
+                            .thenCompose(mvTableStorage -> {
+                                if (mvTableStorage == null) {
+                                    throw new IgniteInternalException(
+                                            INTERNAL_ERR,
+                                            "Failed to schedule building index for the table because "
+                                                    + "the table storage does not exist [tableId = {}]",
+                                            tableId
+                                    );
+                                }
+
+                                return awaitPrimaryReplica(primaryReplicaId, clockService.now())
+                                        .thenAccept(replicaMeta -> tryScheduleBuildIndex(
+                                                primaryReplicaId,
+                                                indexDescriptor,
+                                                mvTableStorage,
+                                                replicaMeta
+                                        ));
+                                    }
                             );
 
                     startBuildIndexFutures.add(startBuildIndexFuture);
@@ -180,19 +195,26 @@ class IndexBuildController implements ManuallyCloseable {
                 // metastore thread.
                 int catalogVersion = catalogService.latestCatalogVersion();
 
-                CompletableFuture<ReplicaMeta> replicaMetaFuture = awaitPrimaryReplica(primaryReplicaId, parameters.startTime());
+                return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId.tableId())
+                        .thenCompose(mvTableStorage -> {
+                            if (mvTableStorage == null) {
+                                throw new IgniteInternalException(
+                                        INTERNAL_ERR,
+                                        "Failed to schedule building indexes for the table on the newly elected primary because "
+                                                + "the table storage does not exist [tableId = {}, replicaId = {}]",
+                                        primaryReplicaId.tableId(),
+                                        primaryReplicaId
+                                );
+                            }
 
-                CompletableFuture<MvTableStorage> mvTableStorageFuture =
-                        getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId);
-
-                return replicaMetaFuture
-                        .thenAcceptBoth(mvTableStorageFuture, (replicaMeta, mvTableStorage) ->
-                                tryScheduleBuildIndexesForNewPrimaryReplica(
-                                        catalogVersion,
-                                        primaryReplicaId,
-                                        mvTableStorage,
-                                        replicaMeta
-                                )
+                            return awaitPrimaryReplica(primaryReplicaId, parameters.startTime())
+                                    .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
+                                            catalogVersion,
+                                            primaryReplicaId,
+                                            mvTableStorage,
+                                            replicaMeta
+                                    ));
+                                }
                         );
             } else {
                 stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
@@ -255,8 +277,8 @@ class IndexBuildController implements ManuallyCloseable {
         }
     }
 
-    private CompletableFuture<MvTableStorage> getMvTableStorageFuture(long causalityToken, TablePartitionId replicaId) {
-        return indexManager.getMvTableStorage(causalityToken, replicaId.tableId());
+    private CompletableFuture<MvTableStorage> getMvTableStorageFuture(long causalityToken, int tableId) {
+        return indexManager.getMvTableStorage(causalityToken, tableId);
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(TablePartitionId replicaId, HybridTimestamp timestamp) {
