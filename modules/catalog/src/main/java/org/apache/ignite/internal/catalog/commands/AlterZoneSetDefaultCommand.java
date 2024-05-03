@@ -82,7 +82,7 @@ public class AlterZoneSetDefaultCommand extends AbstractZoneCommand {
             return this;
         }
 
-        /** Sets IF EXISTS flag. */
+        /** Sets flag indicating whether the {@code IF EXISTS} was specified. */
         public Builder ifExists(boolean ifExists) {
             this.ifExists = ifExists;
 

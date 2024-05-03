@@ -56,7 +56,7 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
      *
      * @param tableName Name of the table to delete columns from. Should not be null or blank.
      * @param schemaName Name of the schema the table of interest belongs to. Should not be null or blank.
-     * @param ifExists IF EXISTS flag.
+     * @param ifExists Flag indicating whether the {@code IF EXISTS} was specified.
      * @param columns Set of the columns to delete. There should be at least one column.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */

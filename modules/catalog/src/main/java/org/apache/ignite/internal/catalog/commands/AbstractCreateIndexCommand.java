@@ -49,15 +49,22 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
 
     protected final List<String> columns;
 
+    private final boolean ifNotExists;
+
     AbstractCreateIndexCommand(String schemaName, String indexName, boolean ifNotExists, String tableName, boolean unique,
             List<String> columns) throws CatalogValidationException {
-        super(schemaName, indexName, ifNotExists);
+        super(schemaName, indexName);
 
         validate(tableName, columns);
 
+        this.ifNotExists = ifNotExists;
         this.tableName = tableName;
         this.unique = unique;
         this.columns = copyOrNull(columns);
+    }
+
+    public boolean ifNotExists() {
+        return ifNotExists;
     }
 
     protected abstract CatalogIndexDescriptor createDescriptor(int indexId, int tableId, int creationCatalogVersion);

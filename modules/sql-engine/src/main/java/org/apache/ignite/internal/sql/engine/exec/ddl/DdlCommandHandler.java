@@ -273,7 +273,7 @@ public class DdlCommandHandler implements LifecycleAware {
     /** Handles drop index command. */
     private CompletableFuture<Boolean> handleDropIndex(DropIndexCommand cmd) {
         return catalogManager.execute(cmd)
-                .handle(handleModificationResult(cmd.ifNotExists(), IndexNotFoundValidationException.class));
+                .handle(handleModificationResult(cmd.ifExists(), IndexNotFoundValidationException.class));
     }
 
     @Override

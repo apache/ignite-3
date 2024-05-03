@@ -53,17 +53,17 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
      *
      * @param tableName Name of the table to add new columns to. Should not be null or blank.
      * @param schemaName Name of the schema the table of interest belongs to. Should not be null or blank.
-     * @param ifExists IF EXISTS flag.
+     * @param ifTableExists Flag indicating whether the {@code IF EXISTS} was specified.
      * @param columns List of the columns to add to the table. There should be at least one column.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
     private AlterTableAddColumnCommand(
             String tableName,
             String schemaName,
-            boolean ifExists,
+            boolean ifTableExists,
             List<ColumnParams> columns
     ) throws CatalogValidationException {
-        super(schemaName, tableName, ifExists);
+        super(schemaName, tableName, ifTableExists);
 
         this.columns = copyOrNull(columns);
 

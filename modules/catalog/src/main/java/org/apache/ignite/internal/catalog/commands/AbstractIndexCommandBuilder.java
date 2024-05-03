@@ -32,8 +32,6 @@ interface AbstractIndexCommandBuilder<T extends AbstractIndexCommandBuilder<T>> 
     /** A name of the index. Should not be null or blank. */
     T indexName(String indexName);
 
-    T ifNotExists(boolean ifNotExists);
-
     /** Returns a command with specified parameters. */
     CatalogCommand build();
 }

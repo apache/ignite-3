@@ -76,7 +76,7 @@ public class CreateTableCommand extends AbstractTableCommand {
      *
      * @param tableName Name of the table to create. Should not be null or blank.
      * @param schemaName Name of the schema to create table in. Should not be null or blank.
-     * @param ifNotExists IF NOT EXISTS flag.
+     * @param ifNotExists Flag indicating whether the {@code IF NOT EXISTS} was specified.
      * @param primaryKey Primary key.
      * @param colocationColumns Name of the columns participating in distribution calculation.
      *      Should be subset of the primary key columns.

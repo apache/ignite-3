@@ -71,7 +71,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
      * Constructor.
      *
      * @param zoneName Name of the zone.
-     * @param ifNotExists TODO
+     * @param ifNotExists Flag indicating whether the {@code IF NOT EXISTS} was specified.
      * @param partitions Number of partitions.
      * @param replicas Number of replicas.
      * @param dataNodesAutoAdjust Timeout in seconds between node added or node left topology event itself and data nodes switch.
@@ -166,7 +166,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
     private static class Builder implements CreateZoneCommandBuilder {
         private String zoneName;
 
-        private boolean ifNotExits;
+        private boolean ifNotExists;
 
         private @Nullable Integer partitions;
 
@@ -191,7 +191,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
         @Override
         public CreateZoneCommandBuilder ifNotExists(boolean ifNotExists) {
-            this.ifNotExits = ifNotExists;
+            this.ifNotExists = ifNotExists;
 
             return this;
         }
@@ -249,7 +249,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         public CatalogCommand build() {
             return new CreateZoneCommand(
                     zoneName,
-                    ifNotExits,
+                    ifNotExists,
                     partitions,
                     replicas,
                     dataNodesAutoAdjust,

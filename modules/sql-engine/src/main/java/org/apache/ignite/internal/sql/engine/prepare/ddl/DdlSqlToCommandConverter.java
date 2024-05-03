@@ -534,7 +534,7 @@ public class DdlSqlToCommandConverter {
      * Converts '{@code CREATE INDEX}' AST to the appropriate catalog command.
      */
     private CatalogCommand convertAddIndex(IgniteSqlCreateIndex sqlCmd, PlanningContext ctx) {
-        boolean sortedIndex = sqlCmd.type() == IgniteSqlIndexType.SORTED || sqlCmd.type() == IgniteSqlIndexType.IMPLICIT_SORTED;;
+        boolean sortedIndex = sqlCmd.type() == IgniteSqlIndexType.SORTED || sqlCmd.type() == IgniteSqlIndexType.IMPLICIT_SORTED;
         SqlNodeList columnList = sqlCmd.columnList();
         List<String> columns = new ArrayList<>(columnList.size());
         List<CatalogColumnCollation> collations = new ArrayList<>(columnList.size());
@@ -594,7 +594,7 @@ public class DdlSqlToCommandConverter {
         return DropIndexCommand.builder()
                 .schemaName(schemaName)
                 .indexName(indexName)
-                .ifNotExists(sqlCmd.ifExists())
+                .ifExists(sqlCmd.ifExists())
                 .build();
     }
 

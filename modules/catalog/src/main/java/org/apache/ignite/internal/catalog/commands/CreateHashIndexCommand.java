@@ -37,7 +37,7 @@ public class CreateHashIndexCommand extends AbstractCreateIndexCommand {
      *
      * @param schemaName Name of the schema to create index in. Should not be null or blank.
      * @param indexName Name of the index to create. Should not be null or blank.
-     * @param ifNotExists TODO
+     * @param ifNotExists Flag indicating whether the {@code IF NOT EXISTS} was specified.
      * @param tableName Name of the table the index belong to. Should not be null or blank.
      * @param unique A flag denoting whether index keeps at most one row per every key or not.
      * @param columns List of the indexed columns. There should be at least one column.
