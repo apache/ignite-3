@@ -180,14 +180,19 @@ class IndexBuildController implements ManuallyCloseable {
                 // metastore thread.
                 int catalogVersion = catalogService.latestCatalogVersion();
 
-                return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                        .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, parameters.startTime())
-                                .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
+                CompletableFuture<ReplicaMeta> replicaMetaFuture = awaitPrimaryReplica(primaryReplicaId, parameters.startTime());
+
+                CompletableFuture<MvTableStorage> mvTableStorageFuture =
+                        getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId);
+
+                return replicaMetaFuture
+                        .thenAcceptBoth(mvTableStorageFuture, (replicaMeta, mvTableStorage) ->
+                                tryScheduleBuildIndexesForNewPrimaryReplica(
                                         catalogVersion,
                                         primaryReplicaId,
                                         mvTableStorage,
                                         replicaMeta
-                                ))
+                                )
                         );
             } else {
                 stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
