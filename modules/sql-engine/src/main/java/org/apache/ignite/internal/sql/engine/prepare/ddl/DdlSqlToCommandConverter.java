@@ -258,7 +258,6 @@ public class DdlSqlToCommandConverter {
                 + "querySql=\"" + ctx.query() + "\"]");
     }
 
-
     /**
      * Converts the given '{@code CREATE TABLE}' AST to the {@link CreateTableCommand} catalog command.
      */
@@ -994,7 +993,7 @@ public class DdlSqlToCommandConverter {
         @Nullable Integer length = null;
 
         ColumnTypeParams(RelDataType relType) {
-            this.colType = columnType(relType);
+            colType = columnType(relType);
 
             if (colType.lengthAllowed()) {
                 length = relType.getPrecision() == PRECISION_NOT_SPECIFIED
