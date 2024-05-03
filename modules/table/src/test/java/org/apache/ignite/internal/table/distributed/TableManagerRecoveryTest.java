@@ -276,6 +276,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(topologyService.localMember()).thenReturn(node);
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
+        when(replicaMgr.getLogSyncer()).thenReturn(mock(LogSyncer.class));
         when(replicaMgr.startReplica(anyBoolean(), any(), any(), any(), any(), any())).thenReturn(nullCompletedFuture());
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
 
