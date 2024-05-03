@@ -299,7 +299,7 @@ sql_state error_code_to_sql_state(error::code code) {
 
         // DisasterRecovery group. Group code: 20
         case error::code::NODES_NOT_FOUND:
-        case error::code::PARTITIONS_NOT_FOUND:
+        case error::code::ILLEGAL_PARTITION_ID:
         case error::code::PARTITION_STATE:
             return sql_state::SHY000_GENERAL_ERROR;
     }
