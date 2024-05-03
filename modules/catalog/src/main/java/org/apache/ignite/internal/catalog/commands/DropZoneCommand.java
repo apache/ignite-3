@@ -44,7 +44,7 @@ public class DropZoneCommand extends AbstractZoneCommand {
      * Constructor.
      *
      * @param zoneName Name of the zone.
-     * @param ifExists TODO
+     * @param ifExists Flag indicating whether the {@code IF EXISTS} was specified.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
     private DropZoneCommand(String zoneName, boolean ifExists) throws CatalogValidationException {

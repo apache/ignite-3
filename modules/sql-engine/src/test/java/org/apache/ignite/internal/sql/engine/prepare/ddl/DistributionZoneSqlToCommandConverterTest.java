@@ -46,7 +46,6 @@ import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntry;
-import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.hamcrest.Matchers;
@@ -78,9 +77,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
 
-        List<UpdateEntry> updates = cmd.get(catalog);
-
-        NewZoneEntry newZoneEntry = castFirstEntry(updates, NewZoneEntry.class);
+        NewZoneEntry newZoneEntry = invokeAndGetFirstEntry(cmd, NewZoneEntry.class);
 
         assertThat(newZoneEntry.descriptor().name(), equalTo("TEST"));
     }
@@ -101,9 +98,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             assertThat(node, instanceOf(SqlDdl.class));
 
             CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
-
-            CatalogZoneDescriptor desc =
-                    castFirstEntry(cmd.get(catalog), NewZoneEntry.class).descriptor();
+            CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
 
             assertThat(desc.partitions(), equalTo(2));
             assertThat(desc.replicas(), equalTo(3));
@@ -128,9 +123,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             assertThat(node, instanceOf(SqlDdl.class));
 
             CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
-
-            CatalogZoneDescriptor desc =
-                    castFirstEntry(cmd.get(catalog), NewZoneEntry.class).descriptor();
+            CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
 
             assertThat(desc.dataNodesAutoAdjustScaleUp(), equalTo(100));
             assertThat(desc.dataNodesAutoAdjustScaleDown(), equalTo(200));
@@ -186,10 +179,9 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         Mockito.when(catalog.zone("TEST")).thenReturn(mock(CatalogZoneDescriptor.class));
 
-        CatalogZoneDescriptor desc =
-                castFirstEntry(cmd.get(catalog), AlterZoneEntry.class).descriptor();
+        AlterZoneEntry entry = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class);
 
-        assertThat(desc.name(), equalTo("TEST2"));
+        assertThat(entry.descriptor().name(), equalTo("TEST2"));
         assertThat(((RenameZoneCommand) cmd).ifExists(), is(false));
     }
 
@@ -204,10 +196,9 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         Mockito.when(catalog.zone("TEST")).thenReturn(mock(CatalogZoneDescriptor.class));
 
-        CatalogZoneDescriptor desc =
-                castFirstEntry(cmd.get(catalog), AlterZoneEntry.class).descriptor();
+        AlterZoneEntry entry = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class);
 
-        assertThat(desc.name(), equalTo("TEST2"));
+        assertThat(entry.descriptor().name(), equalTo("TEST2"));
         assertThat(zoneCmd.ifExists(), is(true));
     }
 
@@ -225,8 +216,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
 
-        CatalogZoneDescriptor desc =
-                castFirstEntry(cmd.get(catalog), AlterZoneEntry.class).descriptor();
+        CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
 
         assertThat(desc.name(), equalTo("TEST"));
         assertThat(desc.replicas(), is(3));
@@ -262,8 +252,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
             Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
 
-            CatalogZoneDescriptor desc =
-                    castFirstEntry(cmd.get(catalog), AlterZoneEntry.class).descriptor();
+            CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
 
             assertThat(desc.name(), equalTo("TEST"));
 
@@ -288,8 +277,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
             Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
 
-            CatalogZoneDescriptor desc =
-                    castFirstEntry(cmd.get(catalog), AlterZoneEntry.class).descriptor();
+            CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
 
             assertThat(desc.name(), equalTo("TEST"));
 
@@ -308,7 +296,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         CatalogZoneDescriptor zoneMock = mock(CatalogZoneDescriptor.class);
         Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
 
-        SetDefaultZoneEntry entry = castFirstEntry(cmd.get(catalog), SetDefaultZoneEntry.class);
+        SetDefaultZoneEntry entry = invokeAndGetFirstEntry(cmd, SetDefaultZoneEntry.class);
 
         AlterZoneSetDefaultCommand zoneCmd = (AlterZoneSetDefaultCommand) cmd;
         assertThat(entry.zoneId(), is(zoneMock.id()));
@@ -352,7 +340,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         CatalogZoneDescriptor zoneMock = mock(CatalogZoneDescriptor.class);
         Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
 
-        DropZoneEntry entry = castFirstEntry(cmd.get(catalog), DropZoneEntry.class);
+        DropZoneEntry entry = invokeAndGetFirstEntry(cmd, DropZoneEntry.class);
 
         assertThat(entry.zoneId(), is(zoneMock.id()));
     }
