@@ -26,17 +26,27 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 public interface TableRowConverter {
 
     /**
-     * Converts a relational node row to table row.
+     * Converts a relational node row to table row of all columns.
      *
      * @param ectx Execution context.
      * @param row Relational node row.
-     * @param key True if the row is a key only row.
-     * @return Table node row.
+     * @return Table row.
      */
-    <RowT> BinaryRowEx toBinaryRow(
+    <RowT> BinaryRowEx toFullRow(
             ExecutionContext<RowT> ectx,
-            RowT row,
-            boolean key
+            RowT row
+    );
+
+    /**
+     * Converts a relational node row to table row of key columns only.
+     *
+     * @param ectx Execution context.
+     * @param row Relational node row.
+     * @return Table row of key columns.
+     */
+    <RowT> BinaryRowEx toKeyRow(
+            ExecutionContext<RowT> ectx,
+            RowT row
     );
 
     /**

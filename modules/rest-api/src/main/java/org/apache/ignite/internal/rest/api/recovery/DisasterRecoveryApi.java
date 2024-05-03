@@ -19,13 +19,15 @@ package org.apache.ignite.internal.rest.api.recovery;
 
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
-import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Produces;
+import io.micronaut.http.annotation.QueryValue;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.MediaType;
@@ -41,34 +43,34 @@ public interface DisasterRecoveryApi {
     @ApiResponse(responseCode = "200", description = "Partition states returned.")
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Produces(MediaType.APPLICATION_JSON)
-    CompletableFuture<LocalPartitionStatesResponse> getLocalPartitionStates();
-
-    @Get("state/local/{zoneName}")
-    @Operation(operationId = "getLocalPartitionStatesByZone", description = "Returns local partition states.")
-    @ApiResponse(responseCode = "200", description = "Partition states returned.")
-    @ApiResponse(responseCode = "500", description = "Internal error.",
-            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "404", description = "Zone is not found.",
+    @ApiResponse(responseCode = "400", description = "Bad request.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces(MediaType.APPLICATION_JSON)
-    CompletableFuture<LocalPartitionStatesResponse> getLocalPartitionStates(@PathVariable("zoneName") String zoneName);
+    CompletableFuture<LocalPartitionStatesResponse> getLocalPartitionStates(
+            @QueryValue
+            @Schema(description = "Names specifying zones to get partition states from. Case-sensitive, all zones if empty.")
+            Optional<Set<String>> zoneNames,
+            @QueryValue
+            @Schema(description = "Names specifying nodes to get partition states from. Case-sensitive, all nodes if empty.")
+            Optional<Set<String>> nodeNames,
+            @QueryValue
+            @Schema(description = "IDs of partitions to get states. All partitions if empty.") Optional<Set<Integer>> partitionIds
+    );
 
     @Get("state/global")
     @Operation(operationId = "getGlobalPartitionStates", description = "Returns global partition states.")
     @ApiResponse(responseCode = "200", description = "Partition states returned.")
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Produces(MediaType.APPLICATION_JSON)
-    CompletableFuture<GlobalPartitionStatesResponse> getGlobalPartitionStates();
-
-    @Get("state/global/{zoneName}")
-    @Operation(operationId = "getGlobalPartitionStatesByZone", description = "Returns global partition states.")
-    @ApiResponse(responseCode = "200", description = "Partition states returned.")
-    @ApiResponse(responseCode = "500", description = "Internal error.",
-            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @ApiResponse(responseCode = "404", description = "Zone is not found.",
+    @ApiResponse(responseCode = "400", description = "Bad request.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces(MediaType.APPLICATION_JSON)
-    CompletableFuture<GlobalPartitionStatesResponse> getGlobalPartitionStates(@PathVariable("zoneName") String zoneName);
+    CompletableFuture<GlobalPartitionStatesResponse> getGlobalPartitionStates(
+            @QueryValue
+            @Schema(description = "Names specifying zones to get partition states from. Case-sensitive, all zones if empty.")
+            Optional<Set<String>> zoneNames,
+            @QueryValue
+            @Schema(description = "IDs of partitions to get states of. All partitions if empty.")
+            Optional<Set<Integer>> partitionIds
+    );
 }

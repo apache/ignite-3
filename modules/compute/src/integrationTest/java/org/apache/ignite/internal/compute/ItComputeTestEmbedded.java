@@ -326,9 +326,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         return IntStream.range(0, initialNodes()).mapToObj(Arguments::of);
     }
 
-
     private static class CustomFailingJob implements ComputeJob<String> {
-        /** {@inheritDoc} */
         @Override
         public String execute(JobExecutionContext context, Object... args) {
             throw ExceptionUtils.sneakyThrow((Throwable) args[0]);
@@ -336,8 +334,6 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     }
 
     private static class WaitLatchJob implements ComputeJob<String> {
-
-        /** {@inheritDoc} */
         @Override
         public String execute(JobExecutionContext context, Object... args) {
             try {
@@ -350,10 +346,8 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     }
 
     private static class WaitLatchThrowExceptionOnFirstExecutionJob implements ComputeJob<String> {
-
         static final AtomicInteger counter = new AtomicInteger(0);
 
-        /** {@inheritDoc} */
         @Override
         public String execute(JobExecutionContext context, Object... args) {
             try {

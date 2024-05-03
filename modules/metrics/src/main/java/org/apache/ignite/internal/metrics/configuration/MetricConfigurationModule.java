@@ -24,6 +24,7 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterConfigurationSchema;
+import org.apache.ignite.internal.metrics.exporters.configuration.LogPushExporterConfigurationSchema;
 
 /**
  * Configuration module for metrics' configs.
@@ -45,6 +46,6 @@ public class MetricConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of(JmxExporterConfigurationSchema.class);
+        return List.of(JmxExporterConfigurationSchema.class, LogPushExporterConfigurationSchema.class);
     }
 }

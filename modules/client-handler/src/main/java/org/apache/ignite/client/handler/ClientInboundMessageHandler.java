@@ -375,6 +375,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             packer.packUuid(tag.clusterId());
             packer.packString(tag.clusterName());
 
+            packer.packLong(observableTimestamp(null));
+
             // Pack current version
             packer.packByte(IgniteProductVersion.CURRENT_VERSION.major());
             packer.packByte(IgniteProductVersion.CURRENT_VERSION.minor());

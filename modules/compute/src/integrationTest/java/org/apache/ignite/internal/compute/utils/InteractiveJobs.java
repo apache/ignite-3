@@ -245,8 +245,10 @@ public final class InteractiveJobs {
                             break;
                         case RETURN:
                             return "Done";
+                        case RETURN_WORKER_NAME:
+                            return workerNodeName;
                         case GET_WORKER_NAME:
-                            NODE_CHANNELS.get(workerNodeName).add(context.ignite().name());
+                            NODE_CHANNELS.get(workerNodeName).add(workerNodeName);
                             break;
                         default:
                             throw new IllegalStateException("Unexpected value: " + receivedSignal);
@@ -321,15 +323,12 @@ public final class InteractiveJobs {
             INTERACTIVE_JOB_RUN_TIMES.forEach((nodeName, runTimes) -> assertThat(runTimes, equalTo(1)));
         }
 
-        /**
-         * Finishes all {@link InteractiveJob}s.
-         */
-        public void finish() {
+        private static void sendTerminalSignal(Signal signal) {
             NODE_SIGNALS.forEach((nodeName, channel) -> {
                 try {
-                    channel.offer(Signal.RETURN, WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                    channel.offer(signal, WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
                 } catch (InterruptedException e) {
-                    throw new RuntimeException("Can not send finish signal to he node", e);
+                    throw new RuntimeException("Can not send signal to the node", e);
                 }
             });
 
@@ -340,6 +339,27 @@ public final class InteractiveJobs {
                         equalTo(0)
                 );
             });
+        }
+
+        /**
+         * Finishes all {@link InteractiveJob}s.
+         */
+        public void finish() {
+            sendTerminalSignal(Signal.RETURN);
+        }
+
+        /**
+         * Finishes all {@link InteractiveJob}s by returning worker node names.
+         */
+        public void finishReturnWorkerNames() {
+            sendTerminalSignal(Signal.RETURN_WORKER_NAME);
+        }
+
+        /**
+         * Finishes all {@link InteractiveJob}s by returning worker node names.
+         */
+        public void throwException() {
+            sendTerminalSignal(Signal.THROW);
         }
     }
 
