@@ -588,11 +588,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             newRaftClientFut = CompletableFuture.completedFuture((TopologyAwareRaftGroupService) raftClient);
         }
 
+        // TODO: should be there for now because in TableManager:L978-990 there passing TableRaftService's updating
+        CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
+
         if (shouldSkipReplicaStarting) {
             return nullCompletedFuture();
         }
 
-        CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
 
         return temporalInternalCreateReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
     }
