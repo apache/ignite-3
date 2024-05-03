@@ -142,6 +142,15 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    public void pkWithInvalidFunctionalDefault() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Functional default contains unsupported function: [col=ID, functionName=INVALID_FUNC]",
+                () -> sql("create table t (id varchar default invalid_func primary key, val int)")
+        );
+    }
+
+    @Test
     public void undefinedColumnsInPrimaryKey() {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
@@ -330,6 +339,22 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertEquals(1, colocationColumns.size());
         assertEquals("Id0", colocationColumns.get(0).name());
+    }
+
+    @Test
+    public void literalAsColumDefault() {
+        sql("CREATE TABLE T0("
+                + "id BIGINT DEFAULT 1 PRIMARY KEY, "
+                + "valdate DATE DEFAULT DATE '2001-12-21',"
+                + "valtime TIME DEFAULT TIME '11:22:33.444',"
+                + "valts TIMESTAMP DEFAULT TIMESTAMP '2001-12-21 11:22:33.444',"
+                + "valstr VARCHAR DEFAULT 'string',"
+                + "valbin VARBINARY DEFAULT x'ff'"
+                + ")");
+
+        List<Column> columns = unwrapTableViewInternal(table("T0")).schemaView().lastKnownSchema().columns();
+
+        assertEquals(6, columns.size());
     }
 
     @Test

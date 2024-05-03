@@ -35,6 +35,7 @@ import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -176,10 +177,22 @@ public class CreateTableCommand extends AbstractTableCommand {
         primaryKey.validate(columns);
 
         for (ColumnParams column : columns) {
-            boolean partOfPk = primaryKey.columns().contains(column.name());
-            if (!partOfPk && column.defaultValueDefinition().type == Type.FUNCTION_CALL) {
-                throw new CatalogValidationException(
-                        format("Functional defaults are not supported for non-primary key columns [col={}].", column.name()));
+            DefaultValue defaultValue = column.defaultValueDefinition();
+
+            if (defaultValue.type == Type.FUNCTION_CALL) {
+                boolean partOfPk = primaryKey.columns().contains(column.name());
+                if (!partOfPk) {
+                    throw new CatalogValidationException(
+                            format("Functional defaults are not supported for non-primary key columns [col={}].", column.name()));
+                }
+
+                // TODO: fix function validation.
+                String functionName = ((FunctionCall) defaultValue).functionName();
+                if (!"gen_random_uuid".equalsIgnoreCase(functionName)) {
+                    throw new CatalogValidationException(
+                            format("Functional default contains unsupported function: [col={}, functionName={}]",
+                                    column.name(), functionName));
+                }
             }
         }
 

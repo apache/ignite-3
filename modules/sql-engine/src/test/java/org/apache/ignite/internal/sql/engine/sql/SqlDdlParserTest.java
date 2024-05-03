@@ -34,10 +34,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlBinaryStringLiteral;
+import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNumericLiteral;
+import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.hamcrest.CustomMatcher;
@@ -107,6 +111,69 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 + "\"ID\" VARCHAR DEFAULT (\"GEN_RANDOM_UUID\"), "
                 + "\"VAL\" VARCHAR)"
         );
+    }
+
+    /**
+     * Parsing of CREATE TABLE with a literal as a default expression.
+     */
+    @Test
+    public void createTableWithDefaultLiteral() {
+        String query = "CREATE TABLE my_table("
+                + "id BIGINT DEFAULT 1, "
+                + "valdate DATE DEFAULT DATE '2001-12-21',"
+                + "valdate2 DATE DEFAULT '2001-12-21',"
+                + "valtime TIME DEFAULT TIME '11:22:33.444',"
+                + "valtime2 TIME DEFAULT '11:22:33.444',"
+                + "valts TIMESTAMP DEFAULT TIMESTAMP '2001-12-21 11:22:33.444',"
+                + "valts2 TIMESTAMP DEFAULT '2001-12-21 11:22:33.444',"
+                + "valbin VARBINARY DEFAULT x'ff',"
+                + "valstr VARCHAR DEFAULT 'string'"
+                + ")";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
+        assertThat(createTable.columnList(), hasColumnWithDefault("ID", SqlNumericLiteral.class, "1"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALSTR", SqlCharStringLiteral.class, "string"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALBIN", SqlBinaryStringLiteral.class, "11111111"));
+
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALDATE", SqlUnknownLiteral.class, "2001-12-21"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALTIME", SqlUnknownLiteral.class, "11:22:33.444"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALTS", SqlUnknownLiteral.class, "2001-12-21 11:22:33.444"));
+
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALDATE2", SqlCharStringLiteral.class, "2001-12-21"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALTIME2", SqlCharStringLiteral.class, "11:22:33.444"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALTS2", SqlCharStringLiteral.class, "2001-12-21 11:22:33.444"));
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" "
+                + "(\"ID\" BIGINT DEFAULT (1), "
+                + "\"VALDATE\" DATE DEFAULT (DATE '2001-12-21'), "
+                + "\"VALDATE2\" DATE DEFAULT ('2001-12-21'), "
+                + "\"VALTIME\" TIME DEFAULT (TIME '11:22:33.444'), "
+                + "\"VALTIME2\" TIME DEFAULT ('11:22:33.444'), "
+                + "\"VALTS\" TIMESTAMP DEFAULT (TIMESTAMP '2001-12-21 11:22:33.444'), "
+                + "\"VALTS2\" TIMESTAMP DEFAULT ('2001-12-21 11:22:33.444'), "
+                + "\"VALBIN\" VARBINARY DEFAULT (X'FF'), "
+                + "\"VALSTR\" VARCHAR DEFAULT ('string'))"
+        );
+    }
+
+    private Matcher<Iterable<? super SqlColumnDeclaration>> hasColumnWithDefault(
+            String columnName,
+            Class<? extends SqlLiteral> literalType,
+            String literalValue
+    ) {
+        return hasItem(ofTypeMatching(
+                "Column with literal as default: columnName=" + columnName,
+                SqlColumnDeclaration.class,
+                col -> columnName.equals(col.name.getSimple())
+                        && literalType.isInstance(col.expression)
+                        && literalValue.equals(((SqlLiteral) col.expression).toValue())
+        ));
     }
 
     /**
@@ -634,7 +701,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                         && ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0) instanceof SqlIdentifier
                         && ((SqlIdentifier) ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0)).isSimple()
                         && ((SqlIdentifier) ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0))
-                                .getSimple().equals("COL3"))));
+                        .getSimple().equals("COL3"))));
 
         expectUnparsed(node, "CREATE INDEX \"MY_INDEX\" ON \"MY_TABLE\" ("
                 + "\"COL1\" NULLS FIRST, \"COL2\" NULLS LAST, \"COL3\" DESC NULLS FIRST)"
