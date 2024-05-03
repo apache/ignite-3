@@ -227,11 +227,11 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         log.info("Replica msg " + message.getClass().getSimpleName());
 
                         ReplicaListener listener = replicaListenerCreator.apply((req, senderId) -> {
-                                ReplicaResponse response = replicaMessageFactory.replicaResponse()
-                                        .result(5)
-                                        .build();
-                                return completedFuture(new ReplicaResult(response, null));
-                            });
+                            ReplicaResponse response = replicaMessageFactory.replicaResponse()
+                                    .result(5)
+                                    .build();
+                            return completedFuture(new ReplicaResult(response, null));
+                        });
 
                         replicaManager.startReplica(
                                 false,
