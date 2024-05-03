@@ -975,6 +975,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             || replicaMgr.isReplicaStarted(replicaGrpId);
 
                     try {
+                        // ToDo: this code should be removed after next ticket IGNITE-22036
                         Function<RaftGroupService, ReplicaListener> createListener = (raftClient) -> {
                             ((InternalTableImpl) internalTbl)
                                     .tableRaftService()
