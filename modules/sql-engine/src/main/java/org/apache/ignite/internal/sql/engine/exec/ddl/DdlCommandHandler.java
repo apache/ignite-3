@@ -41,7 +41,7 @@ import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
-import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCatalogCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
@@ -110,8 +110,8 @@ public class DdlCommandHandler implements LifecycleAware {
             return handleRenameZone((RenameZoneCommand) cmd);
         } else if (cmd instanceof AlterZoneCommand) {
             return handleAlterZone((AlterZoneCommand) cmd);
-        } else if (cmd instanceof AlterZoneSetDefaultCatalogCommand) {
-            return handleAlterZoneSetDefault((AlterZoneSetDefaultCatalogCommand) cmd);
+        } else if (cmd instanceof AlterZoneSetDefaultCommand) {
+            return handleAlterZoneSetDefault((AlterZoneSetDefaultCommand) cmd);
         } else if (cmd instanceof DropZoneCommand) {
             return handleDropZone((DropZoneCommand) cmd);
         } else {
@@ -140,7 +140,7 @@ public class DdlCommandHandler implements LifecycleAware {
     }
 
     /** Handles alter zone set default command. */
-    private CompletableFuture<Boolean> handleAlterZoneSetDefault(AlterZoneSetDefaultCatalogCommand cmd) {
+    private CompletableFuture<Boolean> handleAlterZoneSetDefault(AlterZoneSetDefaultCommand cmd) {
         return catalogManager.execute(cmd)
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundValidationException.class));
     }

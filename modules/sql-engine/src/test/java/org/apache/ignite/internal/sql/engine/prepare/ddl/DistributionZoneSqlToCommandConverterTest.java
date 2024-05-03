@@ -37,7 +37,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
-import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCatalogCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
@@ -303,14 +303,14 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         SqlNode node = parse("ALTER ZONE test SET DEFAULT");
 
         CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
-        assertThat(cmd, Matchers.instanceOf(AlterZoneSetDefaultCatalogCommand.class));
+        assertThat(cmd, Matchers.instanceOf(AlterZoneSetDefaultCommand.class));
 
         CatalogZoneDescriptor zoneMock = mock(CatalogZoneDescriptor.class);
         Mockito.when(catalog.zone("TEST")).thenReturn(zoneMock);
 
         SetDefaultZoneEntry entry = castFirstEntry(cmd.get(catalog), SetDefaultZoneEntry.class);
 
-        AlterZoneSetDefaultCatalogCommand zoneCmd = (AlterZoneSetDefaultCatalogCommand) cmd;
+        AlterZoneSetDefaultCommand zoneCmd = (AlterZoneSetDefaultCommand) cmd;
         assertThat(entry.zoneId(), is(zoneMock.id()));
         assertThat(zoneCmd.ifExists(), is(false));
     }
@@ -320,9 +320,9 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         SqlNode node = parse("ALTER ZONE IF EXISTS test SET DEFAULT");
 
         CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
-        assertThat(cmd, Matchers.instanceOf(AlterZoneSetDefaultCatalogCommand.class));
+        assertThat(cmd, Matchers.instanceOf(AlterZoneSetDefaultCommand.class));
 
-        assertThat(((AlterZoneSetDefaultCatalogCommand) cmd).ifExists(), is(true));
+        assertThat(((AlterZoneSetDefaultCommand) cmd).ifExists(), is(true));
     }
 
     @Test

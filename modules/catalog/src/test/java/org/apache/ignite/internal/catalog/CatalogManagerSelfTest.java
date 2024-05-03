@@ -104,7 +104,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
-import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCatalogCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
@@ -1141,7 +1141,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                         .zoneName("TEST_ZONE")
                         .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                         .build(),
-                AlterZoneSetDefaultCatalogCommand.builder()
+                AlterZoneSetDefaultCommand.builder()
                         .zoneName("TEST_ZONE")
                         .build(),
                 simpleTable("T")
@@ -1386,7 +1386,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Set new zone as default.
         {
-            CatalogCommand setDefaultCmd = AlterZoneSetDefaultCatalogCommand.builder()
+            CatalogCommand setDefaultCmd = AlterZoneSetDefaultCommand.builder()
                     .zoneName(TEST_ZONE_NAME)
                     .build();
 
@@ -1415,7 +1415,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         {
             int lastVer =  manager.latestCatalogVersion();
 
-            CatalogCommand setDefaultCmd = AlterZoneSetDefaultCatalogCommand.builder()
+            CatalogCommand setDefaultCmd = AlterZoneSetDefaultCommand.builder()
                     .zoneName(TEST_ZONE_NAME)
                     .build();
 

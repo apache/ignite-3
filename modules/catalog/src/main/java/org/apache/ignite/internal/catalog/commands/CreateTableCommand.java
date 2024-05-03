@@ -76,7 +76,7 @@ public class CreateTableCommand extends AbstractTableCommand {
      *
      * @param tableName Name of the table to create. Should not be null or blank.
      * @param schemaName Name of the schema to create table in. Should not be null or blank.
-     * @param ifExists IF EXISTS flag.
+     * @param ifNotExists IF NOT EXISTS flag.
      * @param primaryKey Primary key.
      * @param colocationColumns Name of the columns participating in distribution calculation.
      *      Should be subset of the primary key columns.
@@ -87,14 +87,14 @@ public class CreateTableCommand extends AbstractTableCommand {
     private CreateTableCommand(
             String tableName,
             String schemaName,
-            boolean ifExists,
+            boolean ifNotExists,
             TablePrimaryKey primaryKey,
             List<String> colocationColumns,
             List<ColumnParams> columns,
             @Nullable String zoneName,
             String storageProfile
     ) throws CatalogValidationException {
-        super(schemaName, tableName, ifExists);
+        super(schemaName, tableName, ifNotExists);
 
         this.primaryKey = primaryKey;
         this.colocationColumns = copyOrNull(colocationColumns);
@@ -253,7 +253,7 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         private String tableName;
 
-        private boolean ifExists;
+        private boolean ifNotExists;
 
         private TablePrimaryKey primaryKey;
 
@@ -278,8 +278,8 @@ public class CreateTableCommand extends AbstractTableCommand {
         }
 
         @Override
-        public CreateTableCommandBuilder ifTableExists(boolean ifTableExists) {
-            this.ifExists = ifTableExists;
+        public CreateTableCommandBuilder ifTableExists(boolean ifNotExists) {
+            this.ifNotExists = ifNotExists;
 
             return this;
         }
@@ -336,7 +336,7 @@ public class CreateTableCommand extends AbstractTableCommand {
             return new CreateTableCommand(
                     tableName,
                     schemaName,
-                    ifExists,
+                    ifNotExists,
                     primaryKey,
                     colocationColumns,
                     columns,

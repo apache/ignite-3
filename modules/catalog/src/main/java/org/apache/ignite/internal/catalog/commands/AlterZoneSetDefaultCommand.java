@@ -31,10 +31,10 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 /**
  * A command that set specified zone as default.
  */
-public class AlterZoneSetDefaultCatalogCommand extends AbstractZoneCommand {
+public class AlterZoneSetDefaultCommand extends AbstractZoneCommand {
     /** Returns builder to create a command that set specified zone as default. */
     public static Builder builder() {
-        return new AlterZoneSetDefaultCatalogCommand.Builder();
+        return new AlterZoneSetDefaultCommand.Builder();
     }
 
     private final boolean ifExists;
@@ -45,7 +45,7 @@ public class AlterZoneSetDefaultCatalogCommand extends AbstractZoneCommand {
      * @param zoneName Name of the zone.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
-    private AlterZoneSetDefaultCatalogCommand(String zoneName, boolean ifExists) throws CatalogValidationException {
+    private AlterZoneSetDefaultCommand(String zoneName, boolean ifExists) throws CatalogValidationException {
         super(zoneName);
 
         this.ifExists = ifExists;
@@ -91,7 +91,7 @@ public class AlterZoneSetDefaultCatalogCommand extends AbstractZoneCommand {
 
         @Override
         public CatalogCommand build() {
-            return new AlterZoneSetDefaultCatalogCommand(zoneName, ifExists);
+            return new AlterZoneSetDefaultCommand(zoneName, ifExists);
         }
     }
 }
