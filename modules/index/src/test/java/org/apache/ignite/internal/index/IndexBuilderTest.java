@@ -92,7 +92,12 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
     void testStopListenIndexBuildCompletion() {
         CompletableFuture<Void> invokeListenerFuture = new CompletableFuture<>();
 
-        IndexBuildCompletionListener listener = (indexId, tableId, partitionId) -> invokeListenerFuture.complete(null);
+        IndexBuildCompletionListener listener = new IndexBuildCompletionListener() {
+            @Override
+            public void onBuildCompletion(int indexId, int tableId, int partitionId) {
+                invokeListenerFuture.complete(null);
+            }
+        };
 
         indexBuilder.listen(listener);
         indexBuilder.stopListen(listener);
@@ -149,6 +154,16 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
         verify(replicaService, times(2)).invoke(any(ClusterNode.class), any(BuildIndexReplicaRequest.class));
     }
 
+    @Test
+    void testScheduleBuildIndexAfterDisasterRecovery() {
+        CompletableFuture<Void> listenCompletionIndexBuildingAfterDisasterRecoveryFuture =
+                listenCompletionIndexBuildingAfterDisasterRecovery(INDEX_ID, TABLE_ID, PARTITION_ID);
+
+        scheduleBuildIndexAfterDisasterRecovery(INDEX_ID, TABLE_ID, PARTITION_ID, List.of(rowId(PARTITION_ID)));
+
+        assertThat(listenCompletionIndexBuildingAfterDisasterRecoveryFuture, willCompleteSuccessfully());
+    }
+
     private void scheduleBuildIndex(int indexId, int tableId, int partitionId, Collection<RowId> nextRowIdsToBuild) {
         indexBuilder.scheduleBuildIndex(
                 tableId,
@@ -162,12 +177,43 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private CompletableFuture<Void> listenCompletionIndexBuilding(int indexId, int tableId, int partitionId) {
-        CompletableFuture<Void> future = new CompletableFuture<>();
+    private void scheduleBuildIndexAfterDisasterRecovery(int indexId, int tableId, int partitionId, Collection<RowId> nextRowIdsToBuild) {
+        indexBuilder.scheduleBuildIndexAfterDisasterRecovery(
+                tableId,
+                partitionId,
+                indexId,
+                indexStorage(nextRowIdsToBuild),
+                mock(MvPartitionStorage.class),
+                mock(ClusterNode.class),
+                ANY_ENLISTMENT_CONSISTENCY_TOKEN,
+                ANY_INDEX_CREATION_CATALOG_VERSION
+        );
+    }
 
-        indexBuilder.listen((indexId1, tableId1, partitionId1) -> {
-            if (indexId1 == indexId && tableId1 == tableId && partitionId1 == partitionId) {
-                future.complete(null);
+    private CompletableFuture<Void> listenCompletionIndexBuilding(int indexId, int tableId, int partitionId) {
+        var future = new CompletableFuture<Void>();
+
+        indexBuilder.listen(new IndexBuildCompletionListener() {
+            @Override
+            public void onBuildCompletion(int indexId1, int tableId1, int partitionId1) {
+                if (indexId1 == indexId && tableId1 == tableId && partitionId1 == partitionId) {
+                    future.complete(null);
+                }
+            }
+        });
+
+        return future;
+    }
+
+    private CompletableFuture<Void> listenCompletionIndexBuildingAfterDisasterRecovery(int indexId, int tableId, int partitionId) {
+        var future = new CompletableFuture<Void>();
+
+        indexBuilder.listen(new IndexBuildCompletionListener() {
+            @Override
+            public void onBuildCompletionAfterDisasterRecovery(int indexId1, int tableId1, int partitionId1) {
+                if (indexId1 == indexId && tableId1 == tableId && partitionId1 == partitionId) {
+                    future.complete(null);
+                }
             }
         });
 
