@@ -696,7 +696,7 @@ public class ItTxTestCluster {
                                 );
 
                                 replicaManagers.get(assignment).startReplica(
-                                        true,
+                                        false,
                                         new TablePartitionId(tableId, partId),
                                         configuration,
                                         () -> null,
