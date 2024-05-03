@@ -27,8 +27,8 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.criteria.Partition;
 import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.table.partition.HashPartition;
 import org.apache.ignite.table.partition.PartitionManager;
 
 /**
@@ -56,7 +56,7 @@ class PublicApiThreadingTable implements Table, Wrapper {
     }
 
     @Override
-    public PartitionManager<HashPartition> partitionManager() {
+    public <T extends Partition> PartitionManager<T> partitionManager() {
         return table.partitionManager();
     }
 

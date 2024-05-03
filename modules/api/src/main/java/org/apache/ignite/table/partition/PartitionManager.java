@@ -38,7 +38,7 @@ public interface PartitionManager<T> {
      * @param partition Partition instance.
      * @return Cluster node where primary replica of provided partition is located.
      */
-    CompletableFuture<ClusterNode> partitionLocationAsync(T partition);
+    CompletableFuture<ClusterNode> mapPrimaryToNodeAsync(T partition);
 
     /**
      * Returns map with all partitions and their locations.

@@ -69,7 +69,7 @@ public class HashPartitionManagerImpl implements PartitionManager<HashPartition>
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocationAsync(HashPartition partition) {
+    public CompletableFuture<ClusterNode> mapPrimaryToNodeAsync(HashPartition partition) {
         return table.partitionLocation(new TablePartitionId(table.tableId(), partition.partitionId()));
     }
 
