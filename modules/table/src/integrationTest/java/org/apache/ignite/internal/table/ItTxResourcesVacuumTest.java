@@ -380,7 +380,8 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Set<String> commitPartNodes = partitionAssignment(node, new TablePartitionId(tableId(node, TABLE_NAME), commitPartId));
 
-        log.info("Test: Commit partition [leaseholder={}, hostingNodes={}].", commitPartitionLeaseholder.name(), commitPartNodes);
+        log.info("Test: Commit partition [part={}, leaseholder={}, hostingNodes={}].", commitPartGrpId, commitPartitionLeaseholder.name(),
+                commitPartNodes);
 
         // Some node that does not host the commit partition, will be the primary node for upserting another tuple.
         IgniteImpl leaseholderForAnotherTuple = findNode(n -> !commitPartNodes.contains(n.name()));
@@ -429,11 +430,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Transaction roTxAfter = beginReadOnlyTx(anyNode());
 
-        assertTrue(waitForCondition(() -> {
-            TxStateMeta txStateMeta = (TxStateMeta) volatileTxState(commitPartitionLeaseholder, txId);
-
-            return txStateMeta != null && txStateMeta.cleanupCompletionTimestamp() != null;
-        }, 10_000));
+        waitForCleanupCompletion(commitPartNodes, txId);
 
         triggerVacuum();
         assertTxStateVacuumized(txId, commitPartId, true);
@@ -572,7 +569,8 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Set<String> commitPartNodes = partitionAssignment(node, new TablePartitionId(tableId(node, TABLE_NAME), commitPartId));
 
-        log.info("Test: Commit partition [leaseholder={}, hostingNodes={}].", commitPartitionLeaseholder.name(), commitPartNodes);
+        log.info("Test: Commit partition [part={}, leaseholder={}, hostingNodes={}].", commitPartGrpId, commitPartitionLeaseholder.name(),
+                commitPartNodes);
 
         view.upsert(tx, tuple);
 
@@ -580,23 +578,28 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         CompletableFuture<Void> cleanupAllowedFut = new CompletableFuture<>();
         boolean[] cleanupAllowed = new boolean[1];
 
-        commitPartitionLeaseholder.dropMessages((n, msg) -> {
+        // Cleanup may be triggered by the primary replica reelection as well.
+        runningNodes().filter(n -> commitPartNodes.contains(n.name())).forEach(nd -> nd.dropMessages((n, msg) -> {
             if (msg instanceof TxCleanupMessage && !cleanupAllowed[0]) {
                 cleanupStarted.complete(null);
 
+                log.warn("Test: cleanup started.");
+
                 cleanupAllowedFut.join();
 
-                return true;
+                log.info("Test: cleanup resumed.");
             }
 
             return false;
-        });
+        }));
 
         Transaction roTxBefore = beginReadOnlyTx(anyNode());
 
         CompletableFuture<Void> commitFut = tx.commitAsync();
 
         waitForTxStateReplication(commitPartNodes, txId, commitPartId, 10_000);
+
+        log.info("Test: state replicated.");
 
         assertThat(cleanupStarted, willCompleteSuccessfully());
 
@@ -616,11 +619,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Transaction roTxAfter = beginReadOnlyTx(anyNode());
 
-        assertTrue(waitForCondition(() -> {
-            TxStateMeta txStateMeta = (TxStateMeta) volatileTxState(commitPartitionLeaseholder, txId);
-
-            return txStateMeta != null && txStateMeta.cleanupCompletionTimestamp() != null;
-        }, 10_000));
+        waitForCleanupCompletion(commitPartNodes, txId);
 
         log.info("Test: cleanup completed.");
 
@@ -875,6 +874,28 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         }
 
         assertTrue(r);
+    }
+
+    /**
+     * Wait for cleanup completion timestamp on any node of commit partition group.
+     *
+     * @param commitPartitionNodeNames Node names of nodes in commit partition group.
+     * @param txId Transaction id.
+     */
+    private void waitForCleanupCompletion(Set<String> commitPartitionNodeNames, UUID txId) throws InterruptedException {
+        Set<IgniteImpl> commitPartitionNodes = runningNodes().filter(n -> commitPartitionNodeNames.contains(n.name())).collect(toSet());
+
+        assertTrue(waitForCondition(() -> {
+            boolean res = false;
+
+            for (IgniteImpl node : commitPartitionNodes) {
+                TxStateMeta txStateMeta = (TxStateMeta) volatileTxState(node, txId);
+
+                res = res || txStateMeta != null && txStateMeta.cleanupCompletionTimestamp() != null;
+            }
+
+            return res;
+        }, 10_000));
     }
 
     /**
