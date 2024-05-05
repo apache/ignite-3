@@ -64,6 +64,7 @@ public class Catalog {
     private final long activationTimestamp;
     private final Map<String, CatalogSchemaDescriptor> schemasByName;
     private final Map<String, CatalogZoneDescriptor> zonesByName;
+    private final Map<String, CatalogTableDescriptor> tablesByName;
     private final @Nullable CatalogZoneDescriptor defaultZone;
 
     @IgniteToStringExclude
@@ -109,6 +110,7 @@ public class Catalog {
 
         schemasByName = schemas.stream().collect(toMapByName());
         zonesByName = zones.stream().collect(toMapByName());
+        tablesByName = schemas.stream().flatMap(s -> Arrays.stream(s.tables())).collect(toMapByName());
 
         schemasById = schemas.stream().collect(toMapById());
         tablesById = schemas.stream().flatMap(s -> Arrays.stream(s.tables())).collect(toMapById());
@@ -153,6 +155,10 @@ public class Catalog {
 
     public @Nullable CatalogTableDescriptor table(int tableId) {
         return tablesById.get(tableId);
+    }
+
+    public @Nullable CatalogTableDescriptor table(String tableName) {
+        return tablesByName.get(tableName);
     }
 
     public Collection<CatalogTableDescriptor> tables() {

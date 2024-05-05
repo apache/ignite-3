@@ -42,10 +42,13 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
 
     private final int tableId;
 
-    ManualGroupUpdateRequest(UUID operationId, int zoneId, int tableId) {
+    private final Set<Integer> partitionIds;
+
+    ManualGroupUpdateRequest(UUID operationId, int zoneId, int tableId, Set<Integer> partitionIds) {
         this.operationId = operationId;
         this.zoneId = zoneId;
         this.tableId = tableId;
+        this.partitionIds = partitionIds;
     }
 
     @Override
@@ -60,6 +63,10 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
 
     public int tableId() {
         return tableId;
+    }
+
+    public Set<Integer> partitionIds() {
+        return partitionIds;
     }
 
     @Override
@@ -87,6 +94,7 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
             CompletableFuture<?>[] futures = RebalanceUtil.forceAssignmentsUpdate(
                     tableDescriptor,
                     zoneDescriptor,
+                    partitionIds,
                     dataNodes,
                     nodeConsistentIds,
                     msRevision,

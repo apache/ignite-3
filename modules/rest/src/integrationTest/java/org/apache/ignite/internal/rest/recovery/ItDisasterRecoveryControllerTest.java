@@ -22,16 +22,20 @@ import static java.util.stream.Collectors.toSet;
 import static java.util.stream.IntStream.range;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.HttpStatus;
+import io.micronaut.http.MutableHttpRequest;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
@@ -47,6 +51,7 @@ import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStateResponse
 import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStatesResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStatesResponse;
+import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsCommand;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -351,6 +356,76 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         }
 
         checkGlobalStates(states, ZONES_CONTAINING_TABLES);
+    }
+
+    @Test
+    public void testResetPartitionZoneNotFound() {
+        String unknownZone = "unknown_zone";
+
+        String tableName = TABLE_NAMES.stream().findFirst().get();
+
+        MutableHttpRequest<ResetPartitionsCommand> post = HttpRequest.POST("/reset-lost-partitions",
+                new ResetPartitionsCommand(unknownZone, tableName, Set.of()));
+
+        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
+                () -> client.toBlocking().exchange(post));
+
+        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
+    }
+
+    @Test
+    public void testResetPartitionTableNotFound() {
+        String zoneName = ZONES.stream().findFirst().get();
+
+        String tableName = "unknown_table";
+
+        MutableHttpRequest<ResetPartitionsCommand> post = HttpRequest.POST("/reset-lost-partitions",
+                new ResetPartitionsCommand(zoneName, tableName, Set.of()));
+
+        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
+                () -> client.toBlocking().exchange(post));
+
+        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
+    }
+
+    @Test
+    void testResetPartitionsIllegalPartitionNegative() {
+        String zoneName = ZONES.stream().findFirst().get();
+
+        String tableName = zoneName + "_table";
+
+        MutableHttpRequest<ResetPartitionsCommand> post = HttpRequest.POST("/reset-lost-partitions",
+                new ResetPartitionsCommand(zoneName, tableName, Set.of(0, 5, -1, -10)));
+
+        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
+                () -> client.toBlocking().exchange(post));
+
+        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
+
+        assertThat(e.getMessage(), containsString("Partition ID can't be negative, found: -10"));
+    }
+
+    @Test
+    void testResetPartitionsPartitionsOutOfRange() {
+        String zoneName = ZONES.stream().findFirst().get();
+
+        String tableName = zoneName + "_table";
+
+        MutableHttpRequest<ResetPartitionsCommand> post = HttpRequest.POST("/reset-lost-partitions",
+                new ResetPartitionsCommand(zoneName, tableName, Set.of(DEFAULT_PARTITION_COUNT)));
+
+        HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
+                () -> client.toBlocking().exchange(post));
+
+        assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
+        assertThat(e.getMessage(), containsString(
+                String.format(
+                        "Partition IDs should be in range [0, %d] for zone %s, found: %d",
+                        DEFAULT_PARTITION_COUNT - 1,
+                        zoneName,
+                        DEFAULT_PARTITION_COUNT
+                )
+        ));
     }
 
     private static void checkLocalStates(List<LocalPartitionStateResponse> states, Set<String> zoneNames, Set<String> nodes) {

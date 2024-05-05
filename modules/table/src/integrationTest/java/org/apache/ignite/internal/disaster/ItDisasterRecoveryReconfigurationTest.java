@@ -79,7 +79,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     private static final int SCALE_DOWN_TIMEOUT_SECONDS = 2;
 
     /** Test table name. */
-    private static final String TABLE_NAME = "test";
+    private static final String TABLE_NAME = "TEST";
 
     private static final int ENTRIES = 2;
 
@@ -194,7 +194,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForScale(node0, 3);
 
-        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(zoneId, tableId);
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(zoneName, TABLE_NAME, Set.of());
         assertThat(updateFuture, willCompleteSuccessfully());
 
         awaitPrimaryReplica(node0, partId);
@@ -225,7 +225,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForScale(node0, 1);
 
-        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(zoneId, tableId);
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(zoneName, TABLE_NAME, Set.of());
         assertThat(updateFuture, willCompleteSuccessfully());
 
         awaitPrimaryReplica(node0, partId);

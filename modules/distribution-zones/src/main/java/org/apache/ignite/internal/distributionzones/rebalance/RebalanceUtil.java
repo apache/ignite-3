@@ -40,6 +40,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -285,6 +286,7 @@ public class RebalanceUtil {
         CompletableFuture<List<Assignments>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,
                 tableDescriptor.id(),
+                Set.of(),
                 zoneDescriptor.partitions()
         );
 
@@ -321,6 +323,7 @@ public class RebalanceUtil {
      *
      * @param tableDescriptor Table descriptor.
      * @param zoneDescriptor Zone descriptor.
+     * @param partitionIds Partitions ids.
      * @param dataNodes Current DZ data nodes.
      * @param aliveNodesConsistentIds Set of alive nodes according to logical topology.
      * @param revision Meta-storage revision to be associated with reassignment.
@@ -330,6 +333,7 @@ public class RebalanceUtil {
     public static CompletableFuture<?>[] forceAssignmentsUpdate(
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
+            Set<Integer> partitionIds,
             Set<String> dataNodes,
             Set<String> aliveNodesConsistentIds,
             long revision,
@@ -338,14 +342,21 @@ public class RebalanceUtil {
         CompletableFuture<List<Assignments>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,
                 tableDescriptor.id(),
+                partitionIds,
                 zoneDescriptor.partitions()
         );
 
-        CompletableFuture<?>[] futures = new CompletableFuture[zoneDescriptor.partitions()];
-
         Set<String> aliveDataNodes = CollectionUtils.intersect(dataNodes, aliveNodesConsistentIds);
 
-        for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
+        Iterator<Integer> ids = partitionIds.isEmpty()
+                        ? IntStream.range(0, zoneDescriptor.partitions()).iterator()
+                        : partitionIds.stream().iterator();
+
+        int partitions = partitionIds.isEmpty() ? zoneDescriptor.partitions() : partitionIds.size();
+
+        CompletableFuture<?>[] futures = new CompletableFuture[partitions];
+
+        ids.forEachRemaining(partId -> {
             TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partId);
 
             futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
@@ -361,7 +372,7 @@ public class RebalanceUtil {
                         LOG.info("Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res));
                     }
             );
-        }
+        });
 
         return futures;
     }
@@ -693,19 +704,26 @@ public class RebalanceUtil {
      *
      * @param metaStorageManager Meta storage manager.
      * @param tableId Table id.
+     * @param partitionIds IDs of partitions to reset. All if empty.
      * @param numberOfPartitions Number of partitions.
      * @return Future with table assignments as a value.
      */
     static CompletableFuture<List<Assignments>> tableAssignments(
             MetaStorageManager metaStorageManager,
             int tableId,
+            Set<Integer> partitionIds,
             int numberOfPartitions
     ) {
         Map<ByteArray, Integer> partitionKeysToPartitionNumber = new HashMap<>();
 
-        for (int i = 0; i < numberOfPartitions; i++) {
-            partitionKeysToPartitionNumber.put(stablePartAssignmentsKey(new TablePartitionId(tableId, i)), i);
-        }
+
+        Iterator<Integer> ids = partitionIds.isEmpty()
+                ? IntStream.range(0, numberOfPartitions).iterator()
+                : partitionIds.stream().iterator();
+
+        ids.forEachRemaining(partId -> {
+            partitionKeysToPartitionNumber.put(stablePartAssignmentsKey(new TablePartitionId(tableId, partId)), partId);
+        });
 
         return metaStorageManager.getAll(partitionKeysToPartitionNumber.keySet())
                 .thenApply(entries -> {
@@ -713,7 +731,7 @@ public class RebalanceUtil {
                         return emptyList();
                     }
 
-                    Assignments[] result = new Assignments[numberOfPartitions];
+                    Assignments[] result = new Assignments[entries.size()];
                     int numberOfMsPartitions = 0;
 
                     for (var mapEntry : entries.entrySet()) {
@@ -725,9 +743,9 @@ public class RebalanceUtil {
                         }
                     }
 
-                    assert numberOfMsPartitions == 0 || numberOfMsPartitions == numberOfPartitions
+                    assert numberOfMsPartitions == 0 || numberOfMsPartitions == entries.size()
                             : "Invalid number of stable partition entries received from meta storage [received="
-                            + numberOfMsPartitions + ", numberOfPartitions=" + numberOfPartitions + ", tableId=" + tableId + "].";
+                            + numberOfMsPartitions + ", numberOfPartitions=" + entries.size() + ", tableId=" + tableId + "].";
 
                     return numberOfMsPartitions == 0 ? emptyList() : Arrays.asList(result);
                 });
