@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -94,7 +95,8 @@ public class LeaseSerializationTest {
                 prolong,
                 accepted,
                 proposedCandidate,
-                replicationGroupId
+                replicationGroupId,
+                Set.of(replicationGroupId)
         );
     }
 

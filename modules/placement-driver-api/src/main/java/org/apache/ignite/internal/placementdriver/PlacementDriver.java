@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.EventProducer;
@@ -24,6 +25,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
  * Service that provides an ability to await and retrieve primary replicas for replication groups.
@@ -60,6 +62,30 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
     );
 
     /**
+     * Temporary solution for awaiting {@link ReplicaMeta}. Waits for
+     * {@link ReplicaMeta} for {@link org.apache.ignite.internal.replicator.TablePartitionId}
+     * based on the {@link ZonePartitionId#tableId()}.
+     *
+     * @param groupId Replication group id.
+     * @param timestamp CLOCK_SKEW aware timestamp reference value.
+     * @param timeout How long to wait before completing exceptionally with a TimeoutException, in units of unit.
+     * @param unit A TimeUnit determining how to interpret the timeout parameter.
+     * @return Primary replica future.
+     * @throws PrimaryReplicaAwaitTimeoutException If primary replica await timed out.
+     * @throws PrimaryReplicaAwaitException If primary replica await failed with any other reason except timeout.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20362
+    @Deprecated
+    default CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
+        return awaitPrimaryReplica(groupId, timestamp, timeout, unit);
+    }
+
+    /**
      * Same as {@link #awaitPrimaryReplica(ReplicationGroupId, HybridTimestamp, long, TimeUnit)} despite the fact that given method await
      * logic is bounded. It will wait for a primary replica for a reasonable period of time, and complete a future with null if a matching
      * lease isn't found. Generally speaking reasonable here means enough for distribution across cluster nodes.
@@ -78,4 +104,24 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
      * @return Future.
      */
     CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId);
+
+    /**
+     * Gets a cached lease by a zone replication group.
+     *
+     * @param grpId Replication group id.
+     * @return Lease or {@code null}.
+     */
+    ReplicaMeta getLeaseMeta(ReplicationGroupId grpId);
+
+    /**
+     * Tries to update the lease in order to include the new subgroup. The set of groups will be added to the set of lease subgroups
+     * ({@link ReplicaMeta#subgroups()}) for the specific lease determined by the zone id.
+     * TODO: IGNITE-20362 When replicas are started by zone, the method is removed.
+     *
+     * @param zoneId Zone id.
+     * @param enlistmentConsistencyToken Lease token.
+     * @param subGrps Table ids.
+     * @return Future to complete.
+     */
+    CompletableFuture<Void> addSubgroups(ZonePartitionId zoneId, Long enlistmentConsistencyToken, Set<ReplicationGroupId> subGrps);
 }

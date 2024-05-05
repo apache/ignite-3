@@ -27,7 +27,9 @@ import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.Objects;
+import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -36,8 +38,7 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A lease representation in memory.
- * The real lease is stored in Meta storage.
+ * A lease representation in memory. The real lease is stored in Meta storage.
  */
 public class Lease implements ReplicaMeta {
     private static final long serialVersionUID = 394641185393949608L;
@@ -67,6 +68,9 @@ public class Lease implements ReplicaMeta {
     /** ID of replication group. */
     private final ReplicationGroupId replicationGroupId;
 
+    /** Table partition replication groups. */
+    private final Set<ReplicationGroupId> subgroups;
+
     /**
      * Creates a new lease.
      *
@@ -83,7 +87,7 @@ public class Lease implements ReplicaMeta {
             HybridTimestamp leaseExpirationTime,
             ReplicationGroupId replicationGroupId
     ) {
-        this(leaseholder, leaseholderId, startTime, leaseExpirationTime, false, false, null, replicationGroupId);
+        this(leaseholder, leaseholderId, startTime, leaseExpirationTime, false, false, null, replicationGroupId, Collections.emptySet());
     }
 
     /**
@@ -95,9 +99,10 @@ public class Lease implements ReplicaMeta {
      * @param leaseExpirationTime Lease expiration timestamp.
      * @param prolong Lease is available to prolong.
      * @param accepted The flag is {@code true} when the holder accepted the lease.
-     * @param proposedCandidate The name of a node that is proposed to be a next leaseholder. This is not null in case when the lease
-     *     is not prolongable.
+     * @param proposedCandidate The name of a node that is proposed to be a next leaseholder. This is not null in case when the
+     *         lease is not prolongable.
      * @param replicationGroupId ID of replication group.
+     * @param subgroups Table partition replication groups.
      */
     public Lease(
             @Nullable String leaseholder,
@@ -107,7 +112,8 @@ public class Lease implements ReplicaMeta {
             boolean prolong,
             boolean accepted,
             @Nullable String proposedCandidate,
-            ReplicationGroupId replicationGroupId
+            ReplicationGroupId replicationGroupId,
+            Set<ReplicationGroupId> subgroups
     ) {
         assert (leaseholder == null) == (leaseholderId == null) : "leaseholder=" + leaseholder + ", leaseholderId=" + leaseholderId;
 
@@ -121,6 +127,7 @@ public class Lease implements ReplicaMeta {
         this.accepted = accepted;
         this.replicationGroupId = replicationGroupId;
         this.proposedCandidate = proposedCandidate;
+        this.subgroups = subgroups;
     }
 
     /**
@@ -133,7 +140,17 @@ public class Lease implements ReplicaMeta {
         assert accepted : "The lease should be accepted by leaseholder before prolongation: [lease=" + this + ", to=" + to + ']';
         assert prolongable : "The lease should be available to prolong: [lease=" + this + ", to=" + to + ']';
 
-        return new Lease(leaseholder, leaseholderId, startTime, to, true, true, null, replicationGroupId);
+        return new Lease(
+                leaseholder,
+                leaseholderId,
+                startTime,
+                to,
+                true,
+                true,
+                null,
+                replicationGroupId,
+                subgroups
+        );
     }
 
     /**
@@ -142,10 +159,10 @@ public class Lease implements ReplicaMeta {
      * @param to The new lease expiration timestamp.
      * @return A accepted lease.
      */
-    public Lease acceptLease(HybridTimestamp to) {
+    public Lease acceptLease(HybridTimestamp to, Set<ReplicationGroupId> parts) {
         assert !accepted : "The lease is already accepted: " + this;
 
-        return new Lease(leaseholder, leaseholderId, startTime, to, true, true, null, replicationGroupId);
+        return new Lease(leaseholder, leaseholderId, startTime, to, true, true, null, replicationGroupId, parts);
     }
 
     /**
@@ -156,7 +173,17 @@ public class Lease implements ReplicaMeta {
     public Lease denyLease(String proposedCandidate) {
         assert accepted : "The lease is not accepted: " + this;
 
-        return new Lease(leaseholder, leaseholderId, startTime, expirationTime, false, true, proposedCandidate, replicationGroupId);
+        return new Lease(
+                leaseholder,
+                leaseholderId,
+                startTime,
+                expirationTime,
+                false,
+                true,
+                proposedCandidate,
+                replicationGroupId,
+                subgroups
+        );
     }
 
     @Override
@@ -177,6 +204,11 @@ public class Lease implements ReplicaMeta {
     @Override
     public HybridTimestamp getExpirationTime() {
         return expirationTime;
+    }
+
+    @Override
+    public Set<ReplicationGroupId> subgroups() {
+        return subgroups;
     }
 
     /** Returns {@code true} if the lease might be prolonged. */
@@ -210,11 +242,15 @@ public class Lease implements ReplicaMeta {
         byte[] leaseholderIdBytes = stringToBytes(leaseholderId);
         byte[] proposedCandidateBytes = stringToBytes(proposedCandidate);
         byte[] groupIdBytes = toBytes(replicationGroupId);
+        byte[] subgroupsBytes = toBytes(subgroups);
 
         int bufSize = 2 // accepted + prolongable
                 + HYBRID_TIMESTAMP_SIZE * 2 // startTime + expirationTime
-                + bytesSizeForWrite(leaseholderBytes) + bytesSizeForWrite(leaseholderIdBytes) + bytesSizeForWrite(proposedCandidateBytes)
-                + bytesSizeForWrite(groupIdBytes);
+                + bytesSizeForWrite(leaseholderBytes)
+                + bytesSizeForWrite(leaseholderIdBytes)
+                + bytesSizeForWrite(proposedCandidateBytes)
+                + bytesSizeForWrite(groupIdBytes)
+                + bytesSizeForWrite(subgroupsBytes);
 
         ByteBuffer buf = ByteBuffer.allocate(bufSize).order(LITTLE_ENDIAN);
 
@@ -228,6 +264,7 @@ public class Lease implements ReplicaMeta {
         putBytes(buf, leaseholderIdBytes);
         putBytes(buf, proposedCandidateBytes);
         putBytes(buf, groupIdBytes);
+        putBytes(buf, subgroupsBytes);
 
         return buf.array();
     }
@@ -252,8 +289,9 @@ public class Lease implements ReplicaMeta {
         String proposedCandidate = stringFromBytes(getBytes(buf));
 
         ReplicationGroupId groupId = ByteUtils.fromBytes(getBytes(buf));
+        Set<ReplicationGroupId> parts = ByteUtils.fromBytes(getBytes(buf));
 
-        return new Lease(leaseholder, leaseholderId, startTime, expirationTime, prolongable, accepted, proposedCandidate, groupId);
+        return new Lease(leaseholder, leaseholderId, startTime, expirationTime, prolongable, accepted, proposedCandidate, groupId, parts);
     }
 
     /**

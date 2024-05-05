@@ -38,7 +38,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.Cursor;
 
 /**
@@ -94,7 +94,7 @@ public class AssignmentsTracker {
 
                     strKey = strKey.replace(STABLE_ASSIGNMENTS_PREFIX, "");
 
-                    TablePartitionId grpId = TablePartitionId.fromString(strKey);
+                    ZonePartitionId grpId = ZonePartitionId.fromString(strKey);
 
                     Set<Assignment> assignments = Assignments.fromBytes(entry.value()).nodes();
 
@@ -144,7 +144,7 @@ public class AssignmentsTracker {
             for (EntryEvent evt : event.entryEvents()) {
                 Entry entry = evt.newEntry();
 
-                var replicationGrpId = TablePartitionId.fromString(
+                var replicationGrpId = ZonePartitionId.fromString(
                         new String(entry.key(), StandardCharsets.UTF_8).replace(STABLE_ASSIGNMENTS_PREFIX, ""));
 
                 if (entry.tombstone()) {

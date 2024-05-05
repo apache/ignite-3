@@ -44,7 +44,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 
 /**
@@ -62,7 +62,7 @@ public class RebalanceUtilEx {
      * @return Completable future that signifies the completion of this operation.
      */
     public static CompletableFuture<Void> startPeerRemoval(
-            TablePartitionId partId,
+            ZonePartitionId partId,
             Assignment peerAssignment,
             MetaStorageManager metaStorageMgr
     ) {
@@ -114,7 +114,7 @@ public class RebalanceUtilEx {
      * @return Completable future that signifies the completion of this operation.
      */
     public static CompletableFuture<Void> handleReduceChanged(MetaStorageManager metaStorageMgr, Collection<String> dataNodes,
-            int replicas, TablePartitionId partId, WatchEvent event) {
+            int replicas, ZonePartitionId partId, WatchEvent event) {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();
 

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -32,6 +33,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
  * Fake placement driver.
@@ -56,21 +58,21 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     /**
      * Sets all primary replicas.
      */
-    public void setReplicas(List<String> replicas, int tableId, long leaseStartTime) {
+    public void setReplicas(List<String> replicas, int tableId, int zoneId, long leaseStartTime) {
         assert replicas.size() == partitions;
 
         for (int partition = 0; partition < replicas.size(); partition++) {
             String replica = replicas.get(partition);
-            updateReplica(replica, tableId, partition, leaseStartTime);
+            updateReplica(replica, tableId, zoneId, partition, leaseStartTime);
         }
     }
 
     /**
      * Sets primary replica for the given partition.
      */
-    public void updateReplica(String replica, int tableId, int partition, long leaseStartTime) {
+    public void updateReplica(String replica, int tableId, int zoneId, int partition, long leaseStartTime) {
         primaryReplicas.set(partition, getReplicaMeta(replica, leaseStartTime));
-        TablePartitionId groupId = new TablePartitionId(tableId, partition);
+        ZonePartitionId groupId = new ZonePartitionId(zoneId, tableId, partition);
 
         PrimaryReplicaEventParameters params = new PrimaryReplicaEventParameters(
                 0,
@@ -125,6 +127,25 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             public HybridTimestamp getExpirationTime() {
                 return HybridTimestamp.MAX_VALUE;
             }
+
+            @Override
+            public Set<ReplicationGroupId> subgroups() {
+                return Set.of();
+            }
         };
+    }
+
+    @Override
+    public CompletableFuture<Void> addSubgroups(
+            ZonePartitionId zoneId,
+            Long enlistmentConsistencyToken,
+            Set<ReplicationGroupId> subGrps
+    ) {
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public ReplicaMeta getLeaseMeta(ReplicationGroupId grpId) {
+        return null;
     }
 }

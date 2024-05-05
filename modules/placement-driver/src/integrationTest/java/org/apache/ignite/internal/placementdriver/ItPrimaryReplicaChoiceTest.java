@@ -59,6 +59,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
@@ -78,6 +79,7 @@ import org.junit.jupiter.api.TestInfo;
  * The test class checks invariant of a primary replica choice.
  */
 @SuppressWarnings("resource")
+@WithSystemProperty(key = "IGNITE_ALWAYS_FORCE", value = "false")
 public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
