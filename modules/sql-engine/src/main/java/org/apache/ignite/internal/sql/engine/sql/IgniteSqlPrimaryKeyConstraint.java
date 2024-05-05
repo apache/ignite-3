@@ -86,7 +86,7 @@ public class IgniteSqlPrimaryKeyConstraint extends IgniteSqlKeyConstraint {
         writer.keyword(getOperator().getName());
 
         Operator operator = operator();
-        if (operator.indexType != IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH) {
+        if (operator.indexType != IgniteSqlPrimaryKeyIndexType.IMPLICIT_SORTED) {
             writer.keyword("USING");
 
             writer.keyword(operator.indexType.name());
