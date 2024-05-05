@@ -17,9 +17,6 @@
 
 package org.apache.ignite.client.handler;
 
-import static org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl.buildSingleRequest;
-import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
-
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.ByteBuffer;
@@ -42,26 +39,20 @@ import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
  * Jdbc query event handler implementation.
  */
-public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
-    /** Client registry resources. */
-    private final ClientResourceRegistry resources;
-
+public class JdbcQueryCursorHandlerImpl extends JdbcHandlerBase implements JdbcQueryCursorHandler {
     /**
      * Constructor.
      *
      * @param resources Client resources.
      */
     JdbcQueryCursorHandlerImpl(ClientResourceRegistry resources) {
-        this.resources = resources;
+        super(resources);
     }
 
     /** {@inheritDoc} */
@@ -87,7 +78,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
                 StringWriter sw = getWriterWithStackTrace(t);
 
                 return new JdbcQueryFetchResult(Response.STATUS_FAILED,
-                    "Failed to fetch query results [curId=" + req.cursorId() + "]. Error message:" + sw);
+                    "Failed to fetch query results [curId=" + req.cursorId() + "]. Error message: " + sw);
             }
 
             List<ByteBuffer> rows = new ArrayList<>(batch.items().size());
@@ -117,59 +108,17 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
         }
 
         return asyncSqlCursor.closeAsync().thenCompose(c -> asyncSqlCursor.nextResult())
-                .thenCompose(cur -> cur.requestNextAsync(req.fetchSize())
-                    .thenApply(batch -> {
-                        try {
-                            SqlQueryType queryType = cur.queryType();
+                .thenCompose(cur -> createJdbcResult(cur, req.fetchSize()))
+                .exceptionally(t -> {
+                    iterateThroughResultsAndCloseThem(asyncSqlCursor);
 
-                            long cursorId = resources.put(new ClientResource(cur, cur::closeAsync));
+                    String msgPrefix = "Failed to fetch query results [curId=" + req.cursorId() + "].";
 
-                            switch (queryType) {
-                                case EXPLAIN:
-                                case QUERY: {
-                                    List<ColumnMetadata> columns = cur.metadata().columns();
-
-                                    return buildSingleRequest(batch, columns, cursorId, !batch.hasMore());
-                                }
-                                case DML: {
-                                    long updCount = (long) batch.items().get(0).get(0);
-
-                                    return new JdbcQuerySingleResult(cursorId, updCount);
-                                }
-                                case DDL:
-                                case TX_CONTROL:
-                                    return new JdbcQuerySingleResult(cursorId, 0);
-                                default:
-                                    return new JdbcQuerySingleResult(UNSUPPORTED_OPERATION,
-                                            "Query type is not supported yet [queryType=" + cur.queryType() + ']');
-                            }
-                        } catch (IgniteInternalCheckedException e) {
-                            return new JdbcQuerySingleResult(Response.STATUS_FAILED,
-                                    "Unable to store query cursor.");
-                        }
-                    })
-                ).handle((res, t) -> {
-                    if (t != null) {
-                        iterateThroughResultsAndCloseThem(asyncSqlCursor);
-
-                        String errMsg;
-
-                        // TODO uniformly handle exceptions
-                        if (ExceptionUtils.unwrapCause(t) instanceof TxControlInsideExternalTxNotSupportedException) {
-                            errMsg = "Transaction control statements are not supported in non-autocommit mode";
-                        } else {
-                            errMsg = getWriterWithStackTrace(t).toString();
-                        }
-
-                        return new JdbcQuerySingleResult(Response.STATUS_FAILED,
-                                "Failed to fetch query results [curId=" + req.cursorId() + "]. Error message:" + errMsg);
-                    }
-
-                    return res;
+                    return createErrorResult(msgPrefix, t, msgPrefix + " Error message: ");
                 });
     }
 
-    static void iterateThroughResultsAndCloseThem(AsyncSqlCursor<InternalSqlRow> cursor) {
+    private static void iterateThroughResultsAndCloseThem(AsyncSqlCursor<InternalSqlRow> cursor) {
         Function<AsyncSqlCursor<InternalSqlRow>, CompletableFuture<AsyncSqlCursor<InternalSqlRow>>> traverser = new Function<>() {
             @Override
             public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> apply(AsyncSqlCursor<InternalSqlRow> cur) {
