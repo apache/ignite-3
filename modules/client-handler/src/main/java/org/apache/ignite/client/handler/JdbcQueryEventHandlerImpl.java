@@ -64,6 +64,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -171,7 +172,14 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         return result.thenCompose(cursor -> createJdbcResult(new JdbcQueryCursor<>(req.maxRows(), cursor), req))
                 .exceptionally(t -> {
-                    LOG.info("Exception while executing query [query=" + req.sqlQuery() + "]", ExceptionUtils.unwrapCause(t));
+                    Throwable ex = ExceptionUtils.unwrapCause(t);
+
+                    LOG.info("Exception while executing query [query=" + req.sqlQuery() + "]", ex);
+
+                    if (ex instanceof TxControlInsideExternalTxNotSupportedException) {
+                        return new JdbcQuerySingleResult(
+                                Response.STATUS_FAILED, "Transaction control statements are not supported in non-autocommit mode");
+                    }
 
                     String msg = getErrorMessage(t);
 

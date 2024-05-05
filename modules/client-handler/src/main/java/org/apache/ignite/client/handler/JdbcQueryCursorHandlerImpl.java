@@ -43,6 +43,8 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 
@@ -150,10 +152,17 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
                     if (t != null) {
                         iterateThroughResultsAndCloseThem(asyncSqlCursor);
 
-                        StringWriter sw = getWriterWithStackTrace(t);
+                        String errMsg;
+
+                        // TODO uniformly handle exceptions
+                        if (ExceptionUtils.unwrapCause(t) instanceof TxControlInsideExternalTxNotSupportedException) {
+                            errMsg = "Transaction control statements are not supported in non-autocommit mode";
+                        } else {
+                            errMsg = getWriterWithStackTrace(t).toString();
+                        }
 
                         return new JdbcQuerySingleResult(Response.STATUS_FAILED,
-                                "Failed to fetch query results [curId=" + req.cursorId() + "]. Error message:" + sw);
+                                "Failed to fetch query results [curId=" + req.cursorId() + "]. Error message:" + errMsg);
                     }
 
                     return res;
