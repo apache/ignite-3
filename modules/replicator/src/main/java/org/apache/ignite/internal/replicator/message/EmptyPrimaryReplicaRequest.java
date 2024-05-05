@@ -15,26 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver.message;
+package org.apache.ignite.internal.replicator.message;
 
-import java.util.Set;
-import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Response for lease granted message.
+ * It is a marker to identify an empty request.
+ * The request is used when there is a there is a need to wait or initiate a replica becoming primary.
  */
-@Transferable(PlacementDriverMessageGroup.LEASE_GRANTED_MESSAGE_RESPONSE)
-public interface LeaseGrantedMessageResponse extends PlacementDriverMessage {
-    boolean accepted();
-
-    @Nullable
-    String redirectProposal();
-
-    /** List of applied groups. */
-    @Nullable
-    @Marshallable
-    Set<ReplicationGroupId> appliedGroups();
+@Transferable(ReplicaMessageGroup.EMPTY_PRIMARY_REPLICA_REQUEST)
+public interface EmptyPrimaryReplicaRequest extends PrimaryReplicaRequest {
 }

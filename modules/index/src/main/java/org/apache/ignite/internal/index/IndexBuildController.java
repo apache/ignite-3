@@ -181,13 +181,14 @@ class IndexBuildController implements ManuallyCloseable {
                 int catalogVersion = catalogService.latestCatalogVersion();
 
                 return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                        .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, parameters.startTime())
-                                .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
-                                        catalogVersion,
-                                        primaryReplicaId,
-                                        mvTableStorage,
-                                        replicaMeta
-                                ))
+                        .thenCompose(
+                                mvTableStorage -> inBusyLock(busyLock, () -> awaitPrimaryReplica(primaryReplicaId, parameters.startTime()))
+                                        .thenAccept(replicaMeta -> inBusyLock(busyLock, () -> tryScheduleBuildIndexesForNewPrimaryReplica(
+                                                catalogVersion,
+                                                primaryReplicaId,
+                                                mvTableStorage,
+                                                replicaMeta
+                                        )))
                         );
             } else {
                 stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
