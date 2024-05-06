@@ -128,13 +128,37 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     @Test
-    void testLocalPartitionStatesPartitionNotFound() {
+    void testLocalPartitionStatesNegativePartition() {
         HttpClientResponseException thrown = assertThrows(
                 HttpClientResponseException.class,
-                () -> client.toBlocking().exchange("/state/local?partitionIds=-1", LocalPartitionStatesResponse.class)
+                () -> client.toBlocking().exchange("/state/local?partitionIds=0,1,-1,-10", LocalPartitionStatesResponse.class)
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
+        assertThat(thrown.getMessage(), containsString("Partition ID can't be negative, found: -10"));
+    }
+
+    @Test
+    void testLocalPartitionStatesPartitionOutOfRange() {
+        String zoneName = ZONES_CONTAINING_TABLES.stream().findAny().get();
+
+        HttpClientResponseException thrown = assertThrows(
+                HttpClientResponseException.class,
+                () -> client.toBlocking().exchange(
+                        String.format("/state/local?partitionIds=0,4,%d&zoneNames=%s", DEFAULT_PARTITION_COUNT, zoneName),
+                        LocalPartitionStatesResponse.class
+                )
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
+        assertThat(thrown.getMessage(), containsString(
+                        String.format(
+                                "Partition IDs should be in range [0, %d] for zone %s, found: %d",
+                                DEFAULT_PARTITION_COUNT - 1,
+                                zoneName,
+                                DEFAULT_PARTITION_COUNT
+                        )
+                ));
     }
 
     @Test
@@ -243,14 +267,38 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     @Test
-    void testGlobalPartitionStatesPartitionNotFound() {
+    void testGlobalPartitionStatesIllegalPartitionNegative() {
         HttpClientResponseException thrown = assertThrows(
                 HttpClientResponseException.class,
-                () -> client.toBlocking().exchange("/state/global?partitionIds=-1", GlobalPartitionStatesResponse.class)
+                () -> client.toBlocking().exchange("/state/local?partitionIds=0,1,-1,-10", GlobalPartitionStatesResponse.class)
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
-        assertThat(thrown.getMessage(), containsString("Some partitions are missing: [-1]"));
+        assertThat(thrown.getMessage(), containsString("Partition ID can't be negative, found: -10"));
+    }
+
+    @Test
+    void testGlobalPartitionStatesPartitionsOutOfRange() {
+        String zoneName = ZONES_CONTAINING_TABLES.stream().findAny().get();
+
+        HttpClientResponseException thrown = assertThrows(
+                HttpClientResponseException.class,
+                () -> client.toBlocking().exchange(
+                        String.format("/state/global?partitionIds=0,4,%d&zoneNames=%s", DEFAULT_PARTITION_COUNT, zoneName),
+                        GlobalPartitionStatesResponse.class
+                )
+        );
+
+
+        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
+        assertThat(thrown.getMessage(), containsString(
+                        String.format(
+                                "Partition IDs should be in range [0, %d] for zone %s, found: %d",
+                                DEFAULT_PARTITION_COUNT - 1,
+                                zoneName,
+                                DEFAULT_PARTITION_COUNT
+                        )
+                ));
     }
 
     @Test
@@ -284,6 +332,25 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         assertEquals(HttpStatus.OK, response.status());
 
         checkGlobalStates(response.body().states(), MIXED_CASE_ZONES);
+    }
+
+    @Test
+    void testGlobalPartitionStatesByPartitions() {
+        Set<String> partitionIds = Set.of("1", "2");
+
+        String url = "state/global?partitionIds=" + String.join(",", partitionIds);
+
+        var response = client.toBlocking().exchange(url, GlobalPartitionStatesResponse.class);
+
+        assertEquals(HttpStatus.OK, response.status());
+
+        List<GlobalPartitionStateResponse> states = response.body().states();
+
+        for (GlobalPartitionStateResponse state : states) {
+            assertTrue(partitionIds.contains((String.valueOf(state.partitionId()))));
+        }
+
+        checkGlobalStates(states, ZONES_CONTAINING_TABLES);
     }
 
     private static void checkLocalStates(List<LocalPartitionStateResponse> states, Set<String> zoneNames, Set<String> nodes) {

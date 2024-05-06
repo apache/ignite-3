@@ -22,6 +22,7 @@ import org.apache.ignite.internal.cli.commands.cluster.ClusterReplCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectReplCommand;
 import org.apache.ignite.internal.cli.commands.connect.DisconnectCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeReplCommand;
+import org.apache.ignite.internal.cli.commands.recovery.RecoveryReplCommand;
 import org.apache.ignite.internal.cli.commands.sql.SqlReplCommand;
 import org.apache.ignite.internal.cli.commands.version.VersionCommand;
 import picocli.CommandLine;
@@ -42,7 +43,8 @@ import picocli.shell.jline3.PicocliCommands;
                 ConnectReplCommand.class,
                 DisconnectCommand.class,
                 NodeReplCommand.class,
-                ClusterReplCommand.class
+                ClusterReplCommand.class,
+                RecoveryReplCommand.class
         })
 public class TopLevelCliReplCommand {
 }
