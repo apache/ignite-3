@@ -196,7 +196,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
      * so that a new leader could be elected.
      *
      * @param zoneName Name of the distribution zone.
-     * @param tableName Table name.
+     * @param tableName Fully-qualified table name.
      * @param partitionIds IDs of partitions to reset. All if empty.
      * @return Operation future.
      */

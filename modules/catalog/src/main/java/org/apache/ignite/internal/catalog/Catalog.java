@@ -165,6 +165,7 @@ public class Catalog {
         return tablesById.get(tableId);
     }
 
+    /** Returns table descriptor by fully-qualified table name. Case-sensitive, without quotes. */
     public @Nullable CatalogTableDescriptor table(String tableName) {
         return tablesByName.get(tableName);
     }

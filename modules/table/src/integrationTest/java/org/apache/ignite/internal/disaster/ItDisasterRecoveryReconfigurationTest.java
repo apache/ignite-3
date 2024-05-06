@@ -194,7 +194,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForScale(node0, 3);
 
-        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(zoneName, TABLE_NAME, Set.of());
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
+                zoneName,
+                "PUBLIC." + TABLE_NAME,
+                Set.of()
+        );
+
         assertThat(updateFuture, willCompleteSuccessfully());
 
         awaitPrimaryReplica(node0, partId);
@@ -225,7 +230,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForScale(node0, 1);
 
-        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(zoneName, TABLE_NAME, Set.of());
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
+                zoneName,
+                "PUBLIC." + TABLE_NAME,
+                Set.of()
+        );
+
         assertThat(updateFuture, willCompleteSuccessfully());
 
         awaitPrimaryReplica(node0, partId);
