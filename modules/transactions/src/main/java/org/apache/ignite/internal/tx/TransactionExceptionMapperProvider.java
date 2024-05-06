@@ -29,7 +29,7 @@ import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.tx.TransactionException;
 
 /**
- * SQL module exception mapper.
+ * Transaction module exception mapper.
  */
 @AutoService(IgniteExceptionMappersProvider.class)
 public class TransactionExceptionMapperProvider implements IgniteExceptionMappersProvider {
