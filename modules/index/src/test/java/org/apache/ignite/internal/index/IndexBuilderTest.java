@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -200,6 +201,11 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                     future.complete(null);
                 }
             }
+
+            @Override
+            public void onBuildCompletionAfterDisasterRecovery(int indexId, int tableId, int partitionId) {
+                fail(String.format("indexId=%s, tableId=%s, partitionId=%s", indexId, tableId, partitionId));
+            }
         });
 
         return future;
@@ -214,6 +220,11 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 if (indexId1 == indexId && tableId1 == tableId && partitionId1 == partitionId) {
                     future.complete(null);
                 }
+            }
+
+            @Override
+            public void onBuildCompletion(int indexId, int tableId, int partitionId) {
+                fail(String.format("indexId=%s, tableId=%s, partitionId=%s", indexId, tableId, partitionId));
             }
         });
 
