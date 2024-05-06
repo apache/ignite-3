@@ -86,8 +86,8 @@ class IndexBuilder implements ManuallyCloseable {
      *     <li>Index is built in batches using {@link BuildIndexReplicaRequest}, which are then transformed into {@link BuildIndexCommand}
      *     on the replica, batches are sent sequentially.</li>
      *     <li>It is expected that the index building is triggered by the primary replica.</li>
-     *     <li>If the index has already been built, {@link IndexBuildCompletionListener#onBuildCompletion} will be notified.</li>
-     *     <li>After index building is complete, {@link IndexBuildCompletionListener#onBuildCompletion} will be notified.</li>
+     *     <li>If the index has already been built or after the building is complete, {@link IndexBuildCompletionListener#onBuildCompletion}
+     *     will be notified.</li>
      * </ul>
      *
      * @param tableId Table ID.
