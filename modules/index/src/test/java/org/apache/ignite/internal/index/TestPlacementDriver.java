@@ -45,7 +45,7 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     ) {
         assert groupId instanceof ZonePartitionId : "Unexpected replication group type [type=" + groupId.getClass().getSimpleName() + ']';
 
-        return awaitPrimaryReplicaForTable (
+        return awaitPrimaryReplicaForTable(
                 groupId,
                 timestamp,
                 timeout,
