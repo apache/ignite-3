@@ -27,6 +27,7 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
+import java.net.ConnectException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -246,7 +247,7 @@ public class ReplicaService {
     /**
      * Sends a request to the given replica {@code node} and returns a future that will be completed with a result of request processing.
      *
-     * @param node    Replica node.
+     * @param node Replica node.
      * @param request Request.
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
@@ -274,8 +275,8 @@ public class ReplicaService {
     /**
      * Sends a request to the given replica {@code node} and returns a future that will be completed with a result of request processing.
      *
-     * @param node      Replica node.
-     * @param request   Request.
+     * @param node Replica node.
+     * @param request Request.
      * @param storageId Storage id.
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
