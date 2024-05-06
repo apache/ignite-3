@@ -178,8 +178,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     /**
-     * Tests that a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover partition using a disaster
-     * recovery API. In this test, assignments will be (0, 3, 4)
+     * Tests that in a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover partition using a
+     * disaster recovery API. In this test, assignments will be (0, 3, 4), according to {@link RendezvousAffinityFunction}.
      */
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
@@ -214,39 +214,47 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     /**
-     * Tests that a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover specified partition using
-     * a disaster recovery API.
+     * Tests that in a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover specified partition
+     * using a disaster recovery API. In this test, assignments will be (0, 2, 4) and (1, 2, 4), according to
+     * {@link RendezvousAffinityFunction}.
      */
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 2)
     void testManualRebalanceIfMajorityIsLostSpecifyPartitions() throws Exception {
-        int partId = 0;
-        int secondPartId = 1;
+        int fixingPartId = 1;
+        int anotherPartId = 0;
 
         IgniteImpl node0 = cluster.node(0);
         Table table = node0.tables().table(TABLE_NAME);
 
-        awaitPrimaryReplica(node0, secondPartId);
+        awaitPrimaryReplica(node0, anotherPartId);
+
+        assertRealAssignments(node0, fixingPartId, 0, 2, 4);
+        assertRealAssignments(node0, anotherPartId, 1, 2, 4);
 
         stopNodesInParallel(2, 4);
 
         waitForScale(node0, 3);
 
+        List<Throwable> errorsBeforeReset = insertValues(table, fixingPartId, 0);
+        assertThat(errorsBeforeReset, Matchers.not(empty()));
+
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                Set.of(secondPartId)
+                Set.of(anotherPartId)
         );
 
         assertThat(updateFuture, willCompleteSuccessfully());
 
-        awaitPrimaryReplica(node0, secondPartId);
+        awaitPrimaryReplica(node0, anotherPartId);
 
-        List<Throwable> fixedPartErrors = insertValues(table, secondPartId, 0);
+        List<Throwable> fixedPartErrors = insertValues(table, anotherPartId, 0);
         assertThat(fixedPartErrors, is(empty()));
 
-        List<Throwable> secondPartErrors = insertValues(table, partId, 0);
-        assertThat(secondPartErrors, Matchers.not(empty()));
+        // Was not specified in reset, shouldn't be fixed. */
+        List<Throwable> anotherPartErrors = insertValues(table, fixingPartId, 0);
+        assertThat(anotherPartErrors, Matchers.not(empty()));
     }
 
     /**
