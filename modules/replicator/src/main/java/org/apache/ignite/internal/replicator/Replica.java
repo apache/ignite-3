@@ -351,8 +351,16 @@ public class Replica {
 
         return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, executor)
                 .orTimeout(timeout, TimeUnit.MILLISECONDS)
-                .thenCompose(storageIndexTracker::waitFor)
-                .thenRun(() -> waitForActualStateFuture.complete(null));
+                .thenCompose(idx -> {
+                    LOG.info("PVD: Index is read [idx={}, grp={}]", idx, groupId());
+
+                    return storageIndexTracker.waitFor(idx);
+                })
+                .thenRun(() -> {
+                    LOG.info("PVD: Storage is ready [grp={}]", groupId());
+
+                    waitForActualStateFuture.complete(null);
+                });
     }
 
     /**
