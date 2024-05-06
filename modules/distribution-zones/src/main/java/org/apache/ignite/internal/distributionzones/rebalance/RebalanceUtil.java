@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PENDING_KEY_UPDATED;
@@ -40,12 +42,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -323,7 +323,7 @@ public class RebalanceUtil {
      *
      * @param tableDescriptor Table descriptor.
      * @param zoneDescriptor Zone descriptor.
-     * @param partitionIds Partitions ids.
+     * @param partitionIds Partitions ids to force assignments for. If empty, reassigns all zone's partitions.
      * @param dataNodes Current DZ data nodes.
      * @param aliveNodesConsistentIds Set of alive nodes according to logical topology.
      * @param revision Meta-storage revision to be associated with reassignment.
@@ -348,15 +348,13 @@ public class RebalanceUtil {
 
         Set<String> aliveDataNodes = CollectionUtils.intersect(dataNodes, aliveNodesConsistentIds);
 
-        Iterator<Integer> ids = partitionIds.isEmpty()
-                        ? IntStream.range(0, zoneDescriptor.partitions()).iterator()
-                        : partitionIds.stream().iterator();
+        Collection<Integer> ids = partitionIds.isEmpty()
+                ? IntStream.range(0, zoneDescriptor.partitions()).boxed().collect(toList())
+                : partitionIds;
 
-        int partitions = partitionIds.isEmpty() ? zoneDescriptor.partitions() : partitionIds.size();
+        CompletableFuture<?>[] futures = new CompletableFuture[ids.size()];
 
-        CompletableFuture<?>[] futures = new CompletableFuture[partitions];
-
-        ids.forEachRemaining(partId -> {
+        for (Integer partId : ids) {
             TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partId);
 
             futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
@@ -372,7 +370,7 @@ public class RebalanceUtil {
                         LOG.info("Partition {} returned {} status on reset attempt", replicaGrpId, UpdateStatus.valueOf(res));
                     }
             );
-        });
+        }
 
         return futures;
     }
@@ -631,7 +629,7 @@ public class RebalanceUtil {
      * @return Result of the subtraction.
      */
     public static <T> Set<T> subtract(Set<T> minuend, Set<T> subtrahend) {
-        return minuend.stream().filter(v -> !subtrahend.contains(v)).collect(Collectors.toSet());
+        return minuend.stream().filter(v -> !subtrahend.contains(v)).collect(toSet());
     }
 
     /**
@@ -657,7 +655,7 @@ public class RebalanceUtil {
      * @return Result of the intersection.
      */
     public static <T> Set<T> intersect(Set<T> op1, Set<T> op2) {
-        return op1.stream().filter(op2::contains).collect(Collectors.toSet());
+        return op1.stream().filter(op2::contains).collect(toSet());
     }
 
     /**
@@ -700,12 +698,12 @@ public class RebalanceUtil {
     }
 
     /**
-     * Returns table assignments for all table partitions from meta storage.
+     * Returns table assignments for table partitions from meta storage.
      *
      * @param metaStorageManager Meta storage manager.
      * @param tableId Table id.
-     * @param partitionIds IDs of partitions to reset. All if empty.
-     * @param numberOfPartitions Number of partitions.
+     * @param partitionIds IDs of partitions to get assignments for. If empty, get all partition assignments.
+     * @param numberOfPartitions Number of partitions. Ignored if partition IDs are specified.
      * @return Future with table assignments as a value.
      */
     static CompletableFuture<List<Assignments>> tableAssignments(
@@ -716,14 +714,13 @@ public class RebalanceUtil {
     ) {
         Map<ByteArray, Integer> partitionKeysToPartitionNumber = new HashMap<>();
 
+        Collection<Integer> ids = partitionIds.isEmpty()
+                ? IntStream.range(0, numberOfPartitions).boxed().collect(toList())
+                : partitionIds;
 
-        Iterator<Integer> ids = partitionIds.isEmpty()
-                ? IntStream.range(0, numberOfPartitions).iterator()
-                : partitionIds.stream().iterator();
-
-        ids.forEachRemaining(partId -> {
+        for (Integer partId : ids) {
             partitionKeysToPartitionNumber.put(stablePartAssignmentsKey(new TablePartitionId(tableId, partId)), partId);
-        });
+        }
 
         return metaStorageManager.getAll(partitionKeysToPartitionNumber.keySet())
                 .thenApply(entries -> {
@@ -731,7 +728,7 @@ public class RebalanceUtil {
                         return emptyList();
                     }
 
-                    Assignments[] result = new Assignments[entries.size()];
+                    Assignments[] result = new Assignments[numberOfPartitions];
                     int numberOfMsPartitions = 0;
 
                     for (var mapEntry : entries.entrySet()) {
@@ -774,6 +771,6 @@ public class RebalanceUtil {
 
                     return Assignments.fromBytes(e.value());
                 })
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 }

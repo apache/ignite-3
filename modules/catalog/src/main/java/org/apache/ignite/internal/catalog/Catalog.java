@@ -114,11 +114,11 @@ public class Catalog {
         zonesByName = zones.stream().collect(toMapByName());
 
         tablesByName = new HashMap<>();
-        schemas.forEach(schema -> {
+        for (CatalogSchemaDescriptor schema : schemas) {
             for (CatalogTableDescriptor table : schema.tables()) {
                 tablesByName.put(schema.name() + "." + table.name(), table);
             }
-        });
+        }
 
         schemasById = schemas.stream().collect(toMapById());
         tablesById = schemas.stream().flatMap(s -> Arrays.stream(s.tables())).collect(toMapById());
@@ -165,7 +165,11 @@ public class Catalog {
         return tablesById.get(tableId);
     }
 
-    /** Returns table descriptor by fully-qualified table name. Case-sensitive, without quotes. */
+    /**
+     * Returns table descriptor by fully-qualified table name.
+     *
+     * @param tableName Fully-qualified table name. Case-sensitive, without quotes.
+     * */
     public @Nullable CatalogTableDescriptor table(String tableName) {
         return tablesByName.get(tableName);
     }

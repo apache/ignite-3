@@ -25,17 +25,18 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /** Disaster recovery request to reset partitions. */
 @Schema(description = "Reset partitions configuration.")
 public class ResetPartitionsRequest {
-    @Schema(description = "Name of the zone to reset partitions of. Case-sensitive.")
+    @Schema(description = "Name of the zone to reset partitions of. Without quotes, case-sensitive.")
     private final String zoneName;
 
     @Schema(description = "IDs of partitions to reset. All if empty.")
     private final Set<Integer> partitionIds;
 
-    @Schema(description = "Fully-qualified name of the table to reset partitions of. Case-sensitive.")
+    @Schema(description = "Fully-qualified name of the table to reset partitions of. Without quotes, case-sensitive.")
     private final String tableName;
 
     /** Constructor. */
@@ -43,7 +44,7 @@ public class ResetPartitionsRequest {
     public ResetPartitionsRequest(
             @JsonProperty("zoneName") String zoneName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("partitionIds") Collection<Integer> partitionIds
+            @JsonProperty("partitionIds") @Nullable Collection<Integer> partitionIds
     ) {
         Objects.requireNonNull(zoneName);
         Objects.requireNonNull(tableName);

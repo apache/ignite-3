@@ -67,6 +67,7 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -80,6 +81,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     /** Test table name. */
     private static final String TABLE_NAME = "TEST";
+
+    private static final String QUALIFIED_TABLE_NAME = "PUBLIC.TEST";
 
     private static final int ENTRIES = 2;
 
@@ -196,7 +199,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
                 zoneName,
-                "PUBLIC." + TABLE_NAME,
+                QUALIFIED_TABLE_NAME,
                 Set.of()
         );
 
@@ -208,6 +211,42 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
+    }
+
+    /**
+     * Tests that a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover specified partition using
+     * a disaster recovery API.
+     */
+    @Test
+    @ZoneParams(nodes = 5, replicas = 3, partitions = 2)
+    void testManualRebalanceIfMajorityIsLostSpecifyPartitions() throws Exception {
+        int partId = 0;
+        int secondPartId = 1;
+
+        IgniteImpl node0 = cluster.node(0);
+        Table table = node0.tables().table(TABLE_NAME);
+
+        awaitPrimaryReplica(node0, partId);
+
+        stopNodesInParallel(2, 4);
+
+        waitForScale(node0, 3);
+
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
+                zoneName,
+                QUALIFIED_TABLE_NAME,
+                Set.of(0)
+        );
+
+        assertThat(updateFuture, willCompleteSuccessfully());
+
+        awaitPrimaryReplica(node0, partId);
+
+        List<Throwable> fixedPartErrors = insertValues(table, partId, 0);
+        assertThat(fixedPartErrors, is(empty()));
+
+        List<Throwable> secondPartErrors = insertValues(table, secondPartId, 0);
+        assertThat(secondPartErrors, Matchers.not(empty()));
     }
 
     /**
@@ -232,7 +271,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
                 zoneName,
-                "PUBLIC." + TABLE_NAME,
+                QUALIFIED_TABLE_NAME,
                 Set.of()
         );
 

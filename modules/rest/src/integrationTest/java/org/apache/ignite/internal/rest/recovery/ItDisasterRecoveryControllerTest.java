@@ -63,7 +63,11 @@ import org.junit.jupiter.api.Test;
 public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + Cluster.BASE_HTTP_PORT;
 
-    private static final Set<String> ZONES = Set.of("first_ZONE", "second_ZONE", "third_ZONE");
+    private static final String FIRST_ZONE = "first_ZONE";
+    private static final String QUALIFIED_TABLE_NAME = "PUBLIC.first_ZONE_table";
+
+    private static final Set<String> ZONES = Set.of(FIRST_ZONE, "second_ZONE", "third_ZONE");
+
 
     private static final Set<String> MIXED_CASE_ZONES = Set.of("mixed_first_zone", "MIXED_FIRST_ZONE", "mixed_second_zone",
             "MIXED_SECOND_ZONE");
@@ -86,7 +90,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     public static void setUp() {
         ZONES_CONTAINING_TABLES.forEach(name -> {
             sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", name, DEFAULT_AIPERSIST_PROFILE_NAME));
-            sql(String.format("CREATE TABLE \"%s_table\" (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = '%1$s'", name));
+            sql(String.format("CREATE TABLE PUBLIC.\"%s_table\" (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = '%1$s'", name));
         });
 
         sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", EMPTY_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
@@ -362,10 +366,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     public void testResetPartitionZoneNotFound() {
         String unknownZone = "unknown_zone";
 
-        String tableName = "PUBLIC." + TABLE_NAMES.stream().findFirst().get();
-
-        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-lost-partitions",
-                new ResetPartitionsRequest(unknownZone, tableName, Set.of()));
+        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-partitions",
+                new ResetPartitionsRequest(unknownZone, QUALIFIED_TABLE_NAME, Set.of()));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -377,12 +379,10 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     public void testResetPartitionTableNotFound() {
-        String zoneName = ZONES.stream().findFirst().get();
-
         String tableName = "unknown_table";
 
-        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-lost-partitions",
-                new ResetPartitionsRequest(zoneName, tableName, Set.of()));
+        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-partitions",
+                new ResetPartitionsRequest(FIRST_ZONE, tableName, Set.of()));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -394,12 +394,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     void testResetPartitionsIllegalPartitionNegative() {
-        String zoneName = ZONES.stream().findFirst().get();
-
-        String tableName = "PUBLIC." + zoneName + "_table";
-
-        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-lost-partitions",
-                new ResetPartitionsRequest(zoneName, tableName, Set.of(0, 5, -1, -10)));
+        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-partitions",
+                new ResetPartitionsRequest(FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 5, -1, -10)));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -411,12 +407,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     void testResetPartitionsPartitionsOutOfRange() {
-        String zoneName = ZONES.stream().findFirst().get();
-
-        String tableName = "PUBLIC." + zoneName + "_table";
-
-        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-lost-partitions",
-                new ResetPartitionsRequest(zoneName, tableName, Set.of(DEFAULT_PARTITION_COUNT)));
+        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-partitions",
+                new ResetPartitionsRequest(FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(DEFAULT_PARTITION_COUNT)));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -426,7 +418,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
                 String.format(
                         "Partition IDs should be in range [0, %d] for zone %s, found: %d",
                         DEFAULT_PARTITION_COUNT - 1,
-                        zoneName,
+                        FIRST_ZONE,
                         DEFAULT_PARTITION_COUNT
                 )
         ));

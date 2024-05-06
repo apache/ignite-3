@@ -41,9 +41,11 @@ import org.junit.jupiter.api.Test;
 public class ItDisasterRecoveryControllerResetPartitionsTest extends ClusterPerTestIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + Cluster.BASE_HTTP_PORT;
 
-    private static final String ZONE = "first_ZONE";
+    private static final String FIRST_ZONE = "first_ZONE";
 
     private static final String TABLE_NAME = "first_ZONE_table";
+
+    private static final String QUALIFIED_TABLE_NAME = "PUBLIC." + TABLE_NAME;
 
     @Inject
     @Client(NODE_URL + "/management/v1/recovery/")
@@ -51,14 +53,15 @@ public class ItDisasterRecoveryControllerResetPartitionsTest extends ClusterPerT
 
     @BeforeEach
     public void setUp() {
-        executeSql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
-        executeSql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = '%s'", TABLE_NAME, ZONE));
+        executeSql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", FIRST_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
+        executeSql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = '%s'", TABLE_NAME,
+                FIRST_ZONE));
     }
 
     @Test
     public void testResetAllPartitions() {
-        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-lost-partitions",
-                new ResetPartitionsRequest(ZONE, "PUBLIC." + TABLE_NAME, Set.of()));
+        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-partitions",
+                new ResetPartitionsRequest(FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 
@@ -67,8 +70,8 @@ public class ItDisasterRecoveryControllerResetPartitionsTest extends ClusterPerT
 
     @Test
     public void testResetSpecifiedPartitions() {
-        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-lost-partitions",
-                new ResetPartitionsRequest(ZONE, "PUBLIC." + TABLE_NAME, Set.of(0, 1)));
+        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-partitions",
+                new ResetPartitionsRequest(FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0)));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 

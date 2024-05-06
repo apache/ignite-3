@@ -76,10 +76,10 @@ public interface DisasterRecoveryApi {
             Optional<Set<Integer>> partitionIds
     );
 
-    @Post("reset-lost-partitions")
+    @Post("reset-partitions")
     @Operation(
             operationId = "reset-lost-partitions",
-            description = "Updates assignments of partitions in a forced manner, allowing for the recovery of raft group with "
+            description = "Updates assignments of partitions in a forced manner, allowing for the recovery of raft groups with "
                     + "lost majorities."
     )
     @ApiResponse(responseCode = "200", description = "Partition states reset.")

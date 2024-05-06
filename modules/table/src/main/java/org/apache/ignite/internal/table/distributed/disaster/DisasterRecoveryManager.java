@@ -197,7 +197,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
      *
      * @param zoneName Name of the distribution zone.
      * @param tableName Fully-qualified table name.
-     * @param partitionIds IDs of partitions to reset. All if empty.
+     * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
      * @return Operation future.
      */
     public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds) {
@@ -207,7 +207,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
                 .orElseThrow(() -> new TableNotFoundException(tableName)).id();
 
         CatalogZoneDescriptor zone = Optional.ofNullable(catalog.zone(zoneName))
-                .orElseThrow(() -> new DistributionZoneNotFoundException(zoneName, null));
+                .orElseThrow(() -> new DistributionZoneNotFoundException(zoneName));
 
         checkPartitionsRange(partitionIds, Set.of(zone));
 
