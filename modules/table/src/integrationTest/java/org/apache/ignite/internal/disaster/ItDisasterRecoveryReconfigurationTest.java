@@ -226,7 +226,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         IgniteImpl node0 = cluster.node(0);
         Table table = node0.tables().table(TABLE_NAME);
 
-        awaitPrimaryReplica(node0, partId);
+        awaitPrimaryReplica(node0, secondPartId);
 
         stopNodesInParallel(2, 4);
 
@@ -235,17 +235,17 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                Set.of(0)
+                Set.of(secondPartId)
         );
 
         assertThat(updateFuture, willCompleteSuccessfully());
 
-        awaitPrimaryReplica(node0, partId);
+        awaitPrimaryReplica(node0, secondPartId);
 
-        List<Throwable> fixedPartErrors = insertValues(table, partId, 0);
+        List<Throwable> fixedPartErrors = insertValues(table, secondPartId, 0);
         assertThat(fixedPartErrors, is(empty()));
 
-        List<Throwable> secondPartErrors = insertValues(table, secondPartId, 0);
+        List<Throwable> secondPartErrors = insertValues(table, partId, 0);
         assertThat(secondPartErrors, Matchers.not(empty()));
     }
 

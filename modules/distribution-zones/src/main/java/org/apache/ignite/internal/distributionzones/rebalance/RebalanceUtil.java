@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
-import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
@@ -38,7 +37,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -283,7 +281,7 @@ public class RebalanceUtil {
             long storageRevision,
             MetaStorageManager metaStorageManager
     ) {
-        CompletableFuture<List<Assignments>> tableAssignmentsFut = tableAssignments(
+        CompletableFuture<Map<Integer, Assignments>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,
                 tableDescriptor.id(),
                 Set.of(),
@@ -339,7 +337,7 @@ public class RebalanceUtil {
             long revision,
             MetaStorageManager metaStorageManager
     ) {
-        CompletableFuture<List<Assignments>> tableAssignmentsFut = tableAssignments(
+        CompletableFuture<Map<Integer, Assignments>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,
                 tableDescriptor.id(),
                 partitionIds,
@@ -348,16 +346,16 @@ public class RebalanceUtil {
 
         Set<String> aliveDataNodes = CollectionUtils.intersect(dataNodes, aliveNodesConsistentIds);
 
-        Collection<Integer> ids = partitionIds.isEmpty()
-                ? IntStream.range(0, zoneDescriptor.partitions()).boxed().collect(toList())
-                : partitionIds;
+        int[] ids = partitionIds.isEmpty()
+                ? IntStream.range(0, zoneDescriptor.partitions()).toArray()
+                : partitionIds.stream().mapToInt(Integer::intValue).toArray();
 
-        CompletableFuture<?>[] futures = new CompletableFuture[ids.size()];
+        CompletableFuture<?>[] futures = new CompletableFuture[ids.length];
 
-        for (Integer partId : ids) {
-            TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partId);
+        for (int i = 0; i < ids.length; i++) {
+            TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), ids[i]);
 
-            futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
+            futures[i] = tableAssignmentsFut.thenCompose(tableAssignments ->
                     tableAssignments.isEmpty() ? nullCompletedFuture() : manualPartitionUpdate(
                             replicaGrpId,
                             aliveDataNodes,
@@ -706,7 +704,7 @@ public class RebalanceUtil {
      * @param numberOfPartitions Number of partitions. Ignored if partition IDs are specified.
      * @return Future with table assignments as a value.
      */
-    static CompletableFuture<List<Assignments>> tableAssignments(
+    static CompletableFuture<Map<Integer, Assignments>> tableAssignments(
             MetaStorageManager metaStorageManager,
             int tableId,
             Set<Integer> partitionIds,
@@ -725,17 +723,17 @@ public class RebalanceUtil {
         return metaStorageManager.getAll(partitionKeysToPartitionNumber.keySet())
                 .thenApply(entries -> {
                     if (entries.isEmpty()) {
-                        return emptyList();
+                        return Map.of();
                     }
 
-                    Assignments[] result = new Assignments[numberOfPartitions];
+                    Map<Integer, Assignments> result = new HashMap<>();
                     int numberOfMsPartitions = 0;
 
                     for (var mapEntry : entries.entrySet()) {
                         Entry entry = mapEntry.getValue();
 
                         if (!entry.empty() && !entry.tombstone()) {
-                            result[partitionKeysToPartitionNumber.get(mapEntry.getKey())] = Assignments.fromBytes(entry.value());
+                            result.put(partitionKeysToPartitionNumber.get(mapEntry.getKey()), Assignments.fromBytes(entry.value()));
                             numberOfMsPartitions++;
                         }
                     }
@@ -744,7 +742,7 @@ public class RebalanceUtil {
                             : "Invalid number of stable partition entries received from meta storage [received="
                             + numberOfMsPartitions + ", numberOfPartitions=" + entries.size() + ", tableId=" + tableId + "].";
 
-                    return numberOfMsPartitions == 0 ? emptyList() : Arrays.asList(result);
+                    return numberOfMsPartitions == 0 ? Map.of() : result;
                 });
     }
 
