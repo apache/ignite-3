@@ -176,8 +176,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     void testExceptionIsThrownOnIndexBuildingWhenStorageIsNull() {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
-        clearInvocations(indexBuilder);
-
         createIndex(INDEX_NAME);
 
         when(indexManager.getMvTableStorage(anyLong(), anyInt())).thenReturn(completedFuture(null));
