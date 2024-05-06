@@ -35,7 +35,6 @@ import static org.apache.ignite.internal.metastorage.server.persistence.StorageC
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.RESTORING_STORAGE_ERR;
@@ -95,6 +94,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
+import org.rocksdb.AbstractNativeReference;
 import org.rocksdb.BlockBasedTableConfig;
 import org.rocksdb.BloomFilter;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -229,6 +229,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      */
     private final UpdatedEntries updatedEntries = new UpdatedEntries();
 
+    protected List<AbstractNativeReference> rocksResources = new ArrayList<>();
+
     /**
      * Constructor.
      *
@@ -251,11 +253,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             createDb();
         } catch (IOException | RocksDBException e) {
+            closeRocksResources();
             throw new MetaStorageException(STARTING_STORAGE_ERR, "Failed to start the storage", e);
         }
     }
 
-    private static List<ColumnFamilyDescriptor> cfDescriptors() {
+    private List<ColumnFamilyDescriptor> cfDescriptors() {
         Options baseOptions = new Options()
                 .setCreateIfMissing(true)
                 // Lowering the desired number of levels will, on average, lead to less lookups in files, making reads faster.
@@ -275,12 +278,16 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         ColumnFamilyOptions dataFamilyOptions = new ColumnFamilyOptions(baseOptions)
                 // The prefix is the revision of an entry, so prefix length is the size of a long
                 .useFixedLengthPrefixExtractor(Long.BYTES);
+        this.rocksResources.add(dataFamilyOptions);
 
         ColumnFamilyOptions indexFamilyOptions = new ColumnFamilyOptions(baseOptions);
+        this.rocksResources.add(indexFamilyOptions);
 
         ColumnFamilyOptions tsToRevFamilyOptions = new ColumnFamilyOptions(baseOptions);
+        this.rocksResources.add(tsToRevFamilyOptions);
 
         ColumnFamilyOptions revToTsFamilyOptions = new ColumnFamilyOptions(baseOptions);
+        this.rocksResources.add(revToTsFamilyOptions);
 
         return List.of(
                 new ColumnFamilyDescriptor(DATA.nameAsBytes(), dataFamilyOptions),
@@ -300,8 +307,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         options = new DBOptions()
                 .setCreateMissingColumnFamilies(true)
                 .setCreateIfMissing(true);
+        rocksResources.add(options);
 
         db = RocksDB.open(options, dbPath.toAbsolutePath().toString(), descriptors, handles);
+        rocksResources.add(db);
+        rocksResources.addAll(handles);
 
         data = ColumnFamily.wrap(db, handles.get(0));
 
@@ -352,7 +362,13 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
-        RocksUtils.closeAll(db, options);
+        closeRocksResources();
+    }
+
+    private void closeRocksResources() {
+        Collections.reverse(rocksResources);
+        RocksUtils.closeAll(rocksResources);
+        this.rocksResources = new ArrayList<>();
     }
 
     @Override
@@ -368,7 +384,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         try {
             // there's no way to easily remove all data from RocksDB, so we need to re-create it from scratch
-            closeAll(db, options);
+            closeRocksResources();
 
             destroyRocksDb();
 
