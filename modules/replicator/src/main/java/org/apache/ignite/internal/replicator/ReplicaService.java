@@ -27,7 +27,6 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
-import java.net.ConnectException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
