@@ -237,6 +237,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         super(
                 "test",
                 nextTableId.getAndIncrement(),
+                123,
                 1,
                 new SingleClusterNodeResolver(LOCAL_NODE),
                 txManager(replicaSvc, placementDriver, txConfiguration, resourcesRegistry),

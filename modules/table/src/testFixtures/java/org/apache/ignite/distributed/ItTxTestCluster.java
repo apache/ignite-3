@@ -743,6 +743,7 @@ public class ItTxTestCluster {
                 new InternalTableImpl(
                         tableName,
                         tableId,
+                        123,
                         1,
                         nodeResolver,
                         clientTxManager,

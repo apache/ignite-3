@@ -158,6 +158,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.replicator.ReplicaAwareLeaseTracker;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -655,7 +656,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new SystemViewManagerImpl(name, catalogManager),
                 failureProcessor,
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
-                placementDriverManager.placementDriver(),
+                new ReplicaAwareLeaseTracker(placementDriverManager.placementDriver(), replicaService, clusterSvc.topologyService()),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY),
                 transactionInflights

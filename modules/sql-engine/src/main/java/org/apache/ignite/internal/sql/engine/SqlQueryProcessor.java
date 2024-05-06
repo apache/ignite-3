@@ -74,6 +74,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
@@ -408,8 +409,10 @@ public class SqlQueryProcessor implements QueryProcessor {
             int partitionId = partId;
             ReplicationGroupId partGroupId = new TablePartitionId(table.id(), partitionId);
 
-            CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplica(
-                    partGroupId,
+            ZonePartitionId zonePartitionId = new ZonePartitionId(table.zoneId(), table.id(), partId);
+
+            CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplicaForTable(
+                    zonePartitionId,
                     clockNow,
                     AWAIT_PRIMARY_REPLICA_TIMEOUT,
                     SECONDS

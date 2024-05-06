@@ -84,6 +84,13 @@ public interface InternalTable extends ManuallyCloseable {
     int partitionId(BinaryRowEx row);
 
     /**
+     * Returns zone id in which the table is presented.
+     *
+     * @return Zone id.
+     */
+    int zoneId();
+
+    /**
      * Asynchronously gets a row with same key columns values as given one from the table.
      *
      * @param keyRow Row with key columns set.

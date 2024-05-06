@@ -56,6 +56,16 @@ abstract class DelegatingPlacementDriver implements PlacementDriver {
     }
 
     @Override
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
+        return delegate.awaitPrimaryReplicaForTable(groupId, timestamp, timeout, unit);
+    }
+
+    @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
         return delegate.getPrimaryReplica(replicationGroupId, timestamp);
     }

@@ -49,6 +49,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNode;
@@ -92,6 +93,9 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     @Mock
     private TableViewInternal table;
 
+    @Mock
+    private InternalTable internalTable;
+
     private final ClusterNode localNode = new ClusterNodeImpl("local", "local", new NetworkAddress("local-host", 1));
 
     private final ClusterNode remoteNode = new ClusterNodeImpl("remote", "remote", new NetworkAddress("remote-host", 1));
@@ -103,6 +107,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         lenient().when(topologyService.localMember()).thenReturn(localNode);
         lenient().when(topologyService.getByConsistentId(localNode.name())).thenReturn(localNode);
         lenient().when(topologyService.getByConsistentId(remoteNode.name())).thenReturn(remoteNode);
+        lenient().when(table.internalTable()).thenReturn(internalTable);
     }
 
     @Test
@@ -212,7 +217,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         ReplicaMeta replicaMeta = mock(ReplicaMeta.class);
         doReturn("").when(replicaMeta).getLeaseholderId();
         CompletableFuture<ReplicaMeta> toBeReturned = completedFuture(replicaMeta);
-        doReturn(toBeReturned).when(placementDriver).awaitPrimaryReplica(any(), any(), anyLong(), any());
+        doReturn(toBeReturned).when(placementDriver).awaitPrimaryReplicaForTable(any(), any(), anyLong(), any());
         doReturn(remoteNode).when(topologyService).getById(any());
     }
 
