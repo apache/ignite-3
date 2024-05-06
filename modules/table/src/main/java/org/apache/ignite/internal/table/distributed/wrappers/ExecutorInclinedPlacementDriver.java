@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.wrappers;
 
 import static java.util.function.Function.identity;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -26,6 +27,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
  * Decorates a {@link PlacementDriver} to make sure that completion stages depending on the returned futures are always completed
@@ -49,6 +51,16 @@ public class ExecutorInclinedPlacementDriver extends DelegatingPlacementDriver {
         return decorateFuture(super.awaitPrimaryReplica(groupId, timestamp, timeout, unit));
     }
 
+    @Override
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
+        return decorateFuture(super.awaitPrimaryReplicaForTable(groupId, timestamp, timeout, unit));
+    }
+
     private <T> CompletableFuture<T> decorateFuture(CompletableFuture<T> future) {
         if (future.isDone()) {
             return future;
@@ -65,5 +77,14 @@ public class ExecutorInclinedPlacementDriver extends DelegatingPlacementDriver {
     @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
         return decorateFuture(super.previousPrimaryExpired(grpId));
+    }
+
+    @Override
+    public CompletableFuture<Void> addSubgroups(
+            ZonePartitionId zoneId,
+            Long enlistmentConsistencyToken,
+            Set<ReplicationGroupId> subGrps
+    ) {
+        return decorateFuture(super.addSubgroups(zoneId, enlistmentConsistencyToken, subGrps));
     }
 }

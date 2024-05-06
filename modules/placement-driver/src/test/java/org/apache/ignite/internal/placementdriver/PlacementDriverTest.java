@@ -44,7 +44,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -63,6 +65,7 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -83,6 +86,10 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private static final TablePartitionId GROUP_1 = new TablePartitionId(1000, 0);
 
+    private static final ZonePartitionId ZONE_GROUP_1 = new ZonePartitionId(2000, 0);
+
+    private static final Map<TablePartitionId, ZonePartitionId> tableIdToZoneIdMapper = Map.of(GROUP_1, ZONE_GROUP_1);
+
     private static final String LEASEHOLDER_1 = "leaseholder1";
 
     private static final String LEASEHOLDER_ID_1 = "leaseholder1_id";
@@ -97,7 +104,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             false,
             true,
             null,
-            GROUP_1
+            ZONE_GROUP_1,
+            Set.of(GROUP_1)
     );
 
     private static final Lease LEASE_FROM_1_TO_15_000 = new Lease(
@@ -108,7 +116,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             false,
             true,
             null,
-            GROUP_1
+            ZONE_GROUP_1,
+            Set.of(GROUP_1)
     );
 
     private static final Lease LEASE_FROM_15_000_TO_30_000 = new Lease(
@@ -119,7 +128,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             false,
             true,
             null,
-            GROUP_1
+            ZONE_GROUP_1,
+            Set.of(GROUP_1)
     );
 
     private static final int AWAIT_PERIOD_FOR_LOCAL_NODE_TO_BE_NOTIFIED_ABOUT_LEASE_UPDATES = 1_000;
@@ -194,7 +204,10 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         publishLease(LEASE_FROM_1_TO_5_000);
 
         // Await local node to be notified about new primary replica.
-        assertTrue(waitForCondition(() -> placementDriver.getLease(GROUP_1).equals(LEASE_FROM_1_TO_5_000), 1_000));
+        assertTrue(waitForCondition(
+                () -> placementDriver.getLease(ZONE_GROUP_1).equals(LEASE_FROM_1_TO_5_000),
+                1_000)
+        );
 
         // Assert that primary await future isn't completed yet because corresponding await time 10 is greater than lease expiration time 5.
         assertFalse(primaryReplicaFuture.isDone());
@@ -232,7 +245,10 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         publishLease(LEASE_FROM_1_TO_5_000);
 
         // Await local node to be notified about new primary replica.
-        assertTrue(waitForCondition(() -> placementDriver.getLease(GROUP_1).equals(LEASE_FROM_1_TO_5_000), 1_000));
+        assertTrue(waitForCondition(
+                () -> placementDriver.getLease(ZONE_GROUP_1).equals(LEASE_FROM_1_TO_5_000),
+                1_000
+        ));
 
         // Assert that primary await future isn't completed yet because corresponding await time 10 is greater than lease expiration time 5.
         assertFalse(primaryReplicaFuture.isDone());
@@ -262,8 +278,10 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         publishLease(LEASE_FROM_1_TO_15_000);
 
         // Await local node to be notified about new primary replica.
-        assertTrue(waitForCondition(() -> placementDriver.getLease(GROUP_1).equals(LEASE_FROM_1_TO_15_000),
-                AWAIT_PERIOD_FOR_LOCAL_NODE_TO_BE_NOTIFIED_ABOUT_LEASE_UPDATES));
+        assertTrue(waitForCondition(
+                () -> placementDriver.getLease(ZONE_GROUP_1).equals(LEASE_FROM_1_TO_15_000),
+                AWAIT_PERIOD_FOR_LOCAL_NODE_TO_BE_NOTIFIED_ABOUT_LEASE_UPDATES
+        ));
 
         // Await primary replica for time 10.
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
@@ -311,7 +329,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 false,
                 true,
                 null,
-                GROUP_1
+                ZONE_GROUP_1,
+                Set.of(GROUP_1)
         );
 
         publishLease(firstLease);
@@ -333,7 +352,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 false,
                 true,
                 null,
-                GROUP_1
+                ZONE_GROUP_1,
+                Set.of(GROUP_1)
         );
 
         if (newLeaseholderIsOnline) {
@@ -617,7 +637,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         publishLease(lease);
 
-        TablePartitionId groupId = (TablePartitionId) lease.replicationGroupId();
+        ZonePartitionId groupId = (ZonePartitionId) lease.replicationGroupId();
 
         CompletableFuture<PrimaryReplicaEventParameters> eventParametersFuture = listenSpecificGroupReplicaBecomePrimaryEvent(groupId);
 
@@ -629,7 +649,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 false,
                 true,
                 null,
-                new TablePartitionId(groupId.tableId() + 1, groupId.partitionId() + 1)
+                new ZonePartitionId(groupId.zoneId() + 1, groupId.partitionId() + 1),
+                Set.of(new TablePartitionId(groupId.zoneId() + 1, groupId.partitionId() + 1))
         );
 
         publishLeases(lease, neighborGroupLease);
@@ -683,21 +704,26 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             Lease expLease,
             PrimaryReplicaEventParameters parameters
     ) {
-        assertThat(parameters.groupId(), equalTo(expLease.replicationGroupId()));
+        assertThat(parameters.groupId().toString(), equalTo(expLease.replicationGroupId().toString()));
         assertThat(parameters.leaseholderId(), equalTo(expLease.getLeaseholderId()));
     }
 
     private LeaseTracker createPlacementDriver() {
-        return new LeaseTracker(metastore, new ClusterNodeResolver() {
-            @Override
-            public @Nullable ClusterNode getByConsistentId(String consistentId) {
-                return leaseholder;
-            }
+        return new LeaseTracker(
+                metastore,
+                new ClusterNodeResolver() {
+                    @Override
+                    public @Nullable ClusterNode getByConsistentId(String consistentId) {
+                        return leaseholder;
+                    }
 
-            @Override
-            public @Nullable ClusterNode getById(String id) {
-                return leaseholder;
-            }
-        }, clockService);
+                    @Override
+                    public @Nullable ClusterNode getById(String id) {
+                        return leaseholder;
+                    }
+                },
+                clockService,
+                tableIdToZoneIdMapper::get
+        );
     }
 }

@@ -86,6 +86,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private static final AtomicInteger nextTableId = new AtomicInteger(101);
 
+    private static final int zoneId = 1234;
+
     /**
      * Before all.
      */
@@ -651,7 +653,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             replicas = defaultReplicas();
         }
 
-        placementDriver.setReplicas(replicas, nextTableId.get() - 1, leaseStartTime);
+        placementDriver.setReplicas(replicas, nextTableId.get() - 1, zoneId, leaseStartTime);
     }
 
     private static List<String> defaultReplicas() {

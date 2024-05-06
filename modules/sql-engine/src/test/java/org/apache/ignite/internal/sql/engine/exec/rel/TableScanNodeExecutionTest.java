@@ -242,6 +242,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
             super(
                     "test",
                     1,
+                    123,
                     PART_CNT,
                     new SingleClusterNodeResolver(mock(ClusterNode.class)),
                     txManager,

@@ -43,7 +43,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl.LogicalTopologyHolder.TopologySnapshot;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
@@ -114,9 +114,9 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
     /** Called when the primary replica has expired. */
     public CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
         assert parameters != null;
-        assert parameters.groupId() instanceof TablePartitionId;
+        assert parameters.groupId() instanceof ZonePartitionId;
 
-        int tabId = ((TablePartitionId) parameters.groupId()).tableId();
+        int tabId = ((ZonePartitionId) parameters.groupId()).tableId();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-21201 Move complex computations to a different thread.
         mappingsCache.removeIfValue(value -> value.tableIds.contains(tabId));

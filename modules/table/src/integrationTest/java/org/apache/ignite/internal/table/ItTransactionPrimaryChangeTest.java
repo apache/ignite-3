@@ -35,6 +35,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.RecordView;
@@ -105,6 +106,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
     }
 
     @Test
+    @WithSystemProperty(key = "IGNITE_ALWAYS_FORCE", value = "false")
     public void testFullTxConsistency() throws InterruptedException {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 

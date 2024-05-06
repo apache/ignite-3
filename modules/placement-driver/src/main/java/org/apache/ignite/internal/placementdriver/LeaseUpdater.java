@@ -34,6 +34,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -56,6 +57,8 @@ import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationM
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -79,6 +82,8 @@ public class LeaseUpdater {
 
     /** Lease holding interval. */
     private static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
+
+    private final boolean alwaysForce = IgniteSystemProperties.getBoolean("IGNITE_ALWAYS_FORCE", true);
 
     /** The lock is available when the actor is changing state. */
     private final IgniteSpinBusyLock stateChangingLock = new IgniteSpinBusyLock();
@@ -105,6 +110,8 @@ public class LeaseUpdater {
 
     /** Cluster clock. */
     private final ClockService clockService;
+
+    private final Function<TablePartitionId, ZonePartitionId> groupIdProvider;
 
     /** Closure to update leases. */
     private final Updater updater;
@@ -133,13 +140,15 @@ public class LeaseUpdater {
             MetaStorageManager msManager,
             LogicalTopologyService topologyService,
             LeaseTracker leaseTracker,
-            ClockService clockService
+            ClockService clockService,
+            Function<TablePartitionId, ZonePartitionId> groupIdProvider
     ) {
         this.nodeName = nodeName;
         this.clusterService = clusterService;
         this.msManager = msManager;
         this.leaseTracker = leaseTracker;
         this.clockService = clockService;
+        this.groupIdProvider = groupIdProvider;
 
         this.longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000);
         this.assignmentsTracker = new AssignmentsTracker(msManager);
@@ -368,7 +377,7 @@ public class LeaseUpdater {
                     agreement.checkValid(grpId, topologyTracker.currentTopologySnapshot(), assignments);
 
                     if (agreement.isAccepted()) {
-                        publishLease(grpId, lease, renewedLeases);
+                        publishLease(grpId, lease, renewedLeases, agreement.applicableFor());
 
                         continue;
                     } else if (agreement.isDeclined()) {
@@ -457,7 +466,9 @@ public class LeaseUpdater {
 
                 for (Map.Entry<ReplicationGroupId, Boolean> entry : toBeNegotiated.entrySet()) {
                     Lease lease = renewedLeases.get(entry.getKey());
-                    boolean force = entry.getValue();
+                    boolean force = alwaysForce || entry.getValue();
+
+                    LOG.info("PVD: Start negotiation for {} {}", entry.getKey(), lease.getLeaseholder());
 
                     leaseNegotiator.negotiate(lease, force);
                 }
@@ -509,11 +520,20 @@ public class LeaseUpdater {
          *
          * @param grpId Replication group id.
          * @param lease Lease to accept.
+         * @param renewedLeases List to add to renew.
+         * @param subGrps Set of subgroups.
          */
-        private void publishLease(ReplicationGroupId grpId, Lease lease, Map<ReplicationGroupId, Lease> renewedLeases) {
+        private void publishLease(
+                ReplicationGroupId grpId,
+                Lease lease,
+                Map<ReplicationGroupId, Lease> renewedLeases,
+                Set<ReplicationGroupId> subGrps
+        ) {
             var newTs = new HybridTimestamp(clockService.now().getPhysical() + LEASE_INTERVAL, 0);
 
-            Lease renewedLease = lease.acceptLease(newTs);
+            Lease renewedLease = lease.acceptLease(newTs, subGrps);
+
+            LOG.info("PVD: Negotiation is finished {} {}", renewedLease.replicationGroupId(), renewedLease.getLeaseholder());
 
             renewedLeases.put(grpId, renewedLease);
 
@@ -613,17 +633,23 @@ public class LeaseUpdater {
         private void processMessageInternal(String sender, PlacementDriverActorMessage msg) {
             ReplicationGroupId grpId = msg.groupId();
 
-            Lease lease = leaseTracker.getLease(grpId);
+            assert grpId instanceof TablePartitionId : "Unexpected replication group type [grp=" + grpId + "].";
+
+            var tblPartId = (TablePartitionId) grpId;
+
+            ReplicationGroupId grpId0 = groupIdProvider.apply(tblPartId);
+
+            Lease lease = leaseTracker.getLease(grpId0);
 
             if (msg instanceof StopLeaseProlongationMessage) {
                 if (lease.isProlongable() && sender.equals(lease.getLeaseholder())) {
                     StopLeaseProlongationMessage stopLeaseProlongationMessage = (StopLeaseProlongationMessage) msg;
 
-                    denyLease(grpId, lease, stopLeaseProlongationMessage.redirectProposal()).whenComplete((res, th) -> {
+                    denyLease(grpId0, lease, stopLeaseProlongationMessage.redirectProposal()).whenComplete((res, th) -> {
                         if (th != null) {
-                            LOG.warn("Prolongation denial failed due to exception [groupId={}]", th, grpId);
+                            LOG.warn("Prolongation denial failed due to exception [groupId={}]", th, grpId0);
                         } else {
-                            LOG.info("Stop lease prolongation message was handled [groupId={}, sender={}, deny={}]", grpId, sender, res);
+                            LOG.info("Stop lease prolongation message was handled [groupId={}, sender={}, deny={}]", grpId0, sender, res);
                         }
                     });
                 }
