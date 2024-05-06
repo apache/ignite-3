@@ -21,14 +21,14 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.canFullyInline;
 
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Insert closure that inserts corresponding {@link IndexColumns} into a {@link IndexColumnsFreeList} before writing to the {@link
+ * Insert closure that inserts corresponding {@link IndexColumns} into a {@link FreeListImpl} before writing to the {@link
  * HashIndexTree}.
  */
 class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
@@ -36,7 +36,7 @@ class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
     private final HashIndexRow hashIndexRow;
 
     /** Free list to insert data into in case of necessity. */
-    private final IndexColumnsFreeList freeList;
+    private final FreeListImpl freeList;
 
     /** Inline size in bytes. */
     private final int inlineSize;
@@ -51,7 +51,7 @@ class InsertHashIndexRowInvokeClosure implements InvokeClosure<HashIndexRow> {
      * @param freeList Free list to insert data into in case of necessity.
      * @param inlineSize Inline size in bytes.
      */
-    public InsertHashIndexRowInvokeClosure(HashIndexRow hashIndexRow, IndexColumnsFreeList freeList, int inlineSize) {
+    public InsertHashIndexRowInvokeClosure(HashIndexRow hashIndexRow, FreeListImpl freeList, int inlineSize) {
         assert hashIndexRow.indexColumns().link() == NULL_LINK;
 
         this.hashIndexRow = hashIndexRow;
