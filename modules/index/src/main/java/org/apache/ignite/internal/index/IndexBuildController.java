@@ -57,6 +57,7 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Component is responsible for starting and stopping the building of indexes on primary replicas.
@@ -148,24 +149,13 @@ class IndexBuildController implements ManuallyCloseable {
                     int tableId = indexDescriptor.tableId();
 
                     CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), tableId)
-                            .thenCompose(mvTableStorage -> {
-                                if (mvTableStorage == null) {
-                                    throw new IgniteInternalException(
-                                            INTERNAL_ERR,
-                                            "Failed to schedule building index for the table because "
-                                                    + "the table storage does not exist [tableId = {}]",
-                                            tableId
-                                    );
-                                }
-
-                                return awaitPrimaryReplica(primaryReplicaId, clockService.now())
-                                        .thenAccept(replicaMeta -> tryScheduleBuildIndex(
-                                                primaryReplicaId,
-                                                indexDescriptor,
-                                                mvTableStorage,
-                                                replicaMeta
-                                        ));
-                                    }
+                            .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, clockService.now())
+                                    .thenAccept(replicaMeta -> tryScheduleBuildIndex(
+                                            primaryReplicaId,
+                                            indexDescriptor,
+                                            mvTableStorage,
+                                            replicaMeta
+                                    ))
                             );
 
                     startBuildIndexFutures.add(startBuildIndexFuture);
@@ -196,25 +186,13 @@ class IndexBuildController implements ManuallyCloseable {
                 int catalogVersion = catalogService.latestCatalogVersion();
 
                 return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId.tableId())
-                        .thenCompose(mvTableStorage -> {
-                            if (mvTableStorage == null) {
-                                throw new IgniteInternalException(
-                                        INTERNAL_ERR,
-                                        "Failed to schedule building indexes for the table on the newly elected primary because "
-                                                + "the table storage does not exist [tableId = {}, replicaId = {}]",
-                                        primaryReplicaId.tableId(),
-                                        primaryReplicaId
-                                );
-                            }
-
-                            return awaitPrimaryReplica(primaryReplicaId, parameters.startTime())
-                                    .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
-                                            catalogVersion,
-                                            primaryReplicaId,
-                                            mvTableStorage,
-                                            replicaMeta
-                                    ));
-                                }
+                        .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, parameters.startTime())
+                                .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
+                                        catalogVersion,
+                                        primaryReplicaId,
+                                        mvTableStorage,
+                                        replicaMeta
+                                ))
                         );
             } else {
                 stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
@@ -278,7 +256,20 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private CompletableFuture<MvTableStorage> getMvTableStorageFuture(long causalityToken, int tableId) {
-        return indexManager.getMvTableStorage(causalityToken, tableId);
+        return indexManager.getMvTableStorage(causalityToken, tableId)
+                .thenApply(mvTableStorage -> requireMvTableStorageNonNull(mvTableStorage, tableId));
+    }
+
+    private static MvTableStorage requireMvTableStorageNonNull(@Nullable MvTableStorage mvTableStorage, int tableId) {
+        if (mvTableStorage == null) {
+            throw new IgniteInternalException(
+                    INTERNAL_ERR,
+                    "Table storage for the specified table cannot be null [tableId = {}]",
+                    tableId
+            );
+        }
+
+        return mvTableStorage;
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(TablePartitionId replicaId, HybridTimestamp timestamp) {
