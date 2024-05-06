@@ -321,7 +321,7 @@ public class RebalanceUtil {
      *
      * @param tableDescriptor Table descriptor.
      * @param zoneDescriptor Zone descriptor.
-     * @param partitionIds Partitions ids to force assignments for. If empty, reassigns all zone's partitions.
+     * @param partitionIds Partitions IDs to force assignments for. If empty, reassigns all zone's partitions.
      * @param dataNodes Current DZ data nodes.
      * @param aliveNodesConsistentIds Set of alive nodes according to logical topology.
      * @param revision Meta-storage revision to be associated with reassignment.
