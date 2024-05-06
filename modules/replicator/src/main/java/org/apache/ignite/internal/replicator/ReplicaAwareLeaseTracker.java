@@ -91,9 +91,12 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
     ) {
         ZonePartitionId zonePartitionId = (ZonePartitionId) groupId;
 
-        TablePartitionId tablePartitionId = new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId());
+        assert zonePartitionId.tableId() != 0 : "Table id should be defined.";
 
-        return delegate.awaitPrimaryReplica(tablePartitionId, timestamp, timeout, unit)
+        TablePartitionId tablePartitionId = new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId());
+        ZonePartitionId pureZonePartId = zonePartitionId.purify();
+
+        return delegate.awaitPrimaryReplicaForTable(pureZonePartId, timestamp, timeout, unit)
                 .thenCompose(replicaMeta -> {
                     ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
 

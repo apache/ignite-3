@@ -93,6 +93,19 @@ public class ZonePartitionId implements ReplicationGroupId {
         return new ZonePartitionId(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
     }
 
+    /**
+     * Creates a new object if this one has a defined table id or returns itself if it does not have a value of the table id.
+     *
+     * @return Pure zone partition id.
+     */
+    public ZonePartitionId purify() {
+        if (tableId == 0) {
+            return this;
+        }
+
+        return new ZonePartitionId(zoneId, partId);
+    }
+
     @Override
     public String toString() {
         return zoneId + "_part_" + partId;

@@ -455,6 +455,8 @@ public class LeaseUpdater {
                     Lease lease = renewedLeases.get(entry.getKey());
                     boolean force = alwaysForce || entry.getValue();
 
+                    LOG.info("PVD: Start negotiation for {} {}", entry.getKey(), lease.getLeaseholder());
+
                     leaseNegotiator.negotiate(lease, force);
                 }
             });
@@ -517,6 +519,8 @@ public class LeaseUpdater {
             var newTs = new HybridTimestamp(clockService.now().getPhysical() + LEASE_INTERVAL, 0);
 
             Lease renewedLease = lease.acceptLease(newTs, subGrps);
+
+            LOG.info("PVD: Negotiation is finished {} {}", renewedLease.replicationGroupId(), renewedLease.getLeaseholder());
 
             renewedLeases.put(grpId, renewedLease);
 

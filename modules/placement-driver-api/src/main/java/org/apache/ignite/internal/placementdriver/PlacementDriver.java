@@ -76,14 +76,12 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-20362
     @Deprecated
-    default CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
+    CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
             ReplicationGroupId groupId,
             HybridTimestamp timestamp,
             long timeout,
             TimeUnit unit
-    ) {
-        return awaitPrimaryReplica(groupId, timestamp, timeout, unit);
-    }
+    );
 
     /**
      * Same as {@link #awaitPrimaryReplica(ReplicationGroupId, HybridTimestamp, long, TimeUnit)} despite the fact that given method await

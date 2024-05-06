@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
@@ -93,6 +94,16 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         return returnError
                 ? CompletableFuture.failedFuture(new RuntimeException("FakePlacementDriver expected error"))
                 : CompletableFuture.completedFuture(primaryReplicas.get(id.partitionId()));
+    }
+
+    @Override
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
+        throw new IgniteInternalException("Not implemented yet.");
     }
 
     @Override

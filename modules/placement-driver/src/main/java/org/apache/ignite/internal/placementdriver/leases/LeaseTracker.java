@@ -379,18 +379,37 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
         ReplicationGroupId groupId0 = tablePartIdToZoneIdProvider.apply(tblPartId);
 
+        return awaitPrimaryReplicaForTable(
+                groupId0,
+                timestamp,
+                timeout,
+                unit
+        );
+    }
+
+    @Override
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
+        assert groupId instanceof ZonePartitionId : "Unexpected replication group type [grp=" + groupId + "].";
+
+        var zonePartId = ((ZonePartitionId) groupId).purify();
+
         CompletableFuture<ReplicaMeta> future = new CompletableFuture<>();
 
-        awaitPrimaryReplica(groupId0, timestamp, future);
+        awaitPrimaryReplica(zonePartId, timestamp, future);
 
         return future
                 .orTimeout(timeout, unit)
                 .exceptionally(e -> {
                     if (e instanceof TimeoutException) {
-                        throw new PrimaryReplicaAwaitTimeoutException(groupId0, timestamp, leases.leaseByGroupId().get(groupId0), e);
+                        throw new PrimaryReplicaAwaitTimeoutException(zonePartId, timestamp, leases.leaseByGroupId().get(zonePartId), e);
                     }
 
-                    throw new PrimaryReplicaAwaitException(groupId0, timestamp, e);
+                    throw new PrimaryReplicaAwaitException(zonePartId, timestamp, e);
                 });
     }
 
@@ -552,7 +571,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                         new ZonePartitionId(zonePartitionId.zoneId(), tablePartitionId.tableId(), zonePartitionId.partitionId()),
                         leaseholderId,
                         lease.getLeaseholder(),
-                        lease.getStartTime()
+                        lease.getStartTime().tick()
                 )
         );
     }
