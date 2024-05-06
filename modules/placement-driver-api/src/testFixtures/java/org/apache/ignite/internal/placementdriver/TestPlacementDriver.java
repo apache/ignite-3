@@ -27,7 +27,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -78,7 +77,7 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             long timeout,
             TimeUnit unit
     ) {
-        throw new IgniteInternalException("Not implemented yet.");
+        return getReplicaMetaFuture();
     }
 
     @Override

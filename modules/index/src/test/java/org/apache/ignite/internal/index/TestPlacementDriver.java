@@ -24,7 +24,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
@@ -39,6 +38,23 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
+        assert groupId instanceof ZonePartitionId : "Unexpected replication group type [type=" + groupId.getClass().getSimpleName() + ']';
+
+        return awaitPrimaryReplicaForTable (
+                groupId,
+                timestamp,
+                timeout,
+                unit
+        );
+    }
+
+    @Override
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
             ReplicationGroupId groupId,
             HybridTimestamp timestamp,
             long timeout,
@@ -74,16 +90,6 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                         replicaMeta.getStartTime()
                 )
         ));
-    }
-
-    @Override
-    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
-            ReplicationGroupId groupId,
-            HybridTimestamp timestamp,
-            long timeout,
-            TimeUnit unit
-    ) {
-        throw new IgniteInternalException("Not implemented yet.");
     }
 
     @Override
