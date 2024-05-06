@@ -38,7 +38,7 @@ public class TableNotFoundException extends IgniteException {
     }
 
     /**
-     * Creates an exception with the given table name.
+     * Creates an exception with the given fully-qualified table name.
      *
      * @param tableName Fully-qualified table name.
      */

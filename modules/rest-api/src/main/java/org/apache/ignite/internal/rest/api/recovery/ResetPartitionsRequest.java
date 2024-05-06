@@ -35,7 +35,7 @@ public class ResetPartitionsRequest {
     @Schema(description = "IDs of partitions to reset. All if empty.")
     private final Set<Integer> partitionIds;
 
-    @Schema(description = "Name of the table to reset partitions of. Case-sensitive.")
+    @Schema(description = "Fully-qualified name of the table to reset partitions of. Case-sensitive.")
     private final String tableName;
 
     @JsonCreator
@@ -45,6 +45,7 @@ public class ResetPartitionsRequest {
             @JsonProperty("partitionIds") Collection<Integer> partitionIds
     ) {
         Objects.requireNonNull(zoneName);
+        Objects.requireNonNull(tableName);
 
         this.zoneName = zoneName;
         this.tableName = tableName;

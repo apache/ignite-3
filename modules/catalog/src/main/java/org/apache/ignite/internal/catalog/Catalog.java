@@ -31,6 +31,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -111,7 +112,13 @@ public class Catalog {
 
         schemasByName = schemas.stream().collect(toMapByName());
         zonesByName = zones.stream().collect(toMapByName());
-        tablesByName = schemas.stream().flatMap(s -> Arrays.stream(s.tables())).collect(toMapByName());
+
+        tablesByName = new HashMap<>();
+        schemas.forEach(schema -> {
+            for (CatalogTableDescriptor table : schema.tables()) {
+                tablesByName.put(schema.name() + "." + table.name(), table);
+            }
+        });
 
         schemasById = schemas.stream().collect(toMapById());
         tablesById = schemas.stream().flatMap(s -> Arrays.stream(s.tables())).collect(toMapById());
