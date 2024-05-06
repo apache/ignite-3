@@ -39,6 +39,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -77,6 +79,7 @@ import org.apache.ignite.internal.table.distributed.disaster.messages.LocalParti
 import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.core.State;
@@ -85,7 +88,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Manager, responsible for "disaster recovery" operations.
  * Internally it triggers meta-storage updates, in order to acquire unique causality token.
- * As a reaction to these updates, manager performs actual recovery operations, such as {@link #resetPartitions(int, int)}.
+ * As a reaction to these updates, manager performs actual recovery operations, such as {@link #resetPartitions(String, String, Set)}.
  * More details are in the <a href="https://issues.apache.org/jira/browse/IGNITE-21140">epic</a>.
  */
 public class DisasterRecoveryManager implements IgniteComponent {
@@ -192,12 +195,23 @@ public class DisasterRecoveryManager implements IgniteComponent {
      * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
      * so that a new leader could be elected.
      *
-     * @param zoneId Distribution zone ID.
-     * @param tableId Table ID.
+     * @param zoneName Name of the distribution zone.
+     * @param tableName Fully-qualified table name.
+     * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
      * @return Operation future.
      */
-    public CompletableFuture<Void> resetPartitions(int zoneId, int tableId) {
-        return processNewRequest(new ManualGroupUpdateRequest(UUID.randomUUID(), zoneId, tableId));
+    public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds) {
+        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+
+        int tableId = Optional.ofNullable(catalog.table(tableName))
+                .orElseThrow(() -> new TableNotFoundException(tableName)).id();
+
+        CatalogZoneDescriptor zone = Optional.ofNullable(catalog.zone(zoneName))
+                .orElseThrow(() -> new DistributionZoneNotFoundException(zoneName));
+
+        checkPartitionsRange(partitionIds, Set.of(zone));
+
+        return processNewRequest(new ManualGroupUpdateRequest(UUID.randomUUID(), zone.id(), tableId, partitionIds));
     }
 
     /**
@@ -309,6 +323,26 @@ public class DisasterRecoveryManager implements IgniteComponent {
             }
 
             return result;
+        });
+    }
+
+    private static void checkPartitionsRange(Set<Integer> partitionIds, Collection<CatalogZoneDescriptor> zones) {
+        if (partitionIds.isEmpty()) {
+            return;
+        }
+
+        int minPartition = partitionIds.stream().min(Integer::compare).get();
+
+        if (minPartition < 0) {
+            throw new IllegalPartitionIdException(minPartition);
+        }
+
+        int maxPartition = partitionIds.stream().max(Integer::compare).get();
+
+        zones.forEach(zone -> {
+            if (maxPartition >= zone.partitions()) {
+                throw new IllegalPartitionIdException(maxPartition, zone.partitions(), zone.name());
+            }
         });
     }
 

@@ -23,6 +23,7 @@ import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.rest.api.InvalidParam;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
 import org.apache.ignite.lang.ErrorGroup;
+import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,24 +41,26 @@ import org.jetbrains.annotations.Nullable;
 @Singleton
 @Requires(classes = {IgniteException.class, ExceptionHandler.class})
 public class IgniteExceptionHandler implements ExceptionHandler<IgniteException, HttpResponse<? extends Problem>> {
+    private static final Set<Integer> BAD_REQUEST_CODES = Set.of(Table.TABLE_NOT_FOUND_ERR);
+
     @Override
     public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteException exception) {
         String detail = extractDetailMessageOrNull(exception);
-
-        if (exception.getCause() instanceof IllegalArgumentException) {
-            return HttpProblemResponse.from(
-                    Problem.fromHttpCode(HttpCode.BAD_REQUEST)
-                            .detail(detail)
-                            .traceId(exception.traceId())
-                            .code(exception.codeAsString())
-            );
-        }
 
         if (exception.getCause() instanceof ConfigurationValidationException) {
             return HttpProblemResponse.from(
                     Problem.fromHttpCode(HttpCode.BAD_REQUEST)
                             .detail(detail)
                             .invalidParams(mapValidationIssuesToRestFormat((ConfigurationValidationException) exception.getCause()))
+                            .traceId(exception.traceId())
+                            .code(exception.codeAsString())
+            );
+        }
+
+        if (exception.getCause() instanceof IllegalArgumentException || BAD_REQUEST_CODES.contains(exception.code())) {
+            return HttpProblemResponse.from(
+                    Problem.fromHttpCode(HttpCode.BAD_REQUEST)
+                            .detail(detail)
                             .traceId(exception.traceId())
                             .code(exception.codeAsString())
             );
