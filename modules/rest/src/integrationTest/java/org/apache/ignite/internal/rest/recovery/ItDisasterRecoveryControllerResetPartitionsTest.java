@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.rest.recovery;
 
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.rest.constants.HttpCode.OK;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -33,18 +32,16 @@ import jakarta.inject.Inject;
 import java.util.Set;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsCommand;
+import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** Test for disaster recovery REST commands. */
+/** Test for disaster recovery reset partitions command, positive cases. */
 @MicronautTest
 public class ItDisasterRecoveryControllerResetPartitionsTest extends ClusterPerTestIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + Cluster.BASE_HTTP_PORT;
 
     private static final Set<String> ZONES = Set.of("first_ZONE", "second_ZONE", "third_ZONE");
-
-    private static final Set<String> TABLE_NAMES = ZONES.stream().map(it -> it + "_table").collect(toSet());
 
     @Inject
     @Client(NODE_URL + "/management/v1/recovery/")
@@ -63,8 +60,8 @@ public class ItDisasterRecoveryControllerResetPartitionsTest extends ClusterPerT
         String zoneName = ZONES.stream().findFirst().get();
         String tableName = zoneName + "_table";
 
-        MutableHttpRequest<ResetPartitionsCommand> post = HttpRequest.POST("/reset-lost-partitions",
-                new ResetPartitionsCommand(zoneName, tableName, Set.of()));
+        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-lost-partitions",
+                new ResetPartitionsRequest(zoneName, tableName, Set.of()));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 
@@ -76,8 +73,8 @@ public class ItDisasterRecoveryControllerResetPartitionsTest extends ClusterPerT
         String zoneName = ZONES.stream().findFirst().get();
         String tableName = zoneName + "_table";
 
-        MutableHttpRequest<ResetPartitionsCommand> post = HttpRequest.POST("/reset-lost-partitions",
-                new ResetPartitionsCommand(zoneName, tableName, Set.of(0, 1)));
+        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-lost-partitions",
+                new ResetPartitionsRequest(zoneName, tableName, Set.of(0, 1)));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 

@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.table.distributed.disaster.LocalPartiti
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.INSTALLING_SNAPSHOT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STATE_ERR;
-import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -204,10 +203,10 @@ public class DisasterRecoveryManager implements IgniteComponent {
     public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds) {
         Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
 
-        int tableId = Optional.ofNullable(catalog.table(parseSimpleName(tableName)))
+        int tableId = Optional.ofNullable(catalog.table(tableName))
                 .orElseThrow(() -> new TableNotFoundException(tableName)).id();
 
-        CatalogZoneDescriptor zone = Optional.ofNullable(catalog.zone(parseSimpleName(zoneName)))
+        CatalogZoneDescriptor zone = Optional.ofNullable(catalog.zone(zoneName))
                 .orElseThrow(() -> new DistributionZoneNotFoundException(zoneName, null));
 
         checkPartitionsRange(partitionIds, Set.of(zone));

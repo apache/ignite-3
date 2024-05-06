@@ -51,7 +51,7 @@ import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStateResponse
 import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStatesResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStatesResponse;
-import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsCommand;
+import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsRequest;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -364,13 +364,15 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         String tableName = TABLE_NAMES.stream().findFirst().get();
 
-        MutableHttpRequest<ResetPartitionsCommand> post = HttpRequest.POST("/reset-lost-partitions",
-                new ResetPartitionsCommand(unknownZone, tableName, Set.of()));
+        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-lost-partitions",
+                new ResetPartitionsRequest(unknownZone, tableName, Set.of()));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
 
         assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
+
+        assertThat(e.getMessage(), containsString("Distribution zone is not found [zoneName=" + unknownZone + "]"));
     }
 
     @Test
@@ -379,13 +381,15 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         String tableName = "unknown_table";
 
-        MutableHttpRequest<ResetPartitionsCommand> post = HttpRequest.POST("/reset-lost-partitions",
-                new ResetPartitionsCommand(zoneName, tableName, Set.of()));
+        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-lost-partitions",
+                new ResetPartitionsRequest(zoneName, tableName, Set.of()));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
 
         assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
+
+        assertThat(e.getMessage(), containsString("The table does not exist [name=" + tableName + "]"));
     }
 
     @Test
@@ -394,8 +398,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         String tableName = zoneName + "_table";
 
-        MutableHttpRequest<ResetPartitionsCommand> post = HttpRequest.POST("/reset-lost-partitions",
-                new ResetPartitionsCommand(zoneName, tableName, Set.of(0, 5, -1, -10)));
+        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-lost-partitions",
+                new ResetPartitionsRequest(zoneName, tableName, Set.of(0, 5, -1, -10)));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -411,8 +415,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         String tableName = zoneName + "_table";
 
-        MutableHttpRequest<ResetPartitionsCommand> post = HttpRequest.POST("/reset-lost-partitions",
-                new ResetPartitionsCommand(zoneName, tableName, Set.of(DEFAULT_PARTITION_COUNT)));
+        MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-lost-partitions",
+                new ResetPartitionsRequest(zoneName, tableName, Set.of(DEFAULT_PARTITION_COUNT)));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));

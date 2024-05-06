@@ -20,6 +20,9 @@ package org.apache.ignite.internal.catalog;
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.unmodifiable;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Comparator.comparingInt;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toUnmodifiableMap;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
@@ -31,9 +34,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.stream.Collector;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -49,12 +50,12 @@ import org.jetbrains.annotations.Nullable;
  */
 public class Catalog {
     private static <T extends CatalogObjectDescriptor> Collector<T, ?, Map<String, T>> toMapByName() {
-        return Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity());
+        return toUnmodifiableMap(CatalogObjectDescriptor::name, identity());
     }
 
     private static <T extends CatalogObjectDescriptor> Collector<T, ?, Int2ObjectMap<T>> toMapById() {
-        return Collectors.collectingAndThen(
-                CollectionUtils.toIntMapCollector(CatalogObjectDescriptor::id, Function.identity()),
+        return collectingAndThen(
+                CollectionUtils.toIntMapCollector(CatalogObjectDescriptor::id, identity()),
                 Int2ObjectMaps::unmodifiable
         );
     }

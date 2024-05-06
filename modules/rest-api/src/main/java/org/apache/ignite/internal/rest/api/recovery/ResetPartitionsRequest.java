@@ -26,9 +26,9 @@ import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.tostring.S;
 
-/** Disaster recovery command to reset partitions. */
+/** Disaster recovery request to reset partitions. */
 @Schema(description = "Reset partitions configuration.")
-public class ResetPartitionsCommand {
+public class ResetPartitionsRequest {
     @Schema(description = "Name of the zone to reset partitions of. Case-sensitive.")
     private final String zoneName;
 
@@ -39,7 +39,7 @@ public class ResetPartitionsCommand {
     private final String tableName;
 
     @JsonCreator
-    public ResetPartitionsCommand(
+    public ResetPartitionsRequest(
             @JsonProperty("zoneName") String zoneName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("partitionIds") Collection<Integer> partitionIds

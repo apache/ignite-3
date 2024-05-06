@@ -88,5 +88,5 @@ public interface DisasterRecoveryApi {
     @ApiResponse(responseCode = "400", description = "Bad request.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @Produces(MediaType.APPLICATION_JSON)
-    CompletableFuture<Void> resetPartitions(@Body ResetPartitionsCommand command);
+    CompletableFuture<Void> resetPartitions(@Body ResetPartitionsRequest command);
 }
