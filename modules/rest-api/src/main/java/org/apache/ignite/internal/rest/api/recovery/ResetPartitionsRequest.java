@@ -38,6 +38,7 @@ public class ResetPartitionsRequest {
     @Schema(description = "Fully-qualified name of the table to reset partitions of. Case-sensitive.")
     private final String tableName;
 
+    /** Constructor. */
     @JsonCreator
     public ResetPartitionsRequest(
             @JsonProperty("zoneName") String zoneName,
