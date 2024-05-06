@@ -718,7 +718,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                     try {
                         placementDriver.addSubgroups(repGrp, meta.getStartTime().longValue(), diff)
-                                .thenCompose(unused -> {
+                                .thenComposeAsync(unused -> {
                                     ArrayList<CompletableFuture<?>> requestToReplicas = new ArrayList<>();
 
                                     for (ReplicationGroupId partId : diff) {
