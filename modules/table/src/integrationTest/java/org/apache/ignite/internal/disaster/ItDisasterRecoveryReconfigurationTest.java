@@ -236,8 +236,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForScale(node0, 3);
 
-        List<Throwable> errorsBeforeReset = insertValues(table, fixingPartId, 0);
-        assertThat(errorsBeforeReset, Matchers.not(empty()));
+        // Should fail because majority was lost.
+        List<Throwable> fixingPartErrorsBeforeReset = insertValues(table, fixingPartId, 0);
+        assertThat(fixingPartErrorsBeforeReset, Matchers.not(empty()));
+
+        List<Throwable> anotherPartErrorsBeforeReset = insertValues(table, anotherPartId, 0);
+        assertThat(anotherPartErrorsBeforeReset, Matchers.not(empty()));
 
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
                 zoneName,
@@ -249,6 +253,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         awaitPrimaryReplica(node0, anotherPartId);
 
+        // Shouldn't fail because partition assignments were reset.
         List<Throwable> fixedPartErrors = insertValues(table, anotherPartId, 0);
         assertThat(fixedPartErrors, is(empty()));
 
