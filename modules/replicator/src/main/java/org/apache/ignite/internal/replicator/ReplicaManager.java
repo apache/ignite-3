@@ -738,7 +738,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                     }
 
                                     return allOf(requestToReplicas.toArray(CompletableFuture[]::new));
-                                }).get(10, TimeUnit.SECONDS);
+                                })
+                                .get(500, TimeUnit.MILLISECONDS);
                     } catch (Exception ex) {
                         LOG.error(
                                 "Failed to add new subgroups to the replication group [repGrp={}, subGroups={}]",

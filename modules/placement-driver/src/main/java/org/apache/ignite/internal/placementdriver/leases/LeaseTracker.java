@@ -571,7 +571,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                         new ZonePartitionId(zonePartitionId.zoneId(), tablePartitionId.tableId(), zonePartitionId.partitionId()),
                         leaseholderId,
                         lease.getLeaseholder(),
-                        lease.getStartTime().tick()
+                        lease.getStartTime()
                 )
         );
     }
