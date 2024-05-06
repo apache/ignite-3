@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.replicator;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -31,7 +29,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.WaitReplicaStateMessage;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeResolver;
 
 /**
@@ -91,24 +88,11 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
     ) {
         ZonePartitionId zonePartitionId = (ZonePartitionId) groupId;
 
-        TablePartitionId tablePartitionId = new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId());
+        assert zonePartitionId.tableId() != 0 : "Table id should be defined.";
 
-        return delegate.awaitPrimaryReplica(tablePartitionId, timestamp, timeout, unit)
-                .thenCompose(replicaMeta -> {
-                    ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
+        ZonePartitionId pureZonePartId = zonePartitionId.purify();
 
-                    if (replicaMeta.subgroups().contains(tablePartitionId)) {
-                        return completedFuture(replicaMeta);
-                    }
-
-                    WaitReplicaStateMessage awaitReplicaReq = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
-                            .groupId(tablePartitionId)
-                            .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                            .timeout(timeout)
-                            .build();
-
-                    return replicaService.invoke(leaseholderNode, awaitReplicaReq).thenApply((ignored) -> replicaMeta);
-                });
+        return delegate.awaitPrimaryReplicaForTable(pureZonePartId, timestamp, timeout, unit);
     }
 
     @Override

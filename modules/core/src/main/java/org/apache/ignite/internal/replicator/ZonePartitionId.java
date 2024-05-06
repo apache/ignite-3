@@ -38,7 +38,7 @@ public class ZonePartitionId implements ReplicationGroupId {
     public ZonePartitionId(int zoneId, int partId) {
         this.zoneId = zoneId;
         this.partId = partId;
-        this.tableId = -1;
+        this.tableId = 0;
     }
 
     /**
@@ -49,6 +49,8 @@ public class ZonePartitionId implements ReplicationGroupId {
      * @param partId Partition id.
      */
     public ZonePartitionId(int zoneId, int tableId, int partId) {
+        assert tableId != 0 : "Use constructor with two parameters.";
+
         this.zoneId = zoneId;
         this.tableId = tableId;
         this.partId = partId;
@@ -91,6 +93,19 @@ public class ZonePartitionId implements ReplicationGroupId {
         String[] parts = str.split("_part_");
 
         return new ZonePartitionId(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
+    }
+
+    /**
+     * Creates a new object if this one has a defined table id or returns itself if it does not have a value of the table id.
+     *
+     * @return Pure zone partition id.
+     */
+    public ZonePartitionId purify() {
+        if (tableId == 0) {
+            return this;
+        }
+
+        return new ZonePartitionId(zoneId, partId);
     }
 
     @Override

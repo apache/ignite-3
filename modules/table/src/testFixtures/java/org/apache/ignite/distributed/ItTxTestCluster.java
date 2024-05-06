@@ -288,7 +288,7 @@ public class ItTxTestCluster {
 
     private CatalogService catalogService;
 
-    private final AtomicInteger globalCatalogId = new AtomicInteger();
+    private final AtomicInteger globalCatalogId = new AtomicInteger(1);
 
     protected final TestLowWatermark lowWatermark = new TestLowWatermark();
 

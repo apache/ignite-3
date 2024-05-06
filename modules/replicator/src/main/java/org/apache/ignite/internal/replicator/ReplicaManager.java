@@ -714,11 +714,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 diff.removeAll(meta.subgroups());
 
                 if (meta.getLeaseholderId().equals(localNodeId) && !diff.isEmpty()) {
-                    LOG.info("New subgroups are found for existing lease [repGrp={}, subGroups={}]", repGrp, diff);
+                    LOG.info("New subgroups are found for existing lease [repGrp={}, subGroups={}].", repGrp, diff);
 
                     try {
                         placementDriver.addSubgroups(repGrp, meta.getStartTime().longValue(), diff)
-                                .thenCompose(unused -> {
+                                .thenComposeAsync(unused -> {
                                     ArrayList<CompletableFuture<?>> requestToReplicas = new ArrayList<>();
 
                                     for (ReplicationGroupId partId : diff) {
@@ -738,10 +738,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                     }
 
                                     return allOf(requestToReplicas.toArray(CompletableFuture[]::new));
-                                }).get(10, TimeUnit.SECONDS);
+                                }, scheduledTableLeaseUpdateExecutor)
+                                .get(500, TimeUnit.MILLISECONDS);
                     } catch (Exception ex) {
                         LOG.error(
-                                "Failed to add new subgroups to the replication group [repGrp={}, subGroups={}]",
+                                "Failed to add new subgroups to the replication group [repGrp={}, subGroups={}].",
                                 ex,
                                 repGrp,
                                 diff

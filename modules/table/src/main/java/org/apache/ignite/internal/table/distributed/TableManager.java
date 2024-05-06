@@ -1501,6 +1501,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     private CompletableFuture<Void> destroyTableLocally(int tableId) {
         TableImpl table = startedTables.remove(tableId);
+
         localPartsByTableId.remove(tableId);
 
         assert table != null : tableId;

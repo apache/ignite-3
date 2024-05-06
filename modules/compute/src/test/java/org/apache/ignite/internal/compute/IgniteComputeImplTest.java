@@ -108,6 +108,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         lenient().when(topologyService.getByConsistentId(localNode.name())).thenReturn(localNode);
         lenient().when(topologyService.getByConsistentId(remoteNode.name())).thenReturn(remoteNode);
         lenient().when(table.internalTable()).thenReturn(internalTable);
+        lenient().when(table.tableId()).thenReturn(42);
     }
 
     @Test
