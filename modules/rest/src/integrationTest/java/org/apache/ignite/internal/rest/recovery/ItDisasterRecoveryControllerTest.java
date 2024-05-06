@@ -362,7 +362,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     public void testResetPartitionZoneNotFound() {
         String unknownZone = "unknown_zone";
 
-        String tableName = TABLE_NAMES.stream().findFirst().get();
+        String tableName = "PUBLIC." + TABLE_NAMES.stream().findFirst().get();
 
         MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-lost-partitions",
                 new ResetPartitionsRequest(unknownZone, tableName, Set.of()));
@@ -396,7 +396,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     void testResetPartitionsIllegalPartitionNegative() {
         String zoneName = ZONES.stream().findFirst().get();
 
-        String tableName = zoneName + "_table";
+        String tableName = "PUBLIC." + zoneName + "_table";
 
         MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-lost-partitions",
                 new ResetPartitionsRequest(zoneName, tableName, Set.of(0, 5, -1, -10)));
@@ -413,7 +413,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     void testResetPartitionsPartitionsOutOfRange() {
         String zoneName = ZONES.stream().findFirst().get();
 
-        String tableName = zoneName + "_table";
+        String tableName = "PUBLIC." + zoneName + "_table";
 
         MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST("/reset-lost-partitions",
                 new ResetPartitionsRequest(zoneName, tableName, Set.of(DEFAULT_PARTITION_COUNT)));
