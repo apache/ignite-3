@@ -73,6 +73,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
         when(msManager.getLocally(any(), anyLong())).thenAnswer(invocation -> emptyEntry);
 
         LeaseTracker leaseTracker = new LeaseTracker(
+                "testNode",
                 msManager,
                 mock(ClusterNodeResolver.class),
                 new TestClockService(new HybridClockImpl()),
