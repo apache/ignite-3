@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.commands.DefaultValue.Type.FUNCTION_CALL;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -37,6 +38,8 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
@@ -593,7 +596,48 @@ public class CatalogUtils {
     /**
      * Return {@code true} if a function with given name is allowed to be used as functional default for a column, {@code false} otherwise.
      */
-    public static boolean isSupportedFunctionalDefault(String functionName) {
+    static boolean isSupportedFunctionalDefault(String functionName) {
         return FUNCTIONAL_DEFAULT_FUNCTIONS.contains(functionName.toUpperCase());
+    }
+
+    /**
+     * Check if provided default value is a constant or a functional default of supported function, or fail otherwise.
+     */
+    static void ensureSupportedDefault(String columnName, @Nullable DefaultValue defaultValue) {
+        if (defaultValue == null || defaultValue.type == Type.CONSTANT) {
+            return;
+        }
+
+        if (defaultValue.type == FUNCTION_CALL) {
+            String functionName = ((FunctionCall) defaultValue).functionName();
+
+            if (isSupportedFunctionalDefault(functionName)) {
+                return;
+            }
+
+            throw new CatalogValidationException(
+                    format("Functional default contains unsupported function: [col={}, functionName={}]",
+                            columnName, functionName));
+        }
+
+        throw new CatalogValidationException(
+                format("Default of unsupported kind: [col={}, defaultType={}]", columnName, defaultValue.type));
+    }
+
+    /**
+     * Check if provided default value is a constant, or fail otherwise.
+     */
+    static void ensureNonFunctionalDefault(String columnName, @Nullable DefaultValue defaultValue) {
+        if (defaultValue == null || defaultValue.type == Type.CONSTANT) {
+            return;
+        }
+
+        if (defaultValue.type == FUNCTION_CALL) {
+            throw new CatalogValidationException(
+                    format("Functional defaults are not supported for non-primary key columns [col={}].", columnName));
+        }
+
+        throw new CatalogValidationException(
+                format("Default of unsupported kind: [col={}, defaultType={}]", columnName, defaultValue.type));
     }
 }

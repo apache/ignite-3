@@ -101,6 +101,8 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
 
         if (table.isPrimaryKeyColumn(origin.name())) {
             validatePkColumnChange(origin);
+        } else {
+            validateValueColumnChange(origin);
         }
 
         validateColumnChange(origin);
@@ -145,6 +147,19 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
         }
         if (nullable != null && nullable) {
             throw new CatalogValidationException("Dropping NOT NULL constraint on key column is not allowed");
+        }
+        if (deferredDefault != null) {
+            DefaultValue defaultValue = deferredDefault.derive(origin.type());
+
+            CatalogUtils.ensureSupportedDefault(columnName, defaultValue);
+        }
+    }
+
+    private void validateValueColumnChange(CatalogTableColumnDescriptor origin) {
+        if (deferredDefault != null) {
+            DefaultValue defaultValue = deferredDefault.derive(origin.type());
+
+            CatalogUtils.ensureNonFunctionalDefault(columnName, defaultValue);
         }
     }
 
