@@ -32,6 +32,7 @@ import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -363,7 +364,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private AsyncCursor<InternalSqlRow> executeDdl(DdlPlan plan, @Nullable QueryPrefetchCallback callback) {
         CompletableFuture<Iterator<InternalSqlRow>> ret = ddlCmdHnd.handle(plan.command())
-                .thenApply(applied -> (applied ? APPLIED_ANSWER : NOT_APPLIED_ANSWER).iterator())
+                .thenApply(applied -> Collections.<InternalSqlRow>emptyIterator())
                 .exceptionally(th -> {
                     throw convertDdlException(th);
                 });
