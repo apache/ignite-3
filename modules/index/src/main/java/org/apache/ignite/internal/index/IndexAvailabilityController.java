@@ -212,7 +212,12 @@ class IndexAvailabilityController implements ManuallyCloseable {
             }
         });
 
-        indexBuilder.listen((indexId, tableId, partitionId) -> onIndexBuildCompletionForPartition(indexId, partitionId));
+        indexBuilder.listen(new IndexBuildCompletionListener() {
+            @Override
+            public void onBuildCompletion(int indexId, int tableId, int partitionId) {
+                onIndexBuildCompletionForPartition(indexId, partitionId);
+            }
+        });
     }
 
     private CompletableFuture<?> onIndexBuilding(StartBuildingIndexEventParameters parameters) {

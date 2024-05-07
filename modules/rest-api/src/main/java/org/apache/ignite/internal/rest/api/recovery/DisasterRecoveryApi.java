@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.rest.api.recovery;
 
+import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
+import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.Produces;
 import io.micronaut.http.annotation.QueryValue;
 import io.swagger.v3.oas.annotations.Operation;
@@ -73,4 +75,18 @@ public interface DisasterRecoveryApi {
             @Schema(description = "IDs of partitions to get states of. All partitions if empty.")
             Optional<Set<Integer>> partitionIds
     );
+
+    @Post("reset-partitions")
+    @Operation(
+            operationId = "reset-partitions",
+            description = "Updates assignments of partitions in a forced manner, allowing for the recovery of raft groups with "
+                    + "lost majorities."
+    )
+    @ApiResponse(responseCode = "200", description = "Partition states reset.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "400", description = "Bad request.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @Produces(MediaType.APPLICATION_JSON)
+    CompletableFuture<Void> resetPartitions(@Body ResetPartitionsRequest command);
 }

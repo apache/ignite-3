@@ -28,9 +28,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,13 +42,14 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileChange;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
+import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
@@ -61,10 +62,10 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Class to test the {@link AbstractFreeList}.
+ * Class to test the {@link FreeListImpl}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class AbstractFreeListTest extends BaseIgniteAbstractTest {
+public class FreeListImplTest extends BaseIgniteAbstractTest {
     private static final long MAX_SIZE = 1024 * MiB;
 
     private static final int BATCH_SIZE = 100;
@@ -85,7 +86,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("provideTestArguments")
     void testSingleTread(int pageSize, boolean batched) throws Exception {
-        FreeList<TestDataRow> freeList = createFreeList(pageSize);
+        FreeList freeList = createFreeList(pageSize);
 
         Map<Long, TestDataRow> stored = new HashMap<>();
 
@@ -97,7 +98,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("provideTestArguments")
     void testMultiThread(int pageSize, boolean batched) throws Exception {
-        FreeList<TestDataRow> freeList = createFreeList(pageSize);
+        FreeList freeList = createFreeList(pageSize);
 
         Map<Long, TestDataRow> stored = new ConcurrentHashMap<>();
 
@@ -135,30 +136,29 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private FreeList<TestDataRow> createFreeList(int pageSize) throws Exception {
+    private FreeList createFreeList(int pageSize) throws Exception {
         pageMemory = createPageMemory(pageSize);
 
         pageMemory.start();
 
         long metaPageId = pageMemory.allocatePage(1, 1, FLAG_DATA);
 
-        return new AbstractFreeList<>(
+        return new FreeListImpl(
                 0,
                 1,
-                "freelist",
+                "TestFreeList",
                 pageMemory,
                 null,
                 PageLockListenerNoOp.INSTANCE,
-                log,
                 metaPageId,
                 true,
                 null,
-                PageEvictionTrackerNoOp.INSTANCE
+                PageEvictionTrackerNoOp.INSTANCE,
+                IoStatisticsHolderNoOp.INSTANCE
         ) {
-            /** {@inheritDoc} */
             @Override
-            public void insertDataRow(TestDataRow row, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
-                super.insertDataRow(row, statHolder);
+            public void insertDataRow(Storable row) throws IgniteInternalCheckedException {
+                super.insertDataRow(row);
 
                 assertEquals(row.partition(), partitionId(row.link()));
             }
@@ -176,7 +176,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
 
         ioRegistry.loadFromServiceLoader();
 
-        ioRegistry.load(TestDataPageIo.VERSIONS);
+        ioRegistry.load(DataPageIo.VERSIONS);
 
         return new VolatilePageMemory(
                 (VolatilePageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),
@@ -185,7 +185,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private void prepare(FreeList<TestDataRow> freeList, Map<Long, TestDataRow> stored) throws Exception {
+    private void prepare(FreeList freeList, Map<Long, TestDataRow> stored) throws Exception {
         Random rnd = ThreadLocalRandom.current();
 
         for (int i = 0; i < 100; i++) {
@@ -193,7 +193,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
 
             TestDataRow row = new TestDataRow(size);
 
-            freeList.insertDataRow(row, IoStatisticsHolderNoOp.INSTANCE);
+            freeList.insertDataRow(row);
 
             assertNotEquals(0L, row.link());
 
@@ -204,12 +204,12 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
     }
 
     private void insertDeleteRows(
-            FreeList<TestDataRow> freeList,
+            FreeList freeList,
             Map<Long, TestDataRow> stored,
             AtomicBoolean grow,
             boolean batched
     ) throws Exception {
-        List<TestDataRow> rows = new ArrayList<>(BATCH_SIZE);
+        Collection<TestDataRow> rows = new ArrayList<>(BATCH_SIZE);
 
         Random rnd = ThreadLocalRandom.current();
 
@@ -245,7 +245,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
                     rows.add(row);
 
                     if (rows.size() == BATCH_SIZE) {
-                        freeList.insertDataRows(rows, IoStatisticsHolderNoOp.INSTANCE);
+                        freeList.insertDataRows(rows);
 
                         for (TestDataRow row0 : rows) {
                             assertNotEquals(0L, row0.link());
@@ -261,7 +261,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
                     continue;
                 }
 
-                freeList.insertDataRow(row, IoStatisticsHolderNoOp.INSTANCE);
+                freeList.insertDataRow(row);
 
                 assertNotEquals(0L, row.link());
 
@@ -278,7 +278,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
                         TestDataRow rmvd = stored.remove(row.link());
 
                         if (rmvd != null) {
-                            freeList.removeDataRowByLink(row.link(), IoStatisticsHolderNoOp.INSTANCE);
+                            freeList.removeDataRowByLink(row.link());
 
                             break;
                         }

@@ -21,7 +21,7 @@ import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_NOT_FOUN
 
 import java.util.Set;
 
-/** Exception is thrown when appropriate node can`t be found. */
+/** Exception is thrown when appropriate zones can`t be found. */
 public class ZonesNotFoundException extends DisasterRecoveryException {
     private static final long serialVersionUID = -8475588176132321568L;
 
