@@ -34,9 +34,7 @@ import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -52,8 +50,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogManager;

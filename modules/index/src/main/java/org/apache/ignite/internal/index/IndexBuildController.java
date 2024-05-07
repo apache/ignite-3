@@ -148,8 +148,6 @@ class IndexBuildController implements ManuallyCloseable {
 
             for (TablePartitionId primaryReplicaId : primaryReplicaIds) {
                 if (primaryReplicaId.tableId() == indexDescriptor.tableId()) {
-                    int tableId = indexDescriptor.tableId();
-
                     CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
                             .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, clockService.now())
                                     .thenAccept(replicaMeta -> tryScheduleBuildIndex(
