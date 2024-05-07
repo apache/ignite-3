@@ -994,7 +994,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                         newConfiguration,
                                         raftClientCacheClojure(internalTbl, replicaGrpId),
                                         createListener,
-                                        storageIndexTracker);
+                                        storageIndexTracker)
+                                .join();
                     } catch (NodeStoppingException ex) {
                         throw new AssertionError("Loza was stopped before Table manager", ex);
                     }

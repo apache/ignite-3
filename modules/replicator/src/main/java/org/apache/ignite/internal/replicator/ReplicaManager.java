@@ -654,9 +654,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             PeersAndLearners newConfiguration)
             throws NodeStoppingException {
         // TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
-        var clientFut = raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
-        clientFut.join();
-        return clientFut;
+        return raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
     }
 
     /**
