@@ -302,6 +302,16 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         );
     }
 
+    protected DBOptions createDbOptions() {
+        DBOptions options = new DBOptions()
+                .setCreateMissingColumnFamilies(true)
+                .setCreateIfMissing(true);
+
+        rocksResources.add(options);
+
+        return options;
+    }
+
     protected void createDb() throws RocksDBException {
         List<ColumnFamilyDescriptor> descriptors = cfDescriptors();
 
@@ -309,10 +319,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         var handles = new ArrayList<ColumnFamilyHandle>(descriptors.size());
 
-        options = new DBOptions()
-                .setCreateMissingColumnFamilies(true)
-                .setCreateIfMissing(true);
-        rocksResources.add(options);
+        options = createDbOptions();
 
         db = RocksDB.open(options, dbPath.toAbsolutePath().toString(), descriptors, handles);
         rocksResources.add(db);
