@@ -64,6 +64,7 @@ public class CreateSchemaCommand implements CatalogCommand {
                 );
     }
 
+    /** Returns builder to create a command to create a new schema. */
     public static Builder builder() {
         return new Builder();
     }
@@ -72,10 +73,6 @@ public class CreateSchemaCommand implements CatalogCommand {
     public static class Builder implements CreateSchemaCommandBuilder {
 
         private String name;
-
-        Builder() {
-
-        }
 
         /** {@inheritDoc} */
         @Override
