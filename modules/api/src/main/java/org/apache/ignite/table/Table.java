@@ -17,8 +17,8 @@
 
 package org.apache.ignite.table;
 
-import org.apache.ignite.table.criteria.Partition;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.Partition;
 import org.apache.ignite.table.partition.PartitionManager;
 
 /**

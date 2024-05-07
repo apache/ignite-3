@@ -95,7 +95,7 @@ public class ItPartitionManagerTest extends ClusterPerTestIntegrationTest {
                     Tuple tuple = tuple(registry.resolve(item, registry.lastKnownSchemaVersion()));
 
                     Tuple key = Tuple.create().set("key", tuple.intValue("key"));
-                    assertThat(partitionManager.partitionFromKeyAsync(key), willBe(value));
+                    assertThat(partitionManager.partitionAsync(key), willBe(value));
                 }
 
                 @Override

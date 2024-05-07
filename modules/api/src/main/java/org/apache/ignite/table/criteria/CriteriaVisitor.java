@@ -17,6 +17,7 @@
 
 package org.apache.ignite.table.criteria;
 
+import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,7 +56,7 @@ public interface CriteriaVisitor<C> {
      * @param partition Partition to visit.
      * @param context context of the visit or {@code null}, if not used.
      */
-    void visit(Partition partition, @Nullable C context);
+    void visit(PartitionCriteria partition, @Nullable C context);
 
     /**
      * Visit a {@link Criteria} instance with the given context.

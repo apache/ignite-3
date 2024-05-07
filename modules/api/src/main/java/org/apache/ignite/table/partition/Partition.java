@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.criteria;
+package org.apache.ignite.table.partition;
 
 /**
  * Marker interface which represents a partition reference for criteria query.
  */
-public interface Partition extends Criteria {
+public interface Partition {
 
 }

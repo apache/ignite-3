@@ -38,14 +38,14 @@ public interface PartitionManager<T> {
      * @param partition Partition instance.
      * @return Cluster node where primary replica of provided partition is located.
      */
-    CompletableFuture<ClusterNode> mapPrimaryToNodeAsync(T partition);
+    CompletableFuture<ClusterNode> primaryReplicaAsync(T partition);
 
     /**
      * Returns map with all partitions and their locations.
      *
      * @return Map from partition to cluster node where primary replica of the partition is located.
      */
-    CompletableFuture<Map<T, ClusterNode>> allPartitionsAsync();
+    CompletableFuture<Map<T, ClusterNode>> primaryReplicasAsync();
 
     /**
      * Returns partition instance for provided table key.
@@ -55,7 +55,7 @@ public interface PartitionManager<T> {
      * @param <K> Key type.
      * @return Partition instance which contains provided key.
      */
-    <K> CompletableFuture<T> partitionFromKeyAsync(K key, Mapper<K> mapper);
+    <K> CompletableFuture<T> partitionAsync(K key, Mapper<K> mapper);
 
     /**
      * Returns partition instance for provided table key.
@@ -63,5 +63,5 @@ public interface PartitionManager<T> {
      * @param key Table key tuple.
      * @return Partition instance which contains provided key.
      */
-    CompletableFuture<T> partitionFromKeyAsync(Tuple key);
+    CompletableFuture<T> partitionAsync(Tuple key);
 }

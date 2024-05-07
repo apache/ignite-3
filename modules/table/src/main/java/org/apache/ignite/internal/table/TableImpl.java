@@ -50,8 +50,8 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.criteria.Partition;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.Partition;
 import org.apache.ignite.table.partition.PartitionManager;
 import org.jetbrains.annotations.TestOnly;
 

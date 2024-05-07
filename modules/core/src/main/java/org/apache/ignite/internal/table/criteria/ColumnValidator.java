@@ -25,7 +25,7 @@ import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaVisitor;
 import org.apache.ignite.table.criteria.Expression;
 import org.apache.ignite.table.criteria.Parameter;
-import org.apache.ignite.table.criteria.Partition;
+import org.apache.ignite.table.criteria.PartitionCriteria;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -59,7 +59,7 @@ class ColumnValidator implements CriteriaVisitor<Collection<String>> {
     }
 
     @Override
-    public void visit(Partition partition, @Nullable Collection<String> context) {
+    public void visit(PartitionCriteria partition, @Nullable Collection<String> context) {
         // No-op.
     }
 

@@ -69,12 +69,12 @@ public class HashPartitionManagerImpl implements PartitionManager<HashPartition>
     }
 
     @Override
-    public CompletableFuture<ClusterNode> mapPrimaryToNodeAsync(HashPartition partition) {
+    public CompletableFuture<ClusterNode> primaryReplicaAsync(HashPartition partition) {
         return table.partitionLocation(new TablePartitionId(table.tableId(), partition.partitionId()));
     }
 
     @Override
-    public CompletableFuture<Map<HashPartition, ClusterNode>> allPartitionsAsync() {
+    public CompletableFuture<Map<HashPartition, ClusterNode>> primaryReplicasAsync() {
         HashPartition[] allPartitions = IntStream.range(0, table.partitions())
                 .mapToObj(HashPartition::new)
                 .toArray(HashPartition[]::new);
@@ -96,7 +96,7 @@ public class HashPartitionManagerImpl implements PartitionManager<HashPartition>
     }
 
     @Override
-    public <K> CompletableFuture<HashPartition> partitionFromKeyAsync(K key, Mapper<K> mapper) {
+    public <K> CompletableFuture<HashPartition> partitionAsync(K key, Mapper<K> mapper) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(mapper);
 
@@ -112,7 +112,7 @@ public class HashPartitionManagerImpl implements PartitionManager<HashPartition>
     }
 
     @Override
-    public CompletableFuture<HashPartition> partitionFromKeyAsync(Tuple key) {
+    public CompletableFuture<HashPartition> partitionAsync(Tuple key) {
         Objects.requireNonNull(key);
 
         try {

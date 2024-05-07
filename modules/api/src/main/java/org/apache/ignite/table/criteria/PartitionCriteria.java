@@ -15,42 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.partition;
+package org.apache.ignite.table.criteria;
 
-import java.io.Serializable;
+import org.apache.ignite.table.partition.Partition;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Hash partition representation.
+ * Represents a partition reference for criteria query.
  */
-public class HashPartition implements Partition, Serializable {
-    private static final long serialVersionUID = 1717320056615864614L;
-
-    private final int partitionId;
-
-    public HashPartition(int partitionId) {
-        this.partitionId = partitionId;
-    }
-
-    public int partitionId() {
-        return partitionId;
-    }
-
+// TODO: IGNITE-22153
+public class PartitionCriteria implements Partition, Criteria {
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        HashPartition that = (HashPartition) o;
-
-        return partitionId == that.partitionId;
-    }
-
-    @Override
-    public int hashCode() {
-        return partitionId;
+    public <C> void accept(CriteriaVisitor<C> v, @Nullable C context) {
+        v.visit(this, context);
     }
 }
