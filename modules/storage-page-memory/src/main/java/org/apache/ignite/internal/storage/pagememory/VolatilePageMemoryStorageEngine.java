@@ -150,7 +150,13 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
         assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getStorageProfile();
 
-        return new VolatilePageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, dataRegion, destructionExecutor);
+        return new VolatilePageMemoryTableStorage(
+                tableDescriptor,
+                indexDescriptorSupplier,
+                dataRegion,
+                destructionExecutor,
+                pageEvictionTracker
+        );
     }
 
     @Override

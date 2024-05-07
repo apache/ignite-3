@@ -35,6 +35,8 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -98,16 +100,20 @@ public class Loza implements RaftManager {
 
     private final NodeOptions opts;
 
+    private final MetricManager metricManager;
+
     /**
      * The constructor.
      *
      * @param clusterNetSvc Cluster network service.
+     * @param metricManager Metric manager.
      * @param raftConfiguration Raft configuration.
      * @param dataPath Data path.
      * @param clock A hybrid logical clock.
      */
     public Loza(
             ClusterService clusterNetSvc,
+            MetricManager metricManager,
             RaftConfiguration raftConfiguration,
             Path dataPath,
             HybridClock clock,
@@ -115,6 +121,7 @@ public class Loza implements RaftManager {
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.raftConfiguration = raftConfiguration;
+        this.metricManager = metricManager;
 
         NodeOptions options = new NodeOptions();
 
@@ -135,6 +142,7 @@ public class Loza implements RaftManager {
      * The constructor.
      *
      * @param clusterNetSvc Cluster network service.
+     * @param metricManager Metric manager.
      * @param raftConfiguration Raft configuration.
      * @param dataPath Data path.
      * @param clock A hybrid logical clock.
@@ -142,12 +150,14 @@ public class Loza implements RaftManager {
     @TestOnly
     public Loza(
             ClusterService clusterNetSvc,
+            MetricManager metricManager,
             RaftConfiguration raftConfiguration,
             Path dataPath,
             HybridClock clock
     ) {
         this(
                 clusterNetSvc,
+                metricManager,
                 raftConfiguration,
                 dataPath,
                 clock,
@@ -180,6 +190,11 @@ public class Loza implements RaftManager {
     public CompletableFuture<Void> startAsync() {
         RaftView raftConfig = raftConfiguration.value();
 
+        var stripeSource = new RaftMetricSource(raftConfiguration.value().stripes(), raftConfiguration.value().logStripesCount());
+
+        metricManager.registerSource(stripeSource);
+
+        opts.setRaftMetrics(stripeSource);
         opts.setRpcInstallSnapshotTimeout(raftConfig.rpcInstallSnapshotTimeout());
         opts.setStripes(raftConfig.stripes());
         opts.setLogStripesCount(raftConfig.logStripesCount());

@@ -28,6 +28,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "Information about local partition state.")
 public class LocalPartitionStateResponse {
     private final int partitionId;
+    private final String zoneName;
     private final String tableName;
     private final String nodeName;
     private final String state;
@@ -39,11 +40,13 @@ public class LocalPartitionStateResponse {
     public LocalPartitionStateResponse(
             @JsonProperty("partitionId") int partitionId,
             @JsonProperty("tableName") String tableName,
+            @JsonProperty("zoneName") String zoneName,
             @JsonProperty("nodeName") String nodeName,
             @JsonProperty("state") String state
     ) {
         this.partitionId = partitionId;
         this.tableName = tableName;
+        this.zoneName = zoneName;
         this.nodeName = nodeName;
         this.state = state;
     }
@@ -61,6 +64,11 @@ public class LocalPartitionStateResponse {
     @JsonGetter("nodeName")
     public String nodeName() {
         return nodeName;
+    }
+
+    @JsonGetter("zoneName")
+    public String zoneName() {
+        return zoneName;
     }
 
     @JsonGetter("state")

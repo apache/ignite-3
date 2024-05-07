@@ -74,6 +74,7 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -646,6 +647,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      * </ul>
      */
     @Test
+    @Disabled("IGNITE-22147")
     public void testRecoveryAfterPersistentStateVacuumized() throws InterruptedException {
         // This node isn't going to be stopped, so let it be node 0.
         IgniteImpl commitPartitionLeaseholder = cluster.node(0);

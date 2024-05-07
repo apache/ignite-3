@@ -20,11 +20,9 @@ package org.apache.ignite.internal.pagememory.io;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -158,7 +156,10 @@ import org.apache.ignite.internal.pagememory.util.PageUtils;
  *     +-----------------------------------------------------------------------+
  * </pre>
  */
-public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
+public class DataPageIo extends PageIo {
+    /** Data page IO type. */
+    private static final short T_DATA_PAGE_IO = 1000;
+
     private static final int SHOW_ITEM = 0b0001;
 
     private static final int SHOW_PAYLOAD_LEN = 0b0010;
@@ -190,17 +191,20 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
 
     /** Special index value that signals that the given itemId does not exist. */
     private static final int NON_EXISTENT_ITEM_INDEX = -1;
+
     /** Special offset value that signals that the given itemId does not exist. */
     private static final int NON_EXISTENT_ITEM_OFFSET = -1;
+
+    /** I/O versions. */
+    public static final IoVersions<DataPageIo> VERSIONS = new IoVersions<>(new DataPageIo(1));
 
     /**
      * Constructor.
      *
-     * @param type Page type.
      * @param ver Page format version.
      */
-    protected AbstractDataPageIo(int type, int ver) {
-        super(type, ver, FLAG_DATA);
+    protected DataPageIo(int ver) {
+        super(T_DATA_PAGE_IO, ver, FLAG_DATA);
     }
 
     /** {@inheritDoc} */
@@ -391,42 +395,6 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
      */
     public int getDirectCount(long pageAddr) {
         return PageUtils.getByte(pageAddr, DIRECT_CNT_OFF) & 0xFF;
-    }
-
-    /**
-     * Returns rows number in the given data page.
-     *
-     * @param pageAddr Page address.
-     */
-    public int getRowsCount(long pageAddr) {
-        return getDirectCount(pageAddr);
-    }
-
-    /**
-     * Applies closure to all items in the page.
-     *
-     * @param pageAddr Page address.
-     * @param c Closure.
-     * @param <U> Closure return type.
-     * @return Collection of closure results for all items in page.
-     * @throws IgniteInternalCheckedException In case of error in closure body.
-     */
-    public <U> List<U> forAllItems(long pageAddr, Closure<U> c) throws IgniteInternalCheckedException {
-        assertPageType(pageAddr);
-
-        long pageId = getPageId(pageAddr);
-
-        int cnt = getDirectCount(pageAddr);
-
-        List<U> res = new ArrayList<>(cnt);
-
-        for (int i = 0; i < cnt; i++) {
-            long link = PageIdUtils.link(pageId, i);
-
-            res.add(c.apply(link));
-        }
-
-        return res;
     }
 
     /**
@@ -1033,15 +1001,14 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
      * @param row Data row.
      * @param rowSize Row size.
      * @param pageSize Page size.
-     * @throws IgniteInternalCheckedException If failed.
      */
     public void addRow(
             final long pageId,
             final long pageAddr,
-            T row,
+            Storable row,
             final int rowSize,
             final int pageSize
-    ) throws IgniteInternalCheckedException {
+    ) {
         assert rowSize <= getFreeSpace(pageAddr) : "can't call addRow if not enough space for the whole row";
         assert rowSize <= 0xFFFF : "Row size is too big: " + rowSize;
         assertPageType(pageAddr);
@@ -1053,7 +1020,7 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
 
         int dataOff = getDataOffsetForWrite(pageAddr, fullEntrySize, directCnt, indirectCnt, pageSize);
 
-        writeRowData(pageAddr, dataOff, rowSize, row, true);
+        row.writeRowData(pageAddr, dataOff, rowSize, true);
 
         int itemId = addItem(pageAddr, fullEntrySize, directCnt, indirectCnt, dataOff, pageSize);
 
@@ -1160,7 +1127,7 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
             PageMemory pageMem,
             long pageId,
             long pageAddr,
-            T row,
+            Storable row,
             int written,
             int rowSize,
             int pageSize
@@ -1192,7 +1159,7 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
 
         int rowOff = rowSize - written - payloadSize;
 
-        writeFragmentData(row, buf, rowOff, payloadSize);
+        row.writeFragmentData(buf, rowOff, payloadSize);
 
         int itemId = addItem(pageAddr, fullEntrySize, directCnt, indirectCnt, dataOff, pageSize);
 
@@ -1210,45 +1177,8 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
      * @param pageId Page ID.
      * @param itemId Item ID.
      */
-    private void setLinkByPageId(T row, long pageId, int itemId) {
+    private void setLinkByPageId(Storable row, long pageId, int itemId) {
         row.link(PageIdUtils.link(pageId, itemId));
-    }
-
-    /**
-     * Writes row data fragment.
-     *
-     * @param row Row.
-     * @param pageBuf Byte buffer.
-     * @param rowOff Offset in row data bytes.
-     * @param payloadSize Data length that should be written in a fragment.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    protected abstract void writeFragmentData(
-            final T row,
-            final ByteBuffer pageBuf,
-            final int rowOff,
-            final int payloadSize
-    ) throws IgniteInternalCheckedException;
-
-    /**
-     * Writes a content of a byte buffer into a page.
-     *
-     * @param pageBuffer Direct page buffer.
-     * @param valueBuffer Byte buffer with value bytes.
-     * @param offset Offset within the value buffer.
-     * @param payloadSize Number of bytes to write.
-     */
-    protected void putValueBufferIntoPage(ByteBuffer pageBuffer, ByteBuffer valueBuffer, int offset, int payloadSize) {
-        int oldPosition = valueBuffer.position();
-        int oldLimit = valueBuffer.limit();
-
-        valueBuffer.position(offset);
-        valueBuffer.limit(offset + payloadSize);
-
-        pageBuffer.put(valueBuffer);
-
-        valueBuffer.position(oldPosition);
-        valueBuffer.limit(oldLimit);
     }
 
     /**
@@ -1420,37 +1350,10 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
         PageUtils.copyMemory(addr, off, addr, off + step, cnt);
     }
 
-    /**
-     * Writes a row.
-     *
-     * @param pageAddr Page address.
-     * @param dataOff Data offset.
-     * @param payloadSize Payload size.
-     * @param row Data row.
-     * @param newRow {@code False} if existing cache entry is updated, in this case skip key data write.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    protected abstract void writeRowData(
-            long pageAddr,
-            int dataOff,
-            int payloadSize,
-            T row,
-            boolean newRow
-    ) throws IgniteInternalCheckedException;
-
-    /**
-     * Defines closure interface for applying computations to data page items.
-     *
-     * @param <T> Closure return type.
-     */
-    public interface Closure<T> {
-        /**
-         * Closure body.
-         *
-         * @param link Link to item.
-         * @return Closure return value.
-         * @throws IgniteInternalCheckedException In case of error in closure body.
-         */
-        T apply(long link) throws IgniteInternalCheckedException;
+    @Override
+    protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
+        sb.app("DataPageIo [\n");
+        printPageLayout(addr, pageSize, sb);
+        sb.app("\n]");
     }
 }

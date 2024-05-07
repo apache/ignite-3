@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -41,6 +42,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     private final VolatilePageMemoryDataRegion dataRegion;
 
     private final ExecutorService destructionExecutor;
+    private final PageEvictionTracker pageEvictionTracker;
 
     /**
      * Constructor.
@@ -49,17 +51,20 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
      * @param indexDescriptorSupplier Index descriptor supplier.
      * @param dataRegion Data region for the table.
      * @param destructionExecutor Executor used to destruct partitions.
+     * @param pageEvictionTracker Page eviction tracker.
      */
     VolatilePageMemoryTableStorage(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier,
             VolatilePageMemoryDataRegion dataRegion,
-            ExecutorService destructionExecutor
+            ExecutorService destructionExecutor,
+            PageEvictionTracker pageEvictionTracker
     ) {
         super(tableDescriptor, indexDescriptorSupplier);
 
         this.dataRegion = dataRegion;
         this.destructionExecutor = destructionExecutor;
+        this.pageEvictionTracker = pageEvictionTracker;
     }
 
     @Override
@@ -78,6 +83,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
         return new VolatilePageMemoryMvPartitionStorage(
                 this,
                 partitionId,
+                pageEvictionTracker,
                 versionChainTree,
                 indexMetaTree,
                 gcQueue,

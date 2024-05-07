@@ -135,6 +135,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             final var nodeName = unpacker.unpackString();
             unpacker.skipValue(); // Cluster id.
             unpacker.skipValue(); // Cluster name.
+            unpacker.skipValue(); // Observable timestamp.
 
             unpacker.skipValue(); // Major.
             unpacker.skipValue(); // Minor.
@@ -150,7 +151,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(72, len);
+            assertEquals(81, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
@@ -270,32 +271,21 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             final var success = unpacker.tryUnpackNil();
             assertTrue(success);
 
-            final var idleTimeout = unpacker.unpackLong();
-            final var nodeId = unpacker.unpackString();
-            final var nodeName = unpacker.unpackString();
+            var idleTimeout = unpacker.unpackLong();
+            var nodeId = unpacker.unpackString();
+            var nodeName = unpacker.unpackString();
+
             unpacker.skipValue(); // Cluster id.
-            unpacker.skipValue(); // Cluster name.
-
-            unpacker.skipValue(); // Major.
-            unpacker.skipValue(); // Minor.
-            unpacker.skipValue(); // Maintenance.
-            unpacker.skipValue(); // Patch.
-            unpacker.skipValue(); // Pre release.
-
-            var featuresLen = unpacker.unpackBinaryHeader();
-            unpacker.skipValue(featuresLen);
-
-            var extensionsLen = unpacker.unpackInt();
-            unpacker.skipValue(extensionsLen);
+            var clusterName = unpacker.unpackString();
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(72, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
             assertEquals(5000, idleTimeout);
             assertEquals("id", nodeId);
             assertEquals("consistent-id", nodeName);
+            assertEquals("Test Server", clusterName);
         }
     }
 

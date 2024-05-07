@@ -222,7 +222,7 @@ public class ScannableTableImpl implements ScannableTable {
     ) {
         TableRowConverter converter = converterFactory.create(requiredColumns);
 
-        BinaryRowEx keyRow = converter.toBinaryRow(ctx, key, true);
+        BinaryRowEx keyRow = converter.toKeyRow(ctx, key);
 
         return internalTable.get(keyRow, tx)
                 .thenApply(tableRow -> {

@@ -77,7 +77,5 @@ SELECT typeof(SUM(b)) FROM bigints
 DECIMAL(32767, 0)
 
 # this is too big for a bigint
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18671
 statement error
 SELECT SUM(b)::BIGINT FROM bigints
