@@ -6,63 +6,88 @@ statement ok
 PRAGMA enable_verification
 
 statement ok
-CREATE TABLE tableNameLongIdentifier (keyColumnLongIdentifier INTEGER, valueColumnLongIdentifier INTEGER, PRIMARY KEY (keyColumnLongIdentifier))
+CREATE TABLE someTableNameLongIdentifier (keyColumnLongIdentifier INTEGER, valueColumnLongIdentifier INTEGER, PRIMARY KEY (keyColumnLongIdentifier));
 
 statement ok
-ALTER TABLE tableNameLongIdentifier ADD COLUMN (newValueColumnLongIdentifier INTEGER)
+ALTER TABLE someTableNameLongIdentifier ADD COLUMN (newValueColumnLongIdentifier INTEGER);
 
 statement ok
-ALTER TABLE tableNameLongIdentifier DROP COLUMN newValueColumnLongIdentifier
+ALTER TABLE someTableNameLongIdentifier DROP COLUMN newValueColumnLongIdentifier;
+
+statement ok
+INSERT INTO someTableNameLongIdentifier (keyColumnLongIdentifier, valueColumnLongIdentifier) VALUES (1, 1), (2, 1);
 
 query I
-SELECT col_ FROM (VALUES (1), (2)) t(col_)
+SELECT columnAliasLongIdentifier FROM (VALUES (1), (2)) tableAliasLongIdentifier(columnAliasLongIdentifier);
 ----
 1
 2
 
 query I
-SELECT 1 as col_
+SELECT 1 as columnAliasLongIdentifier
 ----
 1
 
 query I
-SELECT 1 col_
+SELECT 1 columnAliasLongIdentifier
 ----
 1
 
 query I
-SELECT col_ FROM (SELECT 1 as col_)
+SELECT columnAliasLongIdentifier FROM (SELECT 1 as columnAliasLongIdentifier);
 ----
 1
 
 query I
-SELECT col_ FROM (SELECT 1 col_)
+SELECT columnAliasLongIdentifier FROM (SELECT 1 columnAliasLongIdentifier);
 ----
 1
 
+
 query I
-SELECT col__ FROM (VALUES (1), (2)) t(col__)
+SELECT someTableNameLongIdentifier.keyColumnLongIdentifier FROM someTableNameLongIdentifier;
 ----
 1
 2
 
-statement ok
-CREATE INDEX t_some_idx_ on t_ (val)
+query II
+SELECT keyColumnLongIdentifier, valueColumnLongIdentifier FROM someTableNameLongIdentifier ORDER BY keyColumnLongIdentifier DESC;
+----
+2	1
+1	1
+
+query II
+SELECT valueColumnLongIdentifier, SUM(keyColumnLongIdentifier) FROM someTableNameLongIdentifier GROUP BY valueColumnLongIdentifier;
+----
+1	3
+
+query II
+SELECT * FROM someTableNameLongIdentifier WHERE keyColumnLongIdentifier = 2;
+----
+2	1
+
+query I
+SELECT columnAliasLongIdentifier FROM (SELECT 1 columnAliasLongIdentifier) WHERE columnAliasLongIdentifier = 1;
+----
+1
 
 statement ok
-DROP INDEX t_some_idx_
+CREATE INDEX someIndexNameLongIdentifier on someTableNameLongIdentifier (valueColumnLongIdentifier);
 
 statement ok
-DROP TABLE t_
+DROP INDEX someIndexNameLongIdentifier;
 
 statement ok
-CREATE ZONE zone_ WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3
+DROP TABLE someTableNameLongIdentifier;
 
 statement ok
-ALTER ZONE zone_ SET REPLICAS = 4
+CREATE ZONE someZoneNameLongIdentifier WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3;
 
 statement ok
-ALTER ZONE zone_ RENAME TO another_zone_
+ALTER ZONE someZoneNameLongIdentifier SET REPLICAS = 4;
 
 statement ok
-DROP ZONE another_zone_
+ALTER ZONE someZoneNameLongIdentifier RENAME TO anotherZoneNameLongIdentifier;
+
+statement ok
+DROP ZONE anotherZoneNameLongIdentifier;
