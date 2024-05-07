@@ -1007,8 +1007,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                         getCachedRaftClient,
                                         updateTableRaftService,
                                         createListener,
-                                        storageIndexTracker)
-                                .join();
+                                        storageIndexTracker);
                     } catch (NodeStoppingException ex) {
                         throw new AssertionError("Loza was stopped before Table manager", ex);
                     }

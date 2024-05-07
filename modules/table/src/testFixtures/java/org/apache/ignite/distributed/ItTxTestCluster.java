@@ -695,14 +695,10 @@ public class ItTxTestCluster {
                                         schemaManager
                                 );
 
-                                replicaManagers.get(assignment).startReplica(
-                                        false,
+                                replicaManagers.get(assignment).temporalInternalCreateReplica(
                                         new TablePartitionId(tableId, partId),
-                                        configuration,
-                                        () -> null,
-                                        (unused) -> { },
-                                        (unused) -> listener,
-                                        storageIndexTracker
+                                        storageIndexTracker,
+                                        completedFuture(listener)
                                 );
                             } catch (NodeStoppingException e) {
                                 fail("Unexpected node stopping", e);

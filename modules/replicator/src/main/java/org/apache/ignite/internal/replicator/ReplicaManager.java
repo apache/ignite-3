@@ -593,14 +593,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             newRaftClientFut = CompletableFuture.completedFuture((TopologyAwareRaftGroupService) raftClient);
         }
 
-        newRaftClientFut.thenAccept(updateTableRaftService);
-
-        // TODO: should be there for now because in TableManager:L978-990 there passing TableRaftService's updating
-        CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
+        newRaftClientFut.thenAccept(updateTableRaftService).join();
 
         if (shouldSkipReplicaStarting) {
             return nullCompletedFuture();
         }
+
+        CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
 
         return temporalInternalCreateReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
     }
@@ -617,7 +616,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ReplicationGroupId replicaGrpId,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CompletableFuture<ReplicaListener> newReplicaListenerFut
-    ) {
+    ) throws NodeStoppingException {
 
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
