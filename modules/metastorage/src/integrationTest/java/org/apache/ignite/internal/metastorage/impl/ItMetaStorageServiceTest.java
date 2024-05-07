@@ -95,6 +95,7 @@ import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -192,6 +193,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             this.raftManager = new Loza(
                     clusterService,
+                    new NoOpMetricManager(),
                     raftConfiguration,
                     dataPath.resolve(name()),
                     clock

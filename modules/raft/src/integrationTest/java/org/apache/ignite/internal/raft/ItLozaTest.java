@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -125,7 +126,7 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
 
             CompletableFuture<NetworkMessage> exception = CompletableFuture.failedFuture(new IOException());
 
-            loza = new Loza(service, raftConfiguration, dataPath, new HybridClockImpl());
+            loza = new Loza(service, new NoOpMetricManager(), raftConfiguration, dataPath, new HybridClockImpl());
 
             assertThat(loza.startAsync(), willCompleteSuccessfully());
 

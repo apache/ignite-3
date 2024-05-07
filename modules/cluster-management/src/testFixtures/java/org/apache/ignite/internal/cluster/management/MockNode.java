@@ -39,6 +39,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -112,7 +113,7 @@ public class MockNode {
 
         this.clusterService = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
-        Loza raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
+        Loza raftManager = new Loza(clusterService, new NoOpMetricManager(), raftConfiguration, workDir, new HybridClockImpl());
 
         var clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve("cmg"), clusterService.nodeName());
 
