@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rest.recovery;
 import static java.util.Comparator.comparing;
 
 import io.micronaut.context.annotation.Requires;
+import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStateResponse
 import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStatesResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStatesResponse;
+import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsRequest;
 import org.apache.ignite.internal.rest.exception.handler.IgniteInternalExceptionHandler;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
@@ -76,6 +78,15 @@ public class DisasterRecoveryController implements DisasterRecoveryApi {
                         partitionIds.orElse(Set.of())
                 )
                 .thenApply(DisasterRecoveryController::convertGlobalStates);
+    }
+
+    @Override
+    public CompletableFuture<Void> resetPartitions(@Body ResetPartitionsRequest command) {
+        return disasterRecoveryManager.resetPartitions(
+                command.zoneName(),
+                command.tableName(),
+                command.partitionIds()
+        );
     }
 
     private static LocalPartitionStatesResponse convertLocalStates(Map<TablePartitionId, LocalPartitionStateByNode> localStates) {

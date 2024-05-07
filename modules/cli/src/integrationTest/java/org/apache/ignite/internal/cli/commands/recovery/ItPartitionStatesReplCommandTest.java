@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.disaster.exceptions;
+package org.apache.ignite.internal.cli.commands.recovery;
 
-import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITIONS_NOT_FOUND_ERR;
+import org.apache.ignite.internal.cli.commands.recovery.partitions.PartitionStatesReplCommand;
 
-import java.util.Set;
+/** Test class for {@link PartitionStatesReplCommand}. */
+public class ItPartitionStatesReplCommandTest extends ItPartitionStatesTest {
 
-/** Exception is thrown when appropriate partition can`t be found. */
-public class PartitionsNotFoundException extends DisasterRecoveryException {
-    private static final long serialVersionUID = -9215416423159317425L;
-
-    public PartitionsNotFoundException(Set<Integer> missingPartitionIds) {
-        super(PARTITIONS_NOT_FOUND_ERR, "Some partitions are missing: " + missingPartitionIds);
+    @Override
+    protected Class<?> getCommandClass() {
+        return PartitionStatesReplCommand.class;
     }
 }

@@ -25,6 +25,7 @@ import org.apache.ignite.internal.cli.commands.cliconfig.CliCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeCommand;
+import org.apache.ignite.internal.cli.commands.recovery.RecoveryCommand;
 import org.apache.ignite.internal.cli.commands.sql.SqlCommand;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -45,7 +46,8 @@ import picocli.CommandLine.Option;
                 CliCommand.class,
                 ConnectCommand.class,
                 NodeCommand.class,
-                ClusterCommand.class
+                ClusterCommand.class,
+                RecoveryCommand.class
         })
 public class TopLevelCliCommand extends BaseCommand {
     @SuppressWarnings("PMD.UnusedPrivateField")

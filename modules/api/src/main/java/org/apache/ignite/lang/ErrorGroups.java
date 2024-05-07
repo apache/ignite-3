@@ -612,8 +612,8 @@ public class ErrorGroups {
         /** Disaster recovery group. */
         public static final ErrorGroup RECOVERY_ERR_GROUP = registerGroup("RECOVERY", (short) 20);
 
-        /** Partitions were not found. */
-        public static final int PARTITIONS_NOT_FOUND_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 1);
+        /** Partition ID is not in valid range. */
+        public static final int ILLEGAL_PARTITION_ID_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 1);
 
         /** Nodes were not found. */
         public static final int NODES_NOT_FOUND_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 2);

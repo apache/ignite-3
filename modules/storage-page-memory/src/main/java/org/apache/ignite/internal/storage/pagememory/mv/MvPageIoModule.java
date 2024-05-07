@@ -26,7 +26,6 @@ import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GcInnerIo;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GcLeafIo;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.io.GcMetaIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.BlobFragmentIo;
-import org.apache.ignite.internal.storage.pagememory.mv.io.RowVersionDataIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainInnerIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainLeafIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainMetaIo;
@@ -43,7 +42,6 @@ public class MvPageIoModule implements PageIoModule {
                 VersionChainMetaIo.VERSIONS,
                 VersionChainInnerIo.VERSIONS,
                 VersionChainLeafIo.VERSIONS,
-                RowVersionDataIo.VERSIONS,
                 BlobFragmentIo.VERSIONS,
                 GcMetaIo.VERSIONS,
                 GcInnerIo.VERSIONS,
