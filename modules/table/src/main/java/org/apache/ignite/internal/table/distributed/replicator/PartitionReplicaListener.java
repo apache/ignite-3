@@ -2376,7 +2376,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         if (isDelete && rowId == null) {
                             // Does not exist in storage, nothing to delete.
                             // If there was an insert in this batch before, we need to skip it.
-                            Integer prevRowIdx = newKeyMap.get(pk.byteBuffer());
+                            Integer prevRowIdx = newKeyMap.remove(pk.byteBuffer());
                             if (prevRowIdx != null) {
                                 rowIdFuts[prevRowIdx] = nullCompletedFuture();
                             }
