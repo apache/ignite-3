@@ -47,6 +47,7 @@ public class RenameZoneCommand extends AbstractZoneCommand {
      * Constructor.
      *
      * @param zoneName Name of the zone.
+     * @param ifExists Flag indicating whether the {@code IF EXISTS} was specified.
      * @param newZoneName New name of the zone.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
