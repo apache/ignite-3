@@ -966,7 +966,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         startGroupFut
-                .thenAcceptAsync(isStartedRaftNode -> inBusyLock(busyLock, () -> {
+                .thenComposeAsync(isStartedRaftNode -> inBusyLock(busyLock, () -> {
                     // TODO: have to figure out how to pass this condition between internal table updating and replica starting
                     boolean shouldSkipReplicaStarting = localMemberAssignment == null
                             || !isStartedRaftNode
@@ -1000,7 +1000,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     partitionUpdateHandlers,
                                     raftClient);
 
-                        replicaMgr.startReplica(
+                        return replicaMgr.startRaftClientAndReplica(
                                         shouldSkipReplicaStarting,
                                         replicaGrpId,
                                         newConfiguration,

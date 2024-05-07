@@ -695,7 +695,7 @@ public class ItTxTestCluster {
                                         schemaManager
                                 );
 
-                                replicaManagers.get(assignment).temporalInternalCreateReplica(
+                                replicaManagers.get(assignment).startReplica(
                                         new TablePartitionId(tableId, partId),
                                         storageIndexTracker,
                                         completedFuture(listener)

@@ -535,7 +535,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been
      *         started.
      */
-    public CompletableFuture<Replica> startReplica(
+    public CompletableFuture<Void> startRaftClientAndReplica(
             // TODO: nonsense name
             boolean shouldSkipReplicaStarting,
             ReplicationGroupId replicaGrpId,
@@ -573,7 +573,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param createListener TODO
      * @param storageIndexTracker Storage index tracker.
      */
-    private CompletableFuture<Replica> startReplicaInternal(
+    private CompletableFuture<Void> startReplicaInternal(
             // TODO: nonsense name
             boolean shouldSkipReplicaStarting,
             ReplicationGroupId replicaGrpId,
@@ -593,7 +593,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             newRaftClientFut = CompletableFuture.completedFuture((TopologyAwareRaftGroupService) raftClient);
         }
 
-        newRaftClientFut.thenAccept(updateTableRaftService).join();
+        CompletableFuture<Void> resultFuture = newRaftClientFut.thenAccept(updateTableRaftService);
 
         if (shouldSkipReplicaStarting) {
             return nullCompletedFuture();
@@ -601,7 +601,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
 
-        return temporalInternalCreateReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
+        startReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
+
+        return resultFuture;
     }
 
     /**
@@ -612,7 +614,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param newReplicaListenerFut TODO
      * @return TODO
      */
-    public CompletableFuture<Replica> temporalInternalCreateReplica(
+    public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CompletableFuture<ReplicaListener> newReplicaListenerFut

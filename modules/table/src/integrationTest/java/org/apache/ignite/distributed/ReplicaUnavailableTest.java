@@ -233,7 +233,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                             return completedFuture(new ReplicaResult(response, null));
                         });
 
-                        replicaManager.startReplica(
+                        replicaManager.startRaftClientAndReplica(
                                 false,
                                 tablePartitionId,
                                 newConfiguration,
@@ -354,7 +354,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
                     ReplicaListener listener = replicaListenerCreator.apply((r, id) -> new CompletableFuture<>());
 
-                    replicaManager.startReplica(
+                    replicaManager.startRaftClientAndReplica(
                             false,
                             tablePartitionId,
                             newConfiguration,
