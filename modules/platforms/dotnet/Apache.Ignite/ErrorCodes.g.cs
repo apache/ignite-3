@@ -579,8 +579,8 @@ namespace Apache.Ignite
             /// <summary> DisasterRecovery group name. </summary>
             public const String GroupName = "RECOVERY";
 
-            /// <summary> PartitionsNotFound error. </summary>
-            public const int PartitionsNotFound = (GroupCode << 16) | (1 & 0xFFFF);
+            /// <summary> IllegalPartitionId error. </summary>
+            public const int IllegalPartitionId = (GroupCode << 16) | (1 & 0xFFFF);
 
             /// <summary> NodesNotFound error. </summary>
             public const int NodesNotFound = (GroupCode << 16) | (2 & 0xFFFF);

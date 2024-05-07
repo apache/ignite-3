@@ -21,14 +21,14 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.canFullyInline;
 
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Insert closure that inserts corresponding {@link IndexColumns} into a {@link IndexColumnsFreeList} before writing to the {@link
+ * Insert closure that inserts corresponding {@link IndexColumns} into a {@link FreeListImpl} before writing to the {@link
  * SortedIndexTree}.
  */
 class InsertSortedIndexRowInvokeClosure implements InvokeClosure<SortedIndexRow> {
@@ -36,7 +36,7 @@ class InsertSortedIndexRowInvokeClosure implements InvokeClosure<SortedIndexRow>
     private final SortedIndexRow sortedIndexRow;
 
     /** Free list to insert data into in case of necessity. */
-    private final IndexColumnsFreeList freeList;
+    private final FreeListImpl freeList;
 
     /** Operation type, either {@link OperationType#PUT} or {@link OperationType#NOOP} depending on the tree state. */
     private OperationType operationType = OperationType.PUT;
@@ -51,7 +51,7 @@ class InsertSortedIndexRowInvokeClosure implements InvokeClosure<SortedIndexRow>
      * @param freeList Free list to insert data into in case of necessity.
      * @param inlineSize Inline size in bytes.
      */
-    public InsertSortedIndexRowInvokeClosure(SortedIndexRow sortedIndexRow, IndexColumnsFreeList freeList, int inlineSize) {
+    public InsertSortedIndexRowInvokeClosure(SortedIndexRow sortedIndexRow, FreeListImpl freeList, int inlineSize) {
         assert sortedIndexRow.indexColumns().link() == NULL_LINK;
 
         this.sortedIndexRow = sortedIndexRow;

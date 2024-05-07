@@ -359,7 +359,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
         partitionMetaManager.addMeta(
                 new GroupPartitionId(0, 0),
-                new PartitionMeta(null, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0)
+                new PartitionMeta(null, 0, 0, 0, 0, 0, 0, 0, 3, 0)
         );
 
         FilePageStore filePageStore = mock(FilePageStore.class);

@@ -39,6 +39,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -69,14 +71,15 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
+import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalPartitionIdException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNotFoundException;
-import org.apache.ignite.internal.table.distributed.disaster.exceptions.PartitionsNotFoundException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.ZonesNotFoundException;
 import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStateMessage;
 import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesRequest;
 import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.core.State;
@@ -85,7 +88,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Manager, responsible for "disaster recovery" operations.
  * Internally it triggers meta-storage updates, in order to acquire unique causality token.
- * As a reaction to these updates, manager performs actual recovery operations, such as {@link #resetPartitions(int, int)}.
+ * As a reaction to these updates, manager performs actual recovery operations, such as {@link #resetPartitions(String, String, Set)}.
  * More details are in the <a href="https://issues.apache.org/jira/browse/IGNITE-21140">epic</a>.
  */
 public class DisasterRecoveryManager implements IgniteComponent {
@@ -192,12 +195,23 @@ public class DisasterRecoveryManager implements IgniteComponent {
      * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
      * so that a new leader could be elected.
      *
-     * @param zoneId Distribution zone ID.
-     * @param tableId Table ID.
+     * @param zoneName Name of the distribution zone.
+     * @param tableName Fully-qualified table name.
+     * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
      * @return Operation future.
      */
-    public CompletableFuture<Void> resetPartitions(int zoneId, int tableId) {
-        return processNewRequest(new ManualGroupUpdateRequest(UUID.randomUUID(), zoneId, tableId));
+    public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds) {
+        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+
+        int tableId = Optional.ofNullable(catalog.table(tableName))
+                .orElseThrow(() -> new TableNotFoundException(tableName)).id();
+
+        CatalogZoneDescriptor zone = Optional.ofNullable(catalog.zone(zoneName))
+                .orElseThrow(() -> new DistributionZoneNotFoundException(zoneName));
+
+        checkPartitionsRange(partitionIds, Set.of(zone));
+
+        return processNewRequest(new ManualGroupUpdateRequest(UUID.randomUUID(), zone.id(), tableId, partitionIds));
     }
 
     /**
@@ -236,7 +250,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
         return localPartitionStatesInternal(zoneNames, Set.of(), partitionIds, catalog)
                 .thenApply(res -> normalizeLocal(res, catalog))
-                .thenApply(res -> assembleGlobal(res, catalog));
+                .thenApply(res -> assembleGlobal(res, partitionIds, catalog));
     }
 
     private CompletableFuture<Map<TablePartitionId, LocalPartitionStateMessageByNode>> localPartitionStatesInternal(
@@ -245,9 +259,27 @@ public class DisasterRecoveryManager implements IgniteComponent {
             Set<Integer> partitionIds,
             Catalog catalog
     ) {
-        Set<Integer> zoneIds = getZoneIds(zoneNames, catalog);
+        Collection<CatalogZoneDescriptor> zones = filterZones(zoneNames, catalog.zones());
+
+        if (!partitionIds.isEmpty()) {
+            int minPartition = partitionIds.stream().min(Integer::compare).get();
+
+            if (minPartition < 0) {
+                throw new IllegalPartitionIdException(minPartition);
+            }
+
+            int maxPartition = partitionIds.stream().max(Integer::compare).get();
+
+            zones.forEach(zone -> {
+                if (maxPartition >= zone.partitions()) {
+                    throw new IllegalPartitionIdException(maxPartition, zone.partitions(), zone.name());
+                }
+            });
+        }
 
         Set<NodeWithAttributes> nodes = getNodes(nodeNames);
+
+        Set<Integer> zoneIds = zones.stream().map(CatalogObjectDescriptor::id).collect(toSet());
 
         LocalPartitionStatesRequest localPartitionStatesRequest = MSG_FACTORY.localPartitionStatesRequest()
                 .zoneIds(zoneIds)
@@ -290,15 +322,27 @@ public class DisasterRecoveryManager implements IgniteComponent {
                 throw new DisasterRecoveryException(PARTITION_STATE_ERR, err);
             }
 
-            if (!partitionIds.isEmpty()) {
-                Set<Integer> foundPartitionIds = result.keySet().stream()
-                        .map(TablePartitionId::partitionId)
-                        .collect(toSet());
-
-                checkPartitions(foundPartitionIds, partitionIds);
-            }
-
             return result;
+        });
+    }
+
+    private static void checkPartitionsRange(Set<Integer> partitionIds, Collection<CatalogZoneDescriptor> zones) {
+        if (partitionIds.isEmpty()) {
+            return;
+        }
+
+        int minPartition = partitionIds.stream().min(Integer::compare).get();
+
+        if (minPartition < 0) {
+            throw new IllegalPartitionIdException(minPartition);
+        }
+
+        int maxPartition = partitionIds.stream().max(Integer::compare).get();
+
+        zones.forEach(zone -> {
+            if (maxPartition >= zone.partitions()) {
+                throw new IllegalPartitionIdException(maxPartition, zone.partitions(), zone.name());
+            }
         });
     }
 
@@ -324,12 +368,13 @@ public class DisasterRecoveryManager implements IgniteComponent {
         return nodes;
     }
 
-    private static Set<Integer> getZoneIds(Set<String> zoneNames, Catalog catalog) throws ZonesNotFoundException {
+    private static Collection<CatalogZoneDescriptor> filterZones(Set<String> zoneNames, Collection<CatalogZoneDescriptor> zones)
+            throws ZonesNotFoundException {
         if (zoneNames.isEmpty()) {
-            return Set.of();
+            return zones;
         }
 
-        List<CatalogZoneDescriptor> zoneDescriptors = catalog.zones().stream()
+        List<CatalogZoneDescriptor> zoneDescriptors = zones.stream()
                 .filter(catalogZoneDescriptor -> zoneNames.contains(catalogZoneDescriptor.name()))
                 .collect(toList());
 
@@ -343,9 +388,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
             throw new ZonesNotFoundException(missingZoneNames);
         }
 
-        return zoneDescriptors.stream()
-                .map(CatalogObjectDescriptor::id)
-                .collect(toSet());
+        return zoneDescriptors;
     }
 
     /**
@@ -493,24 +536,6 @@ public class DisasterRecoveryManager implements IgniteComponent {
     }
 
     /**
-     * Checks that resulting states contain all partitions IDs from the request.
-     *
-     * @param foundPartitionIds Found partition IDs.
-     * @param requestedPartitionIds Requested partition IDs.
-     * @throws PartitionsNotFoundException if some IDs are missing.
-     */
-    private static void checkPartitions(
-            Set<Integer> foundPartitionIds,
-            Set<Integer> requestedPartitionIds
-    ) throws PartitionsNotFoundException {
-        if (!requestedPartitionIds.equals(foundPartitionIds)) {
-            Set<Integer> missingPartitionIds = CollectionUtils.difference(requestedPartitionIds, foundPartitionIds);
-
-            throw new PartitionsNotFoundException(missingPartitionIds);
-        }
-    }
-
-    /**
      * Replaces some healthy states with a {@link LocalPartitionStateEnum#CATCHING_UP}, it can only be done once the state of all peers is
      * known.
      */
@@ -565,6 +590,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
     private static Map<TablePartitionId, GlobalPartitionState> assembleGlobal(
             Map<TablePartitionId, LocalPartitionStateByNode> localResult,
+            Set<Integer> partitionIds,
             Catalog catalog
     ) {
         Map<TablePartitionId, GlobalPartitionState> result = localResult.entrySet().stream()
@@ -575,26 +601,47 @@ public class DisasterRecoveryManager implements IgniteComponent {
                     return assembleGlobalStateFromLocal(catalog, tablePartitionId, map);
                 }));
 
+        makeMissingPartitionsUnavailable(localResult, catalog, result, partitionIds);
+
+        return result;
+    }
+
+    private static void makeMissingPartitionsUnavailable(Map<TablePartitionId, LocalPartitionStateByNode> localResult, Catalog catalog,
+            Map<TablePartitionId, GlobalPartitionState> result, Set<Integer> partitionIds) {
         localResult.keySet().stream()
                 .map(TablePartitionId::tableId)
                 .distinct()
                 .forEach(tableId -> {
                     int zoneId = catalog.table(tableId).zoneId();
                     CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
-                    int partitions = zoneDescriptor.partitions();
 
-                    // Make missing partitions explicitly unavailable.
-                    for (int partitionId = 0; partitionId < partitions; partitionId++) {
-                        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
+                    if (partitionIds.isEmpty()) {
+                        int partitions = zoneDescriptor.partitions();
 
-                        result.computeIfAbsent(tablePartitionId, key ->
-                                new GlobalPartitionState(catalog.table(key.tableId()).name(), zoneDescriptor.name(),  key.partitionId(),
-                                        GlobalPartitionStateEnum.UNAVAILABLE)
-                        );
+                        for (int partitionId = 0; partitionId < partitions; partitionId++) {
+                            putUnavailableStateIfAbsent(catalog, result, tableId, partitionId, zoneDescriptor);
+                        }
+                    } else {
+                        partitionIds.forEach(id -> {
+                            putUnavailableStateIfAbsent(catalog, result, tableId, id, zoneDescriptor);
+                        });
                     }
                 });
+    }
 
-        return result;
+    private static void putUnavailableStateIfAbsent(
+            Catalog catalog,
+            Map<TablePartitionId, GlobalPartitionState> states,
+            Integer tableId,
+            int partitionId,
+            CatalogZoneDescriptor zoneDescriptor
+    ) {
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
+
+        states.computeIfAbsent(tablePartitionId, key ->
+                new GlobalPartitionState(catalog.table(key.tableId()).name(), zoneDescriptor.name(), key.partitionId(),
+                        GlobalPartitionStateEnum.UNAVAILABLE)
+        );
     }
 
     private static GlobalPartitionState assembleGlobalStateFromLocal(

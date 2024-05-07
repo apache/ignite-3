@@ -1,4 +1,4 @@
-# name: test/sql/function/generic/test_large_in.test_slow
+# name: test/sql/function/generic/test_large_in.test
 # description: Test large IN statement with varchar
 # group: [generic]
 # Ignored: https://issues.apache.org/jira/browse/IGNITE-14964
