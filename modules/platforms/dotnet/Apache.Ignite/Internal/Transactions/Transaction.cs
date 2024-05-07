@@ -27,7 +27,7 @@ namespace Apache.Ignite.Internal.Transactions
     /// <summary>
     /// Ignite transaction.
     /// </summary>
-    internal sealed class Transaction : ITransaction
+    internal sealed class Transaction : ITransaction // TODO: Remove ITransaction interface from the class.
     {
         /** Open state. */
         private const int StateOpen = 0;
