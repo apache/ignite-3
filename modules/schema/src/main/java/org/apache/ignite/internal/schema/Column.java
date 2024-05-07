@@ -242,7 +242,7 @@ public class Column {
     }
 
     /**
-     * Returns error message for NOT NULL constraint violation.
+     * Returns an error message for NOT NULL constraint violation.
      *
      * @param columnName Column name.
      * @return Error message.
