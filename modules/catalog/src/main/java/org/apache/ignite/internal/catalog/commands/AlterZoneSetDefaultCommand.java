@@ -43,6 +43,7 @@ public class AlterZoneSetDefaultCommand extends AbstractZoneCommand {
      * Constructor.
      *
      * @param zoneName Name of the zone.
+     * @param ifExists Flag indicating whether the {@code IF EXISTS} was specified.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
     private AlterZoneSetDefaultCommand(String zoneName, boolean ifExists) throws CatalogValidationException {
