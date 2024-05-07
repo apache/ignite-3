@@ -228,7 +228,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                 if (finishRequest.txId().equals(txId)) {
                     finishStartedFuture.complete(null);
 
-                    finishAllowedFuture.join();
+                    joinWithTimeout(finishAllowedFuture);
                 }
             }
 
@@ -250,6 +250,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         assertTrue(checkVolatileTxStateOnNodes(nodes, txId));
 
         finishAllowedFuture.complete(null);
+        assertThat(finishAllowedFuture, willCompleteSuccessfully());
 
         assertThat(commitFut, willCompleteSuccessfully());
 
@@ -405,7 +406,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                 log.info("Test: cleanup started.");
 
                 if (commitPartNodes.contains(n)) {
-                    cleanupAllowed.join();
+                    joinWithTimeout(cleanupAllowed);
                 }
             }
 
@@ -426,6 +427,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         // Unblocking cleanup.
         cleanupAllowed.complete(null);
+        assertThat(cleanupAllowed, willCompleteSuccessfully());
 
         assertThat(commitFut, willCompleteSuccessfully());
 
@@ -498,7 +500,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             if (msg instanceof TxCleanupMessage && !cleanupAllowed[0]) {
                 cleanupStarted.complete(null);
 
-                cleanupAllowedFut.join();
+                joinWithTimeout(cleanupAllowedFut);
             }
 
             return false;
@@ -513,6 +515,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         transferPrimary(cluster.runningNodes().collect(toSet()), commitPartGrpId, commitPartNodes::contains);
 
         cleanupAllowedFut.complete(null);
+        assertThat(cleanupAllowedFut, willCompleteSuccessfully());
 
         cleanupAllowed[0] = true;
 
@@ -586,7 +589,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
                 log.warn("Test: cleanup started.");
 
-                cleanupAllowedFut.join();
+                joinWithTimeout(cleanupAllowedFut);
 
                 log.info("Test: cleanup resumed.");
             }
@@ -611,6 +614,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         log.info("Test: volatile state vacuumized");
 
         cleanupAllowedFut.complete(null);
+        assertThat(cleanupAllowedFut, willCompleteSuccessfully());
 
         cleanupAllowed[0] = true;
 
@@ -996,7 +1000,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             CompletableFuture<ReplicaMeta> replicaFut = node.placementDriver().getPrimaryReplica(tablePartitionId, node.clock().now());
             assertThat(replicaFut, willCompleteSuccessfully());
 
-            ReplicaMeta replicaMeta = replicaFut.join();
+            ReplicaMeta replicaMeta = joinWithTimeout(replicaFut);
             // The test doesn't make sense if there is no primary right now.
             assertNotNull(replicaMeta);
 
@@ -1066,5 +1070,15 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                 .filter(n -> n != null && filter.test(n))
                 .findFirst()
                 .get();
+    }
+
+    private <T> T joinWithTimeout(CompletableFuture<T> future) {
+        return future.orTimeout(60, TimeUnit.SECONDS)
+                .exceptionally(e -> {
+                    log.error("Could not wait for the future.", e);
+
+                    return null;
+                })
+                .join();
     }
 }
