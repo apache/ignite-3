@@ -67,10 +67,10 @@ public class ThreadAssertingTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public void remove(UUID txId) {
+    public void remove(UUID txId, long commandIndex, long commandTerm) {
         assertThreadAllowsToWrite();
 
-        storage.remove(txId);
+        storage.remove(txId, commandIndex, commandTerm);
     }
 
     @Override

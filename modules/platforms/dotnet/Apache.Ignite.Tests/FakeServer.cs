@@ -93,6 +93,8 @@ namespace Apache.Ignite.Tests
 
         public Guid ClusterId { get; set; }
 
+        public string ClusterName { get; set; } = "fake-cluster";
+
         public string[] PartitionAssignment { get; set; }
 
         public long PartitionAssignmentTimestamp { get; set; }
@@ -164,7 +166,19 @@ namespace Apache.Ignite.Tests
             handshakeWriter.Write(0); // Idle timeout.
             handshakeWriter.Write(Node.Id); // Node id.
             handshakeWriter.Write(Node.Name); // Node name (consistent id).
+
             handshakeWriter.Write(ClusterId);
+            handshakeWriter.Write(ClusterName);
+
+            handshakeWriter.Write(ObservableTimestamp);
+
+            // Cluster version.
+            handshakeWriter.Write(1);
+            handshakeWriter.Write(2);
+            handshakeWriter.Write(3);
+            handshakeWriter.Write(4);
+            handshakeWriter.Write("-abcd");
+
             handshakeWriter.WriteBinaryHeader(0); // Features.
             handshakeWriter.Write(0); // Extensions.
 

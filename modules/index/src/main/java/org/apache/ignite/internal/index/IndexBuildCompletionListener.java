@@ -17,9 +17,17 @@
 
 package org.apache.ignite.internal.index;
 
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+
 /** Index build completion listener, will be called when a distributed build of an index for a specific partition completes. */
-@FunctionalInterface
 interface IndexBuildCompletionListener {
     /** Handles the index build completion event. */
-    void onBuildCompletion(int indexId, int tableId, int partitionId);
+    default void onBuildCompletion(int indexId, int tableId, int partitionId) {
+        // No-op.
+    }
+
+    /** Handles an {@link CatalogIndexStatus#AVAILABLE available} index build completion event after disaster recovery. */
+    default void onBuildCompletionAfterDisasterRecovery(int indexId, int tableId, int partitionId) {
+        // No-op.
+    }
 }

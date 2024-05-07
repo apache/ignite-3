@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import static java.util.Objects.hash;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
@@ -256,10 +257,15 @@ public class LeaseUpdater {
      * Finds a node that can be the leaseholder.
      *
      * @param assignments Replication group assignment.
+     * @param grpId Group id.
      * @param proposedConsistentId Proposed consistent id, found out of a lease negotiation. The parameter might be {@code null}.
      * @return Cluster node, or {@code null} if no node in assignments can be the leaseholder.
      */
-    private @Nullable ClusterNode nextLeaseHolder(Set<Assignment> assignments, @Nullable String proposedConsistentId) {
+    private @Nullable ClusterNode nextLeaseHolder(
+            Set<Assignment> assignments,
+            ReplicationGroupId grpId,
+            @Nullable String proposedConsistentId
+    ) {
         // TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
         ClusterNode primaryCandidate = null;
 
@@ -276,8 +282,15 @@ public class LeaseUpdater {
                 primaryCandidate = candidateNode;
 
                 break;
-            } else if (primaryCandidate == null || primaryCandidate.name().hashCode() > assignment.consistentId().hashCode()) {
+            } else if (primaryCandidate == null) {
                 primaryCandidate = candidateNode;
+            } else {
+                int candidateHash = hash(primaryCandidate.name(), grpId);
+                int assignmentHash = hash(assignment.consistentId(), grpId);
+
+                if (candidateHash > assignmentHash) {
+                    primaryCandidate = candidateNode;
+                }
             }
         }
 
@@ -369,7 +382,7 @@ public class LeaseUpdater {
                         continue;
                     } else if (agreement.isDeclined()) {
                         // Here we initiate negotiations for UNDEFINED_AGREEMENT and retry them on newly started active actor as well.
-                        ClusterNode candidate = nextLeaseHolder(assignments, agreement.getRedirectTo());
+                        ClusterNode candidate = nextLeaseHolder(assignments, grpId, agreement.getRedirectTo());
 
                         if (candidate == null) {
                             leaseUpdateStatistics.onLeaseWithoutCandidate();
@@ -394,7 +407,7 @@ public class LeaseUpdater {
                             ? lease.getLeaseholder()
                             : lease.proposedCandidate();
 
-                    ClusterNode candidate = nextLeaseHolder(assignments, proposedLeaseholder);
+                    ClusterNode candidate = nextLeaseHolder(assignments, grpId, proposedLeaseholder);
 
                     if (candidate == null) {
                         leaseUpdateStatistics.onLeaseWithoutCandidate();

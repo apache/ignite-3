@@ -51,7 +51,8 @@ public class AlterZoneSetDefaultCatalogCommand extends AbstractZoneCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
 
-        if (zone.id() == catalog.defaultZone().id()) {
+        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
+        if (defaultZone != null && zone.id() == defaultZone.id()) {
             // Specified zone already marked as default.
             return Collections.emptyList();
         }

@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
@@ -488,6 +489,6 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assert catalog != null;
 
-        return catalog.defaultZone();
+        return Objects.requireNonNull(catalog.defaultZone());
     }
 }

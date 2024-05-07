@@ -34,4 +34,9 @@ class ReadRowVersionValue extends ReadPageMemoryRowValue {
     protected int valueOffsetInFirstSlot() {
         return RowVersion.VALUE_OFFSET;
     }
+
+    @Override
+    protected byte dataType() {
+        return RowVersion.DATA_TYPE;
+    }
 }

@@ -33,7 +33,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -94,9 +93,7 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
 
         TableRowConverterImpl converter = new TableRowConverterImpl(
                 schemaRegistry,
-                BinaryTupleSchema.createRowSchema(schema),
-                schema,
-                null
+                schema
         );
 
         RowWrapper row = converter.toRow(executionContext, binaryRow, rowFactory);
@@ -134,11 +131,9 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
 
         TableRowConverterImpl converter = new TableRowConverterImpl(
                 schemaRegistry,
-                BinaryTupleSchema.createRowSchema(schema),
-                schema,
-                null
+                schema
         );
-        BinaryRowEx convertedRow = converter.toBinaryRow(executionContext, wrapper, false);
+        BinaryRowEx convertedRow = converter.toFullRow(executionContext, wrapper);
 
         BinaryTupleReader reader = new BinaryTupleReader(schema.length(), convertedRow.tupleSlice());
 
@@ -188,7 +183,7 @@ public class TableRowConverterSelfTest extends BaseIgniteAbstractTest {
                 schema
         ).create(null);
 
-        BinaryRowEx convertedRow = converter.toBinaryRow(executionContext, wrapper, true);
+        BinaryRowEx convertedRow = converter.toKeyRow(executionContext, wrapper);
 
         List<Column> keyColumns = schema.keyColumns();
         BinaryTuple reader = new BinaryTuple(keyColumns.size(), convertedRow.tupleSlice());

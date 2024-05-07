@@ -92,15 +92,15 @@ public class MetricsTests
         using var client = await server.ConnectClientAsync();
 
         AssertMetric(MetricNames.BytesSent, 15);
-        AssertMetric(MetricNames.BytesReceived, 63);
+        AssertMetric(MetricNames.BytesReceived, 88);
 
         await client.Tables.GetTablesAsync();
 
         AssertMetric(MetricNames.BytesSent, 21);
-        AssertMetric(MetricNames.BytesReceived, 72);
+        AssertMetric(MetricNames.BytesReceived, 97);
 
         AssertTaggedMetric(MetricNames.BytesSent, 21, server, client);
-        AssertTaggedMetric(MetricNames.BytesReceived, 72, server, client);
+        AssertTaggedMetric(MetricNames.BytesReceived, 97, server, client);
     }
 
     [Test]

@@ -110,7 +110,7 @@ public abstract class AbstractChangeIndexStatusCommandValidationTest extends Abs
 
     @Test
     void exceptionIsThrownIfIndexWithGivenIdNotFound() {
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = createCommand(1);
 

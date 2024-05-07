@@ -20,6 +20,8 @@ package org.apache.ignite.client;
 import static org.apache.ignite.client.fakes.FakeIgniteTables.TABLE_ONE_COLUMN;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -229,12 +231,14 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         client = clientBuilder().build();
 
         assertEquals(15, metrics().bytesSent());
-        assertEquals(76, metrics().bytesReceived());
+
+        long handshakeReceived = metrics().bytesReceived();
+        assertThat(handshakeReceived, greaterThan(80L));
 
         client.tables().tables();
 
         assertEquals(21, metrics().bytesSent());
-        assertEquals(97, metrics().bytesReceived());
+        assertEquals(handshakeReceived + 21, metrics().bytesReceived());
     }
 
     @Test

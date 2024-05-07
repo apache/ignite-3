@@ -144,7 +144,11 @@ public class UpdateLogImpl implements UpdateLog {
     }
 
     @Override
-    public void registerUpdateHandler(OnUpdateHandler handler) {
+    public synchronized void registerUpdateHandler(OnUpdateHandler handler) {
+        if (onUpdateHandler != null) {
+            throw new IllegalStateException("onUpdateHandler handler already registered");
+        }
+
         onUpdateHandler = handler;
     }
 

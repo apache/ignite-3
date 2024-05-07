@@ -134,6 +134,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.ChannelType;
@@ -421,7 +422,7 @@ public class IgniteImpl implements Ignite {
 
         vaultMgr = createVault(workDir);
 
-        metricManager = new MetricManager();
+        metricManager = new MetricManagerImpl();
 
         ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
@@ -495,6 +496,7 @@ public class IgniteImpl implements Ignite {
 
         raftMgr = new Loza(
                 clusterSvc,
+                metricManager,
                 raftConfiguration,
                 workDir,
                 clock,
@@ -1250,6 +1252,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public FailureProcessor failureProcessor() {
         return failureProcessor;
+    }
+
+    @TestOnly
+    public MetricManager metricManager() {
+        return metricManager;
     }
 
     /** {@inheritDoc} */

@@ -59,7 +59,7 @@ public class AntiHijackJobExecution<R> implements JobExecution<R> {
         return preventThreadHijack(execution.changePriorityAsync(newPriority));
     }
 
-    private <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {
+    protected <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {
         return PublicApiThreading.preventThreadHijack(originalFuture, asyncContinuationExecutor);
     }
 }
