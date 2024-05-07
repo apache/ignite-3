@@ -247,6 +247,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void start() {
+        rwLock.writeLock().lock();
+
         try {
             // Delete existing data, relying on the raft's snapshot and log playback
             destroyRocksDb();
@@ -255,6 +257,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         } catch (IOException | RocksDBException e) {
             closeRocksResources();
             throw new MetaStorageException(STARTING_STORAGE_ERR, "Failed to start the storage", e);
+        } finally {
+            rwLock.writeLock().unlock();
         }
     }
 
@@ -362,7 +366,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
-        closeRocksResources();
+        rwLock.writeLock().lock();
+        try {
+            closeRocksResources();
+        } finally {
+            rwLock.writeLock().unlock();
+        }
     }
 
     private void closeRocksResources() {
