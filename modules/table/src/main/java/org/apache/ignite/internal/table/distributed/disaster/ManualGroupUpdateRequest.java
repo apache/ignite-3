@@ -48,7 +48,7 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
         this.operationId = operationId;
         this.zoneId = zoneId;
         this.tableId = tableId;
-        this.partitionIds = partitionIds == null ? Set.of() : Set.copyOf(partitionIds);
+        this.partitionIds = Set.copyOf(partitionIds);
     }
 
     @Override

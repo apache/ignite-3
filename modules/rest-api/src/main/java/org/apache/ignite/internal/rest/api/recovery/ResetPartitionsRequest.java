@@ -25,7 +25,6 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.Nullable;
 
 /** Disaster recovery request to reset partitions. */
 @Schema(description = "Reset partitions configuration.")
@@ -44,14 +43,14 @@ public class ResetPartitionsRequest {
     public ResetPartitionsRequest(
             @JsonProperty("zoneName") String zoneName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("partitionIds") @Nullable Collection<Integer> partitionIds
+            @JsonProperty("partitionIds") Collection<Integer> partitionIds
     ) {
         Objects.requireNonNull(zoneName);
         Objects.requireNonNull(tableName);
 
         this.zoneName = zoneName;
         this.tableName = tableName;
-        this.partitionIds = partitionIds == null ? Set.of() : Set.copyOf(partitionIds);
+        this.partitionIds = Set.copyOf(partitionIds);
     }
 
     /** Returns ids of partitions to reset. */
