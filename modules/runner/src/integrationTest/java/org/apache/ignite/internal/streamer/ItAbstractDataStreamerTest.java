@@ -290,7 +290,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3})
-    public void testSameItemInsertUpdateRemove(int pageSize) {
+    public void testSameItemInsertRemove(int pageSize) {
         RecordView<Tuple> view = defaultTable().recordView();
         CompletableFuture<Void> streamerFut;
         int key = 333000;
@@ -305,6 +305,27 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
 
         assertNull(view.get(null, tupleKey(key)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3})
+    public void testSameItemInsertRemoveInsertUpdate(int pageSize) {
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+        int key = 333001;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
+            streamerFut = view.streamData(publisher, DataStreamerOptions.builder().pageSize(pageSize).build());
+
+            publisher.submit(DataStreamerItem.of(tuple(key, "foo")));
+            publisher.submit(DataStreamerItem.removed(tupleKey(key)));
+            publisher.submit(DataStreamerItem.of(tuple(key, "bar")));
+            publisher.submit(DataStreamerItem.of(tuple(key, "baz")));
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        assertEquals("baz", view.get(null, tupleKey(key)).stringValue("name"));
     }
 
     @SuppressWarnings("resource")
