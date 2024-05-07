@@ -39,6 +39,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.TableImpl;
@@ -61,7 +62,7 @@ public class ItTransactionTestUtils {
      * @param grpId Group id.
      * @return Node names.
      */
-    public static Set<String> partitionAssignment(IgniteImpl node, TablePartitionId grpId) {
+    public static Set<String> partitionAssignment(IgniteImpl node, ZonePartitionId grpId) {
         MetaStorageManager metaStorageManager = node.metaStorageManager();
 
         ByteArray stableAssignmentKey = stablePartAssignmentsKey(grpId);
@@ -137,7 +138,7 @@ public class ItTransactionTestUtils {
                     return t;
                 }
             } else {
-                Set<String> assignments = partitionAssignment(node, grpId);
+                Set<String> assignments = partitionAssignment(node, new ZonePartitionId(zoneIdForTable(node, tableName), partId));
 
                 if (assignments.contains(node.name())) {
                     return t;
@@ -172,6 +173,17 @@ public class ItTransactionTestUtils {
      */
     public static int tableId(IgniteImpl node, String tableName) {
         return table(node, tableName).tableId();
+    }
+
+    /**
+     * Returns the zone id of the provided table.
+     *
+     * @param node Any node in the cluster.
+     * @param tableName Table name.
+     * @return Table id.
+     */
+    public static int zoneIdForTable(IgniteImpl node, String tableName) {
+        return table(node, tableName).internalTable().zoneId();
     }
 
     /**
