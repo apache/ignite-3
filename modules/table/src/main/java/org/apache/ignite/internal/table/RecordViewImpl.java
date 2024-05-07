@@ -432,7 +432,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
             for (R rec : recs) {
-                Row row = marsh.marshal(Objects.requireNonNull(rec));
+                BinaryRowEx row = marsh.marshal(Objects.requireNonNull(rec));
 
                 rows.add(row);
             }
@@ -451,7 +451,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
             for (R rec : recs) {
                 boolean isDeleted = deleted != null && deleted.get(rows.size());
-                Row row = isDeleted ? marsh.marshalKey(rec) : marsh.marshal(rec);
+                BinaryRowEx row = isDeleted ? marsh.marshalKey(rec) : marsh.marshal(rec);
 
                 rows.add(row);
             }
@@ -493,7 +493,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
             for (R rec : recs) {
-                Row row = marsh.marshalKey(Objects.requireNonNull(rec));
+                BinaryRowEx row = marsh.marshalKey(Objects.requireNonNull(rec));
 
                 rows.add(row);
             }
