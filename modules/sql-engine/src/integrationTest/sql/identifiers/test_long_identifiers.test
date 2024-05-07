@@ -1,0 +1,68 @@
+# name: sql/identifiers/test_long_identifiers.test
+# description: SQL feature F391 (Long identifiers)
+# group: [identifiers]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE tableNameLongIdentifier (keyColumnLongIdentifier INTEGER, valueColumnLongIdentifier INTEGER, PRIMARY KEY (keyColumnLongIdentifier))
+
+statement ok
+ALTER TABLE tableNameLongIdentifier ADD COLUMN (newValueColumnLongIdentifier INTEGER)
+
+statement ok
+ALTER TABLE tableNameLongIdentifier DROP COLUMN newValueColumnLongIdentifier
+
+query I
+SELECT col_ FROM (VALUES (1), (2)) t(col_)
+----
+1
+2
+
+query I
+SELECT 1 as col_
+----
+1
+
+query I
+SELECT 1 col_
+----
+1
+
+query I
+SELECT col_ FROM (SELECT 1 as col_)
+----
+1
+
+query I
+SELECT col_ FROM (SELECT 1 col_)
+----
+1
+
+query I
+SELECT col__ FROM (VALUES (1), (2)) t(col__)
+----
+1
+2
+
+statement ok
+CREATE INDEX t_some_idx_ on t_ (val)
+
+statement ok
+DROP INDEX t_some_idx_
+
+statement ok
+DROP TABLE t_
+
+statement ok
+CREATE ZONE zone_ WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3
+
+statement ok
+ALTER ZONE zone_ SET REPLICAS = 4
+
+statement ok
+ALTER ZONE zone_ RENAME TO another_zone_
+
+statement ok
+DROP ZONE another_zone_
