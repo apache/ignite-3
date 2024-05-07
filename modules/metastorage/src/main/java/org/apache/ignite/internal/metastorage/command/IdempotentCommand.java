@@ -17,34 +17,16 @@
 
 package org.apache.ignite.internal.metastorage.command;
 
-import java.util.Collection;
-import org.apache.ignite.internal.metastorage.dsl.Condition;
-import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.internal.network.annotations.Transferable;
+import java.util.UUID;
 
 /**
- * Represents invoke command for meta storage.
+ * Idempotent RAFT command.
  */
-@Transferable(MetastorageCommandsMessageGroup.INVOKE)
-public interface InvokeCommand extends IdempotentCommand {
+public interface IdempotentCommand extends MetaStorageWriteCommand {
     /**
-     * Returns condition.
+     * Command id. From more than one commands having the same id only the first one will be applied.
      *
-     * @return Condition.
+     * @return Command id.
      */
-    Condition condition();
-
-    /**
-     * Returns success operations.
-     *
-     * @return Success operations.
-     */
-    Collection<Operation> success();
-
-    /**
-     * Returns failure operations.
-     *
-     * @return Failure operations.
-     */
-    Collection<Operation> failure();
+    UUID id();
 }

@@ -60,6 +60,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -230,7 +231,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         lenient().doAnswer(invocationClose -> {
             Iif iif = invocationClose.getArgument(0);
 
-            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
+            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).id(UUID.randomUUID()).build();
 
             return metaStorageService.run(multiInvokeCommand);
         }).when(metaStorageManager).invoke(any());
