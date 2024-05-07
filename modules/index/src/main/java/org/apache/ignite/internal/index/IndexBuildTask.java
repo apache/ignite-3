@@ -73,6 +73,8 @@ class IndexBuildTask {
 
     private final int creationCatalogVersion;
 
+    private final boolean afterDisasterRecovery;
+
     private final IgniteSpinBusyLock taskBusyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean taskStopGuard = new AtomicBoolean();
@@ -90,7 +92,8 @@ class IndexBuildTask {
             ClusterNode node,
             List<IndexBuildCompletionListener> listeners,
             long enlistmentConsistencyToken,
-            int creationCatalogVersion
+            int creationCatalogVersion,
+            boolean afterDisasterRecovery
     ) {
         this.taskId = taskId;
         this.indexStorage = indexStorage;
@@ -104,6 +107,7 @@ class IndexBuildTask {
         this.listeners = listeners;
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
         this.creationCatalogVersion = creationCatalogVersion;
+        this.afterDisasterRecovery = afterDisasterRecovery;
     }
 
     /** Starts building the index. */
@@ -176,9 +180,7 @@ class IndexBuildTask {
                             // Index has been built.
                             LOG.info("Index build completed: [{}]", createCommonIndexInfo());
 
-                            for (IndexBuildCompletionListener listener : listeners) {
-                                listener.onBuildCompletion(taskId.getIndexId(), taskId.getTableId(), taskId.getPartitionId());
-                            }
+                            notifyListeners(taskId);
 
                             return CompletableFutures.<Void>nullCompletedFuture();
                         }
@@ -239,5 +241,15 @@ class IndexBuildTask {
                 "tableId={}, partitionId={}, indexId={}",
                 taskId.getTableId(), taskId.getPartitionId(), taskId.getIndexId()
         );
+    }
+
+    private void notifyListeners(IndexBuildTaskId taskId) {
+        for (IndexBuildCompletionListener listener : listeners) {
+            if (afterDisasterRecovery) {
+                listener.onBuildCompletionAfterDisasterRecovery(taskId.getIndexId(), taskId.getTableId(), taskId.getPartitionId());
+            } else {
+                listener.onBuildCompletion(taskId.getIndexId(), taskId.getTableId(), taskId.getPartitionId());
+            }
+        }
     }
 }
