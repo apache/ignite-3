@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.descriptors;
 /**
  * Enumeration of all supported collations.
  */
-// TODO: IGNITE-19082 drop similar classes in index and sql-engine modules.
 public enum CatalogColumnCollation {
     ASC_NULLS_FIRST(true, true),
     ASC_NULLS_LAST(true, false),
