@@ -973,12 +973,25 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             || replicaMgr.isReplicaStarted(replicaGrpId);
 
                     try {
+
+                        Supplier<RaftGroupService> getCachedRaftClient = () -> {
+                            try {
+                                // Return existing service if it's already started.
+                                return ((InternalTableImpl) internalTbl)
+                                        .tableRaftService()
+                                        .partitionRaftGroupService(replicaGrpId.partitionId());
+                            } catch (IgniteInternalException e) {
+                                // We use "IgniteInternalException" in accordance with the javadoc of "partitionRaftGroupService" method.
+                                return null;
+                            }
+                        };
+
+                        Consumer<RaftGroupService> updateTableRaftService = (raftClient) -> ((InternalTableImpl) internalTbl)
+                                .tableRaftService()
+                                .updateInternalTableRaftGroupService(partId, raftClient);
+
                         // ToDo: this code should be removed after next ticket IGNITE-22036
-                        Function<RaftGroupService, ReplicaListener> createListener = (raftClient) -> {
-                            ((InternalTableImpl) internalTbl)
-                                    .tableRaftService()
-                                    .updateInternalTableRaftGroupService(partId, raftClient);
-                            return createReplicaListener(
+                        Function<RaftGroupService, ReplicaListener> createListener = (raftClient) -> createReplicaListener(
                                     replicaGrpId,
                                     table,
                                     safeTimeTracker,
@@ -986,13 +999,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     partitionStorages.getTxStateStorage(),
                                     partitionUpdateHandlers,
                                     raftClient);
-                        };
 
                         replicaMgr.startReplica(
                                         shouldSkipReplicaStarting,
                                         replicaGrpId,
                                         newConfiguration,
-                                        raftClientCacheClojure(internalTbl, replicaGrpId),
+                                        getCachedRaftClient,
+                                        updateTableRaftService,
                                         createListener,
                                         storageIndexTracker)
                                 .join();
@@ -1011,27 +1024,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 });
 
         return resultFuture;
-    }
-
-    /**
-     * Temporal.
-     *
-     * @param internalTable temporal
-     * @param replicaGrpId temporal
-     * @return temporal
-     */
-    public static Supplier<RaftGroupService> raftClientCacheClojure(InternalTable internalTable, TablePartitionId replicaGrpId) {
-        return () -> {
-            try {
-                // Return existing service if it's already started.
-                return ((InternalTableImpl) internalTable)
-                        .tableRaftService()
-                        .partitionRaftGroupService(replicaGrpId.partitionId());
-            } catch (IgniteInternalException e) {
-                // We use "IgniteInternalException" in accordance with the javadoc of "partitionRaftGroupService" method.
-                return null;
-            }
-        };
     }
 
     private PartitionReplicaListener createReplicaListener(

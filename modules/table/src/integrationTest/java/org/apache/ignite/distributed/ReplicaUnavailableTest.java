@@ -238,6 +238,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                                 tablePartitionId,
                                 newConfiguration,
                                 () -> null,
+                                (unused) -> { },
                                 (unused) -> listener,
                                 new PendingComparableValuesTracker<>(0L)
                         );
@@ -358,6 +359,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                             tablePartitionId,
                             newConfiguration,
                             () -> null,
+                            (unused) -> { },
                             (unused) -> listener,
                             new PendingComparableValuesTracker<>(0L)
                     );

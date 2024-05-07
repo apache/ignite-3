@@ -180,6 +180,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 groupId,
                 newConfiguration,
                 () -> null,
+                (unused) -> { },
                 (unused) -> replicaListener,
                 new PendingComparableValuesTracker<>(0L)
         );

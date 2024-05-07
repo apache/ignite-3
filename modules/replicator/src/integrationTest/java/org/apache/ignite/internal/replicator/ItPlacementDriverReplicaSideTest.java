@@ -516,6 +516,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                             groupId,
                             newConfiguration,
                             () -> null, // TODO
+                            (unused) -> { },
                             (unused) -> listener, // TODO
                             new PendingComparableValuesTracker<>(Long.MAX_VALUE));
                 } catch (NodeStoppingException e) {

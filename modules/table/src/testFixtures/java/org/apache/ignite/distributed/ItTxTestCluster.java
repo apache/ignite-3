@@ -700,6 +700,7 @@ public class ItTxTestCluster {
                                         new TablePartitionId(tableId, partId),
                                         configuration,
                                         () -> null,
+                                        (unused) -> { },
                                         (unused) -> listener,
                                         storageIndexTracker
                                 );

@@ -44,6 +44,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -539,7 +540,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             boolean shouldSkipReplicaStarting,
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
-            Supplier<RaftGroupService> raftClientCache,
+            Supplier<RaftGroupService> getCachedRaftClient,
+            Consumer<RaftGroupService> updateTableRaftService,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) throws NodeStoppingException {
@@ -550,8 +552,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         try {
             return startReplicaInternal(
                     shouldSkipReplicaStarting,
-                    replicaGrpId, newConfiguration,
-                    raftClientCache,
+                    replicaGrpId,
+                    newConfiguration,
+                    getCachedRaftClient,
+                    updateTableRaftService,
                     createListener,
                     storageIndexTracker
             );
@@ -575,6 +579,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
             Supplier<RaftGroupService> raftClientCache,
+            Consumer<RaftGroupService> updateTableRaftService,
             Function<RaftGroupService, ReplicaListener> createListener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) throws NodeStoppingException {
@@ -587,6 +592,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         } else {
             newRaftClientFut = CompletableFuture.completedFuture((TopologyAwareRaftGroupService) raftClient);
         }
+
+        newRaftClientFut.thenAccept(updateTableRaftService);
 
         // TODO: should be there for now because in TableManager:L978-990 there passing TableRaftService's updating
         CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
