@@ -186,9 +186,8 @@ public class CreateTableCommand extends AbstractTableCommand {
                             format("Functional defaults are not supported for non-primary key columns [col={}].", column.name()));
                 }
 
-                // TODO: fix function validation.
                 String functionName = ((FunctionCall) defaultValue).functionName();
-                if (!"gen_random_uuid".equalsIgnoreCase(functionName)) {
+                if (!CatalogUtils.isSupportedFunctionalDefault(functionName)) {
                     throw new CatalogValidationException(
                             format("Functional default contains unsupported function: [col={}, functionName={}]",
                                     column.name(), functionName));

@@ -25,6 +25,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -120,6 +121,11 @@ public class CatalogUtils {
 
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
+    /**
+     * Functions that are allowed to be used as columns' functional default. The set contains uppercase function names.
+     */
+    private static final Set<String> FUNCTIONAL_DEFAULT_FUNCTIONS = new HashSet<>();
+
     static {
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT8, EnumSet.of(ColumnType.INT8, ColumnType.INT16, ColumnType.INT32,
                 ColumnType.INT64));
@@ -131,6 +137,8 @@ public class CatalogUtils {
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.STRING, EnumSet.of(ColumnType.STRING));
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.BYTE_ARRAY, EnumSet.of(ColumnType.BYTE_ARRAY));
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.DECIMAL, EnumSet.of(ColumnType.DECIMAL));
+
+        FUNCTIONAL_DEFAULT_FUNCTIONS.add("GEN_RANDOM_UUID");
     }
 
     public static final List<String> SYSTEM_SCHEMAS = List.of(SYSTEM_SCHEMA_NAME);
@@ -580,5 +588,12 @@ public class CatalogUtils {
         CatalogZoneDescriptor defaultZone = catalog.defaultZone();
 
         return defaultZone != null ? defaultZone.id() : null;
+    }
+
+    /**
+     * Return {@code true} if a function with given name is allowed to be used as functional default for a column, {@code false} otherwise.
+     */
+    public static boolean isSupportedFunctionalDefault(String functionName) {
+        return FUNCTIONAL_DEFAULT_FUNCTIONS.contains(functionName.toUpperCase());
     }
 }
