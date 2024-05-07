@@ -27,5 +27,5 @@ import org.apache.ignite.internal.table.distributed.TableMessageGroup.DisasterRe
  */
 @Transferable(DisasterRecoveryMessages.LOCAL_PARTITION_STATE_RESPONSE)
 public interface LocalPartitionStatesResponse extends NetworkMessage {
-    List<LocalPartitionState> states();
+    List<LocalPartitionStateMessage> states();
 }

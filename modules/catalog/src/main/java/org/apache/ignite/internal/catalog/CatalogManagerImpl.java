@@ -21,8 +21,13 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.joining;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTsSafeForRoReads;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType.HASH;
 import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.type.NativeTypes.INT32;
@@ -40,8 +45,10 @@ import java.util.NavigableMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
-import java.util.function.Function;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCatalogCommand;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -74,6 +81,7 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SubscriptionUtils;
+import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.jetbrains.annotations.Nullable;
 
@@ -82,6 +90,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, CatalogEventParameters>
         implements CatalogManager, SystemViewProvider {
+    static String DEFAULT_ZONE_NAME = "Default";
+
     private static final int MAX_RETRY_COUNT = 10;
 
     private static final int SYSTEM_VIEW_STRING_COLUMN_LENGTH = Short.MAX_VALUE;
@@ -126,19 +136,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
      * Constructor.
      */
     public CatalogManagerImpl(UpdateLog updateLog, ClockService clockService) {
-        this(updateLog, clockService, DEFAULT_DELAY_DURATION, DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
-    }
-
-    /**
-     * Constructor.
-     */
-    CatalogManagerImpl(
-            UpdateLog updateLog,
-            ClockService clockService,
-            long delayDurationMs,
-            long partitionIdleSafeTimePropagationPeriod
-    ) {
-        this(updateLog, clockService, () -> delayDurationMs, () -> partitionIdleSafeTimePropagationPeriod);
+        this(updateLog, clockService, () -> DEFAULT_DELAY_DURATION, () -> DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
     }
 
     /**
@@ -157,7 +155,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         int objectIdGen = 0;
 
         // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
@@ -180,25 +178,29 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 INITIAL_CAUSALITY_TOKEN
         );
 
-        CatalogZoneDescriptor defaultZone = fromParams(
-                objectIdGen++,
-                DEFAULT_ZONE_NAME
-        );
+        Catalog emptyCatalog = new Catalog(0, 0L, objectIdGen, List.of(), List.of(publicSchema, systemSchema), null);
 
-        registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(publicSchema, systemSchema)));
+        registerCatalog(emptyCatalog);
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 
-        updateLog.start();
+        return updateLog.startAsync()
+                .thenCompose(none -> {
+                    if (latestCatalogVersion() == emptyCatalog.version()) {
+                        // node has not seen any updates yet, let's try to initialise
+                        // catalog with default zone
+                        return createDefaultZone(emptyCatalog);
+                    }
 
-        return nullCompletedFuture();
+                    return nullCompletedFuture();
+                });
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         busyLock.block();
         versionTracker.close();
-        updateLog.stop();
+        return updateLog.stopAsync();
     }
 
     @Override
@@ -359,6 +361,34 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         Catalog catalog = catalogAt(timestamp);
 
         return updateLog.saveSnapshot(new SnapshotEntry(catalog));
+    }
+
+    private CompletableFuture<Void> createDefaultZone(Catalog emptyCatalog) {
+        List<UpdateEntry> createZoneEntries = new BulkUpdateProducer(List.of(
+                CreateZoneCommand.builder()
+                        .zoneName(DEFAULT_ZONE_NAME)
+                        .partitions(DEFAULT_PARTITION_COUNT)
+                        .replicas(DEFAULT_REPLICA_COUNT)
+                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
+                        .filter(DEFAULT_FILTER)
+                        .storageProfilesParams(
+                                List.of(StorageProfileParams.builder().storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE).build())
+                        )
+                        .build(),
+                AlterZoneSetDefaultCatalogCommand.builder()
+                        .zoneName(DEFAULT_ZONE_NAME)
+                        .build()
+        )).get(emptyCatalog);
+
+        return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, createZoneEntries))
+                .handle((result, error) -> {
+                    if (error != null) {
+                        LOG.warn("Unable to create default zone.", error);
+                    }
+
+                    return null;
+                });
     }
 
     private void registerCatalog(Catalog newCatalog) {
@@ -565,7 +595,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 activationTimestamp,
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                catalog.schemas()
+                catalog.schemas(),
+                defaultZoneIdOpt(catalog)
         );
     }
 
@@ -648,16 +679,22 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     private SystemView<?> createZonesView() {
-        return SystemViews.<CatalogZoneDescriptor>clusterViewBuilder()
+        return SystemViews.<ZoneWithDefaultMarker>clusterViewBuilder()
                 .name("ZONES")
-                .addColumn("NAME", STRING, CatalogZoneDescriptor::name)
-                .addColumn("PARTITIONS", INT32, CatalogZoneDescriptor::partitions)
-                .addColumn("REPLICAS", INT32, CatalogZoneDescriptor::replicas)
-                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_UP", INT32, CatalogZoneDescriptor::dataNodesAutoAdjustScaleUp)
-                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", INT32, CatalogZoneDescriptor::dataNodesAutoAdjustScaleDown)
-                .addColumn("DATA_NODES_FILTER", STRING, CatalogZoneDescriptor::filter)
-                .addColumn("IS_DEFAULT_ZONE", BOOLEAN, isDefaultZone())
-                .dataProvider(SubscriptionUtils.fromIterable(() -> catalogAt(clockService.nowLong()).zones().iterator()))
+                .<String>addColumn("NAME", STRING, wrapper -> wrapper.zone.name())
+                .<Integer>addColumn("PARTITIONS", INT32, wrapper -> wrapper.zone.partitions())
+                .<Integer>addColumn("REPLICAS", INT32, wrapper -> wrapper.zone.replicas())
+                .<Integer>addColumn("DATA_NODES_AUTO_ADJUST_SCALE_UP", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleUp())
+                .<Integer>addColumn("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleDown())
+                .<String>addColumn("DATA_NODES_FILTER", STRING, wrapper -> wrapper.zone.filter())
+                .<Boolean>addColumn("IS_DEFAULT_ZONE", BOOLEAN, wrapper -> wrapper.isDefault)
+                .dataProvider(SubscriptionUtils.fromIterable(() -> {
+                            Catalog catalog = catalogAt(clockService.nowLong());
+                            CatalogZoneDescriptor defaultZone = catalog.defaultZone();
+                            return new TransformingIterator<>(catalog.zones().iterator(),
+                                    (zone) -> new ZoneWithDefaultMarker(zone, defaultZone != null && defaultZone.id() == zone.id()));
+                        }
+                ))
                 .build();
     }
 
@@ -705,8 +742,15 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         .collect(joining(", "));
     }
 
-    private static Function<CatalogZoneDescriptor, Boolean> isDefaultZone() {
-        return zone -> zone.name().equals(DEFAULT_ZONE_NAME);
+    /** Wraps a CatalogZoneDescriptor and a flag indicating whether this zone is the default zone. */
+    static class ZoneWithDefaultMarker {
+        private final CatalogZoneDescriptor zone;
+        private final boolean isDefault;
+
+        ZoneWithDefaultMarker(CatalogZoneDescriptor zone, boolean isDefault) {
+            this.zone = zone;
+            this.isDefault = isDefault;
+        }
     }
 
     /**

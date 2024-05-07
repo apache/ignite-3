@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
@@ -90,7 +92,8 @@ public class DropTableEntry implements UpdateEntry, Fireable {
                         schema.indexes(),
                         schema.systemViews(),
                         causalityToken
-                ), catalog.schemas())
+                ), catalog.schemas()),
+                defaultZoneIdOpt(catalog)
         );
     }
 

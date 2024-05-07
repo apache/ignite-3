@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
@@ -32,6 +31,8 @@ import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -45,10 +46,12 @@ import static org.mockito.Mockito.when;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.LongFunction;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -73,7 +76,6 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -118,12 +120,14 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         createAndStartComponents();
 
+        awaitDefaultZoneCreation(catalogManager);
+
         createTable(TABLE_NAME);
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.stopAll(metaStorageManager, catalogManager, indexManager);
+    void tearDown() {
+        assertThat(stopAsync(metaStorageManager, catalogManager, indexManager), willCompleteSuccessfully());
     }
 
     @Test
@@ -173,7 +177,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     private TableViewInternal newMockTable(int tableId) {
-        CatalogZoneDescriptor zone = catalogManager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
+        Catalog catalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong())));
+        CatalogZoneDescriptor zone = catalog.defaultZone();
 
         assertNotNull(zone);
 
@@ -224,11 +229,13 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 lowWatermark
         );
 
-        assertThat(allOf(metaStorageManager.start(), catalogManager.start(), indexManager.start()), willCompleteSuccessfully());
-
-        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
-        assertThat(metaStorageManager.notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
-        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        assertThat(
+                startAsync(metaStorageManager, catalogManager, indexManager)
+                        .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
+                        .thenCompose(unused -> metaStorageManager.notifyRevisionUpdateListenerOnStart())
+                        .thenCompose(unused -> metaStorageManager.deployWatches()),
+                willCompleteSuccessfully()
+        );
     }
 
     private void createTable(String tableName) {

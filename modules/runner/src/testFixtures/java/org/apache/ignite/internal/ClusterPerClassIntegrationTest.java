@@ -38,8 +38,8 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -154,9 +154,11 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     protected static void dropAllZonesExceptDefaultOne() {
         CatalogManager catalogManager = CLUSTER.aliveNode().catalogManager();
         int latestCatalogVersion = catalogManager.latestCatalogVersion();
+        Catalog catalog = Objects.requireNonNull(catalogManager.catalog(latestCatalogVersion));
+        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
         for (CatalogZoneDescriptor z : catalogManager.zones(latestCatalogVersion)) {
             String zoneName = z.name();
-            if (CatalogService.DEFAULT_ZONE_NAME.equals(zoneName)) {
+            if (defaultZone != null && zoneName.equals(defaultZone.name())) {
                 continue;
             }
             sql("DROP ZONE " + zoneName);

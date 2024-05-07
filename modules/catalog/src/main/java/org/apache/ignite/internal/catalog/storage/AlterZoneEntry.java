@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -79,7 +80,8 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
                 catalog.zones().stream()
                         .map(z -> z.id() == descriptor.id() ? descriptor : z)
                         .collect(toList()),
-                catalog.schemas()
+                catalog.schemas(),
+                defaultZoneIdOpt(catalog)
         );
     }
 

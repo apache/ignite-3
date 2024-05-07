@@ -37,6 +37,7 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.TaskExecution;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -112,11 +113,7 @@ public class ClientCompute implements IgniteCompute {
             JobExecutionOptions options,
             Object... args
     ) {
-        try {
-            return this.<R>submit(nodes, units, jobClassName, options, args).resultAsync().join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ClientUtils.ensurePublicException(e));
-        }
+        return sync(executeAsync(nodes, units, jobClassName, options, args));
     }
 
     /** {@inheritDoc} */
@@ -208,11 +205,7 @@ public class ClientCompute implements IgniteCompute {
             JobExecutionOptions options,
             Object... args
     ) {
-        try {
-            return this.<R>submitColocated(tableName, key, units, jobClassName, options, args).resultAsync().join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ClientUtils.ensurePublicException(e));
-        }
+        return sync(executeColocatedAsync(tableName, key, units, jobClassName, options, args));
     }
 
     /** {@inheritDoc} */
@@ -226,11 +219,7 @@ public class ClientCompute implements IgniteCompute {
             JobExecutionOptions options,
             Object... args
     ) {
-        try {
-            return this.<K, R>submitColocated(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync().join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ClientUtils.ensurePublicException(e));
-        }
+        return sync(executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args));
     }
 
     /** {@inheritDoc} */
@@ -259,6 +248,17 @@ public class ClientCompute implements IgniteCompute {
         }
 
         return map;
+    }
+
+    @Override
+    public <R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22124
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    @Override
+    public <R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+        return sync(executeMapReduceAsync(units, taskClassName, args));
     }
 
     private CompletableFuture<SubmitResult> executeOnNodesAsync(
@@ -355,7 +355,8 @@ public class ClientCompute implements IgniteCompute {
                 },
                 ClientCompute::unpackSubmitResult,
                 partitionAwarenessProvider,
-                true);
+                true,
+                null);
     }
 
     private CompletableFuture<ClientTable> getTable(String tableName) {
@@ -439,5 +440,13 @@ public class ClientCompute implements IgniteCompute {
      */
     private static SubmitResult unpackSubmitResult(PayloadInputChannel ch) {
         return new SubmitResult(ch.in().unpackUuid(), ch.notificationFuture());
+    }
+
+    private static <R> R sync(CompletableFuture<R> future) {
+        try {
+            return future.join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.sneakyThrow(ClientUtils.ensurePublicException(e));
+        }
     }
 }

@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -132,8 +133,10 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.TestStorageUtils;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
+import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
@@ -514,6 +517,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 columnsExtractor
         );
 
+        completeBuiltIndexes(sortedIndexStorage.storage(), hashIndexStorage.storage());
+
         IndexLocker pkLocker = new HashIndexLocker(pkIndexId, true, lockManager, row2Tuple);
         IndexLocker sortedIndexLocker = new SortedIndexLocker(sortedIndexId, PART_ID, lockManager, indexStorage, row2Tuple);
         IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2Tuple);
@@ -657,6 +662,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         ((TestSortedIndexStorage) sortedIndexStorage.storage()).clear();
         testMvPartitionStorage.clear();
         pendingRows.clear();
+
+        completeBuiltIndexes(hashIndexStorage.storage(), sortedIndexStorage.storage());
     }
 
     @Test
@@ -702,6 +709,22 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         assertEquals(COMMITTED, txMeta.txState());
         assertNotNull(txMeta.commitTimestamp());
         assertTrue(readTimestamp.compareTo(txMeta.commitTimestamp()) > 0);
+    }
+
+    @CartesianTest
+    @CartesianTest.MethodFactory("finishedTxTypesFactory")
+    void testExecuteRequestOnFinishedTx(TxState txState, RequestType requestType) {
+        UUID txId = newTxId();
+
+        txStateStorage.put(txId, new TxMeta(txState, singletonList(grpId), null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(txState, null, null, null));
+
+        BinaryRow testRow = binaryRow(0);
+
+        assertThat(
+                doSingleRowRequest(txId, testRow, requestType),
+                willThrowFast(TransactionException.class, "Transaction is already finished")
+        );
     }
 
     @Test
@@ -2141,6 +2164,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .argumentsForNextParameter(false, true);
     }
 
+    @SuppressWarnings("unused")
+    private static ArgumentSets finishedTxTypesFactory() {
+        return ArgumentSets.argumentsForFirstParameter(FINISHING, ABORTED, COMMITTED)
+                .argumentsForNextParameter(singleRowRwOperationTypes());
+    }
+
     private static Stream<RequestType> singleRowRwOperationTypes() {
         return Arrays.stream(RequestType.values())
                 .filter(RequestTypes::isSingleRowRw);
@@ -3011,5 +3040,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .build();
 
         return partitionReplicaListener.invoke(request, localNode.id());
+    }
+
+    private void completeBuiltIndexes(IndexStorage... indexStorages) {
+        TestStorageUtils.completeBuiltIndexes(testMvPartitionStorage, indexStorages);
     }
 }

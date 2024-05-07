@@ -45,6 +45,7 @@ import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
@@ -52,7 +53,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -60,6 +60,8 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -172,14 +174,17 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         PlacementDriver placementDriver = new TestPlacementDriver(clusterNode);
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
+        HybridClock clock = new HybridClockImpl();
+        ClockService clockService = new TestClockService(clock);
+
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
 
         txManager = new TxManagerImpl(
                 txConfiguration,
                 clusterService,
                 replicaService,
                 new HeapLockManager(),
-                new TestClockService(new HybridClockImpl()),
+                clockService,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
@@ -200,7 +205,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             }
         };
 
-        assertThat(txManager.start(), willCompleteSuccessfully());
+        assertThat(txManager.startAsync(), willCompleteSuccessfully());
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
@@ -311,9 +316,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     }
 
     @AfterAll
-    static void afterAllTests() throws Exception {
+    static void afterAllTests() {
         if (txManager != null) {
-            txManager.stop();
+            assertThat(txManager.stopAsync(), willCompleteSuccessfully());
         }
     }
 
@@ -361,7 +366,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 );
             case TIMESTAMP:
                 return ((LocalDateTime) generateValueByType(i, NativeTypeSpec.DATETIME))
-                        .atZone(TimeZone.getDefault().toZoneId())
+                        .atZone(ZoneId.systemDefault())
                         .toInstant();
             default:
                 throw new IllegalStateException("Unexpected type: " + type);

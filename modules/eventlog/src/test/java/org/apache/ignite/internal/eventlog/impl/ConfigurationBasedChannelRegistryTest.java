@@ -29,6 +29,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.eventlog.api.EventChannel;
 import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
+import org.apache.ignite.internal.eventlog.ser.EventSerializerFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,7 +46,10 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        registry = new ConfigurationBasedChannelRegistry(cfg, new ConfigurationBasedSinkRegistry(cfg, SinkFactory.DEFAULT));
+        registry = new ConfigurationBasedChannelRegistry(cfg, new ConfigurationBasedSinkRegistry(
+                cfg,
+                new LogSinkFactory(new EventSerializerFactory().createEventSerializer()))
+        );
     }
 
     @Test

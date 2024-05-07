@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.indexOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceIndex;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
@@ -71,7 +72,8 @@ public class RenameIndexEntry implements UpdateEntry {
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                replaceSchema(replaceIndex(schemaDescriptor, newIndexDescriptor), catalog.schemas())
+                replaceSchema(replaceIndex(schemaDescriptor, newIndexDescriptor), catalog.schemas()),
+                defaultZoneIdOpt(catalog)
         );
     }
 

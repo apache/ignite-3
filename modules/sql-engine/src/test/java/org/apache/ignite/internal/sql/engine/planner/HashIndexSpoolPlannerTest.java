@@ -58,7 +58,7 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
         IgniteRel phys = physicalPlan(
                 sql,
                 publicSchema,
-                "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeToSortedIndexSpoolRule"
+                "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeToSortedIndexSpoolRule", "HashJoinConverter"
         );
 
         System.out.println("+++\n" + RelOptUtil.toString(phys));
@@ -89,7 +89,7 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
         IgniteRel phys = physicalPlan(
                 sql,
                 publicSchema,
-                "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeToSortedIndexSpoolRule"
+                "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeToSortedIndexSpoolRule", "HashJoinConverter"
         );
 
         IgniteHashIndexSpool idxSpool = findFirstNode(phys, byClass(IgniteHashIndexSpool.class));
@@ -122,7 +122,7 @@ public class HashIndexSpoolPlannerTest extends AbstractPlannerTest {
         IgniteRel phys = physicalPlan(
                 sql,
                 publicSchema,
-                "MergeJoinConverter", "NestedLoopJoinConverter"
+                "MergeJoinConverter", "NestedLoopJoinConverter", "HashJoinConverter"
         );
 
         IgniteHashIndexSpool idxSpool = findFirstNode(phys, byClass(IgniteHashIndexSpool.class));

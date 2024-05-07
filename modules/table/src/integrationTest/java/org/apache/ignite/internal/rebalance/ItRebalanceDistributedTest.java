@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rebalance;
 
+import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -37,6 +38,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -137,6 +139,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -199,7 +202,6 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
-import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterNode;
@@ -1033,7 +1035,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-            raftManager = spy(new Loza(clusterService, raftConfiguration, dir, hybridClock, raftGroupEventsClientListener));
+            raftManager = spy(new Loza(
+                    clusterService,
+                    new NoOpMetricManager(),
+                    raftConfiguration,
+                    dir,
+                    hybridClock,
+                    raftGroupEventsClientListener
+            ));
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
@@ -1094,7 +1103,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-            TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
+            clockWaiter = new ClockWaiter(name, hybridClock);
+
+            ClockService clockService = new ClockServiceImpl(
+                    hybridClock,
+                    clockWaiter,
+                    () -> TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS
+            );
+
+            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
 
             cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
 
@@ -1136,14 +1153,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             raftManager.getLogSyncer()
                     ),
                     storageConfiguration
-            );
-
-            clockWaiter = new ClockWaiter(name, hybridClock);
-
-            ClockService clockService = new ClockServiceImpl(
-                    hybridClock,
-                    clockWaiter,
-                    () -> TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS
             );
 
             lowWatermark = new LowWatermarkImpl(
@@ -1310,7 +1319,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     cmgManager
             );
 
-            List<CompletableFuture<?>> componentFuts = firstComponents.stream().map(IgniteComponent::start).collect(Collectors.toList());
+            List<CompletableFuture<?>> componentFuts =
+                    firstComponents.stream()
+                            .map(IgniteComponent::startAsync)
+                            .collect(Collectors.toList());
 
             nodeComponents.addAll(firstComponents);
 
@@ -1330,7 +1342,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                         indexManager
                 );
 
-                componentFuts.addAll(secondComponents.stream().map(IgniteComponent::start).collect(Collectors.toList()));
+                componentFuts.addAll(secondComponents.stream().map(IgniteComponent::startAsync).collect(Collectors.toList()));
 
                 nodeComponents.addAll(secondComponents);
 
@@ -1361,21 +1373,18 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
          * Stops the created components.
          */
         void stop() {
-            new ReverseIterator<>(nodeComponents).forEachRemaining(component -> {
+            List<IgniteComponent> components = new ArrayList<>(nodeComponents);
+            reverse(components);
+
+            for (IgniteComponent component : components) {
                 try {
                     component.beforeNodeStop();
                 } catch (Exception e) {
                     LOG.error("Unable to execute before node stop [component={}]", e, component);
                 }
-            });
+            }
 
-            new ReverseIterator<>(nodeComponents).forEachRemaining(component -> {
-                try {
-                    component.stop();
-                } catch (Exception e) {
-                    LOG.error("Unable to stop component [component={}]", e, component);
-                }
-            });
+            assertThat(stopAsync(components), willCompleteSuccessfully());
 
             nodeCfgGenerator.close();
             clusterCfgGenerator.close();

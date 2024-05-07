@@ -18,6 +18,10 @@
 package org.apache.ignite.internal.cluster.management;
 
 
+import static java.util.Collections.reverse;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
@@ -34,6 +39,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -107,7 +113,7 @@ public class MockNode {
 
         this.clusterService = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
-        Loza raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
+        Loza raftManager = new Loza(clusterService, new NoOpMetricManager(), raftConfiguration, workDir, new HybridClockImpl());
 
         var clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve("cmg"), clusterService.nodeName());
 
@@ -140,8 +146,8 @@ public class MockNode {
     /**
      * Start fake node.
      */
-    public void startComponents() {
-        components.forEach(IgniteComponent::start);
+    public CompletableFuture<Void> startComponents() {
+        return startAsync(components);
     }
 
     /**
@@ -166,15 +172,14 @@ public class MockNode {
      * Stop fake node.
      */
     public void stop() {
-        ReverseIterator<IgniteComponent> it = new ReverseIterator<>(components);
+        List<IgniteComponent> componentsToStop = new ArrayList<>(components);
+        reverse(componentsToStop);
 
-        it.forEachRemaining(component -> {
-            try {
-                component.stop();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
+        try {
+            stopAsync(componentsToStop).get(30, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**

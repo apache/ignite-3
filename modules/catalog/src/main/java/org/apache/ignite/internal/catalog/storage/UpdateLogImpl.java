@@ -97,7 +97,7 @@ public class UpdateLogImpl implements UpdateLog {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(Common.NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -126,9 +126,9 @@ public class UpdateLogImpl implements UpdateLog {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -139,10 +139,16 @@ public class UpdateLogImpl implements UpdateLog {
         if (listener != null) {
             metastore.unregisterWatch(listener);
         }
+
+        return nullCompletedFuture();
     }
 
     @Override
-    public void registerUpdateHandler(OnUpdateHandler handler) {
+    public synchronized void registerUpdateHandler(OnUpdateHandler handler) {
+        if (onUpdateHandler != null) {
+            throw new IllegalStateException("onUpdateHandler handler already registered");
+        }
+
         onUpdateHandler = handler;
     }
 

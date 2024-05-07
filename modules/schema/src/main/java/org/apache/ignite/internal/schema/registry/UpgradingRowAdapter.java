@@ -22,14 +22,18 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -38,6 +42,7 @@ import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Adapter for row of older schema.
@@ -440,11 +445,54 @@ public class UpgradingRowAdapter extends Row {
         return mappedId < 0 ? (Instant) column.defaultValue() : super.timestampValue(mappedId);
     }
 
+    @Override
+    public boolean hasNullValue(int colIdx) {
+        int mappedId = mapColumn(colIdx);
+
+        return mappedId < 0
+                ? mapper.mappedColumn(colIdx).defaultValue() == null
+                : super.hasNullValue(mappedId);
+    }
+
+
+    @Override
+    public int elementCount() {
+        return newBinaryTupleSchema.elementCount();
+    }
+
     /** {@inheritDoc} */
     @Override
-    public BinaryTuple binaryTuple() {
+    public @Nullable BinaryTuple binaryTuple() {
         // Underlying binary tuple can not be used directly.
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ByteBuffer byteBuffer() {
+        // TODO: IGNITE-22156 Replace inheritance with delegation and drop this code.
+        int size = newBinaryTupleSchema.elementCount();
+        var builder = new BinaryTupleBuilder(size);
+
+        for (int col = 0; col < size; col++) {
+            Element element = newBinaryTupleSchema.element(col);
+
+            BinaryRowConverter.appendValue(builder, element, value(col));
+        }
+
+        return new BinaryTuple(size, builder.build()).byteBuffer();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int tupleSliceLength() {
+        throw new UnsupportedOperationException("Underlying binary can't be accessed directly.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ByteBuffer tupleSlice() {
+        throw new UnsupportedOperationException("Underlying binary can't be accessed directly.");
     }
 
     private void ensureTypeConversionAllowed(ColumnType from, ColumnType to) throws InvalidTypeException {

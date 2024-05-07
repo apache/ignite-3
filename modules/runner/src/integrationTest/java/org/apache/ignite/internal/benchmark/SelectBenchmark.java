@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.benchmark;
 
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -36,7 +38,6 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
@@ -277,7 +278,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
          */
         @TearDown
         public void tearDown() throws Exception {
-            IgniteUtils.closeAll(client);
+            closeAll(client);
         }
 
         org.apache.ignite.sql.ResultSet<SqlRow> sql(String query, Object... args) {
@@ -313,7 +314,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
 
         @TearDown
         public void tearDown() throws Exception {
-            IgniteUtils.closeAll(stmt, conn);
+            closeAll(stmt, conn);
         }
     }
 
@@ -338,7 +339,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
 
         @TearDown
         public void tearDown() throws Exception {
-            IgniteUtils.closeAll(client);
+            closeAll(client);
         }
 
         KeyValueView<Tuple, Tuple> kvView() {

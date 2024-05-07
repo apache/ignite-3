@@ -227,6 +227,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::ALREADY_CLOSED:
         case error::code::STORAGE_REBALANCE:
         case error::code::ALREADY_DESTROYED:
+        case error::code::INDEX_NOT_BUILT:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // DistributionZones group. Group code: 10
@@ -294,6 +295,12 @@ sql_state error_code_to_sql_state(error::code code) {
         // CriticalWorkers group. Group code: 19
         case error::code::SYSTEM_WORKER_BLOCKED:
         case error::code::SYSTEM_CRITICAL_OPERATION_TIMEOUT:
+            return sql_state::SHY000_GENERAL_ERROR;
+
+        // DisasterRecovery group. Group code: 20
+        case error::code::NODES_NOT_FOUND:
+        case error::code::ILLEGAL_PARTITION_ID:
+        case error::code::PARTITION_STATE:
             return sql_state::SHY000_GENERAL_ERROR;
     }
 

@@ -24,8 +24,8 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneIdStrict;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -104,7 +105,6 @@ import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -143,7 +143,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         String nodeName = "test";
 
         catalogManager = createTestCatalogManager(nodeName, clock);
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
 
         createZone(ZONE_NAME_0, 1, 128);
         createZone(ZONE_NAME_1, 2, 128);
@@ -262,8 +262,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
     @AfterEach
     public void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                catalogManager == null ? null : catalogManager::stop,
+        closeAll(
+                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
                 keyValueStorage == null ? null : keyValueStorage::close,
                 rebalanceEngine == null ? null : rebalanceEngine::stop,
                 () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS)
@@ -418,7 +418,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
-        realMetaStorageManager.start();
+        assertThat(realMetaStorageManager.startAsync(), willCompleteSuccessfully());
 
         try {
             createRebalanceEngine(realMetaStorageManager);
@@ -429,7 +429,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
         } finally {
-            realMetaStorageManager.stop();
+            assertThat(realMetaStorageManager.stopAsync(), willCompleteSuccessfully());
         }
     }
 
@@ -450,18 +450,18 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
-        realMetaStorageManager.start();
+        assertThat(realMetaStorageManager.startAsync(), willCompleteSuccessfully());
 
         try {
             createRebalanceEngine(realMetaStorageManager);
 
             rebalanceEngine.start();
 
-            alterZone(DEFAULT_ZONE_NAME, 2);
+            alterZone(getDefaultZone(catalogManager, clock.nowLong()).name(), 2);
 
             assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
         } finally {
-            realMetaStorageManager.stop();
+            assertThat(realMetaStorageManager.stopAsync(), willCompleteSuccessfully());
         }
     }
 

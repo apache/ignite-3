@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.table.TxAbstractTest.startNode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
@@ -160,14 +161,14 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 new NoOpFailureProcessor()
         );
 
-        replicaManager.start();
+        assertThat(replicaManager.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
     public void teardown() {
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
 
-        clusterService.stop();
+        assertThat(clusterService.stopAsync(), willCompleteSuccessfully());
     }
 
     public ReplicaUnavailableTest(TestInfo testInfo) {

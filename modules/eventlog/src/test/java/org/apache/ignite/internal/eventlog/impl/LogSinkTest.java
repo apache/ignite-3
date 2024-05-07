@@ -33,15 +33,14 @@ import org.apache.ignite.internal.eventlog.api.Sink;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkChange;
 import org.apache.ignite.internal.eventlog.event.EventUser;
+import org.apache.ignite.internal.eventlog.ser.EventSerializerFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ConfigurationExtension.class)
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-21850")
 class LogSinkTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
@@ -70,7 +69,8 @@ class LogSinkTest extends BaseIgniteAbstractTest {
             logSinkChange.changeFormat("json");
         })).get();
         // And log sink.
-        Sink logSink = SinkFactory.DEFAULT.createSink(cfg.sinks().get("logSink").value());
+        Sink logSink = new LogSinkFactory(new EventSerializerFactory().createEventSerializer())
+                .createSink(cfg.sinks().get("logSink").value());
         // And event.
         Event event = IgniteEvents.USER_AUTHENTICATED.create(
                 EventUser.of("user1", "basicProvider")
@@ -84,8 +84,8 @@ class LogSinkTest extends BaseIgniteAbstractTest {
         // And event is written in JSON format.
         var expectedEventJson = "{"
                 + "\"type\":\"USER_AUTHENTICATED\","
-                + "\"timestamp\":" + event.timestamp() + ","
-                + "\"productVersion\":\"" + event.productVersion() + "\","
+                + "\"timestamp\":" + event.getTimestamp() + ","
+                + "\"productVersion\":\"" + event.getProductVersion() + "\","
                 + "\"user\":{\"username\":\"user1\",\"authenticationProvider\":\"basicProvider\"},"
                 + "\"fields\":{}"
                 + "}";

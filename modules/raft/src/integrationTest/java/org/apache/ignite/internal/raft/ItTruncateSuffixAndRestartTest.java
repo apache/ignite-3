@@ -49,6 +49,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -169,8 +170,8 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
 
             var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, nodeName);
 
-            nettyBootstrapFactory.start();
-            cleanup.add(nettyBootstrapFactory::stop);
+            assertThat(nettyBootstrapFactory.startAsync(), willCompleteSuccessfully());
+            cleanup.add(() -> assertThat(nettyBootstrapFactory.stopAsync(), willCompleteSuccessfully()));
 
             clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
                     nodeName,
@@ -181,13 +182,13 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     new NoOpCriticalWorkerRegistry(),
                     mock(FailureProcessor.class));
 
-            clusterSvc.start();
-            cleanup.add(clusterSvc::stop);
+            assertThat(clusterSvc.startAsync(), willCompleteSuccessfully());
+            cleanup.add(() -> assertThat(clusterSvc.stopAsync(), willCompleteSuccessfully()));
 
-            raftMgr = new Loza(clusterSvc, raftConfiguration, nodeDir, hybridClock);
+            raftMgr = new Loza(clusterSvc, new NoOpMetricManager(), raftConfiguration, nodeDir, hybridClock);
 
-            raftMgr.start();
-            cleanup.add(raftMgr::stop);
+            assertThat(raftMgr.startAsync(), willCompleteSuccessfully());
+            cleanup.add(() -> assertThat(raftMgr.stopAsync(), willCompleteSuccessfully()));
 
             cleanup.add(this::stopService);
         }

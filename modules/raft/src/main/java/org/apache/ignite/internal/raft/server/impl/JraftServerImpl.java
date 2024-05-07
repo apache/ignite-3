@@ -48,6 +48,7 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
@@ -250,7 +251,7 @@ public class JraftServerImpl implements RaftServer {
 
     /**
      * Sets {@link AppendEntriesRequestInterceptor} to use. Should only be called from the same thread that is used
-     * to {@link #start()} the component.
+     * to {@link #startAsync()} the component.
      *
      * @param appendEntriesRequestInterceptor Interceptor to use.
      */
@@ -259,7 +260,7 @@ public class JraftServerImpl implements RaftServer {
     }
 
     /**
-     * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used to {@link #start()} the
+     * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used to {@link #startAsync()} the
      * component.
      *
      * @param actionRequestInterceptor Interceptor to use.
@@ -270,7 +271,7 @@ public class JraftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         assert opts.isSharedPools() : "RAFT server is supposed to run in shared pools mode";
 
         // Pre-create all pools in shared mode.
@@ -319,6 +320,10 @@ public class JraftServerImpl implements RaftServer {
                 actionRequestInterceptor
         );
 
+        if (opts.getRaftMetrics() == null) {
+            opts.setRaftMetrics(new RaftMetricSource(opts.getStripes(), opts.getLogStripesCount()));
+        }
+
         if (opts.getfSMCallerExecutorDisruptor() == null) {
             opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
                     opts.getServerName(),
@@ -328,7 +333,8 @@ public class JraftServerImpl implements RaftServer {
                     ApplyTask::new,
                     opts.getStripes(),
                     false,
-                    false
+                    false,
+                    opts.getRaftMetrics().disruptorMetrics("raft.fsmcaller.disruptor")
             ));
         }
 
@@ -340,7 +346,8 @@ public class JraftServerImpl implements RaftServer {
                     LogEntryAndClosure::new,
                     opts.getStripes(),
                     false,
-                    false
+                    false,
+                    opts.getRaftMetrics().disruptorMetrics("raft.nodeimpl.disruptor")
             ));
         }
 
@@ -352,7 +359,8 @@ public class JraftServerImpl implements RaftServer {
                     ReadIndexEvent::new,
                     opts.getStripes(),
                     false,
-                    false
+                    false,
+                    opts.getRaftMetrics().disruptorMetrics("raft.readonlyservice.disruptor")
             ));
         }
 
@@ -364,7 +372,8 @@ public class JraftServerImpl implements RaftServer {
                     StableClosureEvent::new,
                     opts.getLogStripesCount(),
                     true,
-                    opts.isLogYieldStrategy()
+                    opts.isLogYieldStrategy(),
+                    opts.getRaftMetrics().disruptorMetrics("raft.logmanager.disruptor")
             ));
 
             opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
@@ -379,7 +388,7 @@ public class JraftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         assert nodes.isEmpty() : IgniteStringFormatter.format("Raft nodes {} are still running on the Ignite node {}", nodes.keySet(),
                 service.topologyService().localMember().name());
 
@@ -436,6 +445,8 @@ public class JraftServerImpl implements RaftServer {
         ExecutorServiceHelper.shutdownAndAwaitTermination(requestExecutor);
 
         logStorageFactory.close();
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */

@@ -99,10 +99,10 @@ public class InlineUtilsTest extends BaseIgniteAbstractTest {
 
         // Variable length type checking.
 
-        assertEquals(BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.decimalOf(1, 1)));
+        assertEquals(2 + BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.decimalOf(1, 1)));
         nativeTypeSpecs.remove(nativeType.spec());
 
-        assertEquals(BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.decimalOf(100, 1)));
+        assertEquals(2 + BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.decimalOf(100, 1)));
         nativeTypeSpecs.remove(nativeType.spec());
 
         assertEquals(7, inlineSize(nativeType = NativeTypes.stringOf(7)));

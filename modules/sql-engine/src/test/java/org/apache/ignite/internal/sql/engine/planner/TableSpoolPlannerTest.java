@@ -52,7 +52,7 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
                 + "join t1 on t0.jid > t1.jid";
 
         IgniteRel phys = physicalPlan(sql, publicSchema,
-                "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeRule");
+                "HashJoinConverter", "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeRule");
 
         assertNotNull(phys);
 

@@ -129,7 +129,7 @@ public interface TxManager extends IgniteComponent {
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
      * @param commitPartition Partition to store a transaction state.
      * @param commit {@code true} if a commit requested.
-     * @param enlistedGroups Enlisted partition groups with consistency token.
+     * @param enlistedGroups Enlisted partition groups with consistency tokens.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
@@ -185,8 +185,12 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> cleanup(String node, UUID txId);
 
-    /** Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile. */
-    void vacuum();
+    /**
+     * Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile.
+     *
+     * @return Vacuum complete future.
+     */
+    CompletableFuture<Void> vacuum();
 
     /**
      * Returns a number of finished transactions.

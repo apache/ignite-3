@@ -55,10 +55,14 @@ public class ServerMetricsTest extends AbstractClientTest {
     public void testTxMetrics() {
         assertEquals(0, testServer.metrics().transactionsActive());
 
-        Transaction tx1 = client.transactions().begin();
+        Transaction tx1 = client.transactions().begin(); // Lazy tx does not begin until first operation.
+        assertEquals(0, testServer.metrics().transactionsActive());
+
+        client.sql().execute(tx1, "select 1").close(); // Force lazy tx init.
         assertEquals(1, testServer.metrics().transactionsActive());
 
         Transaction tx2 = client.transactions().begin();
+        client.sql().execute(tx2, "select 1").close(); // Force lazy tx init.
         assertEquals(2, testServer.metrics().transactionsActive());
 
         tx1.rollback();

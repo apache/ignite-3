@@ -1,0 +1,60 @@
+# name: test/sql/types/char/test_char_character_set.test
+# description: E021-01 Character string types. CHARACTER SET tests
+# group: [char]
+
+# Incorrect name of charset
+statement error
+CREATE TABLE t_incorrect(C1 CHAR CHARACTER SET UTF_8);
+
+statement ok
+CREATE TABLE t_default (c1 CHAR, c2 CHARACTER, c3 CHAR(3), c4 CHARACTER(3));
+
+statement ok
+CREATE TABLE t_utf8 (c1 CHAR CHARACTER SET UTF8, c2 CHARACTER CHARACTER SET UTF8, c3 CHAR(3) CHARACTER SET UTF8, c4 CHARACTER(3) CHARACTER SET UTF8);
+
+statement ok
+CREATE TABLE t_latin1 (c1 CHAR CHARACTER SET LATIN1, c2 CHARACTER CHARACTER SET LATIN1, c3 CHAR(3) CHARACTER SET LATIN1, c4 CHARACTER(3) CHARACTER SET LATIN1);
+
+statement ok
+INSERT INTO t_default VALUES('1', '2', '🍞', 'Ю44');
+
+statement ok
+INSERT INTO t_utf8 VALUES('1', '2', '🍞', 'Ю44');
+
+# Must fail due to use symbol doesn't belong to charset of column
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22100
+statement error
+INSERT INTO t_latin1 VALUES('1', '2', '🍞', 'Ю44');
+
+# Must fail due to different character set
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22100
+statement error
+INSERT INTO t_latin1 SELECT * FROM t_utf8;
+
+# Must fail due to different character set
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22100
+statement error
+INSERT INTO t_utf8 SELECT * FROM t_latin1;
+
+query I
+SELECT count(*) from t_utf8 t1, t_default t2 where t1.c1=t2.c1;
+----
+1
+
+query I
+SELECT count(*) from t_utf8 t1, t_default t2 where t1.c2=t2.c2;
+----
+1
+
+query T
+SELECT count(*) from t_utf8 t1 join t_default t2 on (t1.c3=t2.c3);
+----
+1
+
+query T
+SELECT count(*) from t_utf8 t1 join t_default t2 on (t1.c4=t2.c4);
+----
+1

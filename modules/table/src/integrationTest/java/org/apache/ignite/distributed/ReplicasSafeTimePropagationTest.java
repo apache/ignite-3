@@ -46,6 +46,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -258,17 +259,18 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         CompletableFuture<Void> start() throws Exception {
             clusterService = ClusterServiceTestUtils.clusterService(nodeName, port.getAndIncrement(), NODE_FINDER);
 
-            clusterService.start();
+            assertThat(clusterService.startAsync(), willCompleteSuccessfully());
 
             raftManager = new Loza(
                     clusterService,
+                    new NoOpMetricManager(),
                     raftConfiguration,
                     workDir.resolve(nodeName + "_loza"),
                     new HybridClockImpl(),
                     new RaftGroupEventsClientListener()
             );
 
-            raftManager.start();
+            assertThat(raftManager.startAsync(), willCompleteSuccessfully());
 
             TxManager txManagerMock = mock(TxManager.class);
 
@@ -300,8 +302,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     raftManager == null ? null : () -> raftManager.stopRaftNodes(GROUP_ID),
                     raftManager == null ? null : raftManager::beforeNodeStop,
                     clusterService == null ? null : clusterService::beforeNodeStop,
-                    raftManager == null ? null : raftManager::stop,
-                    clusterService == null ? null : clusterService::stop
+                    raftManager == null ? null : () -> assertThat(raftManager.stopAsync(), willCompleteSuccessfully()),
+                    clusterService == null ? null : () -> assertThat(clusterService.stopAsync(), willCompleteSuccessfully())
             );
         }
     }

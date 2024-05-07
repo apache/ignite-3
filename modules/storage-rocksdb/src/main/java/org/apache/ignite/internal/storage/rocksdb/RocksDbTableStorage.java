@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.DFLT_WRITE_OPTS;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.storage.rocksdb.index.AbstractRocksDbIndexStor
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.FlushOptions;
@@ -118,21 +118,21 @@ public class RocksDbTableStorage implements MvTableStorage {
     /**
      * Returns a column family handle for partitions column family.
      */
-    public ColumnFamilyHandle partitionCfHandle() {
+    ColumnFamilyHandle partitionCfHandle() {
         return rocksDb.partitionCf.handle();
     }
 
     /**
      * Returns a column family handle for meta column family.
      */
-    public ColumnFamilyHandle metaCfHandle() {
+    ColumnFamilyHandle metaCfHandle() {
         return rocksDb.meta.columnFamily().handle();
     }
 
     /**
      * Returns a column family handle for GC queue.
      */
-    public ColumnFamilyHandle gcQueueHandle() {
+    ColumnFamilyHandle gcQueueHandle() {
         return rocksDb.gcQueueCf.handle();
     }
 
@@ -168,7 +168,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                     }
 
                     try {
-                        IgniteUtils.closeAll(resources);
+                        closeAll(resources);
                     } catch (Exception e) {
                         throw new StorageException("Failed to stop RocksDB table storage: " + getTableId(), e);
                     }
@@ -258,15 +258,19 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> destroyIndex(int indexId) {
-        return inBusyLock(busyLock, () -> {
-            try {
-                indexes.destroyIndex(indexId);
+        if (!busyLock.enterBusy()) {
+            return nullCompletedFuture();
+        }
 
-                return nullCompletedFuture();
-            } catch (RocksDBException e) {
-                throw new StorageException("Error when destroying index: {}", e, indexId);
-            }
-        });
+        try {
+            indexes.destroyIndex(indexId);
+
+            return nullCompletedFuture();
+        } catch (RocksDBException e) {
+            throw new StorageException("Error when destroying index: {}", e, indexId);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     @Override

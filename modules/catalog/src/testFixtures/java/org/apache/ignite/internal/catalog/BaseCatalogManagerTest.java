@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.STRING;
@@ -30,9 +32,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.spy;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
@@ -55,7 +55,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -86,10 +85,13 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     protected CatalogManagerImpl manager;
 
     protected AtomicLong delayDuration = new AtomicLong();
+    protected AtomicLong partitionIdleSafeTimePropagationPeriod = new AtomicLong();
+
 
     @BeforeEach
     void setUp() {
         delayDuration.set(CatalogManagerImpl.DEFAULT_DELAY_DURATION);
+        partitionIdleSafeTimePropagationPeriod.set(CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
 
         metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
 
@@ -102,22 +104,19 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 updateLog,
                 clockService,
                 delayDuration::get,
-                () -> CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD
+                partitionIdleSafeTimePropagationPeriod::get
         );
 
-        metastore.start();
-        clockWaiter.start();
-        manager.start();
+        assertThat(startAsync(metastore, clockWaiter, manager), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
+
+        awaitDefaultZoneCreation(manager);
     }
 
     @AfterEach
-    public void tearDown() throws Exception {
-        IgniteUtils.closeAll(Stream.of(manager, clockWaiter, metastore)
-                .filter(Objects::nonNull)
-                .map(component -> component::stop)
-        );
+    public void tearDown() {
+        assertThat(stopAsync(manager, clockWaiter, metastore), willCompleteSuccessfully());
     }
 
     protected static CatalogCommand createHashIndexCommand(
@@ -204,7 +203,6 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
         return CreateTableCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
-                .zone(DEFAULT_ZONE_NAME)
                 .tableName(tableName)
                 .columns(columns)
                 .primaryKey(primaryKey)

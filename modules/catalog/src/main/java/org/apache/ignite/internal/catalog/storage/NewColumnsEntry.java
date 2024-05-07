@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
@@ -106,7 +107,8 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                replaceSchema(replaceTable(schema, newTableDescriptor), catalog.schemas())
+                replaceSchema(replaceTable(schema, newTableDescriptor), catalog.schemas()),
+                defaultZoneIdOpt(catalog)
         );
     }
 

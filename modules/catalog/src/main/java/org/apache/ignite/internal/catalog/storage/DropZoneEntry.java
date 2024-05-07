@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -74,7 +75,8 @@ public class DropZoneEntry implements UpdateEntry, Fireable {
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones().stream().filter(z -> z.id() != zoneId).collect(toList()),
-                catalog.schemas()
+                catalog.schemas(),
+                defaultZoneIdOpt(catalog)
         );
     }
 

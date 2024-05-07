@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 
 import java.util.ArrayList;
@@ -50,6 +51,8 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Table view implementation for binary objects.
@@ -403,6 +406,25 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         } catch (TupleMarshallerException ex) {
             throw new MarshallerException(ex);
         }
+    }
+
+    /**
+     * Marshal a tuple to a row. Test-only public method.
+     *
+     * @param tx Transaction, if present.
+     * @param rec Tuple record.
+     * @return A future, with row as a result.
+     */
+    @TestOnly
+    @VisibleForTesting
+    public CompletableFuture<BinaryRowEx> tupleToBinaryRow(@Nullable Transaction tx, Tuple rec) {
+        Objects.requireNonNull(rec);
+
+        return doOperation(tx, schemaVersion -> {
+            Row row = marshal(rec, schemaVersion, false);
+
+            return completedFuture(row);
+        });
     }
 
     /**

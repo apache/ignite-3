@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
@@ -35,6 +34,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.nullValue;
@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -95,10 +96,19 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        assertThat(allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
-        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        assertThat(
+                startAsync(metaStorageManager, catalogManager)
+                        .thenCompose(unused -> metaStorageManager.deployWatches()),
+                willCompleteSuccessfully()
+        );
 
-        CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
+        awaitDefaultZoneCreation(catalogManager);
+
+        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong()));
+
+        assert catalog != null;
+
+        CatalogZoneDescriptor zoneDescriptor = catalog.defaultZone();
 
         assertNotNull(zoneDescriptor);
 
@@ -114,8 +124,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         closeAll(
                 indexAvailabilityController::close,
                 indexBuilder::close,
-                catalogManager::stop,
-                metaStorageManager::stop,
+                () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
+                () -> assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully()),
                 () -> shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS)
         );
     }
@@ -346,8 +356,12 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     private void changePartitionCountInCatalog(int newPartitions) {
+        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong()));
+
+        assert catalog != null;
+
         assertThat(
-                catalogManager.execute(AlterZoneCommand.builder().zoneName(DEFAULT_ZONE_NAME).partitions(newPartitions).build()),
+                catalogManager.execute(AlterZoneCommand.builder().zoneName(catalog.defaultZone().name()).partitions(newPartitions).build()),
                 willCompleteSuccessfully()
         );
 
@@ -375,9 +389,12 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Void> finishBuildIndexFuture = new CompletableFuture<>();
 
-        indexBuilder.listen((indexId1, tableId, partitionId1) -> {
-            if (indexId1 == indexId && partitionId1 == partitionId) {
-                finishBuildIndexFuture.complete(null);
+        indexBuilder.listen(new IndexBuildCompletionListener() {
+            @Override
+            public void onBuildCompletion(int indexId1, int tableId1, int partitionId1) {
+                if (indexId1 == indexId && partitionId1 == partitionId) {
+                    finishBuildIndexFuture.complete(null);
+                }
             }
         });
 
