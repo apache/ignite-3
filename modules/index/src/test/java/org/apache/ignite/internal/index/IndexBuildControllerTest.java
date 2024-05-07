@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.table.TableTestUtils.getIndexStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -178,7 +179,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
         createIndex(INDEX_NAME);
 
-        when(indexManager.getMvTableStorage(anyLong(), anyInt())).thenReturn(completedFuture(null));
+        when(indexManager.getMvTableStorage(anyLong(), anyInt())).thenReturn(nullCompletedFuture());
 
         assertThrows(
                 ExecutionException.class,
@@ -210,7 +211,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testExceptionIsThrownOnPrimaryReplicaElectedWhenStorageIsNull() {
-        when(indexManager.getMvTableStorage(anyLong(), anyInt())).thenReturn(completedFuture(null));
+        when(indexManager.getMvTableStorage(anyLong(), anyInt())).thenReturn(nullCompletedFuture());
 
         CompletableFuture<ReplicaMeta> replicaMetaFuture = completedFuture(replicaMetaForOneSecond(NODE_NAME, NODE_ID, clock.now()));
 

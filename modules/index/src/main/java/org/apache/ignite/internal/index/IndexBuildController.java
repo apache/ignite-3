@@ -148,7 +148,7 @@ class IndexBuildController implements ManuallyCloseable {
                 if (primaryReplicaId.tableId() == indexDescriptor.tableId()) {
                     int tableId = indexDescriptor.tableId();
 
-                    CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), tableId)
+                    CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
                             .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, clockService.now())
                                     .thenAccept(replicaMeta -> tryScheduleBuildIndex(
                                             primaryReplicaId,
@@ -185,7 +185,7 @@ class IndexBuildController implements ManuallyCloseable {
                 // metastore thread.
                 int catalogVersion = catalogService.latestCatalogVersion();
 
-                return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId.tableId())
+                return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
                         .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, parameters.startTime())
                                 .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
                                         catalogVersion,
@@ -255,9 +255,9 @@ class IndexBuildController implements ManuallyCloseable {
         }
     }
 
-    private CompletableFuture<MvTableStorage> getMvTableStorageFuture(long causalityToken, int tableId) {
-        return indexManager.getMvTableStorage(causalityToken, tableId)
-                .thenApply(mvTableStorage -> requireMvTableStorageNonNull(mvTableStorage, tableId));
+    private CompletableFuture<MvTableStorage> getMvTableStorageFuture(long causalityToken, TablePartitionId replicaId) {
+        return indexManager.getMvTableStorage(causalityToken, replicaId.tableId())
+                .thenApply(mvTableStorage -> requireMvTableStorageNonNull(mvTableStorage, replicaId.tableId()));
     }
 
     private static MvTableStorage requireMvTableStorageNonNull(@Nullable MvTableStorage mvTableStorage, int tableId) {
