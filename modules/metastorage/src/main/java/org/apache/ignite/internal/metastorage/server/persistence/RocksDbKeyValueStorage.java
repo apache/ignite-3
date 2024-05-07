@@ -229,7 +229,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      */
     private final UpdatedEntries updatedEntries = new UpdatedEntries();
 
-    protected List<AbstractNativeReference> rocksResources = new ArrayList<>();
+    /** Tracks RocksDb resources that must be properly closed. */
+    private List<AbstractNativeReference> rocksResources = new ArrayList<>();
 
     /**
      * Constructor.
