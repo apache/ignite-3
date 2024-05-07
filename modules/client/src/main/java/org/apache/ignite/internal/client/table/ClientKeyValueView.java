@@ -19,6 +19,8 @@ package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.internal.marshaller.ValidationUtils.validateNullableOperation;
+import static org.apache.ignite.internal.marshaller.ValidationUtils.validateNullableValue;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyMapCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -122,6 +124,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     public CompletableFuture<NullableValue<V>> getNullableAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
+        validateNullableOperation(valSer.mapper().targetType());
+
         // Null means row does not exist, NullableValue.NULL means row exists, but mapped value column is null.
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
@@ -206,6 +210,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     public CompletableFuture<Void> putAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key);
 
+        validateNullableValue(val, valSer.mapper().targetType());
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
@@ -227,6 +233,11 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
         if (pairs.isEmpty()) {
             return nullCompletedFuture();
+        }
+
+        for (Entry<K, V> e : pairs.entrySet()) {
+            Objects.requireNonNull(e.getKey());
+            validateNullableValue(e.getValue(), valSer.mapper().targetType());
         }
 
         return tbl.doSchemaOutOpAsync(
@@ -255,6 +266,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     public CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, K key, @Nullable V val) {
         Objects.requireNonNull(key);
 
+        validateNullableValue(val, valSer.mapper().targetType());
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
@@ -272,8 +285,11 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, K key, V val) {
+    public CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, K key, @Nullable V val) {
         Objects.requireNonNull(key);
+
+        validateNullableOperation(valSer.mapper().targetType());
+        validateNullableValue(val, valSer.mapper().targetType());
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
@@ -294,6 +310,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     @Override
     public CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key);
+
+        validateNullableValue(val, valSer.mapper().targetType());
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
@@ -396,6 +414,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     public CompletableFuture<NullableValue<V>> getNullableAndRemoveAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
+        validateNullableOperation(valSer.mapper().targetType());
+
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
@@ -424,6 +444,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key);
 
+        validateNullableValue(val, valSer.mapper().targetType());
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
@@ -436,6 +458,9 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, V oldVal, V newVal) {
         Objects.requireNonNull(key);
+
+        validateNullableValue(oldVal, valSer.mapper().targetType());
+        validateNullableValue(newVal, valSer.mapper().targetType());
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
@@ -459,7 +484,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     @Override
     public CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
+
+        validateNullableValue(val, valSer.mapper().targetType());
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
@@ -480,7 +506,9 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
+
+        validateNullableOperation(valSer.mapper().targetType());
+        validateNullableValue(val, valSer.mapper().targetType());
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
