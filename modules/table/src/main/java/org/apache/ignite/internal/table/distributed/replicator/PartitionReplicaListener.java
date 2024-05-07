@@ -2374,7 +2374,13 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     rowIdFuts[i] = resolveRowByPk(pk, txId, (rowId, row, lastCommitTime) -> {
                         if (isDelete && rowId == null) {
-                            // Does not exist, nothing to delete.
+                            // Does not exist in storage, nothing to delete.
+                            // If there was an insert in this batch before, we need to skip it.
+                            Integer prevRowIdx = newKeyMap.get(pk.byteBuffer());
+                            if (prevRowIdx != null) {
+                                rowIdFuts[prevRowIdx] = nullCompletedFuture();
+                            }
+
                             return nullCompletedFuture();
                         }
 
