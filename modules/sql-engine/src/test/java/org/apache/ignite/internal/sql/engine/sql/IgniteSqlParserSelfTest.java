@@ -34,7 +34,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests for sql parser.
  */
-public class IgniteSqlParserTest {
+public class IgniteSqlParserSelfTest {
     @Test
     public void testStatementMode() {
         StatementParseResult result = IgniteSqlParser.parse("SELECT 1 + ?", StatementParseResult.MODE);
