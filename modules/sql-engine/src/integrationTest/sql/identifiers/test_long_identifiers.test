@@ -2,6 +2,8 @@
 # description: SQL feature F391 (Long identifiers)
 # group: [identifiers]
 
+# TODO: IGNITE-19703 Add cases for long identifiers for schema names.
+
 statement ok
 PRAGMA enable_verification
 
