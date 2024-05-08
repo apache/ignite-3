@@ -189,26 +189,26 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
     public void testChangeColumnDefault() {
         sql("CREATE TABLE test("
                 + "id BIGINT PRIMARY KEY, "
+                + "valint INTEGER, "
                 + "valdate DATE,"
-                + "valtime TIME,"
-                + "valts TIMESTAMP,"
+                + "valtime TIME(3),"
+                + "valts TIMESTAMP(3),"
                 + "valstr VARCHAR,"
                 + "valbin VARBINARY"
                 + ")");
 
 
-        sql("ALTER TABLE test ALTER COLUMN id SET DEFAULT 1");
-
+        sql("ALTER TABLE test ALTER COLUMN valint SET DEFAULT 1");
         sql("ALTER TABLE test ALTER COLUMN valdate SET DEFAULT DATE '2001-12-21'");
-        sql("ALTER TABLE test ALTER COLUMN valtime SET DEFAULT TIME '11:22:33.444'");
-        sql("ALTER TABLE test ALTER COLUMN valts SET DEFAULT TIMESTAMP '2001-12-21 11:22:33.444'");
+        sql("ALTER TABLE test ALTER COLUMN valtime SET DEFAULT TIME '11:22:33.444555'");
+        sql("ALTER TABLE test ALTER COLUMN valts SET DEFAULT TIMESTAMP '2001-12-21 11:22:33.444555'");
         sql("ALTER TABLE test ALTER COLUMN valstr SET DEFAULT 'string'");
         sql("ALTER TABLE test ALTER COLUMN valbin SET DEFAULT x'ff'");
 
-        sql("INSERT INTO test VALUES (0)");
+        sql("INSERT INTO test (id) VALUES (0)");
 
         assertQuery("SELECT * FROM test")
-                .returns(0,
+                .returns(0L,
                         1,
                         LocalDate.of(2001, Month.DECEMBER, 21),
                         LocalTime.of(11, 22, 33, 444000000),

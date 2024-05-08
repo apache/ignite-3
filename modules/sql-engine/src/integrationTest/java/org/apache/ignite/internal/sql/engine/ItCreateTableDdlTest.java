@@ -365,17 +365,17 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void addColumnWithConstantDefault() {
         sql("CREATE TABLE test(id BIGINT DEFAULT 1 PRIMARY KEY)");
 
-        sql("ALTER TABLE test ADD COLUMN valint BIGINT DEFAULT 1");
+        sql("ALTER TABLE test ADD COLUMN valint INTEGER DEFAULT 1");
         sql("ALTER TABLE test ADD COLUMN valdate DATE DEFAULT DATE '2001-12-21'");
-        sql("ALTER TABLE test ADD COLUMN valtime TIME DEFAULT TIME '11:22:33.444'");
-        sql("ALTER TABLE test ADD COLUMN valts TIMESTAMP DEFAULT TIMESTAMP '2001-12-21 11:22:33.444'");
+        sql("ALTER TABLE test ADD COLUMN valtime TIME(3) DEFAULT TIME '11:22:33.444555'");
+        sql("ALTER TABLE test ADD COLUMN valts TIMESTAMP(3) DEFAULT TIMESTAMP '2001-12-21 11:22:33.444555'");
         sql("ALTER TABLE test ADD COLUMN valstr VARCHAR DEFAULT 'string'");
         sql("ALTER TABLE test ADD COLUMN valbin VARBINARY DEFAULT x'ff'");
 
-        sql("INSERT INTO test VALUES (0)");
+        sql("INSERT INTO test (id) VALUES (0)");
 
         assertQuery("SELECT * FROM test")
-                .returns(0,
+                .returns(0L,
                         1,
                         LocalDate.of(2001, Month.DECEMBER, 21),
                         LocalTime.of(11, 22, 33, 444000000),
