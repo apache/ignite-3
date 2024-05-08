@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZo
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 
 import java.io.IOException;
-import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
