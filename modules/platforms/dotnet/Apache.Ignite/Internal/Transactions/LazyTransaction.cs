@@ -35,10 +35,7 @@ internal sealed class LazyTransaction : ITransaction
     /// Initializes a new instance of the <see cref="LazyTransaction"/> class.
     /// </summary>
     /// <param name="options">Options.</param>
-    public LazyTransaction(TransactionOptions options)
-    {
-        _options = options;
-    }
+    public LazyTransaction(TransactionOptions options) => _options = options;
 
     /// <inheritdoc/>
     public bool IsReadOnly => _options.ReadOnly;
