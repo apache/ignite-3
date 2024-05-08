@@ -266,7 +266,7 @@ public class Cluster {
 
         return TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName))
                 .thenApply(IgniteImpl.class::cast)
-                .thenCompose(ignite -> ignite.catalogManager().catalogInitializationFuture().thenApply(x -> ignite))
+                .thenCompose(ignite -> ignite.catalogManager().catalogInitializationFuture().thenApply(ignored -> ignite))
                 .thenApply(ignite -> {
                     synchronized (nodes) {
                         while (nodes.size() < nodeIndex) {
