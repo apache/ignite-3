@@ -622,26 +622,30 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
-        CompletableFuture<Replica> newReplicaFut = newReplicaListenerFut.thenApply(listener -> new Replica(
-                replicaGrpId,
-                listener,
-                storageIndexTracker,
-                localNode,
-                executor,
-                placementDriver,
-                clockService));
+        CompletableFuture<Replica> replicaFuture = newReplicaListenerFut.thenCompose(listener -> {
+            Replica newReplica = new Replica(
+                    replicaGrpId,
+                    listener,
+                    storageIndexTracker,
+                    localNode,
+                    executor,
+                    placementDriver,
+                    clockService);
 
-        CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
-            if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
-                assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
-                LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
+            return replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
+                if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
+                    assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
+                    LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
 
-                return newReplicaFut;
-            } else {
-                LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
+                    return CompletableFuture.completedFuture(newReplica);
+                } else {
+                    LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
 
-                return existingReplicaFuture.thenCompose((unused) -> newReplicaFut);
-            }
+                    existingReplicaFuture.complete(newReplica);
+
+                    return existingReplicaFuture;
+                }
+            });
         });
 
         var eventParams = new LocalReplicaEventParameters(replicaGrpId);
