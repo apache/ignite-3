@@ -393,6 +393,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
+        var metricManager = new MetricManagerImpl();
+
         var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                 clusterSvc,
                 logicalTopologyService,
@@ -412,6 +414,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metaStorage,
                 hybridClock,
                 topologyAwareRaftGroupServiceFactory,
+                metricManager,
                 metaStorageConfiguration
         ) {
             @Override
@@ -627,8 +630,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 registry,
                 lowWatermark
         );
-
-        var metricManager = new MetricManagerImpl();
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,

@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.metrics.sources;
 
+import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.Metric;
@@ -42,6 +45,8 @@ public class JvmMetricSource implements MetricSource {
     /** JVM standard MXBean to provide information about memory usage. */
     private final MemoryMXBean memoryMxBean;
 
+    private final List<GarbageCollectorMXBean> gcMxBeans;
+
     /** True, if source is enabled, false otherwise. */
     private boolean enabled;
 
@@ -49,9 +54,11 @@ public class JvmMetricSource implements MetricSource {
      * Constructor.
      *
      * @param memoryMxBean MXBean implementation to receive memory info.
+     * @param gcMxBeans MXBean implementation to receive GC info.
      */
-    JvmMetricSource(MemoryMXBean memoryMxBean) {
+    JvmMetricSource(MemoryMXBean memoryMxBean, List<GarbageCollectorMXBean> gcMxBeans) {
         this.memoryMxBean = memoryMxBean;
+        this.gcMxBeans = List.copyOf(gcMxBeans);
     }
 
     /**
@@ -59,6 +66,7 @@ public class JvmMetricSource implements MetricSource {
      */
     public JvmMetricSource() {
         memoryMxBean = ManagementFactory.getMemoryMXBean();
+        gcMxBeans = ManagementFactory.getGarbageCollectorMXBeans();
     }
 
     /** {@inheritDoc} */
@@ -71,6 +79,8 @@ public class JvmMetricSource implements MetricSource {
     @Override
     public synchronized @Nullable MetricSet enable() {
         var metrics = new HashMap<String, Metric>();
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22186 - metric names should be simple (no periods).
 
         CachedMemoryUsage heapMemoryUsage = new CachedMemoryUsage(memoryMxBean::getHeapMemoryUsage, MEMORY_USAGE_CACHE_TIMEOUT);
         metrics.put("memory.heap.Init",
@@ -117,9 +127,34 @@ public class JvmMetricSource implements MetricSource {
                         () -> nonHeapMemoryUsage.get().getMax()
                 ));
 
+        for (GarbageCollectorMXBean gcMxBean : gcMxBeans) {
+            metrics.put(
+                    "gc." + nameForMetricName(gcMxBean) + ".CollectionCount",
+                    new LongGauge(
+                            "gc." + nameForMetricName(gcMxBean) + ".CollectionCount",
+                            "Total number of collections that have occurred. -1 if the collection count is undefined for this collector.",
+                            gcMxBean::getCollectionCount
+                    )
+            );
+
+            metrics.put(
+                    "gc." + nameForMetricName(gcMxBean) + ".CollectionTime",
+                    new LongGauge(
+                            "gc." + nameForMetricName(gcMxBean) + ".CollectionTime",
+                            "Approximate accumulated collection elapsed time in milliseconds. -1 if the collection elapsed time is"
+                                    + " undefined for this collector.",
+                            gcMxBean::getCollectionTime
+                    )
+            );
+        }
+
         enabled = true;
 
         return new MetricSet(SOURCE_NAME, metrics);
+    }
+
+    private static String nameForMetricName(GarbageCollectorMXBean gcMxBean) {
+        return gcMxBean.getName().replaceAll("\\s", "_").toLowerCase(Locale.ENGLISH);
     }
 
     /** {@inheritDoc} */
