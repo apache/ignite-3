@@ -51,7 +51,6 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.table.partition.Partition;
 import org.apache.ignite.table.partition.PartitionManager;
 import org.jetbrains.annotations.TestOnly;
 
@@ -144,8 +143,8 @@ public class TableImpl implements TableViewInternal {
     }
 
     @Override
-    public <T extends Partition> PartitionManager<T> partitionManager() {
-        return (PartitionManager<T>) new HashPartitionManagerImpl(tbl, schemaReg, marshallers);
+    public PartitionManager partitionManager() {
+        return new HashPartitionManagerImpl(tbl, schemaReg, marshallers);
     }
 
     @Override public String name() {

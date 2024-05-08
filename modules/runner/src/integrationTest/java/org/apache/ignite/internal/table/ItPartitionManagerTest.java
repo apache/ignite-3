@@ -33,8 +33,8 @@ import java.util.concurrent.Flow.Subscription;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.table.Tuple;
 import org.apache.ignite.internal.table.partition.HashPartition;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.partition.PartitionManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -69,7 +69,7 @@ public class ItPartitionManagerTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void partitionsForAllKeys() {
-        PartitionManager<HashPartition> partitionManager = cluster.aliveNode().tables().table(TABLE_NAME).partitionManager();
+        PartitionManager partitionManager = cluster.aliveNode().tables().table(TABLE_NAME).partitionManager();
         TableViewInternal tableViewInternal = unwrapTableViewInternal(cluster.aliveNode().tables().table(TABLE_NAME));
         InternalTable internalTable = tableViewInternal.internalTable();
 
