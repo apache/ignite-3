@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -37,6 +40,8 @@ public class CreateSchemaCommand implements CatalogCommand {
     private final String schemaName;
 
     private CreateSchemaCommand(String schemaName) {
+        validateIdentifier(schemaName, "Name of the schema");
+
         this.schemaName = schemaName;
     }
 
@@ -45,12 +50,10 @@ public class CreateSchemaCommand implements CatalogCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         int id = catalog.objectIdGenState();
 
-        if (schemaName == null) {
-            throw new CatalogValidationException("Schema name is null");
-        }
         if (catalog.schema(schemaName) != null) {
-            throw new CatalogValidationException(formar("Schema with name '{}' already exists", schemaName));
+            throw new CatalogValidationException(format("Schema with name '{}' already exists", schemaName));
         }
+
         CatalogSchemaDescriptor schema = new CatalogSchemaDescriptor(
                 id,
                 schemaName,

@@ -43,9 +43,8 @@ public class NewSchemaEntry implements UpdateEntry {
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
         CatalogSchemaDescriptor schema = catalog.schema(descriptor.name());
-        if (schema != null) {
-            return catalog;
-        }
+
+        assert schema == null : "Schema already exists: " + descriptor.name();
 
         descriptor.updateToken(causalityToken);
 
