@@ -75,21 +75,18 @@ public class HashPartitionManagerImpl implements PartitionManager<HashPartition>
 
     @Override
     public CompletableFuture<Map<HashPartition, ClusterNode>> primaryReplicasAsync() {
-        HashPartition[] allPartitions = IntStream.range(0, table.partitions())
-                .mapToObj(HashPartition::new)
-                .toArray(HashPartition[]::new);
+        int partitions = table.partitions();
+        CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
 
-        CompletableFuture<?>[] futures = new CompletableFuture<?>[allPartitions.length];
-        for (int i = 0; i < allPartitions.length; i++) {
-            HashPartition partition = allPartitions[i];
-            futures[i] = table.partitionLocation(new TablePartitionId(table.tableId(), partition.partitionId()));
+        for (int i = 0; i < partitions; i++) {
+            futures[i] = table.partitionLocation(new TablePartitionId(table.tableId(), i));
         }
 
         return allOf(futures)
                 .thenApply(unused -> {
-                    Map<HashPartition, ClusterNode> result = new HashMap<>();
-                    for (int i = 0; i < allPartitions.length; i++) {
-                        result.put(allPartitions[i], (ClusterNode) futures[i].join());
+                    Map<HashPartition, ClusterNode> result = new HashMap<>(partitions);
+                    for (int i = 0; i < partitions; i++) {
+                        result.put(new HashPartition(i), (ClusterNode) futures[i].join());
                     }
                     return result;
                 });
@@ -100,10 +97,9 @@ public class HashPartitionManagerImpl implements PartitionManager<HashPartition>
         Objects.requireNonNull(key);
         Objects.requireNonNull(mapper);
 
-        BinaryRowEx keyRow;
         var marshaller = new KvMarshallerImpl<>(schemaReg.lastKnownSchema(), marshallers, mapper, mapper);
         try {
-            keyRow = marshaller.marshal(key);
+            BinaryRowEx keyRow = marshaller.marshal(key);
 
             return completedFuture(new HashPartition(table.partition(keyRow)));
         } catch (MarshallerException e) {

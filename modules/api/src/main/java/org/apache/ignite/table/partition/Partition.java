@@ -18,7 +18,7 @@
 package org.apache.ignite.table.partition;
 
 /**
- * Marker interface which represents a partition reference for criteria query.
+ * Marker interface which represents a partition reference.
  */
 public interface Partition {
 
