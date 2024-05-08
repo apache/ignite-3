@@ -68,7 +68,7 @@ public class ReplicaService {
 
     private final ReplicationConfiguration replicationConfiguration;
 
-    private final ScheduledExecutorService retryExecutor;
+    private @Nullable final ScheduledExecutorService retryExecutor;
 
     /** Requests to retry. */
     private final Map<String, CompletableFuture<NetworkMessage>> pendingInvokes = new ConcurrentHashMap<>();
