@@ -47,6 +47,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.AbstractTopologyAwareGroupServiceTest;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
@@ -62,6 +63,7 @@ import org.mockito.quality.Strictness;
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
+@WithSystemProperty(key = "IGNITE_ALWAYS_FORCE", value = "false")
 public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
     private final Map<String, PlacementDriverManager> placementDriverManagers = new HashMap<>();
 
@@ -132,7 +134,8 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
                 logicalTopologyService,
                 mockRaftMgr,
                 raftGroupServiceFactory,
-                new TestClockService(new HybridClockImpl())
+                new TestClockService(new HybridClockImpl()),
+                grp -> ZONE_GROUP_ID
         );
 
         assertThat(placementDriverManager.startAsync(), willCompleteSuccessfully());

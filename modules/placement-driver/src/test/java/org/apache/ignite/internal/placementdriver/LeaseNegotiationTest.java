@@ -59,6 +59,7 @@ import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
@@ -72,7 +73,7 @@ import org.junit.jupiter.api.Test;
 public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     private static final PlacementDriverMessagesFactory MSG_FACTORY = new PlacementDriverMessagesFactory();
 
-    private static final TablePartitionId GROUP_ID = new TablePartitionId(0, 0);
+    private static final ZonePartitionId ZONE_PARTITION_ID = new ZonePartitionId(0, 0);
 
     private static final String NODE_0_NAME = "node0";
     private static final LogicalNode CLUSTER_NODE_0 = new LogicalNode(randomUUID().toString(), NODE_0_NAME, mock(NetworkAddress.class));
@@ -144,9 +145,11 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         when(pdClusterService.topologyService()).thenAnswer(inv -> pdTopologyService);
 
         LeaseTracker leaseTracker = new LeaseTracker(
+                NODE_0_NAME,
                 metaStorageManager,
                 pdClusterService.topologyService(),
-                new TestClockService(new HybridClockImpl())
+                new TestClockService(new HybridClockImpl()),
+                grpId -> ZONE_PARTITION_ID
         );
 
         leaseTracker.startTrack(0L);
@@ -157,12 +160,16 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 pdLogicalTopologyService,
                 leaseTracker,
-                new TestClockService(new HybridClockImpl())
+                new TestClockService(new HybridClockImpl()),
+                grpId -> ZONE_PARTITION_ID
         );
     }
 
     private static LeaseGrantedMessageResponse createLeaseGrantedMessageResponse(boolean accept) {
-        return MSG_FACTORY.leaseGrantedMessageResponse().accepted(accept).build();
+        return MSG_FACTORY.leaseGrantedMessageResponse()
+                .appliedGroups(Set.of(new TablePartitionId(42, 0)))
+                .accepted(accept)
+                .build();
     }
 
     @Test
@@ -180,11 +187,11 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return createLeaseGrantedMessageResponse(true);
         };
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME))));
+        metaStorageManager.put(stablePartAssignmentsKey(ZONE_PARTITION_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME))));
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_1_NAME))));
+        metaStorageManager.put(stablePartAssignmentsKey(ZONE_PARTITION_ID), Assignments.toBytes(Set.of(forPeer(NODE_1_NAME))));
 
         waitForAcceptedLease();
 
@@ -207,7 +214,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return createLeaseGrantedMessageResponse(true);
         };
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME))));
+        metaStorageManager.put(stablePartAssignmentsKey(ZONE_PARTITION_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME))));
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 
@@ -231,7 +238,10 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return createLeaseGrantedMessageResponse(true);
         };
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME), forPeer(NODE_1_NAME))));
+        metaStorageManager.put(
+                stablePartAssignmentsKey(ZONE_PARTITION_ID),
+                Assignments.toBytes(Set.of(forPeer(NODE_0_NAME), forPeer(NODE_1_NAME)))
+        );
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 
@@ -258,7 +268,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return createLeaseGrantedMessageResponse(true);
         };
 
-        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME))));
+        metaStorageManager.put(stablePartAssignmentsKey(ZONE_PARTITION_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME))));
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 

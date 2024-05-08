@@ -50,6 +50,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -70,6 +71,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test resending the finish request from the coordinator when the previous attempts failed for any reason.
  */
+@WithSystemProperty(key = "IGNITE_ALWAYS_FORCE", value = "false")
 public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 

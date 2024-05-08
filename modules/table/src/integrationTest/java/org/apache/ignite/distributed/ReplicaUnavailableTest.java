@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
@@ -35,6 +36,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -62,6 +64,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -180,6 +183,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
         TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(1, 1);
 
         ReadWriteSingleRowReplicaRequest request = getRequest(tablePartitionId);
 
@@ -188,12 +192,17 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                     try {
                         log.info("Replica msg " + message.getClass().getSimpleName());
 
+                        var mockRaftClient = mock(TopologyAwareRaftGroupService.class);
+                        when(mockRaftClient.readIndex()).thenReturn(completedFuture(-1L));
+                        when(mockRaftClient.run(any())).thenReturn(nullCompletedFuture());
+
                         replicaManager.startReplica(
                                 tablePartitionId,
+                                zonePartitionId,
                                 (request0, senderId) -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
                                         .result(5)
                                         .build(), null)),
-                                mock(TopologyAwareRaftGroupService.class),
+                                mockRaftClient,
                                 new PendingComparableValuesTracker<>(0L)
                         );
                     } catch (NodeStoppingException e) {
@@ -295,16 +304,22 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         ClusterNode clusterNode = clusterService.topologyService().localMember();
 
         TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(1, 1);
 
         clusterService.messagingService().addMessageHandler(ReplicaMessageGroup.class, (message, sender, correlationId) -> {
             runAsync(() -> {
                 try {
                     log.info("Replica msg " + message.getClass().getSimpleName());
 
+                    var mockRaftClient = mock(TopologyAwareRaftGroupService.class);
+                    when(mockRaftClient.readIndex()).thenReturn(completedFuture(-1L));
+                    when(mockRaftClient.run(any())).thenReturn(nullCompletedFuture());
+
                     replicaManager.startReplica(
                             tablePartitionId,
+                            zonePartitionId,
                             (request, senderId) -> new CompletableFuture<>(),
-                            mock(TopologyAwareRaftGroupService.class),
+                            mockRaftClient,
                             new PendingComparableValuesTracker<>(0L)
                     );
                 } catch (NodeStoppingException e) {

@@ -23,8 +23,9 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
@@ -43,8 +43,11 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.WaitReplicaStateMessage;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 
@@ -62,6 +65,9 @@ public class Replica {
 
     /** Replica group identity, this id is the same as the considered partition's id. */
     private final ReplicationGroupId replicaGrpId;
+
+    /** Zone partition id. */
+    private final ZonePartitionId zonePartitionId;
 
     /** Replica listener. */
     private final ReplicaListener listener;
@@ -88,16 +94,19 @@ public class Replica {
 
     /** External executor. */
     // TODO: IGNITE-20063 Maybe get rid of it
-    private final ExecutorService executor;
+    private final Executor executor;
 
     private final PlacementDriver placementDriver;
 
     private final ClockService clockService;
 
+    private final CompletableFuture<Void> waitForActualStateFuture = new CompletableFuture<>();
+
     /**
      * The constructor of a replica server.
      *
      * @param replicaGrpId Replication group id.
+     * @param zonePartitionId Zone partition id.
      * @param listener Replica listener.
      * @param storageIndexTracker Storage index tracker.
      * @param raftClient Topology aware Raft client.
@@ -108,15 +117,17 @@ public class Replica {
      */
     public Replica(
             ReplicationGroupId replicaGrpId,
+            ZonePartitionId zonePartitionId,
             ReplicaListener listener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TopologyAwareRaftGroupService raftClient,
             ClusterNode localNode,
-            ExecutorService executor,
+            Executor executor,
             PlacementDriver placementDriver,
             ClockService clockService
     ) {
         this.replicaGrpId = replicaGrpId;
+        this.zonePartitionId = zonePartitionId;
         this.listener = listener;
         this.storageIndexTracker = storageIndexTracker;
         this.raftClient = raftClient;
@@ -140,6 +151,41 @@ public class Replica {
                 "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]",
                 request.groupId(),
                 replicaGrpId);
+
+        if (request instanceof PrimaryReplicaRequest) {
+            var targetPrimaryReq = (PrimaryReplicaRequest) request;
+
+            if (request instanceof WaitReplicaStateMessage) {
+                if (!waitForActualStateFuture.isDone()) {
+                    return processWaitReplicaStateMessage((WaitReplicaStateMessage) request)
+                            .thenComposeAsync(
+                                    v -> sendPrimaryReplicaChangeToReplicationGroup(targetPrimaryReq.enlistmentConsistencyToken()),
+                                    executor
+                            )
+                            .thenComposeAsync(
+                                    unused -> completedFuture(new ReplicaResult(null, null)),
+                                    executor
+                            );
+                } else {
+                    return completedFuture(new ReplicaResult(null, null));
+                }
+            }
+
+            if (!waitForActualStateFuture.isDone()) {
+                return placementDriver.addSubgroups(
+                                zonePartitionId,
+                                targetPrimaryReq.enlistmentConsistencyToken(),
+                                Set.of(replicaGrpId)
+                        )
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
+                        .thenComposeAsync(unused -> waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + 10_000), executor)
+                        .thenComposeAsync(
+                                v -> sendPrimaryReplicaChangeToReplicationGroup(targetPrimaryReq.enlistmentConsistencyToken()),
+                                executor
+                        )
+                        .thenComposeAsync(unused -> listener.invoke(request, senderId), executor);
+            }
+        }
 
         return listener.invoke(request, senderId);
     }
@@ -171,7 +217,7 @@ public class Replica {
      * @param msg Message to process.
      * @return Future that contains a result.
      */
-    public CompletableFuture<? extends NetworkMessage> processPlacementDriverMessage(PlacementDriverReplicaMessage msg) {
+    public CompletableFuture<LeaseGrantedMessageResponse> processPlacementDriverMessage(PlacementDriverReplicaMessage msg) {
         if (msg instanceof LeaseGrantedMessage) {
             return processLeaseGrantedMessage((LeaseGrantedMessage) msg)
                     .handle((v, e) -> {
@@ -203,7 +249,7 @@ public class Replica {
     private CompletableFuture<LeaseGrantedMessageResponse> processLeaseGrantedMessage(LeaseGrantedMessage msg) {
         LOG.info("Received LeaseGrantedMessage for replica belonging to group=" + groupId() + ", force=" + msg.force());
 
-        return placementDriver.previousPrimaryExpired(groupId()).thenCompose(unused -> leaderFuture().thenCompose(leader -> {
+        return placementDriver.previousPrimaryExpired(msg.groupId()).thenCompose(unused -> leaderFuture().thenCompose(leader -> {
             HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
 
             if (leaseExpirationTime != null) {
@@ -240,6 +286,18 @@ public class Replica {
         }));
     }
 
+    /**
+     * Process {@link WaitReplicaStateMessage}.
+     *
+     * @param msg Message to process.
+     * @return Future that contains a result.
+     */
+    private CompletableFuture<Void> processWaitReplicaStateMessage(WaitReplicaStateMessage msg) {
+        LOG.info("WaitReplicaStateMessage was received [groupId = {}]", groupId());
+
+        return waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + TimeUnit.SECONDS.toMillis(msg.timeout()));
+    }
+
     private CompletableFuture<Void> sendPrimaryReplicaChangeToReplicationGroup(long leaseStartTime) {
         PrimaryReplicaChangeCommand cmd = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
                 .leaseStartTime(leaseStartTime)
@@ -257,6 +315,7 @@ public class Replica {
         this.leaseExpirationTime = leaseExpirationTime;
 
         LeaseGrantedMessageResponse resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
+                .appliedGroups(Set.of(replicaGrpId))
                 .accepted(true)
                 .build();
 
@@ -292,7 +351,8 @@ public class Replica {
 
         return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, executor)
                 .orTimeout(timeout, TimeUnit.MILLISECONDS)
-                .thenCompose(storageIndexTracker::waitFor);
+                .thenCompose(idx -> storageIndexTracker.waitFor(idx))
+                .thenRun(() -> waitForActualStateFuture.complete(null));
     }
 
     /**

@@ -60,7 +60,6 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
@@ -172,8 +171,14 @@ public class IndexManager implements IgniteComponent {
      * @return Future with multi-version table storage, completes with {@code null} if the table does not exist according to the passed
      *      parameters.
      */
-    CompletableFuture<@Nullable MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
-        return tableManager.tableAsync(causalityToken, tableId).thenApply(table -> table == null ? null : table.internalTable().storage());
+    CompletableFuture<MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
+        return tableManager.tableAsync(causalityToken, tableId).thenApply(table -> {
+            if (table == null) {
+                return null;
+            }
+
+            return table.internalTable().storage();
+        });
     }
 
     private CompletableFuture<Boolean> onIndexCreate(CreateIndexEventParameters parameters) {

@@ -15,26 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver.message;
+package org.apache.ignite.internal.replicator.message;
 
-import java.util.Set;
-import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Response for lease granted message.
+ * Wait for replica state being up to date with a leader.
  */
-@Transferable(PlacementDriverMessageGroup.LEASE_GRANTED_MESSAGE_RESPONSE)
-public interface LeaseGrantedMessageResponse extends PlacementDriverMessage {
-    boolean accepted();
-
-    @Nullable
-    String redirectProposal();
-
-    /** List of applied groups. */
-    @Nullable
-    @Marshallable
-    Set<ReplicationGroupId> appliedGroups();
+@Transferable(ReplicaMessageGroup.WAIT_REPLICA_STATE)
+public interface WaitReplicaStateMessage extends PrimaryReplicaRequest {
+    long timeout();
 }

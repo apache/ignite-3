@@ -15,28 +15,52 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.wrappers;
+package org.apache.ignite.internal.replicator;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.WaitReplicaStateMessage;
+import org.apache.ignite.network.ClusterNodeResolver;
 
 /**
- * A base for a {@link PlacementDriver} that delegates some of its methods to another {@link PlacementDriver}.
+ * Implementation of {@link PlacementDriver} that is aware if {@link ReplicaService}.
+ * It delegates calls to the original {@link PlacementDriver} and after that sends {@link WaitReplicaStateMessage}
+ * which calls {@link org.apache.ignite.internal.replicator.Replica#waitForActualState(long)}.
  */
-abstract class DelegatingPlacementDriver implements PlacementDriver {
-    private final PlacementDriver delegate;
+// TODO https://issues.apache.org/jira/browse/IGNITE-20362
+@Deprecated
+public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements
+        PlacementDriver {
+    /** Replicator network message factory. */
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
-    DelegatingPlacementDriver(PlacementDriver delegate) {
+    private final PlacementDriver delegate;
+    private final ReplicaService replicaService;
+
+    /** Resolver that resolves a node consistent ID to cluster node. */
+    private final ClusterNodeResolver clusterNodeResolver;
+
+
+    /**
+     * Constructor.
+     *
+     * @param delegate Delegate Placement Driver.
+     * @param replicaService Replica Service.
+     * @param clusterNodeResolver Cluster node resolver.
+     */
+    public ReplicaAwareLeaseTracker(PlacementDriver delegate, ReplicaService replicaService, ClusterNodeResolver clusterNodeResolver) {
         this.delegate = delegate;
+        this.replicaService = replicaService;
+        this.clusterNodeResolver = clusterNodeResolver;
     }
 
     @Override
@@ -62,7 +86,13 @@ abstract class DelegatingPlacementDriver implements PlacementDriver {
             long timeout,
             TimeUnit unit
     ) {
-        return delegate.awaitPrimaryReplicaForTable(groupId, timestamp, timeout, unit);
+        ZonePartitionId zonePartitionId = (ZonePartitionId) groupId;
+
+        assert zonePartitionId.tableId() != 0 : "Table id should be defined.";
+
+        ZonePartitionId pureZonePartId = zonePartitionId.purify();
+
+        return delegate.awaitPrimaryReplicaForTable(pureZonePartId, timestamp, timeout, unit);
     }
 
     @Override
@@ -81,11 +111,7 @@ abstract class DelegatingPlacementDriver implements PlacementDriver {
     }
 
     @Override
-    public CompletableFuture<Void> addSubgroups(
-            ZonePartitionId zoneId,
-            Long enlistmentConsistencyToken,
-            Set<ReplicationGroupId> subGrps
-    ) {
+    public CompletableFuture<Void> addSubgroups(ZonePartitionId zoneId, Long enlistmentConsistencyToken, Set<ReplicationGroupId> subGrps) {
         return delegate.addSubgroups(zoneId, enlistmentConsistencyToken, subGrps);
     }
 }

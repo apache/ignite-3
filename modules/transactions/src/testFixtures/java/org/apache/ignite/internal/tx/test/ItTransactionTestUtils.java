@@ -39,6 +39,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.TableImpl;
@@ -61,7 +62,7 @@ public class ItTransactionTestUtils {
      * @param grpId Group id.
      * @return Node names.
      */
-    public static Set<String> partitionAssignment(IgniteImpl node, TablePartitionId grpId) {
+    public static Set<String> partitionAssignment(IgniteImpl node, ZonePartitionId grpId) {
         MetaStorageManager metaStorageManager = node.metaStorageManager();
 
         ByteArray stableAssignmentKey = stablePartAssignmentsKey(grpId);
@@ -121,6 +122,7 @@ public class ItTransactionTestUtils {
             boolean primary
     ) {
         Tuple t = initialTuple;
+        int zoneId = zoneId(node, tableName);
         int tableId = tableId(node, tableName);
 
         int maxAttempts = 100;
@@ -128,10 +130,11 @@ public class ItTransactionTestUtils {
         while (maxAttempts >= 0) {
             int partId = partitionIdForTuple(node, tableName, t, tx);
 
-            TablePartitionId grpId = new TablePartitionId(tableId, partId);
+            ZonePartitionId grpId = new ZonePartitionId(zoneId, partId);
+            TablePartitionId tblGrpId = new TablePartitionId(tableId, partId);
 
             if (primary) {
-                ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(node, grpId);
+                ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(node, tblGrpId);
 
                 if (node.id().equals(replicaMeta.getLeaseholderId())) {
                     return t;
@@ -172,6 +175,17 @@ public class ItTransactionTestUtils {
      */
     public static int tableId(IgniteImpl node, String tableName) {
         return table(node, tableName).tableId();
+    }
+
+    /**
+     * Returns the zone id.
+     *
+     * @param node Any node in the cluster.
+     * @param tableName Table name.
+     * @return Zone id.
+     */
+    public static int zoneId(IgniteImpl node, String tableName) {
+        return table(node, tableName).internalTable().zoneId();
     }
 
     /**

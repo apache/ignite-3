@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 
+import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -114,6 +115,19 @@ public class LeaseAgreement {
         LeaseGrantedMessageResponse resp = responseFut.join();
 
         return resp != null ? resp.redirectProposal() : null;
+    }
+
+    /**
+     * The lease was considered by the set of replication subgroups.
+     *
+     * @return A set of applied groups.
+     */
+    public Set<ReplicationGroupId> applicableFor() {
+        assert ready() : "The method should be invoked only after the agreement is ready";
+
+        LeaseGrantedMessageResponse resp = responseFut.join();
+
+        return resp != null ? resp.appliedGroups() : Collections.emptySet();
     }
 
     /**
