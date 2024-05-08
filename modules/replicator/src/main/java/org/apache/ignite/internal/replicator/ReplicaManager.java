@@ -640,9 +640,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             } else {
                 LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
 
-                existingReplicaFuture.complete(newReplicaFut.join());
-
-                return existingReplicaFuture;
+                return existingReplicaFuture.thenCompose((unused) -> newReplicaFut);
             }
         });
 
