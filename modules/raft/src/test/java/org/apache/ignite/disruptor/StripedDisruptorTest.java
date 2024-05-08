@@ -132,10 +132,10 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
      * The distribution algorithm has to distribute handlers as evenly as possible using the round-robin algorithm.
      */
     @Test
-    public void tesDistributionHandlers() {
+    public void testDistributionHandlers() {
         Random random = new Random();
 
-        int stripes = random.nextInt(20);
+        int stripes = random.nextInt(20) + 1;
 
         StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test", "test-disruptor",
                 16384,
@@ -145,7 +145,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                 false,
                 null);
 
-        int handlers = random.nextInt(100);
+        int handlers = random.nextInt(100) + 1;
 
         log.info("Handlers will be distributed across stripes [handlers={}, stripes={}]", handlers, stripes);
 

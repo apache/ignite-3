@@ -85,8 +85,6 @@ INSERT INTO t1 SELECT 1, true, 2, 3, 4, 5, 6, 7, NULL, '9999', '1010', x'1111', 
 statement error: Column 'CHAR_COL' does not allow NULLs
 INSERT INTO t1 SELECT 1, true, 2, 3, 4, 5, 6, 7, 8, NULL, '1010', x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-22015
 statement error: Column 'VARCHAR_COL' does not allow NULLs
 INSERT INTO t1 SELECT 1, true, 2, 3, 4, 5, 6, 7, 8, '9999', NULL, x'1111', x'1212', '2000-01-01'::DATE, '12:00'::TIME, '00112233-4455-6677-8899-aabbccddeeff'::UUID
 

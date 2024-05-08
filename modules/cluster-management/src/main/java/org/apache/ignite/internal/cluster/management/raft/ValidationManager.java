@@ -53,11 +53,7 @@ class ValidationManager {
     /**
      * Validates a given {@code state} against the {@code nodeState} received from an {@link InitCmgStateCommand}.
      */
-    static ValidationResult validateState(@Nullable ClusterState state, ClusterNode node, ClusterState nodeState) {
-        if (state == null) {
-            return ValidationResult.errorResult("Cluster has not been initialized yet");
-        }
-
+    static ValidationResult validateState(ClusterState state, ClusterNode node, ClusterState nodeState) {
         if (!state.cmgNodes().equals(nodeState.cmgNodes())) {
             return ValidationResult.errorResult(String.format(
                     "CMG node names do not match. CMG nodes: %s, nodes stored in CMG: %s",
