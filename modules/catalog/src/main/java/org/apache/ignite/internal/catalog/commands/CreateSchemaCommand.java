@@ -48,7 +48,9 @@ public class CreateSchemaCommand implements CatalogCommand {
         if (schemaName == null) {
             throw new CatalogValidationException("Schema name is null");
         }
-
+        if (catalog.schema(schemaName) != null) {
+            throw new CatalogValidationException(formar("Schema with name '{}' already exists", schemaName));
+        }
         CatalogSchemaDescriptor schema = new CatalogSchemaDescriptor(
                 id,
                 schemaName,
