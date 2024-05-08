@@ -61,7 +61,7 @@ public class CreateSchemaCommand implements CatalogCommand {
         return List.of(
                 new NewSchemaEntry(schema),
                 new ObjectIdGenUpdateEntry(1)
-                );
+        );
     }
 
     /** Returns builder to create a command to create a new schema. */
