@@ -63,6 +63,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation testFixtures(project(':ignite-metrics'))
     testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation libs.hamcrest.core
 
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor
     integrationTestImplementation project(':ignite-rest')
