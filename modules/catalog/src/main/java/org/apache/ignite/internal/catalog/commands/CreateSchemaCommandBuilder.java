@@ -24,7 +24,7 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
  */
 public interface CreateSchemaCommandBuilder {
 
-    /** Sets schema name. */
+    /** Sets schema name. Should not be null or blank. */
     CreateSchemaCommandBuilder name(String name);
 
     /** Creates new schema command. */
