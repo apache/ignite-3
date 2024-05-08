@@ -20,14 +20,13 @@ namespace Apache.Ignite.Internal.Transactions
     using System.Threading;
     using System.Threading.Tasks;
     using Common;
-    using Ignite.Transactions;
     using Proto;
     using Proto.MsgPack;
 
     /// <summary>
     /// Ignite transaction.
     /// </summary>
-    internal sealed class Transaction : ITransaction // TODO: Remove ITransaction interface from the class.
+    internal sealed class Transaction
     {
         /** Open state. */
         private const int StateOpen = 0;
@@ -71,10 +70,15 @@ namespace Apache.Ignite.Internal.Transactions
         /// </summary>
         public long Id { get; }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Gets a value indicating whether the transaction is read-only.
+        /// </summary>
         public bool IsReadOnly { get; }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Commits the transaction.
+        /// </summary>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         public async Task CommitAsync()
         {
             if (TrySetState(StateCommitted))
@@ -86,11 +90,20 @@ namespace Apache.Ignite.Internal.Transactions
             }
         }
 
-        /// <inheritdoc/>
-        public async Task RollbackAsync() => await RollbackAsyncInternal().ConfigureAwait(false);
+        /// <summary>
+        /// Commits the transaction.
+        /// </summary>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        public async Task RollbackAsync()
+        {
+            if (TrySetState(StateRolledBack))
+            {
+                using var writer = ProtoCommon.GetMessageWriter();
+                Write(writer.MessageWriter);
 
-        /// <inheritdoc/>
-        public async ValueTask DisposeAsync() => await RollbackAsyncInternal().ConfigureAwait(false);
+                using var buffer = await Socket.DoOutInOpAsync(ClientOp.TxRollback, writer).ConfigureAwait(false);
+            }
+        }
 
         /// <inheritdoc/>
         public override string ToString()
@@ -108,20 +121,6 @@ namespace Apache.Ignite.Internal.Transactions
             builder.Append(IsReadOnly);
 
             return builder.Build();
-        }
-
-        /// <summary>
-        /// Rolls back the transaction without state check.
-        /// </summary>
-        private async ValueTask RollbackAsyncInternal()
-        {
-            if (TrySetState(StateRolledBack))
-            {
-                using var writer = ProtoCommon.GetMessageWriter();
-                Write(writer.MessageWriter);
-
-                using var buffer = await Socket.DoOutInOpAsync(ClientOp.TxRollback, writer).ConfigureAwait(false);
-            }
         }
 
         /// <summary>

@@ -15,35 +15,27 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Transactions
+namespace Apache.Ignite.Internal.Transactions;
+
+using System.Transactions;
+using Ignite.Transactions;
+
+/// <summary>
+/// Transaction extension methods.
+/// </summary>
+internal static class TransactionExtensions
 {
-    using System.Transactions;
-    using Ignite.Transactions;
-
     /// <summary>
-    /// Transaction extension methods.
+    /// Gets transaction as internal <see cref="Transaction"/> class.
     /// </summary>
-    internal static class TransactionExtensions
-    {
-        /// <summary>
-        /// Gets transaction as internal <see cref="Transaction"/> class.
-        /// </summary>
-        /// <param name="tx">Transaction.</param>
-        /// <returns>Internal transaction.</returns>
-        /// <exception cref="TransactionException">When provided transaction is not supported.</exception>
-        public static Transaction? ToInternal(this ITransaction? tx)
+    /// <param name="tx">Transaction.</param>
+    /// <returns>Internal transaction.</returns>
+    /// <exception cref="TransactionException">When provided transaction is not supported.</exception>
+    public static LazyTransaction? ToInternal(this ITransaction? tx) =>
+        tx switch
         {
-            if (tx == null)
-            {
-                return null;
-            }
-
-            if (tx is Transaction t)
-            {
-                return t;
-            }
-
-            throw new TransactionException("Unsupported transaction implementation: " + tx.GetType());
-        }
-    }
+            null => null,
+            LazyTransaction t => t,
+            _ => throw new TransactionException("Unsupported transaction implementation: " + tx.GetType())
+        };
 }
