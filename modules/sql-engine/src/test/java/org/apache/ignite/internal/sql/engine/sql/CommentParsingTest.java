@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Random;
@@ -25,6 +26,8 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -64,6 +67,15 @@ public class CommentParsingTest extends AbstractParserTest {
         assertQueries(
                 originalQueryString,
                 queryWithComment
+        );
+    }
+
+    @Test
+    void emptyStatementSimpleComment() {
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query",
+                () -> parse("-- this is comment")
         );
     }
 
