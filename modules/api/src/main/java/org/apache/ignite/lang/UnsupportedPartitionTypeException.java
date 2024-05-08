@@ -23,7 +23,7 @@ import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * This exception is thrown when a table is not supported required partition type.
+ * This exception is thrown when a table does not support the specified partition type.
  */
 public class UnsupportedPartitionTypeException extends IgniteException {
     private static final long serialVersionUID = 6875586826126580903L;
