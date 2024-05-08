@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.validateCharactersOverflow;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
@@ -25,7 +24,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.core.TableModify;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -99,8 +97,6 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     private boolean inFlightUpdate;
 
-    private RelDataType rowType;
-
     /**
      * Constructor.
      *
@@ -125,7 +121,6 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         this.mapping = mapping(table.descriptor(), updateColumns);
         this.insertRowMapping = IntStream.range(0, table.descriptor().columnsCount()).toArray();
-        this.rowType = table.descriptor().rowType(ctx.getTypeFactory(), null);
     }
 
     /** {@inheritDoc} */
@@ -229,19 +224,11 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         switch (modifyOp) {
             case INSERT:
-                for (RowT row0 : rows) {
-                    validateCharactersOverflow(rowType, row0, context().rowHandler());
-                }
-
                 modifyResult = table.insertAll(context(), rows, colocationGroup);
 
                 break;
             case UPDATE:
                 inlineUpdates(0, rows);
-
-                for (RowT row0 : rows) {
-                    validateCharactersOverflow(rowType, row0, context().rowHandler());
-                }
 
                 modifyResult = table.upsertAll(context(), rows, colocationGroup);
 
@@ -255,18 +242,10 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
                 List<CompletableFuture<?>> mergeParts = new ArrayList<>(2);
 
                 if (split.getFirst() != null) {
-                    for (RowT row0 : split.getFirst()) {
-                        validateCharactersOverflow(rowType, row0, context().rowHandler());
-                    }
-
                     mergeParts.add(table.insertAll(context(), split.getFirst(), colocationGroup));
                 }
 
                 if (split.getSecond() != null) {
-                    for (RowT row0 : split.getSecond()) {
-                        validateCharactersOverflow(rowType, row0, context().rowHandler());
-                    }
-
                     mergeParts.add(table.upsertAll(context(), split.getSecond(), colocationGroup));
                 }
 

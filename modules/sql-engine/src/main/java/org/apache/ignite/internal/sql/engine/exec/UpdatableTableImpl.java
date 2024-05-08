@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.Static;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
@@ -109,6 +111,9 @@ public final class UpdatableTableImpl implements UpdatableTable {
         assert commitPartitionId != null;
 
         validateNotNullConstraint(ectx.rowHandler(), rows);
+
+        RelDataType rowType = descriptor().rowType(ectx.getTypeFactory(), null);
+        validateCharactersOverflow(rowType, ectx.rowHandler(), rows);
 
         Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
@@ -209,6 +214,9 @@ public final class UpdatableTableImpl implements UpdatableTable {
         TablePartitionId commitPartitionId = txAttributes.commitPartition();
 
         validateNotNullConstraint(ectx.rowHandler(), rows);
+
+        RelDataType rowType = descriptor().rowType(ectx.getTypeFactory(), null);
+        validateCharactersOverflow(rowType, ectx.rowHandler(), rows);
 
         assert commitPartitionId != null;
 
@@ -348,6 +356,12 @@ public final class UpdatableTableImpl implements UpdatableTable {
     @FunctionalInterface
     private interface PartitionExtractor {
         int fromRow(BinaryRowEx row);
+    }
+
+    private static <RowT> void validateCharactersOverflow(RelDataType rowType, RowHandler<RowT> rowHandler, List<RowT> rows) {
+        for (RowT row : rows) {
+            TypeUtils.validateCharactersOverflow(rowType, rowHandler, row);
+        }
     }
 
     private <RowT> void validateNotNullConstraint(RowHandler<RowT> rowHandler, List<RowT> rows) {

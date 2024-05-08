@@ -666,7 +666,7 @@ public class TypeUtils {
     }
 
     /** Check limitation for character types and throws exception if row contains character sequence more than type defined. */
-    public static <RowT> void validateCharactersOverflow(RelDataType rowType, RowT row, RowHandler<RowT> rowHandler) {
+    public static <RowT> void validateCharactersOverflow(RelDataType rowType, RowHandler<RowT> rowHandler, RowT row) {
         int colCount = rowType.getFieldList().size();
 
         for (int i = 0; i < colCount; ++i) {

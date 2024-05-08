@@ -137,7 +137,7 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
 
                     RelDataType rowType = table().getRowType(ctx.getTypeFactory());
 
-                    validateCharactersOverflow(rowType, row, ctx.rowHandler());
+                    validateCharactersOverflow(rowType, ctx.rowHandler(), row);
 
                     return updatableTable.insert(
                             tx, ctx, rowSupplier.get()
