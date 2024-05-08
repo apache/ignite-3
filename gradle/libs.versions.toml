@@ -45,7 +45,7 @@ micronautSecurity="3.11.1"
 micronautReactor="2.6.0"
 mockito = "5.11.0"
 picocli = "4.7.5"
-slf4j = "2.0.12"
+slf4j = "2.0.13"
 log4j = "2.23.0"
 spoon = "10.4.3-beta-20"
 swagger = "2.2.20"
@@ -101,7 +101,7 @@ checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:7.2.21"
 aggregateJavadoc = "io.freefair.aggregate-javadoc:6.6.3"
 ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.1.8"
-spotbugs = "com.github.spotbugs:6.0.12"
+spotbugs = "com.github.spotbugs:6.0.14"
 
 
 [libraries]
