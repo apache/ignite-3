@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.table.partition;
+package org.apache.ignite.internal.table.partition;
 
-import java.io.Serializable;
+import org.apache.ignite.table.partition.Partition;
 
 /**
  * Hash partition representation.
  */
-public class HashPartition implements Partition, Serializable {
+public class HashPartition implements Partition {
     private static final long serialVersionUID = 1717320056615864614L;
 
     private final int partitionId;

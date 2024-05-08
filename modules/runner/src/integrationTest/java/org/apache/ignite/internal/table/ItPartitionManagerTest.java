@@ -34,7 +34,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.partition.HashPartition;
+import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.table.partition.PartitionManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

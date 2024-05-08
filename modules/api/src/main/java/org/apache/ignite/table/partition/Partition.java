@@ -17,9 +17,11 @@
 
 package org.apache.ignite.table.partition;
 
+import java.io.Serializable;
+
 /**
  * Marker interface which represents a partition reference.
  */
-public interface Partition {
+public interface Partition extends Serializable {
 
 }

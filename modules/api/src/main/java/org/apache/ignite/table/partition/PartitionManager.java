@@ -28,24 +28,22 @@ import org.apache.ignite.table.mapper.Mapper;
  * This interface can be used to get all partitions of a table,
  * the location of the primary replica of a partition,
  * the partition for a specific table key.
- *
- * @param <T> Partitioning type.
  */
-public interface PartitionManager<T> {
+public interface PartitionManager {
     /**
      * Returns location of primary replica for provided partition.
      *
      * @param partition Partition instance.
      * @return Cluster node where primary replica of provided partition is located.
      */
-    CompletableFuture<ClusterNode> primaryReplicaAsync(T partition);
+    CompletableFuture<ClusterNode> primaryReplicaAsync(Partition partition);
 
     /**
      * Returns map with all partitions and their locations.
      *
      * @return Map from partition to cluster node where primary replica of the partition is located.
      */
-    CompletableFuture<Map<T, ClusterNode>> primaryReplicasAsync();
+    CompletableFuture<Map<Partition, ClusterNode>> primaryReplicasAsync();
 
     /**
      * Returns partition instance for provided table key.
@@ -55,7 +53,7 @@ public interface PartitionManager<T> {
      * @param <K> Key type.
      * @return Partition instance which contains provided key.
      */
-    <K> CompletableFuture<T> partitionAsync(K key, Mapper<K> mapper);
+    <K> CompletableFuture<Partition> partitionAsync(K key, Mapper<K> mapper);
 
     /**
      * Returns partition instance for provided table key.
@@ -63,5 +61,5 @@ public interface PartitionManager<T> {
      * @param key Table key tuple.
      * @return Partition instance which contains provided key.
      */
-    CompletableFuture<T> partitionAsync(Tuple key);
+    CompletableFuture<Partition> partitionAsync(Tuple key);
 }

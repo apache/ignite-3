@@ -18,7 +18,6 @@
 package org.apache.ignite.table;
 
 import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.table.partition.Partition;
 import org.apache.ignite.table.partition.PartitionManager;
 
 /**
@@ -44,7 +43,7 @@ public interface Table {
      *
      * @return Partition manager.
      */
-    <T extends Partition> PartitionManager<T> partitionManager();
+    PartitionManager partitionManager();
 
     /**
      * Creates a record view of a table for the record class mapper provided.

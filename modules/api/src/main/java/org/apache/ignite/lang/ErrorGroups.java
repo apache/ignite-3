@@ -172,6 +172,9 @@ public class ErrorGroups {
 
         /** Schema version mismatch. */
         public static final int SCHEMA_VERSION_MISMATCH_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 7);
+
+        /** Unsupported partition type. */
+        public static final int UNSUPPORTED_PARTITION_TYPE_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 8);
     }
 
     /** Client error group. */

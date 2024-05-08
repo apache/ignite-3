@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -35,16 +34,17 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.lang.UnsupportedPartitionTypeException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.table.partition.HashPartition;
+import org.apache.ignite.table.partition.Partition;
 import org.apache.ignite.table.partition.PartitionManager;
 
 /**
  * Implementation of {@link PartitionManager} for tables with hash partitions.
  */
-public class HashPartitionManagerImpl implements PartitionManager<HashPartition> {
+public class HashPartitionManagerImpl implements PartitionManager {
     private final InternalTable table;
 
     private final SchemaRegistry schemaReg;
@@ -69,12 +69,17 @@ public class HashPartitionManagerImpl implements PartitionManager<HashPartition>
     }
 
     @Override
-    public CompletableFuture<ClusterNode> primaryReplicaAsync(HashPartition partition) {
-        return table.partitionLocation(new TablePartitionId(table.tableId(), partition.partitionId()));
+    public CompletableFuture<ClusterNode> primaryReplicaAsync(Partition partition) {
+        if (!(partition instanceof HashPartition)) {
+            throw new UnsupportedPartitionTypeException("Table " + table.name()
+                    + " doesn't support any other type of partition except hash partition.");
+        }
+        HashPartition hashPartition = (HashPartition) partition;
+        return table.partitionLocation(new TablePartitionId(table.tableId(), hashPartition.partitionId()));
     }
 
     @Override
-    public CompletableFuture<Map<HashPartition, ClusterNode>> primaryReplicasAsync() {
+    public CompletableFuture<Map<Partition, ClusterNode>> primaryReplicasAsync() {
         int partitions = table.partitions();
         CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
 
@@ -84,7 +89,7 @@ public class HashPartitionManagerImpl implements PartitionManager<HashPartition>
 
         return allOf(futures)
                 .thenApply(unused -> {
-                    Map<HashPartition, ClusterNode> result = new HashMap<>(partitions);
+                    Map<Partition, ClusterNode> result = new HashMap<>(partitions);
                     for (int i = 0; i < partitions; i++) {
                         result.put(new HashPartition(i), (ClusterNode) futures[i].join());
                     }
@@ -93,7 +98,7 @@ public class HashPartitionManagerImpl implements PartitionManager<HashPartition>
     }
 
     @Override
-    public <K> CompletableFuture<HashPartition> partitionAsync(K key, Mapper<K> mapper) {
+    public <K> CompletableFuture<Partition> partitionAsync(K key, Mapper<K> mapper) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(mapper);
 
@@ -108,7 +113,7 @@ public class HashPartitionManagerImpl implements PartitionManager<HashPartition>
     }
 
     @Override
-    public CompletableFuture<HashPartition> partitionAsync(Tuple key) {
+    public CompletableFuture<Partition> partitionAsync(Tuple key) {
         Objects.requireNonNull(key);
 
         try {
