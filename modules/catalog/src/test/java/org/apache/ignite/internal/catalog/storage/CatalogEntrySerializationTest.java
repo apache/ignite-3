@@ -301,7 +301,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         CatalogTableColumnDescriptor columnDescriptor1 = newCatalogTableColumnDescriptor("c1", DefaultValue.constant(null));
         CatalogTableColumnDescriptor columnDescriptor2 = newCatalogTableColumnDescriptor("c2", DefaultValue.functionCall("func"));
 
-        NewColumnsEntry entry = new NewColumnsEntry(11, List.of(columnDescriptor1, columnDescriptor2), "PUBLIC");
+        NewColumnsEntry entry = new NewColumnsEntry(11, List.of(columnDescriptor1, columnDescriptor2), 1);
 
         VersionedUpdate update = newVersionedUpdate(entry);
 
@@ -312,8 +312,8 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         CatalogSortedIndexDescriptor sortedIndexDescriptor = newSortedIndexDescriptor("idx1");
         CatalogHashIndexDescriptor hashIndexDescriptor = newHashIndexDescriptor("idx2");
 
-        NewIndexEntry sortedIdxEntry = new NewIndexEntry(sortedIndexDescriptor, "PUBLIC");
-        NewIndexEntry hashIdxEntry = new NewIndexEntry(hashIndexDescriptor, "PUBLIC");
+        NewIndexEntry sortedIdxEntry = new NewIndexEntry(sortedIndexDescriptor, 1);
+        NewIndexEntry hashIdxEntry = new NewIndexEntry(hashIndexDescriptor, 1);
 
         VersionedUpdate update = newVersionedUpdate(sortedIdxEntry, hashIdxEntry);
 
@@ -328,10 +328,10 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
         List<CatalogTableColumnDescriptor> columns = List.of(col1, col2, col3, col4);
 
-        NewTableEntry entry1 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), null), "PUBLIC");
-        NewTableEntry entry2 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of()), "PUBLIC");
-        NewTableEntry entry3 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c2")), "PUBLIC");
-        NewTableEntry entry4 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c1")), "PUBLIC");
+        NewTableEntry entry1 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), null), 1);
+        NewTableEntry entry2 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of()), 1);
+        NewTableEntry entry3 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c2")), 1);
+        NewTableEntry entry4 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c1")), 1);
 
         VersionedUpdate update = newVersionedUpdate(entry1, entry2, entry3, entry4);
         VersionedUpdate deserialized = serialize(update);

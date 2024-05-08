@@ -150,8 +150,8 @@ public class CreateTableCommand extends AbstractTableCommand {
         CatalogIndexDescriptor pkIndex = createIndexDescriptor(txWaitCatalogVersion, indexName, pkIndexId, tableId);
 
         return List.of(
-                new NewTableEntry(table, schemaName),
-                new NewIndexEntry(pkIndex, schemaName),
+                new NewTableEntry(table, schema.id()),
+                new NewIndexEntry(pkIndex, schema.id()),
                 new MakeIndexAvailableEntry(pkIndexId),
                 new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
         );

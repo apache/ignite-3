@@ -49,7 +49,7 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
 
     private final int tableId;
     private final List<CatalogTableColumnDescriptor> descriptors;
-    private final String schemaName;
+    private final int schemaId;
 
     /**
      * Constructs the object.
@@ -57,10 +57,10 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
      * @param tableId Table id.
      * @param descriptors Descriptors of columns to add.
      */
-    public NewColumnsEntry(int tableId, List<CatalogTableColumnDescriptor> descriptors, String schemaName) {
+    public NewColumnsEntry(int tableId, List<CatalogTableColumnDescriptor> descriptors, int schemaId) {
         this.tableId = tableId;
         this.descriptors = descriptors;
-        this.schemaName = schemaName;
+        this.schemaId = schemaId;
     }
 
     /** Returns table id. */
@@ -90,7 +90,7 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaId);
 
         CatalogTableDescriptor currentTableDescriptor = requireNonNull(catalog.table(tableId));
 
@@ -125,16 +125,16 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
         public NewColumnsEntry readFrom(IgniteDataInput in) throws IOException {
             List<CatalogTableColumnDescriptor> columns = readList(CatalogTableColumnDescriptor.SERIALIZER, in);
             int tableId = in.readInt();
-            String schemaName = in.readUTF();
+            int schemaId = in.readInt();
 
-            return new NewColumnsEntry(tableId, columns, schemaName);
+            return new NewColumnsEntry(tableId, columns, schemaId);
         }
 
         @Override
         public void writeTo(NewColumnsEntry entry, IgniteDataOutput out) throws IOException {
             writeList(entry.descriptors(), CatalogTableColumnDescriptor.SERIALIZER, out);
             out.writeInt(entry.tableId());
-            out.writeUTF(entry.schemaName);
+            out.writeInt(entry.schemaId);
         }
     }
 }

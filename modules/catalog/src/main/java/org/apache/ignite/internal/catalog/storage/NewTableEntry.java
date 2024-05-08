@@ -44,17 +44,17 @@ public class NewTableEntry implements UpdateEntry, Fireable {
 
     private final CatalogTableDescriptor descriptor;
 
-    private final String schemaName;
+    private final int schemaId;
 
     /**
      * Constructs the object.
      *
      * @param descriptor A descriptor of a table to add.
-     * @param schemaName A schema name.
+     * @param schemaId Schema id.
      */
-    public NewTableEntry(CatalogTableDescriptor descriptor, String schemaName) {
+    public NewTableEntry(CatalogTableDescriptor descriptor, int schemaId) {
         this.descriptor = descriptor;
-        this.schemaName = schemaName;
+        this.schemaId = schemaId;
     }
 
     /** Returns descriptor of a table to add. */
@@ -79,7 +79,7 @@ public class NewTableEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaId));
 
         descriptor.updateToken(causalityToken);
 
@@ -114,7 +114,7 @@ public class NewTableEntry implements UpdateEntry, Fireable {
         @Override
         public NewTableEntry readFrom(IgniteDataInput input) throws IOException {
             CatalogTableDescriptor descriptor = CatalogTableDescriptor.SERIALIZER.readFrom(input);
-            String schemaName = input.readUTF();
+            int schemaName = input.readInt();
 
             return new NewTableEntry(descriptor, schemaName);
         }
@@ -122,7 +122,7 @@ public class NewTableEntry implements UpdateEntry, Fireable {
         @Override
         public void writeTo(NewTableEntry entry, IgniteDataOutput output) throws IOException {
             CatalogTableDescriptor.SERIALIZER.writeTo(entry.descriptor(), output);
-            output.writeUTF(entry.schemaName);
+            output.writeInt(entry.schemaId);
         }
     }
 }
