@@ -2353,6 +2353,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
             case RW_UPSERT_ALL: {
                 CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>>[] rowIdFuts = new CompletableFuture[searchRows.size()];
+                BinaryTuple[] pks = new BinaryTuple[searchRows.size()];
 
                 Map<UUID, HybridTimestamp> lastCommitTimes = new ConcurrentHashMap<>();
                 BitSet deleted = request.deleted();
@@ -2360,7 +2361,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                 // When the same key is updated multiple times within the same batch, we need to maintain operation order and apply
                 // only the last update. This map stores the previous searchRows index for each key.
                 Map<ByteBuffer, Integer> prevRowIdx = new HashMap<>();
-                BinaryTuple[] pks = new BinaryTuple[searchRows.size()];
 
                 for (int i = 0; i < searchRows.size(); i++) {
                     BinaryRow searchRow = searchRows.get(i);
@@ -2374,14 +2374,13 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     Integer prevRowIdx0 = prevRowIdx.put(pk.byteBuffer(), i);
                     if (prevRowIdx0 != null) {
-                        rowIdFuts[prevRowIdx0] = nullCompletedFuture();
+                        rowIdFuts[prevRowIdx0] = nullCompletedFuture(); // Skip previous row with the same key.
                     }
                 }
 
                 for (int i = 0; i < searchRows.size(); i++) {
                     if (rowIdFuts[i] != null) {
-                        // Skip previous update with the same key.
-                        continue;
+                        continue; // Skip previous row with the same key.
                     }
 
                     BinaryRow searchRow = searchRows.get(i);
@@ -2397,15 +2396,15 @@ public class PartitionReplicaListener implements ReplicaListener {
                             lastCommitTimes.put(rowId.uuid(), lastCommitTime);
                         }
 
-                        boolean insert = rowId == null;
-                        RowId rowId0 = insert ? new RowId(partId(), UUID.randomUUID()) : rowId;
-
                         if (isDelete) {
                             assert row != null;
 
-                            return takeLocksForDelete(row, rowId0, txId)
+                            return takeLocksForDelete(row, rowId, txId)
                                     .thenApply(id -> new IgniteBiTuple<>(id, null));
                         }
+
+                        boolean insert = rowId == null;
+                        RowId rowId0 = insert ? new RowId(partId(), UUID.randomUUID()) : rowId;
 
                         return insert
                                 ? takeLocksForInsert(searchRow, rowId0, txId)
