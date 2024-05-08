@@ -56,6 +56,7 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
      *
      * @param tableId Table id.
      * @param descriptors Descriptors of columns to add.
+     * @param schemaId Schema Id.
      */
     public NewColumnsEntry(int tableId, List<CatalogTableColumnDescriptor> descriptors, int schemaId) {
         this.tableId = tableId;
