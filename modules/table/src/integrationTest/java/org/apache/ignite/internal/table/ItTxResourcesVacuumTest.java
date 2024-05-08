@@ -249,8 +249,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         // Check that the volatile state of the transaction is preserved.
         assertTrue(checkVolatileTxStateOnNodes(nodes, txId));
 
-        finishAllowedFuture.complete(null);
-        assertThat(finishAllowedFuture, willCompleteSuccessfully());
+        assertTrue(finishAllowedFuture.complete(null));
 
         assertThat(commitFut, willCompleteSuccessfully());
 
@@ -426,8 +425,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         assertTxStateVacuumized(Set.of(leaseholderForAnotherTuple.name()), txId, commitPartId, false);
 
         // Unblocking cleanup.
-        cleanupAllowed.complete(null);
-        assertThat(cleanupAllowed, willCompleteSuccessfully());
+        assertTrue(cleanupAllowed.complete(null));
 
         assertThat(commitFut, willCompleteSuccessfully());
 
@@ -514,8 +512,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         transferPrimary(cluster.runningNodes().collect(toSet()), commitPartGrpId, commitPartNodes::contains);
 
-        cleanupAllowedFut.complete(null);
-        assertThat(cleanupAllowedFut, willCompleteSuccessfully());
+        assertTrue(cleanupAllowedFut.complete(null));
 
         cleanupAllowed[0] = true;
 
@@ -613,8 +610,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         log.info("Test: volatile state vacuumized");
 
-        cleanupAllowedFut.complete(null);
-        assertThat(cleanupAllowedFut, willCompleteSuccessfully());
+        assertTrue(cleanupAllowedFut.complete(null));
 
         cleanupAllowed[0] = true;
 
@@ -1000,7 +996,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             CompletableFuture<ReplicaMeta> replicaFut = node.placementDriver().getPrimaryReplica(tablePartitionId, node.clock().now());
             assertThat(replicaFut, willCompleteSuccessfully());
 
-            ReplicaMeta replicaMeta = joinWithTimeout(replicaFut);
+            ReplicaMeta replicaMeta = replicaFut.join();
             // The test doesn't make sense if there is no primary right now.
             assertNotNull(replicaMeta);
 
@@ -1072,8 +1068,8 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                 .get();
     }
 
-    private <T> T joinWithTimeout(CompletableFuture<T> future) {
-        return future.orTimeout(60, TimeUnit.SECONDS)
+    private void joinWithTimeout(CompletableFuture<?> future) {
+        future.orTimeout(60, TimeUnit.SECONDS)
                 .exceptionally(e -> {
                     log.error("Could not wait for the future.", e);
 
