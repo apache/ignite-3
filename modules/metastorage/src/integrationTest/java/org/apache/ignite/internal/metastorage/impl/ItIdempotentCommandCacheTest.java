@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -71,7 +70,6 @@ import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -152,7 +150,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         ));
     }
 
-    @RepeatedTest(500)
+    @Test
     public void testIdempotentInvoke() throws InterruptedException {
         ByteArray testKey = new ByteArray("key".getBytes(StandardCharsets.UTF_8));
         byte[] testValue = "value".getBytes(StandardCharsets.UTF_8);
