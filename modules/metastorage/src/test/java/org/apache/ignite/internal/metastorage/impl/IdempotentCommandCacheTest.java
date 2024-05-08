@@ -97,11 +97,13 @@ public class IdempotentCommandCacheTest {
 
         metaStorageListener.onWrite(commandIterator(command));
 
+        assertNotNull(lastCommandResult);
         assertTrue((Boolean) lastCommandResult);
         checkValueInStorage(testKey.bytes(), testValue.bytes());
 
         // Another call of same command.
         metaStorageListener.onWrite(commandIterator(command));
+        assertNotNull(lastCommandResult);
         assertTrue((Boolean) lastCommandResult);
         checkValueInStorage(testKey.bytes(), testValue.bytes());
     }
