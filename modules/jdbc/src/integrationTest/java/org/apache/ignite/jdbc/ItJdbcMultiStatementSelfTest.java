@@ -27,9 +27,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -420,6 +423,49 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertTrue(res);
         assertNotNull(stmt.getResultSet());
         assertThrowsSqlException(txErrMsg, () -> stmt.getMoreResults());
+
+        // TX control statements don't affect a JDBC managed transaction.
+        {
+            long initialRowsCount;
+
+            try (ResultSet rs = stmt.executeQuery("SELECT COUNT(1) FROM TEST_TX")) {
+                assertTrue(rs.next());
+
+                initialRowsCount = rs.getLong(1);
+            }
+
+            stmt.execute("INSERT INTO TEST_TX VALUES (5, 5, '5'); COMMIT; INSERT INTO TEST_TX VALUES (6, 6, '6')");
+            assertEquals(1, stmt.getUpdateCount());
+
+            // Next statement throws the expected exception.
+            assertThrowsSqlException(txErrMsg, () -> stmt.getMoreResults());
+
+            stmt.close();
+
+            // JDBC managed transaction was not rolled back or committed.
+            try (Connection conn0 = DriverManager.getConnection(URL)) {
+                Statement stmt0 = conn0.createStatement();
+
+                try (ResultSet rs = stmt0.executeQuery("SELECT COUNT(1) FROM TEST_TX")) {
+                    assertTrue(rs.next());
+                    assertEquals(initialRowsCount, rs.getLong(1));
+                }
+            }
+
+            // Commit JDBC managed transaction.
+            conn.commit();
+
+            try (Connection conn0 = DriverManager.getConnection(URL)) {
+                Statement stmt0 = conn0.createStatement();
+
+                try (ResultSet rs = stmt0.executeQuery("SELECT COUNT(1) FROM TEST_TX")) {
+                    assertTrue(rs.next());
+
+                    // The first DML statement was successfully inserted.
+                    assertEquals(initialRowsCount + 1, rs.getLong(1));
+                }
+            }
+        }
     }
 
     @Test
