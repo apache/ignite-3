@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -36,11 +37,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -308,7 +308,10 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         // Start a cluster and initialize it
         startCluster(2, testInfo);
 
-        String[] cmgNodes = { cluster.get(0).name() };
+        MockNode firstNode = cluster.get(0);
+        MockNode secondNode = cluster.get(1);
+
+        String[] cmgNodes = { firstNode.name() };
 
         initCluster(cmgNodes, cmgNodes);
 
@@ -316,25 +319,26 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         stopCluster();
 
         // Remove all persistent state from the first node
-        IgniteUtils.deleteIfExists(workDir.resolve("node0"));
+        IgniteUtils.deleteIfExists(firstNode.workDir());
 
         // Start the nodes again
-        for (MockNode node : cluster) {
-            node.restart();
-        }
+        firstNode.restart();
 
         // Initialize the cluster again, but with a different name. It is expected that the second node will try to join the CMG
         // and will be rejected.
-        cluster.get(0).clusterManager().initCluster(
+        firstNode.clusterManager().initCluster(
                 Arrays.asList(cmgNodes),
                 Arrays.asList(cmgNodes),
                 "cluster2"
         );
 
-        assertThrowsWithCause(
-                () -> cluster.get(1).clusterManager().joinFuture().get(10, TimeUnit.SECONDS),
-                IgniteInternalException.class,
-                "Join request denied, reason: Cluster tags do not match"
+        assertThat(firstNode.startFuture(), willCompleteSuccessfully());
+
+        secondNode.restart();
+
+        assertThat(
+                secondNode.startFuture(),
+                willThrow(JoinDeniedException.class, "Join request denied, reason: Cluster tags do not match")
         );
     }
 
