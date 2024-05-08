@@ -405,7 +405,9 @@ namespace Apache.Ignite.Internal.Table
             try
             {
                 schema = await _table.GetSchemaAsync(schemaVersionOverride).ConfigureAwait(false);
-                var tx = transaction.ToInternal();
+
+                // TODO: Preferred node.
+                Transaction? tx = await LazyTransaction.EnsureStartedAsync(transaction, _table.Socket, default).ConfigureAwait(false);
 
                 using var writer = ProtoCommon.GetMessageWriter();
                 var colocationHash = _ser.Write(writer, tx, schema, record, keyOnly);

@@ -340,7 +340,7 @@ internal readonly ref struct MsgPackWriter
     /// Writes a transaction.
     /// </summary>
     /// <param name="tx">Transaction.</param>
-    public void WriteTx(Transaction? tx)
+    public void WriteTx(LazyTransaction? tx)
     {
         if (tx == null)
         {

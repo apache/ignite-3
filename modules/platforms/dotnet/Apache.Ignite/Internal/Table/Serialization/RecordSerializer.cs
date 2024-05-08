@@ -22,6 +22,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Collections.Generic;
     using Buffers;
     using Proto.MsgPack;
+    using Transactions;
 
     /// <summary>
     /// Generic record serializer.
@@ -158,7 +159,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <returns>Colocation hash.</returns>
         public int Write(
             PooledArrayBuffer buf,
-            Transactions.Transaction? tx,
+            LazyTransaction? tx,
             Schema schema,
             T rec,
             bool keyOnly = false)
@@ -182,7 +183,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <returns>First record hash.</returns>
         public int WriteTwo(
             PooledArrayBuffer buf,
-            Transactions.Transaction? tx,
+            Transaction? tx,
             Schema schema,
             T t,
             T t2,
@@ -207,7 +208,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <returns>First record hash.</returns>
         public int WriteMultiple(
             PooledArrayBuffer buf,
-            Transactions.Transaction? tx,
+            Transaction? tx,
             Schema schema,
             IEnumerator<T> recs,
             bool keyOnly = false)
@@ -259,7 +260,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <returns>Colocation hash.</returns>
         private int WriteWithHeader(
             ref MsgPackWriter w,
-            Transactions.Transaction? tx,
+            LazyTransaction? tx,
             Schema schema,
             T rec,
             bool keyOnly = false)
@@ -275,7 +276,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="w">Writer.</param>
         /// <param name="tx">Transaction.</param>
-        private void WriteIdAndTx(ref MsgPackWriter w, Transactions.Transaction? tx)
+        private void WriteIdAndTx(ref MsgPackWriter w, LazyTransaction? tx)
         {
             w.Write(_table.Id);
             w.WriteTx(tx);
