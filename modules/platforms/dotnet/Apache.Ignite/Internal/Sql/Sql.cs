@@ -157,7 +157,8 @@ namespace Apache.Ignite.Internal.Sql
         {
             IgniteArgumentCheck.NotNull(statement);
 
-            Transaction? tx = transaction.ToInternal();
+            Transaction? tx = await LazyTransaction.EnsureStartedAsync(
+                transaction.ToInternal(), _socket, default).ConfigureAwait(false);
 
             using var bufferWriter = ProtoCommon.GetMessageWriter();
             WriteStatement(bufferWriter, statement, args, tx, writeTx: true);

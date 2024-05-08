@@ -17,10 +17,12 @@
 
 namespace Apache.Ignite.Internal.Transactions;
 
+using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Ignite.Transactions;
 using Proto;
+using Tx;
 
 /// <summary>
 /// Lazy Ignite transaction.
@@ -74,13 +76,39 @@ internal sealed class LazyTransaction : ITransaction
     public async ValueTask DisposeAsync() => await RollbackAsync().ConfigureAwait(false);
 
     /// <summary>
+    /// Ensures that the lazy transaction is actually started on the server.
+    /// </summary>
+    /// <param name="tx">Lazy transaction.</param>
+    /// <param name="socket">Socket.</param>
+    /// <param name="preferredNode">Preferred target node.</param>
+    /// <returns>Task that will be completed when the transaction is started.</returns>
+    internal static async ValueTask<Transaction?> EnsureStartedAsync(ITransaction? tx, ClientFailoverSocket socket, PreferredNode preferredNode)
+    {
+        if (tx == null)
+        {
+            return null;
+        }
+
+        var lazyTx = tx switch
+        {
+            LazyTransaction t => t,
+            _ => throw new TransactionException(
+                Guid.NewGuid(),
+                ErrorGroups.Common.Internal,
+                "Unsupported transaction implementation: " + tx.GetType())
+        };
+
+        return await lazyTx.EnsureStarted(socket, preferredNode).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Ensures that the underlying transaction is actually started on the server.
     /// </summary>
     /// <param name="socket">Socket.</param>
     /// <param name="preferredNode">Preferred target node.</param>
     /// <returns>Task that will be completed when the transaction is started.</returns>
     [SuppressMessage("Reliability", "CA2002:Do not lock on objects with weak identity", Justification = "Reviewed.")]
-    internal Task<Transaction> EnsureStarted(ClientFailoverSocket socket, PreferredNode preferredNode)
+    private Task<Transaction> EnsureStarted(ClientFailoverSocket socket, PreferredNode preferredNode)
     {
         lock (this)
         {
