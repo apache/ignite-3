@@ -45,7 +45,7 @@ public class StripeAwareLogManager extends LogManagerImpl {
     private LogStorage logStorage;
 
     /** Stripe, that corresponds to the current log storage instance. */
-    private final Stripe stripe;
+    private Stripe stripe;
 
     /** Size threshold of log entries list, that will trigger the flush upon the excess. */
     private int maxAppendBufferSize;
@@ -56,15 +56,6 @@ public class StripeAwareLogManager extends LogManagerImpl {
      */
     private boolean sharedLogStorage;
 
-    /**
-     * Constructor.
-     *
-     * @param stripe Stripe that corresponds to a worker thread in {@link LogManagerOptions#getLogManagerDisruptor()}.
-     */
-    public StripeAwareLogManager(Stripe stripe) {
-        this.stripe = stripe;
-    }
-
     @Override
     public boolean init(LogManagerOptions opts) {
         LogStorage logStorage = opts.getLogStorage();
@@ -73,7 +64,15 @@ public class StripeAwareLogManager extends LogManagerImpl {
         this.logStorage = logStorage;
         this.maxAppendBufferSize = opts.getRaftOptions().getMaxAppendBufferSize();
 
-        return super.init(opts);
+        boolean isInitSuccessfully = super.init(opts);
+
+        int stripe = opts.getLogManagerDisruptor().getStripe(opts.getNode().getNodeId());
+
+        assert stripe != -1;
+
+        this.stripe = opts.getLogStripes().get(stripe);
+
+        return isInitSuccessfully;
     }
 
     /**

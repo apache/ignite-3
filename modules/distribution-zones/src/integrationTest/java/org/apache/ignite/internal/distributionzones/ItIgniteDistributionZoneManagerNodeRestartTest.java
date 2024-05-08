@@ -79,6 +79,7 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -522,6 +523,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
 
+        awaitDefaultZoneCreation(node);
+
         startGlobalStateUpdateBlocking = true;
         startScaleUpBlocking = true;
 
@@ -802,6 +805,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         String zoneName;
 
         if (useDefaultZone) {
+            awaitDefaultZoneCreation(node);
+
             CatalogZoneDescriptor defaultZone = getDefaultZone(getCatalogManager(node), node.clock().nowLong());
             zoneName = defaultZone.name();
 
@@ -926,5 +931,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, zoneId);
 
         return scaleDownLatch;
+    }
+
+    private static void awaitDefaultZoneCreation(PartialNode node) {
+        CatalogManager manager = findComponent(node.startedComponents(), CatalogManager.class);
+
+        assert manager != null;
+
+        CatalogTestUtils.awaitDefaultZoneCreation(manager);
     }
 }

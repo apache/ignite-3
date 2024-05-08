@@ -95,7 +95,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
     void exceptionIsThrownIfSchemaNotExists() {
         AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = builder
                 .schemaName(SCHEMA_NAME + "_UNK")
@@ -115,7 +115,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
     void exceptionIsThrownIfTableWithGivenNameNotFound() {
         AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = builder
                 .schemaName(SCHEMA_NAME)

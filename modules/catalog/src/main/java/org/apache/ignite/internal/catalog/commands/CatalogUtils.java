@@ -141,30 +141,6 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns zone descriptor with default parameters.
-     *
-     * @param id Distribution zone ID.
-     * @param zoneName Zone name.
-     * @return Distribution zone descriptor.
-     */
-    public static CatalogZoneDescriptor fromParams(int id, String zoneName) {
-        List<StorageProfileParams> storageProfiles =
-                List.of(StorageProfileParams.builder().storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE).build());
-
-        return new CatalogZoneDescriptor(
-                id,
-                zoneName,
-                DEFAULT_PARTITION_COUNT,
-                DEFAULT_REPLICA_COUNT,
-                INFINITE_TIMER_VALUE,
-                IMMEDIATE_TIMER_VALUE,
-                INFINITE_TIMER_VALUE,
-                DEFAULT_FILTER,
-                fromParams(storageProfiles)
-        );
-    }
-
-    /**
      * Converts StorageProfileParams to descriptor.
      *
      * @param params Parameters.
@@ -597,5 +573,12 @@ public class CatalogUtils {
         return clusterWideEnsuredActivationTs.addPhysicalTime(
                 partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong() + maxClockSkewMillis
         );
+    }
+
+    /** Returns id of the default zone from given catalog, or {@code null} if default zone is not exist. */
+    public static @Nullable Integer defaultZoneIdOpt(Catalog catalog) {
+        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
+
+        return defaultZone != null ? defaultZone.id() : null;
     }
 }

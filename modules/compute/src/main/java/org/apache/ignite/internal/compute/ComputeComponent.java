@@ -24,6 +24,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -40,7 +42,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param jobClassName Name of the job class.
      * @param args Job args.
      * @param <R> Job result type.
-     * @return Future execution result.
+     * @return Job execution object.
      */
     <R> JobExecution<R> executeLocally(
             ExecutionOptions options,
@@ -56,7 +58,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param jobClassName Name of the job class.
      * @param args Job args.
      * @param <R> Job result type.
-     * @return Future execution result.
+     * @return Job execution object.
      */
     default <R> JobExecution<R> executeLocally(
             List<DeploymentUnit> units,
@@ -70,12 +72,12 @@ public interface ComputeComponent extends IgniteComponent {
      * Executes a job of the given class on a remote node.
      *
      * @param options Job execution options.
-     * @param remoteNode Name of the job class.
+     * @param remoteNode Remote node name.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
      * @param args Job args.
      * @param <R> Job result type.
-     * @return Future execution result.
+     * @return Job execution object.
      */
     <R> JobExecution<R> executeRemotely(
             ExecutionOptions options,
@@ -88,12 +90,12 @@ public interface ComputeComponent extends IgniteComponent {
     /**
      * Executes a job of the given class on a remote node with default execution options {@link ExecutionOptions#DEFAULT}.
      *
-     * @param remoteNode Name of the job class.
+     * @param remoteNode Remote node name.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
      * @param args Job args.
      * @param <R> Job result type.
-     * @return Future execution result.
+     * @return Job execution object.
      */
     default <R> JobExecution<R> executeRemotely(
             ClusterNode remoteNode,
@@ -108,14 +110,14 @@ public interface ComputeComponent extends IgniteComponent {
      * Executes a job of the given class on a remote node. If the node leaves the cluster, it will be restarted on the node given by the
      * {@code nextWorkerSelector}.
      *
-     * @param remoteNode Name of the job class.
+     * @param remoteNode Remote node name.
      * @param nextWorkerSelector The selector that returns the next worker to execute job on.
      * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
      * @param args Job args.
      * @param <R> Job result type.
-     * @return Future execution result.
+     * @return Job execution object.
      */
     <R> JobExecution<R> executeRemotelyWithFailover(
             ClusterNode remoteNode,
@@ -123,6 +125,23 @@ public interface ComputeComponent extends IgniteComponent {
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
+            Object... args
+    );
+
+    /**
+     * Executes a task of the given class.
+     *
+     * @param jobSubmitter Function which submits a job with specified parameters for the execution.
+     * @param units Deployment units which will be loaded for execution.
+     * @param taskClassName Name of the task class.
+     * @param args Task args.
+     * @param <R> Task result type.
+     * @return Task execution object.
+     */
+    <R> TaskExecution<R> executeTask(
+            JobSubmitter jobSubmitter,
+            List<DeploymentUnit> units,
+            String taskClassName,
             Object... args
     );
 

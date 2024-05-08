@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.indexOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceIndex;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
@@ -55,7 +56,7 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 replaceSchema(replaceIndex(schema, newIndexDescriptor), catalog.schemas()),
-                catalog.defaultZone().id()
+                defaultZoneIdOpt(catalog)
         );
     }
 

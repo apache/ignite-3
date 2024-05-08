@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.pagememory.freelist;
 
-import static org.apache.ignite.internal.pagememory.freelist.TestDataPageIo.VERSIONS;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.Storable;
-import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
-import org.apache.ignite.internal.pagememory.io.IoVersions;
+import org.apache.ignite.internal.pagememory.util.PageUtils;
 
 /**
  * Test storable row with raw data.
@@ -70,9 +69,25 @@ class TestDataRow implements Storable {
         return 0;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public IoVersions<? extends AbstractDataPageIo<?>> ioVersions() {
-        return VERSIONS;
+    public void writeRowData(long pageAddr, int dataOff, int payloadSize, boolean newRow) {
+        long addr = pageAddr + dataOff;
+
+        if (newRow) {
+            PageUtils.putShort(addr, 0, (short) payloadSize);
+
+            addr += 2;
+        } else {
+            addr += 2;
+        }
+
+        PageUtils.putBytes(addr, 0, bytes);
+    }
+
+    @Override
+    public void writeFragmentData(ByteBuffer pageBuf, int rowOff, int payloadSize) {
+        if (payloadSize > 0) {
+            pageBuf.put(bytes, rowOff, payloadSize);
+        }
     }
 }

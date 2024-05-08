@@ -19,6 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
@@ -100,6 +101,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );
+
+        awaitDefaultZoneCreation(catalogManager);
 
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong()));
 
@@ -386,9 +389,12 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Void> finishBuildIndexFuture = new CompletableFuture<>();
 
-        indexBuilder.listen((indexId1, tableId, partitionId1) -> {
-            if (indexId1 == indexId && partitionId1 == partitionId) {
-                finishBuildIndexFuture.complete(null);
+        indexBuilder.listen(new IndexBuildCompletionListener() {
+            @Override
+            public void onBuildCompletion(int indexId1, int tableId1, int partitionId1) {
+                if (indexId1 == indexId && partitionId1 == partitionId) {
+                    finishBuildIndexFuture.complete(null);
+                }
             }
         });
 

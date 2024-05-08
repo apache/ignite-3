@@ -51,8 +51,9 @@ public class DropZoneCommand extends AbstractZoneCommand {
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
+        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
 
-        if (zone.id() == catalog.defaultZone().id()) {
+        if (defaultZone != null && zone.id() == defaultZone.id()) {
             throw new DistributionZoneCantBeDroppedValidationException("Default distribution zone can't be dropped: zoneName={}", zoneName);
         }
 

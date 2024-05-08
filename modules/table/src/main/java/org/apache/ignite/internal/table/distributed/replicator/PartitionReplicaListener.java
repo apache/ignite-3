@@ -176,8 +176,11 @@ import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.message.TxCleanupRecoveryRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
+import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
+import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -231,6 +234,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /** Factory for creating replica command messages. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    /** Factory for creating transaction command messages. */
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
     /** Replication retries limit. */
     private static final int MAX_RETIES_ON_SAFE_TIME_REORDERING = 1000;
@@ -536,7 +542,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         new HybridTimestampTracker(),
                         replicationGroupId,
                         false,
-                        // term is not required for the rollback.
+                        // Enlistment consistency token is not required for the rollback, so it is 0L.
                         Map.of(replicationGroupId, new IgniteBiTuple<>(clusterNodeResolver.getById(senderId), 0L)),
                         txId
                 )
@@ -764,6 +770,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request, opStartTsIfDirectRo);
         } else if (request instanceof TxStateCommitPartitionRequest) {
             return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request);
+        } else if (request instanceof VacuumTxStateReplicaRequest) {
+            return processVacuumTxStateReplicaRequest((VacuumTxStateReplicaRequest) request);
         } else {
             throw new UnsupportedReplicaRequestException(request.getClass());
         }
@@ -2211,7 +2219,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_DELETE_EXACT_ALL: {
                 CompletableFuture<RowId>[] deleteExactLockFuts = new CompletableFuture[searchRows.size()];
 
-                Map<UUID, HybridTimestamp> lastCommitTimes = new HashMap<>();
+                Map<UUID, HybridTimestamp> lastCommitTimes = new ConcurrentHashMap<>();
 
                 for (int i = 0; i < searchRows.size(); i++) {
                     BinaryRow searchRow = searchRows.get(i);
@@ -2345,28 +2353,41 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
             case RW_UPSERT_ALL: {
                 CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>>[] rowIdFuts = new CompletableFuture[searchRows.size()];
+                BinaryTuple[] pks = new BinaryTuple[searchRows.size()];
 
-                Map<UUID, HybridTimestamp> lastCommitTimes = new HashMap<>();
+                Map<UUID, HybridTimestamp> lastCommitTimes = new ConcurrentHashMap<>();
                 BitSet deleted = request.deleted();
 
                 // When the same key is updated multiple times within the same batch, we need to maintain operation order and apply
                 // only the last update. This map stores the previous searchRows index for each key.
-                Map<ByteBuffer, Integer> newKeyMap = new HashMap<>();
+                Map<ByteBuffer, Integer> prevRowIdx = new HashMap<>();
 
                 for (int i = 0; i < searchRows.size(); i++) {
                     BinaryRow searchRow = searchRows.get(i);
-
                     boolean isDelete = deleted != null && deleted.get(i);
 
                     BinaryTuple pk = isDelete
                             ? resolvePk(searchRow.tupleSlice())
                             : extractPk(searchRow);
 
-                    int rowIdx = i;
+                    pks[i] = pk;
 
-                    rowIdFuts[i] = resolveRowByPk(pk, txId, (rowId, row, lastCommitTime) -> {
+                    Integer prevRowIdx0 = prevRowIdx.put(pk.byteBuffer(), i);
+                    if (prevRowIdx0 != null) {
+                        rowIdFuts[prevRowIdx0] = nullCompletedFuture(); // Skip previous row with the same key.
+                    }
+                }
+
+                for (int i = 0; i < searchRows.size(); i++) {
+                    if (rowIdFuts[i] != null) {
+                        continue; // Skip previous row with the same key.
+                    }
+
+                    BinaryRow searchRow = searchRows.get(i);
+                    boolean isDelete = deleted != null && deleted.get(i);
+
+                    rowIdFuts[i] = resolveRowByPk(pks[i], txId, (rowId, row, lastCommitTime) -> {
                         if (isDelete && rowId == null) {
-                            // Does not exist, nothing to delete.
                             return nullCompletedFuture();
                         }
 
@@ -2375,33 +2396,15 @@ public class PartitionReplicaListener implements ReplicaListener {
                             lastCommitTimes.put(rowId.uuid(), lastCommitTime);
                         }
 
-                        boolean insert = rowId == null;
-                        RowId rowId0;
-
-                        if (insert) {
-                            Integer prevRowIdx = newKeyMap.put(pk.byteBuffer(), rowIdx);
-
-                            if (prevRowIdx != null) {
-                                // Return existing lock.
-                                CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> lockFut = rowIdFuts[prevRowIdx];
-
-                                // Skip previous update with the same key.
-                                rowIdFuts[prevRowIdx] = nullCompletedFuture();
-
-                                return lockFut;
-                            }
-
-                            rowId0 = new RowId(partId(), UUID.randomUUID());
-                        } else {
-                            rowId0 = rowId;
-                        }
-
                         if (isDelete) {
                             assert row != null;
 
-                            return takeLocksForDelete(row, rowId0, txId)
+                            return takeLocksForDelete(row, rowId, txId)
                                     .thenApply(id -> new IgniteBiTuple<>(id, null));
                         }
+
+                        boolean insert = rowId == null;
+                        RowId rowId0 = insert ? new RowId(partId(), UUID.randomUUID()) : rowId;
 
                         return insert
                                 ? takeLocksForInsert(searchRow, rowId0, txId)
@@ -2518,7 +2521,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_DELETE_ALL: {
                 CompletableFuture<RowId>[] rowIdLockFuts = new CompletableFuture[primaryKeys.size()];
 
-                Map<UUID, HybridTimestamp> lastCommitTimes = new HashMap<>();
+                Map<UUID, HybridTimestamp> lastCommitTimes = new ConcurrentHashMap<>();
 
                 for (int i = 0; i < primaryKeys.size(); i++) {
                     rowIdLockFuts[i] = resolveRowByPk(primaryKeys.get(i), txId, (rowId, row, lastCommitTime) -> {
@@ -3686,12 +3689,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
             return txManager.executeWriteIntentSwitchAsync(() -> inBusyLock(busyLock,
-                    () -> storageUpdateHandler.switchWriteIntents(
-                            txId,
-                            txState == COMMITTED,
-                            commitTimestamp,
-                            indexIdsAtRwTxBeginTs(txId)
-                    )
+                   () -> storageUpdateHandler.switchWriteIntents(
+                           txId,
+                           txState == COMMITTED,
+                           commitTimestamp,
+                           indexIdsAtRwTxBeginTs(txId)
+                   )
             )).whenComplete((unused, e) -> {
                 if (e != null) {
                     LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
@@ -4066,6 +4069,14 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private @Nullable BinaryRow upgrade(@Nullable BinaryRow source, int targetSchemaVersion) {
         return source == null ? null : new BinaryRowUpgrader(schemaRegistry, targetSchemaVersion).upgrade(source);
+    }
+
+    private CompletableFuture<?> processVacuumTxStateReplicaRequest(VacuumTxStateReplicaRequest request) {
+        VacuumTxStatesCommand cmd = TX_MESSAGES_FACTORY.vacuumTxStatesCommand()
+                .txIds(request.transactionIds())
+                .build();
+
+        return raftClient.run(cmd);
     }
 
     /**

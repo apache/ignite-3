@@ -150,10 +150,10 @@ public class RocksSnapshotManager {
      * @param snapshot Point-in-time snapshot.
      * @param snapshotDir Directory to put the SST file in.
      */
-    private static void createSstFile(ColumnFamilyRange range, Snapshot snapshot, Path snapshotDir) {
+    private void createSstFile(ColumnFamilyRange range, Snapshot snapshot, Path snapshotDir) {
         try (
                 EnvOptions envOptions = new EnvOptions();
-                Options options = new Options();
+                Options options = new Options().setEnv(db.getEnv());
                 SstFileWriter sstFileWriter = new SstFileWriter(envOptions, options);
                 RocksIterator it = snapshotIterator(range, snapshot)
         ) {

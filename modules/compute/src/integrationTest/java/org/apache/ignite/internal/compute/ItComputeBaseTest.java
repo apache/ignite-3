@@ -27,6 +27,7 @@ import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ER
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.instanceOf;
@@ -46,6 +47,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.TaskExecution;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -64,6 +66,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * corresponding job class to the jobs source set. The integration tests depend on this source set so the job class will be visible and it
  * will be automatically compiled and packed into the ignite-integration-test-jobs-1.0-SNAPSHOT.jar.
  */
+@SuppressWarnings("resource")
 public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     protected abstract List<DeploymentUnit> units();
 
@@ -379,6 +382,43 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         assertThat(execution.cancelAsync(), willBe(false));
     }
 
+    @Test
+    void submitMapReduce() {
+        IgniteImpl entryNode = node(0);
+
+        TaskExecution<Integer> taskExecution = entryNode.compute().submitMapReduce(units(), mapReduceTaskClassName(), units());
+
+        int sumOfNodeNamesLengths = CLUSTER.runningNodes().map(IgniteImpl::name).map(String::length).reduce(Integer::sum).orElseThrow();
+        assertThat(taskExecution.resultAsync(), willBe(sumOfNodeNamesLengths));
+
+        // Statuses list contains statuses for 3 running nodes
+        assertThat(taskExecution.statusesAsync(), willBe(contains(
+                jobStatusWithState(COMPLETED),
+                jobStatusWithState(COMPLETED),
+                jobStatusWithState(COMPLETED)
+        )));
+    }
+
+    @Test
+    void executeMapReduceAsync() {
+        IgniteImpl entryNode = node(0);
+
+        CompletableFuture<Integer> future = entryNode.compute().executeMapReduceAsync(units(), mapReduceTaskClassName(), units());
+
+        int sumOfNodeNamesLengths = CLUSTER.runningNodes().map(IgniteImpl::name).map(String::length).reduce(Integer::sum).orElseThrow();
+        assertThat(future, willBe(sumOfNodeNamesLengths));
+    }
+
+    @Test
+    void executeMapReduce() {
+        IgniteImpl entryNode = node(0);
+
+        int result = entryNode.compute().executeMapReduce(units(), mapReduceTaskClassName(), units());
+
+        int sumOfNodeNamesLengths = CLUSTER.runningNodes().map(IgniteImpl::name).map(String::length).reduce(Integer::sum).orElseThrow();
+        assertThat(result, is(sumOfNodeNamesLengths));
+    }
+
     static IgniteImpl node(int i) {
         return CLUSTER.node(i);
     }
@@ -393,6 +433,10 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     private static String failingJobClassName() {
         return FailingJob.class.getName();
+    }
+
+    private static String mapReduceTaskClassName() {
+        return MapReduce.class.getName();
     }
 
     static void assertComputeException(Exception ex, Throwable cause) {
