@@ -596,7 +596,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         CompletableFuture<Void> resultFuture = newRaftClientFut.thenAccept(updateTableRaftService);
 
         if (shouldSkipReplicaStarting) {
-            return nullCompletedFuture();
+            return resultFuture;
         }
 
         CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
