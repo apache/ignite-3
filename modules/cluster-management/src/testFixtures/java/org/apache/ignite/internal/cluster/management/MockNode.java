@@ -222,6 +222,10 @@ public class MockNode {
         return clusterService;
     }
 
+    public Path workDir() {
+        return workDir;
+    }
+
     CompletableFuture<Set<LogicalNode>> logicalTopologyNodes() {
         return clusterManager().logicalTopology().thenApply(LogicalTopologySnapshot::nodes);
     }
