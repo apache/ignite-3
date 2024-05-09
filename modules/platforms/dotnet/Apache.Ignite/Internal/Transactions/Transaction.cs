@@ -24,7 +24,7 @@ using Proto.MsgPack;
 /// <summary>
 /// Ignite transaction.
 /// </summary>
-internal sealed class Transaction // TODO: Remove this class?
+internal sealed class Transaction
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="Transaction"/> class.
