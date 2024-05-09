@@ -32,6 +32,7 @@ internal sealed class LazyTransaction : ITransaction
 {
     /// <summary>
     /// Transaction ID placeholder. Uses MaxValue to reserve bytes in varint format.
+    /// It will also work correctly if the actual tx id matches the placeholder.
     /// </summary>
     public const long TxIdPlaceholder = long.MaxValue;
 
