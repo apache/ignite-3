@@ -27,9 +27,9 @@ import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 
 /**
- * Common methods to verify parsing of the DDL command.
+ * Common methods to verify parsing of SQL statements.
  */
-public abstract class AbstractDdlParserTest {
+public abstract class AbstractParserTest {
     /**
      * Parses a given statement and returns a resulting AST.
      *
@@ -68,16 +68,17 @@ public abstract class AbstractDdlParserTest {
      * Also compares the expected string on a cloned node.
      */
     protected static void expectUnparsed(SqlNode node, String expectedStmt) {
-        SqlPrettyWriter w = new SqlPrettyWriter();
-        node.unparse(w, 0, 0);
-
-        assertEquals(expectedStmt, w.toString(), "Unparsed does not match");
-
-        w.reset();
+        assertEquals(expectedStmt, unparse(node), "Unparsed does not match");
 
         // Verify that clone works correctly.
         SqlNode cloned = node.clone(node.getParserPosition());
-        cloned.unparse(w, 0, 0);
-        assertEquals(expectedStmt, w.toString(), "Unparsed does not match for cloned node");
+        assertEquals(expectedStmt, unparse(cloned), "Unparsed does not match for cloned node");
+    }
+
+    static String unparse(SqlNode node) {
+        SqlPrettyWriter w = new SqlPrettyWriter();
+        node.unparse(w, 0, 0);
+
+        return w.toString();
     }
 }
