@@ -153,7 +153,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
             assert type != null;
 
             TransactionInflights transactionInflights =
-                    new TransactionInflights(new TestPlacementDriver(node.name(), UUID.randomUUID().toString()));
+                    new TransactionInflights(new TestPlacementDriver(node.name(), UUID.randomUUID().toString()), node.clockService());
 
             AsyncSqlCursor<InternalSqlRow> sqlCursor = new AsyncSqlCursorImpl<>(
                     type,
