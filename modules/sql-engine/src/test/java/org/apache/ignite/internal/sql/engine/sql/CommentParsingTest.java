@@ -41,6 +41,7 @@ import org.junit.jupiter.params.provider.EnumSource;
  * <p>According to SQL standard, SQL text containing one or more instances of comment is equivalent to the same SQL text with the comment
  * replaced with newline.
  */
+@SuppressWarnings("ThrowableNotThrown")
 public class CommentParsingTest extends AbstractParserTest {
     private static final IgniteLogger LOG = Loggers.forClass(CommentParsingTest.class);
 
@@ -122,7 +123,7 @@ public class CommentParsingTest extends AbstractParserTest {
         try {
             expectedAst = parse(expected);
         } catch (RuntimeException ex) {
-            System.err.println(expected);
+            LOG.error("Unable to parse statement: \n{}\n", ex, expected);
 
             throw ex;
         }
@@ -130,7 +131,7 @@ public class CommentParsingTest extends AbstractParserTest {
         try {
             actualAst = parse(actual);
         } catch (RuntimeException ex) {
-            System.err.println(actual);
+            LOG.error("Unable to parse statement: \n{}\n", ex, actual);
 
             throw ex;
         }
