@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Transactions;
 
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading;
 using System.Threading.Tasks;
 using Common;
 using Ignite.Transactions;
@@ -35,7 +36,18 @@ internal sealed class LazyTransaction : ITransaction
     /// </summary>
     public const long TxIdPlaceholder = long.MaxValue;
 
+    /** Open state. */
+    private const int StateOpen = 0;
+
+    /** Committed state. */
+    private const int StateCommitted = 1;
+
+    /** Rolled back state. */
+    private const int StateRolledBack = 2;
+
     private readonly TransactionOptions _options;
+
+    private int _state = StateOpen;
 
     private volatile Task<Transaction>? _tx;
 
@@ -56,34 +68,50 @@ internal sealed class LazyTransaction : ITransaction
             ? _tx.Result.Id
             : TxIdPlaceholder;
 
+    /// <summary>
+    /// Gets the transaction state.
+    /// </summary>
+    internal string State => _state switch
+    {
+        StateOpen => "Open",
+        StateCommitted => "Committed",
+        _ => "RolledBack"
+    };
+
     /// <inheritdoc/>
     public async Task CommitAsync()
     {
-        var txTask = _tx;
-
-        if (txTask == null)
+        if (TrySetState(StateCommitted))
         {
-            // No operations were performed, nothing to commit.
-            return;
-        }
+            var txTask = _tx;
 
-        var tx = await txTask.ConfigureAwait(false);
-        await tx.CommitAsync().ConfigureAwait(false);
+            if (txTask == null)
+            {
+                // No operations were performed, nothing to commit.
+                return;
+            }
+
+            var tx = await txTask.ConfigureAwait(false);
+            await tx.CommitAsync().ConfigureAwait(false);
+        }
     }
 
     /// <inheritdoc/>
     public async Task RollbackAsync()
     {
-        var txTask = _tx;
-
-        if (txTask == null)
+        if (TrySetState(StateRolledBack))
         {
-            // No operations were performed, nothing to roll back.
-            return;
-        }
+            var txTask = _tx;
 
-        var tx = await txTask.ConfigureAwait(false);
-        await tx.RollbackAsync().ConfigureAwait(false);
+            if (txTask == null)
+            {
+                // No operations were performed, nothing to roll back.
+                return;
+            }
+
+            var tx = await txTask.ConfigureAwait(false);
+            await tx.RollbackAsync().ConfigureAwait(false);
+        }
     }
 
     /// <inheritdoc/>
@@ -94,8 +122,7 @@ internal sealed class LazyTransaction : ITransaction
     {
         var builder = new IgniteToStringBuilder(typeof(Transaction));
 
-        var tx = _tx is {IsCompletedSuccessfully: true} ? _tx.Result : null;
-        builder.Append(tx, "Tx");
+        builder.Append(State);
         builder.Append(IsReadOnly);
 
         return builder.Build();
@@ -176,4 +203,11 @@ internal sealed class LazyTransaction : ITransaction
             w.Write(failoverSocket.ObservableTimestamp);
         }
     }
+
+    /// <summary>
+    /// Attempts to set the specified state.
+    /// </summary>
+    /// <param name="state">State to set.</param>
+    /// <returns>True when specified state was set successfully; false otherwise.</returns>
+    private bool TrySetState(int state) => Interlocked.CompareExchange(ref _state, state, StateOpen) == StateOpen;
 }
