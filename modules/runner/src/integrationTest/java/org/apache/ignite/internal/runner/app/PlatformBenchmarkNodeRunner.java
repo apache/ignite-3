@@ -34,7 +34,7 @@ public class PlatformBenchmarkNodeRunner {
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = Map.of(
             NODE_NAME, "{\n"
-                    + "  \"clientConnector\":{\"port\": 10420,\"portRange\":1,\"idleTimeout\":999000},"
+                    + "  \"clientConnector\":{\"port\": 10420,\"idleTimeout\":999000},"
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
                     + "    \"nodeFinder\": {\n"
