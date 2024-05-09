@@ -137,6 +137,13 @@ internal sealed class LazyTransaction : ITransaction
             "Unsupported transaction implementation: " + tx.GetType())
     };
 
+    /// <summary>
+    /// Gets a value indicating whether the underlying lazy transaction is started.
+    /// </summary>
+    /// <param name="tx">Transaction.</param>
+    /// <returns>True when the underlying lazy transaction is started, false otherwise.</returns>
+    internal static bool IsStarted(ITransaction? tx) => Get(tx)?._tx != null;
+
     private static async Task DoOpAsync(Task<Transaction>? txTask, ClientOp op)
     {
         if (txTask == null)
