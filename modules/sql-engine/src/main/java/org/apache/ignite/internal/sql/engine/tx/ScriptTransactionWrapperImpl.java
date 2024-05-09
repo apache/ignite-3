@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -65,6 +66,8 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
 
     private final TransactionInflights transactionInflights;
 
+    private final AtomicBoolean completedTx = new AtomicBoolean();
+
     ScriptTransactionWrapperImpl(InternalTransaction managedTx, TransactionInflights transactionInflights) {
         this.managedTx = managedTx;
         this.transactionInflights = transactionInflights;
@@ -77,10 +80,6 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
 
     @Override
     public CompletableFuture<Void> commitImplicit() {
-        if (managedTx.isReadOnly()) {
-            transactionInflights.removeInflight(managedTx.id());
-        }
-
         return nullCompletedFuture();
     }
 
@@ -191,6 +190,10 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
 
             default:
                 throw new IllegalStateException("Unknown transaction target state: " + txState);
+        }
+
+        if (managedTx.isReadOnly() && completedTx.compareAndSet(false, true)) {
+            transactionInflights.removeInflight(managedTx.id());
         }
     }
 
