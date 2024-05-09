@@ -24,8 +24,12 @@ namespace Apache.Ignite.Tests
     using System.Reflection;
     using System.Runtime.InteropServices;
     using System.Threading.Tasks;
+    using Ignite.Transactions;
+    using Internal;
     using Internal.Buffers;
     using Internal.Common;
+    using Internal.Proto;
+    using Internal.Transactions;
     using Microsoft.Extensions.Logging;
     using NUnit.Framework;
 
@@ -95,6 +99,12 @@ namespace Apache.Ignite.Tests
                 });
 #endif
         }
+
+        internal static async Task ForceLazyTxStart(ITransaction tx, IIgnite client, PreferredNode preferredNode = default) =>
+            await LazyTransaction.EnsureStartedAsync(
+                tx,
+                ((IgniteClientInternal)client).GetFieldValue<ClientFailoverSocket>("_socket"),
+                preferredNode);
 
         private static FieldInfo GetNonPublicField(object obj, string fieldName)
         {

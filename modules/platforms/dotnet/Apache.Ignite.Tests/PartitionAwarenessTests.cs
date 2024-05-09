@@ -95,13 +95,13 @@ public class PartitionAwarenessTests
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
 
-        var tx = await client.Transactions.BeginAsync();
-        await LazyTransaction.EnsureStartedAsync(
-            tx,
-            ((IgniteClientInternal)client).GetFieldValue<ClientFailoverSocket>("_socket"),
-            default);
+        var txServer = _server1;
+        txServer.ClearOps();
 
-        var txServer = new[] { _server1, _server2 }.Single(x => x.ClientOps.Contains(ClientOp.TxBegin));
+        var tx = await client.Transactions.BeginAsync();
+        await TestUtils.ForceLazyTxStart(tx, client, PreferredNode.FromName(_server1.Node.Name));
+
+        Assert.AreEqual(ClientOp.TxBegin, txServer.ClientOps.Single());
 
         for (int i = 0; i < 10; i++)
         {
