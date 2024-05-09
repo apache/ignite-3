@@ -29,6 +29,11 @@ using Tx;
 /// </summary>
 internal sealed class LazyTransaction : ITransaction
 {
+    /// <summary>
+    /// Transaction ID placeholder. Uses MaxValue to reserve bytes in varint format.
+    /// </summary>
+    public const long TxIdPlaceholder = long.MaxValue;
+
     private readonly TransactionOptions _options;
 
     private volatile Task<Transaction>? _tx;
@@ -48,7 +53,7 @@ internal sealed class LazyTransaction : ITransaction
     public long Id =>
         _tx is { IsCompleted: true }
             ? _tx.Result.Id
-            : long.MaxValue; // Placeholder to be replaced with the actual ID.
+            : TxIdPlaceholder;
 
     /// <summary>
     /// Gets a value indicating whether the transaction is started.
@@ -97,7 +102,7 @@ internal sealed class LazyTransaction : ITransaction
     /// <returns>Task that will be completed when the transaction is started.</returns>
     internal static async ValueTask<Transaction?> EnsureStartedAsync(ITransaction? tx, ClientFailoverSocket socket, PreferredNode preferredNode) =>
         Get(tx) is { } lazyTx
-            ? await lazyTx.EnsureStarted(socket, preferredNode).ConfigureAwait(false)
+            ? await lazyTx.EnsureStartedAsync(socket, preferredNode).ConfigureAwait(false)
             : null;
 
     /// <summary>
@@ -122,7 +127,7 @@ internal sealed class LazyTransaction : ITransaction
     /// <param name="preferredNode">Preferred target node.</param>
     /// <returns>Task that will be completed when the transaction is started.</returns>
     [SuppressMessage("Reliability", "CA2002:Do not lock on objects with weak identity", Justification = "Reviewed.")]
-    private Task<Transaction> EnsureStarted(ClientFailoverSocket socket, PreferredNode preferredNode)
+    internal Task<Transaction> EnsureStartedAsync(ClientFailoverSocket socket, PreferredNode preferredNode)
     {
         lock (this)
         {

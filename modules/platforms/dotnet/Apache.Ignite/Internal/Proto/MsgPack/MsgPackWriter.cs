@@ -42,6 +42,11 @@ internal readonly ref struct MsgPackWriter
         Buf = buf;
     }
 
+    /// <summary>
+    /// Gets the current position.
+    /// </summary>
+    public int Position => Buf.Position;
+
     private PooledArrayBuffer Buf { get; }
 
     /// <summary>

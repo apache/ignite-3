@@ -406,14 +406,20 @@ namespace Apache.Ignite.Internal.Table
             {
                 schema = await _table.GetSchemaAsync(schemaVersionOverride).ConfigureAwait(false);
 
-                // TODO: Preferred node.
-                // TODO: reserve space for tx id and populate after start if not started yet.
-                LazyTransaction? tx = LazyTransaction.Get(transaction);
-                var txIdPlaceholderNeedsUpdate = tx is { IsStarted: false };
+                LazyTransaction? lazyTx = LazyTransaction.Get(transaction);
+                var txId = lazyTx?.Id;
 
                 using var writer = ProtoCommon.GetMessageWriter();
-                var colocationHash = _ser.Write(writer, tx, schema, record, keyOnly);
+                var (colocationHash, txIdPos) = _ser.Write(writer, txId, schema, record, keyOnly);
                 var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
+
+                var tx = await LazyTransaction.EnsureStartedAsync(transaction, _table.Socket, preferredNode)
+                    .ConfigureAwait(false);
+
+                if (tx != null && txId == LazyTransaction.TxIdPlaceholder)
+                {
+                    writer.WriteLong(tx.Id, txIdPos + 1);
+                }
 
                 return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
             }
