@@ -37,9 +37,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -91,9 +89,6 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.events.CatalogEvent;
-import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -806,8 +801,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * </ol>
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19091")
-    public void testQueryCorrectnessAfterNodeRestart() throws InterruptedException {
+    public void testQueryCorrectnessAfterNodeRestart() {
         IgniteImpl ignite1 = startNode(0);
 
         createTableWithoutData(ignite1, TABLE_NAME, 2, 1);
@@ -824,8 +818,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         createTableWithData(List.of(ignite1), TABLE_NAME, 2, 1);
 
         sql1.execute(null, "CREATE INDEX idx1 ON " + TABLE_NAME + "(id)");
-
-        waitForIndexToBecomeAvailable(List.of(ignite1, ignite2), "idx1");
 
         ResultSet<SqlRow> plan = sql1.execute(null, "EXPLAIN PLAN FOR " + sql);
 
@@ -1909,29 +1901,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             sql.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
                     i, VALUE_PRODUCER.apply(i));
         }
-    }
-
-    private void waitForIndexToBecomeAvailable(Collection<IgniteImpl> nodes, String indexName) throws InterruptedException {
-        CountDownLatch latch = new CountDownLatch(nodes.size());
-
-        nodes.forEach(node -> node.catalogManager().listen(CatalogEvent.INDEX_AVAILABLE, event -> {
-            MakeIndexAvailableEventParameters availableEvent = (MakeIndexAvailableEventParameters) event;
-
-            CatalogIndexDescriptor index = node.catalogManager().index(availableEvent.indexId(), event.catalogVersion());
-
-            assertNotNull(index, "Cannot find an index by ID=" + availableEvent.indexId());
-
-            if (index.name().equalsIgnoreCase(indexName)) {
-                // That's our index.
-                latch.countDown();
-
-                return trueCompletedFuture();
-            }
-
-            return falseCompletedFuture();
-        }));
-
-        assertTrue(latch.await(10, TimeUnit.SECONDS));
     }
 
     /**
