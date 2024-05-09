@@ -82,24 +82,25 @@ internal sealed class LazyTransaction : ITransaction
     /// <param name="socket">Socket.</param>
     /// <param name="preferredNode">Preferred target node.</param>
     /// <returns>Task that will be completed when the transaction is started.</returns>
-    internal static async ValueTask<Transaction?> EnsureStartedAsync(ITransaction? tx, ClientFailoverSocket socket, PreferredNode preferredNode)
+    internal static async ValueTask<Transaction?> EnsureStartedAsync(ITransaction? tx, ClientFailoverSocket socket, PreferredNode preferredNode) =>
+        Get(tx) is { } lazyTx
+            ? await lazyTx.EnsureStarted(socket, preferredNode).ConfigureAwait(false)
+            : null;
+
+    /// <summary>
+    /// Gets the underlying lazy transaction or throws if the transaction type is not supported.
+    /// </summary>
+    /// <param name="tx">Public transaction.</param>
+    /// <returns>Internal lazy transaction.</returns>
+    internal static LazyTransaction? Get(ITransaction? tx) => tx switch
     {
-        if (tx == null)
-        {
-            return null;
-        }
-
-        var lazyTx = tx switch
-        {
-            LazyTransaction t => t,
-            _ => throw new TransactionException(
-                Guid.NewGuid(),
-                ErrorGroups.Common.Internal,
-                "Unsupported transaction implementation: " + tx.GetType())
-        };
-
-        return await lazyTx.EnsureStarted(socket, preferredNode).ConfigureAwait(false);
-    }
+        null => null,
+        LazyTransaction t => t,
+        _ => throw new TransactionException(
+            Guid.NewGuid(),
+            ErrorGroups.Common.Internal,
+            "Unsupported transaction implementation: " + tx.GetType())
+    };
 
     /// <summary>
     /// Ensures that the underlying transaction is actually started on the server.

@@ -407,8 +407,7 @@ namespace Apache.Ignite.Internal.Table
                 schema = await _table.GetSchemaAsync(schemaVersionOverride).ConfigureAwait(false);
 
                 // TODO: Preferred node.
-                // TODO: We write records to a BinaryTuple anyway, into a separate buffer.
-                // Do that, get buffer+hash
+                // TODO: reserve space for tx id and populate after start if not started yet.
                 Transaction? tx = await LazyTransaction.EnsureStartedAsync(transaction, _table.Socket, default).ConfigureAwait(false);
 
                 using var writer = ProtoCommon.GetMessageWriter();
