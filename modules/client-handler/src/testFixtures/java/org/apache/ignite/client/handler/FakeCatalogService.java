@@ -158,12 +158,12 @@ public class FakeCatalogService implements CatalogService {
 
     @Override
     public CompletableFuture<Void> catalogReadyFuture(int version) {
-        return null;
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public CompletableFuture<Void> catalogInitializationFuture() {
-        return null;
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
