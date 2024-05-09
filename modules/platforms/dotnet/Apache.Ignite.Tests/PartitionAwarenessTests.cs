@@ -148,7 +148,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(tx => recordView.ReplaceAsync(tx, key, key), ClientOp.TupleReplaceExact, expectedNode, withTx: withTx);
         await AssertOpOnNode(tx => recordView.DeleteAsync(tx, key), ClientOp.TupleDelete, expectedNode, withTx: withTx);
         await AssertOpOnNode(tx => recordView.DeleteExactAsync(tx, key), ClientOp.TupleDeleteExact, expectedNode, withTx: withTx);
-        await AssertOpOnNode(_ => recordView.StreamDataAsync(new[] { key }.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode, withTx: withTx);
+        await AssertOpOnNode(_ => recordView.StreamDataAsync(new[] { key }.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode, withTx: false);
 
         // Multi-key operations use the first key for colocation.
         var keys = new[] { key, new IgniteTuple { ["ID"] = keyId - 1 }, new IgniteTuple { ["ID"] = keyId + 1 } };
