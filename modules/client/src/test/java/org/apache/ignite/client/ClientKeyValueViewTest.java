@@ -105,10 +105,12 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         key.id = "1";
         key.gid = 1;
 
-        IgniteException e = assertThrows(IgniteException.class, () -> pojoView.get(null, key));
-        assertEquals("Failed to deserialize server response: No mapped object field found for column 'ZBOOLEAN'", e.getMessage());
+        IgniteException e = assertThrows(
+                IgniteException.class,
+                () -> pojoView.get(null, key),
+                "Failed to deserialize server response: No mapped object field found for column 'ZBOOLEAN'"
+        );
         assertThat(Arrays.asList(e.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueView"))));
-
     }
 
     @Test
@@ -510,9 +512,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         var pojo = new DefaultValuesValPojo();
         pojo.strNonNull = null;
 
-        var ex = assertThrows(IgniteException.class, () -> pojoView.put(null, 1, pojo));
-
-        assertThat(ex.getMessage(), containsString("Column 'STRNONNULL' does not allow NULLs"));
+        var ex = assertThrows(IgniteException.class, () -> pojoView.put(null, 1, pojo), "Column 'STRNONNULL' does not allow NULLs");
         assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueView"))));
     }
 
