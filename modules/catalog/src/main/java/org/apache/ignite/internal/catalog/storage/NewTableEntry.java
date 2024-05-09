@@ -43,6 +43,7 @@ public class NewTableEntry implements UpdateEntry, Fireable {
     public static final CatalogObjectSerializer<NewTableEntry> SERIALIZER = new NewTableEntrySerializer();
 
     private final CatalogTableDescriptor descriptor;
+
     /**
      * Constructs the object.
      *

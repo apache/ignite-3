@@ -50,7 +50,13 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
      * @param columns View columns.
      * @param systemViewType View type.
      */
-    public CatalogSystemViewDescriptor(int id, int schemaId, String name, List<CatalogTableColumnDescriptor> columns, SystemViewType systemViewType) {
+    public CatalogSystemViewDescriptor(
+            int id,
+            int schemaId,
+            String name,
+            List<CatalogTableColumnDescriptor> columns,
+            SystemViewType systemViewType
+    ) {
         this(id, schemaId, name, columns, systemViewType, INITIAL_CAUSALITY_TOKEN);
     }
 
@@ -163,12 +169,13 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
 
         /** Returns system view type by identifier. */
         private static SystemViewType forId(int id) {
-            if (id == 0) {
-                return NODE;
-            } else {
-                assert id == 1;
-
-                return CLUSTER;
+            switch (id) {
+                case 0:
+                    return NODE;
+                case 1:
+                    return CLUSTER;
+                default:
+                    throw new IllegalArgumentException("Unknown system view type id: " + id);
             }
         }
     }
