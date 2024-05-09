@@ -122,6 +122,7 @@ internal sealed class LazyTransaction : ITransaction
     {
         var builder = new IgniteToStringBuilder(typeof(Transaction));
 
+        builder.Append(Id);
         builder.Append(State);
         builder.Append(IsReadOnly);
 
