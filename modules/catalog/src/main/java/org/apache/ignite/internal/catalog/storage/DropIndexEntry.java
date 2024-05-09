@@ -33,7 +33,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * the {@link CatalogIndexStatus#STOPPING} state.
  */
 public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fireable {
-    public static final DropIndexEntrySerializer SERIALIZER = new DropIndexEntrySerializer();
+    public static final CatalogObjectSerializer<DropIndexEntry> SERIALIZER = new DropIndexEntrySerializer();
 
     private final int tableId;
 

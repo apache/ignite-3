@@ -287,10 +287,10 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 newCatalogTableColumnDescriptor("c2", DefaultValue.functionCall("function"));
         CatalogTableColumnDescriptor desc4 = newCatalogTableColumnDescriptor("c3", DefaultValue.constant(null));
 
-        UpdateEntry entry1 = new AlterColumnEntry(1, desc1, "public");
-        UpdateEntry entry2 = new AlterColumnEntry(1, desc2, "public");
-        UpdateEntry entry3 = new AlterColumnEntry(1, desc3, "public");
-        UpdateEntry entry4 = new AlterColumnEntry(1, desc4, "public");
+        UpdateEntry entry1 = new AlterColumnEntry(1, desc1);
+        UpdateEntry entry2 = new AlterColumnEntry(1, desc2);
+        UpdateEntry entry3 = new AlterColumnEntry(1, desc3);
+        UpdateEntry entry4 = new AlterColumnEntry(1, desc4);
 
         VersionedUpdate update = newVersionedUpdate(entry1, entry2, entry3, entry4);
 
@@ -347,12 +347,12 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c2", null);
 
         CatalogSystemViewDescriptor nodeDesc =
-                new CatalogSystemViewDescriptor(1, "view1", List.of(col1, col2), SystemViewType.NODE);
+                new CatalogSystemViewDescriptor(1, 2, "view1", List.of(col1, col2), SystemViewType.NODE);
         CatalogSystemViewDescriptor clusterDesc =
-                new CatalogSystemViewDescriptor(1, "view1", List.of(col1, col2), SystemViewType.CLUSTER);
+                new CatalogSystemViewDescriptor(1, 2, "view1", List.of(col1, col2), SystemViewType.CLUSTER);
 
-        NewSystemViewEntry nodeEntry = new NewSystemViewEntry(nodeDesc, "PUBLIC");
-        NewSystemViewEntry clusterEntry = new NewSystemViewEntry(clusterDesc, "PUBLIC");
+        NewSystemViewEntry nodeEntry = new NewSystemViewEntry(nodeDesc);
+        NewSystemViewEntry clusterEntry = new NewSystemViewEntry(clusterDesc);
 
         VersionedUpdate update = newVersionedUpdate(nodeEntry, clusterEntry);
 
@@ -376,8 +376,8 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         };
 
         CatalogSystemViewDescriptor[] views = {
-                new CatalogSystemViewDescriptor(1, "view1", columns, SystemViewType.NODE),
-                new CatalogSystemViewDescriptor(1, "view2", columns, SystemViewType.CLUSTER)
+                new CatalogSystemViewDescriptor(1, 2, "view1", columns, SystemViewType.NODE),
+                new CatalogSystemViewDescriptor(1, 2, "view2", columns, SystemViewType.CLUSTER)
         };
 
         CatalogStorageProfilesDescriptor profiles =
