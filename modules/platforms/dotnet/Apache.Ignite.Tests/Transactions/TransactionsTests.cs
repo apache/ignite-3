@@ -187,6 +187,7 @@ namespace Apache.Ignite.Tests.Transactions
         {
             using var client2 = await IgniteClient.StartAsync(GetConfig());
             await using var tx = await client2.Transactions.BeginAsync();
+            await using var cursor = await client2.Sql.ExecuteAsync(tx, "select 1"); // Force lazy tx start.
 
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await TupleView.UpsertAsync(tx, GetTuple(1, "2")));
             Assert.AreEqual("Specified transaction belongs to a different IgniteClient instance.", ex!.Message);
