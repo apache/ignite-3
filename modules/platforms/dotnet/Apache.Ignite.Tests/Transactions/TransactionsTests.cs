@@ -23,6 +23,7 @@ namespace Apache.Ignite.Tests.Transactions
     using System.Threading.Tasks;
     using Ignite.Transactions;
     using Internal;
+    using Internal.Transactions;
     using NUnit.Framework;
     using Table;
     using Tx;
@@ -274,13 +275,18 @@ namespace Apache.Ignite.Tests.Transactions
             using var client = await IgniteClient.StartAsync(new() { Endpoints = { "127.0.0.1:" + ServerPort } });
 
             await using var tx1 = await client.Transactions.BeginAsync();
+            await TestUtils.ForceLazyTxStart(tx1, client);
+
             await using var tx2 = await client.Transactions.BeginAsync(new(ReadOnly: true));
+            await TestUtils.ForceLazyTxStart(tx2, client);
+
             await using var tx3 = await client.Transactions.BeginAsync();
+            await TestUtils.ForceLazyTxStart(tx3, client);
 
             await tx2.RollbackAsync();
             await tx3.CommitAsync();
 
-            var id = int.Parse(Regex.Match(tx1.ToString()!, @"\d+").Value);
+            var id = LazyTransaction.Get(tx1)!.Id;
 
             Assert.AreEqual($"Transaction {{ Id = {id}, State = Open, IsReadOnly = False }}", tx1.ToString());
             Assert.AreEqual($"Transaction {{ Id = {id + 1}, State = RolledBack, IsReadOnly = True }}", tx2.ToString());
