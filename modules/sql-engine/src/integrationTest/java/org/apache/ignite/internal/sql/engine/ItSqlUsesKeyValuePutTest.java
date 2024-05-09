@@ -36,10 +36,12 @@ public class ItSqlUsesKeyValuePutTest extends BaseSqlIntegrationTest {
     @BeforeAll
     @SuppressWarnings({"ConcatenationWithEmptyString", "resource"})
     static void initSchema() {
+        System.out.println("qqq init begin");
         CLUSTER.aliveNode().sql().executeScript(""
                 + "CREATE TABLE simple_key (id INT PRIMARY KEY, val INT);"
                 + "CREATE TABLE complex_key (id1 INT, id2 INT, val INT, PRIMARY KEY(id1, id2));"
         );
+        System.out.println("qqq init end");
     }
 
     @AfterEach

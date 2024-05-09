@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.tx;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 
@@ -32,6 +33,8 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
     private final InternalTransaction transaction;
 
     private final TransactionInflights transactionInflights;
+
+    private final AtomicBoolean committedImplicit = new AtomicBoolean();
 
     /**
      * Constructor.
@@ -53,7 +56,7 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
 
     @Override
     public CompletableFuture<Void> commitImplicit() {
-        if (transaction.isReadOnly()) {
+        if (transaction.isReadOnly() && committedImplicit.compareAndSet(false, true)) {
             transactionInflights.removeInflight(transaction.id());
         }
 

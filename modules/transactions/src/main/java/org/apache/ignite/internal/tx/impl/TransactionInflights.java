@@ -36,6 +36,8 @@ import java.util.function.Function;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
@@ -51,6 +53,8 @@ import org.jetbrains.annotations.Nullable;
 public class TransactionInflights {
     /** Hint for maximum concurrent txns. */
     private static final int MAX_CONCURRENT_TXNS = 1024;
+
+    private static final IgniteLogger log = Loggers.forClass(TransactionInflights.class);
 
     /** Txn contexts. */
     private final ConcurrentHashMap<UUID, TxContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS);
@@ -167,7 +171,7 @@ public class TransactionInflights {
         volatile long inflights = 0; // Updated under lock.
 
         boolean addInflight() {
-            new Exception("qqq add inflight " + inflights).printStackTrace();
+            log.error("vvv", new Exception("qqq add inflight " + inflights));
 
             if (isTxFinishing()) {
                 return false;
@@ -179,7 +183,7 @@ public class TransactionInflights {
         }
 
         void removeInflight(UUID txId) {
-            new Exception("qqq remove inflight " + inflights).printStackTrace();
+            log.error("vvv", new Exception("qqq remove inflight " + inflights));
 
             assert inflights > 0 : format("No inflights, cannot remove any [txId={}, ctx={}]", txId, this);
 
