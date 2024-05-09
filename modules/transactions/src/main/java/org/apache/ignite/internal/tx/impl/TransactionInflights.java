@@ -171,8 +171,6 @@ public class TransactionInflights {
         volatile long inflights = 0; // Updated under lock.
 
         boolean addInflight() {
-            log.error("vvv", new Exception("qqq add inflight " + inflights));
-
             if (isTxFinishing()) {
                 return false;
             } else {
@@ -183,8 +181,6 @@ public class TransactionInflights {
         }
 
         void removeInflight(UUID txId) {
-            log.error("vvv", new Exception("qqq remove inflight " + inflights));
-
             assert inflights > 0 : format("No inflights, cannot remove any [txId={}, ctx={}]", txId, this);
 
             //noinspection NonAtomicOperationOnVolatileField
