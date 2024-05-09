@@ -24,7 +24,9 @@ using System.Threading.Tasks;
 using Compute;
 using Ignite.Compute;
 using Ignite.Table;
+using Internal;
 using Internal.Proto;
+using Internal.Transactions;
 using NUnit.Framework;
 
 /// <summary>
@@ -94,6 +96,11 @@ public class PartitionAwarenessTests
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
 
         var tx = await client.Transactions.BeginAsync();
+        await LazyTransaction.EnsureStartedAsync(
+            tx,
+            ((IgniteClientInternal)client).GetFieldValue<ClientFailoverSocket>("_socket"),
+            default);
+
         var txServer = new[] { _server1, _server2 }.Single(x => x.ClientOps.Contains(ClientOp.TxBegin));
 
         for (int i = 0; i < 10; i++)

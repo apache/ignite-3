@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Transactions;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
+using Common;
 using Ignite.Transactions;
 using Proto;
 using Tx;
@@ -50,15 +51,10 @@ internal sealed class LazyTransaction : ITransaction
     /// <summary>
     /// Gets the transaction ID.
     /// </summary>
-    public long Id =>
+    internal long Id =>
         _tx is { IsCompleted: true }
             ? _tx.Result.Id
             : TxIdPlaceholder;
-
-    /// <summary>
-    /// Gets a value indicating whether the transaction is started.
-    /// </summary>
-    public bool IsStarted => _tx is { IsCompletedSuccessfully: true };
 
     /// <inheritdoc/>
     public async Task CommitAsync()
@@ -92,6 +88,18 @@ internal sealed class LazyTransaction : ITransaction
 
     /// <inheritdoc/>
     public async ValueTask DisposeAsync() => await RollbackAsync().ConfigureAwait(false);
+
+    /// <inheritdoc/>
+    public override string ToString()
+    {
+        var builder = new IgniteToStringBuilder(typeof(Transaction));
+
+        var tx = _tx is {IsCompletedSuccessfully: true} ? _tx.Result : null;
+        builder.Append(tx, "Tx");
+        builder.Append(IsReadOnly);
+
+        return builder.Build();
+    }
 
     /// <summary>
     /// Ensures that the lazy transaction is actually started on the server.
@@ -127,7 +135,7 @@ internal sealed class LazyTransaction : ITransaction
     /// <param name="preferredNode">Preferred target node.</param>
     /// <returns>Task that will be completed when the transaction is started.</returns>
     [SuppressMessage("Reliability", "CA2002:Do not lock on objects with weak identity", Justification = "Reviewed.")]
-    internal Task<Transaction> EnsureStartedAsync(ClientFailoverSocket socket, PreferredNode preferredNode)
+    private Task<Transaction> EnsureStartedAsync(ClientFailoverSocket socket, PreferredNode preferredNode)
     {
         lock (this)
         {
