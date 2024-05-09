@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -43,17 +44,13 @@ public class DropTableEntry implements UpdateEntry, Fireable {
 
     private final int tableId;
 
-    private final String schemaName;
-
     /**
      * Constructs the object.
      *
      * @param tableId An id of a table to drop.
-     * @param schemaName A schema name.
      */
-    public DropTableEntry(int tableId, String schemaName) {
+    public DropTableEntry(int tableId) {
         this.tableId = tableId;
-        this.schemaName = schemaName;
     }
 
     /** Returns an id of a table to drop. */
@@ -78,7 +75,8 @@ public class DropTableEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
+        CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
+        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
         return new Catalog(
                 catalog.version(),
@@ -109,15 +107,13 @@ public class DropTableEntry implements UpdateEntry, Fireable {
         @Override
         public DropTableEntry readFrom(IgniteDataInput input) throws IOException {
             int tableId = input.readInt();
-            String schemaName = input.readUTF();
 
-            return new DropTableEntry(tableId, schemaName);
+            return new DropTableEntry(tableId);
         }
 
         @Override
         public void writeTo(DropTableEntry entry, IgniteDataOutput out) throws IOException {
             out.writeInt(entry.tableId());
-            out.writeUTF(entry.schemaName);
         }
     }
 }

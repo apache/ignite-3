@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
@@ -92,14 +91,12 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
         CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
-        CatalogTableDescriptor currentTableDescriptor = requireNonNull(catalog.table(tableId));
-
-        CatalogTableDescriptor newTableDescriptor = currentTableDescriptor.newDescriptor(
-                currentTableDescriptor.name(),
-                currentTableDescriptor.tableVersion() + 1,
-                CollectionUtils.concat(currentTableDescriptor.columns(), descriptors),
+        CatalogTableDescriptor newTable = table.newDescriptor(
+                table.name(),
+                table.tableVersion() + 1,
+                CollectionUtils.concat(table.columns(), descriptors),
                 causalityToken,
-                currentTableDescriptor.storageProfile()
+                table.storageProfile()
         );
 
         return new Catalog(
@@ -107,7 +104,7 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                replaceSchema(replaceTable(schema, newTableDescriptor), catalog.schemas()),
+                replaceSchema(replaceTable(schema, newTable), catalog.schemas()),
                 defaultZoneIdOpt(catalog)
         );
     }

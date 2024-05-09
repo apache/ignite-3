@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -43,18 +43,13 @@ public class NewTableEntry implements UpdateEntry, Fireable {
     public static final CatalogObjectSerializer<NewTableEntry> SERIALIZER = new NewTableEntrySerializer();
 
     private final CatalogTableDescriptor descriptor;
-
-    private final int schemaId;
-
     /**
      * Constructs the object.
      *
      * @param descriptor A descriptor of a table to add.
-     * @param schemaId Schema id.
      */
-    public NewTableEntry(CatalogTableDescriptor descriptor, int schemaId) {
+    public NewTableEntry(CatalogTableDescriptor descriptor) {
         this.descriptor = descriptor;
-        this.schemaId = schemaId;
     }
 
     /** Returns descriptor of a table to add. */
@@ -79,7 +74,7 @@ public class NewTableEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaId));
+        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, descriptor.schemaId());
 
         descriptor.updateToken(causalityToken);
 
@@ -114,15 +109,13 @@ public class NewTableEntry implements UpdateEntry, Fireable {
         @Override
         public NewTableEntry readFrom(IgniteDataInput input) throws IOException {
             CatalogTableDescriptor descriptor = CatalogTableDescriptor.SERIALIZER.readFrom(input);
-            int schemaName = input.readInt();
 
-            return new NewTableEntry(descriptor, schemaName);
+            return new NewTableEntry(descriptor);
         }
 
         @Override
         public void writeTo(NewTableEntry entry, IgniteDataOutput output) throws IOException {
             CatalogTableDescriptor.SERIALIZER.writeTo(entry.descriptor(), output);
-            output.writeInt(entry.schemaId);
         }
     }
 }

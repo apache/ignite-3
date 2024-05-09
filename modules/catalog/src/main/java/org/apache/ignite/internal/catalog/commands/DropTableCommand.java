@@ -62,7 +62,7 @@ public class DropTableCommand extends AbstractTableCommand {
                     updateEntries.add(new RemoveIndexEntry(index.id()));
                 });
 
-        updateEntries.add(new DropTableEntry(table.id(), schemaName));
+        updateEntries.add(new DropTableEntry(table.id()));
 
         return updateEntries;
     }

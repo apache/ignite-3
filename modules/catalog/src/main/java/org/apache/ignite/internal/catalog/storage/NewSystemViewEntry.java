@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -78,7 +79,7 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
     /** {@inheritDoc} */
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor systemSchema = catalog.schema(schemaName);
+        CatalogSchemaDescriptor systemSchema = schemaOrThrow(catalog, schemaName);
 
         descriptor.updateToken(causalityToken);
 
