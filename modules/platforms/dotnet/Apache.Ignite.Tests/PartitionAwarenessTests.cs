@@ -19,14 +19,14 @@ namespace Apache.Ignite.Tests;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Compute;
 using Ignite.Compute;
 using Ignite.Table;
-using Internal;
+using Ignite.Transactions;
 using Internal.Proto;
-using Internal.Transactions;
 using NUnit.Framework;
 
 /// <summary>
@@ -34,18 +34,20 @@ using NUnit.Framework;
 /// </summary>
 public class PartitionAwarenessTests
 {
-    private static readonly object[] KeyNodeCases =
-    {
-        new object[] { 0, 1 },
-        new object[] { 1, 2 },
-        new object[] { 3, 1 },
-        new object[] { 4, 2 },
-        new object[] { 5, 2 },
-        new object[] { 8, 2 },
-        new object[] { int.MaxValue, 2 },
-        new object[] { int.MaxValue - 1, 2 },
-        new object[] { int.MinValue, 2 }
-    };
+    private static readonly object[][] KeyNodeCases = new[]
+        {
+            new object[] { 0, 1 },
+            new object[] { 1, 2 },
+            new object[] { 3, 1 },
+            new object[] { 4, 2 },
+            new object[] { 5, 2 },
+            new object[] { 8, 2 },
+            new object[] { int.MaxValue, 2 },
+            new object[] { int.MaxValue - 1, 2 },
+            new object[] { int.MinValue, 2 }
+        }
+        .SelectMany(x => new[] { true, false }.Select(tx => new[] { x[0], x[1], tx }))
+        .ToArray();
 
     private FakeServer _server1 = null!;
     private FakeServer _server2 = null!;
@@ -123,7 +125,7 @@ public class PartitionAwarenessTests
 
     [Test]
     [TestCaseSource(nameof(KeyNodeCases))]
-    public async Task TestAllRecordBinaryViewOperations(int keyId, int node)
+    public async Task TestAllRecordBinaryViewOperations(int keyId, int node, bool withTx)
     {
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.RecordBinaryView;
@@ -135,30 +137,32 @@ public class PartitionAwarenessTests
         // Single-key operations.
         var expectedNode = node == 1 ? _server1 : _server2;
 
-        await AssertOpOnNode(() => recordView.GetAsync(null, key), ClientOp.TupleGet, expectedNode);
-        await AssertOpOnNode(() => recordView.GetAndDeleteAsync(null, key), ClientOp.TupleGetAndDelete, expectedNode);
-        await AssertOpOnNode(() => recordView.GetAndReplaceAsync(null, key), ClientOp.TupleGetAndReplace, expectedNode);
-        await AssertOpOnNode(() => recordView.GetAndUpsertAsync(null, key), ClientOp.TupleGetAndUpsert, expectedNode);
-        await AssertOpOnNode(() => recordView.UpsertAsync(null, key), ClientOp.TupleUpsert, expectedNode);
-        await AssertOpOnNode(() => recordView.InsertAsync(null, key), ClientOp.TupleInsert, expectedNode);
-        await AssertOpOnNode(() => recordView.ReplaceAsync(null, key), ClientOp.TupleReplace, expectedNode);
-        await AssertOpOnNode(() => recordView.ReplaceAsync(null, key, key), ClientOp.TupleReplaceExact, expectedNode);
-        await AssertOpOnNode(() => recordView.DeleteAsync(null, key), ClientOp.TupleDelete, expectedNode);
-        await AssertOpOnNode(() => recordView.DeleteExactAsync(null, key), ClientOp.TupleDeleteExact, expectedNode);
+        await AssertOpOnNode(() => recordView.GetAsync(Tx(), key), ClientOp.TupleGet, expectedNode);
+        await AssertOpOnNode(() => recordView.GetAndDeleteAsync(Tx(), key), ClientOp.TupleGetAndDelete, expectedNode);
+        await AssertOpOnNode(() => recordView.GetAndReplaceAsync(Tx(), key), ClientOp.TupleGetAndReplace, expectedNode);
+        await AssertOpOnNode(() => recordView.GetAndUpsertAsync(Tx(), key), ClientOp.TupleGetAndUpsert, expectedNode);
+        await AssertOpOnNode(() => recordView.UpsertAsync(Tx(), key), ClientOp.TupleUpsert, expectedNode);
+        await AssertOpOnNode(() => recordView.InsertAsync(Tx(), key), ClientOp.TupleInsert, expectedNode);
+        await AssertOpOnNode(() => recordView.ReplaceAsync(Tx(), key), ClientOp.TupleReplace, expectedNode);
+        await AssertOpOnNode(() => recordView.ReplaceAsync(Tx(), key, key), ClientOp.TupleReplaceExact, expectedNode);
+        await AssertOpOnNode(() => recordView.DeleteAsync(Tx(), key), ClientOp.TupleDelete, expectedNode);
+        await AssertOpOnNode(() => recordView.DeleteExactAsync(Tx(), key), ClientOp.TupleDeleteExact, expectedNode);
         await AssertOpOnNode(() => recordView.StreamDataAsync(new[] { key }.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
 
         // Multi-key operations use the first key for colocation.
         var keys = new[] { key, new IgniteTuple { ["ID"] = keyId - 1 }, new IgniteTuple { ["ID"] = keyId + 1 } };
-        await AssertOpOnNode(() => recordView.GetAllAsync(null, keys), ClientOp.TupleGetAll, expectedNode);
-        await AssertOpOnNode(() => recordView.InsertAllAsync(null, keys), ClientOp.TupleInsertAll, expectedNode);
-        await AssertOpOnNode(() => recordView.UpsertAllAsync(null, keys), ClientOp.TupleUpsertAll, expectedNode);
-        await AssertOpOnNode(() => recordView.DeleteAllAsync(null, keys), ClientOp.TupleDeleteAll, expectedNode);
-        await AssertOpOnNode(() => recordView.DeleteAllExactAsync(null, keys), ClientOp.TupleDeleteAllExact, expectedNode);
+        await AssertOpOnNode(() => recordView.GetAllAsync(Tx(), keys), ClientOp.TupleGetAll, expectedNode);
+        await AssertOpOnNode(() => recordView.InsertAllAsync(Tx(), keys), ClientOp.TupleInsertAll, expectedNode);
+        await AssertOpOnNode(() => recordView.UpsertAllAsync(Tx(), keys), ClientOp.TupleUpsertAll, expectedNode);
+        await AssertOpOnNode(() => recordView.DeleteAllAsync(Tx(), keys), ClientOp.TupleDeleteAll, expectedNode);
+        await AssertOpOnNode(() => recordView.DeleteAllExactAsync(Tx(), keys), ClientOp.TupleDeleteAllExact, expectedNode);
+
+        ITransaction? Tx() => GetTx(client, withTx);
     }
 
     [Test]
     [TestCaseSource(nameof(KeyNodeCases))]
-    public async Task TestAllRecordViewOperations(int key, int node)
+    public async Task TestAllRecordViewOperations(int key, int node, bool withTx)
     {
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
@@ -192,7 +196,7 @@ public class PartitionAwarenessTests
 
     [Test]
     [TestCaseSource(nameof(KeyNodeCases))]
-    public async Task TestAllKeyValueBinaryViewOperations(int keyId, int node)
+    public async Task TestAllKeyValueBinaryViewOperations(int keyId, int node, bool withTx)
     {
         using var client = await GetClient();
         var kvView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.KeyValueBinaryView;
@@ -230,7 +234,7 @@ public class PartitionAwarenessTests
 
     [Test]
     [TestCaseSource(nameof(KeyNodeCases))]
-    public async Task TestAllKeyValueViewOperations(int key, int node)
+    public async Task TestAllKeyValueViewOperations(int key, int node, bool withTx)
     {
         using var client = await GetClient();
         var kvView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetKeyValueView<int, int>();
@@ -304,7 +308,7 @@ public class PartitionAwarenessTests
 
     [Test]
     [TestCaseSource(nameof(KeyNodeCases))]
-    public async Task TestExecuteColocatedTupleKeyRoutesRequestToPrimaryNode(int keyId, int node)
+    public async Task TestExecuteColocatedTupleKeyRoutesRequestToPrimaryNode(int keyId, int node, bool withTx)
     {
         using var client = await GetClient();
         var expectedNode = node == 1 ? _server1 : _server2;
@@ -321,7 +325,7 @@ public class PartitionAwarenessTests
 
     [Test]
     [TestCaseSource(nameof(KeyNodeCases))]
-    public async Task TestExecuteColocatedObjectKeyRoutesRequestToPrimaryNode(int keyId, int node)
+    public async Task TestExecuteColocatedObjectKeyRoutesRequestToPrimaryNode(int keyId, int node, bool withTx)
     {
         using var client = await GetClient();
         var expectedNode = node == 1 ? _server1 : _server2;
@@ -392,6 +396,11 @@ public class PartitionAwarenessTests
             CollectionAssert.IsEmpty(node2.ClientOps);
         }
     }
+
+    [SuppressMessage("Reliability", "CA2012:Use ValueTasks correctly", Justification = "BeginAsync returns completed task.")]
+    private static ITransaction? GetTx(IIgniteClient client, bool withTx) => withTx
+            ? client.Transactions.BeginAsync().GetAwaiter().GetResult()
+            : null;
 
     private async Task TestClientReceivesPartitionAssignmentUpdates(Func<IRecordView<int>, Task> func, ClientOp op)
     {
