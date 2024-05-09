@@ -217,7 +217,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                     clusterService.nodeName(),
                     metaStorageRaftService,
                     new IgniteSpinBusyLock(),
-                    clusterTime
+                    clusterTime,
+                    () -> clusterService.topologyService().localMember().id()
             );
         }
 

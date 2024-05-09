@@ -253,7 +253,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                     ? startFollowerNode(metaStorageNodes, disruptorConfig)
                     : startLearnerNode(metaStorageNodes, disruptorConfig);
 
-            return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(thisNodeName, raftService, busyLock, clusterTime));
+            return raftServiceFuture.thenApply(raftService -> new MetaStorageServiceImpl(thisNodeName, raftService, busyLock, clusterTime,
+                    () -> clusterService.topologyService().localMember().id()));
         } catch (NodeStoppingException e) {
             return failedFuture(e);
         }

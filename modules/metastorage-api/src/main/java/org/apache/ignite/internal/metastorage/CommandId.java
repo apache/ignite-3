@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+package org.apache.ignite.internal.metastorage;
 
-import org.apache.ignite.internal.metastorage.CommandId;
+import java.util.UUID;
+import org.apache.ignite.internal.metastorage.dsl.MetaStorageMessageGroup;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Idempotent RAFT command.
+ * Command id.
  */
-public interface IdempotentCommand extends MetaStorageWriteCommand {
-    /**
-     * Command id. From more than one commands having the same id only the first one will be applied.
-     *
-     * @return Command id.
-     */
-    CommandId id();
+@Transferable(MetaStorageMessageGroup.COMMAND_ID)
+public interface CommandId extends NetworkMessage {
+    UUID nodeId();
+
+    long counter();
 }

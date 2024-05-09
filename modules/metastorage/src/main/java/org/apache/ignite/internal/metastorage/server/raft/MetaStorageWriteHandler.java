@@ -19,13 +19,13 @@ package org.apache.ignite.internal.metastorage.server.raft;
 
 import java.io.Serializable;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.command.IdempotentCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
@@ -67,7 +67,7 @@ public class MetaStorageWriteHandler {
     private final KeyValueStorage storage;
     private final ClusterTimeImpl clusterTime;
 
-    private final Map<UUID, IdempotentCommandCache> idempotentCommandCache = new ConcurrentHashMap<>();
+    private final Map<CommandId, IdempotentCommandCache> idempotentCommandCache = new ConcurrentHashMap<>();
 
     MetaStorageWriteHandler(KeyValueStorage storage, ClusterTimeImpl clusterTime) {
         this.storage = storage;
@@ -83,7 +83,7 @@ public class MetaStorageWriteHandler {
         CommandClosure<WriteCommand> resultClosure;
 
         if (command instanceof IdempotentCommand) {
-            UUID commandId = ((IdempotentCommand) command).id();
+            CommandId commandId = ((IdempotentCommand) command).id();
             IdempotentCommandCache cache = idempotentCommandCache.get(commandId);
 
             if (cache != null) {

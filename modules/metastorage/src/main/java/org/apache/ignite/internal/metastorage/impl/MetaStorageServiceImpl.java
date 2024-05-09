@@ -24,11 +24,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -71,6 +71,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     private final ClusterTime clusterTime;
 
+    private final CommandIdGenerator commandIdGenerator;
+
     /**
      * Constructor.
      *
@@ -80,7 +82,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             String nodeName,
             RaftGroupService metaStorageRaftGrpSvc,
             IgniteSpinBusyLock busyLock,
-            ClusterTime clusterTime
+            ClusterTime clusterTime,
+            Supplier<String> nodeIdSupplier
     ) {
         this.context = new MetaStorageServiceContext(
                 metaStorageRaftGrpSvc,
@@ -91,6 +94,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         );
 
         this.clusterTime = clusterTime;
+        this.commandIdGenerator = new CommandIdGenerator(nodeIdSupplier);
     }
 
     public RaftGroupService raftGroupService() {
@@ -171,7 +175,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .success(success)
                 .failure(failure)
                 .initiatorTimeLong(clusterTime.nowLong())
-                .id(UUID.randomUUID())
+                .id(commandIdGenerator.newId())
                 .build();
 
         return context.raftService().run(invokeCommand);
@@ -182,7 +186,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         MultiInvokeCommand multiInvokeCommand = context.commandsFactory().multiInvokeCommand()
                 .iif(iif)
                 .initiatorTimeLong(clusterTime.nowLong())
-                .id(UUID.randomUUID())
+                .id(commandIdGenerator.newId())
                 .build();
 
         return context.raftService().run(multiInvokeCommand);

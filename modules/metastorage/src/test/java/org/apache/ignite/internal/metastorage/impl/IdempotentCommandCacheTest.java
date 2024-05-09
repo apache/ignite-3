@@ -70,6 +70,8 @@ public class IdempotentCommandCacheTest {
     @Nullable
     private Serializable lastCommandResult;
 
+    private final CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> UUID.randomUUID().toString());
+
     /**
      * Constructor.
      */
@@ -87,7 +89,7 @@ public class IdempotentCommandCacheTest {
         ByteArray testValue = new ByteArray("value".getBytes(StandardCharsets.UTF_8));
 
         InvokeCommand command = CMD_FACTORY.invokeCommand()
-                .id(UUID.randomUUID())
+                .id(commandIdGenerator.newId())
                 .condition(notExists(testKey))
                 .success(List.of(put(testKey, testValue.bytes())))
                 .failure(List.of(noop()))
@@ -120,7 +122,7 @@ public class IdempotentCommandCacheTest {
         );
 
         MultiInvokeCommand command = CMD_FACTORY.multiInvokeCommand()
-                .id(UUID.randomUUID())
+                .id(commandIdGenerator.newId())
                 .iif(iif)
                 .safeTimeLong(clock.now().longValue())
                 .initiatorTimeLong(clock.now().longValue())
