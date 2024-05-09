@@ -346,7 +346,7 @@ public class PartitionAwarenessTests
 
         // Check default assignment.
         await recordView.UpsertAsync(null, 1);
-        await AssertOpOnNode(_ => recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2);
+        await AssertOpOnNode(tx => recordView.UpsertAsync(tx, 1), ClientOp.TupleUpsert, _server2);
 
         // One server has old assignment
         _server1.PartitionAssignment = _server1.PartitionAssignment.Reverse().ToArray();
