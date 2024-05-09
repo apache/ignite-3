@@ -165,6 +165,8 @@ namespace Apache.Ignite.Tests.Transactions
         public async Task TestClientDisconnectClosesActiveTransactions()
         {
             await using var tx0 = await Client.Transactions.BeginAsync();
+            await TestUtils.ForceLazyTxStart(tx0, Client);
+
             await TupleView.UpsertAsync(null, GetTuple(1, "1"));
 
             using (var client2 = await IgniteClient.StartAsync(GetConfig()))
