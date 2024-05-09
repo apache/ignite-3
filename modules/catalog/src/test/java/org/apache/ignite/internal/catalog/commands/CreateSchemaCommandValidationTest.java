@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -35,9 +35,9 @@ public class CreateSchemaCommandValidationTest extends AbstractCommandValidation
     void schemaNameMustNotBeNullOrBlank(String name) {
         CreateSchemaCommandBuilder builder = CreateSchemaCommand.builder().name(name);
 
-        assertThrowsWithCause(
-                builder::build,
+        assertThrows(
                 CatalogValidationException.class,
+                builder::build,
                 "Name of the schema can't be null or blank"
         );
     }
@@ -50,9 +50,9 @@ public class CreateSchemaCommandValidationTest extends AbstractCommandValidation
 
         Catalog catalog = catalogWithSchema(schemaName);
 
-        assertThrowsWithCause(
-                () -> builder.build().get(catalog),
+        assertThrows(
                 CatalogValidationException.class,
+                () -> builder.build().get(catalog),
                 "Schema with name 'TEST' already exists"
         );
     }
