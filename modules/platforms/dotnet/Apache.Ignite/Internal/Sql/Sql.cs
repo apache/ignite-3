@@ -231,7 +231,7 @@ namespace Apache.Ignite.Internal.Sql
 
             if (writeTx)
             {
-                w.WriteTx(tx);
+                w.WriteTx(tx?.Id);
             }
 
             w.Write(statement.Schema);

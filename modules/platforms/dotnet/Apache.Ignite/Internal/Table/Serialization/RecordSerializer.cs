@@ -22,7 +22,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Collections.Generic;
     using Buffers;
     using Proto.MsgPack;
-    using Transactions;
 
     /// <summary>
     /// Generic record serializer.
@@ -283,15 +282,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             w.Write(_table.Id);
 
             var txIdPos = w.Position;
-
-            if (txId == null)
-            {
-                w.WriteNil();
-            }
-            else
-            {
-                w.Write(txId.Value);
-            }
+            w.WriteTx(txId);
 
             return txIdPos;
         }

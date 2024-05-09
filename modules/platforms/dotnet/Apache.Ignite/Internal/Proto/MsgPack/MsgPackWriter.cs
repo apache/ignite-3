@@ -344,16 +344,16 @@ internal readonly ref struct MsgPackWriter
     /// <summary>
     /// Writes a transaction.
     /// </summary>
-    /// <param name="tx">Transaction.</param>
-    public void WriteTx(LazyTransaction? tx)
+    /// <param name="txId">Transaction id.</param>
+    public void WriteTx(long? txId)
     {
-        if (tx == null)
+        if (txId == null)
         {
             WriteNil();
         }
         else
         {
-            Write(tx.Id);
+            Write(txId.Value);
         }
     }
 
