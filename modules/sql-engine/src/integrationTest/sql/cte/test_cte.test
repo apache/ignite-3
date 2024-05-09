@@ -1,0 +1,110 @@
+# name: test/sql/cte/test_cte.test
+# description: T121(WITH (excluding RECURSIVE) in query expression). Test Common Table Expressions (CTE)
+# group: [cte]
+
+statement ok
+create table a(i integer);
+
+statement ok
+insert into a values (42);
+
+query I
+with cte1 as (Select i as j from a) select * from cte1;
+----
+42
+
+query I
+with cte1 as (Select i as j from a) select x from cte1 t1(x);
+----
+42
+
+query I
+with cte1(xxx) as (Select i as j from a) select xxx from cte1;
+----
+42
+
+query I
+with cte1(xxx) as (Select i as j from a) select x from cte1 t1(x);
+----
+42
+
+query II
+with cte1 as (Select i as j from a), cte2 as (select ref.j as k from cte1 as ref), cte3 as (select ref2.j+1 as i from cte1 as ref2) select * from cte2 , cte3;
+----
+42	43
+
+query I
+with cte1 as (select i as j from a), cte2 as (select ref.j as k from cte1 as ref), cte3 as (select ref2.j+1 as i from cte1 as ref2) select * from cte2 union all select * FROM cte3;
+----
+42
+43
+
+# duplicate CTE alias
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22199
+statement error
+with cte1 as (select 42), cte1 as (select 43) select * FROM cte1;
+----
+
+# reference to CTE before its actually defined
+statement error
+with cte3 as (select ref2.j as i from cte1 as ref2), cte1 as (Select i as j from a), cte2 as (select ref.j+1 as k from cte1 as ref) select * from cte2 union all select * FROM cte3;
+----
+
+# multiple uses of same CTE
+query II
+with cte1 as (Select i as j from a) select * from cte1 cte11, cte1 cte12;
+----
+42	42
+
+# refer to CTE in subquery
+query I
+with cte1 as (Select i as j from a) select * from cte1 where j = (select max(j) from cte1 as cte2);
+----
+42
+
+# multi-column name alias
+query II
+with cte1(x, y) as (select 42 a, 84 b) select zzz, y from cte1 t1(zzz,y);
+----
+42	84
+
+# cte in set operation node
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22200
+query I
+SELECT 1 UNION ALL (WITH cte AS (SELECT 42) SELECT * FROM cte);
+----
+1
+42
+
+query I
+WITH my_list(val) AS (VALUES (1), (2), (3))
+    SELECT * FROM my_list LIMIT 0 OFFSET 1
+----
+
+statement ok
+create table orders(ordered_at int);
+
+statement ok
+create table stg_orders(ordered_at int);
+
+statement ok
+insert into orders values (1);
+
+statement ok
+insert into stg_orders values (1);
+
+query I
+with
+orders as (
+    select * from stg_orders
+    where ordered_at >= (select max(ordered_at) from orders)
+),
+some_more_logic as (
+    select *
+    from orders
+)
+select * from some_more_logic;
+----
+1
