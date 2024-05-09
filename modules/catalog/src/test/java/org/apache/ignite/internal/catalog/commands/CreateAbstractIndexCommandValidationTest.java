@@ -128,7 +128,7 @@ public abstract class CreateAbstractIndexCommandValidationTest extends AbstractC
 
     @Test
     void exceptionIsThrownIfSchemaNotExists() {
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = prefilledBuilder().schemaName(SCHEMA_NAME + "_UNK").build();
 
@@ -141,7 +141,7 @@ public abstract class CreateAbstractIndexCommandValidationTest extends AbstractC
 
     @Test
     void exceptionIsThrownIfTableNotExists() {
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = prefilledBuilder().build();
 

@@ -17,21 +17,36 @@
 
 package org.apache.ignite.raft.server;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
+import static org.hamcrest.MatcherAssert.assertThat;
+
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Abstract test for raft server.
  */
+@ExtendWith(ConfigurationExtension.class)
 abstract class RaftServerAbstractTest extends IgniteAbstractTest {
     protected static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
@@ -39,6 +54,10 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
      * Server port offset.
      */
     protected static final int PORT = 20010;
+
+    /** Raft configuration. */
+    @InjectConfiguration
+    protected RaftConfiguration raftConfiguration;
 
     /** Test info. */
     TestInfo testInfo;
@@ -52,7 +71,7 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
 
     @AfterEach
     protected void after() throws Exception {
-        clusterServices.forEach(ClusterService::stop);
+        assertThat(stopAsync(clusterServices), willCompleteSuccessfully());
     }
 
     /**
@@ -70,11 +89,30 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
         );
 
         if (start) {
-            network.start();
+            assertThat(network.startAsync(), willCompleteSuccessfully());
         }
 
         clusterServices.add(network);
 
         return network;
+    }
+
+    protected JraftServerImpl jraftServer(List<JraftServerImpl> servers, int idx, ClusterService service, NodeOptions opts) {
+        Path dataPath = workDir.resolve("node" + idx);
+
+        return new JraftServerImpl(
+                service,
+                dataPath,
+                raftConfiguration,
+                opts,
+                new RaftGroupEventsClientListener()
+        ) {
+            @Override
+            public CompletableFuture<Void> stopAsync() {
+                servers.remove(this);
+
+                return IgniteUtils.stopAsync(super::stopAsync, service::stopAsync);
+            }
+        };
     }
 }

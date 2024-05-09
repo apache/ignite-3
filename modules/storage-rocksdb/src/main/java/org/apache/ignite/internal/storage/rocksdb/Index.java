@@ -25,7 +25,6 @@ import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.rocksdb.index.AbstractRocksDbIndexStorage;
-import org.apache.ignite.internal.storage.rocksdb.instance.IndexColumnFamily;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -36,19 +35,30 @@ import org.rocksdb.WriteBatch;
  * Represents an index for all its partitions.
  */
 abstract class Index<S extends AbstractRocksDbIndexStorage> {
-    final int tableId;
+    private final int tableId;
 
-    private final IndexColumnFamily indexColumnFamily;
+    private final int indexId;
+
+    private final ColumnFamily columnFamily;
 
     private final ConcurrentMap<Integer, S> storageByPartitionId = new ConcurrentHashMap<>();
 
     Index(int tableId, int indexId, ColumnFamily cf) {
         this.tableId = tableId;
-        this.indexColumnFamily = new IndexColumnFamily(indexId, cf);
+        this.indexId = indexId;
+        this.columnFamily = cf;
     }
 
-    IndexColumnFamily indexColumnFamily() {
-        return indexColumnFamily;
+    int tableId() {
+        return tableId;
+    }
+
+    int indexId() {
+        return indexId;
+    }
+
+    ColumnFamily columnFamily() {
+        return columnFamily;
     }
 
     /**
@@ -76,7 +86,7 @@ abstract class Index<S extends AbstractRocksDbIndexStorage> {
         try {
             IgniteUtils.closeAll(storageByPartitionId.values().stream().map(index -> index::close));
         } catch (Exception e) {
-            throw new StorageException("Failed to close index storages: " + indexColumnFamily.indexId(), e);
+            throw new StorageException("Failed to close index storages: " + indexId, e);
         }
     }
 
@@ -87,7 +97,7 @@ abstract class Index<S extends AbstractRocksDbIndexStorage> {
         try {
             IgniteUtils.closeAll(storageByPartitionId.values().stream().map(index -> index::transitionToDestroyedState));
         } catch (Exception e) {
-            throw new StorageException("Failed to transition index storages to the DESTROYED state: " + indexColumnFamily.indexId(), e);
+            throw new StorageException("Failed to transition index storages to the DESTROYED state: " + indexId, e);
         }
     }
 
@@ -113,6 +123,6 @@ abstract class Index<S extends AbstractRocksDbIndexStorage> {
     void destroy(WriteBatch writeBatch) throws RocksDBException {
         transitionToDestroyedState();
 
-        deleteByPrefix(writeBatch, indexColumnFamily.columnFamily(), indexPrefix(tableId, indexColumnFamily().indexId()));
+        deleteByPrefix(writeBatch, columnFamily, indexPrefix(tableId, indexId));
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -119,7 +120,8 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
 
         IgniteSql sql = startedNodes.get(0).sql();
 
-        sql.execute(null, "CREATE ZONE TEST_ZONE WITH REPLICAS=1, PARTITIONS=10");
+        sql.execute(null,  "CREATE ZONE TEST_ZONE WITH REPLICAS=1, PARTITIONS=10, STORAGE_PROFILES='"
+                + DEFAULT_STORAGE_PROFILE + "'");
         sql.execute(null, "CREATE TABLE " + TABLE_NAME + "("
                 + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
 

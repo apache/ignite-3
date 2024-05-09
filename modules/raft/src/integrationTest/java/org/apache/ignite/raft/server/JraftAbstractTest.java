@@ -20,8 +20,10 @@ package org.apache.ignite.raft.server;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -34,13 +36,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -50,7 +50,6 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,9 +72,6 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
      * The client port offset.
      */
     private static final int CLIENT_PORT = 6003;
-
-    @InjectConfiguration
-    private RaftConfiguration raftConfiguration;
 
     /**
      * Initial configuration.
@@ -152,7 +148,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
             server.beforeNodeStop();
 
-            server.stop();
+            assertThat(server.stopAsync(), willCompleteSuccessfully());
         }
 
         servers.clear();
@@ -175,18 +171,9 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         optionsUpdater.accept(opts);
 
-        JraftServerImpl server = new JraftServerImpl(service, workDir.resolve("node" + idx), opts, new RaftGroupEventsClientListener()) {
-            @Override
-            public void stop() throws Exception {
-                servers.remove(this);
+        JraftServerImpl server = jraftServer(servers, idx, service, opts);
 
-                super.stop();
-
-                service.stop();
-            }
-        };
-
-        server.start();
+        assertThat(server.startAsync(), willCompleteSuccessfully());
 
         clo.accept(server);
 

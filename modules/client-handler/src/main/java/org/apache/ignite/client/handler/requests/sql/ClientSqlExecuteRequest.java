@@ -167,7 +167,7 @@ public class ClientSqlExecuteRequest {
                     .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
                     .build();
 
-            CompletableFuture<AsyncResultSet<SqlRow>> fut = qryProc.querySingleAsync(
+            CompletableFuture<AsyncResultSet<SqlRow>> fut = qryProc.queryAsync(
                             properties, transactions, (InternalTransaction) transaction, query, arguments)
                     .thenCompose(cur -> cur.requestNextAsync(pageSize)
                             .thenApply(

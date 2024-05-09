@@ -44,13 +44,13 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
         FailureProcessor failureProcessor = new FailureProcessor("node_name", handler);
 
         try {
-            assertThat(failureProcessor.start(), willSucceedFast());
+            assertThat(failureProcessor.startAsync(), willSucceedFast());
 
             failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null));
 
             verify(handler, times(1)).onFailure(anyString(), any());
         } finally {
-            failureProcessor.stop();
+            assertThat(failureProcessor.stopAsync(), willSucceedFast());
         }
     }
 
@@ -61,13 +61,13 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
         FailureProcessor failureProcessor = new FailureProcessor("node_name", handler);
 
         try {
-            assertThat(failureProcessor.start(), willSucceedFast());
+            assertThat(failureProcessor.startAsync(), willSucceedFast());
 
             assertThat(failureProcessor.process(new FailureContext(SYSTEM_WORKER_BLOCKED, null)), is(false));
 
             assertThat(failureProcessor.process(new FailureContext(SYSTEM_CRITICAL_OPERATION_TIMEOUT, null)), is(false));
         } finally {
-            failureProcessor.stop();
+            assertThat(failureProcessor.stopAsync(), willSucceedFast());
         }
     }
 }

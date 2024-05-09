@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.benchmark;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -81,10 +82,11 @@ public class AbstractMultiNodeBenchmark {
         try {
             var queryEngine = clusterNode.queryEngine();
 
-            var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " WITH partitions=" + partitionCount();
+            var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " WITH partitions=" + partitionCount()
+                    + ", storage_profiles ='" + DEFAULT_STORAGE_PROFILE + "'";
 
             getAllFromCursor(
-                    await(queryEngine.querySingleAsync(
+                    await(queryEngine.queryAsync(
                             SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createZoneStatement
                     ))
             );
@@ -130,7 +132,7 @@ public class AbstractMultiNodeBenchmark {
         createTableStatement += "\nWITH primary_zone='" + ZONE_NAME + "'";
 
         getAllFromCursor(
-                await(clusterNode.queryEngine().querySingleAsync(
+                await(clusterNode.queryEngine().queryAsync(
                         SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createTableStatement
                 ))
         );

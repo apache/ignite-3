@@ -172,26 +172,6 @@ public:
      * @tparam T Result type.
      * @param op Operation code.
      * @param wr Request writer function.
-     * @param response_reader Response reader function.
-     * @param notification_reader Notification reader function.
-     * @param callback Callback to call on result.
-     */
-    template<typename T>
-    void perform_request_single_notification(protocol::client_operation op,
-        const std::function<void(protocol::writer &)> &wr, std::function<void(protocol::reader &)> response_reader,
-        std::function<T(protocol::reader &)> notification_reader, ignite_callback<T> callback) {
-        auto handler = std::make_shared<response_handler_notification<T>>(
-            std::move(response_reader), std::move(notification_reader), std::move(callback));
-
-        perform_request_handler(op, nullptr, wr, std::move(handler));
-    }
-
-    /**
-     * Perform request.
-     *
-     * @tparam T Result type.
-     * @param op Operation code.
-     * @param wr Request writer function.
      * @param rd response reader function.
      * @param callback Callback to call on result.
      */

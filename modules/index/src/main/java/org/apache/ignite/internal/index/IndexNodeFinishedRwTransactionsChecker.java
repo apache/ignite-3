@@ -79,7 +79,7 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return inBusyLockAsync(busyLock, () -> {
             messagingService.addMessageHandler(IndexMessageGroup.class, this::onReceiveIndexNetworkMessage);
 
@@ -88,15 +88,17 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
     }
 
     @Override
-    public void stop() {
+    public CompletableFuture<Void> stopAsync() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
 
         txCatalogVersionByBeginTxTs.clear();
         txCountByCatalogVersion.clear();
+
+        return nullCompletedFuture();
     }
 
     @Override

@@ -20,8 +20,7 @@ package org.apache.ignite.internal.testframework;
 import static java.lang.Thread.sleep;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
-import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
-import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static java.util.function.Function.identity;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -55,6 +54,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -64,6 +64,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.hamcrest.CustomMatcher;
@@ -491,7 +492,7 @@ public final class IgniteTestUtils {
      * @return Future with task result.
      */
     public static <T> CompletableFuture<T> runAsync(Callable<T> task, String threadName) {
-        ThreadFactory thrFactory = IgniteThreadFactory.withPrefix(threadName, LOG, STORAGE_READ, STORAGE_WRITE);
+        ThreadFactory thrFactory = IgniteThreadFactory.withPrefix(threadName, LOG, ThreadOperation.values());
 
         CompletableFuture<T> fut = new CompletableFuture<T>();
 
@@ -507,6 +508,35 @@ public final class IgniteTestUtils {
         }).start();
 
         return fut;
+    }
+
+    /**
+     * Executes an asynchronous operation in a thread that is allowed to execute any thread operation.
+     *
+     * @param operation Operation to execute.
+     * @return Whatever the operation returns.
+     */
+    public static <T> CompletableFuture<T> bypassingThreadAssertionsAsync(Supplier<CompletableFuture<T>> operation) {
+        return runAsync(operation::get).thenCompose(identity());
+    }
+
+    /**
+     * Executes a synchronous operation in a thread that is allowed to execute any thread operation.
+     *
+     * @param operation Operation to execute.
+     * @return Whatever the operation returns.
+     */
+    public static <T> T bypassingThreadAssertions(Supplier<T> operation) {
+        return await(runAsync(operation::get));
+    }
+
+    /**
+     * Executes a synchronous operation in a thread that is allowed to execute any thread operation.
+     *
+     * @param operation Operation to execute.
+     */
+    public static void bypassingThreadAssertions(Runnable operation) {
+        await(runAsync(operation::run));
     }
 
     /**
@@ -772,7 +802,7 @@ public final class IgniteTestUtils {
      * @return A result of the stage.
      */
     @SuppressWarnings("UnusedReturnValue")
-    public static <T> @Nullable T await(CompletionStage<T> stage, long timeout, TimeUnit unit) {
+    public static <T> T await(CompletionStage<T> stage, long timeout, TimeUnit unit) {
         try {
             return stage.toCompletableFuture().get(timeout, unit);
         } catch (Throwable e) {
@@ -791,9 +821,7 @@ public final class IgniteTestUtils {
             sneakyThrow(original);
         }
 
-        assert false;
-
-        return null;
+        throw new AssertionError("Should not get here");
     }
 
     /**
@@ -804,7 +832,7 @@ public final class IgniteTestUtils {
      * @return A result of the stage.
      */
     @SuppressWarnings("UnusedReturnValue")
-    public static <T> @Nullable T await(CompletionStage<T> stage) {
+    public static <T> T await(CompletionStage<T> stage) {
         return await(stage, TIMEOUT_SEC, TimeUnit.SECONDS);
     }
 

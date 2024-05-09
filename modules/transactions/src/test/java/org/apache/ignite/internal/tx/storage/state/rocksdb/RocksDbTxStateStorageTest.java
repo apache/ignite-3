@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.storage.state.TxStateStorage.REBALANCE_IN_PROGRESS;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -28,6 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -66,7 +68,7 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     @Override
     @BeforeEach
     protected void beforeTest() {
-        sharedStorage = new TxStateRocksDbSharedStorage(workDir, scheduledExecutor, executor, () -> 0);
+        sharedStorage = new TxStateRocksDbSharedStorage(workDir, scheduledExecutor, executor, mock(LogSyncer.class), () -> 0);
         sharedStorage.start();
 
         super.beforeTest();

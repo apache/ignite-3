@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.raft.service;
 
 import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -44,6 +46,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -131,7 +134,9 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         Stream<AutoCloseable> beforeNodeStop = Stream.concat(servers.stream(), cluster.stream()).map(c -> c::beforeNodeStop);
 
-        Stream<AutoCloseable> nodeStop = Stream.concat(servers.stream(), cluster.stream()).map(c -> c::stop);
+        List<IgniteComponent> components = Stream.concat(servers.stream(), cluster.stream()).collect(toList());
+
+        Stream<AutoCloseable> nodeStop = Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()));
 
         IgniteUtils.closeAll(
                 Stream.of(stopRaftGroups, shutdownClients, stopExecutor, beforeNodeStop, nodeStop).flatMap(Function.identity())
@@ -248,7 +253,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         // Shutdown that node
         toStop.stopRaftNode(nodeId);
         toStop.beforeNodeStop();
-        toStop.stop();
+        assertThat(toStop.stopAsync(), willCompleteSuccessfully());
 
         // Create a snapshot of the raft group
         service.snapshot(service.leader()).get();
@@ -395,7 +400,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
                 new StaticNodeFinder(List.of(otherPeer))
         );
 
-        network.start();
+        assertThat(network.startAsync(), willCompleteSuccessfully());
 
         cluster.add(network);
 
@@ -416,16 +421,14 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         Path jraft = workDir.resolve("jraft" + idx);
 
-        JraftServerImpl server = new JraftServerImpl(service, jraft) {
+        JraftServerImpl server = new JraftServerImpl(service, jraft, raftConfiguration) {
             @Override
-            public void stop() throws Exception {
-                super.stop();
-
-                service.stop();
+            public CompletableFuture<Void> stopAsync() {
+                return IgniteUtils.stopAsync(super::stopAsync, service::stopAsync);
             }
         };
 
-        server.start();
+        assertThat(server.startAsync(), willCompleteSuccessfully());
 
         Path listenerPersistencePath = workDir.resolve("db" + idx);
 

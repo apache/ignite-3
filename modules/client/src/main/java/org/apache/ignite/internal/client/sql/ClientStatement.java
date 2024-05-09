@@ -19,11 +19,9 @@ package org.apache.ignite.internal.client.sql;
 
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Client SQL statement.
@@ -41,9 +39,6 @@ public class ClientStatement implements Statement {
     /** Page size. */
     private final Integer pageSize;
 
-    /** Properties. */
-    private final Map<String, Object> properties;
-
     /**
      * Constructor.
      *
@@ -51,22 +46,19 @@ public class ClientStatement implements Statement {
      * @param defaultSchema Default schema.
      * @param queryTimeoutMs Timeout
      * @param pageSize Page size.
-     * @param properties Properties.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ClientStatement(
             String query,
             String defaultSchema,
             Long queryTimeoutMs,
-            Integer pageSize,
-            Map<String, Object> properties) {
+            Integer pageSize) {
         Objects.requireNonNull(query);
 
         this.query = query;
         this.defaultSchema = defaultSchema;
         this.queryTimeoutMs = queryTimeoutMs;
         this.pageSize = pageSize;
-        this.properties = properties;
     }
 
     /** {@inheritDoc} */
@@ -122,22 +114,6 @@ public class ClientStatement implements Statement {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable Object property(String name) {
-        return properties == null ? null : properties.get(name);
-    }
-
-    /**
-     * Gets the properties map.
-     *
-     * @return Properties.
-     */
-    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-    public Map<String, Object> properties() {
-        return properties;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public StatementBuilder toBuilder() {
         var builder = new ClientStatementBuilder()
                 .query(query)
@@ -149,12 +125,6 @@ public class ClientStatement implements Statement {
 
         if (queryTimeoutMs != null) {
             builder.queryTimeout(queryTimeoutMs, TimeUnit.MILLISECONDS);
-        }
-
-        if (properties != null) {
-            for (var entry : properties.entrySet()) {
-                builder.property(entry.getKey(), entry.getValue());
-            }
         }
 
         return builder;

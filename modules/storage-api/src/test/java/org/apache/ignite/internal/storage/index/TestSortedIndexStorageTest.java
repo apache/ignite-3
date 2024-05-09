@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
@@ -30,8 +32,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
     @BeforeEach
     void beforeEach() {
-        var storage = new TestMvTableStorage(1, 10);
+        var storage = new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT);
 
         initialize(storage);
+    }
+
+    // Not valid for test storage.
+    @Override
+    void testReadOnlyScanContractUpdateAfterScan() {
     }
 }

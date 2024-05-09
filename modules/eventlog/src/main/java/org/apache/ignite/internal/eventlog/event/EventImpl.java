@@ -20,13 +20,12 @@ package org.apache.ignite.internal.eventlog.event;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.internal.eventlog.api.Event;
-import org.apache.ignite.internal.eventlog.ser.JsonEventSerializer;
 
 /**
- * Implementation of the {@link Event} interface. The class is immutable and thread-safe.
- * If you want to create an instance of this class, use the {@link EventBuilder}.
+ * Implementation of the {@link Event} interface. The class is immutable and thread-safe. If you want to create an instance of this class,
+ * use the {@link EventBuilder}.
  *
- * <p>NOTE: If you rename/add any field in this class, you should also update the {@link JsonEventSerializer}.
+ * <p>NOTE: This class should always be a plain POJO.
  */
 public class EventImpl implements Event {
     private final String type;
@@ -48,27 +47,27 @@ public class EventImpl implements Event {
     }
 
     @Override
-    public String type() {
+    public String getType() {
         return type;
     }
 
     @Override
-    public long timestamp() {
+    public long getTimestamp() {
         return timestamp;
     }
 
     @Override
-    public String productVersion() {
+    public String getProductVersion() {
         return productVersion;
     }
 
     @Override
-    public EventUser user() {
+    public EventUser getUser() {
         return user;
     }
 
     @Override
-    public Map<String, Object> fields() {
+    public Map<String, Object> getFields() {
         return fields;
     }
 

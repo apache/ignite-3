@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Network.ADDRESS_UNRESOLVED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Network.PORT_IN_USE_ERR;
@@ -48,6 +50,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -57,7 +60,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -197,7 +199,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         if (channel != null) {
             throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule is already started.");
         }
@@ -216,9 +218,9 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -228,10 +230,16 @@ public class ClientHandlerModule implements IgniteComponent {
 
         var ch = channel;
         if (ch != null) {
-            ch.close().await();
+            try {
+                ch.close().await();
+            } catch (InterruptedException e) {
+                return failedFuture(e);
+            }
 
             channel = null;
         }
+
+        return nullCompletedFuture();
     }
 
     /**

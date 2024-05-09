@@ -55,6 +55,7 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSet",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneRenameTo",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlTypeNameSpec",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSetDefault",
       "org.apache.ignite.internal.sql.engine.type.UuidType",
     ]
 
@@ -65,7 +66,6 @@ data: {
       "IF"
       "INDEX"
       "ENGINE"
-      "TREE"
       "SORTED"
       "HASH"
       "RENAME"
@@ -77,7 +77,6 @@ data: {
     nonReservedKeywordsToAdd: [
       # Keywords introduced by Ignite
       "ENGINE"
-      "TREE"
       "SORTED"
       "HASH"
       "UUID"

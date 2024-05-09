@@ -17,16 +17,17 @@
 
 package org.apache.ignite.internal.threading;
 
+import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
+import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.threading.PublicApiThreadingTests.anIgniteThread;
-import static org.apache.ignite.internal.threading.PublicApiThreadingTests.asyncContinuationPool;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.PublicApiThreadingTests;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.junit.jupiter.api.BeforeAll;
@@ -70,7 +71,7 @@ class ItTablesApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private static <T> T forcingSwitchFromUserThread(Supplier<? extends T> action) {
-        return PublicApiThreadingTests.forcingSwitchFromUserThread(CLUSTER.aliveNode(), action);
+        return PublicApiThreadingTests.tryToSwitchFromUserThreadWithDelayedSchemaSync(CLUSTER.aliveNode(), action);
     }
 
     private static TableManager igniteTablesForInternalUse() {
@@ -78,8 +79,8 @@ class ItTablesApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private enum TablesAsyncOperation {
-        TABLE_ASYNC(view -> view.tableAsync(TABLE_NAME)),
-        TABLES_ASYNC(view -> view.tablesAsync());
+        TABLE_ASYNC(tables -> tables.tableAsync(TABLE_NAME)),
+        TABLES_ASYNC(tables -> tables.tablesAsync());
 
         private final Function<IgniteTables, CompletableFuture<?>> action;
 

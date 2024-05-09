@@ -143,8 +143,10 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
             }
         }
 
+        double indexRowPassThroughCost = IgniteCost.ROW_PASS_THROUGH_COST * IgniteCost.INDEX_ROW_SCAN_MULTIPLIER;
+
         if (condition == null) {
-            cost = rows * IgniteCost.ROW_PASS_THROUGH_COST;
+            cost = rows * indexRowPassThroughCost;
         } else {
             double selectivity = 1;
 
@@ -163,11 +165,10 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
                 rows = 1;
             }
 
-            cost += rows * (IgniteCost.ROW_COMPARISON_COST + IgniteCost.ROW_PASS_THROUGH_COST);
+            cost += rows * (IgniteCost.ROW_COMPARISON_COST + indexRowPassThroughCost);
         }
 
-        // additional tiny cost for preventing equality with table scan.
-        return planner.getCostFactory().makeCost(rows, cost, 0).plus(planner.getCostFactory().makeTinyCost());
+        return planner.getCostFactory().makeCost(rows, cost, 0);
     }
 
     /**

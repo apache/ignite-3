@@ -21,8 +21,10 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -47,6 +49,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -77,6 +82,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.thread.ThreadAttributes;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -92,9 +98,6 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Only a single instance of the class exists in Ignite node.
  */
 public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, LocalReplicaEventParameters> implements IgniteComponent {
-    /** Default Idle safe time propagation period for tests. */
-    public static final int DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS = 1000;
-
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
 
@@ -139,6 +142,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private final Executor requestsExecutor;
 
+    private final FailureProcessor failureProcessor;
+
     /** Set of message groups to handler as replica requests. */
     private final Set<Class<?>> messageGroupsToHandle;
 
@@ -166,7 +171,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ClockService clockService,
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
-            Executor requestsExecutor
+            Executor requestsExecutor,
+            FailureProcessor failureProcessor
     ) {
         this(
                 nodeName,
@@ -176,7 +182,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 messageGroupsToHandle,
                 placementDriver,
                 requestsExecutor,
-                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                failureProcessor
         );
     }
 
@@ -200,7 +207,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
             Executor requestsExecutor,
-            LongSupplier idleSafeTimePropagationPeriodMsSupplier
+            LongSupplier idleSafeTimePropagationPeriodMsSupplier,
+            FailureProcessor failureProcessor
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
@@ -211,6 +219,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.placementDriver = placementDriver;
         this.requestsExecutor = requestsExecutor;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
+        this.failureProcessor = failureProcessor;
 
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
                 1,
@@ -241,20 +250,30 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         // If the request actually came from the network, we are already in the correct thread that has permissions to do storage reads
         // and writes.
         // But if this is a local call (in the same Ignite instance), we might still be in a thread that does not have those permissions.
-        if (currentThreadCannotDoStorageReadsAndWrites()) {
+        if (shouldSwitchToRequestsExecutor()) {
             requestsExecutor.execute(() -> handleReplicaRequest(request, sender, correlationId));
         } else {
             handleReplicaRequest(request, sender, correlationId);
         }
     }
 
-    private boolean currentThreadCannotDoStorageReadsAndWrites() {
+    private static boolean shouldSwitchToRequestsExecutor() {
         if (Thread.currentThread() instanceof ThreadAttributes) {
             ThreadAttributes thread = (ThreadAttributes) Thread.currentThread();
-            return !thread.allows(STORAGE_READ) || !thread.allows(STORAGE_WRITE);
+            return !thread.allows(STORAGE_READ) || !thread.allows(STORAGE_WRITE) || !thread.allows(TX_STATE_STORAGE_ACCESS);
         } else {
-            // We don't know for sure.
-            return false;
+            if (PublicApiThreading.executingSyncPublicApi()) {
+                // It's a user thread, it executes a sync public API call, so it can do anything, no switch is needed.
+                return false;
+            }
+            if (PublicApiThreading.executingAsyncPublicApi()) {
+                // It's a user thread, it executes an async public API call, so it cannot do anything, a switch is needed.
+                return true;
+            }
+
+            // It's something else: either a JRE thread or an Ignite thread not marked with ThreadAttributes. As we are not sure,
+            // let's switch: false negative can produce assertion errors.
+            return true;
         }
     }
 
@@ -340,19 +359,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
 
-                if (request instanceof PrimaryReplicaRequest) {
-                    ClusterNode localNode = clusterNetSvc.topologyService().localMember();
-
-                    if (!localNode.name().equals(replica.proposedPrimary())) {
-                        stopLeaseProlongation(request.groupId(), replica.proposedPrimary());
-                    } else if (isConnectivityRelatedException(ex)) {
-                        stopLeaseProlongation(request.groupId(), null);
-                    }
+                if (request instanceof PrimaryReplicaRequest && isConnectivityRelatedException(ex)) {
+                    stopLeaseProlongation(request.groupId(), null);
                 }
 
                 if (ex == null && res.replicationFuture() != null) {
-                    assert request instanceof PrimaryReplicaRequest;
-
                     res.replicationFuture().whenComplete((res0, ex0) -> {
                         NetworkMessage msg0;
 
@@ -613,7 +624,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         ExecutorChooser<NetworkMessage> replicaMessagesExecutorChooser = message -> requestsExecutor;
 
         clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, replicaMessagesExecutorChooser, handler);
@@ -643,9 +654,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -660,6 +671,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         for (CompletableFuture<Replica> replicaFuture : replicas.values()) {
             replicaFuture.completeExceptionally(new NodeStoppingException());
         }
+
+        return nullCompletedFuture();
     }
 
     /**
@@ -762,15 +775,29 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Idle safe time sync for replicas.
      */
     private void idleSafeTimeSync() {
-        replicas.values().forEach(r -> {
-            if (r.isDone()) {
-                ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
-                        .groupId(r.join().groupId())
-                        .build();
+        for (Entry<ReplicationGroupId, CompletableFuture<Replica>> entry : replicas.entrySet()) {
+            try {
+                sendSafeTimeSyncIfReplicaReady(entry.getValue());
+            } catch (Exception | AssertionError e) {
+                LOG.warn("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
+            } catch (Error e) {
+                LOG.error("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
 
-                r.join().processRequest(req, localNodeId);
+                failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
             }
-        });
+        }
+    }
+
+    private void sendSafeTimeSyncIfReplicaReady(CompletableFuture<Replica> replicaFuture) {
+        if (isCompletedSuccessfully(replicaFuture)) {
+            Replica replica = replicaFuture.join();
+
+            ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
+                    .groupId(replica.groupId())
+                    .build();
+
+            replica.processRequest(req, localNodeId);
+        }
     }
 
     /**

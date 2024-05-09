@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.file;
 
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -30,7 +32,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
-import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Handler for file transfer messages.
@@ -135,7 +136,7 @@ class FileTransferMessagesHandler implements TransferredFilesCollector {
      */
     private void closeAllWriters() {
         try {
-            IgniteUtils.closeAll(fileNameToWriter.values());
+            closeAll(fileNameToWriter.values());
         } catch (Exception e) {
             throw new FileTransferException("Failed to close file writers", e);
         }

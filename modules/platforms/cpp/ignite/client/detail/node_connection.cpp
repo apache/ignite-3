@@ -72,10 +72,7 @@ void node_connection::process_message(bytes_view msg) {
     }
 
     auto observable_timestamp = reader.read_int64();
-    auto event_handler = m_event_handler.lock();
-    if (event_handler) {
-        event_handler->on_observable_timestamp_changed(observable_timestamp);
-    }
+    on_observable_timestamp_changed(observable_timestamp);
 
     std::optional<ignite_error> err{};
     if (test_flag(flags, protocol::response_flag::ERROR_FLAG)) {
@@ -112,6 +109,13 @@ void node_connection::process_message(bytes_view msg) {
     }
 }
 
+void node_connection::on_observable_timestamp_changed(int64_t observable_timestamp) const {
+    auto event_handler = m_event_handler.lock();
+    if (event_handler) {
+        event_handler->on_observable_timestamp_changed(observable_timestamp);
+    }
+}
+
 ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
     m_logger->log_debug("Got handshake response");
 
@@ -128,6 +132,8 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
         m_logger->log_warning("Handshake error: " + response.error->what_str());
         return {ignite_error(*response.error)};
     }
+
+    on_observable_timestamp_changed(response.observable_timestamp);
 
     m_protocol_context = response.context;
     m_handshake_complete = true;

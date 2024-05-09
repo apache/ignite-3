@@ -50,6 +50,7 @@ import org.apache.ignite.internal.sql.engine.rule.FilterConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.FilterSpoolMergeToHashIndexSpoolRule;
 import org.apache.ignite.internal.sql.engine.rule.FilterSpoolMergeToSortedIndexSpoolRule;
 import org.apache.ignite.internal.sql.engine.rule.HashAggregateConverterRule;
+import org.apache.ignite.internal.sql.engine.rule.HashJoinConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.MergeJoinConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.NestedLoopJoinConverterRule;
@@ -67,14 +68,15 @@ import org.apache.ignite.internal.sql.engine.rule.ValuesConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ExposeIndexRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.FilterScanMergeRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.IgniteJoinConditionPushRule;
+import org.apache.ignite.internal.sql.engine.rule.logical.LogicalOrToUnionRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ProjectScanMergeRule;
 
 /**
  * Represents a planner phase with its description and a used rule set.
  */
 public enum PlannerPhase {
-    HEP_DECORRELATE(
-            "Heuristic phase to decorrelate subqueries",
+    HEP_SUBQUERIES_TO_CORRELATES(
+            "Heuristic phase to convert subqueries into correlates",
             CoreRules.FILTER_SUB_QUERY_TO_CORRELATE,
             CoreRules.PROJECT_SUB_QUERY_TO_CORRELATE,
             CoreRules.JOIN_SUB_QUERY_TO_CORRELATE
@@ -216,8 +218,7 @@ public enum PlannerPhase {
             FilterScanMergeRule.INDEX_SCAN,
             FilterScanMergeRule.SYSTEM_VIEW_SCAN,
 
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-21287
-            // LogicalOrToUnionRule.INSTANCE,
+            LogicalOrToUnionRule.INSTANCE,
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-16334 join rules ordering is significant here.
             MergeJoinConverterRule.INSTANCE,
@@ -227,6 +228,7 @@ public enum PlannerPhase {
 
             CorrelateToNestedLoopRule.INSTANCE,
             NestedLoopJoinConverterRule.INSTANCE,
+            HashJoinConverterRule.INSTANCE,
 
             ValuesConverterRule.INSTANCE,
             LogicalScanConverterRule.INDEX_SCAN,

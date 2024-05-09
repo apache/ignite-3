@@ -35,20 +35,8 @@ public interface MetastorageCommandsMessageGroup {
     /** Message type for {@link GetCommand}. */
     short GET = 20;
 
-    /** Message type for {@link GetAndPutCommand}. */
-    short GET_AND_PUT = 21;
-
-    /** Message type for {@link GetAndRemoveCommand}. */
-    short GET_AND_REMOVE = 22;
-
     /** Message type for {@link GetAllCommand}. */
     short GET_ALL = 30;
-
-    /** Message type for {@link GetAndPutAllCommand}. */
-    short GET_AND_PUT_ALL = 31;
-
-    /** Message type for {@link GetAndRemoveAllCommand}. */
-    short GET_AND_REMOVE_ALL = 32;
 
     /** Message type for {@link GetCurrentRevisionCommand}. */
     short GET_CURRENT_REVISION = 33;

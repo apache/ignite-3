@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Registry that holds all available dynamic completers.
@@ -115,11 +116,7 @@ public class DynamicCompleterRegistry {
             String lastNotEmptyWord = findLastNotEmptyWord(words);
             String preLastNotEmptyWord = findLastNotEmptyWordBeforeWordFromEnd(words, lastNotEmptyWord);
 
-            if (cursorWord.equals(lastNotEmptyWord)) {
-                if (exclusiveDisableOptions.contains(lastNotEmptyWord) || exclusiveDisableOptions.contains(preLastNotEmptyWord)) {
-                    return false;
-                }
-            } else if (exclusiveDisableOptions.contains(lastNotEmptyWord)) {
+            if (shouldBeDisabled(preLastNotEmptyWord, lastNotEmptyWord, cursorWord)) {
                 return false;
             }
 
@@ -153,6 +150,37 @@ public class DynamicCompleterRegistry {
             } else {
                 return factory.getDynamicCompleter(words);
             }
+        }
+
+        private boolean shouldBeDisabled(String preLastNotEmptyWord, String lastNotEmptyWord, String cursorWord) {
+            boolean enableOverridesDisable = intersect(conf.enableOptions(), exclusiveDisableOptions);
+            if (enableOverridesDisable) {
+                return false;
+            }
+
+            if (cursorWord.equals(lastNotEmptyWord)) {
+                if (exclusiveDisableOptions.contains(lastNotEmptyWord) || exclusiveDisableOptions.contains(preLastNotEmptyWord)) {
+                    return true;
+                }
+            } else if (exclusiveDisableOptions.contains(lastNotEmptyWord)) {
+                return true;
+            }
+
+            return false;
+        }
+
+        private boolean intersect(@Nullable Set<String> a, @Nullable Set<String> b) {
+            if (a == null || b == null) {
+                return false;
+            }
+
+            for (String s : a) {
+                if (b.contains(s)) {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

@@ -33,7 +33,7 @@ import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.plan.volcano.VolcanoTimeoutException;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelVisitor;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
@@ -47,7 +47,6 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -66,10 +65,10 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
         BaseQueryContext ctx = baseQueryContext(Collections.singletonList(schema), null);
 
         PrepareService prepareService = new PrepareServiceImpl("test", 0,
-                CaffeineCacheFactory.INSTANCE, null, plannerTimeout, 1, new MetricManager());
+                CaffeineCacheFactory.INSTANCE, null, plannerTimeout, 1, new MetricManagerImpl());
         prepareService.start();
         try {
-            ParserService parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
+            ParserService parserService = new ParserServiceImpl();
 
             ParsedResult parsedResult = parserService.parse("SELECT * FROM T1 t, T1 t1, T1 t2, T1 t3");
 

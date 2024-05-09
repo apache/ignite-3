@@ -27,6 +27,7 @@ import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,6 +40,8 @@ public class ClientMarshallerReader implements MarshallerReader {
 
     private final ClientColumn @Nullable [] columns;
 
+    private final TuplePart part;
+
     /** Index. */
     private int index;
 
@@ -48,9 +51,10 @@ public class ClientMarshallerReader implements MarshallerReader {
      * @param unpacker Unpacker.
      * @param columns Columns.
      */
-    public ClientMarshallerReader(BinaryTupleReader unpacker, ClientColumn @Nullable [] columns) {
+    public ClientMarshallerReader(BinaryTupleReader unpacker, ClientColumn @Nullable [] columns, TuplePart part) {
         this.unpacker = unpacker;
         this.columns = columns;
+        this.part = part;
     }
 
     /** {@inheritDoc} */
@@ -222,6 +226,17 @@ public class ClientMarshallerReader implements MarshallerReader {
 
     private int nextSchemaIndex() {
         int i = index++;
-        return columns == null ? i : columns[i].schemaIndex();
+        if (columns == null) {
+            return i;
+        }
+
+        switch (part) {
+            case KEY:
+                return columns[i].keyIndex();
+            case VAL:
+                return columns[i].valIndex();
+            default:
+                return columns[i].schemaIndex();
+        }
     }
 }

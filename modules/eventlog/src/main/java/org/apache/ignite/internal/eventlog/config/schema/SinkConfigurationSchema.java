@@ -20,16 +20,21 @@ package org.apache.ignite.internal.eventlog.config.schema;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.Value;
 
 
 /** Configuration schema for sink. */
 @PolymorphicConfig
 public class SinkConfigurationSchema {
-    /** The id of the sink that is used to identify the type: log, webhook, kafka. */
+    /** The type of the sink that is used to identify the type: log, webhook, kafka. */
     @PolymorphicId(hasDefault = true)
-    public String id = LogSinkConfigurationSchema.POLYMORPHIC_ID;
+    public String type = LogSinkConfigurationSchema.POLYMORPHIC_ID;
 
     /** The name of the sink. */
     @InjectedName
     public String name;
+
+    /** The channel to which the sink is connected. Should be one of existing channels. */
+    @Value(hasDefault = true)
+    public String channel = "";
 }

@@ -23,11 +23,13 @@ import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRe
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 
 /**
  * Single-row replica request.
  */
 public interface SingleRowReplicaRequest extends SchemaVersionAwareReplicaRequest {
+    @IgniteToStringInclude(sensitive = true)
     ByteBuffer binaryTuple();
 
     default BinaryRow binaryRow() {

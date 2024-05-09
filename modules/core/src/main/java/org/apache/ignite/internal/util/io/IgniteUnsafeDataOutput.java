@@ -28,7 +28,18 @@ import static org.apache.ignite.internal.util.GridUnsafe.SHORT_ARR_OFF;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
 import java.util.Arrays;
+import java.util.BitSet;
+import java.util.UUID;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.GridUnsafe;
@@ -320,6 +331,116 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
         }
 
         onWrite(bytesToCp);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeBigInteger(BigInteger val) throws IOException {
+        byte[] bytes = val.toByteArray();
+        writeInt(bytes.length);
+        writeByteArray(bytes);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeBigDecimal(BigDecimal val) throws IOException {
+        short scale = (short) val.scale();
+        byte[] bytes = val.unscaledValue().toByteArray();
+
+        writeShort(scale);
+        writeInt(bytes.length);
+        writeByteArray(bytes);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeLocalTime(LocalTime val) throws IOException {
+        byte hour = (byte) val.getHour();
+        byte minute = (byte) val.getMinute();
+        byte second = (byte) val.getSecond();
+        int nano = val.getNano();
+
+        writeByte(hour);
+        writeByte(minute);
+        writeByte(second);
+        writeInt(nano);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeLocalDate(LocalDate date) throws IOException {
+        int year = date.getYear();
+        short month = (short) date.getMonth().getValue();
+        short day = (short) date.getDayOfMonth();
+
+        writeInt(year);
+        writeShort(month);
+        writeShort(day);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeLocalDateTime(LocalDateTime val) throws IOException {
+        int year = val.getYear();
+        short month = (short) val.getMonth().getValue();
+        short day = (short) val.getDayOfMonth();
+
+        byte hour = (byte) val.getHour();
+        byte minute = (byte) val.getMinute();
+        byte second = (byte) val.getSecond();
+        int nano = val.getNano();
+
+        writeInt(year);
+        writeShort(month);
+        writeShort(day);
+
+        writeByte(hour);
+        writeByte(minute);
+        writeByte(second);
+        writeInt(nano);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeInstant(Instant val) throws IOException {
+        long epochSecond = val.getEpochSecond();
+        int nano = val.getNano();
+
+        writeLong(epochSecond);
+        writeInt(nano);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writePeriod(Period val) throws IOException {
+        writeInt(val.getYears());
+        writeInt(val.getMonths());
+        writeInt(val.getDays());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeDuration(Duration val) throws IOException {
+        writeLong(val.getSeconds());
+        writeInt(val.getNano());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeUuid(UUID val) throws IOException {
+        byte[] bytes = val.toString().getBytes(StandardCharsets.US_ASCII);
+
+        writeByte(bytes.length);
+        writeByteArray(bytes);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeBitSet(BitSet val) throws IOException {
+        byte[] bytes = val.toByteArray();
+
+        writeInt(bytes.length);
+        writeByteArray(bytes);
     }
 
     /** {@inheritDoc} */

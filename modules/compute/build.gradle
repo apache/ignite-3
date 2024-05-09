@@ -19,6 +19,7 @@ apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+apply from: 'jobs.gradle'
 
 dependencies {
     implementation project(':ignite-api')
@@ -54,6 +55,7 @@ dependencies {
     integrationTestImplementation project(':ignite-cluster-management')
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation project(':ignite-placement-driver-api')
+    integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))

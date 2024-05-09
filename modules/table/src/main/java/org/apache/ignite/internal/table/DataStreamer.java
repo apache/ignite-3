@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
@@ -36,10 +37,16 @@ class DataStreamer {
             Publisher<DataStreamerItem<R>> publisher,
             @Nullable DataStreamerOptions options,
             StreamerBatchSender<R, Integer> batchSender,
-            StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider) {
+            StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider,
+            ScheduledExecutorService flushExecutor) {
         StreamerOptions streamerOpts = streamerOptions(options);
         StreamerSubscriber<R, Integer> subscriber = new StreamerSubscriber<>(
-                batchSender, partitionAwarenessProvider, streamerOpts, LOG, null);
+                batchSender,
+                partitionAwarenessProvider,
+                streamerOpts,
+                flushExecutor,
+                LOG,
+                null);
 
         publisher.subscribe(subscriber);
 

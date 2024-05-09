@@ -23,9 +23,9 @@ import static org.apache.calcite.sql.type.SqlTypeName.FLOAT;
 import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.NUMERIC_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.REAL;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.checkDuplicates;
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter.collectDataStorageNames;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateValueByType;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
@@ -35,7 +35,6 @@ import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.startsWith;
@@ -54,7 +53,6 @@ import java.time.Period;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -91,33 +89,6 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConverterTest {
     @Test
-    void testCollectDataStorageNames() {
-        assertThat(collectDataStorageNames(Set.of()), equalTo(Map.of()));
-
-        assertThat(
-                collectDataStorageNames(Set.of("rocksdb")),
-                equalTo(Map.of("ROCKSDB", "rocksdb"))
-        );
-
-        assertThat(
-                collectDataStorageNames(Set.of("ROCKSDB")),
-                equalTo(Map.of("ROCKSDB", "ROCKSDB"))
-        );
-
-        assertThat(
-                collectDataStorageNames(Set.of("rocksDb", "pageMemory")),
-                equalTo(Map.of("ROCKSDB", "rocksDb", "PAGEMEMORY", "pageMemory"))
-        );
-
-        IllegalStateException exception = assertThrows(
-                IllegalStateException.class,
-                () -> collectDataStorageNames(Set.of("rocksdb", "rocksDb"))
-        );
-
-        assertThat(exception.getMessage(), startsWith("Duplicate key"));
-    }
-
-    @Test
     void testCheckDuplicates() {
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
@@ -138,7 +109,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
     @Test
     public void tableWithoutPkShouldThrowErrorWhenSysPropDefault() throws SqlParseException {
-        var node = parse("CREATE TABLE t (val int)");
+        var node = parse("CREATE TABLE t (val int) WITH STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -153,7 +124,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "false")
     public void tableWithoutPkShouldThrowErrorWhenSysPropDisabled() throws SqlParseException {
-        var node = parse("CREATE TABLE t (val int)");
+        var node = parse("CREATE TABLE t (val int) WITH STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -168,7 +139,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void tableWithoutPkShouldInjectImplicitPkWhenSysPropEnabled() throws SqlParseException {
-        var node = parse("CREATE TABLE t (val int)");
+        var node = parse("CREATE TABLE t (val int) WITH STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -253,6 +224,38 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         assertEquals(createTable.primaryIndexType(), PrimaryKeyIndexType.HASH);
         assertEquals(createTable.primaryKeyColumns(), List.of("ID"));
         assertEquals(createTable.primaryKeyCollations(), Collections.emptyList());
+    }
+
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void tableWithIdentifierZone() throws SqlParseException {
+        var node = parse("CREATE TABLE t (id int) WITH PRIMARY_ZONE=test_zone");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        var cmd = converter.convert((SqlDdl) node, createContext());
+
+        assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
+
+        var createTable = (CreateTableCommand) cmd;
+
+        assertEquals("TEST_ZONE", createTable.zone());
+    }
+
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void tableWithLiteralZone() throws SqlParseException {
+        var node = parse("CREATE TABLE t (id int) WITH PRIMARY_ZONE='test_zone'");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        var cmd = converter.convert((SqlDdl) node, createContext());
+
+        assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
+
+        var createTable = (CreateTableCommand) cmd;
+
+        assertEquals("test_zone", createTable.zone());
     }
 
     @SuppressWarnings({"ThrowableNotThrown"})
@@ -544,7 +547,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         return testItems.stream();
     }
 
-    @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-19274 is implemented.")
+    @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-17376 is implemented.")
     @TestFactory
     public Stream<DynamicTest> timestampWithTzWithDefaults() {
         List<DynamicTest> testItems = new ArrayList<>();
@@ -552,7 +555,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         String template = "CREATE TABLE t (id INTEGER PRIMARY KEY, d {} DEFAULT {})";
 
         {
-            String sql = format(template, "TIMESTAMP_WITH_LOCAL_TIME_ZONE", "'2020-01-02 01:01:01'");
+            String sql = format(template, "TIMESTAMP WITH LOCAL TIME ZONE", "'2020-01-02 01:01:01'");
 
             testItems.add(DynamicTest.dynamicTest(String.format("ALLOW: %s", sql), () ->
                     converter.convert((SqlDdl) parse(sql), ctx)));
@@ -563,7 +566,8 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
     @Test
     public void tableWithAutogenPkColumn() throws SqlParseException {
-        var node = parse("CREATE TABLE t (id varchar default gen_random_uuid primary key, val int)");
+        var node = parse("CREATE TABLE t (id varchar default gen_random_uuid primary key, val int) WITH STORAGE_PROFILE='"
+                + DEFAULT_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -587,6 +591,31 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
                         )
                 )
         );
+    }
+
+    @Test
+    public void tableWithoutStorageProfileShouldThrowError() throws SqlParseException {
+        var node = parse("CREATE TABLE t (val int) with storage_profile=''");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        var ex = assertThrows(
+                IgniteException.class,
+                () -> converter.convert((SqlDdl) node, createContext())
+        );
+
+        assertThat(ex.getMessage(), containsString("String cannot be empty"));
+
+        var newNode = parse("CREATE TABLE t (val int) WITH PRIMARY_ZONE='ZONE', storage_profile=''");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        ex = assertThrows(
+                IgniteException.class,
+                () -> converter.convert((SqlDdl) newNode, createContext())
+        );
+
+        assertThat(ex.getMessage(), containsString("String cannot be empty"));
     }
 
     private static Matcher<ColumnDefinition> columnThat(String description, Function<ColumnDefinition, Boolean> checker) {

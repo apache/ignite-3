@@ -36,14 +36,14 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
-import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfilesDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -63,14 +63,6 @@ public class CatalogUtils {
      * nodes.
      */
     public static final String DEFAULT_FILTER = "$..*";
-
-    /** Default distribution zone storage engine. */
-    // TODO: IGNITE-19719 Should be defined differently
-    public static final String DEFAULT_STORAGE_ENGINE = IgniteSystemProperties.getString("IGNITE_DEFAULT_STORAGE_ENGINE", "aipersist");
-
-    /** Default distribution zone storage engine data region. */
-    // TODO: IGNITE-19719 Must be storage engine specific
-    public static final String DEFAULT_DATA_REGION = "default";
 
     /** Infinite value for the distribution zone timers. */
     public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
@@ -149,38 +141,15 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns zone descriptor with default parameters.
-     *
-     * @param id Distribution zone ID.
-     * @param zoneName Zone name.
-     * @return Distribution zone descriptor.
-     */
-    public static CatalogZoneDescriptor fromParams(int id, String zoneName) {
-        DataStorageParams dataStorageParams =
-                DataStorageParams.builder().engine(DEFAULT_STORAGE_ENGINE).dataRegion(DEFAULT_DATA_REGION).build();
-
-        return new CatalogZoneDescriptor(
-                id,
-                zoneName,
-                DEFAULT_PARTITION_COUNT,
-                DEFAULT_REPLICA_COUNT,
-                INFINITE_TIMER_VALUE,
-                IMMEDIATE_TIMER_VALUE,
-                INFINITE_TIMER_VALUE,
-                DEFAULT_FILTER,
-                fromParams(dataStorageParams)
-        );
-    }
-
-    /**
-     * Converts DataStorageParams to descriptor.
+     * Converts StorageProfileParams to descriptor.
      *
      * @param params Parameters.
-     * @return Data storage descriptor.
+     * @return Storage profiles descriptor.
      */
-    // TODO: IGNITE-19719 Must be storage engine specific
-    public static CatalogDataStorageDescriptor fromParams(DataStorageParams params) {
-        return new CatalogDataStorageDescriptor(params.engine(), params.dataRegion());
+    public static CatalogStorageProfilesDescriptor fromParams(List<StorageProfileParams> params) {
+        return new CatalogStorageProfilesDescriptor(
+                params.stream().map(p -> new CatalogStorageProfileDescriptor(p.storageProfile())).collect(toList())
+        );
     }
 
     /**
@@ -414,6 +383,23 @@ public class CatalogUtils {
     }
 
     /**
+     * Returns a schema descriptor of the schema with the a given ID.
+     *
+     * @param catalog Catalog to look up the schema in.
+     * @param schemaId Schema ID.
+     * @throws CatalogValidationException If schema does not exist.
+     */
+    public static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, int schemaId) throws CatalogValidationException {
+        CatalogSchemaDescriptor schema = catalog.schema(schemaId);
+
+        if (schema == null) {
+            throw new CatalogValidationException(format("Schema with ID '{}' not found", schemaId));
+        }
+
+        return schema;
+    }
+
+    /**
      * Returns table with given name, or throws {@link TableNotFoundValidationException} if table with given name not exists.
      *
      * @param schema Schema to look up table in.
@@ -434,14 +420,31 @@ public class CatalogUtils {
     }
 
     /**
+     * Returns a table descriptor of the table with the a given ID.
+     *
+     * @param catalog Catalog to look up the table in.
+     * @param tableId Table ID.
+     * @throws TableNotFoundValidationException If table does not exist.
+     */
+    public static CatalogTableDescriptor tableOrThrow(Catalog catalog, int tableId) throws TableNotFoundValidationException {
+        CatalogTableDescriptor table = catalog.table(tableId);
+
+        if (table == null) {
+            throw new TableNotFoundValidationException(format("Table with ID '{}' not found", tableId));
+        }
+
+        return table;
+    }
+
+    /**
      * Returns zone with given name, or throws {@link CatalogValidationException} if zone with given name not exists.
      *
      * @param catalog Catalog to look up zone in.
      * @param name Name of the zone of interest.
      * @return Zone with given name. Never null.
-     * @throws CatalogValidationException If zone with given name is not exists.
+     * @throws DistributionZoneNotFoundValidationException If zone with given name is not exists.
      */
-    public static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name) throws CatalogValidationException {
+    public static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name) throws DistributionZoneNotFoundValidationException {
         name = Objects.requireNonNull(name, "zoneName");
 
         CatalogZoneDescriptor zone = catalog.zone(name);
@@ -570,5 +573,12 @@ public class CatalogUtils {
         return clusterWideEnsuredActivationTs.addPhysicalTime(
                 partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong() + maxClockSkewMillis
         );
+    }
+
+    /** Returns id of the default zone from given catalog, or {@code null} if default zone is not exist. */
+    public static @Nullable Integer defaultZoneIdOpt(Catalog catalog) {
+        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
+
+        return defaultZone != null ? defaultZone.id() : null;
     }
 }

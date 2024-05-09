@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
@@ -40,10 +42,12 @@ import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -150,31 +154,40 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             PlacementDriver placementDriver = new TestPlacementDriver(leaseholder, leaseholder);
 
-            TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
+            HybridClock clock = new HybridClockImpl();
+            ClockService clockService = new TestClockService(clock);
+
+            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
 
             TxManagerImpl txManager = new TxManagerImpl(
                     txConfiguration,
                     clusterService,
                     replicaSvc,
                     new HeapLockManager(),
-                    new TestClockService(new HybridClockImpl()),
+                    clockService,
                     new TransactionIdGenerator(0xdeadbeef),
                     placementDriver,
                     () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                     new TestLocalRwTxCounter(),
                     resourcesRegistry,
-                    transactionInflights
+                    transactionInflights,
+                    new TestLowWatermark()
             );
 
-            txManager.start();
+            assertThat(txManager.startAsync(), willCompleteSuccessfully());
 
-            closeables.add(txManager::stop);
+            closeables.add(() -> assertThat(txManager.stopAsync(), willCompleteSuccessfully()));
 
             TestInternalTableImpl internalTable = new TestInternalTableImpl(replicaSvc, size, timestampTracker, txManager);
 
             TableRowConverter rowConverter = new TableRowConverter() {
                 @Override
-                public <RowT> BinaryRowEx toBinaryRow(ExecutionContext<RowT> ectx, RowT row, boolean key) {
+                public <RowT> BinaryRowEx toFullRow(ExecutionContext<RowT> ectx, RowT row) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public <RowT> BinaryRowEx toKeyRow(ExecutionContext<RowT> ectx, RowT row) {
                     throw new UnsupportedOperationException();
                 }
 
@@ -246,7 +259,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     ),
                     mock(TransactionInflights.class),
                     3_000,
-                    0
+                    0,
+                    null
             );
             this.dataAmount = dataAmount;
 

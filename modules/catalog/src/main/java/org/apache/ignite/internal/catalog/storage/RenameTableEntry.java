@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 
@@ -71,7 +72,8 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
                 newTableName,
                 tableDescriptor.tableVersion() + 1,
                 tableDescriptor.columns(),
-                causalityToken
+                causalityToken,
+                tableDescriptor.storageProfile()
         );
 
         return new Catalog(
@@ -79,7 +81,8 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                replaceSchema(replaceTable(schemaDescriptor, newTableDescriptor), catalog.schemas())
+                replaceSchema(replaceTable(schemaDescriptor, newTableDescriptor), catalog.schemas()),
+                defaultZoneIdOpt(catalog)
         );
     }
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.benchmark;
 
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -27,7 +28,6 @@ import java.sql.SQLException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Statement;
@@ -55,7 +55,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmark for insertion operation, comparing KV, JDBC and SQL APIs.
  */
 @State(Scope.Benchmark)
-@Fork(3)
+@Fork(1)
 @Threads(1)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
@@ -200,7 +200,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         @TearDown
         public void tearDown() throws Exception {
             // statement.close() throws `UnsupportedOperationException("Not implemented yet.")`, that's why it's commented.
-            IgniteUtils.closeAll(/* statement, */ client);
+            closeAll(/* statement, */ client);
         }
 
         private int id = 0;
@@ -241,7 +241,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
          */
         @TearDown
         public void tearDown() throws Exception {
-            IgniteUtils.closeAll(stmt, conn);
+            closeAll(stmt, conn);
         }
 
         void executeQuery() throws SQLException {
@@ -312,7 +312,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
 
         @TearDown
         public void tearDown() throws Exception {
-            IgniteUtils.closeAll(client);
+            closeAll(client);
         }
 
         void executeQuery() {

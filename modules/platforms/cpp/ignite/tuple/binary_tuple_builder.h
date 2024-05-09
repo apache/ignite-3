@@ -534,7 +534,7 @@ private:
      * @return Required size.
      */
     static tuple_size_t gauge_number(const big_decimal &value) noexcept {
-        return tuple_size_t(value.get_unscaled_value().byte_size());
+        return tuple_size_t(2 + value.get_unscaled_value().byte_size());
     }
 
     /**

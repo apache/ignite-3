@@ -81,7 +81,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -191,9 +191,16 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     public void init() {
         testCluster = new TestCluster();
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
-        prepareService = new PrepareServiceImpl("test", 0, CaffeineCacheFactory.INSTANCE, null, PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
-                new MetricManager());
-        parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
+        prepareService = new PrepareServiceImpl(
+                "test",
+                0,
+                CaffeineCacheFactory.INSTANCE,
+                null,
+                PLANNING_TIMEOUT,
+                PLANNING_THREAD_COUNT,
+                new MetricManagerImpl()
+        );
+        parserService = new ParserServiceImpl();
 
         prepareService.start();
     }

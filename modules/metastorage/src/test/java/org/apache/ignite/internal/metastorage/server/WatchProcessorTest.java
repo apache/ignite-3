@@ -34,6 +34,7 @@ import static org.mockito.Mockito.when;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -50,7 +51,10 @@ import org.mockito.InOrder;
  * Tests for {@link WatchProcessor}.
  */
 public class WatchProcessorTest extends BaseIgniteAbstractTest {
-    private final WatchProcessor watchProcessor = new WatchProcessor("test", WatchProcessorTest::oldEntry);
+    private final WatchProcessor watchProcessor = new WatchProcessor(
+            "test",
+            WatchProcessorTest::oldEntry,
+            mock(FailureProcessor.class));
 
     private final OnRevisionAppliedCallback revisionCallback = mock(OnRevisionAppliedCallback.class);
 

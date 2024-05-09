@@ -44,13 +44,14 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkResponse;
+import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.message.GetLowWatermarkResponse;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
@@ -76,7 +77,9 @@ import org.jetbrains.annotations.Nullable;
 public class IncomingSnapshotCopier extends SnapshotCopier {
     private static final IgniteLogger LOG = Loggers.forClass(IncomingSnapshotCopier.class);
 
-    private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
+    private static final TableMessagesFactory TABLE_MSG_FACTORY = new TableMessagesFactory();
+
+    private static final LowWatermarkMessagesFactory LWM_MSG_FACTORY = new LowWatermarkMessagesFactory();
 
     private static final long NETWORK_TIMEOUT = Long.MAX_VALUE;
 
@@ -286,7 +289,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         try {
             return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
                     snapshotSender,
-                    MSG_FACTORY.snapshotMetaRequest().id(snapshotUri.snapshotId).build(),
+                    TABLE_MSG_FACTORY.snapshotMetaRequest().id(snapshotUri.snapshotId).build(),
                     NETWORK_TIMEOUT
             ).thenAccept(response -> {
                 snapshotMeta = ((SnapshotMetaResponse) response).meta();
@@ -334,7 +337,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         try {
             return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
                     snapshotSender,
-                    MSG_FACTORY.snapshotMvDataRequest()
+                    TABLE_MSG_FACTORY.snapshotMvDataRequest()
                             .id(snapshotUri.snapshotId)
                             .batchSizeHint(MAX_MV_DATA_PAYLOADS_BATCH_BYTES_HINT)
                             .build(),
@@ -392,7 +395,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         try {
             return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
                     snapshotSender,
-                    MSG_FACTORY.snapshotTxDataRequest()
+                    TABLE_MSG_FACTORY.snapshotTxDataRequest()
                             .id(snapshotUri.snapshotId)
                             .maxTransactionsInBatch(MAX_TX_DATA_BATCH_SIZE)
                             .build(),
@@ -548,7 +551,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         try {
             return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
                     snapshotSender,
-                    MSG_FACTORY.getLowWatermarkRequest().build(),
+                    LWM_MSG_FACTORY.getLowWatermarkRequest().build(),
                     NETWORK_TIMEOUT
             ).thenAcceptAsync(response -> {
                 GetLowWatermarkResponse getLowWatermarkResponse = (GetLowWatermarkResponse) response;

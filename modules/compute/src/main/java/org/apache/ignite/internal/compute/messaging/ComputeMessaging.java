@@ -453,8 +453,10 @@ public class ComputeMessaging {
     ) {
         CompletableFuture<@Nullable R> result = new CompletableFuture<>();
 
+        ClusterNode localMember = topologyService.localMember();
         CompletableFuture<?>[] futures = topologyService.allMembers()
                 .stream()
+                .filter(node -> !node.equals(localMember))
                 .map(node -> request.apply(node)
                         .thenAccept(response -> {
                             if (response != null) {
@@ -481,25 +483,17 @@ public class ComputeMessaging {
         return result;
     }
 
-    private <R> CompletableFuture<Collection<R>> broadcastAsyncAndCollect(
+    private <R> CompletableFuture<List<R>> broadcastAsyncAndCollect(
             Function<ClusterNode, CompletableFuture<@Nullable R>> request,
-            Function<Throwable, Throwable> error
+            Function<Throwable, RuntimeException> error
     ) {
-        CompletableFuture<Collection<R>> result = new CompletableFuture<>();
-
         CompletableFuture<R>[] futures = topologyService.allMembers()
                 .stream()
                 .map(request::apply)
                 .toArray(CompletableFuture[]::new);
 
-        CompletableFutures.allOf(futures).whenComplete((collection, throwable) -> {
-            if (throwable == null) {
-                result.complete(collection);
-            } else {
-                result.completeExceptionally(error.apply(throwable));
-            }
+        return CompletableFutures.allOf(futures).exceptionally(throwable -> {
+            throw error.apply(throwable);
         });
-
-        return result;
     }
 }

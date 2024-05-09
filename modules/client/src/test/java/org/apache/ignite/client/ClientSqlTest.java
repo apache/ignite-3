@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -85,8 +84,6 @@ public class ClientSqlTest extends AbstractClientTableTest {
                 .defaultSchema("SCHEMA2")
                 .queryTimeout(124, TimeUnit.SECONDS)
                 .pageSize(235)
-                .property("prop2", "22")
-                .property("prop3", "3")
                 .build();
 
         AsyncResultSet<SqlRow> resultSet = client.sql().executeAsync(null, statement).join();
@@ -97,11 +94,6 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals("SCHEMA2", props.get("schema"));
         assertEquals("124000", props.get("timeout"));
         assertEquals("235", props.get("pageSize"));
-
-        // Properties are ignored by the SQL engine for now.
-        assertNull(props.get("prop1"));
-        assertNull(props.get("prop2"));
-        assertNull(props.get("prop3"));
     }
 
     @Test

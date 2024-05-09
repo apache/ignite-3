@@ -105,9 +105,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL)),
+                (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -125,9 +126,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                (s, r) -> NullableValue.of(valSer.readRec(s, r.in(), TuplePart.VAL)),
+                (s, r) -> NullableValue.of(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -144,9 +146,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                (s, r) -> valSer.readRec(s, r.in(), TuplePart.VAL),
+                (s, r) -> valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL),
                 defaultValue,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -169,7 +172,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 (s, w) -> keySer.writeRecs(tx, keys, s, w, TuplePart.KEY),
                 this::readGetAllResponse,
                 Collections.emptyMap(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), keys.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), keys.iterator().next()),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -187,7 +191,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 ClientOp.TUPLE_CONTAINS_KEY,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -205,7 +210,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 ClientOp.TUPLE_UPSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 r -> null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -234,7 +240,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                     }
                 },
                 r -> null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), pairs.keySet().iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), pairs.keySet().iterator().next()),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -251,9 +258,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL)),
+                (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -270,9 +278,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                (s, r) -> NullableValue.of(valSer.readRec(s, r.in(), TuplePart.VAL)),
+                (s, r) -> NullableValue.of(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -290,7 +299,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -314,7 +324,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -326,7 +337,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -349,7 +361,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 (s, w) -> keySer.writeRecs(tx, keys, s, w, TuplePart.KEY),
                 (s, r) -> keySer.readRecs(s, r.in(), false, TuplePart.KEY),
                 Collections.emptyList(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), keys.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), keys.iterator().next()),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -366,9 +379,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL)),
+                (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -385,9 +399,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                (s, r) -> NullableValue.of(valSer.readRec(s, r.in(), TuplePart.VAL)),
+                (s, r) -> NullableValue.of(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -413,7 +428,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -429,7 +445,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                     writeKeyValueRaw(s, w, key, newVal);
                 },
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -447,9 +464,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL)),
+                (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -467,9 +485,10 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                (s, r) -> NullableValue.of(valSer.readRec(s, r.in(), TuplePart.VAL)),
+                (s, r) -> NullableValue.of(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     private void writeKeyValue(ClientSchema s, PayloadOutputChannel w, @Nullable Transaction tx, K key, @Nullable V val) {
@@ -483,8 +502,16 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
         try {
-            s.getMarshaller(keySer.mapper(), TuplePart.KEY, false).writeObject(key, writer);
-            s.getMarshaller(valSer.mapper(), TuplePart.VAL, false).writeObject(val, writer);
+            Marshaller keyMarsh = s.getMarshaller(keySer.mapper(), TuplePart.KEY, false);
+            Marshaller valMarsh = s.getMarshaller(valSer.mapper(), TuplePart.VAL, false);
+
+            for (var column : s.columns()) {
+                if (column.key()) {
+                    keyMarsh.writeField(key, writer, column.keyIndex());
+                } else {
+                    valMarsh.writeField(val, writer, column.valIndex());
+                }
+            }
         } catch (MarshallerException e) {
             throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
@@ -511,8 +538,9 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 // TODO: Optimize (IGNITE-16022).
                 if (in.in().unpackBoolean()) {
                     var tupleReader = new BinaryTupleReader(schema.columns().length, in.in().readBinaryUnsafe());
-                    var reader = new ClientMarshallerReader(tupleReader, schema.columns());
-                    res.put((K) keyMarsh.readObject(reader, null), (V) valMarsh.readObject(reader, null));
+                    var keyReader = new ClientMarshallerReader(tupleReader, schema.keyColumns(), TuplePart.KEY_AND_VAL);
+                    var valReader = new ClientMarshallerReader(tupleReader, schema.valColumns(), TuplePart.KEY_AND_VAL);
+                    res.put((K) keyMarsh.readObject(keyReader, null), (V) valMarsh.readObject(valReader, null));
                 }
             }
 
@@ -570,7 +598,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 },
                 r -> null,
                 PartitionAwarenessProvider.of(partition),
-                new RetryLimitPolicy().retryLimit(opts.retryLimit()));
+                new RetryLimitPolicy().retryLimit(opts.retryLimit()),
+                null);
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }

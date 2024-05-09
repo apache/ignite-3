@@ -77,7 +77,7 @@ public class ItNodeBootstrapConfigurationTest {
 
         assertThrowsWithCause(
                 () -> TestIgnitionManager.start(testNodeName(testInfo, 0), config, workDir),
-                IllegalArgumentException.class,
+                ConfigurationValidationException.class,
                 "'String' is expected as a type for the 'rest.ssl.keyStore.path' configuration value");
     }
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -79,7 +80,7 @@ public class ItIndexSpoolTest extends BaseSqlIntegrationTest {
     public void test(int rows, int partitions) throws InterruptedException {
         prepareDataSet(rows, partitions);
 
-        var res = sql("SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter') */"
+        var res = sql("SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter', 'HashJoinConverter') */"
                         + "T0.val, T1.val FROM TEST0 as T0 "
                         + "JOIN TEST1 as T1 on T0.jid = T1.jid "
         );
@@ -97,7 +98,12 @@ public class ItIndexSpoolTest extends BaseSqlIntegrationTest {
         }
 
         for (String name : List.of("TEST0", "TEST1")) {
-            sql(String.format("CREATE ZONE %s with replicas=2, partitions=%d", "ZONE_" + name.toUpperCase(), parts));
+            sql(String.format(
+                    "CREATE ZONE %s with replicas=2, partitions=%d, storage_profiles='%s'",
+                    "ZONE_" + name.toUpperCase(),
+                    parts,
+                    DEFAULT_STORAGE_PROFILE
+            ));
             sql(String.format("CREATE TABLE %s(id INT PRIMARY KEY, jid INT, val VARCHAR) WITH PRIMARY_ZONE='%s'",
                     name, "ZONE_" + name.toUpperCase()));
 

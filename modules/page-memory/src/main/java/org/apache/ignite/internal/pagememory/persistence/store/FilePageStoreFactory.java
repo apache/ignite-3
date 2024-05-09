@@ -31,7 +31,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 /**
  * Factory for creating {@link FilePageStore}.
  */
-class FilePageStoreFactory {
+public class FilePageStoreFactory {
     private final FileIoFactory fileIoFactory;
 
     private final int pageSize;

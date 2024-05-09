@@ -23,8 +23,10 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -47,7 +49,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
-import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.server.counter.CounterListener;
 import org.junit.jupiter.api.AfterEach;
@@ -108,7 +109,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
             server.beforeNodeStop();
 
-            server.stop();
+            assertThat(server.stopAsync(), willCompleteSuccessfully());
         }
 
         TestUtils.assertAllJraftThreadsStopped();
@@ -132,18 +133,9 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
         cons.accept(opts);
 
-        JraftServerImpl server = new JraftServerImpl(service, workDir.resolve("node" + idx), opts, new RaftGroupEventsClientListener()) {
-            @Override
-            public void stop() throws Exception {
-                servers.remove(this);
+        JraftServerImpl server = jraftServer(servers, idx, service, opts);
 
-                super.stop();
-
-                service.stop();
-            }
-        };
-
-        server.start();
+        assertThat(server.startAsync(), willCompleteSuccessfully());
 
         clo.accept(server);
 

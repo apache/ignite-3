@@ -65,6 +65,9 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkRequest;
+import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -78,12 +81,10 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
-import org.apache.ignite.internal.table.TestLowWatermark;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
-import org.apache.ignite.internal.table.distributed.message.GetLowWatermarkRequest;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
@@ -139,6 +140,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     private static final HybridClock CLOCK = new HybridClockImpl();
 
     private static final TableMessagesFactory TABLE_MSG_FACTORY = new TableMessagesFactory();
+
+    private static final LowWatermarkMessagesFactory LWM_MSG_FACTORY = new LowWatermarkMessagesFactory();
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
@@ -283,7 +286,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         when(messagingService.invoke(eq(clusterNode), any(GetLowWatermarkRequest.class), anyLong())).thenAnswer(invocation -> {
             long lowWatermarkValue = hybridTimestampToLong(lowWatermark.getLowWatermark());
 
-            return completedFuture(TABLE_MSG_FACTORY.getLowWatermarkResponse().lowWatermark(lowWatermarkValue).build());
+            return completedFuture(LWM_MSG_FACTORY.getLowWatermarkResponse().lowWatermark(lowWatermarkValue).build());
         });
 
         return messagingService;
@@ -384,10 +387,12 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     ) {
         assertEquals(0, txIds.size() % 2, "size=" + txIds.size());
 
+        int tableId = 2;
+
         for (int i = 0; i < txIds.size(); i++) {
             TxState txState = i % 2 == 0 ? COMMITTED : ABORTED;
 
-            storage.put(txIds.get(i), new TxMeta(txState, CLOCK.now()));
+            storage.put(txIds.get(i), new TxMeta(txState,  List.of(new TablePartitionId(tableId, PARTITION_ID)), CLOCK.now()));
         }
 
         storage.lastApplied(lastAppliedIndex, lastAppliedTerm);

@@ -41,6 +41,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -89,7 +90,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public Tuple get(@Nullable Transaction tx, Tuple key) {
-        return sync(() -> getAsync(tx, key));
+        return sync(getAsync(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -127,7 +128,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public Tuple getOrDefault(@Nullable Transaction tx, Tuple key, Tuple defaultValue) {
-        return sync(() -> getOrDefaultAsync(tx, key, defaultValue));
+        return sync(getOrDefaultAsync(tx, key, defaultValue));
     }
 
     /** {@inheritDoc} */
@@ -146,7 +147,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public Map<Tuple, Tuple> getAll(@Nullable Transaction tx, Collection<Tuple> keys) {
-        return sync(() -> getAllAsync(tx, keys));
+        return sync(getAllAsync(tx, keys));
     }
 
     /** {@inheritDoc} */
@@ -184,7 +185,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public void put(@Nullable Transaction tx, Tuple key, Tuple val) {
-        sync(() -> putAsync(tx, key, val));
+        sync(putAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -203,7 +204,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public void putAll(@Nullable Transaction tx, Map<Tuple, Tuple> pairs) {
-        sync(() -> putAllAsync(tx, pairs));
+        sync(putAllAsync(tx, pairs));
     }
 
     /** {@inheritDoc} */
@@ -223,7 +224,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public Tuple getAndPut(@Nullable Transaction tx, Tuple key, Tuple val) {
-        return sync(() -> getAndPutAsync(tx, key, val));
+        return sync(getAndPutAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -263,7 +264,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public boolean putIfAbsent(@Nullable Transaction tx, Tuple key, Tuple val) {
-        return sync(() -> putIfAbsentAsync(tx, key, val));
+        return sync(putIfAbsentAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -282,13 +283,13 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public boolean remove(@Nullable Transaction tx, Tuple key) {
-        return sync(() -> removeAsync(tx, key));
+        return sync(removeAsync(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean remove(@Nullable Transaction tx, Tuple key, Tuple val) {
-        return sync(() -> removeAsync(tx, key, val));
+        return sync(removeAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -319,7 +320,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public Collection<Tuple> removeAll(@Nullable Transaction tx, Collection<Tuple> keys) {
-        return sync(() -> removeAllAsync(tx, keys));
+        return sync(removeAllAsync(tx, keys));
     }
 
     /** {@inheritDoc} */
@@ -339,7 +340,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     public Tuple getAndRemove(@Nullable Transaction tx, Tuple key) {
         Objects.requireNonNull(key);
 
-        return sync(() -> getAndRemoveAsync(tx, key));
+        return sync(getAndRemoveAsync(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -376,13 +377,13 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public boolean replace(@Nullable Transaction tx, Tuple key, Tuple val) {
-        return sync(() -> replaceAsync(tx, key, val));
+        return sync(replaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean replace(@Nullable Transaction tx, Tuple key, Tuple oldVal, Tuple newVal) {
-        return sync(() -> replaceAsync(tx, key, oldVal, newVal));
+        return sync(replaceAsync(tx, key, oldVal, newVal));
     }
 
     /** {@inheritDoc} */
@@ -421,7 +422,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public Tuple getAndReplace(@Nullable Transaction tx, Tuple key, Tuple val) {
-        return sync(() -> getAndReplaceAsync(tx, key, val));
+        return sync(getAndReplaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -561,12 +562,12 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
 
         var partitioner = new KeyValueTupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
         StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender = (partitionId, items, deleted) ->
-                withSchemaSync(
+                PublicApiThreading.execUserAsyncOperation(() -> withSchemaSync(
                         null,
                         schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion, deleted), deleted, partitionId)
-                );
+                ));
 
-        CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner);
+        CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner, tbl.streamerFlushExecutor());
         return convertToPublicFuture(future);
     }
 

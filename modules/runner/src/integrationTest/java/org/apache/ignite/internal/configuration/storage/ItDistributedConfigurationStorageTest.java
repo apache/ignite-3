@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,13 +32,11 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
-import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
@@ -50,12 +50,14 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -83,7 +85,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
     private static NodeAttributesConfiguration nodeAttributes;
 
     @InjectConfiguration
-    private static StorageProfilesConfiguration storageProfilesConfiguration;
+    private static StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
@@ -125,7 +127,14 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-            raftManager = new Loza(clusterService, raftConfiguration, workDir, clock, raftGroupEventsClientListener);
+            raftManager = new Loza(
+                    clusterService,
+                    new NoOpMetricManager(),
+                    raftConfiguration,
+                    workDir,
+                    clock,
+                    raftGroupEventsClientListener
+            );
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
@@ -144,7 +153,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration)
+                    new NodeAttributesCollector(nodeAttributes, storageConfiguration)
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -175,11 +184,11 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
         /**
          * Starts the created components.
          */
-        void start() throws Exception {
-            vaultManager.start();
-
-            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
-                    .forEach(IgniteComponent::start);
+        void start() {
+            assertThat(
+                    startAsync(vaultManager, clusterService, raftManager, cmgManager, metaStorageManager),
+                    willCompleteSuccessfully()
+            );
 
             // this is needed to avoid assertion errors
             cfgStorage.registerConfigurationListener(changedEntries -> nullCompletedFuture());
@@ -195,7 +204,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
         /**
          * Stops the created components.
          */
-        void stop() throws Exception {
+        void stop() {
             var components =
                     List.of(metaStorageManager, cmgManager, raftManager, clusterService, vaultManager);
 
@@ -203,9 +212,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                 igniteComponent.beforeNodeStop();
             }
 
-            for (IgniteComponent component : components) {
-                component.stop();
-            }
+            assertThat(stopAsync(components), willCompleteSuccessfully());
         }
 
         String name() {

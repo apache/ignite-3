@@ -1,0 +1,7 @@
+Sort(sort0=[$0], sort1=[$1], dir0=[ASC], dir1=[ASC])
+  Project(inputs=[0..5], exprs=[[DECIMAL_DIVIDE($6, $7, 15, 2), DECIMAL_DIVIDE($8, $9, 15, 2), DECIMAL_DIVIDE($10, $11, 15, 2), CAST($12):BIGINT NOT NULL]])
+    ReduceHashAggregate(group=[{0, 1}], SUM_QTY=[SUM($2)], SUM_BASE_PRICE=[SUM($3)], SUM_DISC_PRICE=[SUM($4)], SUM_CHARGE=[SUM($5)], AVG_SUM6=[SUM($6)], AVG_SUM06=[$SUM0($7)], AVG_SUM8=[SUM($8)], AVG_SUM08=[$SUM0($9)], AVG_SUM10=[SUM($10)], AVG_SUM010=[$SUM0($11)], COUNT_12_MAP_SUM=[$SUM0($12)])
+      Exchange(distribution=[single])
+        Project(inputs=[0..6], exprs=[[CAST($7):DECIMAL(32767, 0) NOT NULL, $8, CAST($9):DECIMAL(32767, 0) NOT NULL, $10, CAST($11):DECIMAL(32767, 0) NOT NULL, $12, $13]])
+          MapHashAggregate(group=[{0, 1}], SUM_QTY=[SUM($2)], SUM_BASE_PRICE=[SUM($3)], SUM_DISC_PRICE=[SUM($4)], SUM_CHARGE=[SUM($5)], AVG_SUM6=[SUM($2)], AVG_COUNT6=[COUNT($2)], AVG_SUM8=[SUM($3)], AVG_COUNT8=[COUNT($3)], AVG_SUM10=[SUM($6)], AVG_COUNT10=[COUNT($6)], COUNT_ORDER=[COUNT()])
+            IndexScan(table=[[PUBLIC, LINEITEM]], index=[L_SD], type=[SORTED], searchBounds=[[RangeBounds [lowerBound=null, upperBound=-(1998-12-01, 7776000000:INTERVAL DAY), lowerInclude=true, upperInclude=true]]], filters=[<=($t6, -(1998-12-01, 7776000000:INTERVAL DAY))], projects=[[$t4, $t5, $t0, $t1, *($t1, -(1, $t2)), *(*($t1, -(1, $t2)), +(1, $t3)), $t2]], requiredColumns=[{4, 5, 6, 7, 8, 9, 10}], collation=[[10]])

@@ -104,6 +104,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-catalog')))
     testImplementation(testFixtures(project(':ignite-table')))
     testImplementation(testFixtures(project(':ignite-transactions')))
+    testImplementation(testFixtures(project(':ignite-low-watermark')))
 
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core
@@ -115,6 +116,7 @@ dependencies {
     integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-transactions')
+    integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-cluster-management')
     integrationTestImplementation project(':ignite-system-view-api')
     integrationTestImplementation project(':ignite-system-view')

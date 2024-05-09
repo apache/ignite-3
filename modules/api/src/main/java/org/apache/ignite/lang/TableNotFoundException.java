@@ -38,6 +38,15 @@ public class TableNotFoundException extends IgniteException {
     }
 
     /**
+     * Creates an exception with the given fully-qualified table name.
+     *
+     * @param tableName Fully-qualified table name.
+     */
+    public TableNotFoundException(String tableName) {
+        super(TABLE_NOT_FOUND_ERR, "The table does not exist [name=" + tableName + ']');
+    }
+
+    /**
      * Creates an exception with the given trace ID, error code, detailed message, and cause.
      *
      * @param traceId Unique identifier of the exception.

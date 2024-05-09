@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
@@ -192,19 +194,23 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         KeyValueView<Integer, String> kvView = kvView();
 
         Transaction tx1 = client().transactions().begin();
+        client().sql().execute(tx1, "SELECT 1").close(); // Force lazy tx init.
 
         // Here we guarantee that tx2 will strictly after tx2 even if the transactions start in different server nodes.
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19900 Client should participate in RW TX clock adjustment
         Thread.sleep(50);
 
+        // Lock the key in tx2.
         Transaction tx2 = client().transactions().begin();
 
-        kvView.put(tx2, -100, "1");
+        try {
+            kvView.put(tx2, -100, "1");
 
-        var ex = assertThrows(IgniteException.class, () -> kvView.get(tx1, -100));
-        assertThat(ex.getMessage(), containsString("Replication is timed out"));
-
-        tx2.rollback();
+            // Get the key in tx1 - time out.
+            assertThrows(TimeoutException.class, () -> kvView.getAsync(tx1, -100).get(1, TimeUnit.SECONDS));
+        } finally {
+            tx2.rollback();
+        }
     }
 
     @Test
@@ -265,6 +271,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     @Test
     void testTransactionFromAnotherChannelThrows() throws Exception {
         Transaction tx = client().transactions().begin();
+        client().sql().execute(tx, "SELECT 1").close(); // Force lazy tx init.
 
         try (IgniteClient client2 = IgniteClient.builder().addresses(getNodeAddress()).build()) {
             RecordView<Tuple> recordView = client2.tables().tables().get(0).recordView();

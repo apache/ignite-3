@@ -196,7 +196,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
         assertBounds("SELECT * FROM TEST WHERE C4 IS NULL", exact("null"));
 
-        assertBounds("SELECT * FROM TEST WHERE C4 IS NOT NULL",
+        assertBounds("SELECT /*+ FORCE_INDEX(c4) */ * FROM TEST WHERE C4 IS NOT NULL",
                 range(null, "null", true, false));
 
         assertBounds("SELECT * FROM TEST WHERE C4 IN (1, 2, 3) AND C3 > 1",

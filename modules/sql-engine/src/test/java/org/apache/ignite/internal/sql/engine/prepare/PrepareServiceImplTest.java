@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -45,7 +45,6 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -246,7 +245,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private static ParsedResult parse(String query) {
-        return new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE).parse(query);
+        return new ParserServiceImpl().parse(query);
     }
 
     private static BaseQueryContext createContext(Object... params) {
@@ -294,7 +293,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
 
     private static PrepareService createPlannerService() {
         PrepareService service = new PrepareServiceImpl("test", 1_000, CaffeineCacheFactory.INSTANCE,
-                mock(DdlSqlToCommandConverter.class), 5_000, 2, mock(MetricManager.class));
+                mock(DdlSqlToCommandConverter.class), 5_000, 2, mock(MetricManagerImpl.class));
 
         createdServices.add(service);
 

@@ -60,9 +60,24 @@ namespace Apache.Ignite.Internal.Buffers
         public MsgPackWriter MessageWriter => new(this);
 
         /// <summary>
-        /// Gets the current position.
+        /// Gets or sets the current position.
         /// </summary>
-        public int Position => _index - _prefixSize;
+        public int Position
+        {
+            get => _index - _prefixSize;
+            set
+            {
+                Debug.Assert(value >= 0, "value >= 0");
+                Debug.Assert(value <= _buffer.Length - _prefixSize, "value <= _buffer.Length - _prefixSize");
+
+                _index = value + _prefixSize;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the data offset from the start of the buffer.
+        /// </summary>
+        public int Offset { get; set; }
 
         /// <summary>
         /// Gets the free capacity.
@@ -77,7 +92,7 @@ namespace Apache.Ignite.Internal.Buffers
         {
             Debug.Assert(!_disposed, "!_disposed");
 
-            return new(_buffer, start: 0, length: _index);
+            return new(_buffer, start: Offset, length: _index);
         }
 
         /// <summary>
@@ -95,7 +110,11 @@ namespace Apache.Ignite.Internal.Buffers
         /// <summary>
         /// Resets the buffer to the initial state.
         /// </summary>
-        public void Reset() => _index = _prefixSize;
+        public void Reset()
+        {
+            _index = _prefixSize;
+            Offset = 0;
+        }
 
         /// <summary>
         /// Gets a span for writing.
@@ -209,13 +228,6 @@ namespace Apache.Ignite.Internal.Buffers
             BinaryPrimitives.WriteInt64LittleEndian(_buffer.AsSpan(_index), val);
             _index += 8;
         }
-
-        /// <summary>
-        /// Reads a byte at specified position.
-        /// </summary>
-        /// <param name="pos">Position.</param>
-        /// <returns>Result.</returns>
-        public byte ReadByte(int pos) => _buffer[pos + _prefixSize];
 
         /// <summary>
         /// Reads a short at specified position.

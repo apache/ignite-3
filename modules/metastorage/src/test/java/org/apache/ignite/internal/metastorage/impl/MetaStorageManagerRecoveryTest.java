@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -135,7 +136,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public CompletableFuture<Void> start() {
+            public CompletableFuture<Void> startAsync() {
                 return nullCompletedFuture();
             }
         };
@@ -156,7 +157,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
 
         createMetaStorage(targetRevision);
 
-        metaStorageManager.start();
+        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
 
         CompletableFuture<Void> msDeployFut = metaStorageManager.deployWatches();
 
@@ -174,7 +175,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
     void testRecoverClean() throws Exception {
         createMetaStorage(0);
 
-        metaStorageManager.start();
+        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
 
         CompletableFuture<Void> msDeployFut = metaStorageManager.deployWatches();
 

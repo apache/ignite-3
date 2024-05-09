@@ -25,8 +25,10 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
+import static org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryStorageEngineLocalConfigurationModule.DEFAULT_PROFILE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -42,9 +44,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
@@ -56,25 +60,29 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
- * Tests for scenarios where pajority of peers is not available.
+ * Tests for scenarios where majority of peers is not available.
  */
 public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegrationTest {
     /** Scale-down timeout. */
     private static final int SCALE_DOWN_TIMEOUT_SECONDS = 2;
 
     /** Test table name. */
-    private static final String TABLE_NAME = "test";
+    private static final String TABLE_NAME = "TEST";
+
+    private static final String QUALIFIED_TABLE_NAME = "PUBLIC.TEST";
 
     private static final int ENTRIES = 2;
 
@@ -107,8 +115,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         startNodesInParallel(IntStream.range(INITIAL_NODES, zoneParams.nodes()).toArray());
 
         executeSql(format("CREATE ZONE %s with replicas=%d, partitions=%d,"
-                        + " data_nodes_auto_adjust_scale_down=%d, data_nodes_auto_adjust_scale_up=%d",
-                zoneName, zoneParams.replicas(), zoneParams.partitions(), SCALE_DOWN_TIMEOUT_SECONDS, 1
+                        + " data_nodes_auto_adjust_scale_down=%d, data_nodes_auto_adjust_scale_up=%d, storage_profiles='%s'",
+                zoneName, zoneParams.replicas(), zoneParams.partitions(), SCALE_DOWN_TIMEOUT_SECONDS, 1, DEFAULT_PROFILE_NAME
         ));
 
         CatalogZoneDescriptor zone = node0.catalogManager().zone(zoneName, node0.clock().nowLong());
@@ -136,12 +144,16 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         awaitPrimaryReplica(node0, partId);
 
+        assertRealAssignments(node0, partId, 0, 1, 4);
+
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
 
         stopNodesInParallel(1, 4);
 
         waitForScale(node0, 3);
+
+        assertRealAssignments(node0, partId, 0, 2, 3);
 
         // Set time in the future to protect us from "getAsync" from the past.
         // Should be replaced with "sleep" when clock skew validation is implemented.
@@ -166,8 +178,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     /**
-     * Tests that a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover partition using a disaster
-     * recovery API. In this test, assignments will be (0, 3, 4)
+     * Tests that in a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover partition using a
+     * disaster recovery API. In this test, assignments will be (0, 3, 4), according to {@link RendezvousAffinityFunction}.
      */
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
@@ -179,17 +191,75 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         awaitPrimaryReplica(node0, partId);
 
+        assertRealAssignments(node0, partId, 0, 3, 4);
+
         stopNodesInParallel(3, 4);
 
         waitForScale(node0, 3);
 
-        CompletableFuture<?> updateFuture = node0.distributionZoneManager().resetPartitions(zoneId, tableId);
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
+                zoneName,
+                QUALIFIED_TABLE_NAME,
+                Set.of()
+        );
+
         assertThat(updateFuture, willCompleteSuccessfully());
 
         awaitPrimaryReplica(node0, partId);
 
+        assertRealAssignments(node0, partId, 0, 1, 2);
+
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
+    }
+
+    /**
+     * Tests that in a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover specified partition
+     * using a disaster recovery API. In this test, assignments will be (0, 2, 4) and (1, 2, 4), according to
+     * {@link RendezvousAffinityFunction}.
+     */
+    @Test
+    @ZoneParams(nodes = 5, replicas = 3, partitions = 2)
+    void testManualRebalanceIfMajorityIsLostSpecifyPartitions() throws Exception {
+        int fixingPartId = 1;
+        int anotherPartId = 0;
+
+        IgniteImpl node0 = cluster.node(0);
+        Table table = node0.tables().table(TABLE_NAME);
+
+        awaitPrimaryReplica(node0, anotherPartId);
+
+        assertRealAssignments(node0, fixingPartId, 0, 2, 4);
+        assertRealAssignments(node0, anotherPartId, 1, 2, 4);
+
+        stopNodesInParallel(2, 4);
+
+        waitForScale(node0, 3);
+
+        // Should fail because majority was lost.
+        List<Throwable> fixingPartErrorsBeforeReset = insertValues(table, fixingPartId, 0);
+        assertThat(fixingPartErrorsBeforeReset, Matchers.not(empty()));
+
+        List<Throwable> anotherPartErrorsBeforeReset = insertValues(table, anotherPartId, 0);
+        assertThat(anotherPartErrorsBeforeReset, Matchers.not(empty()));
+
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
+                zoneName,
+                QUALIFIED_TABLE_NAME,
+                Set.of(anotherPartId)
+        );
+
+        assertThat(updateFuture, willCompleteSuccessfully());
+
+        awaitPrimaryReplica(node0, anotherPartId);
+
+        // Shouldn't fail because partition assignments were reset.
+        List<Throwable> fixedPartErrors = insertValues(table, anotherPartId, 0);
+        assertThat(fixedPartErrors, is(empty()));
+
+        // Was not specified in reset, shouldn't be fixed. */
+        List<Throwable> anotherPartErrors = insertValues(table, fixingPartId, 0);
+        assertThat(anotherPartErrors, Matchers.not(empty()));
     }
 
     /**
@@ -197,23 +267,32 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * create new raft group on the remaining node, without any data.
      */
     @Test
-    @ZoneParams(nodes = 2, replicas = 1, partitions = 3)
+    @ZoneParams(nodes = 2, replicas = 1, partitions = 1)
     void testManualRebalanceIfPartitionIsLost() throws Exception {
-        int partId = 2;
+        int partId = 0;
 
         IgniteImpl node0 = cluster.node(0);
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
 
+        assertRealAssignments(node0, partId, 1);
+
         stopNodesInParallel(1);
 
         waitForScale(node0, 1);
 
-        CompletableFuture<?> updateFuture = node0.distributionZoneManager().resetPartitions(zoneId, tableId);
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
+                zoneName,
+                QUALIFIED_TABLE_NAME,
+                Set.of()
+        );
+
         assertThat(updateFuture, willCompleteSuccessfully());
 
         awaitPrimaryReplica(node0, partId);
+
+        assertRealAssignments(node0, partId, 0);
 
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
@@ -224,6 +303,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 .awaitPrimaryReplica(new TablePartitionId(tableId, partId), node0.clock().now(), 60, SECONDS);
 
         assertThat(awaitPrimaryReplicaFuture, willCompleteSuccessfully());
+    }
+
+    private void assertRealAssignments(IgniteImpl node0, int partId, Integer... expected) throws InterruptedException {
+        assertTrue(waitForCondition(() -> List.of(expected).equals(getRealAssignments(node0, partId)), 2000));
     }
 
     /**
@@ -297,15 +380,25 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
             CompletableFuture<Set<String>> dataNodes = dzManager.dataNodes(causalityToken, catalogVersion, zoneId);
 
             try {
-                Set<String> nodes = dataNodes.get(10, SECONDS);
-                boolean res = nodes.size() == targetDataNodesCount;
-                System.out.println("<%> Exiting by getting real dataNodes: " + nodes);
-                return res;
+                return dataNodes.get(10, SECONDS).size() == targetDataNodesCount;
             } catch (Exception e) {
-                System.out.println("<%> Exiting by exception " + e);
                 return false;
             }
         }, 250, SECONDS.toMillis(60)));
+    }
+
+    private List<Integer> getRealAssignments(IgniteImpl node0, int partId) {
+        CompletableFuture<Map<TablePartitionId, LocalPartitionStateByNode>> partitionStatesFut = node0.disasterRecoveryManager()
+                .localPartitionStates(Set.of(zoneName), Set.of(), Set.of());
+        assertThat(partitionStatesFut, willCompleteSuccessfully());
+
+        LocalPartitionStateByNode partitionStates = partitionStatesFut.join().get(new TablePartitionId(tableId, partId));
+
+        return partitionStates.keySet()
+                .stream()
+                .map(cluster::nodeIndex)
+                .sorted()
+                .collect(Collectors.toList());
     }
 
     @Retention(RetentionPolicy.RUNTIME)

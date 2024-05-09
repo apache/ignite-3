@@ -133,6 +133,18 @@ public enum IgniteMethod {
      * See {@link IgniteSqlFunctions#decimalDivide(BigDecimal, BigDecimal, int, int)}.
      */
     DECIMAL_DIVIDE(IgniteSqlFunctions.class, "decimalDivide", BigDecimal.class, BigDecimal.class, int.class, int.class),
+
+    /**
+     * Conversion of timestamp to string (precision aware).
+     * See {@link IgniteSqlFunctions#unixTimestampToString(long, int)}.
+     */
+    UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE(IgniteSqlFunctions.class, "unixTimestampToString", long.class, int.class),
+
+    /**
+     * Conversion of time to string (precision aware).
+     * See {@link IgniteSqlFunctions#unixTimeToString(int, int)}.
+     */
+    UNIX_TIME_TO_STRING_PRECISION_AWARE(IgniteSqlFunctions.class, "unixTimeToString", int.class, int.class),
     ;
 
     private final Method method;

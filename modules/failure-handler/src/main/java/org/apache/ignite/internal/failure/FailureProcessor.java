@@ -81,13 +81,14 @@ public class FailureProcessor implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         // TODO https://issues.apache.org/jira/browse/IGNITE-20450
         return nullCompletedFuture();
     }
 
     @Override
-    public void stop() {
+    public CompletableFuture<Void> stopAsync() {
+        return nullCompletedFuture();
     }
 
     /**

@@ -33,6 +33,8 @@ import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -358,7 +360,14 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
     /** Executes SQL query/script using internal API. */
     private static class QueryRunner {
-        private final SqlProperties props = SqlPropertiesHelper.emptyProperties();
+        private final SqlProperties props = SqlPropertiesHelper.newBuilder()
+                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
+                .build();
+
+        private final SqlProperties scriptProps = SqlPropertiesHelper.newBuilder()
+                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
+                .build();
+
         private final QueryProcessor queryProcessor;
         private final IgniteTransactions transactions;
         private final int pageSize;
@@ -371,14 +380,14 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
 
         Iterator<InternalSqlRow> execQuery(String sql, Object ... args) {
             AsyncSqlCursor<InternalSqlRow> cursor =
-                    queryProcessor.querySingleAsync(props, transactions, null, sql, args).join();
+                    queryProcessor.queryAsync(props, transactions, null, sql, args).join();
 
             return new InternalResultsIterator(cursor, pageSize);
         }
 
         Iterator<InternalSqlRow> execScript(String sql, Object ... args) {
             AsyncSqlCursor<InternalSqlRow> cursor =
-                    queryProcessor.queryScriptAsync(props, transactions, null, sql, args).join();
+                    queryProcessor.queryAsync(scriptProps, transactions, null, sql, args).join();
 
             return new InternalResultsIterator(cursor, pageSize);
         }

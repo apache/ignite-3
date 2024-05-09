@@ -20,10 +20,13 @@ package org.apache.ignite.internal.eventlog.config;
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
+import org.apache.ignite.internal.eventlog.config.schema.EventTypeValidatorImpl;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkConfigurationSchema;
 
 /**
@@ -47,5 +50,11 @@ public class EventLogConfigurationModule implements ConfigurationModule {
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
         return List.of(EventLogConfiguration.KEY);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<Validator<?, ?>> validators() {
+        return Set.of(EventTypeValidatorImpl.INSTANCE);
     }
 }

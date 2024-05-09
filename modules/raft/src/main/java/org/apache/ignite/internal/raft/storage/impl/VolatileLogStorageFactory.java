@@ -129,4 +129,9 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
     public void close() {
         // No-op.
     }
+
+    @Override
+    public void sync() {
+        // No-op.
+    }
 }

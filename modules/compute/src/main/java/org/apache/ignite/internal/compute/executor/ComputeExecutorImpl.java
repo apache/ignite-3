@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.compute.executor;
 
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
@@ -28,9 +32,11 @@ import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.apache.ignite.internal.compute.state.ComputeStateMachine;
+import org.apache.ignite.internal.compute.task.JobSubmitter;
+import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 
 /**
  * Base implementation of {@link ComputeExecutor}.
@@ -84,11 +90,22 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     @Override
+    public <R> TaskExecutionInternal<R> executeTask(
+            JobSubmitter jobSubmitter,
+            Class<? extends MapReduceTask<R>> taskClass,
+            Object... args
+    ) {
+        assert executorService != null;
+
+        return new TaskExecutionInternal<>(executorService, jobSubmitter, taskClass, () -> ignite, args);
+    }
+
+    @Override
     public void start() {
         stateMachine.start();
         executorService = new PriorityQueueExecutor(
                 configuration,
-                NamedThreadFactory.create(ignite.name(), "compute", LOG),
+                IgniteThreadFactory.create(ignite.name(), "compute", LOG, STORAGE_READ, STORAGE_WRITE),
                 stateMachine
         );
     }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.storage;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
@@ -101,7 +102,8 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
                 currentTableDescriptor.columns().stream()
                         .filter(col -> !columns.contains(col.name()))
                         .collect(toList()),
-                causalityToken
+                causalityToken,
+                currentTableDescriptor.storageProfile()
         );
 
         return new Catalog(
@@ -109,7 +111,8 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                replaceSchema(replaceTable(schema, newTableDescriptor), catalog.schemas())
+                replaceSchema(replaceTable(schema, newTableDescriptor), catalog.schemas()),
+                defaultZoneIdOpt(catalog)
         );
     }
 

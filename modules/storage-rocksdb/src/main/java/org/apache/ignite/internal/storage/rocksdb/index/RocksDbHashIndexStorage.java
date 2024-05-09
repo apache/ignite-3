@@ -82,7 +82,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
             ColumnFamily indexCf,
             RocksDbMetaStorage indexMetaStorage
     ) {
-        super(tableId, descriptor.id(), partitionId, indexMetaStorage);
+        super(tableId, descriptor.id(), partitionId, indexMetaStorage, descriptor.isPk());
 
         this.descriptor = descriptor;
         this.indexCf = indexCf;
@@ -104,6 +104,8 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
     public Cursor<RowId> get(BinaryTuple key) {
         return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            throwExceptionIfIndexNotBuilt();
 
             byte[] rangeStart = rocksPrefix(key);
 

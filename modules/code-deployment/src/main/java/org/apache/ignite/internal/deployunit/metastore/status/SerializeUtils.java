@@ -24,8 +24,13 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.compute.version.VersionParseException;
+import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.UnitStatus;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Serializer for {@link UnitStatus}.
@@ -106,7 +111,34 @@ public final class SerializeUtils {
         return new String(Base64.getDecoder().decode(s), UTF_8);
     }
 
-    public static boolean checkElement(String[] arr, int index) {
+    static boolean checkElement(String[] arr, int index) {
         return arr.length > index && arr[index] != null && !arr[index].isBlank();
+    }
+
+    @Nullable
+    static Version deserializeVersion(String[] values, int index) {
+        try {
+            return checkElement(values, index) ? Version.parseVersion(decode(values[index])) : null;
+        } catch (VersionParseException e) {
+            return null;
+        }
+    }
+
+    @Nullable
+    static DeploymentStatus deserializeStatus(String[] values, int index) {
+        try {
+            return checkElement(values, index) ? DeploymentStatus.valueOf(decode(values[index])) : null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    @Nullable
+    static UUID deserializeUuid(String[] values, int index) {
+        try {
+            return checkElement(values, index) ? UUID.fromString(decode(values[index])) : null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }

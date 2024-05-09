@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
@@ -37,17 +38,17 @@ public class PartitionMetaIo extends PageIo {
 
     private static final int LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF = LAST_APPLIED_TERM_OFF + Long.BYTES;
 
-    private static final int ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF = LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF + Long.BYTES;
+    private static final int FREE_LIST_ROOT_PAGE_ID_OFF = LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF + Long.BYTES;
 
-    private static final int INDEX_COLUMNS_FREE_LIST_ROOT_PAGE_ID_OFF = ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
-
-    private static final int VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF = INDEX_COLUMNS_FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
+    private static final int VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF = FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
 
     public static final int INDEX_TREE_META_PAGE_ID_OFF = VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF + Long.BYTES;
 
     private static final int GC_QUEUE_META_PAGE_ID_OFF = INDEX_TREE_META_PAGE_ID_OFF + Long.BYTES;
 
     private static final int PAGE_COUNT_OFF = GC_QUEUE_META_PAGE_ID_OFF + Long.BYTES;
+
+    private static final int LEASE_START_TIME_OFF = PAGE_COUNT_OFF + Integer.BYTES;
 
     /** Page IO type. */
     public static final short T_TABLE_PARTITION_META_IO = 7;
@@ -72,12 +73,12 @@ public class PartitionMetaIo extends PageIo {
         setLastAppliedIndex(pageAddr, 0);
         setLastAppliedTerm(pageAddr, 0);
         setLastReplicationProtocolGroupConfigFirstPageId(pageAddr, 0);
-        setRowVersionFreeListRootPageId(pageAddr, 0);
-        setIndexColumnsFreeListRootPageId(pageAddr, 0);
+        setFreeListRootPageId(pageAddr, 0);
         setVersionChainTreeRootPageId(pageAddr, 0);
         setIndexTreeMetaPageId(pageAddr, 0);
         setGcQueueMetaPageId(pageAddr, 0);
         setPageCount(pageAddr, 0);
+        setLeaseStartTime(pageAddr, HybridTimestamp.MIN_VALUE.longValue());
     }
 
     /**
@@ -144,45 +145,24 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
-     * Sets row version free list root page ID.
+     * Sets free list root page ID.
      *
      * @param pageAddr Page address.
-     * @param pageId Row version free list root page ID.
+     * @param pageId Free list root page ID.
      */
-    public void setRowVersionFreeListRootPageId(long pageAddr, long pageId) {
+    public void setFreeListRootPageId(long pageAddr, long pageId) {
         assertPageType(pageAddr);
 
-        putLong(pageAddr, ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF, pageId);
+        putLong(pageAddr, FREE_LIST_ROOT_PAGE_ID_OFF, pageId);
     }
 
     /**
-     * Returns row version free list root page ID.
+     * Returns free list root page ID.
      *
      * @param pageAddr Page address.
      */
-    public long getRowVersionFreeListRootPageId(long pageAddr) {
-        return getLong(pageAddr, ROW_VERSION_FREE_LIST_ROOT_PAGE_ID_OFF);
-    }
-
-    /**
-     * Sets an index columns free list root page id.
-     *
-     * @param pageAddr Page address.
-     * @param pageId Root page id.
-     */
-    public void setIndexColumnsFreeListRootPageId(long pageAddr, long pageId) {
-        assertPageType(pageAddr);
-
-        putLong(pageAddr, INDEX_COLUMNS_FREE_LIST_ROOT_PAGE_ID_OFF, pageId);
-    }
-
-    /**
-     * Returns an index columns free list root page id.
-     *
-     * @param pageAddr Page address.
-     */
-    public long getIndexColumnsFreeListRootPageId(long pageAddr) {
-        return getLong(pageAddr, INDEX_COLUMNS_FREE_LIST_ROOT_PAGE_ID_OFF);
+    public static long getFreeListRootPageId(long pageAddr) {
+        return getLong(pageAddr, FREE_LIST_ROOT_PAGE_ID_OFF);
     }
 
     /**
@@ -269,6 +249,28 @@ public class PartitionMetaIo extends PageIo {
         return getInt(pageAddr, PAGE_COUNT_OFF);
     }
 
+    /**
+     * Sets the lease start time.
+     *
+     * @param pageAddr Page address.
+     * @param leaseStartTime Lease start time.
+     */
+    public void setLeaseStartTime(long pageAddr, long leaseStartTime) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, LEASE_START_TIME_OFF, leaseStartTime);
+    }
+
+    /**
+     * Returns the lease start time.
+     *
+     * @param pageAddr Page address.
+     * @return Lease start time.
+     */
+    public long getLeaseStartTime(long pageAddr) {
+        return getLong(pageAddr, LEASE_START_TIME_OFF);
+    }
+
     /** {@inheritDoc} */
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
@@ -276,12 +278,12 @@ public class PartitionMetaIo extends PageIo {
                 .app("lastAppliedIndex=").app(getLastAppliedIndex(addr)).nl()
                 .app("lastAppliedTerm=").app(getLastAppliedTerm(addr)).nl()
                 .app("lastReplicationProtocolGroupConfigFirstPageId=").app(getLastReplicationProtocolGroupConfigFirstPageId(addr)).nl()
-                .app("rowVersionFreeListRootPageId=").appendHex(getRowVersionFreeListRootPageId(addr)).nl()
-                .app("indexColumnsFreeListRootPageId(=").appendHex(getIndexColumnsFreeListRootPageId(addr)).nl()
+                .app("freeListRootPageId=").appendHex(getFreeListRootPageId(addr)).nl()
                 .app("versionChainTreeRootPageId=").appendHex(getVersionChainTreeRootPageId(addr)).nl()
                 .app("indexTreeMetaPageId=").appendHex(getIndexTreeMetaPageId(addr)).nl()
                 .app("gcQueueMetaPageId=").appendHex(getGcQueueMetaPageId(addr)).nl()
                 .app("pageCount=").app(getPageCount(addr)).nl()
+                .app("leaseStartTime=").app(getLeaseStartTime(addr)).nl()
                 .app(']');
     }
 }

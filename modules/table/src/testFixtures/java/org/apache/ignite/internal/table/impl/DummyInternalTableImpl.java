@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.table.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -48,6 +50,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.AbstractMessagingService;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -201,7 +204,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 storageUpdateConfiguration,
                 txConfiguration,
                 new RemotelyTriggeredResourceRegistry(),
-                new TransactionInflights(new TestPlacementDriver(LOCAL_NODE))
+                new TransactionInflights(new TestPlacementDriver(LOCAL_NODE), CLOCK_SERVICE)
         );
     }
 
@@ -251,7 +254,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 ),
                 transactionInflights,
                 3_000,
-                0
+                0,
+                null
         );
 
         RaftGroupService svc = tableRaftService().partitionRaftGroupService(PART_ID);
@@ -336,6 +340,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schema);
 
         StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
+        when(pkIndexDescriptor.isPk()).thenReturn(true);
 
         when(pkIndexDescriptor.columns()).then(
                 invocation -> Collections.nCopies(schema.keyColumns().size(), mock(StorageHashIndexColumnDescriptor.class))
@@ -465,7 +470,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         when(clusterService.messagingService()).thenReturn(new DummyMessagingService(LOCAL_NODE));
         when(clusterService.topologyService()).thenReturn(topologyService);
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, CLOCK_SERVICE);
 
         var txManager = new TxManagerImpl(
                 txConfiguration,
@@ -478,10 +483,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
                 resourcesRegistry,
-                transactionInflights
+                transactionInflights,
+                new TestLowWatermark()
         );
 
-        txManager.start();
+        assertThat(txManager.startAsync(), willCompleteSuccessfully());
 
         return txManager;
     }

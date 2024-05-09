@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.gc;
 
+import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -30,16 +32,16 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.table.distributed.LowWatermarkChangedListener;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.TrackerClosedException;
@@ -51,7 +53,7 @@ import org.jetbrains.annotations.TestOnly;
  *
  * @see GcUpdateHandler#vacuumBatch(HybridTimestamp, int, boolean)
  */
-public class MvGc implements LowWatermarkChangedListener, ManuallyCloseable {
+public class MvGc implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(MvGc.class);
 
     /** Node name. */
@@ -70,7 +72,7 @@ public class MvGc implements LowWatermarkChangedListener, ManuallyCloseable {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Low watermark. */
-    private final AtomicReference<HybridTimestamp> lowWatermarkReference = new AtomicReference<>();
+    private final LowWatermark lowWatermark;
 
     /** Storage handler by table partition ID for which garbage will be collected. */
     private final ConcurrentMap<TablePartitionId, GcStorageHandler> storageHandlerByPartitionId = new ConcurrentHashMap<>();
@@ -80,26 +82,30 @@ public class MvGc implements LowWatermarkChangedListener, ManuallyCloseable {
      *
      * @param nodeName Node name.
      * @param gcConfig Garbage collector configuration.
+     * @param lowWatermark Low watermark.
      */
-    public MvGc(String nodeName, GcConfiguration gcConfig) {
+    public MvGc(String nodeName, GcConfiguration gcConfig, LowWatermark lowWatermark) {
         this.nodeName = nodeName;
         this.gcConfig = gcConfig;
+        this.lowWatermark = lowWatermark;
     }
 
-    /**
-     * Starts the garbage collector.
-     */
+    /** Starts the garbage collector. */
     public void start() {
-        int threadCount = gcConfig.threads().value();
+        inBusyLock(() -> {
+            int threadCount = gcConfig.threads().value();
 
-        executor = new ThreadPoolExecutor(
-                threadCount,
-                threadCount,
-                30,
-                TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(nodeName, "mv-gc", LOG, STORAGE_READ, STORAGE_WRITE)
-        );
+            executor = new ThreadPoolExecutor(
+                    threadCount,
+                    threadCount,
+                    30,
+                    TimeUnit.SECONDS,
+                    new LinkedBlockingQueue<>(),
+                    IgniteThreadFactory.create(nodeName, "mv-gc", LOG, STORAGE_READ, STORAGE_WRITE)
+            );
+
+            lowWatermark.listen(LOW_WATERMARK_CHANGED, fromConsumer(this::onLwmChanged));
+        });
     }
 
     /**
@@ -117,7 +123,7 @@ public class MvGc implements LowWatermarkChangedListener, ManuallyCloseable {
             );
 
             // TODO: IGNITE-18939 Should be called once, you need to check that previous == null
-            if (previous == null && lowWatermarkReference.get() != null) {
+            if (previous == null && lowWatermark.getLowWatermark() != null) {
                 scheduleGcForStorage(tablePartitionId);
             }
         });
@@ -146,35 +152,8 @@ public class MvGc implements LowWatermarkChangedListener, ManuallyCloseable {
         });
     }
 
-    /**
-     * Updates the new watermark only if it is larger than the current low watermark.
-     *
-     * <p>If the update is successful, it will schedule a new garbage collection for all storages.
-     *
-     * @param newLwm New low watermark.
-     * @throws IgniteInternalException with {@link GarbageCollector#CLOSED_ERR} If the garbage collector is closed.
-     */
-    @Override
-    public CompletableFuture<Void> onLwmChanged(HybridTimestamp newLwm) {
-        inBusyLock(() -> {
-            HybridTimestamp updatedLwm = lowWatermarkReference.updateAndGet(currentLwm -> {
-                if (currentLwm == null) {
-                    return newLwm;
-                }
-
-                // Update only if the new one is greater than the current one.
-                return newLwm.compareTo(currentLwm) > 0 ? newLwm : currentLwm;
-            });
-
-            // If the new watermark is smaller than the current one or has been updated in parallel, then we do nothing.
-            if (updatedLwm != newLwm) {
-                return;
-            }
-
-            executor.submit(() -> inBusyLock(this::initNewGcBusy));
-        });
-
-        return nullCompletedFuture();
+    private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
+        inBusyLock(() -> executor.submit(() -> inBusyLock(this::initNewGcBusy)));
     }
 
     @Override
@@ -228,7 +207,7 @@ public class MvGc implements LowWatermarkChangedListener, ManuallyCloseable {
             }
 
             try {
-                HybridTimestamp lowWatermark = lowWatermarkReference.get();
+                HybridTimestamp lowWatermark = this.lowWatermark.getLowWatermark();
 
                 assert lowWatermark != null : tablePartitionId;
 

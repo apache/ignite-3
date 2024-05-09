@@ -164,7 +164,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         StorageHashIndexDescriptor pkIndexDescriptor = new StorageHashIndexDescriptor(
                 PK_INDEX_ID,
-                List.of(new StorageHashIndexColumnDescriptor("ID", NativeTypes.INT32, false))
+                List.of(new StorageHashIndexColumnDescriptor("ID", NativeTypes.INT32, false)),
+                true
         );
 
         TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
@@ -187,9 +188,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new TestSortedIndexStorage(PART_ID,
                         new StorageSortedIndexDescriptor(
                                 SORTED_INDEX_ID,
-                                List.of(new StorageSortedIndexColumnDescriptor(
-                                        "val", NativeTypes.INT32, false, true
-                                ))
+                                List.of(new StorageSortedIndexColumnDescriptor("val", NativeTypes.INT32, false, true)),
+                                false
                         )),
                 row2SortKeyConverter
         );

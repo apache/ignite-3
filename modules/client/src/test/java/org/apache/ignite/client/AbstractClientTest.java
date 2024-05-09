@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -31,7 +32,6 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
 import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
@@ -76,7 +76,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
      */
     @AfterAll
     public static void afterAll() throws Exception {
-        IgniteUtils.closeAll(client, testServer);
+        closeAll(client, testServer);
 
         // Force GC to detect Netty buffer leaks.
         //noinspection CallToSystemGC

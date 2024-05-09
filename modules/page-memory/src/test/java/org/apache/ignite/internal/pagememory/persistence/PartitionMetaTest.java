@@ -112,18 +112,18 @@ public class PartitionMetaTest {
     }
 
     @Test
-    void testRowVersionFreeListRootPageId() {
+    void testFreeListRootPageId() {
         PartitionMeta meta = new PartitionMeta();
 
-        assertEquals(0, meta.rowVersionFreeListRootPageId());
+        assertEquals(0, meta.freeListRootPageId());
 
-        assertDoesNotThrow(() -> meta.rowVersionFreeListRootPageId(null, 100));
+        assertDoesNotThrow(() -> meta.freeListRootPageId(null, 100));
 
-        assertEquals(100, meta.rowVersionFreeListRootPageId());
+        assertEquals(100, meta.freeListRootPageId());
 
-        assertDoesNotThrow(() -> meta.rowVersionFreeListRootPageId(UUID.randomUUID(), 500));
+        assertDoesNotThrow(() -> meta.freeListRootPageId(UUID.randomUUID(), 500));
 
-        assertEquals(500, meta.rowVersionFreeListRootPageId());
+        assertEquals(500, meta.freeListRootPageId());
     }
 
     @Test
@@ -138,7 +138,7 @@ public class PartitionMetaTest {
         meta.lastApplied(checkpointId, 50, 5);
         meta.lastReplicationProtocolGroupConfigFirstPageId(checkpointId, 12);
         meta.versionChainTreeRootPageId(checkpointId, 300);
-        meta.rowVersionFreeListRootPageId(checkpointId, 900);
+        meta.freeListRootPageId(checkpointId, 900);
         meta.incrementPageCount(checkpointId);
 
         checkSnapshot(meta.metaSnapshot(checkpointId), 0, 0, 0, 0, 0, 0);
@@ -151,7 +151,7 @@ public class PartitionMetaTest {
         meta.versionChainTreeRootPageId(checkpointId = UUID.randomUUID(), 303);
         checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 300, 900, 1);
 
-        meta.rowVersionFreeListRootPageId(checkpointId = UUID.randomUUID(), 909);
+        meta.freeListRootPageId(checkpointId = UUID.randomUUID(), 909);
         checkSnapshot(meta.metaSnapshot(checkpointId), 51, 6, 34, 303, 900, 1);
 
         meta.incrementPageCount(checkpointId = UUID.randomUUID());
@@ -175,14 +175,14 @@ public class PartitionMetaTest {
             long expLastAppliedTerm,
             long expLastGroupConfigFirstPageId,
             long expVersionChainTreeRootPageId,
-            long expRowVersionFreeListRootPageId,
+            long expFreeListRootPageId,
             int expPageCount
     ) {
         assertThat(snapshot.lastAppliedIndex(), equalTo(expLastAppliedIndex));
         assertThat(snapshot.lastAppliedTerm(), equalTo(expLastAppliedTerm));
         assertThat(snapshot.lastReplicationProtocolGroupConfigFirstPageId(), equalTo(expLastGroupConfigFirstPageId));
         assertThat(snapshot.versionChainTreeRootPageId(), equalTo(expVersionChainTreeRootPageId));
-        assertThat(snapshot.rowVersionFreeListRootPageId(), equalTo(expRowVersionFreeListRootPageId));
+        assertThat(snapshot.freeListRootPageId(), equalTo(expFreeListRootPageId));
         assertThat(snapshot.pageCount(), equalTo(expPageCount));
     }
 }

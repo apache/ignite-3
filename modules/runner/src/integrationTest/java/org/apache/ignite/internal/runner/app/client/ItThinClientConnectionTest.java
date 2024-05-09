@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -88,5 +90,10 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
 
         IgniteException ex = assertThrows(IgniteException.class, () -> table.recordView(Integer.class).delete(null, 1));
         assertEquals(TABLE_NOT_FOUND_ERR, ex.code(), ex.getMessage());
+    }
+
+    @Test
+    void clusterName() {
+        assertThat(((TcpIgniteClient) client()).clusterName(), is("cluster"));
     }
 }

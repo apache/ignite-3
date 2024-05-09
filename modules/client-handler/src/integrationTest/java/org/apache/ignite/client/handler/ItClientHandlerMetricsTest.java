@@ -23,15 +23,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.SocketException;
 import java.nio.file.Path;
+import java.util.Properties;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.properties.IgniteProperties;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,6 +46,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
+    private static String igniteVersion;
+
+    private static Properties props;
+
     @InjectConfiguration
     private NetworkConfiguration networkConfiguration;
 
@@ -54,10 +62,22 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
     private Path workDir;
 
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         if (testServer != null) {
             testServer.tearDown();
         }
+    }
+
+    @BeforeAll
+    static void beforeAll() {
+        props = IgniteTestUtils.getFieldValue(null, IgniteProperties.class, "PROPS");
+        igniteVersion = props.getProperty(IgniteProperties.VERSION);
+        props.setProperty(IgniteProperties.VERSION, "3.0.0-SNAPSHOT");
+    }
+
+    @AfterAll
+    static void afterAll() {
+        props.setProperty(IgniteProperties.VERSION, igniteVersion);
     }
 
     @Test
@@ -151,7 +171,7 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
         ItClientHandlerTestUtils.connectAndHandshake(serverModule);
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 80, 1000),
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 89, 1000),
                 () -> "bytesSent: " + testServer.metrics().bytesSent());
 
         assertTrue(
@@ -161,7 +181,7 @@ public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
         ItClientHandlerTestUtils.connectAndHandshake(serverModule, false, true);
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 185, 1000),
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 194, 1000),
                 () -> "bytesSent: " + testServer.metrics().bytesSent());
 
         assertTrue(

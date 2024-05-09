@@ -28,28 +28,11 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 
 /**
  * Tests for synchronous SQL API.
  */
-@SuppressWarnings("ThrowableNotThrown")
 public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
-    @Override
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
-    public void resultSetCloseShouldFinishImplicitTransaction() {
-        super.resultSetCloseShouldFinishImplicitTransaction();
-    }
-
-    @Override
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
-    public void errors() throws InterruptedException {
-        super.errors();
-    }
-
     @Override
     protected ResultSet<SqlRow> executeForRead(IgniteSql sql, Transaction tx, Statement statement, Object... args) {
         return sql.execute(tx, statement, args);

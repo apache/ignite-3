@@ -26,13 +26,11 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import java.net.InetSocketAddress;
-import java.util.Collection;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
@@ -93,10 +91,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private final Map<Long, CompletableFuture<PayloadInputChannel>> notificationHandlers = new ConcurrentHashMap<>();
 
     /** Topology change listeners. */
-    private final Collection<Consumer<Long>> assignmentChangeListeners = new CopyOnWriteArrayList<>();
+    private final Consumer<Long> assignmentChangeListener;
 
     /** Observable timestamp listeners. */
-    private final Collection<Consumer<Long>> observableTimestampListeners = new CopyOnWriteArrayList<>();
+    private final Consumer<Long> observableTimestampListener;
 
     /** Closed flag. */
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -128,10 +126,16 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @param cfg Config.
      * @param metrics Metrics.
      */
-    private TcpClientChannel(ClientChannelConfiguration cfg, ClientMetricSource metrics) {
+    private TcpClientChannel(
+            ClientChannelConfiguration cfg,
+            ClientMetricSource metrics,
+            Consumer<Long> assignmentChangeListener,
+            Consumer<Long> observableTimestampListener) {
         validateConfiguration(cfg);
         this.cfg = cfg;
         this.metrics = metrics;
+        this.assignmentChangeListener = assignmentChangeListener;
+        this.observableTimestampListener = observableTimestampListener;
 
         log = ClientUtils.logger(cfg.clientConfiguration(), TcpClientChannel.class);
 
@@ -183,9 +187,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     static CompletableFuture<ClientChannel> createAsync(
             ClientChannelConfiguration cfg,
             ClientConnectionMultiplexer connMgr,
-            ClientMetricSource metrics) {
+            ClientMetricSource metrics,
+            Consumer<Long> assignmentChangeListener,
+            Consumer<Long> observableTimestampListener) {
         //noinspection resource - returned from method.
-        return new TcpClientChannel(cfg, metrics).initAsync(connMgr);
+        return new TcpClientChannel(cfg, metrics, assignmentChangeListener, observableTimestampListener)
+                .initAsync(connMgr);
     }
 
     /** {@inheritDoc} */
@@ -422,10 +429,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     private void handleObservableTimestamp(ClientMessageUnpacker unpacker) {
         long observableTimestamp = unpacker.unpackLong();
-
-        for (Consumer<Long> listener : observableTimestampListeners) {
-            listener.accept(observableTimestamp);
-        }
+        observableTimestampListener.accept(observableTimestamp);
     }
 
     private void handlePartitionAssignmentChange(int flags, ClientMessageUnpacker unpacker) {
@@ -435,9 +439,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             }
 
             long maxStartTime = unpacker.unpackLong();
-            for (Consumer<Long> listener : assignmentChangeListeners) {
-                listener.accept(maxStartTime);
-            }
+            assignmentChangeListener.accept(maxStartTime);
         }
     }
 
@@ -523,17 +525,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     @Override
     public ProtocolContext protocolContext() {
         return protocolCtx;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void addPartitionAssignmentChangeListener(Consumer<Long> listener) {
-        assignmentChangeListeners.add(listener);
-    }
-
-    @Override
-    public void addObservableTimestampListener(Consumer<Long> listener) {
-        observableTimestampListeners.add(listener);
     }
 
     private static void validateConfiguration(ClientChannelConfiguration cfg) {
@@ -637,7 +628,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var addr = sock.remoteAddress();
             var clusterNode = new ClientClusterNode(clusterNodeId, clusterNodeName, new NetworkAddress(addr.getHostName(), addr.getPort()));
             var clusterId = unpacker.unpackUuid();
-            unpacker.unpackString(); // cluster name
+            var clusterName = unpacker.unpackString();
+
+            long observableTimestamp = unpacker.unpackLong();
+            observableTimestampListener.accept(observableTimestamp);
 
             unpacker.unpackByte(); // cluster version major
             unpacker.unpackByte(); // cluster version minor
@@ -652,7 +646,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             unpacker.skipValues(extensionsLen);
 
             protocolCtx = new ProtocolContext(
-                    srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode, clusterId);
+                    srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode, clusterId, clusterName);
 
             return null;
         } catch (Exception e) {

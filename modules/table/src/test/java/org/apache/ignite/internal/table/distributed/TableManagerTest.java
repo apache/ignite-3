@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
@@ -31,6 +30,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.emptySetComplet
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -70,14 +71,18 @@ import java.util.concurrent.Phaser;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.affinity.AffinityUtils;
+import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -89,6 +94,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -113,13 +119,11 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
-import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.TestLowWatermark;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -216,8 +220,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     @InjectConfiguration
     private StorageUpdateConfiguration storageUpdateConfiguration;
 
-    @InjectConfiguration
-    private PersistentPageMemoryStorageEngineConfiguration storageEngineConfig;
+    @InjectConfiguration("mock = {profiles.default = {engine = \"aipersist\"}}")
+    private StorageConfiguration storageConfiguration;
 
     @Mock
     private ConfigurationRegistry configRegistry;
@@ -257,11 +261,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         catalogMetastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, catalogMetastore);
 
-        assertThat(allOf(catalogMetastore.start(), catalogManager.start()), willCompleteSuccessfully());
+        assertThat(startAsync(catalogMetastore, catalogManager), willCompleteSuccessfully());
 
         revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> catalogMetastore.registerRevisionUpdateListener(function::apply);
 
         assertThat(catalogMetastore.deployWatches(), willCompleteSuccessfully());
+
+        CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
 
@@ -290,17 +296,17 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     @AfterEach
     void after() throws Exception {
-        IgniteUtils.closeAll(
+        closeAll(
                 () -> {
                     assertTrue(tblManagerFut.isDone());
 
                     tblManagerFut.join().beforeNodeStop();
-                    tblManagerFut.join().stop();
+                    assertThat(tblManagerFut.join().stopAsync(), willCompleteSuccessfully());
                 },
-                dsm == null ? null : dsm::stop,
-                sm == null ? null : sm::stop,
-                catalogManager == null ? null : catalogManager::stop,
-                catalogMetastore == null ? null : catalogMetastore::stop,
+                dsm == null ? null : () -> assertThat(dsm.stopAsync(), willCompleteSuccessfully()),
+                sm == null ? null : () -> assertThat(sm.stopAsync(), willCompleteSuccessfully()),
+                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
+                catalogMetastore == null ? null : () -> assertThat(catalogMetastore.stopAsync(), willCompleteSuccessfully()),
                 partitionOperationsExecutor == null ? null
                         : () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
         );
@@ -325,8 +331,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertEquals(1, tableManager.tables().size());
 
         assertNotNull(tableManager.table(PRECONFIGURED_TABLE_NAME));
-
-        checkTableDataStorage(allTableDescriptors(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
     }
 
     /**
@@ -341,8 +345,40 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNotNull(table);
 
         assertSame(table, tblManagerFut.join().table(DYNAMIC_TABLE_NAME));
+    }
 
-        checkTableDataStorage(allTableDescriptors(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
+    /**
+     * Testing TableManager#writeTableAssignmentsToMetastore for 2 exceptional scenarios:
+     * 1. the method was interrupted in outer future before invoke calling completion.
+     * 2. the method was interrupted in inner metastore's future when the result of invocation had gotten, but after error happens;
+     *
+     * @throws Exception if something goes wrong on mocks creation.
+     */
+    @Test
+    public void testWriteTableAssignmentsToMetastoreExceptionally() throws Exception {
+        TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
+        int tableId = table.tableId();
+        TableManager tableManager = tblManagerFut.join();
+        List<Assignments> assignmentsList = List.of(Assignments.of(Assignment.forPeer(node.id())));
+
+        // the first case scenario
+        CompletableFuture<List<Assignments>> assignmentsFuture = new CompletableFuture<>();
+        var outerExceptionMsg = "Outer future is interrupted";
+        assignmentsFuture.completeExceptionally(new TimeoutException(outerExceptionMsg));
+        CompletableFuture<List<Assignments>> writtenAssignmentsFuture = tableManager
+                .writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
+        assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
+        assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, outerExceptionMsg);
+
+        // the second case scenario
+        assignmentsFuture = completedFuture(assignmentsList);
+        CompletableFuture<Boolean> invokeTimeoutFuture = new CompletableFuture<>();
+        var innerExceptionMsg = "Inner future is interrupted";
+        invokeTimeoutFuture.completeExceptionally(new TimeoutException(innerExceptionMsg));
+        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(invokeTimeoutFuture);
+        writtenAssignmentsFuture = tableManager.writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
+        assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
+        assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, innerExceptionMsg);
     }
 
     /**
@@ -412,7 +448,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableManager tableManager = tblManagerFut.join();
 
         tableManager.beforeNodeStop();
-        tableManager.stop();
+        assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
 
         assertThrowsWithCause(tableManager::tables, NodeStoppingException.class);
         assertThrowsWithCause(() -> tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME), NodeStoppingException.class);
@@ -432,8 +468,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableManager tableManager = tblManagerFut.join();
 
         tableManager.beforeNodeStop();
-        tableManager.stop();
-
+        assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
         int fakeTblId = 1;
 
         assertThrowsWithCause(() -> tableManager.table(fakeTblId), NodeStoppingException.class);
@@ -528,7 +563,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         mockDoThrow.run();
 
         tableManager.beforeNodeStop();
-        tableManager.stop();
+        assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
 
         verify(rm, times(PARTITIONS)).stopRaftNodes(any());
         verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
@@ -656,7 +691,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(trueCompletedFuture());
         when(msm.get(any())).thenReturn(nullCompletedFuture());
 
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(2L));
 
         when(msm.prefixLocally(any(), anyLong())).thenReturn(CursorUtils.emptyCursor());
     }
@@ -767,7 +802,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 null,
                 null,
                 tm,
-                dsm = createDataStorageManager(configRegistry, workDir, storageEngineConfig),
+                dsm = createDataStorageManager(configRegistry, workDir),
                 workDir,
                 msm,
                 sm = new SchemaManager(revisionUpdater, catalogManager),
@@ -812,7 +847,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             }
         };
 
-        assertThat(allOf(sm.start(), tableManager.start()), willCompleteSuccessfully());
+        assertThat(startAsync(sm, tableManager), willCompleteSuccessfully());
 
         tblManagerFut.complete(tableManager);
 
@@ -821,38 +856,33 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private DataStorageManager createDataStorageManager(
             ConfigurationRegistry mockedRegistry,
-            Path storagePath,
-            PersistentPageMemoryStorageEngineConfiguration config
+            Path storagePath
     ) {
-        when(mockedRegistry.getConfiguration(PersistentPageMemoryStorageEngineConfiguration.KEY)).thenReturn(config);
+        when(mockedRegistry.getConfiguration(StorageConfiguration.KEY)).thenReturn(storageConfiguration);
 
-        DataStorageModules dataStorageModules = new DataStorageModules(List.of(new PersistentPageMemoryDataStorageModule()));
-
-        DataStorageManager manager = new DataStorageManager(
-                dataStorageModules.createStorageEngines(NODE_NAME, mockedRegistry, storagePath, null, mock(FailureProcessor.class))
+        DataStorageModules dataStorageModules = new DataStorageModules(
+                List.of(new PersistentPageMemoryDataStorageModule())
         );
 
-        assertThat(manager.start(), willCompleteSuccessfully());
+        DataStorageManager manager = new DataStorageManager(
+                dataStorageModules.createStorageEngines(
+                        NODE_NAME,
+                        mockedRegistry,
+                        storagePath,
+                        null,
+                        mock(FailureProcessor.class),
+                        mock(LogSyncer.class)
+                ),
+                storageConfiguration
+        );
+
+        assertThat(manager.startAsync(), willCompleteSuccessfully());
 
         return manager;
     }
 
-    private void checkTableDataStorage(Collection<CatalogTableDescriptor> tableDescriptors, String expDataStorage) {
-        assertFalse(tableDescriptors.isEmpty());
-
-        for (CatalogTableDescriptor tableDescriptor : tableDescriptors) {
-            assertEquals(getZoneDataStorage(tableDescriptor.zoneId()), expDataStorage, tableDescriptor.name());
-        }
-    }
-
     private void createZone(int partitions, int replicas) {
         DistributionZonesTestUtil.createZone(catalogManager, ZONE_NAME, partitions, replicas);
-    }
-
-    private @Nullable String getZoneDataStorage(int zoneId) {
-        CatalogZoneDescriptor zoneDescriptor = DistributionZonesTestUtil.getZoneById(catalogManager, zoneId, clock.nowLong());
-
-        return zoneDescriptor == null ? null : zoneDescriptor.dataStorage().engine();
     }
 
     private void createTable(String tableName) {

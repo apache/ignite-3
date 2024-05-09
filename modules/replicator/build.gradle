@@ -34,6 +34,7 @@ dependencies {
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-network-api')
     implementation project(':ignite-placement-driver-api')
+    implementation project(':ignite-failure-handler')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -43,14 +44,18 @@ dependencies {
     integrationTestImplementation project(':ignite-placement-driver-api')
     integrationTestImplementation project(':ignite-network-api')
     integrationTestImplementation project(':ignite-cluster-management')
+    integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation testFixtures(project)
     integrationTestImplementation testFixtures(project(':ignite-core'))
-    integrationTestImplementation testFixtures(project(':ignite-configuration:'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation testFixtures(project(':ignite-network'))
-    integrationTestImplementation testFixtures(project(':ignite-placement-driver-api:'))
+    integrationTestImplementation testFixtures(project(':ignite-placement-driver-api'))
+    integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
+    integrationTestImplementation testFixtures(project(':ignite-metrics'))
 
     testImplementation testFixtures(project(':ignite-core'))
-    testImplementation testFixtures(project(':ignite-placement-driver-api:'))
+    testImplementation testFixtures(project(':ignite-placement-driver-api'))
+    testImplementation(testFixtures(project(':ignite-failure-handler')))
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit

@@ -1,0 +1,56 @@
+# name: test/sql/function/json/test_json_value.test
+# description: JSON_VALUE function (is a part of T821 "Basic SQL/JSON query operators").
+# group: [json]
+
+# NULL ON EMPTY is implicit (Sql 16 6.27 Rule 4)
+# NULL ON ERROR is implicit (Sql 16 6.27 Rule 5)
+query T
+select json_value('{"foo":100}', '$.bar')
+----
+NULL
+
+query T
+select json_value('{"foo":100}', '$' DEFAULT 1 on error)
+----
+1
+
+statement error
+select json_value('{"foo":100}', '$' error on error)
+
+query T
+select json_value('{"foo":100}', 'lax $.bar')
+----
+NULL
+
+query T
+select json_value('{"foo":100}', 'lax $.bar' DEFAULT 2 on empty)
+----
+2
+
+query T
+select json_value('{"foo":100}', 'lax $.bar' NULL on empty)
+----
+NULL
+
+statement error
+select json_value('{"foo":100}', 'lax $.bar' error on empty)
+
+query I
+select json_value('{"foo":100}', '$.foo' RETURNING INTEGER)
+----
+100
+
+query T
+select json_value('{"foo":true}', '$.foo' RETURNING BOOLEAN)
+----
+true
+
+query R
+select json_value('{"foo":3.1}', '$.foo' RETURNING DOUBLE)
+----
+3.1
+
+query T
+select json_value('{"info":{"type": 1, "address":[{"town":"Paris"},{"town":"London", "zip": 1234}]}}', '$.info.address[1].zip')
+----
+1234

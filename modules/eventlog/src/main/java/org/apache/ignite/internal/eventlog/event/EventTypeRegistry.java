@@ -20,6 +20,7 @@ package org.apache.ignite.internal.eventlog.event;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.eventlog.api.IgniteEvents;
 import org.apache.ignite.internal.eventlog.event.exception.NotUniqueEventTypeException;
 
 /**
@@ -30,6 +31,9 @@ public final class EventTypeRegistry {
     private static final Object DUMMY = new Object();
 
     private static final ConcurrentHashMap<String, Object> allTypes = new ConcurrentHashMap<>();
+
+    private EventTypeRegistry() {
+    }
 
     /** Registers a set of event types. */
     public static void register(Set<String> types) {
@@ -49,8 +53,5 @@ public final class EventTypeRegistry {
     /** Checks if the event type is registered. */
     public static boolean contains(String type) {
         return allTypes.containsKey(type);
-    }
-
-    private EventTypeRegistry() {
     }
 }

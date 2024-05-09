@@ -33,7 +33,7 @@ import org.apache.ignite.internal.metrics.DoubleMetric;
 import org.apache.ignite.internal.metrics.IntMetric;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricSet;
 
 /**
@@ -135,7 +135,7 @@ public class MetricSetMbean implements DynamicMBean {
         });
 
         return new MBeanInfo(
-                MetricManager.class.getName(),
+                MetricManagerImpl.class.getName(),
                 metricSet.name(),
                 attrs.toArray(new MBeanAttributeInfo[0]),
                 null,

@@ -26,8 +26,10 @@ import static org.apache.ignite.internal.table.distributed.replicator.action.Req
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET_ALL;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
+import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -54,12 +56,14 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -71,6 +75,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -128,6 +133,8 @@ public class InternalTableImpl implements InternalTable {
 
     /** Partitions. */
     private final int partitions;
+
+    private final Supplier<ScheduledExecutorService> streamerFlushExecutor;
 
     /** Table name. */
     private volatile String tableName;
@@ -215,7 +222,8 @@ public class InternalTableImpl implements InternalTable {
             TableRaftServiceImpl tableRaftService,
             TransactionInflights transactionInflights,
             long implicitTransactionTimeout,
-            int attemptsObtainLock
+            int attemptsObtainLock,
+            Supplier<ScheduledExecutorService> streamerFlushExecutor
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -233,6 +241,7 @@ public class InternalTableImpl implements InternalTable {
         this.transactionInflights = transactionInflights;
         this.implicitTransactionTimeout = implicitTransactionTimeout;
         this.attemptsObtainLock = attemptsObtainLock;
+        this.streamerFlushExecutor = streamerFlushExecutor;
     }
 
     /** {@inheritDoc} */
@@ -356,7 +365,7 @@ public class InternalTableImpl implements InternalTable {
                 if (implicit) {
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
-                    if (isRestartTransactionPossible(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
+                    if (exceptionAllowsTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
                         return enlistInTx(row, null, fac, noWriteChecker, ts);
                     }
                 }
@@ -475,7 +484,7 @@ public class InternalTableImpl implements InternalTable {
                 if (implicit) {
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
-                    if (isRestartTransactionPossible(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
+                    if (exceptionAllowsTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
                         return enlistInTx(keyRows, null, fac, reducer, noOpChecker, ts);
                     }
                 }
@@ -1527,7 +1536,6 @@ public class InternalTableImpl implements InternalTable {
                     ReadOnlyScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readOnlyScanRetrieveBatchReplicaRequest()
                             .groupId(tablePartitionId)
                             .readTimestampLong(readTimestamp.longValue())
-                            // TODO: IGNITE-17666 Close cursor tx finish.
                             .transactionId(txId)
                             .scanId(scanId)
                             .batchSize(batchSize)
@@ -1542,8 +1550,14 @@ public class InternalTableImpl implements InternalTable {
 
                     return replicaSvc.invoke(recipientNode, request);
                 },
-                // TODO: IGNITE-17666 Close cursor tx finish.
-                (intentionallyClose, fut) -> completeScan(txId, tablePartitionId, fut, recipientNode, intentionallyClose),
+                (intentionallyClose, scanId, th) -> completeScan(
+                        txId,
+                        tablePartitionId,
+                        scanId,
+                        th,
+                        recipientNode,
+                        intentionallyClose || th != null
+                ),
                 new ReadOnlyInflightBatchRequestTracker(transactionInflights, txId)
         );
     }
@@ -1587,21 +1601,22 @@ public class InternalTableImpl implements InternalTable {
                         columnsToInclude,
                         implicit
                 ),
-                (intentionallyClose, fut) -> {
+                (intentionallyClose, scanId, th) -> {
                     CompletableFuture<Void> opFut;
 
                     if (implicit) {
-                        opFut = fut.thenApply(cursorId -> null);
+                        opFut = completedOrFailedFuture(null, th);
                     } else {
                         var replicationGrpId = new TablePartitionId(tableId, partId);
 
                         opFut = tx.enlistedNodeAndConsistencyToken(replicationGrpId) != null ? completeScan(
                                 tx.id(),
                                 replicationGrpId,
-                                fut,
+                                scanId,
+                                th,
                                 tx.enlistedNodeAndConsistencyToken(replicationGrpId).get1(),
                                 intentionallyClose
-                        ) : fut.thenApply(cursorId -> null);
+                        ) : completedOrFailedFuture(null, th);
                     }
 
                     return postEnlist(opFut, intentionallyClose, actualTx, implicit && !intentionallyClose);
@@ -1647,8 +1662,7 @@ public class InternalTableImpl implements InternalTable {
 
                     return replicaSvc.invoke(recipient.node(), request);
                 },
-                // TODO: IGNITE-17666 Close cursor tx finish.
-                (intentionallyClose, fut) -> completeScan(txId, tablePartitionId, fut, recipient.node(), intentionallyClose),
+                (intentionallyClose, scanId, th) -> completeScan(txId, tablePartitionId, scanId, th, recipient.node(), intentionallyClose),
                 READ_WRITE_INFLIGHT_BATCH_REQUEST_TRACKER
         );
     }
@@ -1658,32 +1672,47 @@ public class InternalTableImpl implements InternalTable {
      *
      * @param txId Transaction id.
      * @param replicaGrpId Replication group id.
-     * @param scanIdFut Future to scan id.
+     * @param scanId Scan id.
+     * @param th An exception that may occur in the scan procedure or {@code null} when the procedure passes without an exception.
      * @param recipientNode Server node where the scan was started.
-     * @param intentionallyClose The flag is true when the scan was intentionally closed on the initiator side and false when the
-     *         scan cursor has no more entries to read.
+     * @param explicitCloseCursor True when the cursor should be closed explicitly.
      * @return The future.
      */
     private CompletableFuture<Void> completeScan(
             UUID txId,
             ReplicationGroupId replicaGrpId,
-            CompletableFuture<Long> scanIdFut,
+            Long scanId,
+            Throwable th,
             ClusterNode recipientNode,
-            boolean intentionallyClose
+            boolean explicitCloseCursor
     ) {
-        return scanIdFut.thenCompose(scanId -> {
-            if (intentionallyClose) {
-                ScanCloseReplicaRequest scanCloseReplicaRequest = tableMessagesFactory.scanCloseReplicaRequest()
-                        .groupId(replicaGrpId)
-                        .transactionId(txId)
-                        .scanId(scanId)
-                        .build();
+        CompletableFuture<Void> closeFut = nullCompletedFuture();
 
-                return replicaSvc.invoke(recipientNode, scanCloseReplicaRequest);
+        if (explicitCloseCursor) {
+            ScanCloseReplicaRequest scanCloseReplicaRequest = tableMessagesFactory.scanCloseReplicaRequest()
+                    .groupId(replicaGrpId)
+                    .transactionId(txId)
+                    .scanId(scanId)
+                    .build();
+
+            closeFut = replicaSvc.invoke(recipientNode, scanCloseReplicaRequest);
+        }
+
+        return closeFut.handle((unused, throwable) -> {
+            CompletableFuture<Void> fut = nullCompletedFuture();
+
+            if (th != null) {
+                if (throwable != null) {
+                    th.addSuppressed(throwable);
+                }
+
+                fut = failedFuture(th);
+            } else if (throwable != null) {
+                fut = failedFuture(throwable);
             }
 
-            return nullCompletedFuture();
-        });
+            return fut;
+        }).thenCompose(Function.identity());
     }
 
     /**
@@ -1874,7 +1903,7 @@ public class InternalTableImpl implements InternalTable {
         private final BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch;
 
         /** The closure will be invoked before the cursor closed. */
-        BiFunction<Boolean, CompletableFuture<Long>, CompletableFuture<Void>> onClose;
+        IgniteTriFunction<Boolean, Long, Throwable, CompletableFuture<Void>> onClose;
 
         /** True when the publisher has a subscriber, false otherwise. */
         private final AtomicBoolean subscribed;
@@ -1891,7 +1920,7 @@ public class InternalTableImpl implements InternalTable {
          */
         PartitionScanPublisher(
                 BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch,
-                BiFunction<Boolean, CompletableFuture<Long>, CompletableFuture<Void>> onClose,
+                IgniteTriFunction<Boolean, Long, Throwable, CompletableFuture<Void>> onClose,
                 InflightBatchRequestTracker inflightBatchRequestTracker
         ) {
             this.retrieveBatch = retrieveBatch;
@@ -1990,7 +2019,7 @@ public class InternalTableImpl implements InternalTable {
                     return;
                 }
 
-                onClose.apply(intentionallyClose, t == null ? completedFuture(scanId) : failedFuture(t)).whenComplete((ignore, th) -> {
+                onClose.apply(intentionallyClose, scanId, t).whenComplete((ignore, th) -> {
                     if (th != null) {
                         subscriber.onError(th);
                     } else {
@@ -2160,6 +2189,11 @@ public class InternalTableImpl implements InternalTable {
         return storageIndexTrackerByPartitionId.get(partitionId);
     }
 
+    @Override
+    public ScheduledExecutorService streamerFlushExecutor() {
+        return streamerFlushExecutor.get();
+    }
+
     /**
      * Updates the partition trackers, if there were previous ones, it closes them.
      *
@@ -2231,19 +2265,13 @@ public class InternalTableImpl implements InternalTable {
      * @param e Exception to check.
      * @return True if retrying is possible, false otherwise.
      */
-    private boolean isRestartTransactionPossible(Throwable e) {
-        if (e instanceof LockException) {
-            return true;
-        } else if (e instanceof TransactionException && e.getCause() instanceof LockException) {
-            return true;
-        } else if (e instanceof CompletionException && e.getCause() instanceof LockException) {
-            return true;
-        } else if (e instanceof CompletionException
-                && e.getCause() instanceof TransactionException
-                && e.getCause().getCause() instanceof LockException) {
-            return true;
+    private static boolean exceptionAllowsTxRetry(Throwable e) {
+        Throwable ex = unwrapCause(e);
+
+        while (ex instanceof TransactionException && ex.getCause() != null) {
+            ex = ex.getCause();
         }
 
-        return false;
+        return ex instanceof LockException || ex instanceof PrimaryReplicaMissException;
     }
 }

@@ -49,8 +49,8 @@ public:
      * @param bigEndian If true then magnitude is in big-endian. Otherwise
      *     the byte order of the magnitude considered to be little-endian.
      */
-    big_decimal(const int8_t *mag, int32_t len, int32_t scale, int8_t sign, bool big_endian = true)
-        : m_scale(scale & 0x7FFFFFFF)
+    big_decimal(const std::int8_t *mag, std::int32_t len, std::int16_t scale, std::int8_t sign, bool big_endian = true)
+        : m_scale(std::int16_t(scale & 0x7FFF))
         , m_magnitude(mag, len, sign, big_endian) {}
 
     /**
@@ -87,7 +87,7 @@ public:
      * @param val String to assign.
      * @param len String length.
      */
-    big_decimal(const char *val, int32_t len)
+    explicit big_decimal(const char *val, int32_t len)
         : m_magnitude(0) {
         assign_string(val, len);
     }
@@ -148,7 +148,7 @@ public:
      *
      * @return Scale.
      */
-    [[nodiscard]] std::int32_t get_scale() const noexcept { return m_scale; }
+    [[nodiscard]] std::int16_t get_scale() const noexcept { return m_scale; }
 
     /**
      * Set scale.
@@ -156,7 +156,7 @@ public:
      * @param scale Scale to set.
      * @param res Result is placed here. Can be *this.
      */
-    void set_scale(int32_t newScale, big_decimal &res) const;
+    void set_scale(std::int16_t new_scale, big_decimal &res) const;
 
     /**
      * Get precision of the Decimal.
@@ -184,13 +184,6 @@ public:
         swap(m_scale, second.m_scale);
         m_magnitude.swap(second.m_magnitude);
     }
-
-    /**
-     * Get length of the magnitude.
-     *
-     * @return Length of the magnitude.
-     */
-    [[nodiscard]] int32_t get_magnitude_length() const { return int32_t(m_magnitude.mag.size()); }
 
     /**
      * Assign specified value to this Decimal.
@@ -304,7 +297,7 @@ public:
 
 private:
     /** Scale. */
-    int32_t m_scale = 0;
+    std::int16_t m_scale = 0;
 
     /** Magnitude. */
     big_integer m_magnitude;

@@ -18,6 +18,10 @@
 package org.apache.ignite.internal.cli.commands;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import io.micronaut.configuration.picocli.MicronautFactory;
 import io.micronaut.context.ApplicationContext;
@@ -26,37 +30,26 @@ import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
-import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
-import org.junit.jupiter.api.BeforeEach;
+import org.apache.ignite.internal.cli.core.call.Call;
+import org.apache.ignite.internal.cli.core.call.CallInput;
+import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.mockito.ArgumentCaptor;
 import picocli.CommandLine;
 
 /**
  * Base class for testing CLI commands.
  */
 @MicronautTest
-public abstract class CliCommandTestBase {
+public abstract class CliCommandTestBase extends BaseIgniteAbstractTest {
     @Inject
     private ApplicationContext context;
-
-    @Inject
-    private NodeNameRegistry nodeNameRegistry;
-
-    private CommandLine cmd;
 
     private StringWriter sout;
 
     private StringWriter serr;
 
     private int exitCode = Integer.MIN_VALUE;
-
-    @BeforeEach
-    public void setUp() {
-        cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
-        sout = new StringWriter();
-        serr = new StringWriter();
-        cmd.setOut(new PrintWriter(sout));
-        cmd.setErr(new PrintWriter(serr));
-    }
 
     protected abstract Class<?> getCommandClass();
 
@@ -65,6 +58,14 @@ public abstract class CliCommandTestBase {
     }
 
     protected void execute(String... args) {
+        // Create command just before execution as some tests could register singletons which should be used by the command
+        CommandLine cmd = new CommandLine(getCommandClass(), new MicronautFactory(context));
+
+        sout = new StringWriter();
+        serr = new StringWriter();
+        cmd.setOut(new PrintWriter(sout));
+        cmd.setErr(new PrintWriter(serr));
+
         exitCode = cmd.execute(args);
     }
 
@@ -124,5 +125,18 @@ public abstract class CliCommandTestBase {
         assertThat(serr.toString())
                 .as("Expected command error output to contain: " + expectedErrOutput + " but was " + serr.toString())
                 .contains(expectedErrOutput);
+    }
+
+    protected <IT extends CallInput, OT, T extends Call<IT, OT>> T registerMockCall(Class<T> callClass) {
+        T mock = mock(callClass);
+        context.registerSingleton(mock);
+        when(mock.execute(any())).thenReturn(DefaultCallOutput.empty());
+        return mock;
+    }
+
+    protected static <IT extends CallInput, OT, T extends Call<IT, OT>> IT verifyCallInput(T call, Class<IT> inputClass) {
+        ArgumentCaptor<IT> captor = ArgumentCaptor.forClass(inputClass);
+        verify(call).execute(captor.capture());
+        return captor.getValue();
     }
 }

@@ -43,6 +43,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.table.Table;
@@ -99,10 +100,10 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
         TableViewInternal tbl1 = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test1"));
 
         for (int i = 0; i < parts; ++i) {
-            List<Tuple> r0 = getAll(tbl0, i);
+            List<Tuple> r0 = getAllBypassingThreadAssertions(tbl0, i);
 
             Set<Object> ids0 = r0.stream().map(t -> t.value("id")).collect(Collectors.toSet());
-            List<Tuple> r1 = getAll(tbl1, i);
+            List<Tuple> r1 = getAllBypassingThreadAssertions(tbl1, i);
 
             // because the byte array is not comparable, we need to check the type separately
             if (type == NativeTypeSpec.BYTES) {
@@ -124,7 +125,7 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-17557")
     @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
     @MethodSource("twoColumnsParameters")
-    public void colocationTwoColumns(NativeTypeSpec t0, NativeTypeSpec t1) throws Exception {
+    public void colocationTwoColumns(NativeTypeSpec t0, NativeTypeSpec t1) {
         sql(String.format("create table test0(id0 %s, id1 %s, v INTEGER, primary key(id0, id1))", sqlTypeName(t0), sqlTypeName(t1)));
 
         sql(String.format(
@@ -138,9 +139,9 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             sql("insert into test1 values(?, ?, ?, ?)", i, generateValueByType(i, t0), generateValueByType(i, t1), 0);
         }
 
-        int parts = ((TableViewInternal) CLUSTER.aliveNode().tables().table("test0")).internalTable().partitions();
-        TableViewInternal tbl0 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test0");
-        TableViewInternal tbl1 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test1");
+        int parts = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test0")).internalTable().partitions();
+        TableViewInternal tbl0 = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test0"));
+        TableViewInternal tbl1 = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test1"));
 
         Function<Tuple, Tuple> tupleColocationExtract = (t) -> {
             Tuple ret = Tuple.create();
@@ -150,11 +151,11 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
         };
 
         for (int i = 0; i < parts; ++i) {
-            List<Tuple> r0 = getAll(tbl0, i);
+            List<Tuple> r0 = getAllBypassingThreadAssertions(tbl0, i);
 
             Set<Tuple> ids0 = r0.stream().map(tupleColocationExtract).collect(Collectors.toSet());
 
-            List<Tuple> r1 = getAll(tbl1, i);
+            List<Tuple> r1 = getAllBypassingThreadAssertions(tbl1, i);
 
             r1.forEach(t -> assertTrue(ids0.remove(tupleColocationExtract.apply(t))));
 
@@ -186,6 +187,20 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
         }
 
         return args.stream();
+    }
+
+    private static List<Tuple> getAllBypassingThreadAssertions(TableViewInternal tbl, int part) {
+        return IgniteTestUtils.bypassingThreadAssertions(() -> {
+            try {
+                return getAll(tbl, part);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+
+                throw new RuntimeException(e);
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     private static List<Tuple> getAll(TableViewInternal tbl, int part) throws ExecutionException, InterruptedException {
@@ -234,9 +249,9 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             case INT64:
                 return (long) i;
             case FLOAT:
-                return (float) i + ((float) i / 1000);
+                return i + ((float) i / 1000);
             case DOUBLE:
-                return (double) i + ((double) i / 1000);
+                return i + ((double) i / 1000);
             case DECIMAL:
                 return BigDecimal.valueOf((double) i + ((double) i / 1000));
             case UUID:

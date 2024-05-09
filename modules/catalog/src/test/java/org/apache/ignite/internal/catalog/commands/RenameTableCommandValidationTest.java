@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
@@ -78,7 +79,7 @@ public class RenameTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void exceptionIsThrownIfSchemaDoesNotExist() {
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = RenameTableCommand.builder()
                 .schemaName("TEST")
@@ -95,7 +96,7 @@ public class RenameTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void exceptionIsThrownIfTableWithGivenNameNotFound() {
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = RenameTableCommand.builder()
                 .schemaName(SCHEMA_NAME)
@@ -142,6 +143,27 @@ public class RenameTableCommandValidationTest extends AbstractCommandValidationT
                 builder::build,
                 CatalogValidationException.class,
                 "Operations with reserved schemas are not allowed"
+        );
+    }
+
+    @Test
+    void exceptionIsThrownIfPkIndexWithNewNameExists() {
+        Catalog catalog = catalog(
+                createTableCommand("TEST"),
+                createTableCommand("TEST3"),
+                createIndexCommand("TEST3", pkIndexName("TEST2"))
+        );
+
+        CatalogCommand command = RenameTableCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName("TEST")
+                .newTableName("TEST2")
+                .build();
+
+        assertThrows(
+                CatalogValidationException.class,
+                () -> command.get(catalog),
+                String.format("Index with name 'PUBLIC.%s' already exists", pkIndexName("TEST2"))
         );
     }
 }

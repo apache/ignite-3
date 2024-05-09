@@ -45,6 +45,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The class detects transactions that are left without a coordinator but still hold locks. For that orphan transaction, the recovery
@@ -253,7 +254,7 @@ public class OrphanDetector {
      * @param txState Transaction meta state.
      * @return True when transaction recovery is needed, false otherwise.
      */
-    private boolean isRecoveryNeeded(TxStateMeta txState) {
+    private boolean isRecoveryNeeded(@Nullable TxStateMeta txState) {
         return txState != null
                 && !isFinalState(txState.txState())
                 && txState.txState() != FINISHING

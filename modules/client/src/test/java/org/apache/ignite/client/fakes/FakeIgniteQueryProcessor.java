@@ -28,6 +28,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -48,7 +49,7 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     }
 
     @Override
-    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingleAsync(
+    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction transaction,
@@ -59,41 +60,32 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
             return CompletableFuture.failedFuture(new SqlException(STMT_VALIDATION_ERR, "Query failed"));
         }
 
-        return CompletableFuture.completedFuture(new FakeCursor(qry, properties, params, this));
-    }
+        if (Commons.isMultiStatementQueryAllowed(properties)) {
+            var sb = new StringBuilder(qry);
 
-    @Override
-    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScriptAsync(
-            SqlProperties properties,
-            IgniteTransactions transactions,
-            @Nullable InternalTransaction transaction,
-            String qry,
-            Object... params
-    ) {
-        var sb = new StringBuilder(qry);
+            sb.append(", arguments: [");
 
-        sb.append(", arguments: [");
+            for (Object arg : params) {
+                sb.append(arg).append(", ");
+            }
 
-        for (Object arg : params) {
-            sb.append(arg).append(", ");
+            sb.append(']').append(", ")
+                    .append("defaultSchema=").append(properties.getOrDefault(DEFAULT_SCHEMA, "<not set>")).append(", ")
+                    .append("defaultQueryTimeout=").append(properties.get(QUERY_TIMEOUT));
+
+            lastScript = sb.toString();
         }
 
-        sb.append(']').append(", ")
-                .append("defaultSchema=").append(properties.getOrDefault(DEFAULT_SCHEMA, "<not set>")).append(", ")
-                .append("defaultQueryTimeout=").append(properties.get(QUERY_TIMEOUT));
-
-        lastScript = sb.toString();
-
         return CompletableFuture.completedFuture(new FakeCursor(qry, properties, params, this));
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return nullCompletedFuture();
     }
 
     @Override
-    public void stop() {
-
+    public CompletableFuture<Void> stopAsync() {
+        return nullCompletedFuture();
     }
 }

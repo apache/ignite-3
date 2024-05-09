@@ -22,6 +22,7 @@ set(TARGET ${PROJECT_NAME})
 set(SOURCES
     ignite_client.cpp
     compute/compute.cpp
+    compute/job_execution.cpp
     sql/sql.cpp
     sql/result_set.cpp
     table/key_value_view.cpp
@@ -35,6 +36,7 @@ set(SOURCES
     detail/utils.cpp
     detail/node_connection.cpp
     detail/compute/compute_impl.cpp
+    detail/compute/job_execution_impl.cpp
     detail/sql/sql_impl.cpp
     detail/table/table_impl.cpp
     detail/table/tables_impl.cpp

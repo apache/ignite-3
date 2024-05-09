@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
+
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
@@ -54,7 +56,8 @@ public class ObjectIdGenUpdateEntry implements UpdateEntry {
                 catalog.time(),
                 catalog.objectIdGenState() + delta,
                 catalog.zones(),
-                catalog.schemas()
+                catalog.schemas(),
+                defaultZoneIdOpt(catalog)
         );
     }
 

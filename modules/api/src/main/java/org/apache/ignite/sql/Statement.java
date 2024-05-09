@@ -19,7 +19,6 @@ package org.apache.ignite.sql;
 
 import java.time.ZoneId;
 import java.util.concurrent.TimeUnit;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Object represents an SQL statement.
@@ -64,16 +63,10 @@ public interface Statement extends AutoCloseable {
      * Returns time zone used for this statement.
      *
      * @return Time zone used for this statement.
+     *
+     * @see StatementBuilder#timeZoneId(ZoneId)
      */
     ZoneId timeZoneId();
-
-    /**
-     * Returns statement property value that overrides the session property value or {@code null} if session property value should be used.
-     *
-     * @param name Property name.
-     * @return Property value or {@code null} if not set.
-     */
-    @Nullable Object property(String name);
 
     /**
      * Creates a statement builder from the current statement.
@@ -88,43 +81,21 @@ public interface Statement extends AutoCloseable {
      */
     interface StatementBuilder {
         /**
-         * Returns a string representation of an SQL statement.
-         *
-         * @return SQL statement string.
-         */
-        String query();
-
-        /**
          * Sets an SQL statement string.
          *
-         * @param sql SQL query.
+         * @param query SQL query.
          * @return {@code this} for chaining.
          */
-        StatementBuilder query(String sql);
-
-        /**
-         * Returns query timeout.
-         *
-         * @param timeUnit Timeunit to convert timeout to.
-         * @return Query timeout in the given timeunit.
-         */
-        long queryTimeout(TimeUnit timeUnit);
+        StatementBuilder query(String query);
 
         /**
          * Sets a query timeout.
          *
-         * @param timeout Query timeout value.
+         * @param timeout Query timeout value. Must be positive.
          * @param timeUnit Timeunit.
          * @return {@code this} for chaining.
          */
         StatementBuilder queryTimeout(long timeout, TimeUnit timeUnit);
-
-        /**
-         * Returns a statement default schema.
-         *
-         * @return Default schema for the statement.
-         */
-        String defaultSchema();
 
         /**
          * Sets a default schema for the statement.
@@ -135,49 +106,29 @@ public interface Statement extends AutoCloseable {
         StatementBuilder defaultSchema(String schema);
 
         /**
-         * Returns a page size - the maximum number of result rows that can be fetched at a time.
-         *
-         * @return Maximum number of rows per page.
-         */
-        int pageSize();
-
-        /**
          * Sets a page size - the maximum number of result rows that can be fetched at a time.
          *
-         * @param pageSize Maximum number of rows per page.
+         * @param pageSize Maximum number of rows per page. Must be positive.
          * @return {@code this} for chaining.
          */
         StatementBuilder pageSize(int pageSize);
 
-        /** Returns a statement time zone. */
-        ZoneId timeZoneId();
-
         /**
          * Sets a time zone for this statement.
          *
-         * @param timeZoneId Time zone ID.
+         * <p>This time zone is used in the following cases:
+         * <ol>
+         *     <li>When using SQL functions to obtain the current time (for example {@code SELECT CURRENT_TIME})</li>
+         *     <li>When converting a string literal to/from a TIMESTAMP WITH LOCAL TIME ZONE column
+         *     (for example {@code SELECT TIMESTAMP WITH LOCAL TIME ZONE '1992-01-18 02:30:00.123'}</li>
+         * </ol>
+         *
+         * <p>If the time zone has not been set explicitly, the current JVM default time zone will be used.
+         *
+         * @param timeZoneId Time-zone ID.
          * @return {@code this} for chaining.
          */
         StatementBuilder timeZoneId(ZoneId timeZoneId);
-
-        /**
-         * Returns a statement property value that overrides the session property value; returns {@code null} if the session
-         * property value should be used.
-         *
-         * @param name Property name.
-         * @return Property value or {@code null} if not set.
-         */
-        @Nullable Object property(String name);
-
-        /**
-         * Sets a statement property value that overrides the session property value.
-         * If {@code null} is passed, the session property value is used.
-         *
-         * @param name Property name.
-         * @param value Property value or {@code null} to use the value defined for the session.
-         * @return {@code this} for chaining.
-         */
-        StatementBuilder property(String name, @Nullable Object value);
 
         /**
          * Creates an SQL statement abject.

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.deployunit;
 
+import java.util.Objects;
+import java.util.UUID;
 import org.apache.ignite.compute.version.Version;
 
 /**
@@ -38,7 +40,7 @@ public abstract class UnitStatus {
      */
     private DeploymentStatus status;
 
-    private final long opId;
+    private final UUID opId;
 
     /**
      * Constructor.
@@ -48,7 +50,7 @@ public abstract class UnitStatus {
      * @param status Unit status.
      * @param opId Deployment unit operation identifier.
      */
-    public UnitStatus(String id, Version version, DeploymentStatus status, long opId) {
+    public UnitStatus(String id, Version version, DeploymentStatus status, UUID opId) {
         this.id = id;
         this.version = version;
         this.status = status;
@@ -96,7 +98,7 @@ public abstract class UnitStatus {
      *
      * @return Operation identifier of deployment unit creation.
      */
-    public long opId() {
+    public UUID opId() {
         return opId;
     }
 
@@ -108,24 +110,14 @@ public abstract class UnitStatus {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
-        UnitStatus meta = (UnitStatus) o;
-
-        if (id != null ? !id.equals(meta.id) : meta.id != null) {
-            return false;
-        }
-        if (version != null ? !version.equals(meta.version) : meta.version != null) {
-            return false;
-        }
-        return status == meta.status;
+        UnitStatus that = (UnitStatus) o;
+        return Objects.equals(id, that.id) && Objects.equals(version, that.version) && status == that.status
+                && Objects.equals(opId, that.opId);
     }
 
     @Override
     public int hashCode() {
-        int result = id != null ? id.hashCode() : 0;
-        result = 31 * result + (version != null ? version.hashCode() : 0);
-        result = 31 * result + (status != null ? status.hashCode() : 0);
-        return result;
+        return Objects.hash(id, version, status, opId);
     }
 
     @Override

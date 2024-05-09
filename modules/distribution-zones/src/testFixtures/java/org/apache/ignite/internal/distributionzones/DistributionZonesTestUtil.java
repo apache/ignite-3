@@ -18,32 +18,29 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
-import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -51,7 +48,6 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
-import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -74,16 +70,16 @@ public class DistributionZonesTestUtil {
      * @param zoneName Zone name.
      * @param partitions Zone number of partitions.
      * @param replicas Zone number of replicas.
-     * @param dataStorage Data storage, {@code null} if not set.
+     * @param storageProfile Data storage, {@code null} if not set.
      */
-    public static void createZoneWithDataStorage(
+    public static void createZoneWithStorageProfile(
             CatalogManager catalogManager,
             String zoneName,
             int partitions,
             int replicas,
-            @Nullable String dataStorage
+            @Nullable String storageProfile
     ) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, dataStorage);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, storageProfile);
     }
 
     /**
@@ -95,7 +91,7 @@ public class DistributionZonesTestUtil {
      * @param replicas Zone number of replicas.
      */
     public static void createZone(CatalogManager catalogManager, String zoneName, int partitions, int replicas) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, DEFAULT_STORAGE_PROFILE);
     }
 
     /**
@@ -116,7 +112,48 @@ public class DistributionZonesTestUtil {
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter
     ) {
-        createZone(catalogManager, zoneName, null, null, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter, null);
+        createZone(
+                catalogManager,
+                zoneName,
+                null,
+                null,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter,
+                DEFAULT_STORAGE_PROFILE
+        );
+    }
+
+    /**
+     * Creates a distribution zone in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param filter Nodes filter, {@code null} if not set.
+     * @param storageProfiles Storage profiles.
+     */
+    public static void createZone(
+            CatalogManager catalogManager,
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter,
+            String storageProfiles
+    ) {
+        createZone(
+                catalogManager,
+                zoneName,
+                null,
+                null,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter,
+                storageProfiles
+        );
     }
 
     private static void createZone(
@@ -127,7 +164,7 @@ public class DistributionZonesTestUtil {
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
-            @Nullable String dataStorage
+            String storageProfiles
     ) {
         CreateZoneCommandBuilder builder = CreateZoneCommand.builder().zoneName(zoneName);
 
@@ -151,22 +188,22 @@ public class DistributionZonesTestUtil {
             builder.filter(filter);
         }
 
-        if (dataStorage != null) {
-            builder.dataStorageParams(DataStorageParams.builder().engine(dataStorage).build());
-        }
+        assertNotNull(storageProfiles);
+
+        builder.storageProfilesParams(parseStorageProfiles(storageProfiles));
 
         assertThat(catalogManager.execute(builder.build()), willCompleteSuccessfully());
     }
 
     /**
-     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)}.
+     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)} in storage with set of LogicalNodes as input.
      *
      * @param zoneId Zone id.
      * @param clusterNodes Data nodes.
      * @param keyValueStorage Key-value storage.
      * @throws InterruptedException If thread was interrupted.
      */
-    public static void assertDataNodesForZone(
+    public static void assertDataNodesFromLogicalNodesInStorage(
             int zoneId,
             @Nullable Set<LogicalNode> clusterNodes,
             KeyValueStorage keyValueStorage
@@ -185,35 +222,17 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)}.
+     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)} in storage.
      *
      * @param zoneId Zone id.
      * @param nodes Data nodes.
      * @param keyValueStorage Key-value storage.
      * @throws InterruptedException If thread was interrupted.
      */
-    public static void assertDataNodesForZoneWithAttributes(
+    public static void assertDataNodesInStorage(
             int zoneId,
             @Nullable Set<Node> nodes,
             KeyValueStorage keyValueStorage
-    ) throws InterruptedException {
-        assertDataNodesForZoneWithAttributes(zoneId, nodes, keyValueStorage, DEFAULT_FILTER);
-    }
-
-    /**
-     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)} and with provided {@code filter}.
-     *
-     * @param zoneId Zone id.
-     * @param nodes Data nodes.
-     * @param keyValueStorage Key-value storage.
-     * @param filter Filter for data nodes.
-     * @throws InterruptedException If thread was interrupted.
-     */
-    public static void assertDataNodesForZoneWithAttributes(
-            int zoneId,
-            @Nullable Set<Node> nodes,
-            KeyValueStorage keyValueStorage,
-            String filter
     ) throws InterruptedException {
         assertValueInStorage(
                 keyValueStorage,
@@ -305,7 +324,9 @@ public class DistributionZonesTestUtil {
     ) throws InterruptedException {
         Set<NodeWithAttributes> nodes = clusterNodes == null
                 ? null
-                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes())).collect(toSet());
+                : clusterNodes.stream()
+                        .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
+                        .collect(toSet());
 
         assertValueInStorage(
                 metaStorageManager,
@@ -331,30 +352,6 @@ public class DistributionZonesTestUtil {
                 topVer,
                 1000
         );
-    }
-
-    /**
-     * Sets logical topology to Vault.
-     *
-     * @param nodes Logical topology
-     * @param metaStorageManager Meta storage manager
-     */
-    public static void mockZonesLogicalTopologyAndAttributes(
-            Set<LogicalNode> nodes,
-            MetaStorageManager metaStorageManager
-    ) {
-        Set<NodeWithAttributes> nodesWithAttributes = nodes.stream()
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
-                .collect(toSet());
-
-        byte[] newLogicalTopology = toBytes(nodesWithAttributes);
-
-        Map<String, Map<String, String>> nodesAttributes = new ConcurrentHashMap<>();
-        nodesWithAttributes.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
-        assertThat(metaStorageManager.put(zonesNodesAttributes(), toBytes(nodesAttributes)), willCompleteSuccessfully());
-
-        assertThat(metaStorageManager.put(zonesLogicalTopologyKey(), newLogicalTopology), willCompleteSuccessfully());
-        assertThat(metaStorageManager.put(zonesLogicalTopologyVersionKey(), longToBytes(1L)), willCompleteSuccessfully());
     }
 
     /**
@@ -572,6 +569,15 @@ public class DistributionZonesTestUtil {
         CatalogZoneDescriptor zone = catalogService.zone(zoneName, timestamp);
 
         return zone == null ? null : zone.id();
+    }
+
+    /** Returns default distribution zone. */
+    public static CatalogZoneDescriptor getDefaultZone(CatalogService catalogService, long timestamp) {
+        Catalog catalog = catalogService.catalog(catalogService.activeCatalogVersion(timestamp));
+
+        Objects.requireNonNull(catalog);
+
+        return Objects.requireNonNull(catalog.defaultZone());
     }
 
     /**

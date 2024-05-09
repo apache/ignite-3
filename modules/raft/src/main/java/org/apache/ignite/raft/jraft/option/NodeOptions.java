@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
@@ -48,8 +48,11 @@ import org.apache.ignite.raft.jraft.util.timer.Timer;
  * Node options.
  */
 public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
-    /** This value is used by default to determine the count of stripes in the striped queue. */
-    private static final int DEFAULT_STRIPES = Utils.cpus() * 2;
+    /** This value is used by default to determine the count of stripes in the striped disruptors, excluding log manager disruptor. */
+    private static final int DEFAULT_STRIPES = Utils.cpus();
+
+    /** This value is used by default to determine the count of stripes for log manager. */
+    private static final int DEFAULT_LOG_STRIPES_COUNT = 4;
 
     // A follower would become a candidate if it doesn't receive any message
     // from the leader in |election_timeout_ms| milliseconds
@@ -247,7 +250,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /**
      * Amount of log manager Disruptors stripes.
      */
-    private int logStripesCount = DEFAULT_STRIPES;
+    private int logStripesCount = DEFAULT_LOG_STRIPES_COUNT;
 
     /**
      * Set true to use the non-blocking strategy in the log manager.
@@ -267,8 +270,23 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     private Marshaller commandsMarshaller;
 
+    private RaftMetricSource raftMetrics;
+
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
+    }
+
+    /**
+    * Gets raft metrics.
+    *
+    * @return Raft metrics.
+    */
+    public RaftMetricSource getRaftMetrics() {
+        return raftMetrics;
+    }
+
+    public void setRaftMetrics(RaftMetricSource raftMetrics) {
+        this.raftMetrics = raftMetrics;
     }
 
     /**

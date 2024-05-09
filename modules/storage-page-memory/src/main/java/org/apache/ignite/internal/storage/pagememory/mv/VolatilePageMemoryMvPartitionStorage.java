@@ -34,6 +34,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
@@ -61,6 +62,9 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     /** Last applied term value. */
     private volatile long lastAppliedTerm;
 
+    /** Lease start time. */
+    private volatile long leaseStartTime;
+
     /** Last group configuration. */
     private volatile byte @Nullable [] groupConfig;
 
@@ -69,6 +73,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      *
      * @param tableStorage Table storage instance.
      * @param partitionId Partition id.
+     * @param pageEvictionTracker Page eviction tracker.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param destructionExecutor Executor used to destruct partitions.
@@ -77,6 +82,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     public VolatilePageMemoryMvPartitionStorage(
             VolatilePageMemoryTableStorage tableStorage,
             int partitionId,
+            PageEvictionTracker pageEvictionTracker,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue,
@@ -85,12 +91,12 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         super(
                 partitionId,
                 tableStorage,
+                pageEvictionTracker,
                 new RenewablePartitionStorageState(
                         tableStorage,
                         partitionId,
                         versionChainTree,
-                        tableStorage.dataRegion().rowVersionFreeList(),
-                        tableStorage.dataRegion().indexColumnsFreeList(),
+                        tableStorage.dataRegion().freeList(),
                         indexMetaTree,
                         gcQueue
                 ),
@@ -189,6 +195,30 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
+    public void updateLease(long leaseStartTime) {
+        busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
+
+            if (leaseStartTime <= this.leaseStartTime) {
+                return null;
+            }
+
+            this.leaseStartTime = leaseStartTime;
+
+            return null;
+        });
+    }
+
+    @Override
+    public long leaseStartTime() {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
+
+            return leaseStartTime;
+        });
+    }
+
+    @Override
     public void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) {
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
@@ -212,6 +242,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;
         groupConfig = null;
+        leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
 
         return destroyFuture;
     }
@@ -244,7 +275,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         while (rowVersionLink != PageIdUtils.NULL_LINK) {
             RowVersion rowVersion = readRowVersion(rowVersionLink, NEVER_LOAD_VALUE);
 
-            renewableState.rowVersionFreeList().removeDataRowByLink(rowVersion.link());
+            renewableState.freeList().removeDataRowByLink(rowVersion.link());
 
             rowVersionLink = rowVersion.nextLink();
         }
@@ -312,8 +343,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
         updateRenewableState(
                 versionChainTree,
-                prevState.rowVersionFreeList(),
-                prevState.indexFreeList(),
+                prevState.freeList(),
                 indexMetaTree,
                 gcQueue
         );

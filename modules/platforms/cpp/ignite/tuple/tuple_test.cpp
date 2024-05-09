@@ -63,6 +63,10 @@ T get_value(bytes_view data) {
         res = binary_tuple_parser::get_uuid(data);
     } else if constexpr (std::is_same<T, std::string>::value) {
         res = std::string(binary_tuple_parser::get_varlen(data));
+    } else if constexpr (std::is_same<T, big_decimal>::value) {
+        res = big_decimal(binary_tuple_parser::get_decimal(data));
+    } else {
+        throw std::logic_error("Type is not supported");
     }
     return res;
 }
@@ -92,6 +96,10 @@ struct builder : binary_tuple_builder {
             claim_double(value);
         } else if constexpr (std::is_same<T, std::string>::value) {
             claim_varlen(value);
+        } else if constexpr (std::is_same<T, big_decimal>::value || std::is_same<T, big_integer>::value) {
+            claim_number(value);
+        } else {
+            throw std::logic_error("Type is not supported");
         }
     }
 
@@ -113,6 +121,10 @@ struct builder : binary_tuple_builder {
             append_double(value);
         } else if constexpr (std::is_same<T, std::string>::value) {
             append_varlen(value);
+        } else if constexpr (std::is_same<T, big_decimal>::value || std::is_same<T, big_integer>::value) {
+            append_number(value);
+        } else {
+            throw std::logic_error("Type is not supported");
         }
     }
 
@@ -162,7 +174,8 @@ struct single_value_check {
 
     template<typename T>
     void operator()(T value) {
-        EXPECT_EQ(value, get_value<T>(parser.get_next()));
+        auto res = get_value<T>(parser.get_next());
+        EXPECT_EQ(value, res);
     }
 
     void operator()(std::nullopt_t /*null*/) { EXPECT_TRUE(parser.get_next().empty()); }
@@ -175,12 +188,6 @@ void check_reader_writer_equality(
 
     bytes_view bytes{reinterpret_cast<const std::byte *>(data), size};
 
-    binary_tuple_parser tp(NUM_ELEMENTS, bytes);
-
-    std::apply([&tp](const Ts... args) { ((single_value_check(tp)(args)), ...); }, values);
-
-    EXPECT_EQ(tp.num_elements(), tp.num_parsed_elements());
-
     if (!skip_assembler_check) {
         builder ta(NUM_ELEMENTS);
 
@@ -188,6 +195,26 @@ void check_reader_writer_equality(
 
         EXPECT_THAT(built, testing::ContainerEq(bytes));
     }
+
+    binary_tuple_parser tp(NUM_ELEMENTS, bytes);
+
+    std::apply([&tp](const Ts... args) { ((single_value_check(tp)(args)), ...); }, values);
+
+    EXPECT_EQ(tp.num_elements(), tp.num_parsed_elements());
+}
+
+template<typename T>
+void check_reader_writer_equality(const T &value) {
+    builder ta(1);
+
+    bytes_view built = ta.build(std::make_tuple(value));
+
+    binary_tuple_parser tp(1, built);
+
+    single_value_check check(tp);
+    check(value);
+
+    EXPECT_EQ(tp.num_elements(), tp.num_parsed_elements());
 }
 
 TEST(tuple, AllTypes) {
@@ -1087,3 +1114,162 @@ TEST(tuple, VarlenMediumTest) { // NOLINT(cert-err58-cpp)
         }
     }
 }
+
+class tuple_big_decimal_zeros : public testing::TestWithParam<big_decimal> {};
+
+TEST_P(tuple_big_decimal_zeros, DecimalZerosTest) { // NOLINT(cert-err58-cpp)
+    int8_t binary[] = {0, 3, 0, 0, 0};
+
+    check_reader_writer_equality(std::make_tuple(GetParam()), binary);
+}
+
+INSTANTIATE_TEST_SUITE_P(zeros, tuple_big_decimal_zeros,
+    testing::Values(big_decimal("0"), big_decimal("-0"), big_decimal("0E1000"), big_decimal("0E-1000"), big_decimal(0),
+        big_decimal(std::int64_t(0), 10)));
+
+class tuple_big_decimal : public testing::TestWithParam<big_decimal> {};
+
+TEST_P(tuple_big_decimal, WriteReadEqualityTest) { // NOLINT(cert-err58-cpp)
+    check_reader_writer_equality(GetParam());
+}
+
+INSTANTIATE_TEST_SUITE_P(positive_ints, tuple_big_decimal,
+    testing::Values(big_decimal(1), big_decimal(9), big_decimal(10), big_decimal(11), big_decimal(19), big_decimal(123),
+        big_decimal(1234), big_decimal(12345), big_decimal(123456), big_decimal(1234567), big_decimal(12345678),
+        big_decimal(123456789), big_decimal(1234567890), big_decimal(12345678909), big_decimal(123456789098),
+        big_decimal(1234567890987), big_decimal(12345678909876), big_decimal(123456789098765),
+        big_decimal(1234567890987654), big_decimal(12345678909876543), big_decimal(123456789098765432),
+        big_decimal(1234567890987654321), big_decimal(999999999999999999L), big_decimal(999999999099999999L),
+        big_decimal(1000000000000000000L), big_decimal(1000000000000000001L), big_decimal(1000000005000000000L),
+        big_decimal(INT64_MAX)));
+
+INSTANTIATE_TEST_SUITE_P(negative_ints, tuple_big_decimal,
+    testing::Values(big_decimal(-1), big_decimal(-9), big_decimal(-10), big_decimal(-11), big_decimal(-19),
+        big_decimal(-123), big_decimal(-1234), big_decimal(-12345), big_decimal(-123456), big_decimal(-1234567),
+        big_decimal(-12345678), big_decimal(-123456789), big_decimal(-1234567890), big_decimal(-12345678909),
+        big_decimal(-123456789098), big_decimal(-1234567890987), big_decimal(-12345678909876),
+        big_decimal(-123456789098765), big_decimal(-1234567890987654), big_decimal(-12345678909876543),
+        big_decimal(-123456789098765432), big_decimal(-1234567890987654321), big_decimal(-999999999999999999L),
+        big_decimal(-999999999099999999L), big_decimal(-1000000000000000000L), big_decimal(-1000000000000000001L),
+        big_decimal(-1000000005000000000L), big_decimal(INT64_MIN)));
+
+INSTANTIATE_TEST_SUITE_P(strings, tuple_big_decimal,
+    testing::Values(big_decimal("1"), big_decimal("2"), big_decimal("9"), big_decimal("10"), big_decimal("1123"),
+        big_decimal("64539472569345602304"), big_decimal("2376926357280573482539570263854"),
+        big_decimal("4078460509739485762306457364875609364258763498578235876432589345693645872686453947256"
+                    "93456023046037490024067294087609279"),
+
+        big_decimal("1000000000000"), big_decimal("1000000000000000000000000000"),
+        big_decimal("100000000000000000000000000000000000000000000000000000000000"),
+
+        big_decimal("99999999999999"), big_decimal("99999999999999999999999999999999"),
+        big_decimal("9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"),
+
+        big_decimal("-1"), big_decimal("-2"), big_decimal("-9"), big_decimal("-10"), big_decimal("-1123"),
+        big_decimal("-64539472569345602304"), big_decimal("-2376926357280573482539570263854"),
+        big_decimal("-407846050973948576230645736487560936425876349857823587643258934569364587268645394725"
+                    "693456023046037490024067294087609279"),
+
+        big_decimal("-1000000000000"), big_decimal("-1000000000000000000000000000"),
+        big_decimal("-100000000000000000000000000000000000000000000000000000000000"),
+
+        big_decimal("-99999999999999"), big_decimal("-99999999999999999999999999999999"),
+        big_decimal("-9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"),
+
+        big_decimal("0.1"), big_decimal("0.2"), big_decimal("0.3"), big_decimal("0.4"), big_decimal("0.5"),
+        big_decimal("0.6"), big_decimal("0.7"), big_decimal("0.8"), big_decimal("0.9"), big_decimal("0.01"),
+        big_decimal("0.001"), big_decimal("0.0001"), big_decimal("0.00001"), big_decimal("0.000001"),
+        big_decimal("0.0000001"),
+
+        big_decimal("0.00000000000000000000000000000000001"), big_decimal("0.10000000000000000000000000000000001"),
+        big_decimal("0.10101010101010101010101010101010101"), big_decimal("0.99999999999999999999999999999999999"),
+        big_decimal("0.79287502687354897253590684568634528762"),
+
+        big_decimal("0.00000000000000000000000000000000000000000000000000000001"),
+        big_decimal("0.10000000000000000000000000000000000000000000000000000001"),
+        big_decimal("0.1111111111111111111111111111111111111111111111111111111111"),
+        big_decimal("0.9999999999999999999999999999999999999999999999999999999999999999999"),
+        big_decimal("0.436589746389567836745873648576289634589763845768268457683762864587684635892768346589629"),
+
+        big_decimal("0."
+                    "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                    "0000000000000000000000000000000000001"),
+        big_decimal("0."
+                    "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                    "0000000000000000000000000000000000001"),
+        big_decimal("0."
+                    "1111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
+                    "11111111111111111111111111111111111111111"),
+        big_decimal("0."
+                    "9999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+                    "99999999999999999999999999999999999999999999999999"),
+        big_decimal("0."
+                    "4365897463895678367458736485762896345897638457682684576837628645876846358927683465493"
+                    "85700256032605603246580726384075680247634627357023645889629"),
+
+        big_decimal("-0.1"), big_decimal("-0.2"), big_decimal("-0.3"), big_decimal("-0.4"), big_decimal("-0.5"),
+        big_decimal("-0.6"), big_decimal("-0.7"), big_decimal("-0.8"), big_decimal("-0.9"), big_decimal("-0.01"),
+        big_decimal("-0.001"), big_decimal("-0.0001"), big_decimal("-0.00001"), big_decimal("-0.000001"),
+        big_decimal("-0.0000001"),
+
+        big_decimal("-0.00000000000000000000000000000000001"), big_decimal("-0.10000000000000000000000000000000001"),
+        big_decimal("-0.10101010101010101010101010101010101"), big_decimal("-0.99999999999999999999999999999999999"),
+        big_decimal("-0.79287502687354897253590684568634528762"),
+
+        big_decimal("-0.00000000000000000000000000000000000000000000000000000001"),
+        big_decimal("-0.10000000000000000000000000000000000000000000000000000001"),
+        big_decimal("-0.1111111111111111111111111111111111111111111111111111111111"),
+        big_decimal("-0.9999999999999999999999999999999999999999999999999999999999999999999"),
+        big_decimal("-0.436589746389567836745873648576289634589763845768268457683762864587684635892768346589629"),
+
+        big_decimal("-0."
+                    "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                    "0000000000000000000000000000000000001"),
+        big_decimal("-0."
+                    "1000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                    "0000000000000000000000000000000000001"),
+        big_decimal("-0."
+                    "1111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
+                    "11111111111111111111111111111111111111111"),
+        big_decimal("-0."
+                    "9999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+                    "99999999999999999999999999999999999999999999999999"),
+        big_decimal("-0."
+                    "4365897463895678367458736485762896345897638457682684576837628645876846358927683465493"
+                    "85700256032605603246580726384075680247634627357023645889629"),
+
+        big_decimal("1.1"), big_decimal("12.21"), big_decimal("123.321"), big_decimal("1234.4321"),
+        big_decimal("12345.54321"), big_decimal("123456.654321"), big_decimal("1234567.7654321"),
+        big_decimal("12345678.87654321"), big_decimal("123456789.987654321"), big_decimal("1234567890.0987654321"),
+        big_decimal("12345678909.90987654321"), big_decimal("123456789098.890987654321"),
+        big_decimal("1234567890987.7890987654321"), big_decimal("12345678909876.67890987654321"),
+        big_decimal("123456789098765.567890987654321"), big_decimal("1234567890987654.4567890987654321"),
+        big_decimal("12345678909876543.34567890987654321"), big_decimal("123456789098765432.234567890987654321"),
+        big_decimal("1234567890987654321.1234567890987654321"),
+        big_decimal("12345678909876543210.01234567890987654321"),
+        big_decimal("10000000000000000000000000000000000000000000000000000000000000."
+                    "000000000000000000000000000000000000000000000000000000000000001"),
+        big_decimal("111111111111111111111111111111111111111111111111111111111111111111111."
+                    "11111111111111111111111111111111111111111111111111111111111111"),
+        big_decimal("99999999999999999999999999999999999999999999999999999999999999999999."
+                    "99999999999999999999999999999999999999999999999999999999999999999999"),
+        big_decimal("458796987658934265896483756892638456782376482605002747502306790283640563."
+                    "12017054126750641065780784583204650763485718064875683468568360506340563042567"),
+
+        big_decimal("-1.1"), big_decimal("-12.21"), big_decimal("-123.321"), big_decimal("-1234.4321"),
+        big_decimal("-12345.54321"), big_decimal("-123456.654321"), big_decimal("-1234567.7654321"),
+        big_decimal("-12345678.87654321"), big_decimal("-123456789.987654321"), big_decimal("-1234567890.0987654321"),
+        big_decimal("-12345678909.90987654321"), big_decimal("-123456789098.890987654321"),
+        big_decimal("-1234567890987.7890987654321"), big_decimal("-12345678909876.67890987654321"),
+        big_decimal("-123456789098765.567890987654321"), big_decimal("-1234567890987654.4567890987654321"),
+        big_decimal("-12345678909876543.34567890987654321"), big_decimal("-123456789098765432.234567890987654321"),
+        big_decimal("-1234567890987654321.1234567890987654321"),
+        big_decimal("-12345678909876543210.01234567890987654321"),
+        big_decimal("-10000000000000000000000000000000000000000000000000000000000000."
+                    "000000000000000000000000000000000000000000000000000000000000001"),
+        big_decimal("-111111111111111111111111111111111111111111111111111111111111111111111."
+                    "11111111111111111111111111111111111111111111111111111111111111"),
+        big_decimal("-99999999999999999999999999999999999999999999999999999999999999999999."
+                    "99999999999999999999999999999999999999999999999999999999999999999999"),
+        big_decimal("-458796987658934265896483756892638456782376482605002747502306790283640563."
+                    "12017054126750641065780784583204650763485718064875683468568360506340563042567")));

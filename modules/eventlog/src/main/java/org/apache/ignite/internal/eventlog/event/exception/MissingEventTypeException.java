@@ -25,7 +25,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 public class MissingEventTypeException extends IgniteInternalException {
     private static final long serialVersionUID = -111097551088227263L;
 
-    /** Constructor.*/
+    /** Constructor. */
     public MissingEventTypeException() {
         super(ILLEGAL_ARGUMENT_ERR, "Missing event type during event creation.");
     }

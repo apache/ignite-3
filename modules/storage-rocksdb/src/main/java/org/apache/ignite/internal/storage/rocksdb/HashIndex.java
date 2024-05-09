@@ -43,6 +43,6 @@ class HashIndex extends Index<RocksDbHashIndexStorage> {
 
     @Override
     RocksDbHashIndexStorage createStorage(int partitionId) {
-        return new RocksDbHashIndexStorage(descriptor, tableId, partitionId, indexColumnFamily().columnFamily(), indexMetaStorage);
+        return new RocksDbHashIndexStorage(descriptor, tableId(), partitionId, columnFamily(), indexMetaStorage);
     }
 }

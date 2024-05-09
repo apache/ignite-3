@@ -17,6 +17,6 @@
 
 package org.apache.ignite.internal.event;
 
-/** Event parameters. This type is passed to the {@link EventListener#notify(EventParameters, Throwable)}. */
+/** Event parameters. This type is passed to the {@link EventListener#notify(EventParameters)}. */
 public interface EventParameters {
 }

@@ -46,6 +46,7 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery {
     Query from(ZoneDefinition def) {
         createZone = new CreateZoneImpl(sql, options);
         createZone.name(def.zoneName());
+        createZone.storageProfiles(def.storageProfiles());
         if (def.ifNotExists()) {
             createZone.ifNotExists();
         }
@@ -72,12 +73,6 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery {
 
         if (!StringUtils.nullOrBlank(def.filter())) {
             createZone.filter(def.filter());
-        }
-
-        createZone.engine(def.engine());
-
-        if (!StringUtils.nullOrBlank(def.dataRegion())) {
-            createZone.dataRegion(def.dataRegion());
         }
 
         return this;

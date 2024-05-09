@@ -20,6 +20,8 @@ package org.apache.ignite.internal.storage.index;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
 
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.worker.ThreadAssertingCursor;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,5 +50,19 @@ public class ThreadAssertingSortedIndexStorage extends ThreadAssertingIndexStora
         assertThreadAllowsToRead();
 
         return new ThreadAssertingPeekCursor<>(indexStorage.scan(lowerBound, upperBound, flags));
+    }
+
+    @Override
+    public Cursor<IndexRow> readOnlyScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        assertThreadAllowsToRead();
+
+        return new ThreadAssertingCursor<>(indexStorage.readOnlyScan(lowerBound, upperBound, flags));
+    }
+
+    @Override
+    public PeekCursor<IndexRow> tolerantScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        assertThreadAllowsToRead();
+
+        return new ThreadAssertingPeekCursor<>(indexStorage.tolerantScan(lowerBound, upperBound, flags));
     }
 }

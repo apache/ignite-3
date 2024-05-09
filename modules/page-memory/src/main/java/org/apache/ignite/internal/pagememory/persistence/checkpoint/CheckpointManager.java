@@ -19,10 +19,12 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.MUST_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -42,7 +44,6 @@ import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
 import org.jetbrains.annotations.Nullable;
 
@@ -107,6 +108,7 @@ public class CheckpointManager {
             PartitionMetaManager partitionMetaManager,
             Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
             PageIoRegistry ioRegistry,
+            LogSyncer logSyncer,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) throws IgniteInternalCheckedException {
@@ -155,7 +157,8 @@ public class CheckpointManager {
                 checkpointPagesWriterFactory,
                 filePageStoreManager,
                 compactor,
-                checkpointConfig
+                checkpointConfig,
+                logSyncer
         );
 
         checkpointTimeoutLock = new CheckpointTimeoutLock(
@@ -184,7 +187,7 @@ public class CheckpointManager {
      * Stops a checkpoint manger.
      */
     public void stop() throws Exception {
-        IgniteUtils.closeAll(
+        closeAll(
                 checkpointTimeoutLock::stop,
                 checkpointer::stop,
                 checkpointWorkflow::stop,

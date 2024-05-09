@@ -23,6 +23,9 @@ import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_CO
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.rocksdb.AbstractEventListener;
 import org.rocksdb.FlushJobInfo;
 import org.rocksdb.RocksDB;
@@ -31,6 +34,9 @@ import org.rocksdb.RocksDB;
  * Represents a listener of RocksDB flush events.
  */
 class RocksDbFlushListener extends AbstractEventListener {
+    /** Logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(RocksDbFlushListener.class);
+
     /** Flusher instance. */
     private final RocksDbFlusher flusher;
 
@@ -39,6 +45,9 @@ class RocksDbFlushListener extends AbstractEventListener {
      * events, and vice versa.
      */
     private final AtomicReference<EnabledEventCallback> lastEventType = new AtomicReference<>(ON_FLUSH_COMPLETED);
+
+    /** Write-ahead log synchronizer. */
+    private final LogSyncer logSyncer;
 
     /**
      * Future that guarantees that last flush was fully processed and the new flush can safely begin.
@@ -49,16 +58,24 @@ class RocksDbFlushListener extends AbstractEventListener {
      * Constructor.
      *
      * @param flusher Flusher instance to delegate events processing to.
+     * @param logSyncer Write-ahead log synchronizer.
      */
-    RocksDbFlushListener(RocksDbFlusher flusher) {
+    RocksDbFlushListener(RocksDbFlusher flusher, LogSyncer logSyncer) {
         super(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED);
 
         this.flusher = flusher;
+        this.logSyncer = logSyncer;
     }
 
     /** {@inheritDoc} */
     @Override
     public void onFlushBegin(RocksDB db, FlushJobInfo flushJobInfo) {
+        try {
+            logSyncer.sync();
+        } catch (Exception e) {
+            LOG.error("Couldn't sync RocksDB WAL on flush begin", e);
+        }
+
         if (lastEventType.compareAndSet(ON_FLUSH_COMPLETED, ON_FLUSH_BEGIN)) {
             lastFlushProcessed.join();
         }

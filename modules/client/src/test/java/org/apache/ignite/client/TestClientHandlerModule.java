@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -47,13 +48,13 @@ import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.TestLowWatermark;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.lang.IgniteException;
@@ -151,7 +152,7 @@ public class TestClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         if (channel != null) {
             throw new IgniteException("ClientHandlerModule is already started.");
         }
@@ -167,12 +168,18 @@ public class TestClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (channel != null) {
-            channel.close().await();
+            try {
+                channel.close().await();
+            } catch (InterruptedException e) {
+                return failedFuture(e);
+            }
 
             channel = null;
         }
+
+        return nullCompletedFuture();
     }
 
     /**

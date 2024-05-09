@@ -506,5 +506,14 @@ namespace Apache.Ignite.Tests.Sql
 
             Assert.AreEqual("Failed to parse query: Encountered \"SOMETHING\" at line 1, column 8", inner.Message);
         }
+
+        [Test]
+        public async Task TestCustomDecimalScale()
+        {
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, "select (cast(10 as decimal(20, 10)) / ?)", 3m);
+            IIgniteTuple res = await resultSet.SingleAsync();
+
+            Assert.AreEqual(3.333333333333333m, res[0]);
+        }
     }
 }

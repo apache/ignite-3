@@ -87,7 +87,6 @@ public class TpchBenchmark extends AbstractMultiNodeBenchmark {
 
     /** Initializes a schema and fills tables with data. */
     @Setup
-    @SuppressWarnings("ConstantValue")
     public void setUp() throws Exception {
         try {
             sql = clusterNode.sql();
@@ -140,13 +139,18 @@ public class TpchBenchmark extends AbstractMultiNodeBenchmark {
         new Runner(opt).run();
     }
 
-    private void fillTable(TpchTables table) throws IOException {
+    private void fillTable(TpchTables table) {
         System.out.println("Going to fill table \"" + table.tableName() + "\"...");
         long start = System.nanoTime();
         int count = 0;
-        for (String line : Files.readAllLines(pathToDataset.resolve(table.tableName() + ".tbl"))) {
-            Object[] params = line.split("\\|");
-
+        Iterable<Object[]> dataProvider = () -> {
+            try {
+                return table.dataProvider(pathToDataset);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        };
+        for (Object[] params : dataProvider) {
             sql.execute(null, table.insertPrepareStatement(), params);
 
             if (++count % 10_000 == 0) {
@@ -161,5 +165,3 @@ public class TpchBenchmark extends AbstractMultiNodeBenchmark {
         // NO-OP
     }
 }
-
-

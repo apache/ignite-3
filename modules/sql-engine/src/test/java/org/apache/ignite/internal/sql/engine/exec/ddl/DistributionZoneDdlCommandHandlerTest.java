@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -58,6 +59,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
     public void testCreateZone() {
         CreateZoneCommand cmd = new CreateZoneCommand();
         cmd.zoneName(ZONE_NAME);
+        cmd.storageProfiles(DEFAULT_STORAGE_PROFILE);
 
         invokeHandler(cmd);
 

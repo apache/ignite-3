@@ -126,7 +126,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
     public void testIndexLoopJoin() {
-        assertQuery("SELECT /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ d1.name, d2.name "
+        assertQuery("SELECT /*+ DISABLE_RULE('HashJoinConverter', 'MergeJoinConverter', 'NestedLoopJoinConverter') */ d1.name, d2.name "
                 + "FROM Developer d1, Developer d2 WHERE d1.id = d2.id")
                 .matches(containsSubPlan("CorrelatedNestedLoopJoin"))
                 .returns("Bach", "Bach")
@@ -569,7 +569,6 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21287")
     public void testOrCondition5() {
         assertQuery("SELECT * FROM Developer WHERE depId=1 OR name='Mozart'")
                 .matches(containsUnion(true))
@@ -825,7 +824,10 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testNotNullCondition() {
-        assertQuery("SELECT * FROM T1 WHERE val is not null")
+        // IS NOT NULL predicate has low selectivity, thus, given the cost of the index scan,
+        // it's considered cheaper to scan the whole table instead. Let's force planner to use
+        // index of interest
+        assertQuery("SELECT /*+ FORCE_INDEX(t1_idx) */ t1.* FROM T1 WHERE val is not null")
                 .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
                 .matches(not(containsUnion()))
                 .returns(3, 3)
@@ -914,7 +916,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
             String sql = "SELECT t1.i1, t2.i1 FROM t t1 LEFT JOIN t t2 ON t1.i2 = t2.i1";
 
             assertQuery(sql)
-                    .disableRules("NestedLoopJoinConverter", "MergeJoinConverter")
+                    .disableRules("NestedLoopJoinConverter", "MergeJoinConverter", "HashJoinConverter")
                     .matches(containsSubPlan("CorrelatedNestedLoopJoin"))
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(0, null)

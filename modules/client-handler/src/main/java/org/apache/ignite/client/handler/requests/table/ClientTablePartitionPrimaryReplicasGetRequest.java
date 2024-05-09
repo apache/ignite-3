@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -32,8 +33,8 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
     /**
      * Processes the request.
      *
-     * @param in      Unpacker.
-     * @param out     Packer.
+     * @param in Unpacker.
+     * @param out Packer.
      * @param tracker Replica tracker.
      * @return Future.
      * @throws IgniteException When schema registry is no initialized.
@@ -47,13 +48,19 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
         long timestamp = in.unpackLong();
 
         return tracker.primaryReplicasAsync(tableId, timestamp).thenAccept(primaryReplicas -> {
-            if (primaryReplicas == null) {
-                out.packInt(0);
+            assert primaryReplicas != null : "Primary replicas == null";
+
+            List<String> nodeNames = primaryReplicas.nodeNames();
+            if (nodeNames == null) {
+                // Special case: assignment is not yet available, but we return the partition count.
+                out.packInt(primaryReplicas.partitions());
+                out.packBoolean(false);
             } else {
-                out.packInt(primaryReplicas.nodeNames().size());
+                out.packInt(nodeNames.size());
+                out.packBoolean(true); // Assignment available.
                 out.packLong(primaryReplicas.timestamp());
 
-                for (String nodeName : primaryReplicas.nodeNames()) {
+                for (String nodeName : nodeNames) {
                     out.packString(nodeName);
                 }
             }

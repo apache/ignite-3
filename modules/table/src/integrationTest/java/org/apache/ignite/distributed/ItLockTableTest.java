@@ -17,7 +17,7 @@
 
 package org.apache.ignite.distributed;
 
-import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -28,10 +28,12 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -96,6 +98,9 @@ public class ItLockTableTest extends IgniteAbstractTest {
     protected static TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
+    protected static ReplicationConfiguration replicationConfiguration;
+
+    @InjectConfiguration
     protected static StorageUpdateConfiguration storageUpdateConfiguration;
 
     private ItTxTestCluster txTestCluster;
@@ -122,7 +127,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 1,
                 1,
                 false,
-                timestampTracker
+                timestampTracker,
+                replicationConfiguration
         ) {
             @Override
             protected TxManagerImpl newTxManager(
@@ -133,7 +139,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                     ClusterNode node,
                     PlacementDriver placementDriver,
                     RemotelyTriggeredResourceRegistry resourcesRegistry,
-                    TransactionInflights transactionInflights
+                    TransactionInflights transactionInflights,
+                    LowWatermark lowWatermark
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
@@ -150,7 +157,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                         new TestLocalRwTxCounter(),
                         resourcesRegistry,
-                        transactionInflights
+                        transactionInflights,
+                        lowWatermark
                 );
             }
         };

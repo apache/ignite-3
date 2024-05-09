@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import java.util.List;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -76,10 +77,10 @@ public interface AlterZoneCommandBuilder extends AbstractZoneCommandBuilder<Alte
     AlterZoneCommandBuilder filter(@Nullable String filter);
 
     /**
-     * Sets the data storage.
+     * Sets storage profiles.
      *
-     * @param params Optional data storage params.
+     * @param params Optional storage profiles params.
      * @return This instance.
      */
-    AlterZoneCommandBuilder dataStorageParams(@Nullable DataStorageParams params);
+    AlterZoneCommandBuilder storageProfilesParams(@Nullable List<StorageProfileParams> params);
 }

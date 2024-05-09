@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
+import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIoModule;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
@@ -37,7 +38,8 @@ public class PageMemoryIoModule implements PageIoModule {
         return List.of(
                 PagesListMetaIo.VERSIONS,
                 PagesListNodeIo.VERSIONS,
-                PartitionMetaIo.VERSIONS
+                PartitionMetaIo.VERSIONS,
+                DataPageIo.VERSIONS
         );
     }
 }

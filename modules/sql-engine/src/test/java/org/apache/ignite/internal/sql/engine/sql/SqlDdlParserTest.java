@@ -434,6 +434,36 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     @Test
+    public void createTableWithIdentifierZone() {
+        String sqlQuery = "create table my_table(id int) with primary_zone=zone123";
+
+        SqlNode node = parse(sqlQuery);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThatOptionPresent(createTable.createOptionList().getList(), "PRIMARY_ZONE", "ZONE123");
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" (\"ID\" INTEGER) WITH \"PRIMARY_ZONE\" = \"ZONE123\"");
+    }
+
+    @Test
+    public void createTableWithLiteralZone() {
+        String sqlQuery = "create table my_table(id int) with primary_zone='zone123'";
+
+        SqlNode node = parse(sqlQuery);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThatOptionPresent(createTable.createOptionList().getList(), "PRIMARY_ZONE", "zone123");
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" (\"ID\" INTEGER) WITH \"PRIMARY_ZONE\" = 'zone123'");
+    }
+
+    @Test
     public void createIndexSimpleCase() {
         var query = "create index my_index on my_table (col)";
 
@@ -446,7 +476,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(createIndex.indexName().getSimple(), is("MY_INDEX"));
         assertThat(createIndex.tableName().names, is(List.of("MY_TABLE")));
         assertThat(createIndex.ifNotExists, is(false));
-        assertThat(createIndex.type(), is(IgniteSqlIndexType.IMPLICIT_TREE));
+        assertThat(createIndex.type(), is(IgniteSqlIndexType.IMPLICIT_SORTED));
         assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col", SqlIdentifier.class,
                 id -> id.isSimple() && id.getSimple().equals("COL"))));
 
@@ -466,7 +496,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(createIndex.indexName().getSimple(), is("MY_INDEX"));
         assertThat(createIndex.tableName().names, is(List.of("MY_TABLE")));
         assertThat(createIndex.ifNotExists, is(false));
-        assertThat(createIndex.type(), is(IgniteSqlIndexType.IMPLICIT_TREE));
+        assertThat(createIndex.type(), is(IgniteSqlIndexType.IMPLICIT_SORTED));
         assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col1 asc", SqlIdentifier.class,
                 id -> id.isSimple() && id.getSimple().equals("COL1"))));
         assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col2 desc", SqlBasicCall.class,
@@ -481,7 +511,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
 
     @Test
     public void createIndexExplicitTypeMixedDirection() {
-        var query = "create index my_index on my_table using tree (col1, col2 asc, col3 desc)";
+        var query = "create index my_index on my_table using sorted (col1, col2 asc, col3 desc)";
 
         SqlNode node = parse(query);
 
@@ -492,7 +522,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(createIndex.indexName().getSimple(), is("MY_INDEX"));
         assertThat(createIndex.tableName().names, is(List.of("MY_TABLE")));
         assertThat(createIndex.ifNotExists, is(false));
-        assertThat(createIndex.type(), is(IgniteSqlIndexType.TREE));
+        assertThat(createIndex.type(), is(IgniteSqlIndexType.SORTED));
         assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col1", SqlIdentifier.class,
                 id -> id.isSimple() && id.getSimple().equals("COL1"))));
         assertThat(createIndex.columnList(), hasItem(ofTypeMatching("col2 asc", SqlIdentifier.class,
@@ -504,7 +534,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                         && ((SqlIdentifier) bc.getOperandList().get(0)).isSimple()
                         && ((SqlIdentifier) bc.getOperandList().get(0)).getSimple().equals("COL3"))));
 
-        expectUnparsed(node, "CREATE INDEX \"MY_INDEX\" ON \"MY_TABLE\" USING TREE (\"COL1\", \"COL2\", \"COL3\" DESC)");
+        expectUnparsed(node, "CREATE INDEX \"MY_INDEX\" ON \"MY_TABLE\" USING SORTED (\"COL1\", \"COL2\", \"COL3\" DESC)");
     }
 
     @Test
@@ -807,8 +837,11 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 IgniteSqlCreateTableOption.class,
                 opt -> {
                     if (opt.key().getSimple().equals(option)) {
-                        if (opt.value() instanceof SqlLiteral) {
-                            return Objects.equals(expVal, ((SqlLiteral) opt.value()).getValueAs(expVal.getClass()));
+                        SqlNode valNode = opt.value();
+                        if (valNode instanceof SqlLiteral) {
+                            return Objects.equals(expVal, ((SqlLiteral) valNode).getValueAs(expVal.getClass()));
+                        } else if (valNode instanceof SqlIdentifier) {
+                            return Objects.equals(expVal, ((SqlIdentifier) valNode).getSimple());
                         }
                     }
 

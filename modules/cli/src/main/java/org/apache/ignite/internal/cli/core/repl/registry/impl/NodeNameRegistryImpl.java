@@ -87,7 +87,7 @@ public class NodeNameRegistryImpl implements NodeNameRegistry, PeriodicSessionTa
     }
 
     @Nullable
-    private static String urlFromClusterNode(ClusterNodeMetadata metadata) {
+    static String urlFromClusterNode(@Nullable ClusterNodeMetadata metadata) {
         if (metadata == null) {
             return null;
         }

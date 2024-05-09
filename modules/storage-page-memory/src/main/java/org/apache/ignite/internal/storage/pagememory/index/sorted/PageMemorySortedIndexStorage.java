@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.util.Objects;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -37,7 +38,6 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.index.AbstractPageMemoryIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.util.Cursor;
@@ -61,14 +61,14 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
      *
      * @param indexMeta Index meta.
      * @param descriptor Sorted index descriptor.
-     * @param freeList Free list to store index columns.
+     * @param freeList Free list.
      * @param indexTree Sorted index tree instance.
      * @param indexMetaTree Index meta tree instance.
      */
     public PageMemorySortedIndexStorage(
             IndexMeta indexMeta,
             @Nullable StorageSortedIndexDescriptor descriptor,
-            IndexColumnsFreeList freeList,
+            FreeListImpl freeList,
             SortedIndexTree indexTree,
             IndexMetaTree indexMetaTree,
             boolean isVolatile
@@ -89,6 +89,8 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
         return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            throwExceptionIfIndexIsNotBuilt();
 
             SortedIndexRowKey lowerBound = toSortedIndexRow(key, lowestRowId);
 
@@ -149,33 +151,35 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
     @Override
     public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        return scanInternal(lowerBound, upperBound, flags, true);
+    }
+
+    @Override
+    public Cursor<IndexRow> readOnlyScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
         return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            throwExceptionIfIndexIsNotBuilt();
 
             boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
             boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
             SortedIndexRowKey lower = createBound(lowerBound, !includeLower);
-
             SortedIndexRowKey upper = createBound(upperBound, includeUpper);
 
-            return new ScanCursor<IndexRow>(lower) {
-                private final BinaryTupleComparator comparator = localTree.getBinaryTupleComparator();
+            try {
+                Cursor<SortedIndexRow> cursor = indexTree.find(lower, upper);
 
-                @Override
-                public IndexRow map(SortedIndexRow value) {
-                    return toIndexRowImpl(value);
-                }
-
-                @Override
-                protected boolean exceedsUpperBound(SortedIndexRow value) {
-                    return upper != null && 0 <= comparator.compare(
-                            value.indexColumns().valueBuffer(),
-                            upper.indexColumns().valueBuffer()
-                    );
-                }
-            };
+                return new ReadOnlyScanCursor(cursor);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Couldn't get index tree cursor", e);
+            }
         });
+    }
+
+    @Override
+    public PeekCursor<IndexRow> tolerantScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        return scanInternal(lowerBound, upperBound, flags, false);
     }
 
     private @Nullable SortedIndexRowKey createBound(@Nullable BinaryTuplePrefix bound, boolean setEqualityFlag) {
@@ -223,6 +227,78 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
             }
 
             indexRow.indexColumns().link(PageIdUtils.NULL_LINK);
+        }
+    }
+
+    private PeekCursor<IndexRow> scanInternal(
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            boolean onlyBuiltIndex
+    ) {
+        return busyDataRead(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            if (onlyBuiltIndex) {
+                throwExceptionIfIndexIsNotBuilt();
+            }
+
+            boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
+            boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
+
+            SortedIndexRowKey lower = createBound(lowerBound, !includeLower);
+
+            SortedIndexRowKey upper = createBound(upperBound, includeUpper);
+
+            return new ScanCursor<IndexRow>(lower) {
+                private final BinaryTupleComparator comparator = localTree.getBinaryTupleComparator();
+
+                @Override
+                public IndexRow map(SortedIndexRow value) {
+                    return toIndexRowImpl(value);
+                }
+
+                @Override
+                protected boolean exceedsUpperBound(SortedIndexRow value) {
+                    return upper != null && 0 <= comparator.compare(
+                            value.indexColumns().valueBuffer(),
+                            upper.indexColumns().valueBuffer()
+                    );
+                }
+            };
+        });
+    }
+
+    private class ReadOnlyScanCursor implements Cursor<IndexRow> {
+        private final Cursor<SortedIndexRow> treeCursor;
+
+        private ReadOnlyScanCursor(Cursor<SortedIndexRow> treeCursor) {
+            this.treeCursor = treeCursor;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return busyDataRead(() -> {
+                throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
+
+                return treeCursor.hasNext();
+            });
+        }
+
+        @Override
+        public IndexRow next() {
+            return busyDataRead(() -> {
+                throwExceptionIfStorageInProgressOfRebalance(state.get(), PageMemorySortedIndexStorage.this::createStorageInfo);
+
+                SortedIndexRow next = treeCursor.next();
+
+                return toIndexRowImpl(next);
+            });
+        }
+
+        @Override
+        public void close() {
+            treeCursor.close();
         }
     }
 }

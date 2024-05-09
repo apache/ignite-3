@@ -27,8 +27,10 @@ import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessag
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
-import org.apache.ignite.internal.table.distributed.message.GetLowWatermarkRequest;
-import org.apache.ignite.internal.table.distributed.message.GetLowWatermarkResponse;
+import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
+import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStateMessage;
+import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesRequest;
+import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
@@ -185,12 +187,6 @@ public interface TableMessageGroup {
      */
     short TIMED_BINARY_ROW_MESSAGE = 24;
 
-    /** Message type for {@link GetLowWatermarkRequest}. */
-    short GET_LOW_WATERMARK_REQUEST = 25;
-
-    /** Message type for {@link GetLowWatermarkResponse}. */
-    short GET_LOW_WATERMARK_RESPONSE = 26;
-
     /**
      * Message types for Table module RAFT commands.
      *
@@ -214,5 +210,19 @@ public interface TableMessageGroup {
 
         /** Message type for {@link TablePartitionIdMessage}. */
         short TABLE_PARTITION_ID = 61;
+    }
+
+    /**
+     * Messages for {@link DisasterRecoveryManager}.
+     */
+    interface DisasterRecoveryMessages {
+        /** Message type for {@link LocalPartitionStateMessage}. */
+        short LOCAL_PARTITION_STATE = 100;
+
+        /** Message type for {@link LocalPartitionStatesRequest}. */
+        short LOCAL_PARTITION_STATE_REQUEST = 101;
+
+        /** Message type for {@link LocalPartitionStatesResponse}. */
+        short LOCAL_PARTITION_STATE_RESPONSE = 102;
     }
 }

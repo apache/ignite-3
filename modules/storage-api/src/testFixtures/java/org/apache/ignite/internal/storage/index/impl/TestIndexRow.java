@@ -24,7 +24,7 @@ import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Comparator;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -61,15 +61,13 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
     /**
      * Creates an row with random column values that satisfies the given schema.
      */
-    public static TestIndexRow randomRow(SortedIndexStorage indexStorage) {
-        var random = new Random();
-
+    public static TestIndexRow randomRow(SortedIndexStorage indexStorage, int partitionId) {
         Object[] columns = indexStorage.indexDescriptor().columns().stream()
                 .map(StorageSortedIndexColumnDescriptor::type)
-                .map(type -> generateRandomValue(random, type))
+                .map(type -> generateRandomValue(ThreadLocalRandom.current(), type))
                 .toArray();
 
-        var rowId = new RowId(0);
+        var rowId = new RowId(partitionId);
 
         var serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
 
@@ -79,10 +77,34 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
     }
 
     /**
+     * Class representing an Index Key prefix.
+     */
+    public static class TestIndexPrefix {
+        private final BinaryTuplePrefix prefix;
+
+        private final Object[] prefixColumns;
+
+        TestIndexPrefix(BinaryTuplePrefix prefix, Object[] prefixColumns) {
+            this.prefix = prefix;
+            this.prefixColumns = prefixColumns;
+        }
+
+        public BinaryTuplePrefix prefix() {
+            return prefix;
+        }
+
+        public Object[] prefixColumns() {
+            return prefixColumns;
+        }
+    }
+
+    /**
      * Creates an Index Key prefix of the given length.
      */
-    public BinaryTuplePrefix prefix(int length) {
-        return serializer.serializeRowPrefix(Arrays.copyOf(columns, length));
+    public TestIndexPrefix prefix(int length) {
+        Object[] prefixColumns = Arrays.copyOf(columns, length);
+
+        return new TestIndexPrefix(serializer.serializeRowPrefix(prefixColumns), prefixColumns);
     }
 
     @Override
@@ -103,10 +125,25 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
             return sizeCompare;
         }
 
-        for (int i = 0; i < columns.length; ++i) {
-            Comparator<Object> comparator = comparator(columns[i].getClass());
+        return compareColumns(columns, o.columns);
+    }
 
-            int compare = comparator.compare(columns[i], o.columns[i]);
+    /**
+     * Compares the row with the given row prefix.
+     */
+    public int compareTo(TestIndexPrefix prefix) {
+        Object[] prefixColumns = prefix.prefixColumns();
+
+        assert prefixColumns.length <= columns.length;
+
+        return compareColumns(columns, prefixColumns);
+    }
+
+    private int compareColumns(Object[] a, Object[] b) {
+        for (int i = 0; i < Math.min(a.length, b.length); ++i) {
+            Comparator<Object> comparator = comparator(a[i].getClass());
+
+            int compare = comparator.compare(a[i], b[i]);
 
             if (compare != 0) {
                 boolean asc = indexStorage.indexDescriptor().columns().get(i).asc();

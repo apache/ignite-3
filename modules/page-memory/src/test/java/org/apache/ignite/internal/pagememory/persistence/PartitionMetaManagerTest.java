@@ -34,6 +34,7 @@ import java.nio.file.Path;
 import java.util.UUID;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
@@ -104,15 +105,17 @@ public class PartitionMetaManagerTest extends BaseIgniteAbstractTest {
                 assertEquals(0, meta.lastAppliedTerm());
                 assertEquals(0, meta.lastReplicationProtocolGroupConfigFirstPageId());
                 assertEquals(0, meta.versionChainTreeRootPageId());
-                assertEquals(0, meta.rowVersionFreeListRootPageId());
+                assertEquals(0, meta.freeListRootPageId());
                 assertEquals(1, meta.pageCount());
+                assertEquals(HybridTimestamp.MIN_VALUE.longValue(), meta.leaseStartTime());
 
                 // Change the meta and write it to the file.
                 meta.lastApplied(null, 50, 10);
                 meta.lastReplicationProtocolGroupConfigFirstPageId(null, 12);
                 meta.versionChainTreeRootPageId(null, 300);
-                meta.rowVersionFreeListRootPageId(null, 900);
+                meta.freeListRootPageId(null, 900);
                 meta.incrementPageCount(null);
+                meta.updateLease(null, 500);
 
                 manager.writeMetaToBuffer(partId, meta.metaSnapshot(UUID.randomUUID()), buffer);
 
@@ -131,15 +134,16 @@ public class PartitionMetaManagerTest extends BaseIgniteAbstractTest {
                 assertEquals(10, meta.lastAppliedTerm());
                 assertEquals(12, meta.lastReplicationProtocolGroupConfigFirstPageId());
                 assertEquals(300, meta.versionChainTreeRootPageId());
-                assertEquals(900, meta.rowVersionFreeListRootPageId());
+                assertEquals(900, meta.freeListRootPageId());
                 assertEquals(2, meta.pageCount());
+                assertEquals(500, meta.leaseStartTime());
             }
 
             // Check with delta file.
             try (FilePageStore filePageStore = createFilePageStore(testFilePath)) {
                 manager.writeMetaToBuffer(
                         partId,
-                        new PartitionMeta(UUID.randomUUID(), 100, 10, 34, 900, 500, 300, 200, 400, 4).metaSnapshot(null),
+                        new PartitionMeta(UUID.randomUUID(), 100, 10, 34, 900, 300, 200, 400, 4, 1000).metaSnapshot(null),
                         buffer.rewind()
                 );
 
@@ -157,12 +161,12 @@ public class PartitionMetaManagerTest extends BaseIgniteAbstractTest {
                 assertEquals(100, meta.lastAppliedIndex());
                 assertEquals(10, meta.lastAppliedTerm());
                 assertEquals(34, meta.lastReplicationProtocolGroupConfigFirstPageId());
-                assertEquals(900, meta.rowVersionFreeListRootPageId());
-                assertEquals(500, meta.indexColumnsFreeListRootPageId());
+                assertEquals(900, meta.freeListRootPageId());
                 assertEquals(300, meta.versionChainTreeRootPageId());
                 assertEquals(200, meta.indexTreeMetaPageId());
                 assertEquals(400, meta.gcQueueMetaPageId());
                 assertEquals(4, meta.pageCount());
+                assertEquals(1000, meta.leaseStartTime());
             }
 
             // Let's check the broken CRC.
@@ -180,7 +184,7 @@ public class PartitionMetaManagerTest extends BaseIgniteAbstractTest {
                 assertEquals(0, meta.lastAppliedTerm());
                 assertEquals(0, meta.lastReplicationProtocolGroupConfigFirstPageId());
                 assertEquals(0, meta.versionChainTreeRootPageId());
-                assertEquals(0, meta.rowVersionFreeListRootPageId());
+                assertEquals(0, meta.freeListRootPageId());
                 assertEquals(1, meta.pageCount());
             }
         } finally {

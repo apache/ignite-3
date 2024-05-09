@@ -281,7 +281,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      *
      * @param tx     Transaction or {@code null} to auto-commit.
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
-     * @return Removed record or {@code null} if it dod not exist.
+     * @return Removed record or {@code null} if it did not exist.
      */
     R getAndDelete(@Nullable Transaction tx, R keyRec);
 

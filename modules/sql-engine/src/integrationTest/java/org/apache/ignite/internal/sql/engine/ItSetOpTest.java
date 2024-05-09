@@ -278,6 +278,25 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    @Test
+    public void testUnionDifferentNumericTypes() {
+        String query = ""
+                + "SELECT id, val FROM t1 "
+                + "UNION "
+                + "SELECT id, val FROM t2";
+
+        assertQuery(query)
+                .returns(1, new BigDecimal("1.00"))
+                .returns(2, new BigDecimal("2.00"))
+                .returns(3, new BigDecimal("3.00"))
+                .returns(4, new BigDecimal("4.00"))
+                .columnMetadata(
+                        new MetadataMatcher().type(ColumnType.INT32),
+                        new MetadataMatcher().type(ColumnType.DECIMAL)
+                )
+                .check();
+    }
+
     /**
      * Test that set op node can be rewinded.
      */

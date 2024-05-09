@@ -122,6 +122,15 @@ enum class client_operation {
     /** SQL query metadata. */
     SQL_QUERY_META = 57,
 
+    /** Get compute job status. */
+    COMPUTE_GET_STATUS = 59,
+
+    /** Cancel compute job. */
+    COMPUTE_CANCEL = 60,
+
+    /** Change compute job priority. */
+    COMPUTE_CHANGE_PRIORITY = 61,
+
     /** Execute SQL query with the parameters batch. */
     SQL_EXEC_BATCH = 63,
 };

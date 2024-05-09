@@ -19,8 +19,9 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -44,6 +45,7 @@ import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
@@ -51,7 +53,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -59,9 +60,12 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -170,20 +174,24 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         PlacementDriver placementDriver = new TestPlacementDriver(clusterNode);
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
+        HybridClock clock = new HybridClockImpl();
+        ClockService clockService = new TestClockService(clock);
+
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
 
         txManager = new TxManagerImpl(
                 txConfiguration,
                 clusterService,
                 replicaService,
                 new HeapLockManager(),
-                new TestClockService(new HybridClockImpl()),
+                clockService,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
                 resourcesRegistry,
-                transactionInflights
+                transactionInflights,
+                new TestLowWatermark()
         ) {
             @Override
             public CompletableFuture<Void> finish(
@@ -196,7 +204,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 return nullCompletedFuture();
             }
         };
-        txManager.start();
+
+        assertThat(txManager.startAsync(), willCompleteSuccessfully());
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
@@ -294,7 +303,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new TableRaftServiceImpl("PUBLIC.TEST", PARTS, partRafts, new SingleClusterNodeResolver(clusterNode)),
                 transactionInflights,
                 3_000,
-                0
+                0,
+                null
         );
     }
 
@@ -306,9 +316,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     }
 
     @AfterAll
-    static void afterAllTests() throws Exception {
+    static void afterAllTests() {
         if (txManager != null) {
-            txManager.stop();
+            assertThat(txManager.stopAsync(), willCompleteSuccessfully());
         }
     }
 
@@ -356,7 +366,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 );
             case TIMESTAMP:
                 return ((LocalDateTime) generateValueByType(i, NativeTypeSpec.DATETIME))
-                        .atZone(TimeZone.getDefault().toZoneId())
+                        .atZone(ZoneId.systemDefault())
                         .toInstant();
             default:
                 throw new IllegalStateException("Unexpected type: " + type);

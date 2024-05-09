@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.table.TxAbstractTest.startNode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
@@ -45,6 +46,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -58,6 +62,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -86,10 +91,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests handling requests from {@link ReplicaService} to {@link ReplicaManager} when the {@link Replica} is not started.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class ReplicaUnavailableTest extends IgniteAbstractTest {
     private static final String NODE_NAME = "client";
 
@@ -98,6 +105,9 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
             new Column[]{new Column("key", NativeTypes.INT64, false)},
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
+
+    @InjectConfiguration("mock.rpcTimeout= 3000")
+    private ReplicationConfiguration replicationConfiguration;
 
     private final TableMessagesFactory tableMessagesFactory = new TableMessagesFactory();
 
@@ -135,8 +145,11 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 NamedThreadFactory.create(NODE_NAME, "partition-operations", log)
         );
 
-        replicaService = new ReplicaService(clusterService.messagingService(), clock);
-
+        replicaService = new ReplicaService(
+                clusterService.messagingService(),
+                clock,
+                replicationConfiguration
+        );
         replicaManager = new ReplicaManager(
                 NODE_NAME,
                 clusterService,
@@ -144,17 +157,18 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 new TestClockService(clock),
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
                 new TestPlacementDriver(clusterService.topologyService().localMember()),
-                requestsExecutor
+                requestsExecutor,
+                new NoOpFailureProcessor()
         );
 
-        replicaManager.start();
+        assertThat(replicaManager.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
     public void teardown() {
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
 
-        clusterService.stop();
+        assertThat(clusterService.stopAsync(), willCompleteSuccessfully());
     }
 
     public ReplicaUnavailableTest(TestInfo testInfo) {

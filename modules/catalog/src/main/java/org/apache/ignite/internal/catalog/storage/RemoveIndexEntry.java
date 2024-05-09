@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.storage.AbstractChangeIndexStatusEntry.schemaByIndexId;
 
 import java.io.IOException;
@@ -82,7 +83,8 @@ public class RemoveIndexEntry implements UpdateEntry, Fireable {
                         Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(CatalogIndexDescriptor[]::new),
                         schema.systemViews(),
                         causalityToken
-                ), catalog.schemas())
+                ), catalog.schemas()),
+                defaultZoneIdOpt(catalog)
         );
     }
 

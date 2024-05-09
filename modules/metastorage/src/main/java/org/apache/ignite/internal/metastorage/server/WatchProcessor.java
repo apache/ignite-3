@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage.server;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -36,6 +37,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -98,18 +101,23 @@ public class WatchProcessor implements ManuallyCloseable {
     /** Meta Storage revision update listeners. */
     private final List<RevisionUpdateListener> revisionUpdateListeners = new CopyOnWriteArrayList<>();
 
+    /** Failure processor that is used to handle critical errors. */
+    private final FailureProcessor failureProcessor;
+
     /**
      * Creates a new instance.
      *
      * @param entryReader Function for reading an entry from the storage using a given key and revision.
      */
-    public WatchProcessor(String nodeName, EntryReader entryReader) {
+    public WatchProcessor(String nodeName, EntryReader entryReader, FailureProcessor failureProcessor) {
         this.entryReader = entryReader;
 
         this.watchExecutor = Executors.newFixedThreadPool(
                 4,
                 IgniteThreadFactory.create(nodeName, "metastorage-watch-executor", LOG, NOTHING_ALLOWED)
         );
+
+        this.failureProcessor = failureProcessor;
     }
 
     /** Adds a watch. */
@@ -170,7 +178,11 @@ public class WatchProcessor implements ManuallyCloseable {
                             .thenComposeAsync(watchAndEvents -> {
                                 long startTimeNanos = System.nanoTime();
 
-                                CompletableFuture<Void> notifyWatchesFuture = notifyWatches(watchAndEvents, newRevision, time);
+                                CompletableFuture<Void> notifyWatchesFuture = notifyWatches(
+                                        watchAndEvents,
+                                        newRevision,
+                                        time,
+                                        failureProcessor);
 
                                 // Revision update is triggered strictly after all watch listeners have been notified.
                                 CompletableFuture<Void> notifyUpdateRevisionFuture = notifyUpdateRevisionListeners(newRevision);
@@ -185,7 +197,7 @@ public class WatchProcessor implements ManuallyCloseable {
                                     maybeLogLongProcessing(updatedEntries, startTimeNanos);
 
                                     if (e != null) {
-                                        LOG.error("Error occurred when notifying watches", e);
+                                        failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
                                     }
                                 });
 
@@ -198,7 +210,12 @@ public class WatchProcessor implements ManuallyCloseable {
         return newFuture;
     }
 
-    private static CompletableFuture<Void> notifyWatches(List<WatchAndEvents> watchAndEventsList, long revision, HybridTimestamp time) {
+    private static CompletableFuture<Void> notifyWatches(
+            List<WatchAndEvents> watchAndEventsList,
+            long revision,
+            HybridTimestamp time,
+            FailureProcessor failureProcessor
+    ) {
         if (watchAndEventsList.isEmpty()) {
             return nullCompletedFuture();
         }
@@ -221,8 +238,7 @@ public class WatchProcessor implements ManuallyCloseable {
                                 }
 
                                 if (!(e instanceof NodeStoppingException)) {
-                                    // TODO: IGNITE-14693 Implement Meta storage exception handling
-                                    LOG.error("Error occurred when processing a watch event", e);
+                                    failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
                                 }
 
                                 watchAndEvents.watch.onError(e);
@@ -232,6 +248,8 @@ public class WatchProcessor implements ManuallyCloseable {
                 watchAndEvents.watch.onError(throwable);
 
                 notifyWatchFuture = failedFuture(throwable);
+
+                failureProcessor.process(new FailureContext(CRITICAL_ERROR, throwable));
             }
 
             notifyWatchFutures[i] = notifyWatchFuture;
@@ -314,7 +332,7 @@ public class WatchProcessor implements ManuallyCloseable {
                 .thenRunAsync(() -> revisionCallback.onSafeTimeAdvanced(time), watchExecutor)
                 .whenComplete((ignored, e) -> {
                     if (e != null) {
-                        LOG.error("Error occurred when notifying safe time advanced callback", e);
+                        failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
                     }
                 });
     }

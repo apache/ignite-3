@@ -20,6 +20,9 @@ package org.apache.ignite.internal.catalog;
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.unmodifiable;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Comparator.comparingInt;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toUnmodifiableMap;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
@@ -28,12 +31,11 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.stream.Collector;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -49,12 +51,12 @@ import org.jetbrains.annotations.Nullable;
  */
 public class Catalog {
     private static <T extends CatalogObjectDescriptor> Collector<T, ?, Map<String, T>> toMapByName() {
-        return Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity());
+        return toUnmodifiableMap(CatalogObjectDescriptor::name, identity());
     }
 
     private static <T extends CatalogObjectDescriptor> Collector<T, ?, Int2ObjectMap<T>> toMapById() {
-        return Collectors.collectingAndThen(
-                CollectionUtils.toIntMapCollector(CatalogObjectDescriptor::id, Function.identity()),
+        return collectingAndThen(
+                CollectionUtils.toIntMapCollector(CatalogObjectDescriptor::id, identity()),
                 Int2ObjectMaps::unmodifiable
         );
     }
@@ -64,6 +66,8 @@ public class Catalog {
     private final long activationTimestamp;
     private final Map<String, CatalogSchemaDescriptor> schemasByName;
     private final Map<String, CatalogZoneDescriptor> zonesByName;
+    private final Map<String, CatalogTableDescriptor> tablesByName;
+    private final @Nullable CatalogZoneDescriptor defaultZone;
 
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogSchemaDescriptor> schemasById;
@@ -89,13 +93,15 @@ public class Catalog {
      *         next version of the catalog.
      * @param zones Distribution zones descriptors.
      * @param schemas Enumeration of schemas available in the current version of catalog.
+     * @param defaultZoneId ID of the default distribution zone.
      */
     public Catalog(
             int version,
             long activationTimestamp,
             int objectIdGen,
             Collection<CatalogZoneDescriptor> zones,
-            Collection<CatalogSchemaDescriptor> schemas
+            Collection<CatalogSchemaDescriptor> schemas,
+            @Nullable Integer defaultZoneId
     ) {
         this.version = version;
         this.activationTimestamp = activationTimestamp;
@@ -107,11 +113,28 @@ public class Catalog {
         schemasByName = schemas.stream().collect(toMapByName());
         zonesByName = zones.stream().collect(toMapByName());
 
+        tablesByName = new HashMap<>();
+        for (CatalogSchemaDescriptor schema : schemas) {
+            for (CatalogTableDescriptor table : schema.tables()) {
+                tablesByName.put(schema.name() + "." + table.name(), table);
+            }
+        }
+
         schemasById = schemas.stream().collect(toMapById());
         tablesById = schemas.stream().flatMap(s -> Arrays.stream(s.tables())).collect(toMapById());
         indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes())).collect(toMapById());
         indexesByTableId = unmodifiable(toIndexesByTableId(schemas));
         zonesById = zones.stream().collect(toMapById());
+
+        if (defaultZoneId != null) {
+            defaultZone = zonesById.get((int) defaultZoneId);
+
+            if (defaultZone == null) {
+                throw new IllegalStateException("The default zone was not found among the provided zones [id=" + defaultZoneId + ']');
+            }
+        } else {
+            defaultZone = null;
+        }
     }
 
     public int version() {
@@ -142,6 +165,15 @@ public class Catalog {
         return tablesById.get(tableId);
     }
 
+    /**
+     * Returns table descriptor by fully-qualified table name.
+     *
+     * @param tableName Fully-qualified table name. Case-sensitive, without quotes.
+     * */
+    public @Nullable CatalogTableDescriptor table(String tableName) {
+        return tablesByName.get(tableName);
+    }
+
     public Collection<CatalogTableDescriptor> tables() {
         return tablesById.values();
     }
@@ -168,6 +200,10 @@ public class Catalog {
 
     public Collection<CatalogZoneDescriptor> zones() {
         return zonesByName.values();
+    }
+
+    public @Nullable CatalogZoneDescriptor defaultZone() {
+        return defaultZone;
     }
 
     @Override

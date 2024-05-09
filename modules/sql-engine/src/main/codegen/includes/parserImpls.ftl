@@ -48,7 +48,11 @@ void CreateTableOption(List<SqlNode> list) :
 {
     key = SimpleIdentifier() { s = span(); }
     <EQ>
-    val = Literal()
+    (
+        val = Literal()
+    |
+        val = SimpleIdentifier()
+    )
     {
         list.add(new IgniteSqlCreateTableOption(key, val, s.end(this)));
     }
@@ -273,7 +277,7 @@ SqlCreate SqlCreateIndex(Span s, boolean replace) :
     final SqlIdentifier idxId;
     final SqlIdentifier tblId;
     final SqlNodeList columnList;
-    IgniteSqlIndexType type = IgniteSqlIndexType.IMPLICIT_TREE;
+    IgniteSqlIndexType type = IgniteSqlIndexType.IMPLICIT_SORTED;
 }
 {
     <INDEX>
@@ -285,10 +289,10 @@ SqlCreate SqlCreateIndex(Span s, boolean replace) :
         columnList = ColumnNameWithSortDirectionList()
     |
         LOOKAHEAD(2)
-        <USING> <TREE> {
+        <USING> <SORTED> {
             s.add(this);
 
-            type = IgniteSqlIndexType.TREE;
+            type = IgniteSqlIndexType.SORTED;
         }
 
         columnList = ColumnNameWithSortDirectionList()
@@ -506,20 +510,16 @@ SqlCreate SqlCreateZone(Span s, boolean replace) :
         final boolean ifNotExists;
         final SqlIdentifier id;
         SqlNodeList optionList = null;
-        SqlIdentifier engine = null;
 }
 {
     <ZONE> { s.add(this); }
         ifNotExists = IfNotExistsOpt()
         id = CompoundIdentifier()
     [
-            <ENGINE> { s.add(this); } engine = SimpleIdentifier()
-    ]
-    [
         <WITH> { s.add(this); } optionList = CreateZoneOptionList()
     ]
     {
-        return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList, engine);
+        return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList);
     }
 }
 
@@ -583,9 +583,16 @@ SqlNode SqlAlterZone() :
         return new IgniteSqlAlterZoneRenameTo(s.end(this), zoneId, newZoneId, ifExists);
       }
       |
-      <SET> { s.add(this); } optionList = AlterZoneOptions() {
-        return new IgniteSqlAlterZoneSet(s.end(this), zoneId, optionList, ifExists);
-      }
+      <SET>
+      (
+        <DEFAULT_> {
+          return new IgniteSqlAlterZoneSetDefault(s.end(this), zoneId, ifExists);
+        }
+        |
+        { s.add(this); } optionList = AlterZoneOptions() {
+          return new IgniteSqlAlterZoneSet(s.end(this), zoneId, optionList, ifExists);
+        }
+      )
     )
 }
 

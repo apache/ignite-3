@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.externalize;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.sql.engine.util.Commons.rexBuilder;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
@@ -926,7 +927,9 @@ class RelJson {
         if (cls != null) {
             return AvaticaUtils.instantiatePlugin(SqlOperator.class, cls);
         }
-        return null;
+
+        String message = format("Unknown or unexpected operator: name: {}, kind: {}, syntax: {}", name, sqlKind, sqlSyntax);
+        throw new IllegalStateException(message);
     }
 
     <T> List<T> list() {

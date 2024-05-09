@@ -18,6 +18,9 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -54,8 +57,9 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -63,7 +67,6 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.TestLowWatermark;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterNode;
@@ -171,7 +174,7 @@ public class TestServer implements AutoCloseable {
                 new TestConfigurationValidator()
         );
 
-        cfg.start();
+        assertThat(cfg.startAsync(), willCompleteSuccessfully());
 
         cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
                 local -> local.changePort(port != null ? port : getFreePort()).changeIdleTimeout(idleTimeout)
@@ -179,7 +182,7 @@ public class TestServer implements AutoCloseable {
 
         bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkConfiguration.KEY), "TestServer-");
 
-        bootstrapFactory.start();
+        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
 
         if (nodeName == null) {
             nodeName = "server-1";
@@ -207,9 +210,8 @@ public class TestServer implements AutoCloseable {
         if (securityConfiguration == null) {
             authenticationManager = new DummyAuthenticationManager();
         } else {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-21665.
             authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
-            authenticationManager.start();
+            assertThat(authenticationManager.startAsync(), willCompleteSuccessfully());
         }
 
         ClusterTag tag = msgFactory.clusterTag()
@@ -241,7 +243,7 @@ public class TestServer implements AutoCloseable {
                         clusterService,
                         bootstrapFactory,
                         () -> CompletableFuture.completedFuture(tag),
-                        mock(MetricManager.class),
+                        mock(MetricManagerImpl.class),
                         metrics,
                         authenticationManager,
                         new TestClockService(clock),
@@ -252,7 +254,7 @@ public class TestServer implements AutoCloseable {
                         new TestLowWatermark()
                 );
 
-        module.start().join();
+        module.startAsync().join();
     }
 
     /**
@@ -316,10 +318,8 @@ public class TestServer implements AutoCloseable {
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
-        module.stop();
-        authenticationManager.stop();
-        bootstrapFactory.stop();
-        cfg.stop();
+        assertThat(stopAsync(module, authenticationManager, bootstrapFactory, cfg), willCompleteSuccessfully());
+
         generator.close();
     }
 

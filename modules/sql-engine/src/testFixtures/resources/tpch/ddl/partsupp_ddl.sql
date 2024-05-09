@@ -13,6 +13,5 @@ CREATE TABLE partsupp (
     PRIMARY KEY (ps_partkey, ps_suppkey)
 );
 
-CREATE INDEX ps_sk ON partsupp (ps_suppkey ASC);
 CREATE INDEX ps_pk ON partsupp (ps_partkey ASC);
 CREATE INDEX ps_sk_pk ON partsupp (ps_suppkey ASC, ps_partkey ASC);

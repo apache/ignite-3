@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.vault;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -36,17 +37,17 @@ public class VaultManagerTest {
 
     @BeforeEach
     void setUp() {
-        vaultManager.start();
+        assertThat(vaultManager.startAsync(), willCompleteSuccessfully());
     }
 
     /**
      * After each.
      */
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         vaultManager.beforeNodeStop();
 
-        vaultManager.stop();
+        assertThat(vaultManager.stopAsync(), willCompleteSuccessfully());
     }
 
     /**

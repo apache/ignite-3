@@ -43,6 +43,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
@@ -95,7 +96,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public R get(@Nullable Transaction tx, R keyRec) {
-        return sync(() -> getAsync(tx, keyRec));
+        return sync(getAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -112,7 +113,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
     @Override
     public List<R> getAll(@Nullable Transaction tx, Collection<R> keyRecs) {
-        return sync(() -> getAllAsync(tx, keyRecs));
+        return sync(getAllAsync(tx, keyRecs));
     }
 
     @Override
@@ -121,14 +122,14 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         return doOperation(tx, (schemaVersion) -> {
             return tbl.getAll(marshalKeys(keyRecs, schemaVersion), (InternalTransaction) tx)
-                    .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, true));
+                    .thenApply(binaryRows -> unmarshal(binaryRows, false, schemaVersion, true));
         });
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean contains(@Nullable Transaction tx, R keyRec) {
-        return sync(() -> containsAsync(tx, keyRec));
+        return sync(containsAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -146,7 +147,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public void upsert(@Nullable Transaction tx, R rec) {
-        sync(() -> upsertAsync(tx, rec));
+        sync(upsertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -164,7 +165,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public void upsertAll(@Nullable Transaction tx, Collection<R> recs) {
-        sync(() -> upsertAllAsync(tx, recs));
+        sync(upsertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
@@ -180,7 +181,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public R getAndUpsert(@Nullable Transaction tx, R rec) {
-        return sync(() -> getAndUpsertAsync(tx, rec));
+        return sync(getAndUpsertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -198,7 +199,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public boolean insert(@Nullable Transaction tx, R rec) {
-        return sync(() -> insertAsync(tx, rec));
+        return sync(insertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -216,7 +217,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public List<R> insertAll(@Nullable Transaction tx, Collection<R> recs) {
-        return sync(() -> insertAllAsync(tx, recs));
+        return sync(insertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
@@ -227,20 +228,21 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         return doOperation(tx, (schemaVersion) -> {
             Collection<BinaryRowEx> rows = marshal(recs, schemaVersion);
 
-            return tbl.insertAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+            return tbl.insertAll(rows, (InternalTransaction) tx)
+                    .thenApply(binaryRows -> unmarshal(binaryRows, false, schemaVersion, false));
         });
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean replace(@Nullable Transaction tx, R rec) {
-        return sync(() -> replaceAsync(tx, rec));
+        return sync(replaceAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean replace(@Nullable Transaction tx, R oldRec, R newRec) {
-        return sync(() -> replaceAsync(tx, oldRec, newRec));
+        return sync(replaceAsync(tx, oldRec, newRec));
     }
 
     /** {@inheritDoc} */
@@ -272,7 +274,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public R getAndReplace(@Nullable Transaction tx, R rec) {
-        return sync(() -> getAndReplaceAsync(tx, rec));
+        return sync(getAndReplaceAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -290,7 +292,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public boolean delete(@Nullable Transaction tx, R keyRec) {
-        return sync(() -> deleteAsync(tx, keyRec));
+        return sync(deleteAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -308,7 +310,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public boolean deleteExact(@Nullable Transaction tx, R rec) {
-        return sync(() -> deleteExactAsync(tx, rec));
+        return sync(deleteExactAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -326,7 +328,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public R getAndDelete(@Nullable Transaction tx, R keyRec) {
-        return sync(() -> getAndDeleteAsync(tx, keyRec));
+        return sync(getAndDeleteAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -344,7 +346,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public List<R> deleteAll(@Nullable Transaction tx, Collection<R> keyRecs) {
-        return sync(() -> deleteAllAsync(tx, keyRecs));
+        return sync(deleteAllAsync(tx, keyRecs));
     }
 
     /** {@inheritDoc} */
@@ -353,28 +355,28 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         Objects.requireNonNull(keyRecs);
 
         return doOperation(tx, (schemaVersion) -> {
-            Collection<BinaryRowEx> rows = marshal(keyRecs, schemaVersion);
+            Collection<BinaryRowEx> rows = marshalKeys(keyRecs, schemaVersion);
 
-            return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+            return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, true, schemaVersion, false));
         });
     }
 
     /** {@inheritDoc} */
     @Override
     public List<R> deleteAllExact(@Nullable Transaction tx, Collection<R> recs) {
-        return sync(() -> deleteAllExactAsync(tx, recs));
+        return sync(deleteAllExactAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<List<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
-        Objects.requireNonNull(keyRecs);
+    public CompletableFuture<List<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> recs) {
+        Objects.requireNonNull(recs);
 
         return doOperation(tx, (schemaVersion) -> {
-            Collection<BinaryRowEx> rows = marshal(keyRecs, schemaVersion);
+            Collection<BinaryRowEx> rows = marshal(recs, schemaVersion);
 
             return tbl.deleteAllExact(rows, (InternalTransaction) tx)
-                    .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+                    .thenApply(binaryRows -> unmarshal(binaryRows, true, schemaVersion, false));
         });
     }
 
@@ -430,7 +432,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
             for (R rec : recs) {
-                Row row = marsh.marshal(Objects.requireNonNull(rec));
+                BinaryRowEx row = marsh.marshal(Objects.requireNonNull(rec));
 
                 rows.add(row);
             }
@@ -449,7 +451,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
             for (R rec : recs) {
                 boolean isDeleted = deleted != null && deleted.get(rows.size());
-                Row row = isDeleted ? marsh.marshalKey(rec) : marsh.marshal(rec);
+                BinaryRowEx row = isDeleted ? marsh.marshalKey(rec) : marsh.marshal(rec);
 
                 rows.add(row);
             }
@@ -491,7 +493,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
             for (R rec : recs) {
-                Row row = marsh.marshalKey(Objects.requireNonNull(rec));
+                BinaryRowEx row = marsh.marshalKey(Objects.requireNonNull(rec));
 
                 rows.add(row);
             }
@@ -530,10 +532,11 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
      *
      * @param rows Row collection.
      * @param addNull {@code true} if {@code null} is added for missing rows.
+     * @param keyOnly If rows are key-only.
      * @param targetSchemaVersion Schema version that should be used.
      * @return Records collection.
      */
-    private List<R> unmarshal(Collection<BinaryRow> rows, int targetSchemaVersion, boolean addNull) {
+    private List<R> unmarshal(Collection<BinaryRow> rows, boolean keyOnly, int targetSchemaVersion, boolean addNull) {
         if (rows.isEmpty()) {
             return Collections.emptyList();
         }
@@ -542,8 +545,11 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             RecordMarshaller<R> marsh = marshaller(targetSchemaVersion);
 
             var recs = new ArrayList<R>(rows.size());
+            List<Row> resolvedRows = keyOnly
+                    ? rowConverter.resolveKeys(rows, targetSchemaVersion)
+                    : rowConverter.resolveRows(rows, targetSchemaVersion);
 
-            for (Row row : rowConverter.resolveRows(rows, targetSchemaVersion)) {
+            for (Row row : resolvedRows) {
                 if (row != null) {
                     recs.add(marsh.unmarshal(row));
                 } else if (addNull) {
@@ -571,12 +577,14 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         );
 
         StreamerBatchSender<R, Integer> batchSender = (partitionId, items, deleted) ->
-                withSchemaSync(
+                PublicApiThreading.execUserAsyncOperation(() -> withSchemaSync(
                         null,
                         schemaVersion -> this.tbl.updateAll(marshal(items, schemaVersion, deleted), deleted, partitionId)
-                );
+                ));
 
-        CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner);
+        CompletableFuture<Void> future = DataStreamer.streamData(
+                publisher, options, batchSender, partitioner, tbl.streamerFlushExecutor());
+
         return convertToPublicFuture(future);
     }
 

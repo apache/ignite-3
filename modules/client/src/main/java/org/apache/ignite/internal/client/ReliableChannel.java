@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Client.CLUSTER_ID_MISMATCH_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONFIGURATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
@@ -37,7 +38,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -55,6 +58,8 @@ import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -113,6 +118,10 @@ public final class ReliableChannel implements AutoCloseable {
     /** Cluster id from the first handshake. */
     private final AtomicReference<UUID> clusterId = new AtomicReference<>();
 
+    /** Scheduled executor for streamer flush. */
+    @Nullable
+    private ScheduledExecutorService streamerFlushExecutor;
+
     /**
      * Constructor.
      *
@@ -134,18 +143,21 @@ public final class ReliableChannel implements AutoCloseable {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void close() {
+    public synchronized void close() throws Exception {
         closed = true;
 
         List<ClientChannelHolder> holders = channels;
 
-        if (holders != null) {
-            for (ClientChannelHolder hld : holders) {
-                hld.close();
-            }
-        }
-
-        connMgr.stop();
+        IgniteUtils.closeAllManually(
+                () -> {
+                    if (holders != null) {
+                        for (ClientChannelHolder hld : holders) {
+                            hld.close();
+                        }
+                    }
+                },
+                connMgr::stop,
+                () -> shutdownAndAwaitTermination(streamerFlushExecutor, 10, TimeUnit.SECONDS));
     }
 
     /**
@@ -675,6 +687,22 @@ public final class ReliableChannel implements AutoCloseable {
         return partitionAssignmentTimestamp.get();
     }
 
+    /**
+     * Gets the data streamer flush scheduled executor.
+     *
+     * @return Streamer flush executor.
+     */
+    public synchronized ScheduledExecutorService streamerFlushExecutor() {
+        if (streamerFlushExecutor == null) {
+            streamerFlushExecutor = Executors.newSingleThreadScheduledExecutor(
+                    new NamedThreadFactory(
+                            "client-data-streamer-flush-" + hashCode(),
+                            ClientUtils.logger(clientCfg, ReliableChannel.class)));
+        }
+
+        return streamerFlushExecutor;
+    }
+
     @Nullable
     private static IgniteClientConnectionException unwrapConnectionException(Throwable err) {
         while (err instanceof CompletionException) {
@@ -782,7 +810,14 @@ public final class ReliableChannel implements AutoCloseable {
                             new IgniteClientConnectionException(CONNECTION_ERR, "Reconnect is not allowed due to applied throttling"));
                 }
 
-                chFut0 = chFactory.create(chCfg, connMgr, metrics).thenApply(ch -> {
+                CompletableFuture<ClientChannel> createFut = chFactory.create(
+                        chCfg,
+                        connMgr,
+                        metrics,
+                        ReliableChannel.this::onPartitionAssignmentChanged,
+                        ReliableChannel.this::onObservableTimestampReceived);
+
+                chFut0 = createFut.thenApply(ch -> {
                     var oldClusterId = clusterId.compareAndExchange(null, ch.protocolContext().clusterId());
 
                     if (oldClusterId != null && !oldClusterId.equals(ch.protocolContext().clusterId())) {
@@ -796,9 +831,6 @@ public final class ReliableChannel implements AutoCloseable {
                                 CLUSTER_ID_MISMATCH_ERR,
                                 "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + ch.protocolContext().clusterId());
                     }
-
-                    ch.addPartitionAssignmentChangeListener(ReliableChannel.this::onPartitionAssignmentChanged);
-                    ch.addObservableTimestampListener(ReliableChannel.this::onObservableTimestampReceived);
 
                     ClusterNode newNode = ch.protocolContext().clusterNode();
 

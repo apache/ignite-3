@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.client.sql;
 
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.PayloadReader;
@@ -32,7 +32,7 @@ import org.apache.ignite.internal.client.PayloadWriter;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -44,7 +44,6 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
-import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -76,7 +75,7 @@ public class ClientSql implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public Statement createStatement(String query) {
-        return new ClientStatement(query, null, null, null, null);
+        return new ClientStatement(query, null, null, null);
     }
 
     /** {@inheritDoc} */
@@ -178,7 +177,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
-        ClientStatement statement = new ClientStatement(query, null, null, null, null);
+        ClientStatement statement = new ClientStatement(query, null, null, null);
 
         return executeAsync(transaction, statement, arguments);
     }
@@ -201,7 +200,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
-        ClientStatement statement = new ClientStatement(query, null, null, null, null);
+        ClientStatement statement = new ClientStatement(query, null, null, null);
 
         return executeAsync(transaction, mapper, statement, arguments);
     }
@@ -230,7 +229,7 @@ public class ClientSql implements IgniteSql {
 
             w.out().packLongNullable(0L); // defaultSessionTimeout
 
-            packProperties(w, clientStatement.properties());
+            packProperties(w, null);
 
             w.out().packString(clientStatement.query());
 
@@ -244,27 +243,23 @@ public class ClientSql implements IgniteSql {
         if (transaction != null) {
             try {
                 //noinspection resource
-                return ClientTransaction.get(transaction).channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader);
+                return ClientLazyTransaction.ensureStarted(transaction, ch, null)
+                        .thenCompose(tx -> tx.channel().serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader))
+                        .exceptionally(e -> {
+                            Throwable ex = unwrapCause(e);
+                            if (ex instanceof TransactionException) {
+                                var te = (TransactionException) ex;
+                                throw new SqlException(te.traceId(), te.code(), te.getMessage(), te);
+                            }
+
+                            throw ExceptionUtils.sneakyThrow(ex);
+                        });
             } catch (TransactionException e) {
                 return CompletableFuture.failedFuture(new SqlException(e.traceId(), e.code(), e.getMessage(), e));
             }
         }
 
         return ch.serviceAsync(ClientOp.SQL_EXEC, payloadWriter, payloadReader);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ReactiveResultSet executeReactive(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        // TODO IGNITE-17058.
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ReactiveResultSet executeReactive(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
-        // TODO IGNITE-17058.
-        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -278,20 +273,6 @@ public class ClientSql implements IgniteSql {
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         // TODO IGNITE-17059.
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Publisher<Long> executeBatchReactive(@Nullable Transaction transaction, String query, BatchedArguments batch) {
-        // TODO IGNITE-17058.
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Publisher<Long> executeBatchReactive(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
-        // TODO IGNITE-17058.
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 

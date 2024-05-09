@@ -18,11 +18,15 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.wrapper.Wrappers.unwrapNullable;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -30,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
@@ -40,7 +45,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -48,23 +52,24 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.impl.TestStorageEngine;
+import org.apache.ignite.internal.storage.impl.schema.TestProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.utils.PrimaryReplica;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -72,26 +77,28 @@ import org.junit.jupiter.api.TestInfo;
  * TODO: IGNITE-20485 Configure the lease interval as less as possible to decrease the duration of tests.
  * The test class checks invariant of a primary replica choice.
  */
+@SuppressWarnings("resource")
 public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
-    public static final int PART_ID = 0;
+    private static final int PART_ID = 0;
 
     private static final String ZONE_NAME = "ZONE_TABLE";
 
     private static final String TABLE_NAME = "TEST_TABLE";
 
-    public static final String HASH_IDX = "HASH_IDX";
+    private static final String HASH_IDX = "HASH_IDX";
 
-    public static final String SORTED_IDX = "SORTED_IDX";
+    private static final String SORTED_IDX = "SORTED_IDX";
 
     @BeforeEach
     @Override
     public void setup(TestInfo testInfo) throws Exception {
         super.setup(testInfo);
 
-        String zoneSql = IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} ENGINE {} WITH REPLICAS={}, PARTITIONS={}",
-                ZONE_NAME, TestStorageEngine.ENGINE_NAME, 3, 1
+        String zoneSql = IgniteStringFormatter.format(
+                "CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}'",
+                ZONE_NAME, 3, 1, TestProfileConfigurationSchema.TEST_PROFILE_NAME
         );
 
         String sql = IgniteStringFormatter.format(
@@ -102,7 +109,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         String hashIdxSql = IgniteStringFormatter.format("CREATE INDEX {} ON {} USING HASH (val)",
                 HASH_IDX, TABLE_NAME);
 
-        String sortedIdxSql = IgniteStringFormatter.format("CREATE INDEX {} ON {} USING TREE (val)",
+        String sortedIdxSql = IgniteStringFormatter.format("CREATE INDEX {} ON {} USING SORTED (val)",
                 SORTED_IDX, TABLE_NAME);
 
         cluster.doInSession(0, session -> {
@@ -140,15 +147,14 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             return falseCompletedFuture();
         });
 
-        NodeUtils.transferPrimary(tbl, null, this::node);
+        NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), tblReplicationGrp);
 
-        assertTrue(primaryChanged.get());
+        assertTrue(waitForCondition(primaryChanged::get, 10_000));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21382")
     @Test
     public void testPrimaryChangeLongHandling() throws Exception {
-        TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
+        TableViewInternal tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -171,9 +177,12 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         log.info("Primary replica is: " + primary);
 
-        NodeUtils.transferPrimary(tbl, null, this::node);
+        Collection<IgniteImpl> nodes = cluster.runningNodes().collect(toSet());
 
-        CompletableFuture<String> primaryChangeTask = IgniteTestUtils.runAsync(() -> NodeUtils.transferPrimary(tbl, primary, this::node));
+        NodeUtils.transferPrimary(nodes, tblReplicationGrp);
+
+        CompletableFuture<String> primaryChangeTask =
+                IgniteTestUtils.runAsync(() -> NodeUtils.transferPrimary(nodes, tblReplicationGrp, primary));
 
         waitingForLeaderCache(tbl, primary);
 
@@ -193,15 +202,15 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
      * @throws Exception If failed.
      */
     @Test
-    @WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
     public void testClearingTransactionResourcesWhenPrimaryChange() throws Exception {
-        TableViewInternal tbl = unwrapTableViewInternal(node(0).tables().table(TABLE_NAME));
+        Table publicTableOnNode0 = node(0).tables().table(TABLE_NAME);
+        TableViewInternal unwrappedTableOnNode0 = unwrapTableViewInternal(publicTableOnNode0);
 
         for (int i = 0; i < 10; i++) {
-            assertTrue(tbl.recordView().insert(null, Tuple.create().set("key", i).set("val", "preload val")));
+            assertTrue(publicTableOnNode0.recordView().insert(null, Tuple.create().set("key", i).set("val", "preload val")));
         }
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = new TablePartitionId(unwrappedTableOnNode0.tableId(), PART_ID);
 
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
@@ -214,7 +223,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
         String primary = primaryReplicaFut.get().getLeaseholder();
 
-        IgniteImpl ignite = node(primary);
+        IgniteImpl primaryIgnite = node(primary);
 
         int hashIdxId = getIndexId(HASH_IDX);
         int sortedIdxId = getIndexId(SORTED_IDX);
@@ -222,60 +231,85 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         InternalTransaction rwTx = (InternalTransaction) node(0).transactions().begin();
         InternalTransaction roTx = (InternalTransaction) node(0).transactions().begin(new TransactionOptions().readOnly(true));
 
-        assertTrue(tbl.recordView().insert(rwTx, Tuple.create().set("key", 42).set("val", "val 42")));
+        assertTrue(publicTableOnNode0.recordView().insert(rwTx, Tuple.create().set("key", 42).set("val", "val 42")));
 
         BinaryTuple idxKey = new BinaryTuple(1, new BinaryTupleBuilder(1).appendString("preload val").build());
 
         // Start cursors in the RW transaction.
-        scanSingleEntryAndLeaveCursorOpen(tbl, rwTx, null, null);
-        scanSingleEntryAndLeaveCursorOpen(tbl, rwTx, hashIdxId, idxKey);
-        scanSingleEntryAndLeaveCursorOpen(tbl, rwTx, sortedIdxId, null);
+        scanSingleEntryAndLeaveCursorOpen(unwrappedTableOnNode0, rwTx, null, null);
+        scanSingleEntryAndLeaveCursorOpen(unwrappedTableOnNode0, rwTx, hashIdxId, idxKey);
+        scanSingleEntryAndLeaveCursorOpen(unwrappedTableOnNode0, rwTx, sortedIdxId, null);
 
         // Start cursors in the RO transaction.
-        scanSingleEntryAndLeaveCursorOpen(tbl, roTx, null, null);
-        scanSingleEntryAndLeaveCursorOpen(tbl, roTx, hashIdxId, idxKey);
-        scanSingleEntryAndLeaveCursorOpen(tbl, roTx, sortedIdxId, null);
+        scanSingleEntryAndLeaveCursorOpen(unwrappedTableOnNode0, roTx, null, null);
+        scanSingleEntryAndLeaveCursorOpen(unwrappedTableOnNode0, roTx, hashIdxId, idxKey);
+        scanSingleEntryAndLeaveCursorOpen(unwrappedTableOnNode0, roTx, sortedIdxId, null);
 
-        TableViewInternal tableViewInternal = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
-        var partitionStorage = (TestMvPartitionStorage) tableViewInternal
-                .internalTable().storage().getMvPartition(PART_ID);
+        TableViewInternal unwrappedTableFromPrimary = unwrapTableViewInternal(primaryIgnite.tables().table(TABLE_NAME));
+        TestMvPartitionStorage partitionStorage = unwrapNullable(
+                unwrappedTableFromPrimary.internalTable().storage().getMvPartition(PART_ID),
+                TestMvPartitionStorage.class
+        );
 
-        var hashIdxStorage = (TestHashIndexStorage) tableViewInternal
-                .internalTable().storage().getIndex(PART_ID, hashIdxId);
+        TestHashIndexStorage hashIdxStorage = unwrapNullable(
+                unwrappedTableFromPrimary.internalTable().storage().getIndex(PART_ID, hashIdxId),
+                TestHashIndexStorage.class
+        );
 
-        var sortedIdxStorage = (TestSortedIndexStorage) tableViewInternal
-                .internalTable().storage().getIndex(PART_ID, sortedIdxId);
+        TestSortedIndexStorage sortedIdxStorage = unwrapNullable(
+                unwrappedTableFromPrimary.internalTable().storage().getIndex(PART_ID, sortedIdxId),
+                TestSortedIndexStorage.class
+        );
 
-        assertTrue(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
+        assertTrue(primaryIgnite.txManager().lockManager().locks(rwTx.id()).hasNext());
         assertEquals(6, partitionStorage.pendingCursors() + hashIdxStorage.pendingCursors() + sortedIdxStorage.pendingCursors());
 
-        NodeUtils.transferPrimary(tbl, null, this::node);
+        NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), tblReplicationGrp);
 
-        assertTrue(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
+        assertTrue(primaryIgnite.txManager().lockManager().locks(rwTx.id()).hasNext());
         assertEquals(6, partitionStorage.pendingCursors() + hashIdxStorage.pendingCursors() + sortedIdxStorage.pendingCursors());
 
         rwTx.rollback();
 
-
-        assertFalse(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
+        assertFalse(primaryIgnite.txManager().lockManager().locks(rwTx.id()).hasNext());
         assertEquals(3, partitionStorage.pendingCursors() + hashIdxStorage.pendingCursors() + sortedIdxStorage.pendingCursors());
     }
 
     /**
      * Starts a scan procedure for a specific transaction and reads only the first line from the cursor.
      *
-     * @param tbl Scanned table.
+     * @param unwrappedTable Scanned table.
      * @param tx Transaction.
      * @param idxId Index id.
-     * @throws Exception If failed.
      */
-    private void scanSingleEntryAndLeaveCursorOpen(TableViewInternal tbl, InternalTransaction tx, Integer idxId, BinaryTuple exactKey)
-            throws Exception {
+    private void scanSingleEntryAndLeaveCursorOpen(
+            TableViewInternal unwrappedTable,
+            InternalTransaction tx,
+            Integer idxId,
+            BinaryTuple exactKey
+    ) {
+        bypassingThreadAssertions(() -> {
+            try {
+                scanSingleEntryAndLeaveCursorOpen0(unwrappedTable, tx, idxId, exactKey);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    private void scanSingleEntryAndLeaveCursorOpen0(
+            TableViewInternal unwrappedTable,
+            InternalTransaction tx,
+            Integer idxId,
+            BinaryTuple exactKey
+    ) throws Exception {
+        InternalTable internalTable = unwrappedTable.internalTable();
+
         Publisher<BinaryRow> publisher;
 
         if (tx.isReadOnly()) {
             CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().getPrimaryReplica(
-                    new TablePartitionId(tbl.tableId(), PART_ID),
+                    new TablePartitionId(unwrappedTable.tableId(), PART_ID),
                     node(0).clock().now()
             );
 
@@ -288,23 +322,23 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
 
             if (idxId == null) {
-                publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, tx.coordinatorId());
+                publisher = internalTable.scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, tx.coordinatorId());
             } else if (exactKey == null) {
-                publisher = tbl.internalTable().scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, idxId, null, null, 0, null,
+                publisher = internalTable.scan(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, idxId, null, null, 0, null,
                         tx.coordinatorId());
             } else {
-                publisher = tbl.internalTable().lookup(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, idxId, exactKey, null,
+                publisher = internalTable.lookup(PART_ID, tx.id(), tx.readTimestamp(), primaryNode, idxId, exactKey, null,
                         tx.coordinatorId());
             }
         } else if (idxId == null) {
-            publisher = tbl.internalTable().scan(PART_ID, tx);
+            publisher = unwrappedTable.internalTable().scan(PART_ID, tx);
         } else if (exactKey == null) {
-            publisher = tbl.internalTable().scan(PART_ID, tx, idxId, null, null, 0, null);
+            publisher = unwrappedTable.internalTable().scan(PART_ID, tx, idxId, null, null, 0, null);
         } else {
-            var rwTx = (ReadWriteTransactionImpl) tx;
+            ReadWriteTransactionImpl rwTx = Wrappers.unwrap(tx, ReadWriteTransactionImpl.class);
 
             CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().getPrimaryReplica(
-                    new TablePartitionId(tbl.tableId(), PART_ID),
+                    new TablePartitionId(unwrappedTable.tableId(), PART_ID),
                     node(0).clock().now()
             );
 
@@ -316,7 +350,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
             ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.id().equals(primaryId)).findAny().get();
 
-            publisher = tbl.internalTable().lookup(
+            publisher = unwrappedTable.internalTable().lookup(
                     PART_ID,
                     rwTx.id(),
                     rwTx.commitPartition(),
@@ -377,7 +411,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
             Peer leader = raftSrvc.leader();
 
-            return leader != null && !leader.consistentId().equals(primary);
+            return leader != null;
         }, 10_000));
     }
 

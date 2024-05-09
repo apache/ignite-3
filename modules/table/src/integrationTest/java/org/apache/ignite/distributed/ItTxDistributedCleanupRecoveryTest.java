@@ -59,7 +59,8 @@ public class ItTxDistributedCleanupRecoveryTest extends TxAbstractTest {
                 nodes(),
                 replicas(),
                 startClient(),
-                timestampTracker
+                timestampTracker,
+                replicationConfiguration
         );
 
         txTestCluster.prepareCluster();

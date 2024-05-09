@@ -19,6 +19,7 @@ package org.apache.ignite.internal.deployunit.metastore;
 
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
@@ -133,7 +134,7 @@ public interface DeploymentUnitStore {
             String nodeId,
             String id,
             Version version,
-            long opId,
+            UUID opId,
             DeploymentStatus status);
 
     /**
@@ -179,16 +180,18 @@ public interface DeploymentUnitStore {
      *
      * @param id Deployment unit identifier.
      * @param version Deployment version identifier.
+     * @param opId Operation identifier.
      * @return Future with {@code true} result if removed successfully.
      */
-    CompletableFuture<Boolean> removeClusterStatus(String id, Version version);
+    CompletableFuture<Boolean> removeClusterStatus(String id, Version version, UUID opId);
 
     /**
      * Removes node status.
      *
      * @param id Deployment unit identifier.
      * @param version Deployment version identifier.
+     * @param opId Operation identifier.
      * @return Future with {@code true} result if removed successfully.
      */
-    CompletableFuture<Boolean> removeNodeStatus(String nodeId, String id, Version version);
+    CompletableFuture<Boolean> removeNodeStatus(String nodeId, String id, Version version, UUID opId);
 }

@@ -44,6 +44,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -149,6 +150,8 @@ public class Checkpointer extends IgniteWorker {
     /** Failure processor. */
     private final FailureProcessor failureProcessor;
 
+    private final LogSyncer logSyncer;
+
     /**
      * Constructor.
      *
@@ -161,6 +164,7 @@ public class Checkpointer extends IgniteWorker {
      * @param filePageStoreManager File page store manager.
      * @param compactor Delta file compactor.
      * @param checkpointConfig Checkpoint configuration.
+     * @param logSyncer Write-ahead log synchronizer.
      */
     Checkpointer(
             String igniteInstanceName,
@@ -171,7 +175,8 @@ public class Checkpointer extends IgniteWorker {
             CheckpointPagesWriterFactory factory,
             FilePageStoreManager filePageStoreManager,
             Compactor compactor,
-            PageMemoryCheckpointConfiguration checkpointConfig
+            PageMemoryCheckpointConfiguration checkpointConfig,
+            LogSyncer logSyncer
     ) {
         super(LOG, igniteInstanceName, "checkpoint-thread", workerListener);
 
@@ -182,6 +187,7 @@ public class Checkpointer extends IgniteWorker {
         this.filePageStoreManager = filePageStoreManager;
         this.compactor = compactor;
         this.failureProcessor = failureProcessor;
+        this.logSyncer = logSyncer;
 
         scheduledCheckpointProgress = new CheckpointProgressImpl(MILLISECONDS.toNanos(nextCheckpointInterval()));
 
@@ -338,6 +344,14 @@ public class Checkpointer extends IgniteWorker {
                                 chp.progress.reason()
                         ));
                     }
+                }
+
+                try {
+                    logSyncer.sync();
+                } catch (Exception e) {
+                    log.error("Failed to sync write-ahead log during checkpoint", e);
+
+                    throw new IgniteInternalCheckedException(e);
                 }
 
                 if (!writePages(tracker, chp.dirtyPages, chp.progress, this, this::isShutdownNow)) {

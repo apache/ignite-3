@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Buffers.Binary;
     using System.Collections;
     using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
     using System.Numerics;
     using Ignite.Sql;
     using NodaTime;
@@ -552,6 +553,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return LocalTime.FromHourMinuteSecondNanosecond(hour, minute, second, nanos);
         }
 
+        [SuppressMessage("ReSharper", "UnusedParameter.Local", Justification = "Schema scale is not required for deserialization.")]
         private static decimal? ReadDecimal(ReadOnlySpan<byte> span, int scale)
         {
             if (span.IsEmpty)
@@ -559,12 +561,22 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 return null;
             }
 
+            var valScale = BinaryPrimitives.ReadInt16LittleEndian(span[..2]);
+            return ReadDecimalUnscaled(span[2..], valScale);
+        }
+
+        private static decimal? ReadDecimalUnscaled(ReadOnlySpan<byte> span, int scale)
+        {
             var unscaled = new BigInteger(span, isBigEndian: true);
             var res = (decimal)unscaled;
 
             if (scale > 0)
             {
                 res /= (decimal)BigInteger.Pow(10, scale);
+            }
+            else if (scale < 0)
+            {
+                res *= (decimal)BigInteger.Pow(10, -scale);
             }
 
             return res;

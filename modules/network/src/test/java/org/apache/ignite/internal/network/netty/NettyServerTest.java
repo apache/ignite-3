@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.netty;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -60,7 +61,6 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -89,19 +89,18 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      */
     @AfterEach
     final void tearDown() throws Exception {
-        IgniteUtils.closeAll(
+        closeAll(
                 server == null ? null : () -> server.stop().join(),
-                bootstrapFactory == null ? null : () -> bootstrapFactory.stop()
+                bootstrapFactory == null ? null : () -> assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully())
         );
     }
 
     /**
      * Tests a successful server start scenario.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testSuccessfulServerStart() throws Exception {
+    public void testSuccessfulServerStart() {
         server = getServer(true);
 
         assertTrue(server.isRunning());
@@ -110,10 +109,9 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     /**
      * Tests a graceful server shutdown scenario.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testServerGracefulShutdown() throws Exception {
+    public void testServerGracefulShutdown() {
         server = getServer(true);
 
         server.stop().join();
@@ -222,7 +220,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
                 });
 
         bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
-        bootstrapFactory.start();
+        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
 
         server = new NettyServer(
                 serverCfg.value(),
@@ -241,7 +239,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
                         .handler(new ChannelInitializer<>() {
                             /** {@inheritDoc} */
                             @Override
-                            protected void initChannel(Channel ch) throws Exception {
+                            protected void initChannel(Channel ch) {
                                 // No-op.
                             }
                         })
@@ -295,7 +293,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      */
     private NettyServer getServer(boolean shouldStart) {
         bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
-        bootstrapFactory.start();
+        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
 
         MessageSerializationRegistry registry = mock(MessageSerializationRegistry.class);
 

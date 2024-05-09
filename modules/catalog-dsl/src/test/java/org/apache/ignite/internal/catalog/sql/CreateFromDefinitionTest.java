@@ -29,7 +29,6 @@ import static org.hamcrest.Matchers.is;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.Options;
-import org.apache.ignite.catalog.ZoneEngine;
 import org.apache.ignite.catalog.annotations.Column;
 import org.apache.ignite.catalog.annotations.Id;
 import org.apache.ignite.catalog.definitions.TableDefinition;
@@ -41,9 +40,9 @@ import org.junit.jupiter.api.Test;
 class CreateFromDefinitionTest {
     @Test
     void createFromZoneBuilderSimple() {
-        ZoneDefinition zone = ZoneDefinition.builder("zone_test").build();
+        ZoneDefinition zone = ZoneDefinition.builder("zone_test").storageProfiles("default").build();
 
-        assertThat(createZone(zone), is("CREATE ZONE zone_test;"));
+        assertThat(createZone(zone), is("CREATE ZONE zone_test WITH STORAGE_PROFILES='default';"));
     }
 
     @Test
@@ -57,15 +56,15 @@ class CreateFromDefinitionTest {
                 .dataNodesAutoAdjustScaleDown(2)
                 .dataNodesAutoAdjustScaleUp(3)
                 .filter("filter")
-                .engine(ZoneEngine.AIMEM)
-                .dataRegion("dataRegion")
+                .storageProfiles("default")
                 .build();
 
         assertThat(
                 createZone(zone),
-                is("CREATE ZONE IF NOT EXISTS zone_test ENGINE AIMEM WITH PARTITIONS=3, REPLICAS=3, AFFINITY_FUNCTION='affinity',"
+                is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=3, REPLICAS=3,"
+                        + " AFFINITY_FUNCTION='affinity',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
-                        + " DATA_NODES_FILTER='filter', DATAREGION='dataRegion';")
+                        + " DATA_NODES_FILTER='filter';")
         );
     }
 
@@ -98,7 +97,7 @@ class CreateFromDefinitionTest {
                 )
                 .primaryKey("id", "id_str")
                 .index("id_str", "f_name")
-                .index("ix_test", IndexType.TREE, column("id_str").asc(), column("f_name").sort(DESC_NULLS_LAST))
+                .index("ix_test", IndexType.SORTED, column("id_str").asc(), column("f_name").sort(DESC_NULLS_LAST))
                 .build();
 
         assertThat(
@@ -107,7 +106,7 @@ class CreateFromDefinitionTest {
                         + " (id int, id_str varchar, f_name varchar(20) NOT NULL DEFAULT 'a', PRIMARY KEY (id, id_str))"
                         + " COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
                         + "CREATE INDEX IF NOT EXISTS ix_id_str_f_name ON builder_test (id_str, f_name);"
-                        + "CREATE INDEX IF NOT EXISTS ix_test ON builder_test USING TREE (id_str asc, f_name desc nulls last);")
+                        + "CREATE INDEX IF NOT EXISTS ix_test ON builder_test USING SORTED (id_str asc, f_name desc nulls last);")
         );
 
         assertThat(
@@ -117,7 +116,7 @@ class CreateFromDefinitionTest {
                         + " COLOCATE BY (\"id\", \"id_str\") WITH PRIMARY_ZONE='ZONE_TEST';"
                         + "CREATE INDEX IF NOT EXISTS \"ix_id_str_f_name\" ON \"builder_test\" (\"id_str\", \"f_name\");"
                         + "CREATE INDEX IF NOT EXISTS \"ix_test\" ON \"builder_test\""
-                        + " USING TREE (\"id_str\" asc, \"f_name\" desc nulls last);")
+                        + " USING SORTED (\"id_str\" asc, \"f_name\" desc nulls last);")
         );
     }
 

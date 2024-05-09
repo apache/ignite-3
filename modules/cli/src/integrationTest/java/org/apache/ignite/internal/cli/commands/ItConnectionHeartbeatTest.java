@@ -20,124 +20,51 @@ package org.apache.ignite.internal.cli.commands;
 import static org.apache.ignite.internal.cli.event.EventType.CONNECTION_LOST;
 import static org.apache.ignite.internal.cli.event.EventType.CONNECTION_RESTORED;
 import static org.awaitility.Awaitility.await;
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.hamcrest.Matchers.is;
 
 import io.micronaut.context.annotation.Property;
-import io.micronaut.context.annotation.Value;
 import jakarta.inject.Inject;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
-import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.event.EventSubscriptionManager;
+import org.apache.ignite.internal.cli.event.EventType;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 @Property(name = "cli.check.connection.period.second", value = "1")
 class ItConnectionHeartbeatTest extends CliIntegrationTest {
-
     @Inject
-    Session session;
+    private EventSubscriptionManager eventSubscriptionManager;
 
-    @Inject
-    EventSubscriptionManager eventSubscriptionManager;
-
-    @Value("${cli.check.connection.period.second}")
-    private long cliCheckConnectionPeriodSecond;
-
-    private final AtomicInteger connectionLostCount = new AtomicInteger(0);
-    private final AtomicInteger connectionRestoredCount = new AtomicInteger(0);
+    private final AtomicReference<EventType> lastEvent = new AtomicReference<>();
 
     @BeforeEach
     void resetConnectionCounts() {
-        connectionLostCount.set(0);
-        connectionRestoredCount.set(0);
+        lastEvent.set(null);
 
         // Register listeners
-        eventSubscriptionManager.subscribe(CONNECTION_LOST, event -> connectionLostCount.incrementAndGet());
-        eventSubscriptionManager.subscribe(CONNECTION_RESTORED, event -> connectionRestoredCount.incrementAndGet());
-    }
-
-    @Override
-    protected Class<?> getCommandClass() {
-        return TopLevelCliReplCommand.class;
+        eventSubscriptionManager.subscribe(CONNECTION_LOST, event -> lastEvent.set(event.eventType()));
+        eventSubscriptionManager.subscribe(CONNECTION_RESTORED, event -> lastEvent.set(event.eventType()));
     }
 
     @Test
-    @DisplayName("Should send event CONNECTION_RESTORED on connection start")
-    void connectionEstablished() {
-        // Given null session info before connect
-        assertNull(session.info());
+    void checkEvents() {
+        // When CLI is connected
+        connect(NODE_URL);
 
-        // When connect without parameters
-        execute("connect");
-
-        // Then
-        assertAll(
-                this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300")
-        );
-
-        // Listener was invoked
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestoredCount.get() == 1);
-        assertEquals(0, connectionLostCount.get());
-    }
-
-    @Test
-    @DisplayName("Should send event CONNECTION_LOST on cluster stop")
-    void onConnectionLost() {
-        // Given connected cli
-        execute("connect");
-
-        // Then
-        assertAll(
-                this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300")
-        );
+        // Then listener was invoked with connection restored event
+        await().until(lastEvent::get, is(CONNECTION_RESTORED));
 
         // When stop node
-        int nodeIndex = CLUSTER.nodeIndex(session.info().nodeName());
-        CLUSTER.stopNode(nodeIndex);
-
-        // Listener was invoked
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(
-                () -> connectionRestoredCount.get() == 1 && connectionLostCount.get() == 1
-        );
-
-        // Tear down. Restore initial state of node to exclude any impact on next test.
-        CLUSTER.startNode(nodeIndex);
-    }
-
-    @Test
-    @DisplayName("Should send event CONNECTION_LOST on cluster stop")
-    void restoreConnectionAfterConnectionLost() {
-        // Given connected cli
-        execute("connect");
-
-        // Then
-        assertAll(
-                this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("Connected to http://localhost:10300")
-        );
-
-        // When stop node
-        int nodeIndex = CLUSTER.nodeIndex(session.info().nodeName());
-        CLUSTER.stopNode(nodeIndex);
+        CLUSTER.stopNode(0);
 
         // Then connection lost event obtained
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(
-                () -> connectionRestoredCount.get() == 1 && connectionLostCount.get() == 1
-        );
+        await().until(lastEvent::get, is(CONNECTION_LOST));
 
-        // When
-        CLUSTER.startNode(nodeIndex);
+        // When start node again
+        CLUSTER.startNode(0);
 
         // Then one more connection restore event obtained
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(
-                () -> connectionRestoredCount.get() == 2 && connectionLostCount.get() == 1
-        );
+        await().until(lastEvent::get, is(CONNECTION_RESTORED));
     }
 }

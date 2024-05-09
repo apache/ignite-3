@@ -79,4 +79,19 @@ public class TxMessageGroup {
      */
     public static final short TX_FINISHED_BATCH = 10;
 
+    /**
+     * Message type for {@link TxCleanupRecoveryRequest}.
+     */
+    public static final short TX_CLEANUP_RECOVERY = 11;
+
+    /**
+     * Message type for {@link VacuumTxStateReplicaRequest}.
+     */
+    public static final short VACUUM_TX_STATE_REPLICA_REQUEST = 12;
+
+    /**
+     * Message type for {@link VacuumTxStatesCommand}.
+     */
+    public static final short VACUUM_TX_STATE_COMMAND = 13;
+
 }

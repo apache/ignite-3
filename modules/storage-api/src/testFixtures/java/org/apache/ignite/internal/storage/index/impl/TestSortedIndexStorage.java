@@ -46,21 +46,16 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of MV sorted index storage.
  */
 public class TestSortedIndexStorage extends AbstractTestIndexStorage implements SortedIndexStorage {
-    private final int partitionId;
-
     private final NavigableSet<IndexRow> index;
 
     private final StorageSortedIndexDescriptor descriptor;
 
-    /**
-     * Constructor.
-     */
+    /** Constructor. */
     public TestSortedIndexStorage(int partitionId, StorageSortedIndexDescriptor descriptor) {
-        super(partitionId);
+        super(partitionId, descriptor);
 
         BinaryTupleComparator binaryTupleComparator = new BinaryTupleComparator(descriptor.columns());
 
-        this.partitionId = partitionId;
         this.descriptor = descriptor;
         this.index = new ConcurrentSkipListSet<>(
                 comparing((IndexRow indexRow) -> indexRow.indexColumns().byteBuffer(), binaryTupleComparator)
@@ -99,49 +94,13 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
     }
 
     @Override
-    public PeekCursor<IndexRow> scan(
-            @Nullable BinaryTuplePrefix lowerBound,
-            @Nullable BinaryTuplePrefix upperBound,
-            int flags
-    ) {
-        checkStorageClosedOrInProcessOfRebalance(true);
+    public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        return scanInternal(lowerBound, upperBound, flags, true);
+    }
 
-        boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
-        boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
-
-        if (!includeLower && lowerBound != null) {
-            setEqualityFlag(lowerBound);
-        }
-
-        if (includeUpper && upperBound != null) {
-            setEqualityFlag(upperBound);
-        }
-
-        NavigableSet<IndexRow> navigableSet;
-
-        if (lowerBound == null && upperBound == null) {
-            navigableSet = index;
-        } else if (lowerBound == null) {
-            navigableSet = index.headSet(prefixToIndexRow(upperBound, highestRowId(partitionId)), true);
-        } else if (upperBound == null) {
-            navigableSet = index.tailSet(prefixToIndexRow(lowerBound, lowestRowId(partitionId)), true);
-        } else {
-            try {
-                navigableSet = index.subSet(
-                        prefixToIndexRow(lowerBound, lowestRowId(partitionId)),
-                        true,
-                        prefixToIndexRow(upperBound, highestRowId(partitionId)),
-                        true
-                );
-            } catch (IllegalArgumentException e) {
-                // Upper bound is below the lower bound.
-                navigableSet = emptyNavigableSet();
-            }
-        }
-
-        pendingCursors.incrementAndGet();
-
-        return new ScanCursor(navigableSet);
+    @Override
+    public PeekCursor<IndexRow> tolerantScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        return scanInternal(lowerBound, upperBound, flags, false);
     }
 
     private IndexRowImpl prefixToIndexRow(BinaryTuplePrefix prefix, RowId rowId) {
@@ -239,5 +198,55 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
      */
     public Set<RowId> allRowsIds() {
         return index.stream().map(IndexRow::rowId).collect(Collectors.toSet());
+    }
+
+    private PeekCursor<IndexRow> scanInternal(
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            boolean onlyBuiltIndex
+    ) {
+        checkStorageClosedOrInProcessOfRebalance(true);
+
+        if (onlyBuiltIndex) {
+            throwExceptionIfIndexIsNotBuilt();
+        }
+
+        boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
+        boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
+
+        if (!includeLower && lowerBound != null) {
+            setEqualityFlag(lowerBound);
+        }
+
+        if (includeUpper && upperBound != null) {
+            setEqualityFlag(upperBound);
+        }
+
+        NavigableSet<IndexRow> navigableSet;
+
+        if (lowerBound == null && upperBound == null) {
+            navigableSet = index;
+        } else if (lowerBound == null) {
+            navigableSet = index.headSet(prefixToIndexRow(upperBound, highestRowId(partitionId)), true);
+        } else if (upperBound == null) {
+            navigableSet = index.tailSet(prefixToIndexRow(lowerBound, lowestRowId(partitionId)), true);
+        } else {
+            try {
+                navigableSet = index.subSet(
+                        prefixToIndexRow(lowerBound, lowestRowId(partitionId)),
+                        true,
+                        prefixToIndexRow(upperBound, highestRowId(partitionId)),
+                        true
+                );
+            } catch (IllegalArgumentException e) {
+                // Upper bound is below the lower bound.
+                navigableSet = emptyNavigableSet();
+            }
+        }
+
+        pendingCursors.incrementAndGet();
+
+        return new ScanCursor(navigableSet);
     }
 }

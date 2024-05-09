@@ -20,7 +20,7 @@ package org.apache.ignite.internal.distributionzones.causalitydatanodes;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
@@ -53,6 +53,7 @@ import static org.mockito.Mockito.doAnswer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -61,6 +62,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
@@ -80,6 +82,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -102,14 +105,26 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     private static final String ZONE_NAME_4 = "zone4";
 
-    private static final LogicalNode NODE_0 =
-            new LogicalNode("node_id_0", "node_name_0", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_0 = new LogicalNode(
+            new ClusterNodeImpl("node_id_0", "node_name_0", new NetworkAddress("localhost", 123)),
+            Map.of(),
+            Map.of(),
+            List.of(DEFAULT_STORAGE_PROFILE)
+    );
 
-    private static final LogicalNode NODE_1 =
-            new LogicalNode("node_id_1", "node_name_1", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_1 = new LogicalNode(
+            new ClusterNodeImpl("node_id_1", "node_name_1", new NetworkAddress("localhost", 123)),
+            Map.of(),
+            Map.of(),
+            List.of(DEFAULT_STORAGE_PROFILE)
+    );
 
-    private static final LogicalNode NODE_2 =
-            new LogicalNode("node_id_2", "node_name_2", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_2 = new LogicalNode(
+            new ClusterNodeImpl("node_id_2", "node_name_2", new NetworkAddress("localhost", 123)),
+            Map.of(),
+            Map.of(),
+            List.of(DEFAULT_STORAGE_PROFILE)
+    );
 
     private static final Set<LogicalNode> ONE_NODE = Set.of(NODE_0);
     private static final Set<String> ONE_NODE_NAME = Set.of(NODE_0.name());
@@ -172,7 +187,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         addCatalogZoneEventListeners();
 
-        distributionZoneManager.start();
+        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
@@ -254,8 +269,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Create the zone with immediate timers.
         createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
+        CatalogZoneDescriptor defaultZone = getDefaultZone();
+        int defaultZoneId = defaultZone.id();
+
         // Alter the zone with immediate timers.
-        alterZone(DEFAULT_ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
+        alterZone(defaultZone.name(), IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         // Create logical topology with NODE_0 and NODE_1.
         topology.putNode(NODE_0);
@@ -263,7 +281,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Check that data nodes value of both zone is NODE_0 and NODE_1.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
         int zoneId = getZoneId(ZONE_NAME);
 
         Set<String> dataNodes0 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), defaultZoneId)
@@ -277,7 +294,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Alter zones with not immediate scale up timer.
         alterZone(ZONE_NAME, 1, IMMEDIATE_TIMER_VALUE, null);
 
-        alterZone(DEFAULT_ZONE_NAME, 1, IMMEDIATE_TIMER_VALUE, null);
+        alterZone(getDefaultZone().name(), 1, IMMEDIATE_TIMER_VALUE, null);
 
         // Test steps.
 
@@ -327,8 +344,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Create the zone with not immediate scale down timer.
         createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, 1, null);
 
+        CatalogZoneDescriptor defaultZone = getDefaultZone();
+
         // Alter the zone with not immediate scale down timer.
-        alterZone(DEFAULT_ZONE_NAME, IMMEDIATE_TIMER_VALUE, 1, null);
+        alterZone(defaultZone.name(), IMMEDIATE_TIMER_VALUE, 1, null);
 
         // Create logical topology with NODE_0 and NODE_1.
         topology.putNode(NODE_0);
@@ -336,7 +355,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Check that data nodes value of both zone is NODE_0 and NODE_1.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+        int defaultZoneId = defaultZone.id();
         int zoneId = getZoneId(ZONE_NAME);
 
         Set<String> dataNodes0 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), defaultZoneId)
@@ -529,7 +548,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         int zoneId2 = getZoneId(ZONE_NAME_2);
         int zoneId3 = getZoneId(ZONE_NAME_3);
         int zoneId4 = getZoneId(ZONE_NAME_4);
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+        int defaultZoneId = getDefaultZone().id();
 
         Set<String> dataNodes = distributionZoneManager.dataNodes(
                 metaStorageManager.appliedRevision(),
@@ -578,6 +597,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      */
     @ParameterizedTest
     @MethodSource("provideArgumentsOfDifferentTimersValue")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22185")
     void testEmptyDataNodesOnZoneCreationBeforeTopologyEventAndZoneInitialisation(int scaleUp, int scaleDown) {
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -776,14 +796,16 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Create the zone with immediate timers.
         createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
+        CatalogZoneDescriptor defaultZone = getDefaultZone();
+        int defaultZoneId = defaultZone.id();
+
         // Alter the zone with immediate timers.
-        alterZone(DEFAULT_ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
+        alterZone(defaultZone.name(), IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         // Create logical topology with NODE_0.
         // Check that data nodes value of both zone is NODE_0.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, ONE_NODE);
 
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
         int zoneId = getZoneId(ZONE_NAME);
 
         Set<String> dataNodes0 = distributionZoneManager.dataNodes(topologyRevision1, catalogManager.latestCatalogVersion(), defaultZoneId)
@@ -798,14 +820,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         alterZone(ZONE_NAME, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
 
         // Alter the zone with infinite timers.
-        alterZone(DEFAULT_ZONE_NAME, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
+        alterZone(defaultZone.name(), INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
 
         // Test steps.
 
         String filter = "$[?($..* || @.region == 'US')]";
 
         // Change filter and get revision of this change.
-        long filterRevision0 = alterFilterAndGetRevision(DEFAULT_ZONE_NAME, filter);
+        long filterRevision0 = alterFilterAndGetRevision(defaultZone.name(), filter);
         long filterRevision1 = alterFilterAndGetRevision(ZONE_NAME, filter);
 
         // Check that data nodes value of the the zone is NODE_0.
@@ -899,7 +921,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     /** Tests data nodes obtaining with wrong parameters throw an exception. */
     @Test
     void validationTest() {
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+        int defaultZoneId = getDefaultZone().id();
 
         assertThrowsWithCause(
                 () -> distributionZoneManager.dataNodes(0, catalogManager.latestCatalogVersion(), defaultZoneId).get(TIMEOUT, MILLISECONDS),
@@ -932,10 +954,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      */
     @Test
     void simpleTopologyChanges() throws Exception {
+        CatalogZoneDescriptor defaultZone = getDefaultZone();
+        int defaultZoneId = defaultZone.id();
+
         // Prerequisite.
 
         // Create zones with immediate timers.
-        alterZone(DEFAULT_ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
+        alterZone(defaultZone.name(), IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
@@ -946,7 +971,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Change logical topology. NODE_1 is added.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
         int zoneId = getZoneId(ZONE_NAME);
 
         Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision0, catalogManager.latestCatalogVersion(), defaultZoneId)
@@ -1000,7 +1024,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         prepareZonesWithTwoDataNodes();
 
         Map<Integer, Set<String>> expectedDataNodes = new HashMap<>();
-        expectedDataNodes.put(getZoneId(DEFAULT_ZONE_NAME), Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name()));
+        expectedDataNodes.put(getDefaultZone().id(), Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME), Set.of(NODE_0.name(), NODE_1.name(), NODE_2.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME_2), Set.of(NODE_0.name(), NODE_1.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME_3), Set.of(NODE_0.name(), NODE_1.name()));
@@ -1027,7 +1051,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         prepareZonesWithTwoDataNodes();
 
         Map<Integer, Set<String>> expectedDataNodes = new HashMap<>();
-        expectedDataNodes.put(getZoneId(DEFAULT_ZONE_NAME), Set.of(NODE_0.name()));
+        expectedDataNodes.put(getDefaultZone().id(), Set.of(NODE_0.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME), Set.of(NODE_0.name(), NODE_1.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME_2), Set.of(NODE_0.name()));
         expectedDataNodes.put(getZoneId(ZONE_NAME_3), Set.of(NODE_0.name(), NODE_1.name()));
@@ -1106,7 +1130,9 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      * Added two nodes in topology and assert that data nodes of zones are contains all topology nodes.
      */
     private void prepareZonesWithTwoDataNodes() throws Exception {
-        alterZone(DEFAULT_ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
+        CatalogZoneDescriptor defaultZone = getDefaultZone();
+
+        alterZone(defaultZone.name(), IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
@@ -1123,7 +1149,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
         Set<Integer> zoneIds = Set.of(
-                getZoneId(DEFAULT_ZONE_NAME),
+                defaultZone.id(),
                 getZoneId(ZONE_NAME),
                 getZoneId(ZONE_NAME_2),
                 getZoneId(ZONE_NAME_3),

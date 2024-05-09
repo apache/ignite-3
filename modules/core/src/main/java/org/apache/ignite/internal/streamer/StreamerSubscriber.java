@@ -24,7 +24,6 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
@@ -33,8 +32,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.DataStreamerItem;
 import org.jetbrains.annotations.Nullable;
 
@@ -67,11 +64,13 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
 
     private final StreamerMetricSink metrics;
 
+    private final ScheduledExecutorService flushExecutor;
+
     private @Nullable Flow.Subscription subscription;
 
-    private @Nullable ScheduledExecutorService flushTimer;
-
     private @Nullable ScheduledFuture<?> flushTask;
+
+    private boolean closed;
 
     /**
      * Constructor.
@@ -83,23 +82,26 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
             StreamerBatchSender<T, P> batchSender,
             StreamerPartitionAwarenessProvider<T, P> partitionAwarenessProvider,
             StreamerOptions options,
+            ScheduledExecutorService flushExecutor,
             IgniteLogger log,
             @Nullable StreamerMetricSink metrics) {
         assert batchSender != null;
         assert partitionAwarenessProvider != null;
         assert options != null;
+        assert flushExecutor != null;
         assert log != null;
 
         this.batchSender = batchSender;
         this.partitionAwarenessProvider = partitionAwarenessProvider;
         this.options = options;
+        this.flushExecutor = flushExecutor;
         this.log = log;
         this.metrics = getMetrics(metrics);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void onSubscribe(Subscription subscription) {
+    public synchronized void onSubscribe(Subscription subscription) {
         if (this.subscription != null) {
             throw new IllegalStateException("Subscription is already set.");
         }
@@ -208,13 +210,9 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
         }
     }
 
-    private void close(@Nullable Throwable throwable) {
-        if (flushTimer != null) {
-            assert flushTask != null;
-
+    private synchronized void close(@Nullable Throwable throwable) {
+        if (flushTask != null) {
             flushTask.cancel(false);
-
-            IgniteUtils.shutdownAndAwaitTermination(flushTimer, 10, TimeUnit.SECONDS);
         }
 
         var s = subscription;
@@ -232,9 +230,15 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
         } else {
             completionFut.completeExceptionally(throwable);
         }
+
+        closed = true;
     }
 
-    private void requestMore() {
+    private synchronized void requestMore() {
+        if (closed || subscription == null) {
+            return;
+        }
+
         // This method controls backpressure. We won't get more items than we requested.
         // The idea is to have perPartitionParallelOperations batches in flight for every connection.
         var pending = pendingItemCount.get();
@@ -246,23 +250,22 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
             return;
         }
 
-        assert subscription != null;
         subscription.request(count);
         pendingItemCount.addAndGet(count);
     }
 
-    private void initFlushTimer() {
+    private synchronized void initFlushTimer() {
+        if (closed) {
+            return;
+        }
+
         int interval = options.autoFlushFrequency();
 
         if (interval <= 0) {
             return;
         }
 
-        String threadPrefix = "client-data-streamer-flush-" + hashCode();
-
-        flushTimer = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(threadPrefix, log));
-
-        flushTask = flushTimer.scheduleAtFixedRate(this::flushBuffers, interval, interval, TimeUnit.MILLISECONDS);
+        flushTask = flushExecutor.scheduleAtFixedRate(this::flushBuffers, interval, interval, TimeUnit.MILLISECONDS);
     }
 
     private void flushBuffers() {

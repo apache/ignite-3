@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.reverse;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,10 +32,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.IntSupplier;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
@@ -89,12 +90,16 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
     /** Supplier for the value of delay for scheduled database flush. */
     private final IntSupplier flushDelaySupplier;
 
+    /** Write-ahead log synchronizer. */
+    private final LogSyncer logSyncer;
+
     /**
      * Constructor.
      *
      * @param dbPath Database path.
      * @param scheduledExecutor Scheduled executor for delayed flushes.
      * @param threadPool Thread pool for internal operations.
+     * @param logSyncer Write-ahead log synchronizer.
      * @param flushDelaySupplier Flush delay supplier.
      *
      * @see RocksDbFlusher
@@ -103,12 +108,14 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
             Path dbPath,
             ScheduledExecutorService scheduledExecutor,
             ExecutorService threadPool,
+            LogSyncer logSyncer,
             IntSupplier flushDelaySupplier
     ) {
         this.dbPath = dbPath;
         this.scheduledExecutor = scheduledExecutor;
         this.threadPool = threadPool;
         this.flushDelaySupplier = flushDelaySupplier;
+        this.logSyncer = logSyncer;
     }
 
     /**
@@ -139,6 +146,7 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
                     scheduledExecutor,
                     threadPool,
                     flushDelaySupplier,
+                    logSyncer,
                     () -> {} // No-op.
             );
 
@@ -180,6 +188,7 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
 
         List<AutoCloseable> resources = new ArrayList<>();
 
+        resources.add(flusher::stop);
         resources.add(readOptions);
         resources.add(writeOptions);
         resources.add(dbOptions);
@@ -187,6 +196,6 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
 
         reverse(resources);
 
-        IgniteUtils.closeAll(resources);
+        closeAll(resources);
     }
 }

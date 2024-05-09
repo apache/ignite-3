@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.processor.messages;
 
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -55,6 +56,7 @@ import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
 import org.apache.ignite.internal.network.processor.ProcessingException;
 import org.apache.ignite.internal.network.processor.TypeUtils;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -131,8 +133,19 @@ public class MessageImplGenerator {
             }
 
             FieldSpec.Builder fieldBuilder = FieldSpec.builder(getterReturnType, getterName)
-                    .addAnnotation(IgniteToStringInclude.class)
                     .addModifiers(Modifier.PRIVATE);
+
+            if (getter.getAnnotation(IgniteToStringExclude.class) == null) {
+                IgniteToStringInclude includeAnnotation = getter.getAnnotation(IgniteToStringInclude.class);
+
+                AnnotationSpec includeAnnotationSpec = includeAnnotation == null
+                        ? AnnotationSpec.builder(IgniteToStringInclude.class).build()
+                        : AnnotationSpec.get(includeAnnotation);
+
+                fieldBuilder.addAnnotation(includeAnnotationSpec);
+            } else {
+                fieldBuilder.addAnnotation(IgniteToStringExclude.class);
+            }
 
             boolean generateSetter = getter.getAnnotation(WithSetter.class) != null;
 
@@ -209,7 +222,6 @@ public class MessageImplGenerator {
 
         messageImpl.addMethod(groupTypeMethod);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17591
         MethodSpec toStringMethod = MethodSpec.methodBuilder("toString")
                 .addAnnotation(Override.class)
                 .addModifiers(Modifier.PUBLIC)

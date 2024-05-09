@@ -2,6 +2,8 @@
 # description: Test basic DATE functionality
 # group: [date]
 # Ignore https://issues.apache.org/jira/browse/IGNITE-15619
+# Note: these tests fail because AI3 does not allow <datetime> +/- <number> arithmetic.
+#       According to the standard only <datetime> +/- <interval> arithmetic is allowed.
 
 statement ok
 PRAGMA enable_verification

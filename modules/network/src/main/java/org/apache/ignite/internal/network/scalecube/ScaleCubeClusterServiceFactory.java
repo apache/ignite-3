@@ -132,7 +132,7 @@ public class ScaleCubeClusterServiceFactory {
             private volatile CompletableFuture<Void> shutdownFuture;
 
             @Override
-            public CompletableFuture<Void> start() {
+            public CompletableFuture<Void> startAsync() {
                 var serializationService = new SerializationService(serializationRegistry, userObjectSerialization);
 
                 UUID launchId = UUID.randomUUID();
@@ -214,7 +214,7 @@ public class ScaleCubeClusterServiceFactory {
             }
 
             @Override
-            public void stop() {
+            public CompletableFuture<Void> stopAsync() {
                 ConnectionManager localConnectionMgr = connectionMgr;
 
                 if (localConnectionMgr != null) {
@@ -247,11 +247,13 @@ public class ScaleCubeClusterServiceFactory {
                 // Messaging service checks connection manager's status before sending a message, so connection manager should be
                 // stopped before messaging service
                 messagingService.stop();
+
+                return nullCompletedFuture();
             }
 
             @Override
             public void beforeNodeStop() {
-                stop();
+                this.stopAsync().join();
             }
 
             @Override

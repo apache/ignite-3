@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.benchmark;
 
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -31,10 +33,11 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
@@ -213,7 +216,14 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      */
     @State(Scope.Benchmark)
     public static class SqlInternalApiState {
-        private final SqlProperties properties = SqlPropertiesHelper.emptyProperties();
+        private final SqlProperties properties = SqlPropertiesHelper.newBuilder()
+                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
+                .build();
+
+        private final SqlProperties scriptProperties = SqlPropertiesHelper.newBuilder()
+                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
+                .build();
+
         private final QueryProcessor queryProc = clusterNode.queryEngine();
         private int pageSize;
 
@@ -226,11 +236,11 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
         }
 
         private Iterator<InternalSqlRow> query(String sql, Object... args) {
-            return handleFirstBatch(queryProc.querySingleAsync(properties, clusterNode.transactions(), null, sql, args));
+            return handleFirstBatch(queryProc.queryAsync(properties, clusterNode.transactions(), null, sql, args));
         }
 
         private Iterator<InternalSqlRow> script(String sql, Object... args) {
-            return handleFirstBatch(queryProc.queryScriptAsync(properties, clusterNode.transactions(), null, sql, args));
+            return handleFirstBatch(queryProc.queryAsync(scriptProperties, clusterNode.transactions(), null, sql, args));
         }
 
         private Iterator<InternalSqlRow> handleFirstBatch(CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
@@ -268,7 +278,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
          */
         @TearDown
         public void tearDown() throws Exception {
-            IgniteUtils.closeAll(client);
+            closeAll(client);
         }
 
         org.apache.ignite.sql.ResultSet<SqlRow> sql(String query, Object... args) {
@@ -304,7 +314,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
 
         @TearDown
         public void tearDown() throws Exception {
-            IgniteUtils.closeAll(stmt, conn);
+            closeAll(stmt, conn);
         }
     }
 
@@ -329,7 +339,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
 
         @TearDown
         public void tearDown() throws Exception {
-            IgniteUtils.closeAll(client);
+            closeAll(client);
         }
 
         KeyValueView<Tuple, Tuple> kvView() {

@@ -22,25 +22,28 @@ import org.apache.ignite.internal.eventlog.event.EventBuilder;
 import org.apache.ignite.internal.eventlog.event.EventTypeRegistry;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 
-/** Represents an event object that can be logged to the event log. */
+/**
+ * Represents an event object that can be logged to the event log.
+ * All implementations of this interface must be plain POJO.
+ **/
 public interface Event {
-    /** The type of the event. The type must be registered in the {@link EventTypeRegistry}. */
-    String type();
-
-    /** The unix timestamp of the event. */
-    long timestamp();
-
-    /** The product version. The version is compatible with semver. */
-    String productVersion();
-
-    /** The user that caused the event. If the user is not available, the method returns a system user. */
-    EventUser user();
-
-    /** The event-specific fields of the event. */
-    Map<String, Object> fields();
-
     /** Default builder for the event object. */
     static EventBuilder builder() {
         return new EventBuilder();
     }
+
+    /** The type of the event. The type must be registered in the {@link EventTypeRegistry}. */
+    String getType();
+
+    /** The unix timestamp of the event. */
+    long getTimestamp();
+
+    /** The product version. The version is compatible with semver. */
+    String getProductVersion();
+
+    /** The user that caused the event. If the user is not available, the method returns a system user. */
+    EventUser getUser();
+
+    /** The event-specific fields of the event. */
+    Map<String, Object> getFields();
 }

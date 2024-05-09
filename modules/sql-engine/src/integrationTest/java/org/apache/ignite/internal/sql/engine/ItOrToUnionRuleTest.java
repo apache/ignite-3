@@ -26,7 +26,6 @@ import static org.hamcrest.CoreMatchers.not;
 import java.util.List;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -39,7 +38,6 @@ import org.junit.jupiter.api.Test;
  * <p>SELECT * FROM products WHERE category = 'Photo' UNION ALL SELECT * FROM products WHERE subcategory ='Camera Media' AND LNNVL(category,
  * 'Photo');
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-21287")
 public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
     public static final String IDX_SUBCAT_ID = "IDX_SUBCAT_ID";
 

@@ -27,6 +27,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
@@ -216,7 +217,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
             try {
                 for (int i = 0; i < size; i++) {
                     var tupleReader = new BinaryTupleReader(rowSize, in.readBinaryUnsafe());
-                    var reader = new ClientMarshallerReader(tupleReader, null);
+                    var reader = new ClientMarshallerReader(tupleReader, null, TuplePart.KEY_AND_VAL);
 
                     res.add((T) marshaller.readObject(reader, null));
                 }

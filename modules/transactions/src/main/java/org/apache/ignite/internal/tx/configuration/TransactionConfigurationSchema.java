@@ -50,4 +50,9 @@ public class TransactionConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 0)
     public long txnResourceTtl = TimeUnit.SECONDS.toMillis(30);
+
+    /** Transaction system remote call timeout. RPC timeout for operations like cleanup and write intent resolution. */
+    @Value(hasDefault = true)
+    @Range(min = 1000)
+    public long rpcTimeout = TimeUnit.SECONDS.toMillis(60);
 }

@@ -78,7 +78,33 @@ namespace Apache.Ignite.Tests
                 if (text.Contains("public class", StringComparison.Ordinal) ||
                     text.Contains("public record", StringComparison.Ordinal))
                 {
-                    Assert.Fail("Public classes must be sealed: " + file);
+                    if (!text.Contains("public record struct"))
+                    {
+                        Assert.Fail("Public classes must be sealed: " + file);
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void TestNoConsoleOutputInCoreProject()
+        {
+            foreach (var file in GetCsFiles())
+            {
+                if (file.Contains(".Tests", StringComparison.Ordinal) ||
+                    file.Contains(".Benchmarks", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                foreach (var line in File.ReadAllLines(file))
+                {
+                    if (line.Trim().StartsWith("//", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    StringAssert.DoesNotContain("Console.Write", line, $"Console output in '{file}'");
                 }
             }
         }

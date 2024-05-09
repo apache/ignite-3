@@ -18,9 +18,12 @@
 package org.apache.ignite.raft.server;
 
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.raft.server.counter.GetValueCommand.getValueCommand;
 import static org.apache.ignite.raft.server.counter.IncrementAndGetCommand.incrementAndGetCommand;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -28,18 +31,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -88,9 +90,6 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     /** Executor for raft group services. */
     private ScheduledExecutorService executor;
 
-    @InjectConfiguration
-    private RaftConfiguration raftConfiguration;
-
     /**
      * Before each.
      */
@@ -100,16 +99,14 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         ClusterService service = clusterService(PORT, List.of(addr), true);
 
-        server = new JraftServerImpl(service, workDir) {
+        server = new JraftServerImpl(service, workDir, raftConfiguration) {
             @Override
-            public synchronized void stop() throws Exception {
-                super.stop();
-
-                service.stop();
+            public CompletableFuture<Void> stopAsync() {
+                return IgniteUtils.stopAsync(super::stopAsync, service::stopAsync);
             }
         };
 
-        server.start();
+        assertThat(server.startAsync(), willCompleteSuccessfully());
 
         String serverNodeName = server.clusterService().topologyService().localMember().name();
 
@@ -154,10 +151,10 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     @AfterEach
     @Override
     public void after() throws Exception {
-        IgniteUtils.closeAll(
+        closeAll(
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_0),
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_1),
-                server::stop,
+                () -> assertThat(server.stopAsync(), willCompleteSuccessfully()),
                 client1::shutdown,
                 client2::shutdown,
                 () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)

@@ -20,10 +20,13 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
+import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.waitAndGetPrimaryReplica;
 import static org.apache.ignite.internal.util.ExceptionUtils.extractCodeFrom;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -54,7 +58,6 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -113,7 +116,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void setup(TestInfo testInfo) throws Exception {
         super.setup(testInfo);
 
-        String zoneSql = "create zone test_zone with partitions=1, replicas=3";
+        String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) with primary_zone='TEST_ZONE'";
 
         cluster.doInSession(0, session -> {
@@ -442,7 +445,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         // Continue the COMMIT message flow.
         CompletableFuture<NetworkMessage> finishRequest =
-                messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000);
+                bypassingThreadAssertions(() -> messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000));
 
         assertThat(finishRequest, willCompleteSuccessfully());
 
@@ -516,7 +519,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
 
         CompletableFuture<NetworkMessage> commitRequest =
-                messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000);
+                bypassingThreadAssertions(() -> messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000));
 
         assertThat(commitRequest, willCompleteSuccessfully());
 
@@ -1030,16 +1033,16 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         return txMeta == null ? null : txMeta.txState();
     }
 
-    private @Nullable TxState txStoredState(IgniteImpl node, UUID txId) {
+    private static @Nullable TxState txStoredState(IgniteImpl node, UUID txId) {
         TxMeta txMeta = txStoredMeta(node, txId);
 
         return txMeta == null ? null : txMeta.txState();
     }
 
-    private @Nullable TxMeta txStoredMeta(IgniteImpl node, UUID txId) {
+    private static @Nullable TxMeta txStoredMeta(IgniteImpl node, UUID txId) {
         InternalTable internalTable = unwrapTableImpl(node.tables().table(TABLE_NAME)).internalTable();
 
-        return internalTable.txStateStorage().getTxStateStorage(0).get(txId);
+        return bypassingThreadAssertions(() -> internalTable.txStateStorage().getTxStateStorage(0).get(txId));
     }
 
     /**
@@ -1100,7 +1103,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
      * @return Transaction id.
      * @throws InterruptedException If interrupted.
      */
-    private UUID startTransactionAndStopNode(IgniteImpl node) throws InterruptedException {
+    private UUID startTransactionAndStopNode(IgniteImpl node) throws InterruptedException, ExecutionException {
         Transaction rwTx1 = createRwTransaction(node);
 
         String txCrdNodeId = node.id();
@@ -1146,20 +1149,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         return findNode(1, initialNodes(), n -> !leaseholder.equals(n.name()));
     }
 
-    private ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
-                node.clock().now(),
-                10,
-                SECONDS
-        );
-
-        assertThat(primaryReplicaFut, willCompleteSuccessfully());
-
-        return primaryReplicaFut.join();
-    }
-
-    private String waitAndGetLeaseholder(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
+    private static String waitAndGetLeaseholder(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
         return waitAndGetPrimaryReplica(node, tblReplicationGrp).getLeaseholder();
     }
 

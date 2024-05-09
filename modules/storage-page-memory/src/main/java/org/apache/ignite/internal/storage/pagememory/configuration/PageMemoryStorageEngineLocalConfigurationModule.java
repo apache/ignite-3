@@ -20,21 +20,23 @@ package org.apache.ignite.internal.storage.pagememory.configuration;
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileChange;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
 
 /**
- * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-page-memory.
+ * {@link ConfigurationModule} for local node configuration provided by ignite-storage-page-memory.
  */
 @AutoService(ConfigurationModule.class)
 public class PageMemoryStorageEngineLocalConfigurationModule implements ConfigurationModule {
+    public static final String DEFAULT_PROFILE_NAME = "default";
+
     /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
@@ -43,21 +45,23 @@ public class PageMemoryStorageEngineLocalConfigurationModule implements Configur
 
     /** {@inheritDoc} */
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(VolatilePageMemoryStorageEngineConfiguration.KEY, PersistentPageMemoryStorageEngineConfiguration.KEY);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(
-                VolatilePageMemoryDataStorageConfigurationSchema.class,
-                PersistentPageMemoryDataStorageConfigurationSchema.class);
+                VolatilePageMemoryProfileConfigurationSchema.class,
+                PersistentPageMemoryProfileConfigurationSchema.class);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Set<Validator<?, ?>> validators() {
-        return Set.of(PageMemoryDataRegionValidatorImpl.INSTANCE);
+    public Collection<Class<?>> schemaExtensions() {
+        return List.of(
+                PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
+                VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class);
+    }
+
+    @Override
+    public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
+        rootChange.changeRoot(StorageConfiguration.KEY).changeProfiles(ch -> ch.createOrUpdate(DEFAULT_PROFILE_NAME, p -> {
+            p.convert(PersistentPageMemoryProfileChange.class);
+        }));
     }
 }

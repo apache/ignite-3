@@ -20,6 +20,7 @@ package org.apache.ignite.internal.replicator;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
 import java.util.concurrent.CompletableFuture;
@@ -41,6 +42,8 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplica
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -54,6 +57,8 @@ public class Replica {
 
     /** Message factory. */
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     /** Replica group identity, this id is the same as the considered partition's id. */
     private final ReplicationGroupId replicaGrpId;
@@ -168,7 +173,21 @@ public class Replica {
      */
     public CompletableFuture<? extends NetworkMessage> processPlacementDriverMessage(PlacementDriverReplicaMessage msg) {
         if (msg instanceof LeaseGrantedMessage) {
-            return processLeaseGrantedMessage((LeaseGrantedMessage) msg);
+            return processLeaseGrantedMessage((LeaseGrantedMessage) msg)
+                    .handle((v, e) -> {
+                        if (e != null) {
+                            Throwable ex = unwrapCause(e);
+
+                            LOG.warn("Failed to process the lease granted message [msg={}].", ex, msg);
+
+                            // Just restart the negotiation in case of exception.
+                            return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
+                                    .accepted(false)
+                                    .build();
+                        } else {
+                            return v;
+                        }
+                    });
         }
 
         return failedFuture(new AssertionError("Unknown message type, msg=" + msg));
@@ -197,6 +216,7 @@ public class Replica {
                 // group leader are received.
 
                 return waitForActualState(msg.leaseExpirationTime().getPhysical())
+                        .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue()))
                         .thenCompose(v -> {
                             CompletableFuture<LeaseGrantedMessageResponse> respFut =
                                     acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
@@ -211,12 +231,21 @@ public class Replica {
             } else {
                 if (leader.equals(localNode)) {
                     return waitForActualState(msg.leaseExpirationTime().getPhysical())
+                            .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue()))
                             .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
                 } else {
                     return proposeLeaseRedirect(leader);
                 }
             }
         }));
+    }
+
+    private CompletableFuture<Void> sendPrimaryReplicaChangeToReplicationGroup(long leaseStartTime) {
+        PrimaryReplicaChangeCommand cmd = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
+                .leaseStartTime(leaseStartTime)
+                .build();
+
+        return raftClient.run(cmd);
     }
 
     private CompletableFuture<LeaseGrantedMessageResponse> acceptLease(

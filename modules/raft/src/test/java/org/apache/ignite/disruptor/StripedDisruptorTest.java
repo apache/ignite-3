@@ -17,12 +17,15 @@
 
 package org.apache.ignite.disruptor;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.RingBuffer;
 import java.util.ArrayList;
+import java.util.Random;
+import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -49,7 +52,8 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                 NodeIdAwareTestObj::new,
                 1,
                 false,
-                false);
+                false,
+                null);
 
         var nodeId1 = new NodeId("grp1", new PeerId("foo"));
         var nodeId2 = new NodeId("grp2", new PeerId("foo"));
@@ -100,7 +104,8 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                 NodeIdAwareTestObj::new,
                 5,
                 false,
-                false);
+                false,
+                null);
 
         GroupAwareTestObjHandler handler = new GroupAwareTestObjHandler();
 
@@ -120,6 +125,53 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
         assertTrue(IgniteTestUtils.waitForCondition(() -> handler.applied == 1_000, 10_000));
 
         disruptor.shutdown();
+    }
+
+    /**
+     * Checks the distribution of subscribed handlers across stripes.
+     * The distribution algorithm has to distribute handlers as evenly as possible using the round-robin algorithm.
+     */
+    @Test
+    public void testDistributionHandlers() {
+        Random random = new Random();
+
+        int stripes = random.nextInt(20) + 1;
+
+        StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test", "test-disruptor",
+                16384,
+                NodeIdAwareTestObj::new,
+                stripes,
+                false,
+                false,
+                null);
+
+        int handlers = random.nextInt(100) + 1;
+
+        log.info("Handlers will be distributed across stripes [handlers={}, stripes={}]", handlers, stripes);
+
+        int[] distribution = new int[stripes];
+
+        for (int i = 0; i < handlers; i++) {
+            GroupAwareTestObjHandler handler = new GroupAwareTestObjHandler();
+
+            var nodeId = new NodeId("grp", new PeerId(UUID.randomUUID().toString()));
+
+            disruptor.subscribe(nodeId, handler);
+
+            int stripe = disruptor.getStripe(nodeId);
+
+            assertNotEquals(-1, stripe);
+
+            distribution[stripe]++;
+        }
+
+        log.info("Result distribution [distribution={}]", distribution);
+
+        int reference = distribution[0];
+
+        for (int i = 1; i < stripes; i++) {
+            assertTrue(distribution[i] == reference || distribution[i] + 1 == reference || distribution[i] - 1 == reference);
+        }
     }
 
     /** Group event handler. */

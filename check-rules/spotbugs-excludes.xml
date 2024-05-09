@@ -214,7 +214,13 @@
       <Field name="PARTITION_META_PREFIX"/>
       <Field name="PARTITION_CONF_PREFIX"/>
       <Field name="INDEX_ROW_ID_PREFIX"/>
+      <Field name="LEASE_PREFIX"/>
     </Or>
+  </Match>
+  <Match>
+    <Bug pattern="IT_NO_SUCH_ELEMENT"/>
+    <Class name="org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage$ReadOnlyScanCursor"/>
+    <Method name="next"/>
   </Match>
   <!-- end of false-positive exclusions -->
 
@@ -245,7 +251,7 @@
   <Match>
     <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21692 -->
     <Bug pattern="UPM_UNCALLED_PRIVATE_METHOD"/>
-    <Class name="org.apache.ignite.internal.pagememory.freelist.AbstractFreeList"/>
+    <Class name="org.apache.ignite.internal.pagememory.freelist.FreeListImpl"/>
     <Method name="initReusedPage"/>
   </Match>
   <Match>

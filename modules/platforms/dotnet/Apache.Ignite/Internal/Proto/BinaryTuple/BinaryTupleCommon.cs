@@ -97,13 +97,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// Converts decimal to unscaled BigInteger.
         /// </summary>
         /// <param name="value">Decimal value.</param>
-        /// <param name="scale">Column scale.</param>
-        /// <returns>Unscaled BigInteger according to column scale.</returns>
-        public static BigInteger DecimalToUnscaledBigInteger(decimal value, int scale)
+        /// <param name="maxScale">Maximum scale to use.</param>
+        /// <returns>Unscaled BigInteger and scale.</returns>
+        public static (BigInteger BigInt, short Scale) DecimalToUnscaledBigInteger(decimal value, int maxScale)
         {
             if (value == decimal.Zero)
             {
-                return BigInteger.Zero;
+                return (BigInteger.Zero, 0);
             }
 
             Span<int> bits = stackalloc int[4];
@@ -120,16 +120,16 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 unscaled = -unscaled;
             }
 
-            if (scale > valueScale)
+            if (valueScale > maxScale)
             {
-                unscaled *= BigInteger.Pow(new BigInteger(10), scale - valueScale);
-            }
-            else if (scale < valueScale)
-            {
-                unscaled /= BigInteger.Pow(new BigInteger(10), valueScale - scale);
+                unscaled /= BigInteger.Pow(new BigInteger(10), valueScale - maxScale);
+                valueScale = maxScale;
             }
 
-            return unscaled;
+            Debug.Assert(valueScale <= short.MaxValue, "valueScale < short.MaxValue");
+            Debug.Assert(valueScale >= short.MinValue, "valueScale > short.MinValue");
+
+            return (unscaled, (short)valueScale);
         }
     }
 }

@@ -25,8 +25,8 @@ public enum ThreadOperation {
     STORAGE_READ,
     /** Storage write. */
     STORAGE_WRITE,
-    /** Take replication protocol snapshot meta (used when initiating a full state transfer of a partition). */
-    TAKE_SNAPSHOT_META,
+    /** Access TX State storage. */
+    TX_STATE_STORAGE_ACCESS,
     /** Make a blocking wait (involving taking a lock or waiting on a conditional variable or waiting for time to pass. */
     WAIT;
 

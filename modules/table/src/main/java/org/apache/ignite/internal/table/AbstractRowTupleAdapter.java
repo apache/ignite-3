@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
@@ -75,7 +76,11 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
 
         Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
 
-        return col == null ? -1 : col.positionInRow();
+        if (col == null) {
+            return -1;
+        }
+
+        return correctIndex(col);
     }
 
     /** {@inheritDoc} */
@@ -85,7 +90,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
 
         Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
 
-        return col == null ? defaultValue : (T) row.value(col.positionInRow());
+        return col == null ? defaultValue : (T) row.value(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -93,14 +98,14 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public <T> T value(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return (T) row.value(col.positionInRow());
+        return (T) row.value(correctIndex(col));
     }
 
     @Override
     public <T> T value(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return (T) row.value(col.positionInRow());
+        return (T) row.value(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -108,7 +113,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public boolean booleanValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.booleanValue(col.positionInRow());
+        return row.booleanValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -116,7 +121,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public boolean booleanValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.booleanValue(col.positionInRow());
+        return row.booleanValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -172,7 +177,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public long longValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.longValue(col.positionInRow());
+        return row.longValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -180,7 +185,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public long longValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.longValue(col.positionInRow());
+        return row.longValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -188,7 +193,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public float floatValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.floatValue(col.positionInRow());
+        return row.floatValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -196,7 +201,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public float floatValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.floatValue(col.positionInRow());
+        return row.floatValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -204,7 +209,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public double doubleValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.doubleValue(col.positionInRow());
+        return row.doubleValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -212,7 +217,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public double doubleValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.doubleValue(col.positionInRow());
+        return row.doubleValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -220,7 +225,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public String stringValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.stringValue(col.positionInRow());
+        return row.stringValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -228,7 +233,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public String stringValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.stringValue(col.positionInRow());
+        return row.stringValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -236,7 +241,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public UUID uuidValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.uuidValue(col.positionInRow());
+        return row.uuidValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -244,7 +249,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public UUID uuidValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.uuidValue(col.positionInRow());
+        return row.uuidValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -252,7 +257,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public BitSet bitmaskValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.bitmaskValue(col.positionInRow());
+        return row.bitmaskValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -260,7 +265,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public BitSet bitmaskValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.bitmaskValue(col.positionInRow());
+        return row.bitmaskValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -268,7 +273,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public LocalDate dateValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.dateValue(col.positionInRow());
+        return row.dateValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -276,7 +281,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public LocalDate dateValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.dateValue(col.positionInRow());
+        return row.dateValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -284,7 +289,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public LocalTime timeValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.timeValue(col.positionInRow());
+        return row.timeValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -292,7 +297,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public LocalTime timeValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.timeValue(col.positionInRow());
+        return row.timeValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -300,7 +305,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public LocalDateTime datetimeValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.dateTimeValue(col.positionInRow());
+        return row.dateTimeValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -308,7 +313,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public LocalDateTime datetimeValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.dateTimeValue(col.positionInRow());
+        return row.dateTimeValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -316,7 +321,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public Instant timestampValue(String columnName) {
         Column col = rowColumnByName(columnName);
 
-        return row.timestampValue(col.positionInRow());
+        return row.timestampValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -324,7 +329,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     public Instant timestampValue(int columnIndex) {
         Column col = rowColumnByIndex(columnIndex);
 
-        return row.timestampValue(col.positionInRow());
+        return row.timestampValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */
@@ -372,9 +377,14 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
      * @return Column.
      */
     protected Column rowColumnByIndex(int columnIndex) {
-        Objects.checkIndex(columnIndex, row.schema().length());
+        List<Column> columns = row.keyOnly() ? row.schema().keyColumns() : row.schema().columns();
 
-        return row.schema().column(columnIndex);
+        Objects.checkIndex(columnIndex, columns.size());
+
+        return columns.get(columnIndex);
     }
 
+    private int correctIndex(Column col) {
+        return row.keyOnly() ? col.positionInKey() : col.positionInRow();
+    }
 }

@@ -1,0 +1,98 @@
+# name: test/sql/aggregate/group/test_group_by_distinct.test
+# description: SQL feature T434 (GROUP BY DISTINCT)
+# group: [group]
+
+statement ok
+CREATE TABLE integers(id INTEGER PRIMARY KEY, val INTEGER)
+
+statement ok
+INSERT INTO integers VALUES(1, 1), (2, 2), (3, 3), (4, 4)
+
+query I rowsort
+SELECT val FROM integers GROUP BY DISTINCT GROUPING SETS ((val), (val))
+----
+1
+2
+3
+4
+
+query I rowsort
+SELECT val FROM integers GROUP BY ALL GROUPING SETS ((val), (val))
+----
+1
+1
+2
+2
+3
+3
+4
+4
+
+query R rowsort
+SELECT val FROM ( VALUES (1), (1.0::REAL), (1.0::REAL), (2::DOUBLE), (1.1::REAL), (2::DECIMAL(2)) ) t(val) GROUP BY ALL GROUPING SETS ((val), (val))
+----
+1.0
+1.0
+1.1
+1.1
+2.0
+2.0
+
+query R rowsort
+SELECT val FROM ( VALUES (1), (1.0::REAL), (2::DOUBLE), (1.1::REAL), (2::DECIMAL(2)) ) t(val) GROUP BY DISTINCT GROUPING SETS ((val), (val))
+----
+1.0
+1.1
+2.0
+
+# NOTE: Results include trailing whitespace
+query I rowsort
+SELECT val FROM ( VALUES ('abc'), ('ed'), ('f') ) t(val) GROUP BY DISTINCT GROUPING SETS ((val), (val))
+----
+abc
+ed 
+f  
+
+# NOTE: Results include trailing whitespace
+query T rowsort
+SELECT val FROM ( VALUES ('abc'), ('ed'), ('f') ) t(val) GROUP BY ALL GROUPING SETS ((val), (val))
+----
+abc
+abc
+ed 
+ed 
+f  
+f  
+
+query IT rowsort
+SELECT id, val FROM ( VALUES ('c4a0327c-44be-416d-ae90-75c05079789f'::UUID, 1), ('367fc6f1-40c3-4237-8545-3fd102d29134'::UUID, 2) ) t(val, id) GROUP BY ALL GROUPING SETS ((val, id), (id, val))
+----
+1	c4a0327c-44be-416d-ae90-75c05079789f
+1	c4a0327c-44be-416d-ae90-75c05079789f
+2	367fc6f1-40c3-4237-8545-3fd102d29134
+2	367fc6f1-40c3-4237-8545-3fd102d29134
+
+query I rowsort
+SELECT val FROM ( VALUES (NULL), (NULL) ) t(val) GROUP BY ALL GROUPING SETS ((val), (val))
+----
+NULL
+NULL
+
+query I rowsort
+SELECT val FROM ( VALUES (NULL), (NULL) ) t(val) GROUP BY DISTINCT GROUPING SETS ((val), (val))
+----
+NULL
+
+query I rowsort
+SELECT val FROM ( VALUES (NULL), ('c4a0327c-44be-416d-ae90-75c05079789f'::UUID), (NULL) ) t(val) GROUP BY ALL GROUPING SETS ((val), (val))
+----
+NULL
+NULL
+c4a0327c-44be-416d-ae90-75c05079789f
+c4a0327c-44be-416d-ae90-75c05079789f
+
+query I rowsort
+SELECT val FROM ( VALUES (NULL), ('c4a0327c-44be-416d-ae90-75c05079789f'::UUID), (NULL) ) t(val) GROUP BY DISTINCT GROUPING SETS ((val), (val))
+----
+c4a0327c-44be-416d-ae90-75c05079789f
+NULL

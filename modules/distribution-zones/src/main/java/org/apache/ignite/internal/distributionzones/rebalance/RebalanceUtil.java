@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
-import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PENDING_KEY_UPDATED;
@@ -36,7 +37,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -282,9 +281,10 @@ public class RebalanceUtil {
             long storageRevision,
             MetaStorageManager metaStorageManager
     ) {
-        CompletableFuture<List<Assignments>> tableAssignmentsFut = tableAssignments(
+        CompletableFuture<Map<Integer, Assignments>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,
                 tableDescriptor.id(),
+                Set.of(),
                 zoneDescriptor.partitions()
         );
 
@@ -321,6 +321,7 @@ public class RebalanceUtil {
      *
      * @param tableDescriptor Table descriptor.
      * @param zoneDescriptor Zone descriptor.
+     * @param partitionIds Partitions IDs to force assignments for. If empty, reassigns all zone's partitions.
      * @param dataNodes Current DZ data nodes.
      * @param aliveNodesConsistentIds Set of alive nodes according to logical topology.
      * @param revision Meta-storage revision to be associated with reassignment.
@@ -330,25 +331,31 @@ public class RebalanceUtil {
     public static CompletableFuture<?>[] forceAssignmentsUpdate(
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
+            Set<Integer> partitionIds,
             Set<String> dataNodes,
             Set<String> aliveNodesConsistentIds,
             long revision,
             MetaStorageManager metaStorageManager
     ) {
-        CompletableFuture<List<Assignments>> tableAssignmentsFut = tableAssignments(
+        CompletableFuture<Map<Integer, Assignments>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,
                 tableDescriptor.id(),
+                partitionIds,
                 zoneDescriptor.partitions()
         );
 
-        CompletableFuture<?>[] futures = new CompletableFuture[zoneDescriptor.partitions()];
-
         Set<String> aliveDataNodes = CollectionUtils.intersect(dataNodes, aliveNodesConsistentIds);
 
-        for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
-            TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partId);
+        int[] ids = partitionIds.isEmpty()
+                ? IntStream.range(0, zoneDescriptor.partitions()).toArray()
+                : partitionIds.stream().mapToInt(Integer::intValue).toArray();
 
-            futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
+        CompletableFuture<?>[] futures = new CompletableFuture[ids.length];
+
+        for (int i = 0; i < ids.length; i++) {
+            TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), ids[i]);
+
+            futures[i] = tableAssignmentsFut.thenCompose(tableAssignments ->
                     tableAssignments.isEmpty() ? nullCompletedFuture() : manualPartitionUpdate(
                             replicaGrpId,
                             aliveDataNodes,
@@ -449,7 +456,7 @@ public class RebalanceUtil {
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray pendingChangeTriggerKey(TablePartitionId partId) {
         return new ByteArray(partId + "pending.change.trigger");
@@ -460,7 +467,7 @@ public class RebalanceUtil {
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray stableChangeTriggerKey(TablePartitionId partId) {
         return new ByteArray(partId + "stable.change.trigger");
@@ -471,7 +478,7 @@ public class RebalanceUtil {
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray pendingPartAssignmentsKey(TablePartitionId partId) {
         return new ByteArray(PENDING_ASSIGNMENTS_PREFIX + partId);
@@ -482,7 +489,7 @@ public class RebalanceUtil {
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray plannedPartAssignmentsKey(TablePartitionId partId) {
         return new ByteArray("assignments.planned." + partId);
@@ -493,7 +500,7 @@ public class RebalanceUtil {
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray stablePartAssignmentsKey(TablePartitionId partId) {
         return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + partId);
@@ -504,7 +511,7 @@ public class RebalanceUtil {
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray switchReduceKey(TablePartitionId partId) {
         return new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX + partId);
@@ -515,7 +522,7 @@ public class RebalanceUtil {
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray switchAppendKey(TablePartitionId partId) {
         return new ByteArray(ASSIGNMENTS_SWITCH_APPEND_PREFIX + partId);
@@ -620,7 +627,7 @@ public class RebalanceUtil {
      * @return Result of the subtraction.
      */
     public static <T> Set<T> subtract(Set<T> minuend, Set<T> subtrahend) {
-        return minuend.stream().filter(v -> !subtrahend.contains(v)).collect(Collectors.toSet());
+        return minuend.stream().filter(v -> !subtrahend.contains(v)).collect(toSet());
     }
 
     /**
@@ -646,7 +653,7 @@ public class RebalanceUtil {
      * @return Result of the intersection.
      */
     public static <T> Set<T> intersect(Set<T> op1, Set<T> op2) {
-        return op1.stream().filter(op2::contains).collect(Collectors.toSet());
+        return op1.stream().filter(op2::contains).collect(toSet());
     }
 
     /**
@@ -689,47 +696,53 @@ public class RebalanceUtil {
     }
 
     /**
-     * Returns table assignments for all table partitions from meta storage.
+     * Returns table assignments for table partitions from meta storage.
      *
      * @param metaStorageManager Meta storage manager.
      * @param tableId Table id.
-     * @param numberOfPartitions Number of partitions.
+     * @param partitionIds IDs of partitions to get assignments for. If empty, get all partition assignments.
+     * @param numberOfPartitions Number of partitions. Ignored if partition IDs are specified.
      * @return Future with table assignments as a value.
      */
-    static CompletableFuture<List<Assignments>> tableAssignments(
+    static CompletableFuture<Map<Integer, Assignments>> tableAssignments(
             MetaStorageManager metaStorageManager,
             int tableId,
+            Set<Integer> partitionIds,
             int numberOfPartitions
     ) {
         Map<ByteArray, Integer> partitionKeysToPartitionNumber = new HashMap<>();
 
-        for (int i = 0; i < numberOfPartitions; i++) {
-            partitionKeysToPartitionNumber.put(stablePartAssignmentsKey(new TablePartitionId(tableId, i)), i);
+        Collection<Integer> ids = partitionIds.isEmpty()
+                ? IntStream.range(0, numberOfPartitions).boxed().collect(toList())
+                : partitionIds;
+
+        for (Integer partId : ids) {
+            partitionKeysToPartitionNumber.put(stablePartAssignmentsKey(new TablePartitionId(tableId, partId)), partId);
         }
 
         return metaStorageManager.getAll(partitionKeysToPartitionNumber.keySet())
                 .thenApply(entries -> {
                     if (entries.isEmpty()) {
-                        return emptyList();
+                        return Map.of();
                     }
 
-                    Assignments[] result = new Assignments[numberOfPartitions];
+                    Map<Integer, Assignments> result = new HashMap<>();
                     int numberOfMsPartitions = 0;
 
                     for (var mapEntry : entries.entrySet()) {
                         Entry entry = mapEntry.getValue();
 
                         if (!entry.empty() && !entry.tombstone()) {
-                            result[partitionKeysToPartitionNumber.get(mapEntry.getKey())] = Assignments.fromBytes(entry.value());
+                            result.put(partitionKeysToPartitionNumber.get(mapEntry.getKey()), Assignments.fromBytes(entry.value()));
                             numberOfMsPartitions++;
                         }
                     }
 
-                    assert numberOfMsPartitions == 0 || numberOfMsPartitions == numberOfPartitions
+                    assert numberOfMsPartitions == 0 || numberOfMsPartitions == entries.size()
                             : "Invalid number of stable partition entries received from meta storage [received="
-                            + numberOfMsPartitions + ", numberOfPartitions=" + numberOfPartitions + ", tableId=" + tableId + "].";
+                            + numberOfMsPartitions + ", numberOfPartitions=" + entries.size() + ", tableId=" + tableId + "].";
 
-                    return numberOfMsPartitions == 0 ? emptyList() : Arrays.asList(result);
+                    return numberOfMsPartitions == 0 ? Map.of() : result;
                 });
     }
 
@@ -756,6 +769,6 @@ public class RebalanceUtil {
 
                     return Assignments.fromBytes(e.value());
                 })
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 }

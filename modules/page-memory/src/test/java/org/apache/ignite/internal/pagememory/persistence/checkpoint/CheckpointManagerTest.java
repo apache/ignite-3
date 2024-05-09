@@ -44,6 +44,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -87,6 +88,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
                 mock(PartitionMetaManager.class),
                 List.of(dataRegion),
                 mock(PageIoRegistry.class),
+                mock(LogSyncer.class),
                 1024
         );
 
@@ -199,6 +201,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
                 mock(PartitionMetaManager.class),
                 List.of(),
                 mock(PageIoRegistry.class),
+                mock(LogSyncer.class),
                 1024
         ));
 

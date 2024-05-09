@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.util.Static;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.table.InternalTable;
@@ -106,10 +108,12 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         assert commitPartitionId != null;
 
+        validateNotNullConstraint(ectx.rowHandler(), rows);
+
         Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(ectx, row);
+            BinaryRowEx binaryRow = rowConverter.toFullRow(ectx, row);
 
             rowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
@@ -178,7 +182,9 @@ public final class UpdatableTableImpl implements UpdatableTable {
     /** {@inheritDoc} */
     @Override
     public <RowT> CompletableFuture<Void> insert(InternalTransaction tx, ExecutionContext<RowT> ectx, RowT row) {
-        BinaryRowEx tableRow = rowConverter.toBinaryRow(ectx, row, false);
+        validateNotNullConstraint(ectx.rowHandler(), row);
+
+        BinaryRowEx tableRow = rowConverter.toFullRow(ectx, row);
 
         return table.insert(tableRow, tx)
                 .thenApply(success -> {
@@ -201,6 +207,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
         TablePartitionId commitPartitionId = txAttributes.commitPartition();
+
+        validateNotNullConstraint(ectx.rowHandler(), rows);
 
         assert commitPartitionId != null;
 
@@ -245,7 +253,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         int i = 0;
 
         for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(ectx, row);
+            BinaryRowEx binaryRow = rowConverter.toFullRow(ectx, row);
 
             rowBatchByPartitionId.computeIfAbsent(partitionExtractor.fromRow(binaryRow), partitionId -> new RowBatch()).add(binaryRow, i++);
         }
@@ -268,7 +276,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertKeyOnlyRow(ectx, row);
+            BinaryRowEx binaryRow = rowConverter.toKeyRow(ectx, row);
 
             keyRowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
@@ -300,14 +308,6 @@ public final class UpdatableTableImpl implements UpdatableTable {
         }
 
         return CompletableFuture.allOf(futures);
-    }
-
-    private <RowT> BinaryRowEx convertRow(ExecutionContext<RowT> ctx, RowT row) {
-        return rowConverter.toBinaryRow(ctx, row, false);
-    }
-
-    private <RowT> BinaryRowEx convertKeyOnlyRow(ExecutionContext<RowT> ctx, RowT row) {
-        return rowConverter.toBinaryRow(ctx, row, true);
     }
 
     private <RowT> CompletableFuture<List<RowT>> handleInsertResults(
@@ -348,5 +348,22 @@ public final class UpdatableTableImpl implements UpdatableTable {
     @FunctionalInterface
     private interface PartitionExtractor {
         int fromRow(BinaryRowEx row);
+    }
+
+    private <RowT> void validateNotNullConstraint(RowHandler<RowT> rowHandler, List<RowT> rows) {
+        for (RowT row : rows) {
+            validateNotNullConstraint(rowHandler, row);
+        }
+    }
+
+    private <RowT> void validateNotNullConstraint(RowHandler<RowT> rowHandler, RowT row) {
+        for (int i = 0; i < desc.columnsCount(); i++) {
+            ColumnDescriptor column = desc.columnDescriptor(i);
+
+            if (!column.nullable() && rowHandler.isNull(i, row)) {
+                String message = Static.RESOURCE.columnNotNullable(column.name()).ex().getMessage();
+                throw new SqlException(CONSTRAINT_VIOLATION_ERR, message);
+            }
+        }
     }
 }

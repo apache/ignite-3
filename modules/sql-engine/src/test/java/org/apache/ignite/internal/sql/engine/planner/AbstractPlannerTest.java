@@ -54,6 +54,7 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.AbstractRelNode;
+import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelVisitor;
@@ -89,6 +90,7 @@ import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -101,6 +103,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -112,8 +115,7 @@ import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * AbstractPlannerTest.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Base test class for planner tests.
  */
 public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected static final String[] DISABLE_KEY_VALUE_MODIFY_RULES = {
@@ -129,10 +131,43 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
     protected static final int DEFAULT_ZONE_ID = 0;
 
+    private static final SqlExplainLevel DEFAULT_EXPLAIN_LEVEL = SqlExplainLevel.EXPPLAN_ATTRIBUTES;
+
     private static final AtomicInteger NEXT_TABLE_ID = new AtomicInteger(2001);
 
     /** Last error message. */
     String lastErrorMsg;
+
+    <T> Predicate<T> hasGroupSets(Function<T, List<ImmutableBitSet>> groupSets, int groupKey) {
+        return hasGroupSets(groupSets, List.of(groupKey));
+    }
+
+    <T> Predicate<T> hasGroupSets(Function<T, List<ImmutableBitSet>> groupSets, List<Integer> groupKeys) {
+        return (node) -> {
+            List<ImmutableBitSet> allGroupSets = groupSets.apply(node);
+            ImmutableBitSet firstGroupSet = allGroupSets.get(0);
+
+            boolean groupSetsMatch = allGroupSets.equals(List.of(ImmutableBitSet.of(groupKeys)));
+            boolean groupSetMatches = firstGroupSet.equals(ImmutableBitSet.of(groupKeys));
+
+            return groupSetMatches && groupSetsMatch;
+        };
+    }
+
+    <T> Predicate<T> hasNoGroupSets(Function<T, List<ImmutableBitSet>> groupSets) {
+        return (node) -> {
+            List<ImmutableBitSet> allGroupSets = groupSets.apply(node);
+            List<ImmutableBitSet> emptyGroupSets = List.of(ImmutableBitSet.of());
+            return emptyGroupSets.equals(allGroupSets);
+        };
+    }
+
+    <T extends RelNode> Predicate<T> hasCollation(RelCollation expected) {
+        return (node) -> {
+            RelCollation collation = TraitUtils.collation(node);
+            return expected.equals(collation);
+        };
+    }
 
     interface TestVisitor {
         void visit(RelNode node, int ordinal, RelNode parent);
@@ -484,7 +519,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     ) throws Exception {
         IgniteRel plan = physicalPlan(sql, schemas, hintStrategies, params, null, disabledRules);
 
-        String planString = RelOptUtil.dumpPlan("", plan, SqlExplainFormat.TEXT, SqlExplainLevel.ALL_ATTRIBUTES);
+        String planString = RelOptUtil.dumpPlan("", plan, SqlExplainFormat.TEXT, DEFAULT_EXPLAIN_LEVEL);
         log.info("statement: {}\n{}", sql, planString);
 
         checkSplitAndSerialization(plan, schemas);
@@ -753,6 +788,18 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
 
         rel.getInputs().forEach(this::clearHints);
+    }
+
+    protected Predicate<? extends RelNode> projectFromTable(String tableName, String... exprs) {
+        return nodeOrAnyChild(
+                isInstanceOf(IgniteProject.class)
+                        .and(projection -> {
+                            String actualProjStr = projection.getProjects().toString();
+                            String expectedProjStr = Arrays.asList(exprs).toString();
+                            return actualProjStr.equals(expectedProjStr);
+                        })
+                        .and(input(isTableScan(tableName)))
+        );
     }
 
     /**
@@ -1026,6 +1073,15 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
             return indexBuilder.name(nameBuilder.toString()).end();
         };
+    }
+
+    /** Creates a function, which builds sorted index with given column names and with desired collation. */
+    protected static UnaryOperator<TableBuilder> addSortIndex(String col1, Collation col1Collation, String col2, Collation col2Collation) {
+        return tableBuilder -> tableBuilder.sortedIndex()
+                .name("IDX" + '_' + col1 + '_' + col2)
+                .addColumn(col1.toUpperCase(), col1Collation)
+                .addColumn(col2.toUpperCase(), col2Collation)
+                .end();
     }
 
     /** Creates a function, which builds hash index with given column names. */

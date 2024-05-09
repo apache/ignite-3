@@ -90,7 +90,7 @@ public class LocalFileConfigurationStorageTest {
 
     @BeforeEach
     void before() {
-        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator);
+        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, null);
 
         changer = new TestConfigurationChanger(
                 List.of(TopConfiguration.KEY),
@@ -535,7 +535,7 @@ public class LocalFileConfigurationStorageTest {
         ConfigParseOptions parseOptions = ConfigParseOptions.defaults().setSyntax(ConfigSyntax.JSON).setAllowMissing(false);
         assertDoesNotThrow(() -> ConfigFactory.parseFile(configFile.toFile(), parseOptions));
 
-        LocalFileConfigurationStorage storage = new LocalFileConfigurationStorage(configFile, treeGenerator);
+        LocalFileConfigurationStorage storage = new LocalFileConfigurationStorage(configFile, treeGenerator, null);
 
         // And storage reads the file successfully
         assertDoesNotThrow(storage::readDataOnRecovery);

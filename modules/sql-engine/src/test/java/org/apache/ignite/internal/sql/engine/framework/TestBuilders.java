@@ -21,7 +21,9 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
@@ -74,7 +76,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
@@ -619,10 +621,10 @@ public class TestBuilders {
             HybridClock clock = new HybridClockImpl();
             CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, clock);
 
-            var parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
+            var parserService = new ParserServiceImpl();
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(Map.of(), () -> "aipersist"), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
-                    mock(MetricManager.class));
+                    new DdlSqlToCommandConverter(), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
+                    mock(MetricManagerImpl.class));
 
             Map<String, List<String>> owningNodesByTableName = new HashMap<>();
             for (Entry<String, Map<String, ScannableTable>> entry : nodeName2tableName2table.entrySet()) {
@@ -645,7 +647,7 @@ public class TestBuilders {
             var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
 
             Runnable initClosure = () -> {
-                clockWaiter.start();
+                assertThat(clockWaiter.startAsync(), willCompleteSuccessfully());
 
                 initAction(catalogManager);
             };
@@ -663,7 +665,7 @@ public class TestBuilders {
                             String nodeNameSep = SystemViewManagerImpl.NODE_ATTRIBUTES_LIST_SEPARATOR;
                             String nodeNamesString = String.join(nodeNameSep, systemViewForNode);
 
-                            return new LogicalNode(logicalNode, Map.of(), Map.of(attrName, nodeNamesString), Map.of());
+                            return new LogicalNode(logicalNode, Map.of(), Map.of(attrName, nodeNamesString), List.of());
                         }
                     })
                     .collect(Collectors.toList());

@@ -17,24 +17,17 @@
 
 package org.apache.ignite.internal.storage;
 
-import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
-import java.lang.reflect.Field;
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.stream.Stream;
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,8 +41,7 @@ public class DataStorageModules {
     /**
      * Constructor.
      *
-     * <p>Modules are expected to have a unique {@link DataStorageModule#name}
-     * equal to {@link DataStorageConfigurationSchema#name schema name}.
+     * <p>Modules are expected to have a unique {@link DataStorageModule#name}.
      *
      * @param dataStorageModules Data storage modules.
      * @throws IllegalStateException If the module is not correct.
@@ -90,82 +82,19 @@ public class DataStorageModules {
             ConfigurationRegistry configRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
-            FailureProcessor failureProcessor
-
+            FailureProcessor failureProcessor,
+            LogSyncer logSyncer
     ) {
         return modules.entrySet().stream().collect(toUnmodifiableMap(
                 Entry::getKey,
-                e -> e.getValue().createEngine(igniteInstanceName, configRegistry, storagePath, longJvmPauseDetector, failureProcessor)
+                e -> e.getValue().createEngine(
+                        igniteInstanceName,
+                        configRegistry,
+                        storagePath,
+                        longJvmPauseDetector,
+                        failureProcessor,
+                        logSyncer
+                )
         ));
-    }
-
-    /**
-     * Collects {@link DataStorageConfigurationSchema data storage schema} fields (with {@link Value}).
-     *
-     * @param polymorphicSchemaExtensions {@link PolymorphicConfigInstance Polymorphic schema extensions} that contain extensions of {@link
-     *      DataStorageConfigurationSchema}.
-     * @return Mapping: {@link DataStorageModule#name Data storage name} -> filed name -> field type.
-     * @throws IllegalStateException If the {@link DataStorageConfigurationSchema data storage schemas} are not valid.
-     */
-    public Map<String, Map<String, Class<?>>> collectSchemasFields(Collection<Class<?>> polymorphicSchemaExtensions) {
-        Map<String, Class<? extends DataStorageConfigurationSchema>> schemas = polymorphicSchemaExtensions.stream()
-                .filter(DataStorageConfigurationSchema.class::isAssignableFrom)
-                .collect(toUnmodifiableMap(
-                        schemaCls -> schemaName((Class<? extends DataStorageConfigurationSchema>) schemaCls),
-                        schemaCls -> (Class<? extends DataStorageConfigurationSchema>) schemaCls
-                ));
-
-        checkSchemas(modules, schemas);
-
-        return modules.entrySet().stream().collect(toUnmodifiableMap(
-                Entry::getKey,
-                e -> schemaValueFields(schemas.get(e.getKey()))
-        ));
-    }
-
-    private Map<String, Class<?>> schemaValueFields(Class<? extends DataStorageConfigurationSchema> dataStorageSchema) {
-        return Stream.of(dataStorageSchema.getDeclaredFields())
-                .filter(field -> field.isAnnotationPresent(Value.class))
-                .collect(toUnmodifiableMap(
-                        Field::getName,
-                        Field::getType
-                ));
-    }
-
-    private static String schemaName(Class<? extends DataStorageConfigurationSchema> dataStorageSchema) {
-        PolymorphicConfigInstance polymorphicConfigInstance = dataStorageSchema.getAnnotation(PolymorphicConfigInstance.class);
-
-        assert polymorphicConfigInstance != null : dataStorageSchema;
-
-        return polymorphicConfigInstance.value();
-    }
-
-    private static void checkSchemas(
-            Map<String, DataStorageModule> modules,
-            Map<String, Class<? extends DataStorageConfigurationSchema>> schemas
-    ) {
-        if (!modules.keySet().equals(schemas.keySet())) {
-            List<String> dataStorageWithoutSchema = modules.keySet().stream()
-                    .filter(not(schemas::containsKey))
-                    .collect(toList());
-
-            if (!dataStorageWithoutSchema.isEmpty()) {
-                throw new IllegalStateException(
-                        "Missing configuration schemas (DataStorageConfigurationSchema heir) for data storage engines: "
-                                + dataStorageWithoutSchema
-                );
-            }
-
-            List<Class<? extends DataStorageConfigurationSchema>> schemasWithoutDataStorages = schemas.entrySet().stream()
-                    .filter(e -> !modules.containsKey(e.getKey()))
-                    .map(Entry::getValue)
-                    .collect(toList());
-
-            if (!schemasWithoutDataStorages.isEmpty()) {
-                throw new IllegalStateException(
-                        "Missing data storage engines for schemas: " + schemasWithoutDataStorages
-                );
-            }
-        }
     }
 }

@@ -32,8 +32,8 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.eventlog.api.EventLog;
+import org.apache.ignite.internal.eventlog.api.IgniteEvents;
 import org.apache.ignite.internal.eventlog.event.EventUser;
-import org.apache.ignite.internal.eventlog.event.IgniteEvents;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfiguration;
@@ -128,7 +128,7 @@ public class AuthenticationManagerImpl
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         securityConfiguration.listen(securityConfigurationListener);
         securityConfiguration.enabled().listen(securityEnabledDisabledEventFactory);
         securityConfiguration.authentication().providers().listenElements(providerEventFactory);
@@ -142,7 +142,7 @@ public class AuthenticationManagerImpl
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         securityConfiguration.stopListen(securityConfigurationListener);
         securityConfiguration.enabled().stopListen(securityEnabledDisabledEventFactory);
         securityConfiguration.authentication().providers().stopListenElements(providerEventFactory);
@@ -151,6 +151,8 @@ public class AuthenticationManagerImpl
         BasicAuthenticationProviderConfiguration basicAuthenticationProviderConfiguration = (BasicAuthenticationProviderConfiguration)
                 securityConfiguration.authentication().providers().get(basicAuthenticationProviderName);
         basicAuthenticationProviderConfiguration.users().stopListenElements(userEventFactory);
+
+        return nullCompletedFuture();
     }
 
     /**

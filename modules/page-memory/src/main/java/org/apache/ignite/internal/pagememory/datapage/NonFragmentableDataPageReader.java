@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
+import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.jetbrains.annotations.Nullable;
@@ -73,7 +73,7 @@ public abstract class NonFragmentableDataPageReader<T> {
             assert pageAddr != 0L : link;
 
             try {
-                AbstractDataPageIo<?> dataIo = pageMemory.ioRegistry().resolve(pageAddr);
+                DataPageIo dataIo = pageMemory.ioRegistry().resolve(pageAddr);
 
                 int itemId = itemId(link);
 

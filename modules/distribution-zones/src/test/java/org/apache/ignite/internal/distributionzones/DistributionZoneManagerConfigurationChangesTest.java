@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesForZone;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromLogicalNodesInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
@@ -55,7 +54,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
 
         assertLogicalTopology(nodes, keyValueStorage);
 
-        assertDataNodesForZone(getZoneId(DEFAULT_ZONE_NAME), nodes, keyValueStorage);
+        assertDataNodesFromLogicalNodesInStorage(getDefaultZone().id(), nodes, keyValueStorage);
     }
 
     @Test
@@ -73,7 +72,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
 
         int zoneId = getZoneId(ZONE_NAME);
 
-        assertDataNodesForZone(zoneId, nodes, keyValueStorage);
+        assertDataNodesFromLogicalNodesInStorage(zoneId, nodes, keyValueStorage);
 
         dropZone(ZONE_NAME);
 
@@ -94,7 +93,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
     }
 
     private void assertZonesKeysInMetaStorage(int zoneId, @Nullable Set<LogicalNode> clusterNodes) throws InterruptedException {
-        assertDataNodesForZone(zoneId, clusterNodes, keyValueStorage);
+        assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes, keyValueStorage);
 
         if (clusterNodes != null) {
             assertTrue(waitForCondition(() -> keyValueStorage.get(zoneScaleUpChangeTriggerKey(zoneId).bytes()).value() != null, 5000));

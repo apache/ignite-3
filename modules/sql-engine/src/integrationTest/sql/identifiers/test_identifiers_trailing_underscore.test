@@ -1,0 +1,80 @@
+# name: sql/identifiers/test_identifiers_trailing_underscore.test
+# description: SQL feature E031-03 (Trailing underscore)
+# group: [identifiers]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE t_ (id INTEGER, val INTEGER, PRIMARY KEY (id))
+
+statement ok
+CREATE TABLE t1 (id_ INTEGER PRIMARY KEY, val INTEGER)
+
+statement ok
+CREATE TABLE t2 (id_ INTEGER, val INTEGER, PRIMARY KEY (id_))
+
+statement ok
+CREATE TABLE t3 (id INTEGER PRIMARY KEY, val_ INTEGER)
+
+statement ok
+ALTER TABLE t_ ADD COLUMN (col INTEGER)
+
+statement ok
+ALTER TABLE t2 ADD COLUMN (col_ INTEGER)
+
+statement ok
+ALTER TABLE t2 DROP COLUMN col_
+
+query I
+SELECT col_ FROM (VALUES (1), (2)) t(col_)
+----
+1
+2
+
+query I
+SELECT 1 as col_
+----
+1
+
+query I
+SELECT 1 col_
+----
+1
+
+query I
+SELECT col_ FROM (SELECT 1 as col_)
+----
+1
+
+query I
+SELECT col_ FROM (SELECT 1 col_)
+----
+1
+
+query I
+SELECT col__ FROM (VALUES (1), (2)) t(col__)
+----
+1
+2
+
+statement ok
+CREATE INDEX t_some_idx_ on t_ (val)
+
+statement ok
+DROP INDEX t_some_idx_
+
+statement ok
+DROP TABLE t_
+
+statement ok
+CREATE ZONE zone_ WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3
+
+statement ok
+ALTER ZONE zone_ SET REPLICAS = 4
+
+statement ok
+ALTER ZONE zone_ RENAME TO another_zone_
+
+statement ok
+DROP ZONE another_zone_

@@ -158,7 +158,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
 
     /// <inheritdoc/>
     public async Task StreamDataAsync(
-        IAsyncEnumerable<KeyValuePair<TK, TV>> data,
+        IAsyncEnumerable<DataStreamerItem<KeyValuePair<TK, TV>>> data,
         DataStreamerOptions? options = null,
         CancellationToken cancellationToken = default) =>
         await _recordView.StreamDataAsync(ToKv(data), options, cancellationToken).ConfigureAwait(false);
@@ -190,11 +190,12 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         return new(key, val);
     }
 
-    private static async IAsyncEnumerable<KvPair<TK, TV>> ToKv(IAsyncEnumerable<KeyValuePair<TK, TV>> pairs)
+    private static async IAsyncEnumerable<DataStreamerItem<KvPair<TK, TV>>> ToKv(
+        IAsyncEnumerable<DataStreamerItem<KeyValuePair<TK, TV>>> pairs)
     {
         await foreach (var pair in pairs)
         {
-            yield return ToKv(pair);
+            yield return DataStreamerItem.Create(ToKv(pair.Data), pair.OperationType);
         }
     }
 }

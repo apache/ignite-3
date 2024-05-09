@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
@@ -28,7 +30,8 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgMessage
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -38,7 +41,6 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManagerI
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.TestLowWatermark;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.jetbrains.annotations.Nullable;
@@ -87,12 +89,12 @@ public class TestServer {
         this.idleTimeout = idleTimeout;
     }
 
-    void tearDown() throws Exception {
-        bootstrapFactory.stop();
+    void tearDown() {
+        assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully());
     }
 
     ClientHandlerModule start(TestInfo testInfo) {
-        authenticationManager.start();
+        assertThat(authenticationManager.startAsync(), willCompleteSuccessfully());
 
         clientConnectorConfiguration.change(
                 local -> local
@@ -108,7 +110,7 @@ public class TestServer {
 
         bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, testInfo.getDisplayName());
 
-        bootstrapFactory.start();
+        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
@@ -122,7 +124,7 @@ public class TestServer {
                 clusterService,
                 bootstrapFactory,
                 () -> CompletableFuture.completedFuture(ClusterTag.clusterTag(msgFactory, "Test Server")),
-                mock(MetricManager.class),
+                mock(MetricManagerImpl.class),
                 metrics,
                 authenticationManager,
                 new TestClockService(new HybridClockImpl()),
@@ -133,7 +135,7 @@ public class TestServer {
                 new TestLowWatermark()
         );
 
-        module.start().join();
+        module.startAsync().join();
 
         return module;
     }

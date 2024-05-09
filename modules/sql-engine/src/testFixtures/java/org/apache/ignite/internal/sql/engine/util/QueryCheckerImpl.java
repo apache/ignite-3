@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.convertSqlRows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertionsAsync;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -306,7 +307,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
         LOG.info("Executing query: [nodeName={}, query={}]", nodeName(), qry);
 
         if (!CollectionUtils.nullOrEmpty(planMatchers)) {
-            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> explainCursors = qryProc.querySingleAsync(
+            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> explainCursors = qryProc.queryAsync(
                     properties, transactions(), tx, "EXPLAIN PLAN FOR " + qry, params);
             AsyncSqlCursor<InternalSqlRow> explainCursor = await(explainCursors);
             List<InternalSqlRow> explainRes = getAllFromCursor(explainCursor);
@@ -333,7 +334,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         // Check result.
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursors =
-                qryProc.querySingleAsync(properties, transactions(), tx, qry, params);
+                bypassingThreadAssertionsAsync(() -> qryProc.queryAsync(properties, transactions(), tx, qry, params));
 
         AsyncSqlCursor<InternalSqlRow> cur = await(cursors);
 

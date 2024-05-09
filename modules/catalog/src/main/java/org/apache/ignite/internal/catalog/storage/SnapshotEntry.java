@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -30,6 +32,7 @@ import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntr
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A catalog snapshot entry.
@@ -42,6 +45,7 @@ public class SnapshotEntry implements UpdateLogEvent {
     private final int objectIdGenState;
     private final CatalogZoneDescriptor[] zones;
     private final CatalogSchemaDescriptor[] schemas;
+    private final @Nullable Integer defaultZoneId;
 
     /**
      * Constructs the object.
@@ -50,7 +54,7 @@ public class SnapshotEntry implements UpdateLogEvent {
      */
     public SnapshotEntry(Catalog catalog) {
         this(catalog.version(), catalog.time(), catalog.objectIdGenState(), catalog.zones().toArray(CatalogZoneDescriptor[]::new),
-                catalog.schemas().toArray(CatalogSchemaDescriptor[]::new));
+                catalog.schemas().toArray(CatalogSchemaDescriptor[]::new), defaultZoneIdOpt(catalog));
     }
 
     /**
@@ -61,13 +65,15 @@ public class SnapshotEntry implements UpdateLogEvent {
             long activationTime,
             int objectIdGenState,
             CatalogZoneDescriptor[] zones,
-            CatalogSchemaDescriptor[] schemas
+            CatalogSchemaDescriptor[] schemas,
+            @Nullable Integer defaultZoneId
     ) {
         this.version = version;
         this.activationTime = activationTime;
         this.objectIdGenState = objectIdGenState;
         this.zones = zones;
         this.schemas = schemas;
+        this.defaultZoneId = defaultZoneId;
     }
 
     /**
@@ -86,7 +92,8 @@ public class SnapshotEntry implements UpdateLogEvent {
                 activationTime,
                 objectIdGenState,
                 List.of(zones),
-                List.of(schemas)
+                List.of(schemas),
+                defaultZoneId
         );
     }
 
@@ -125,7 +132,7 @@ public class SnapshotEntry implements UpdateLogEvent {
         public SnapshotEntry readFrom(IgniteDataInput input) throws IOException {
             int catalogVersion = input.readInt();
             long activationTime = input.readLong();
-            int objectIdGenState  = input.readInt();
+            int objectIdGenState = input.readInt();
 
             CatalogZoneDescriptor[] zones =
                     CatalogSerializationUtils.readArray(CatalogZoneDescriptor.SERIALIZER, input, CatalogZoneDescriptor.class);
@@ -133,7 +140,12 @@ public class SnapshotEntry implements UpdateLogEvent {
             CatalogSchemaDescriptor[] schemas =
                     CatalogSerializationUtils.readArray(CatalogSchemaDescriptor.SERIALIZER, input, CatalogSchemaDescriptor.class);
 
-            return new SnapshotEntry(catalogVersion, activationTime, objectIdGenState, zones, schemas);
+            Integer defaultZoneId = null;
+            if (input.readBoolean()) {
+                defaultZoneId = input.readInt();
+            }
+
+            return new SnapshotEntry(catalogVersion, activationTime, objectIdGenState, zones, schemas, defaultZoneId);
         }
 
         @Override
@@ -144,6 +156,11 @@ public class SnapshotEntry implements UpdateLogEvent {
 
             CatalogSerializationUtils.writeArray(entry.zones, CatalogZoneDescriptor.SERIALIZER, output);
             CatalogSerializationUtils.writeArray(entry.schemas, CatalogSchemaDescriptor.SERIALIZER, output);
+
+            output.writeBoolean(entry.defaultZoneId != null);
+            if (entry.defaultZoneId != null) {
+                output.writeInt(entry.defaultZoneId);
+            }
         }
     }
 }

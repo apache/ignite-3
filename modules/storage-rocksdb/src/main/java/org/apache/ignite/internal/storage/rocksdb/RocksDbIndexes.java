@@ -73,7 +73,7 @@ class RocksDbIndexes {
                 }
             }
 
-            var indexCfsToDestroy = new ArrayList<IndexColumnFamily>();
+            var indexCfsToDestroy = new ArrayList<ColumnFamily>();
 
             for (IndexColumnFamily indexColumnFamily : rocksDb.sortedIndexes(tableId)) {
                 int indexId = indexColumnFamily.indexId();
@@ -83,9 +83,11 @@ class RocksDbIndexes {
                 var descriptor = (StorageSortedIndexDescriptor) indexDescriptorSupplier.get(indexId);
 
                 if (descriptor == null) {
+                    rocksDb.removeSortedIndex(indexId, cf);
+
                     deleteByPrefix(writeBatch, cf, indexPrefix(tableId, indexId));
 
-                    indexCfsToDestroy.add(indexColumnFamily);
+                    indexCfsToDestroy.add(cf);
                 } else {
                     sortedIndices.put(indexId, SortedIndex.restoreExisting(tableId, cf, descriptor, rocksDb.meta));
                 }
@@ -94,7 +96,7 @@ class RocksDbIndexes {
             rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
 
             if (!indexCfsToDestroy.isEmpty()) {
-                rocksDb.scheduleIndexCfsDestroy(indexCfsToDestroy);
+                rocksDb.scheduleIndexCfsDestroyIfNeeded(indexCfsToDestroy);
             }
         }
     }
@@ -174,6 +176,8 @@ class RocksDbIndexes {
             }
 
             if (sortedIdx != null) {
+                rocksDb.removeSortedIndex(indexId, sortedIdx.columnFamily());
+
                 sortedIdx.destroy(writeBatch);
             }
 
@@ -181,7 +185,7 @@ class RocksDbIndexes {
         }
 
         if (sortedIdx != null) {
-            rocksDb.scheduleIndexCfsDestroy(List.of(sortedIdx.indexColumnFamily()));
+            rocksDb.scheduleIndexCfsDestroyIfNeeded(List.of(sortedIdx.columnFamily()));
         }
     }
 

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rule.logical;
 
+import static org.apache.ignite.internal.sql.engine.util.RexUtils.tryToDnf;
+
 import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
@@ -63,13 +65,14 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
     }
 
     private static @Nullable List<RexNode> getOrOperands(RexBuilder rexBuilder, RexNode condition) {
-        RexNode dnf = RexUtil.toDnf(rexBuilder, condition);
+        RexNode dnf = tryToDnf(rexBuilder, condition, 2);
 
-        if (!dnf.isA(SqlKind.OR)) {
+        if (dnf != null && !dnf.isA(SqlKind.OR)) {
             return null;
         }
 
         List<RexNode> operands = RelOptUtil.disjunctions(dnf);
+        assert operands.size() <= 2 : "unexpected operands count: " + operands.size();
 
         if (operands.size() != 2 || RexUtil.find(SqlKind.IS_NULL).anyContain(operands)) {
             return null;

@@ -23,16 +23,15 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
+import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
-import org.apache.ignite.internal.storage.pagememory.mv.RowVersionFreeList;
 
 /**
  * Implementation of {@link DataRegion} for in-memory case.
@@ -42,7 +41,9 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
 
     private static final int FREE_LIST_PARTITION_ID = 0;
 
-    private final VolatilePageMemoryDataRegionConfiguration cfg;
+    private static final String FREE_LIST_NAME = String.format("VolatileFreeList_%d_%d", FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID);
+
+    private final VolatilePageMemoryProfileConfiguration cfg;
 
     private final PageIoRegistry ioRegistry;
 
@@ -52,9 +53,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
 
     private volatile VolatilePageMemory pageMemory;
 
-    private volatile RowVersionFreeList rowVersionFreeList;
-
-    private volatile IndexColumnsFreeList indexColumnsFreeList;
+    private volatile FreeListImpl freeList;
 
     /**
      * Constructor.
@@ -65,7 +64,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
      * @param pageEvictionTracker Eviction tracker to use.
      */
     public VolatilePageMemoryDataRegion(
-            VolatilePageMemoryDataRegionConfiguration cfg,
+            VolatilePageMemoryProfileConfiguration cfg,
             PageIoRegistry ioRegistry,
             // TODO: IGNITE-17017 Move to common config
             int pageSize,
@@ -85,45 +84,25 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         pageMemory.start();
 
         try {
-            rowVersionFreeList = createRowVersionFreeList(pageMemory);
-
-            indexColumnsFreeList = createIndexColumnsFreeList(pageMemory, rowVersionFreeList);
+            this.freeList = createFreeList(pageMemory);
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error creating a RowVersionFreeList", e);
+            throw new StorageException("Error creating free list", e);
         }
 
         this.pageMemory = pageMemory;
     }
 
-    private RowVersionFreeList createRowVersionFreeList(
+    private FreeListImpl createFreeList(
             PageMemory pageMemory
     ) throws IgniteInternalCheckedException {
         long metaPageId = pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
 
-        return new RowVersionFreeList(
+        return new FreeListImpl(
                 FREE_LIST_GROUP_ID,
                 FREE_LIST_PARTITION_ID,
+                FREE_LIST_NAME,
                 pageMemory,
                 null,
-                PageLockListenerNoOp.INSTANCE,
-                metaPageId,
-                true,
-                // Because in memory.
-                null,
-                pageEvictionTracker,
-                IoStatisticsHolderNoOp.INSTANCE
-        );
-    }
-
-    private IndexColumnsFreeList createIndexColumnsFreeList(VolatilePageMemory pageMemory, ReuseList reuseList)
-            throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(FREE_LIST_GROUP_ID, FREE_LIST_PARTITION_ID, FLAG_AUX);
-
-        return new IndexColumnsFreeList(
-                FREE_LIST_GROUP_ID,
-                FREE_LIST_PARTITION_ID,
-                pageMemory,
-                reuseList,
                 PageLockListenerNoOp.INSTANCE,
                 metaPageId,
                 true,
@@ -139,8 +118,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
      */
     public void stop() throws Exception {
         closeAllManually(
-                rowVersionFreeList,
-                indexColumnsFreeList,
+                freeList,
                 pageMemory != null ? () -> pageMemory.stop(true) : null
         );
     }
@@ -154,7 +132,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
     }
 
     public ReuseList reuseList() {
-        return rowVersionFreeList();
+        return freeList;
     }
 
     /**
@@ -162,14 +140,10 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
      *
      * @throws StorageException If the data region did not start.
      */
-    public RowVersionFreeList rowVersionFreeList() {
+    public FreeListImpl freeList() {
         checkDataRegionStarted();
 
-        return rowVersionFreeList;
-    }
-
-    public IndexColumnsFreeList indexColumnsFreeList() {
-        return indexColumnsFreeList;
+        return freeList;
     }
 
     /**

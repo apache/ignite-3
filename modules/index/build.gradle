@@ -38,6 +38,7 @@ dependencies {
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-replicator')
     implementation project(':ignite-cluster-management')
+    implementation project(':ignite-low-watermark')
     implementation libs.jetbrains.annotations
 
     testImplementation(testFixtures(project(':ignite-configuration')))
@@ -46,6 +47,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation(testFixtures(project(':ignite-table')))
     testImplementation(testFixtures(project(':ignite-catalog')))
+    testImplementation(testFixtures(project(':ignite-low-watermark')))
     testImplementation project(':ignite-placement-driver')
     testImplementation project(':ignite-replicator')
     testImplementation project(':ignite-cluster-management')
@@ -74,6 +76,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
     integrationTestImplementation testFixtures(project(':ignite-table'))
     integrationTestImplementation testFixtures(project(':ignite-storage-api'))
+    integrationTestImplementation testFixtures(project(':ignite-catalog'))
     integrationTestImplementation libs.jetbrains.annotations
 }
 

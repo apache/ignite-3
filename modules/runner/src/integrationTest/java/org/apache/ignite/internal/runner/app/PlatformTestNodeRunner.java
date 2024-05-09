@@ -308,8 +308,8 @@ public class PlatformTestNodeRunner {
                 ZONE_NAME,
                 TABLE_NAME_ALL_COLUMNS,
                 List.of(
-                        ColumnParams.builder().name(keyCol).type(INT64).build(),
                         ColumnParams.builder().name("STR").type(STRING).nullable(true).length(1000).build(),
+                        ColumnParams.builder().name(keyCol).type(INT64).build(),
                         ColumnParams.builder().name("INT8").type(INT8).nullable(true).build(),
                         ColumnParams.builder().name("INT16").type(INT16).nullable(true).build(),
                         ColumnParams.builder().name("INT32").type(INT32).nullable(true).build(),
@@ -338,13 +338,13 @@ public class PlatformTestNodeRunner {
                 ZONE_NAME,
                 TABLE_NAME_ALL_COLUMNS_NOT_NULL,
                 List.of(
-                        ColumnParams.builder().name(keyCol).type(INT64).build(),
                         ColumnParams.builder().name("STR").type(STRING).nullable(false)
                                 .defaultValue(DefaultValue.constant("")).length(1000).build(),
                         ColumnParams.builder().name("INT8").type(INT8).nullable(false)
                                 .defaultValue(DefaultValue.constant((byte) 0)).build(),
                         ColumnParams.builder().name("INT16").type(INT16).nullable(false)
                                 .defaultValue(DefaultValue.constant((short) 0)).build(),
+                        ColumnParams.builder().name(keyCol).type(INT64).build(),
                         ColumnParams.builder().name("INT32").type(INT32).nullable(false)
                                 .defaultValue(DefaultValue.constant(0)).build(),
                         ColumnParams.builder().name("INT64").type(INT64).nullable(false)
@@ -368,9 +368,9 @@ public class PlatformTestNodeRunner {
                 ZONE_NAME,
                 TABLE_NAME_ALL_COLUMNS_SQL,
                 List.of(
-                        ColumnParams.builder().name(keyCol).type(INT64).build(),
                         ColumnParams.builder().name("STR").type(STRING).length(1000).nullable(true).build(),
                         ColumnParams.builder().name("INT8").type(INT8).nullable(true).build(),
+                        ColumnParams.builder().name(keyCol).type(INT64).build(),
                         ColumnParams.builder().name("INT16").type(INT16).nullable(true).build(),
                         ColumnParams.builder().name("INT32").type(INT32).nullable(true).build(),
                         ColumnParams.builder().name("INT64").type(INT64).nullable(true).build(),

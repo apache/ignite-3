@@ -73,7 +73,7 @@ import org.apache.ignite.catalog.definitions.ZoneDefinition;
  *            value = "zone_test",
  *            replicas = 3,
  *            partitions = 1,
- *            engine = ZoneEngine.AIMEM
+ *            storageProfiles = "default"
  *    )
  *    private static class ZoneTest {}
  *
@@ -105,7 +105,7 @@ import org.apache.ignite.catalog.definitions.ZoneDefinition;
  * </pre>
  * These classes when passed to the {@link #create(Class)} method will produce the following statements:
  * <pre>
- *    CREATE ZONE IF NOT EXISTS zone_test ENGINE AIMEM WITH PARTITIONS=1, REPLICAS=3;
+ *    CREATE ZONE IF NOT EXISTS zone_test WITH PARTITIONS=1, REPLICAS=3, STORAGE_PROFILES='default';
  *    CREATE TABLE IF NOT EXISTS table_test (id int, id_str varchar(20), f_name varchar(20) not null default 'a', \
  *    l_name varchar, str varchar, PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';
  *    CREATE INDEX IF NOT EXISTS ix_pojo ON table_test (f_name, l_name desc);
@@ -116,7 +116,7 @@ import org.apache.ignite.catalog.definitions.ZoneDefinition;
  *             .ifNotExists()
  *             .partitions(1)
  *             .replicas(3)
- *             .engine(ZoneEngine.AIMEM)
+ *             .storageProfiles("default")
  *             .build();
  *    TableDefinition table = TableDefinition.builder("table_test")
  *            .ifNotExists()

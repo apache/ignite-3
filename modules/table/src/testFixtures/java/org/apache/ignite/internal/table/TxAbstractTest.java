@@ -72,6 +72,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -171,6 +172,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     @InjectConfiguration
     protected StorageUpdateConfiguration storageUpdateConfiguration;
 
+    @InjectConfiguration
+    protected ReplicationConfiguration replicationConfiguration;
+
     protected final TestInfo testInfo;
 
     protected ItTxTestCluster txTestCluster;
@@ -223,7 +227,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                 nodes(),
                 replicas(),
                 startClient(),
-                timestampTracker
+                timestampTracker,
+                replicationConfiguration
         );
         txTestCluster.prepareCluster();
 
@@ -258,7 +263,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             NodeFinder nodeFinder) {
         var network = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
-        network.start();
+        assertThat(network.startAsync(), willCompleteSuccessfully());
 
         return network;
     }

@@ -41,6 +41,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -107,10 +108,11 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 new TestClockService(clock),
                 Set.of(),
                 placementDriver,
-                requestsExecutor
+                requestsExecutor,
+                new NoOpFailureProcessor()
         );
 
-        replicaManager.start();
+        assertThat(replicaManager.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
@@ -127,7 +129,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(allOf(replicaStopFutures), willCompleteSuccessfully());
 
-        replicaManager.stop();
+        assertThat(replicaManager.stopAsync(), willCompleteSuccessfully());
 
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
     }

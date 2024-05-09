@@ -83,7 +83,6 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             TablePartitionId tablePartitionId,
             IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken
     ) {
-        // TODO: IGNITE-17666 Close cursor tx finish and do it on the first finish invocation only.
         return null;
     }
 
@@ -103,7 +102,6 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    // TODO: IGNITE-17666 Close cursor tx finish and do it on the first finish invocation only.
     protected CompletableFuture<Void> finish(boolean commit) {
         return finish(commit, readTimestamp);
     }

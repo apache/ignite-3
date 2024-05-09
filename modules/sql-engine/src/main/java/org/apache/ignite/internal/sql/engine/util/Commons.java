@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.calcite.rel.hint.HintPredicates.AGGREGATE;
 import static org.apache.calcite.rel.hint.HintPredicates.JOIN;
+import static org.apache.ignite.internal.sql.engine.QueryProperty.ALLOWED_QUERY_TYPES;
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -48,6 +49,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -66,11 +68,13 @@ import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeCoercionRule;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
@@ -97,6 +101,7 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
@@ -850,7 +855,8 @@ public final class Commons {
 
         // Output type of a set operator is equal to leastRestrictive(inputTypes) (see SetOp::deriveRowType)
 
-        RelDataType resultType = cluster.getTypeFactory().leastRestrictive(inputRowTypes);
+        RelDataTypeFactory typeFactory = cluster.getTypeFactory();
+        RelDataType resultType = typeFactory.leastRestrictive(inputRowTypes);
         if (resultType == null) {
             throw new IllegalArgumentException("Cannot compute compatible row type for arguments to set op: " + inputRowTypes);
         }
@@ -864,7 +870,10 @@ public final class Commons {
         for (RelNode input : inputs) {
             RelDataType inputRowType = input.getRowType();
 
-            if (resultType.equalsSansFieldNames(inputRowType)) {
+            // We can ignore nullability because it is always safe to convert from
+            // ROW (T1 nullable, T2 not nullable) to ROW (T1 nullable, T2 nullable)
+            // and leastRestrictive does exactly that.
+            if (SqlTypeUtil.equalAsStructSansNullability(typeFactory, resultType, inputRowType, null)) {
                 actualInputs.add(input);
 
                 continue;
@@ -889,5 +898,12 @@ public final class Commons {
         }
 
         return actualInputs;
+    }
+
+    /** Returns {@code true} if the specified properties allow multi-statement query execution. */
+    public static boolean isMultiStatementQueryAllowed(SqlProperties properties) {
+        Set<SqlQueryType> allowedTypes = properties.get(ALLOWED_QUERY_TYPES);
+
+        return allowedTypes.contains(SqlQueryType.TX_CONTROL);
     }
 }

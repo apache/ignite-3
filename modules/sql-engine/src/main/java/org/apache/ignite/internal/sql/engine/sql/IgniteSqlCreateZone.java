@@ -50,13 +50,11 @@ public class IgniteSqlCreateZone extends SqlCreate {
                 SqlParserPos pos, @Nullable SqlNode... operands) {
 
             return new IgniteSqlCreateZone(pos, existFlag(), (SqlIdentifier) operands[0],
-                    (SqlNodeList) operands[1], (SqlIdentifier) operands[2]);
+                    (SqlNodeList) operands[1]);
         }
     }
 
     private final SqlIdentifier name;
-
-    private final @Nullable SqlIdentifier engineName;
 
     private final @Nullable SqlNodeList createOptionList;
 
@@ -65,16 +63,12 @@ public class IgniteSqlCreateZone extends SqlCreate {
             SqlParserPos pos,
             boolean ifNotExists,
             SqlIdentifier name,
-            @Nullable SqlNodeList createOptionList,
-            @Nullable SqlIdentifier engineName
+            @Nullable SqlNodeList createOptionList
     ) {
         super(new Operator(ifNotExists), pos, false, ifNotExists);
 
-        assert engineName == null || engineName.isSimple() : engineName;
-
         this.name = Objects.requireNonNull(name, "name");
         this.createOptionList = createOptionList;
-        this.engineName = engineName;
     }
 
     /** {@inheritDoc} */
@@ -87,7 +81,7 @@ public class IgniteSqlCreateZone extends SqlCreate {
     @SuppressWarnings("nullness")
     @Override
     public List<SqlNode> getOperandList() {
-        return ImmutableNullableList.of(name, createOptionList, engineName);
+        return ImmutableNullableList.of(name, createOptionList);
     }
 
     /** {@inheritDoc} */
@@ -100,12 +94,6 @@ public class IgniteSqlCreateZone extends SqlCreate {
         }
 
         name.unparse(writer, leftPrec, rightPrec);
-
-        if (engineName != null) {
-            writer.keyword("ENGINE");
-
-            engineName.unparse(writer, 0, 0);
-        }
 
         if (createOptionList != null) {
             writer.keyword("WITH");
@@ -133,12 +121,5 @@ public class IgniteSqlCreateZone extends SqlCreate {
      */
     public boolean ifNotExists() {
         return ifNotExists;
-    }
-
-    /**
-     * Returns an engine name of the zone to create.
-     */
-    public @Nullable SqlIdentifier engineName() {
-        return engineName;
     }
 }

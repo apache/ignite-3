@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 
+import java.util.Objects;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.BeforeAll;
@@ -48,8 +52,14 @@ public class ItZonesSystemViewTest extends BaseSqlIntegrationTest {
 
     @Test
     public void systemViewDefaultZone() {
+        IgniteImpl node = CLUSTER.aliveNode();
+        CatalogManager catalogManager = node.catalogManager();
+        Catalog catalog = Objects.requireNonNull(
+                catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()))
+        );
+
         assertQuery("SELECT * FROM SYSTEM.ZONES").returns(
-                DEFAULT_ZONE_NAME,
+                catalog.defaultZone().name(),
                 DEFAULT_PARTITION_COUNT,
                 DEFAULT_REPLICA_COUNT,
                 IMMEDIATE_TIMER_VALUE,
@@ -155,9 +165,10 @@ public class ItZonesSystemViewTest extends BaseSqlIntegrationTest {
                 + "\"REPLICAS\" = %d, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = %d, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = %d,"
-                + "\"DATA_NODES_FILTER\" = '%s'";
+                + "\"DATA_NODES_FILTER\" = '%s',"
+                + "\"STORAGE_PROFILES\" = '%s'";
 
-        return String.format(sqlFormat, zoneName, partitions, replicas, scaleUp, scaleDown, filter);
+        return String.format(sqlFormat, zoneName, partitions, replicas, scaleUp, scaleDown, filter, DEFAULT_STORAGE_PROFILE);
     }
 
     private static String selectFromZonesSystemView(String zoneName) {

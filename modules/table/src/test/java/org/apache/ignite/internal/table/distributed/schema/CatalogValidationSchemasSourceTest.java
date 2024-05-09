@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -114,11 +115,12 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
         );
 
         CatalogTableDescriptor descriptor = new CatalogTableDescriptor(
-                tableId, -1, -1, "test", 0, columns, List.of("k1"), null
+                tableId, -1, -1, "test", 0, columns, List.of("k1"), null, DEFAULT_STORAGE_PROFILE
         );
 
         for (int ver = CatalogTableDescriptor.INITIAL_TABLE_VERSION + 1; ver <= tableVersion; ver++) {
-            descriptor = descriptor.newDescriptor("test", ver, columns, CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN);
+            descriptor = descriptor.newDescriptor(
+                    "test", ver, columns, CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN, DEFAULT_STORAGE_PROFILE);
         }
 
         return descriptor;

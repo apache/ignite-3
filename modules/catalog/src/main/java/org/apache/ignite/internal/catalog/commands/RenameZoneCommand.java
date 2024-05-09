@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
@@ -74,7 +73,7 @@ public class RenameZoneCommand extends AbstractZoneCommand {
                 zone.dataNodesAutoAdjustScaleUp(),
                 zone.dataNodesAutoAdjustScaleDown(),
                 zone.filter(),
-                zone.dataStorage()
+                zone.storageProfiles()
         );
 
         return List.of(new AlterZoneEntry(descriptor));
@@ -82,10 +81,6 @@ public class RenameZoneCommand extends AbstractZoneCommand {
 
     private void validate() {
         validateIdentifier(newZoneName, "New zone name");
-
-        if (zoneName.equals(DEFAULT_ZONE_NAME)) {
-            throw new CatalogValidationException("Default distribution zone can't be renamed");
-        }
     }
 
     /**

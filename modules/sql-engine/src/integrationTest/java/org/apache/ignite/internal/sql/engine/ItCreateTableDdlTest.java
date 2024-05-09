@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
@@ -30,10 +31,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
@@ -43,6 +49,7 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
@@ -58,6 +65,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @AfterEach
     public void dropTables() {
         dropAllTables();
+        dropAllZonesExceptDefaultOne();
     }
 
     @Test
@@ -369,5 +377,118 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 .returns("TEST2_PK", "SORTED", "ID1 DESC, ID2 ASC")
                 .returns("TEST3_PK", "HASH", "ID2, ID1")
                 .check();
+    }
+
+    @Test
+    public void testSuccessfulCreateTableWithZoneIdentifier() {
+        sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+        sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE=test_zone");
+    }
+
+    @Test
+    public void testSuccessfulCreateTableWithZoneLiteral() {
+        sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+        sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='TEST_ZONE'");
+    }
+
+    @Test
+    public void testSuccessfulCreateTableWithZoneQuotedLiteral() {
+        sql("CREATE ZONE \"test_zone\" WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+        sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='test_zone'");
+        sql("DROP TABLE test_table");
+        sql("DROP ZONE \"test_zone\"");
+    }
+
+    @Test
+    public void testExceptionalCreateTableWithZoneUnquotedLiteral() {
+
+        sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+        assertThrowsSqlException(
+                SqlException.class,
+                STMT_VALIDATION_ERR,
+                "Failed to validate query. Distribution zone with name 'test_zone' not found",
+                () -> sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='test_zone'"));
+    }
+
+    @Test
+    public void tableStorageProfileWithoutSettingItExplicitly() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+
+        CatalogZoneDescriptor zone = getDefaultZone(node);
+
+        assertEquals(zone.storageProfiles().defaultProfile().storageProfile(), table.storageProfile());
+    }
+
+    @Test
+    public void tableStorageProfileExceptionIfZoneDoesntContainProfile() {
+        String defaultZoneName = getDefaultZone(CLUSTER.aliveNode()).name();
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Zone with name '" + defaultZoneName + "' does not contain table's storage profile",
+                () -> sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH STORAGE_PROFILE='profile1'")
+        );
+    }
+
+    @Test
+    public void tableStorageProfile() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+
+        assertEquals(DEFAULT_STORAGE_PROFILE, table.storageProfile());
+
+        CatalogZoneDescriptor defaultZone = getDefaultZone(node);
+
+        assertEquals(defaultZone.storageProfiles().defaultProfile().storageProfile(), table.storageProfile());
+    }
+
+    @Test
+    public void tableStorageProfileWithCustomZoneDefaultProfile() {
+        sql("CREATE ZONE ZONE1 WITH PARTITIONS = 1, STORAGE_PROFILES = '" + DEFAULT_STORAGE_PROFILE + "'");
+
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1'");
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+
+        assertEquals(DEFAULT_STORAGE_PROFILE, table.storageProfile());
+
+        sql("DROP TABLE TEST");
+
+        sql("DROP ZONE ZONE1");
+    }
+
+    @Test
+    public void tableStorageProfileWithCustomZoneExplicitProfile() {
+        sql("CREATE ZONE ZONE1 WITH PARTITIONS = 1, STORAGE_PROFILES = '" + DEFAULT_STORAGE_PROFILE + "'");
+
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1', STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+
+        assertEquals(DEFAULT_STORAGE_PROFILE, table.storageProfile());
+
+        sql("DROP TABLE TEST");
+
+        sql("DROP ZONE ZONE1");
+    }
+
+    private static CatalogZoneDescriptor getDefaultZone(IgniteImpl node) {
+        CatalogManager catalogManager = node.catalogManager();
+        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()));
+
+        assert catalog != null;
+
+        return Objects.requireNonNull(catalog.defaultZone());
     }
 }

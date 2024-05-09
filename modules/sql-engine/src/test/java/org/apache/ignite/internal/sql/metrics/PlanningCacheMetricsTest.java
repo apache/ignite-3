@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Collections;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
@@ -34,7 +35,6 @@ import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -47,7 +47,7 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
 
     @Test
     public void plannerCacheStatisticsTest() throws Exception {
-        MetricManager metricManager = new MetricManager();
+        MetricManager metricManager = new MetricManagerImpl();
         // Run clean up tasks in the current thread, so no eviction event is delayed.
         CacheFactory cacheFactory = CaffeineCacheFactory.create(Runnable::run);
         PrepareService prepareService = new PrepareServiceImpl("test", 2, cacheFactory, null, 15_000L, 2, metricManager);
@@ -87,7 +87,7 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
         IgniteSchema schema = createSchema(table);
         BaseQueryContext ctx = baseQueryContext(Collections.singletonList(schema), null);
 
-        ParserService parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
+        ParserService parserService = new ParserServiceImpl();
         ParsedResult parsedResult = parserService.parse(qry);
 
         await(prepareService.prepareAsync(parsedResult, ctx));

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
-import static org.apache.ignite.catalog.ZoneEngine.ROCKSDB;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -45,15 +44,6 @@ class CreateZoneTest {
     }
 
     @Test
-    void testEngine() {
-        String sql = createZone().name("zone1").engine(ROCKSDB).toSqlString();
-        assertThat(sql, is("CREATE ZONE zone1 ENGINE ROCKSDB;"));
-
-        sql = createZoneQuoted().name("zone1").engine(ROCKSDB).toSqlString();
-        assertThat(sql, is("CREATE ZONE \"zone1\" ENGINE ROCKSDB;"));
-    }
-
-    @Test
     void testWithOptions() {
         String sql = createZone().name("zone1").partitions(1).toSqlString();
         assertThat(sql, is("CREATE ZONE zone1 WITH PARTITIONS=1;"));
@@ -67,6 +57,9 @@ class CreateZoneTest {
 
         sql = createZoneQuoted().name("zone1").partitions(1).replicas(1).toSqlString();
         assertThat(sql, is("CREATE ZONE \"zone1\" WITH PARTITIONS=1, REPLICAS=1;"));
+
+        sql = createZoneQuoted().name("zone1").storageProfiles("profile1,profile2").toSqlString();
+        assertThat(sql, is("CREATE ZONE \"zone1\" WITH STORAGE_PROFILES='profile1,profile2';"));
     }
 
     private static CreateZoneImpl createZone() {

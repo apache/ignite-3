@@ -61,6 +61,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -118,7 +119,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         );
 
         assertNull(checkpointer.runner());
@@ -151,7 +153,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         ));
 
         assertNull(checkpointer.lastCheckpointProgress());
@@ -255,7 +258,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         );
 
         CompletableFuture<?> waitCheckpointEventFuture = runAsync(checkpointer::waitCheckpointEvent);
@@ -284,7 +288,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 createCheckpointPagesWriterFactory(mock(PartitionMetaManager.class)),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         ));
 
         ((CheckpointProgressImpl) checkpointer.scheduledProgress())
@@ -354,7 +359,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
         partitionMetaManager.addMeta(
                 new GroupPartitionId(0, 0),
-                new PartitionMeta(null, 0, 0, 0, 0, 0, 0, 0, 0, 3)
+                new PartitionMeta(null, 0, 0, 0, 0, 0, 0, 0, 3, 0)
         );
 
         FilePageStore filePageStore = mock(FilePageStore.class);
@@ -362,6 +367,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         when(filePageStore.getNewDeltaFile()).thenReturn(completedFuture(mock(DeltaFilePageStoreIo.class)));
 
         Compactor compactor = mock(Compactor.class);
+
+        LogSyncer mockLogSyncer = mock(LogSyncer.class);
 
         Checkpointer checkpointer = spy(new Checkpointer(
                 "test",
@@ -372,7 +379,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 createCheckpointPagesWriterFactory(partitionMetaManager),
                 createFilePageStoreManager(Map.of(new GroupPartitionId(0, 0), filePageStore)),
                 compactor,
-                checkpointConfig
+                checkpointConfig,
+                mockLogSyncer
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
@@ -380,6 +388,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
         verify(dirtyPages, times(1)).toDirtyPageIdQueue();
         verify(checkpointer, times(1)).startCheckpointProgress();
         verify(compactor, times(1)).triggerCompaction();
+        verify(mockLogSyncer, times(1)).sync();
 
         assertEquals(checkpointer.lastCheckpointProgress().currentCheckpointPagesCount(), 3);
 
@@ -401,7 +410,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 createCheckpointPagesWriterFactory(new PartitionMetaManager(ioRegistry, PAGE_SIZE)),
                 createFilePageStoreManager(Map.of()),
                 compactor,
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
@@ -426,7 +436,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         );
 
         // Checks case 0 deviation.
@@ -467,7 +478,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 mock(CheckpointPagesWriterFactory.class),
                 mock(FilePageStoreManager.class),
                 mock(Compactor.class),
-                checkpointConfig
+                checkpointConfig,
+                mock(LogSyncer.class)
         );
 
         GroupPartitionId groupPartitionId = new GroupPartitionId(0, 0);

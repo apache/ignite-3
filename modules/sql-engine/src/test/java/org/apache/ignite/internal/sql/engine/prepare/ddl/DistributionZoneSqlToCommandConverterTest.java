@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.STORAGE_PROFILES;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -47,11 +49,15 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     private static final List<String> NUMERIC_OPTIONS = Arrays.asList("PARTITIONS", "REPLICAS", "DATA_NODES_AUTO_ADJUST",
             "DATA_NODES_AUTO_ADJUST_SCALE_UP", "DATA_NODES_AUTO_ADJUST_SCALE_DOWN");
 
-    private static final List<String> STRING_OPTIONS = Arrays.asList("AFFINITY_FUNCTION", "DATA_NODES_FILTER", "DATA_STORAGE_ENGINE");
+    private static final List<String> STRING_OPTIONS = Arrays.asList(
+            "AFFINITY_FUNCTION",
+            "DATA_NODES_FILTER",
+            "STORAGE_PROFILES"
+    );
 
     @Test
     public void testCreateZone() throws SqlParseException {
-        SqlNode node = parse("CREATE ZONE test");
+        SqlNode node = parse("CREATE ZONE test WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -73,7 +79,9 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                 + "data_nodes_filter='\"attr1\" && \"attr2\"', "
                 + "data_nodes_auto_adjust_scale_up=100, "
                 + "data_nodes_auto_adjust_scale_down=200, "
-                + "data_nodes_auto_adjust=300");
+                + "data_nodes_auto_adjust=300, "
+                + "storage_profiles='lru_rocks, segmented_aipersist' "
+        );
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -88,6 +96,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(createZone.dataNodesAutoAdjustScaleUp(), equalTo(100));
         assertThat(createZone.dataNodesAutoAdjustScaleDown(), equalTo(200));
         assertThat(createZone.dataNodesAutoAdjust(), equalTo(300));
+        assertThat(createZone.storageProfiles(), equalTo("lru_rocks, segmented_aipersist"));
 
         // Check option validation.
         node = parse("CREATE ZONE test with partitions=-1");
@@ -95,6 +104,34 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         node = parse("CREATE ZONE test with replicas=-1");
         expectOptionValidationError((SqlDdl) node, "REPLICAS");
+
+        node = parse("CREATE ZONE test with storage_profiles='' ");
+        expectOptionValidationError((SqlDdl) node, "STORAGE_PROFILES");
+    }
+
+    @Test
+    public void testCreateZoneWithoutStorageProfileOptionShouldThrowError() throws SqlParseException {
+        SqlNode node =  parse("CREATE ZONE test");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        var ex = assertThrows(
+                IgniteException.class,
+                () -> converter.convert((SqlDdl) node, createContext())
+        );
+
+        assertThat(ex.getMessage(), containsString(STORAGE_PROFILES + " option cannot be null"));
+
+        SqlNode newNode =  parse("CREATE ZONE test with replicas=1");
+
+        assertThat(newNode, instanceOf(SqlDdl.class));
+
+        ex = assertThrows(
+                IgniteException.class,
+                () -> converter.convert((SqlDdl) newNode, createContext())
+        );
+
+        assertThat(ex.getMessage(), containsString(STORAGE_PROFILES + " option cannot be null"));
     }
 
     @Test
@@ -178,6 +215,30 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(zoneCmd.dataNodesAutoAdjustScaleUp(), equalTo(100));
         assertThat(zoneCmd.dataNodesAutoAdjustScaleDown(), equalTo(200));
         assertThat(zoneCmd.dataNodesAutoAdjust(), equalTo(300));
+    }
+
+    @Test
+    public void testAlterZoneSetDefault() throws SqlParseException {
+        SqlNode node = parse("ALTER ZONE test SET DEFAULT");
+
+        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
+        assertThat(cmd, Matchers.instanceOf(AlterZoneSetDefaultCommand.class));
+
+        AlterZoneSetDefaultCommand zoneCmd = (AlterZoneSetDefaultCommand) cmd;
+        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
+        assertThat(zoneCmd.ifExists(), is(false));
+    }
+
+    @Test
+    public void testAlterZoneSetDefaultIfExists() throws SqlParseException {
+        SqlNode node = parse("ALTER ZONE IF EXISTS test SET DEFAULT");
+
+        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
+        assertThat(cmd, Matchers.instanceOf(AlterZoneSetDefaultCommand.class));
+
+        AlterZoneSetDefaultCommand zoneCmd = (AlterZoneSetDefaultCommand) cmd;
+        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
+        assertThat(zoneCmd.ifExists(), is(true));
     }
 
     @Test

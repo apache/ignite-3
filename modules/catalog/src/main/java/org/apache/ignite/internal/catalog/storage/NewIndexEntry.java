@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
+
 import java.io.IOException;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -93,7 +95,8 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
                         ArrayUtils.concat(schema.indexes(), descriptor),
                         schema.systemViews(),
                         causalityToken
-                ), catalog.schemas())
+                ), catalog.schemas()),
+                defaultZoneIdOpt(catalog)
         );
     }
 

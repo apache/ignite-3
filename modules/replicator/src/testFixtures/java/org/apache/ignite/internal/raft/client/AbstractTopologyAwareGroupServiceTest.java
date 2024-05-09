@@ -215,7 +215,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         int clientPort = PORT_BASE + nodes + 1;
         ClusterService clientClusterService =
                 clusterService(testInfo, clientPort, new StaticNodeFinder(findLocalAddresses(PORT_BASE, PORT_BASE + nodes)));
-        clientClusterService.start();
+        assertThat(clientClusterService.startAsync(), willCompleteSuccessfully());
 
         // Start the second topology aware client, that should not get the initial leader notification.
         TopologyAwareRaftGroupService raftClientNoInitialNotify = startTopologyAwareClient(
@@ -285,11 +285,12 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         // Forcing the leader change by stopping the actual leader.
         var raftServiceToStop = raftServers.remove(new NetworkAddress("localhost", leader.address().port()));
         raftServiceToStop.stopRaftNodes(GROUP_ID);
-        raftServiceToStop.stop();
+        assertThat(raftServiceToStop.stopAsync(), willCompleteSuccessfully());
 
         afterNodeStop(leader.name());
 
-        clusterServices.remove(new NetworkAddress("localhost", leader.address().port())).stop();
+        CompletableFuture<Void> stopFuture = clusterServices.remove(new NetworkAddress("localhost", leader.address().port())).stopAsync();
+        assertThat(stopFuture, willCompleteSuccessfully());
 
         // Waiting for the notifications to check.
         assertTrue(waitForCondition(() -> !leader.equals(leaderRef.get()), WAIT_TIMEOUT_MILLIS));
@@ -363,10 +364,10 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
             if (raftServers.containsKey(addr)) {
                 raftServers.get(addr).stopRaftNodes(GROUP_ID);
 
-                raftServers.get(addr).stop();
+                assertThat(raftServers.get(addr).stopAsync(), willCompleteSuccessfully());
             }
 
-            clusterServices.get(addr).stop();
+            assertThat(clusterServices.get(addr).stopAsync(), willCompleteSuccessfully());
         }
 
         raftServers.clear();
@@ -397,7 +398,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         for (NetworkAddress addr : addresses) {
             var cluster = clusterService(testInfo, addr.port(), nodeFinder);
 
-            cluster.start();
+            assertThat(cluster.startAsync(), willCompleteSuccessfully());
 
             clusterServices.put(addr, cluster);
         }
@@ -425,10 +426,11 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 var raftServer = new JraftServerImpl(
                         cluster,
                         dataPath,
+                        raftConfiguration,
                         nodeOptions,
                         eventsClientListener
                 );
-                raftServer.start();
+                assertThat(raftServer.startAsync(), willCompleteSuccessfully());
 
                 raftServer.startRaftNode(
                         new RaftNodeId(GROUP_ID, localPeer),

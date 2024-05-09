@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.threading;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
+import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.threading.PublicApiThreadingTests.anIgniteThread;
-import static org.apache.ignite.internal.threading.PublicApiThreadingTests.asyncContinuationPool;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
@@ -36,24 +34,22 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.PublicApiThreadingTests;
 import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.junitpioneer.jupiter.cartesian.CartesianTest.Enum;
 
-@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
 @SuppressWarnings("resource")
 class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "test";
@@ -62,7 +58,9 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     private static final Record KEY_RECORD = new Record(1, "");
 
-    private static final int MORE_THAN_DEFAULT_STATEMENT_PAGE_SIZE = 2048;
+    // Setting a minimum page size to ensure that CriteriaQuerySource#query() returns
+    // a non-closed cursor even after we call its second page.
+    private static final CriteriaQueryOptions criteriaOptions = CriteriaQueryOptions.builder().pageSize(1).build();
 
     @Override
     protected int initialNodes() {
@@ -73,13 +71,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     void createTable() {
         sql("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, val VARCHAR)");
 
-        // Putting more than the doubled default query page size rows to make sure that CriteriaQuerySource#query() returns a non-closed
-        // cursor even after we call its second page.
-        // TODO: Instead, configure pageSize=1 on each #query() call when https://issues.apache.org/jira/browse/IGNITE-18647 is fixed.
-        Map<Integer, String> valuesForQuerying = IntStream.range(KEY + 1, KEY + 1 + 2 * MORE_THAN_DEFAULT_STATEMENT_PAGE_SIZE)
-                .boxed()
-                .collect(toMap(identity(), Object::toString));
-        plainKeyValueView().putAll(null, valuesForQuerying);
+        plainKeyValueView().putAll(null, Map.of(KEY + 1, "two", KEY + 2, "three"));
     }
 
     private static KeyValueView<Integer, String> plainKeyValueView() {
@@ -136,7 +128,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private static <T> T forcingSwitchFromUserThread(Supplier<? extends T> action) {
-        return PublicApiThreadingTests.forcingSwitchFromUserThread(CLUSTER.aliveNode(), action);
+        return PublicApiThreadingTests.tryToSwitchFromUserThreadWithDelayedSchemaSync(CLUSTER.aliveNode(), action);
     }
 
     private static KeyValueContext<Integer, String> plainKeyValueContext() {
@@ -247,7 +239,8 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     @CartesianTest
     void asyncCursorFuturesCompleteInContinuationsPool(@Enum AsyncCursorAsyncOperation operation, @Enum ViewKind kind) throws Exception {
-        AsyncCursor<?> firstPage = kind.criteriaQuerySource().queryAsync(null, null).get(10, SECONDS);
+        AsyncCursor<?> firstPage = kind.criteriaQuerySource()
+                .queryAsync(null, null, null, criteriaOptions).get(10, SECONDS);
 
         CompletableFuture<Thread> completerFuture = operation.executeOn(firstPage)
                         .thenApply(unused -> Thread.currentThread());
@@ -264,7 +257,8 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
             @Enum AsyncCursorAsyncOperation operation,
             @Enum ViewKind kind
     ) throws Exception {
-        AsyncCursor<?> firstPage = kind.criteriaQuerySourceForInternalUse().queryAsync(null, null).get(10, SECONDS);
+        AsyncCursor<?> firstPage = kind.criteriaQuerySourceForInternalUse()
+                .queryAsync(null, null, null, criteriaOptions).get(10, SECONDS);
 
         CompletableFuture<Thread> completerFuture = operation.executeOn(firstPage)
                 .thenApply(unused -> Thread.currentThread());
@@ -283,7 +277,8 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     @CartesianTest
     void asyncCursorFuturesAfterFetchCompleteInContinuationsPool(@Enum AsyncCursorAsyncOperation operation, @Enum ViewKind kind)
             throws Exception {
-        AsyncCursor<?> firstPage = kind.criteriaQuerySource().queryAsync(null, null).get(10, SECONDS);
+        AsyncCursor<?> firstPage = kind.criteriaQuerySource()
+                .queryAsync(null, null, null, criteriaOptions).get(10, SECONDS);
         AsyncCursor<?> secondPage = firstPage.fetchNextPage().get(10, SECONDS);
 
         CompletableFuture<Thread> completerFuture = operation.executeOn(secondPage)
@@ -306,7 +301,8 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
             @Enum AsyncCursorAsyncOperation operation,
             @Enum ViewKind kind
     ) throws Exception {
-        AsyncCursor<?> firstPage = kind.criteriaQuerySourceForInternalUse().queryAsync(null, null).get(10, SECONDS);
+        AsyncCursor<?> firstPage = kind.criteriaQuerySourceForInternalUse()
+                .queryAsync(null, null, null, criteriaOptions).get(10, SECONDS);
         AsyncCursor<?> secondPage = firstPage.fetchNextPage().get(10, SECONDS);
 
         CompletableFuture<Thread> completerFuture = operation.executeOn(secondPage)

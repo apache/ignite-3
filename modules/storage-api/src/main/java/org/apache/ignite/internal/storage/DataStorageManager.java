@@ -17,21 +17,19 @@
 
 package org.apache.ignite.internal.storage;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
-import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /** Data storage manager. */
@@ -39,90 +37,58 @@ public class DataStorageManager implements IgniteComponent {
     /** Mapping: {@link DataStorageModule#name} -> {@link StorageEngine}. */
     private final Map<String, StorageEngine> engines;
 
+    /** Mapping: {@link StorageProfileConfiguration#name()} -> {@link StorageEngine#name()}. */
+    private Map<String, String> profilesToEngines;
+
+    /** Storage configuration. **/
+    private StorageConfiguration storageConfiguration;
+
     /**
      * Constructor.
      *
      * @param engines Storage engines unique by {@link DataStorageModule#name name}.
+     * @param storageConfiguration Storage configuration. Needed to extract the storage profiles configurations after start.
      */
-    public DataStorageManager(Map<String, StorageEngine> engines) {
+    public DataStorageManager(Map<String, StorageEngine> engines, StorageConfiguration storageConfiguration) {
         assert !engines.isEmpty();
 
         this.engines = engines;
+        this.storageConfiguration = storageConfiguration;
     }
 
     @Override
-    public CompletableFuture<Void> start() throws StorageException {
+    public CompletableFuture<Void> startAsync() throws StorageException {
         engines.values().forEach(StorageEngine::start);
+
+        profilesToEngines = storageConfiguration.value().profiles().stream()
+                .collect(Collectors.toMap(StorageProfileView::name, StorageProfileView::engine));
 
         return nullCompletedFuture();
     }
 
     @Override
-    public void stop() throws Exception {
-        IgniteUtils.closeAll(engines.values().stream().map(engine -> engine::stop));
+    public CompletableFuture<Void> stopAsync() {
+        try {
+            closeAll(engines.values().stream().map(engine -> engine::stop));
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        return nullCompletedFuture();
     }
 
     /**
-     * Returns the data storage engine by name, {@code null} if absent.
+     * Get storage engine by storage profile name.
      *
-     * @param name Storage engine name.
+     * @param storageProfile Name of storage profile.
+     * @return Storage engine of the input storage profile or {@code null} if storage profile is not exist on the current node.
      */
-    public @Nullable StorageEngine engine(String name) {
-        return engines.get(name);
-    }
+    public @Nullable StorageEngine engineByStorageProfile(String storageProfile) {
+        String engine = profilesToEngines.get(storageProfile);
 
-    /**
-     * Creates a consumer that will change the {@link DataStorageConfigurationSchema data storage}.
-     *
-     * @param dataStorage Data storage.
-     * @param values {@link Value Values} for the data storage. Mapping: field name -> field value.
-     */
-    // TODO: IGNITE-20263 Get rid of
-    public Consumer<DataStorageChange> zoneDataStorageConsumer(String dataStorage, Map<String, Object> values) {
-        ConfigurationSource configurationSource = new ConfigurationSource() {
-            /** {@inheritDoc} */
-            @Override
-            public String polymorphicTypeId(String fieldName) {
-                throw new UnsupportedOperationException("polymorphicTypeId");
-            }
+        assert engine != null : "Unknown storage profile '" + storageProfile + "'";
 
-            /** {@inheritDoc} */
-            @Override
-            public void descend(ConstructableTreeNode node) {
-                for (Entry<String, Object> e : values.entrySet()) {
-                    assert e.getKey() != null;
-                    assert e.getValue() != null : e.getKey();
-
-                    ConfigurationSource leafSource = new ConfigurationSource() {
-                        /** {@inheritDoc} */
-                        @Override
-                        public <T> T unwrap(Class<T> clazz) {
-                            return clazz.cast(e.getValue());
-                        }
-
-                        /** {@inheritDoc} */
-                        @Override
-                        public void descend(ConstructableTreeNode node) {
-                            throw new UnsupportedOperationException("descend");
-                        }
-
-                        /** {@inheritDoc} */
-                        @Override
-                        public String polymorphicTypeId(String fieldName) {
-                            throw new UnsupportedOperationException("polymorphicTypeId");
-                        }
-                    };
-
-                    node.construct(e.getKey(), leafSource, true);
-                }
-            }
-        };
-
-        return zoneDataStorageChange -> {
-            zoneDataStorageChange.convert(dataStorage);
-
-            configurationSource.descend((ConstructableTreeNode) zoneDataStorageChange);
-        };
+        return engines.get(engine);
     }
 
     @Override

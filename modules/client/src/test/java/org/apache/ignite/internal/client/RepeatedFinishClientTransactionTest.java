@@ -32,7 +32,6 @@ import static org.mockito.Mockito.when;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
@@ -201,16 +200,6 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         @Override
         public ProtocolContext protocolContext() {
             return null;
-        }
-
-        @Override
-        public void addPartitionAssignmentChangeListener(Consumer<Long> listener) {
-            // No-op.
-        }
-
-        @Override
-        public void addObservableTimestampListener(Consumer<Long> listener) {
-            // No-op.
         }
 
         @Override
