@@ -418,7 +418,7 @@ namespace Apache.Ignite.Internal.Table
 
                 if (tx != null && txId == LazyTransaction.TxIdPlaceholder)
                 {
-                    writer.WriteLong(tx.Id, txIdPos + 1);
+                    writer.WriteLongBigEndian(tx.Id, txIdPos + 1);
                 }
 
                 return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
@@ -469,7 +469,7 @@ namespace Apache.Ignite.Internal.Table
 
                 if (tx != null && txId == LazyTransaction.TxIdPlaceholder)
                 {
-                    writer.WriteLong(tx.Id, txIdPos + 1);
+                    writer.WriteLongBigEndian(tx.Id, txIdPos + 1);
                 }
 
                 return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
@@ -526,7 +526,7 @@ namespace Apache.Ignite.Internal.Table
 
                 if (tx != null && txId == LazyTransaction.TxIdPlaceholder)
                 {
-                    writer.WriteLong(tx.Id, txIdPos + 1);
+                    writer.WriteLongBigEndian(tx.Id, txIdPos + 1);
                 }
 
                 return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);

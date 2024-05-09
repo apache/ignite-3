@@ -234,7 +234,8 @@ namespace Apache.Ignite.Internal.Buffers
         /// </summary>
         /// <param name="val">Value.</param>
         /// <param name="pos">Position.</param>
-        public void WriteLong(long val, int pos) => BinaryPrimitives.WriteInt64LittleEndian(_buffer.AsSpan(pos + _prefixSize), val);
+        public void WriteLongBigEndian(long val, int pos) =>
+            BinaryPrimitives.WriteInt64BigEndian(_buffer.AsSpan(pos + _prefixSize), val);
 
         /// <summary>
         /// Reads a short at specified position.
