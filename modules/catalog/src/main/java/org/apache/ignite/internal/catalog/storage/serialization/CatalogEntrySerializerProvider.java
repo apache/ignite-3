@@ -80,9 +80,9 @@ public interface CatalogEntrySerializerProvider {
             serializers[MarshallableEntryType.SNAPSHOT.id()] = SnapshotEntry.SERIALIZER;
             serializers[MarshallableEntryType.RENAME_INDEX.id()] = RenameIndexEntry.SERIALIZER;
             serializers[MarshallableEntryType.SET_DEFAULT_ZONE.id()] = SetDefaultZoneEntry.SERIALIZER;
+            serializers[MarshallableEntryType.NEW_SCHEMA.id()] = NewSchemaEntry.SERIALIZER;
             //noinspection ThisEscapedInObjectConstruction
             serializers[MarshallableEntryType.VERSIONED_UPDATE.id()] = new VersionedUpdateSerializer(this);
-            serializers[MarshallableEntryType.NEW_SCHEMA.id()] = NewSchemaEntry.SERIALIZER;
 
             assert Stream.of(serializers).noneMatch(Objects::isNull);
         }
