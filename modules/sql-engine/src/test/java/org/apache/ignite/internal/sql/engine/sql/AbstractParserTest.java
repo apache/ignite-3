@@ -27,7 +27,7 @@ import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 
 /**
- * Common methods to verify parsing of the DDL command.
+ * Common methods to verify parsing of SQL statements.
  */
 public abstract class AbstractParserTest {
     /**

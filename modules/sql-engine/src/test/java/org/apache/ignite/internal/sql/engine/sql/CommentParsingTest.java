@@ -130,7 +130,7 @@ public class CommentParsingTest extends AbstractParserTest {
         try {
             actualAst = parse(actual);
         } catch (RuntimeException ex) {
-            System.err.println(expected);
+            System.err.println(actual);
 
             throw ex;
         }
