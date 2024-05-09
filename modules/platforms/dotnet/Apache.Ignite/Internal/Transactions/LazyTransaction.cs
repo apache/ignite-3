@@ -69,7 +69,7 @@ internal sealed class LazyTransaction : ITransaction
     /// <summary>
     /// Gets the transaction state.
     /// </summary>
-    internal string State => _state switch
+    private string State => _state switch
     {
         StateOpen => "Open",
         StateCommitted => "Committed",
