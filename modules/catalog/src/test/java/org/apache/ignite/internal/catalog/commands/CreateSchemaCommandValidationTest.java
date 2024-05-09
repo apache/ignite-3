@@ -19,7 +19,9 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -38,5 +40,22 @@ public class CreateSchemaCommandValidationTest extends AbstractCommandValidation
                 CatalogValidationException.class,
                 "Name of the schema can't be null or blank"
         );
+    }
+
+    @Test
+    void commandFailsWhenSchemaAlreadyExists() {
+        String schemaName = "TEST";
+
+        CreateSchemaCommandBuilder builder = CreateSchemaCommand.builder().name(schemaName);
+
+        assertThrowsWithCause(
+                () -> builder.build().get(catalogWithSchema(schemaName)),
+                CatalogValidationException.class,
+                "Schema with name 'TEST' already exists"
+        );
+    }
+
+    private static Catalog catalogWithSchema(String schemaName) {
+        return catalog(CreateSchemaCommand.builder().name(schemaName).build());
     }
 }

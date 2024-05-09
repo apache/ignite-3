@@ -108,6 +108,7 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCatalogCom
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
+import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
@@ -2695,6 +2696,24 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 Arguments.of(true, false), // Create hash index and update catalog (create table).
                 Arguments.of(false, true), // Create sorted index and update index status..
                 Arguments.of(false, false) // Create sorted index and update catalog (create table).
+        );
+    }
+
+    @Test
+    public void testCreateSchema() {
+        String schemaName = "S1";
+
+        assertThat(manager.execute(CreateSchemaCommand.builder().name(schemaName).build()), willCompleteSuccessfully());
+
+        Catalog latestCatalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
+
+        assertNotNull(latestCatalog);
+        assertNotNull(latestCatalog.schema(schemaName));
+        assertNotNull(latestCatalog.schema(DEFAULT_SCHEMA_NAME));
+
+        assertThat(
+                manager.execute(CreateSchemaCommand.builder().name(schemaName).build()),
+                willThrowFast(CatalogValidationException.class, "Schema with name 'S1' already exists")
         );
     }
 

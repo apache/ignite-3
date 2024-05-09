@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
@@ -44,7 +47,9 @@ public class NewSchemaEntry implements UpdateEntry {
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
         CatalogSchemaDescriptor schema = catalog.schema(descriptor.name());
 
-        assert schema == null : "Schema already exists: " + descriptor.name();
+        if (schema != null) {
+            throw new CatalogValidationException(format("Schema with name '{}' already exists", schema.name()));
+        }
 
         descriptor.updateToken(causalityToken);
 
