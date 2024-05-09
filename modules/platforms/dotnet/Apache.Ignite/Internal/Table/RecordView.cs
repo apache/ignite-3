@@ -456,11 +456,21 @@ namespace Apache.Ignite.Internal.Table
             try
             {
                 schema = await _table.GetSchemaAsync(schemaVersionOverride).ConfigureAwait(false);
-                var tx = transaction.ToInternal();
+
+                LazyTransaction? lazyTx = LazyTransaction.Get(transaction);
+                var txId = lazyTx?.Id;
 
                 using var writer = ProtoCommon.GetMessageWriter();
-                var colocationHash = _ser.WriteTwo(writer, tx, schema, record, record2, keyOnly);
+                var (colocationHash, txIdPos) = _ser.WriteTwo(writer, txId, schema, record, record2, keyOnly);
                 var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
+
+                var tx = await LazyTransaction.EnsureStartedAsync(transaction, _table.Socket, preferredNode)
+                    .ConfigureAwait(false);
+
+                if (tx != null && txId == LazyTransaction.TxIdPlaceholder)
+                {
+                    writer.WriteLong(tx.Id, txIdPos + 1);
+                }
 
                 return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
             }
@@ -503,11 +513,21 @@ namespace Apache.Ignite.Internal.Table
             try
             {
                 schema = await _table.GetSchemaAsync(schemaVersionOverride).ConfigureAwait(false);
-                var tx = transaction.ToInternal();
+
+                LazyTransaction? lazyTx = LazyTransaction.Get(transaction);
+                var txId = lazyTx?.Id;
 
                 using var writer = ProtoCommon.GetMessageWriter();
-                var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly);
+                var (colocationHash, txIdPos) = _ser.WriteMultiple(writer, txId, schema, iterator, keyOnly);
                 var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
+
+                var tx = await LazyTransaction.EnsureStartedAsync(transaction, _table.Socket, preferredNode)
+                    .ConfigureAwait(false);
+
+                if (tx != null && txId == LazyTransaction.TxIdPlaceholder)
+                {
+                    writer.WriteLong(tx.Id, txIdPos + 1);
+                }
 
                 return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
             }
