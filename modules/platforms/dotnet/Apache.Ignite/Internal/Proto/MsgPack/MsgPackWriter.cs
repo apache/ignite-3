@@ -22,7 +22,6 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using BinaryTuple;
 using Buffers;
-using Transactions;
 
 /// <summary>
 /// MsgPack writer. Wraps <see cref="PooledArrayBuffer"/>. Writer index is kept by the buffer, so this struct is readonly.

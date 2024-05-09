@@ -19,7 +19,6 @@ namespace Apache.Ignite.Tests.Transactions
 {
     using System;
     using System.Linq;
-    using System.Text.RegularExpressions;
     using System.Threading.Tasks;
     using Ignite.Transactions;
     using Internal;

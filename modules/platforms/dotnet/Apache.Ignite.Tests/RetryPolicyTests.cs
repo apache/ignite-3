@@ -22,7 +22,6 @@ namespace Apache.Ignite.Tests
     using System.Threading.Tasks;
     using Ignite.Table;
     using NUnit.Framework;
-    using NUnit.Framework.Internal;
 
     /// <summary>
     /// Tests client behavior with different <see cref="IgniteClientConfiguration.RetryPolicy"/> settings.
