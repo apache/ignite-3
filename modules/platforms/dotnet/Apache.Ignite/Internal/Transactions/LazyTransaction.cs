@@ -42,6 +42,19 @@ internal sealed class LazyTransaction : ITransaction
     /// <inheritdoc/>
     public bool IsReadOnly => _options.ReadOnly;
 
+    /// <summary>
+    /// Gets the transaction ID.
+    /// </summary>
+    public long Id =>
+        _tx is { IsCompleted: true }
+            ? _tx.Result.Id
+            : long.MaxValue; // Placeholder to be replaced with the actual ID.
+
+    /// <summary>
+    /// Gets a value indicating whether the transaction is started.
+    /// </summary>
+    public bool IsStarted => _tx is { IsCompletedSuccessfully: true };
+
     /// <inheritdoc/>
     public async Task CommitAsync()
     {

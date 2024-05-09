@@ -409,6 +409,7 @@ namespace Apache.Ignite.Internal.Table
                 // TODO: Preferred node.
                 // TODO: reserve space for tx id and populate after start if not started yet.
                 LazyTransaction? tx = LazyTransaction.Get(transaction);
+                var txIdPlaceholderNeedsUpdate = tx is { IsStarted: false };
 
                 using var writer = ProtoCommon.GetMessageWriter();
                 var colocationHash = _ser.Write(writer, tx, schema, record, keyOnly);
