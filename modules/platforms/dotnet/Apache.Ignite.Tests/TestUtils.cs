@@ -103,7 +103,7 @@ namespace Apache.Ignite.Tests
         internal static async Task ForceLazyTxStart(ITransaction tx, IIgnite client, PreferredNode preferredNode = default) =>
             await LazyTransaction.EnsureStartedAsync(
                 tx,
-                ((IgniteClientInternal)client).GetFieldValue<ClientFailoverSocket>("_socket"),
+                client.GetFieldValue<ClientFailoverSocket>("_socket"),
                 preferredNode);
 
         private static FieldInfo GetNonPublicField(object obj, string fieldName)
