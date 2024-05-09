@@ -48,8 +48,10 @@ public class CreateSchemaCommandValidationTest extends AbstractCommandValidation
 
         CreateSchemaCommandBuilder builder = CreateSchemaCommand.builder().name(schemaName);
 
+        Catalog catalog = catalogWithSchema(schemaName);
+
         assertThrowsWithCause(
-                () -> builder.build().get(catalogWithSchema(schemaName)),
+                () -> builder.build().get(catalog),
                 CatalogValidationException.class,
                 "Schema with name 'TEST' already exists"
         );
