@@ -21,11 +21,11 @@ namespace Apache.Ignite.Tests.Transactions
     using System.Linq;
     using System.Text.RegularExpressions;
     using System.Threading.Tasks;
-    using System.Transactions;
     using Ignite.Transactions;
     using Internal;
     using NUnit.Framework;
     using Table;
+    using Tx;
     using TransactionOptions = Ignite.Transactions.TransactionOptions;
 
     /// <summary>
@@ -222,7 +222,7 @@ namespace Apache.Ignite.Tests.Transactions
         public async Task TestUpdateInReadOnlyTxThrows()
         {
             await using var tx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
-            var ex = Assert.ThrowsAsync<Tx.TransactionException>(async () => await TupleView.UpsertAsync(tx, GetTuple(1, "1")));
+            var ex = Assert.ThrowsAsync<TransactionException>(async () => await TupleView.UpsertAsync(tx, GetTuple(1, "1")));
 
             Assert.AreEqual(ErrorGroups.Transactions.TxFailedReadWriteOperation, ex!.Code, ex.Message);
             StringAssert.Contains("Failed to enlist read-write operation into read-only transaction", ex.Message);
@@ -323,7 +323,7 @@ namespace Apache.Ignite.Tests.Transactions
             }
             else
             {
-                await client.Transactions.BeginAsync();
+                await TestUtils.ForceLazyTxStart(await client.Transactions.BeginAsync(), client);
             }
 
             Assert.AreEqual(123, server.LastClientObservableTimestamp);
