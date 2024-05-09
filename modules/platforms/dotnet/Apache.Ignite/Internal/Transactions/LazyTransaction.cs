@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Transactions;
 
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Common;
@@ -36,14 +35,13 @@ internal sealed class LazyTransaction : ITransaction
     /// </summary>
     public const long TxIdPlaceholder = long.MaxValue;
 
-    /** Open state. */
     private const int StateOpen = 0;
 
-    /** Committed state. */
     private const int StateCommitted = 1;
 
-    /** Rolled back state. */
     private const int StateRolledBack = 2;
+
+    private readonly object _syncRoot = new();
 
     private readonly TransactionOptions _options;
 
@@ -83,16 +81,7 @@ internal sealed class LazyTransaction : ITransaction
     {
         if (TrySetState(StateCommitted))
         {
-            var txTask = _tx;
-
-            if (txTask == null)
-            {
-                // No operations were performed, nothing to commit.
-                return;
-            }
-
-            var tx = await txTask.ConfigureAwait(false);
-            await tx.CommitAsync().ConfigureAwait(false);
+            await DoOpAsync(_tx, ClientOp.TxCommit).ConfigureAwait(false);
         }
     }
 
@@ -101,16 +90,7 @@ internal sealed class LazyTransaction : ITransaction
     {
         if (TrySetState(StateRolledBack))
         {
-            var txTask = _tx;
-
-            if (txTask == null)
-            {
-                // No operations were performed, nothing to roll back.
-                return;
-            }
-
-            var tx = await txTask.ConfigureAwait(false);
-            await tx.RollbackAsync().ConfigureAwait(false);
+            await DoOpAsync(_tx, ClientOp.TxRollback).ConfigureAwait(false);
         }
     }
 
@@ -156,16 +136,24 @@ internal sealed class LazyTransaction : ITransaction
             "Unsupported transaction implementation: " + tx.GetType())
     };
 
-    /// <summary>
-    /// Ensures that the underlying transaction is actually started on the server.
-    /// </summary>
-    /// <param name="socket">Socket.</param>
-    /// <param name="preferredNode">Preferred target node.</param>
-    /// <returns>Task that will be completed when the transaction is started.</returns>
-    [SuppressMessage("Reliability", "CA2002:Do not lock on objects with weak identity", Justification = "Reviewed.")]
+    private static async Task DoOpAsync(Task<Transaction>? txTask, ClientOp op)
+    {
+        if (txTask == null)
+        {
+            // No operations were performed, nothing to commit or roll back.
+            return;
+        }
+
+        var tx = await txTask.ConfigureAwait(false);
+
+        using var writer = ProtoCommon.GetMessageWriter();
+        writer.MessageWriter.Write(tx.Id);
+        using var buffer = await tx.Socket.DoOutInOpAsync(op, writer).ConfigureAwait(false);
+    }
+
     private Task<Transaction> EnsureStartedAsync(ClientFailoverSocket socket, PreferredNode preferredNode)
     {
-        lock (this)
+        lock (_syncRoot)
         {
             var txTask = _tx;
 
@@ -194,7 +182,7 @@ internal sealed class LazyTransaction : ITransaction
         {
             var txId = resBuf.GetReader().ReadInt64();
 
-            return new Transaction(txId, socket, failoverSocket, _options.ReadOnly);
+            return new Transaction(txId, socket, failoverSocket);
         }
 
         void Write()
@@ -205,10 +193,5 @@ internal sealed class LazyTransaction : ITransaction
         }
     }
 
-    /// <summary>
-    /// Attempts to set the specified state.
-    /// </summary>
-    /// <param name="state">State to set.</param>
-    /// <returns>True when specified state was set successfully; false otherwise.</returns>
     private bool TrySetState(int state) => Interlocked.CompareExchange(ref _state, state, StateOpen) == StateOpen;
 }

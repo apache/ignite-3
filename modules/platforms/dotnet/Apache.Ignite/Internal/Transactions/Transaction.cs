@@ -17,77 +17,10 @@
 
 namespace Apache.Ignite.Internal.Transactions;
 
-using System.Threading.Tasks;
-using Proto;
-using Proto.MsgPack;
-
 /// <summary>
-/// Ignite transaction.
+/// Ignite internal transaction.
 /// </summary>
-internal sealed class Transaction
-{
-    /// <summary>
-    /// Initializes a new instance of the <see cref="Transaction"/> class.
-    /// </summary>
-    /// <param name="id">Transaction id.</param>
-    /// <param name="socket">Associated connection.</param>
-    /// <param name="failoverSocket">Associated connection multiplexer.</param>
-    /// <param name="isReadOnly">Read-only flag.</param>
-    public Transaction(long id, ClientSocket socket, ClientFailoverSocket failoverSocket, bool isReadOnly)
-    {
-        Id = id;
-        Socket = socket;
-        FailoverSocket = failoverSocket;
-        IsReadOnly = isReadOnly;
-    }
-
-    /// <summary>
-    /// Gets the owner socket.
-    /// </summary>
-    public ClientSocket Socket { get; }
-
-    /// <summary>
-    /// Gets the owner multiplexer socket.
-    /// </summary>
-    public ClientFailoverSocket FailoverSocket { get; }
-
-    /// <summary>
-    /// Gets the transaction id.
-    /// </summary>
-    public long Id { get; }
-
-    /// <summary>
-    /// Gets a value indicating whether the transaction is read-only.
-    /// </summary>
-    public bool IsReadOnly { get; }
-
-    /// <summary>
-    /// Commits the transaction.
-    /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    public async Task CommitAsync()
-    {
-        using var writer = ProtoCommon.GetMessageWriter();
-        Write(writer.MessageWriter);
-
-        using var buffer = await Socket.DoOutInOpAsync(ClientOp.TxCommit, writer).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Commits the transaction.
-    /// </summary>
-    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    public async Task RollbackAsync()
-    {
-        using var writer = ProtoCommon.GetMessageWriter();
-        Write(writer.MessageWriter);
-
-        using var buffer = await Socket.DoOutInOpAsync(ClientOp.TxRollback, writer).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Writes the transaction.
-    /// </summary>
-    /// <param name="writer">Writer.</param>
-    private void Write(MsgPackWriter writer) => writer.Write(Id);
-}
+/// <param name="Id">Transaction id.</param>
+/// <param name="Socket">Associated connection.</param>
+/// <param name="FailoverSocket">Associated connection multiplexer.</param>
+internal sealed record Transaction(long Id, ClientSocket Socket, ClientFailoverSocket FailoverSocket);
