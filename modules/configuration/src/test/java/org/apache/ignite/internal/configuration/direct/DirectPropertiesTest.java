@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.direct;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -111,12 +112,12 @@ public class DirectPropertiesTest {
                 new TestConfigurationValidator()
         );
 
-        registry.start();
+        assertThat(registry.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        registry.stop();
+    void tearDown() {
+        assertThat(registry.stopAsync(), willCompleteSuccessfully());
     }
 
     /**

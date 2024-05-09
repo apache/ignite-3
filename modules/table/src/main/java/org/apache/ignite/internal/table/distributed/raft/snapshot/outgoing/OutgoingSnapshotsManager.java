@@ -103,7 +103,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         executor = new ThreadPoolExecutor(
                 0, 4, 0L, MILLISECONDS,
                 new LinkedBlockingQueue<>(),
@@ -116,10 +116,12 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         // At this moment, all RAFT groups should already be stopped, so all snapshots are already closed and finished.
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+
+        return nullCompletedFuture();
     }
 
     /**

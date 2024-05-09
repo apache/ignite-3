@@ -33,7 +33,7 @@ public interface IgniteComponent {
      *
      * @return Future that will be completed when the asynchronous part of the start is processed.
      */
-    CompletableFuture<Void> start();
+    CompletableFuture<Void> startAsync();
 
     /**
      * Triggers running before node stop logic. It's guaranteed that during beforeNodeStop all components beneath given one are still
@@ -44,10 +44,10 @@ public interface IgniteComponent {
     }
 
     /**
-     * Stops the component. It's guaranteed that during {@code IgniteComponent#stop())} all components beneath given one are still running,
-     * however the node is no longer part of the topology and, accordingly, network interaction is impossible.
+     * Stops the component. It's guaranteed that during {@code IgniteComponent#stopAsync())} all components beneath given one are still
+     * running, however the node is no longer part of the topology and, accordingly, network interaction is impossible.
      *
-     * @throws Exception If this component cannot be closed
+     * @return Future that will be completed when the asynchronous part of the stop is processed.
      */
-    void stop() throws Exception;
+    CompletableFuture<Void> stopAsync();
 }

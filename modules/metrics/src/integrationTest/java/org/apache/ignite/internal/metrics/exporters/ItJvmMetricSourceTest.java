@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metrics.exporters;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -26,6 +27,7 @@ import java.util.Map;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -48,8 +50,8 @@ public class ItJvmMetricSourceTest extends BaseIgniteAbstractTest {
     private MetricConfiguration simpleConfiguration;
 
     @Test
-    public void testMemoryUsageMetric() throws Exception {
-        MetricManager metricManager = new MetricManager();
+    public void testMemoryUsageMetric() {
+        MetricManager metricManager = new MetricManagerImpl();
 
         metricManager.configure(simpleConfiguration);
 
@@ -78,7 +80,7 @@ public class ItJvmMetricSourceTest extends BaseIgniteAbstractTest {
         assertNotNull(jvmMetrics.get("memory.non-heap.Committed"));
         assertNotNull(jvmMetrics.get("memory.non-heap.Max"));
 
-        metricManager.stop();
+        assertThat(metricManager.stopAsync(), willCompleteSuccessfully());
     }
 
     private void assertPositiveLongValue(String metric) {

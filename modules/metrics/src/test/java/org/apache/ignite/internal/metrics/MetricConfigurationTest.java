@@ -53,7 +53,7 @@ public class MetricConfigurationTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     public void setUp() {
-        metricManager = new MetricManager();
+        metricManager = new MetricManagerImpl();
 
         Map<String, MetricExporter> availableExporters = new HashMap<>();
 

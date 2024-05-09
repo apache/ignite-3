@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.deployunit;
 
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+
 import java.io.InputStream;
 import java.util.Map;
-import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Deployment unit interface.
@@ -42,6 +43,6 @@ public class DeploymentUnit implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        IgniteUtils.closeAll(content.values());
+        closeAll(content.values());
     }
 }

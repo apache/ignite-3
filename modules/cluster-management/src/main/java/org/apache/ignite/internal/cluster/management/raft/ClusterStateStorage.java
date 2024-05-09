@@ -19,10 +19,10 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -69,14 +69,14 @@ public interface ClusterStateStorage extends IgniteComponent {
     void removeAll(Collection<byte[]> keys);
 
     /**
-     * Creates a cursor over a range of keys, starting with the given prefix.
+     * Creates a list containing a range of keys, starting with the given prefix.
      *
      * @param prefix Key prefix.
      * @param entryTransformer Entry transformation function.
      * @param <T> Type of converted entry.
-     * @return Cursor over a range of existing keys.
+     * @return List containing a range of existing keys.
      */
-    <T> Cursor<T> getWithPrefix(byte[] prefix, BiFunction<byte[], byte[], T> entryTransformer);
+    <T> List<T> getWithPrefix(byte[] prefix, BiFunction<byte[], byte[], T> entryTransformer);
 
     /**
      * Creates a snapshot of the storage's current state in the specified directory.
@@ -92,9 +92,4 @@ public interface ClusterStateStorage extends IgniteComponent {
      * @param snapshotPath Path to the snapshot's directory.
      */
     void restoreSnapshot(Path snapshotPath);
-
-    /**
-     * Removes all data from the storage and frees all resources.
-     */
-    void destroy();
 }

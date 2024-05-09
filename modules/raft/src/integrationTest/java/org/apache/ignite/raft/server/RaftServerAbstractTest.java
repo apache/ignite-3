@@ -17,9 +17,14 @@
 
 package org.apache.ignite.raft.server;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.ClusterService;
@@ -28,6 +33,7 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -65,7 +71,7 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
 
     @AfterEach
     protected void after() throws Exception {
-        clusterServices.forEach(ClusterService::stop);
+        assertThat(stopAsync(clusterServices), willCompleteSuccessfully());
     }
 
     /**
@@ -83,7 +89,7 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
         );
 
         if (start) {
-            network.start();
+            assertThat(network.startAsync(), willCompleteSuccessfully());
         }
 
         clusterServices.add(network);
@@ -102,12 +108,10 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
                 new RaftGroupEventsClientListener()
         ) {
             @Override
-            public void stop() throws Exception {
+            public CompletableFuture<Void> stopAsync() {
                 servers.remove(this);
 
-                super.stop();
-
-                service.stop();
+                return IgniteUtils.stopAsync(super::stopAsync, service::stopAsync);
             }
         };
     }

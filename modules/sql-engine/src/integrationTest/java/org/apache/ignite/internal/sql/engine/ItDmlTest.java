@@ -492,10 +492,8 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 // new DefaultValueArg("TIMESTAMP WITH LOCAL TIME ZONE", "TIMESTAMP '2021-01-01 01:01:01'"
                 //         , LocalDateTime.parse("2021-01-01T01:01:01")),
 
-                new DefaultValueArg("BINARY(3)", "x'010203'", new byte[]{1, 2, 3})
-
-                // TODO: IGNITE-17374
-                // new DefaultValueArg("VARBINARY", "x'010203'", new byte[]{1, 2, 3})
+                new DefaultValueArg("BINARY(3)", "x'010203'", new byte[]{1, 2, 3}),
+                new DefaultValueArg("VARBINARY", "x'010203'", new byte[]{1, 2, 3})
         );
     }
 

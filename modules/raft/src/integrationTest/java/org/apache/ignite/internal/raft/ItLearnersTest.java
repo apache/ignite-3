@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -108,7 +110,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
             Path raftDir = workDir.resolve(clusterService.nodeName());
 
-            loza = new Loza(clusterService, raftConfiguration, raftDir, new HybridClockImpl());
+            loza = new Loza(clusterService, new NoOpMetricManager(), raftConfiguration, raftDir, new HybridClockImpl());
         }
 
         String consistentId() {
@@ -120,8 +122,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         }
 
         void start() {
-            clusterService.start();
-            loza.start();
+            assertThat(startAsync(clusterService, loza), willCompleteSuccessfully());
         }
 
         @Override
@@ -130,8 +131,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
                     loza == null ? null : () -> loza.stopRaftNodes(RAFT_GROUP_ID),
                     loza == null ? null : loza::beforeNodeStop,
                     clusterService == null ? null : clusterService::beforeNodeStop,
-                    loza == null ? null : loza::stop,
-                    clusterService == null ? null : clusterService::stop
+                    loza == null ? null : () -> assertThat(loza.stopAsync(), willCompleteSuccessfully()),
+                    clusterService == null ? null : () -> assertThat(clusterService.stopAsync(), willCompleteSuccessfully())
             );
         }
     }

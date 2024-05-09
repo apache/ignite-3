@@ -249,7 +249,8 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
                 () -> new ApplyTask(),
                 1,
                 false,
-                false
+                false,
+                null
         ) {
             @Override
             public RingBuffer<ApplyTask> subscribe(NodeId group, EventHandler<ApplyTask> handler,

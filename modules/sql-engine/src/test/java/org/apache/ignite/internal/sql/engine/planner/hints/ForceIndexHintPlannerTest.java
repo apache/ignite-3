@@ -18,15 +18,15 @@
 package org.apache.ignite.internal.sql.engine.planner.hints;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 
 import java.util.function.UnaryOperator;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -134,26 +134,25 @@ public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testWithMultipleIndexHints() throws Exception {
-        // TODO IGNITE-21404 Replace assertThrowsWithCause with assertThrowsSqlException.
-        IgniteTestUtils.assertThrowsWithCause(
-                () -> physicalPlan("SELECT /*+ FORCE_INDEX(IDX_VAL3), NO_INDEX */ * FROM TBL1 WHERE val2='v' AND val3='v'", SCHEMA),
-                SqlException.class,
-                "Indexes [IDX_VAL3] of table 'TBL1' has already been forced to use by other hints before."
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Indexes [IDX_VAL3] of table 'TBL1' has already been forced to use by other hints before.",
+                () -> physicalPlan("SELECT /*+ FORCE_INDEX(IDX_VAL3), NO_INDEX */ * FROM TBL1 WHERE val2='v' AND val3='v'", SCHEMA)
         );
 
-        IgniteTestUtils.assertThrowsWithCause(
-                () -> physicalPlan("SELECT /*+ NO_INDEX, FORCE_INDEX(IDX_VAL3) */ * FROM TBL1 WHERE val2='v' AND val3='v'", SCHEMA),
-                SqlException.class,
-                "Index 'IDX_VAL3' of table 'TBL1' has already been disabled in other hints."
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Index 'IDX_VAL3' of table 'TBL1' has already been disabled in other hints.",
+                () -> physicalPlan("SELECT /*+ NO_INDEX, FORCE_INDEX(IDX_VAL3) */ * FROM TBL1 WHERE val2='v' AND val3='v'", SCHEMA)
         );
 
         assertCertainIndex("SELECT /*+ NO_INDEX(IDX_VAL1), FORCE_INDEX(IDX_VAL3), NO_INDEX(IDX_VAL2_VAL3) */ * FROM TBL1 WHERE  val1='v'"
                 + " AND val2='v' AND val3='v'", TBL1, "IDX_VAL3");
 
-        IgniteTestUtils.assertThrowsWithCause(
-                () -> physicalPlan("SELECT /*+ NO_INDEX(IDX_VAL1), FORCE_INDEX(IDX_VAL1) */ * FROM TBL1 WHERE val1='v'", SCHEMA),
-                SqlException.class,
-                "Index 'IDX_VAL1' of table 'TBL1' has already been disabled in other hints."
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Index 'IDX_VAL1' of table 'TBL1' has already been disabled in other hints.",
+                () -> physicalPlan("SELECT /*+ NO_INDEX(IDX_VAL1), FORCE_INDEX(IDX_VAL1) */ * FROM TBL1 WHERE val1='v'", SCHEMA)
         );
     }
 

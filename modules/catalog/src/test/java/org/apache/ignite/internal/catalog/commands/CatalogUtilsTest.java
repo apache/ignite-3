@@ -19,7 +19,7 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createCatalogManagerWithTestUpdateLog;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.index;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.collectIndexes;
@@ -72,16 +72,18 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
-    private final CatalogManager catalogManager = createTestCatalogManager("test", clock);
+    private CatalogManager catalogManager;
 
     @BeforeEach
     void setUp() {
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        catalogManager = createCatalogManagerWithTestUpdateLog("test", clock);
+
+        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        catalogManager.stop();
+    void tearDown() {
+        assertThat(catalogManager.stopAsync(), willCompleteSuccessfully());
     }
 
     @Test

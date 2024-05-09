@@ -67,7 +67,7 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
 
     @Test
     void exceptionIsThrownIfSchemaNotExists() {
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = DropIndexCommand.builder()
                 .schemaName(SCHEMA_NAME + "_UNK")
@@ -83,7 +83,7 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
 
     @Test
     void exceptionIsThrownIfIndexWithGivenNameNotFound() {
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = DropIndexCommand.builder()
                 .schemaName(SCHEMA_NAME)

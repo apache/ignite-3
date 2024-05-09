@@ -218,7 +218,7 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         topologyService.addEventHandler(new TopologyEventHandler() {
             @Override
             public void onDisappeared(ClusterNode member) {
@@ -247,8 +247,10 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     @Override
-    public void stop() {
+    public CompletableFuture<Void> stopAsync() {
         IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
+
+        return nullCompletedFuture();
     }
 
     /**

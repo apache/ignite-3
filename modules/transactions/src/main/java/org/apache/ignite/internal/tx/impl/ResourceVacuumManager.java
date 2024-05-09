@@ -105,20 +105,22 @@ public class ResourceVacuumManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
-        resourceVacuumExecutor.scheduleAtFixedRate(
-                this::runVacuumOperations,
-                0,
-                resourceVacuumIntervalMilliseconds,
-                TimeUnit.MILLISECONDS
-        );
+    public CompletableFuture<Void> startAsync() {
+        if (resourceVacuumIntervalMilliseconds > 0) {
+            resourceVacuumExecutor.scheduleAtFixedRate(
+                    this::runVacuumOperations,
+                    0,
+                    resourceVacuumIntervalMilliseconds,
+                    TimeUnit.MILLISECONDS
+            );
 
-        resourceVacuumExecutor.scheduleAtFixedRate(
-                finishedReadOnlyTransactionTracker::broadcastClosedTransactions,
-                0,
-                resourceVacuumIntervalMilliseconds,
-                TimeUnit.MILLISECONDS
-        );
+            resourceVacuumExecutor.scheduleAtFixedRate(
+                    finishedReadOnlyTransactionTracker::broadcastClosedTransactions,
+                    0,
+                    resourceVacuumIntervalMilliseconds,
+                    TimeUnit.MILLISECONDS
+            );
+        }
 
         finishedTransactionBatchRequestHandler.start();
 
@@ -126,10 +128,12 @@ public class ResourceVacuumManager implements IgniteComponent {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         busyLock.block();
 
         shutdownAndAwaitTermination(resourceVacuumExecutor, 10, TimeUnit.SECONDS);
+
+        return nullCompletedFuture();
     }
 
     private void runVacuumOperations() {

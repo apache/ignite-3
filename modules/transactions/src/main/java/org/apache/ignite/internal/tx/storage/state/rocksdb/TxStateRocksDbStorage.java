@@ -219,12 +219,21 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
-    public void remove(UUID txId) {
+    public void remove(UUID txId, long commandIndex, long commandTerm) {
         busy(() -> {
-            try {
+            try (WriteBatch writeBatch = new WriteBatch()) {
                 throwExceptionIfStorageInProgressOfRebalance();
 
-                sharedStorage.db().delete(txIdToKey(txId));
+                writeBatch.delete(txIdToKey(txId));
+
+                // If the store is in the process of rebalancing, then there is no need to update lastAppliedIndex and lastAppliedTerm.
+                // This is necessary to prevent a situation where, in the middle of the rebalance, the node will be restarted and we will
+                // have non-consistent storage. They will be updated by either #abortRebalance() or #finishRebalance(long, long).
+                if (state.get() != StorageState.REBALANCE) {
+                    updateLastApplied(writeBatch, commandIndex, commandTerm);
+                }
+
+                sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
 
                 return null;
             } catch (RocksDBException e) {

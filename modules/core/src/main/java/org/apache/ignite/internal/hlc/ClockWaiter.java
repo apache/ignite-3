@@ -90,7 +90,7 @@ public class ClockWaiter implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         clock.addUpdateListener(updateListener);
 
         scheduler = Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "clock-waiter-scheduler", log));
@@ -99,9 +99,9 @@ public class ClockWaiter implements IgniteComponent {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -119,7 +119,13 @@ public class ClockWaiter implements IgniteComponent {
 
         IgniteUtils.shutdownAndAwaitTermination(futureExecutor, 10, TimeUnit.SECONDS);
 
-        scheduler.awaitTermination(10, TimeUnit.SECONDS);
+        try {
+            scheduler.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            return failedFuture(e);
+        }
+
+        return nullCompletedFuture();
     }
 
     private void onUpdate(long newTs) {

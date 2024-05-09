@@ -127,7 +127,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 raftManager
         );
 
-        replicaManager.start();
+        assertThat(replicaManager.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
@@ -144,7 +144,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(allOf(replicaStopFutures), willCompleteSuccessfully());
 
-        replicaManager.stop();
+        assertThat(replicaManager.stopAsync(), willCompleteSuccessfully());
 
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
     }

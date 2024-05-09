@@ -60,13 +60,14 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -79,7 +80,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     private static final int SCALE_DOWN_TIMEOUT_SECONDS = 2;
 
     /** Test table name. */
-    private static final String TABLE_NAME = "test";
+    private static final String TABLE_NAME = "TEST";
+
+    private static final String QUALIFIED_TABLE_NAME = "PUBLIC.TEST";
 
     private static final int ENTRIES = 2;
 
@@ -175,8 +178,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     /**
-     * Tests that a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover partition using a disaster
-     * recovery API. In this test, assignments will be (0, 3, 4)
+     * Tests that in a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover partition using a
+     * disaster recovery API. In this test, assignments will be (0, 3, 4), according to {@link RendezvousAffinityFunction}.
      */
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
@@ -194,7 +197,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForScale(node0, 3);
 
-        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(zoneId, tableId);
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
+                zoneName,
+                QUALIFIED_TABLE_NAME,
+                Set.of()
+        );
+
         assertThat(updateFuture, willCompleteSuccessfully());
 
         awaitPrimaryReplica(node0, partId);
@@ -203,6 +211,55 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
+    }
+
+    /**
+     * Tests that in a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover specified partition
+     * using a disaster recovery API. In this test, assignments will be (0, 2, 4) and (1, 2, 4), according to
+     * {@link RendezvousAffinityFunction}.
+     */
+    @Test
+    @ZoneParams(nodes = 5, replicas = 3, partitions = 2)
+    void testManualRebalanceIfMajorityIsLostSpecifyPartitions() throws Exception {
+        int fixingPartId = 1;
+        int anotherPartId = 0;
+
+        IgniteImpl node0 = cluster.node(0);
+        Table table = node0.tables().table(TABLE_NAME);
+
+        awaitPrimaryReplica(node0, anotherPartId);
+
+        assertRealAssignments(node0, fixingPartId, 0, 2, 4);
+        assertRealAssignments(node0, anotherPartId, 1, 2, 4);
+
+        stopNodesInParallel(2, 4);
+
+        waitForScale(node0, 3);
+
+        // Should fail because majority was lost.
+        List<Throwable> fixingPartErrorsBeforeReset = insertValues(table, fixingPartId, 0);
+        assertThat(fixingPartErrorsBeforeReset, Matchers.not(empty()));
+
+        List<Throwable> anotherPartErrorsBeforeReset = insertValues(table, anotherPartId, 0);
+        assertThat(anotherPartErrorsBeforeReset, Matchers.not(empty()));
+
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
+                zoneName,
+                QUALIFIED_TABLE_NAME,
+                Set.of(anotherPartId)
+        );
+
+        assertThat(updateFuture, willCompleteSuccessfully());
+
+        awaitPrimaryReplica(node0, anotherPartId);
+
+        // Shouldn't fail because partition assignments were reset.
+        List<Throwable> fixedPartErrors = insertValues(table, anotherPartId, 0);
+        assertThat(fixedPartErrors, is(empty()));
+
+        // Was not specified in reset, shouldn't be fixed. */
+        List<Throwable> anotherPartErrors = insertValues(table, fixingPartId, 0);
+        assertThat(anotherPartErrors, Matchers.not(empty()));
     }
 
     /**
@@ -225,7 +282,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForScale(node0, 1);
 
-        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(zoneId, tableId);
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
+                zoneName,
+                QUALIFIED_TABLE_NAME,
+                Set.of()
+        );
+
         assertThat(updateFuture, willCompleteSuccessfully());
 
         awaitPrimaryReplica(node0, partId);
@@ -326,10 +388,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private List<Integer> getRealAssignments(IgniteImpl node0, int partId) {
-        var partitionStatesFut = node0.disasterRecoveryManager().partitionStates(zoneName);
+        CompletableFuture<Map<TablePartitionId, LocalPartitionStateByNode>> partitionStatesFut = node0.disasterRecoveryManager()
+                .localPartitionStates(Set.of(zoneName), Set.of(), Set.of());
         assertThat(partitionStatesFut, willCompleteSuccessfully());
 
-        Map<String, LocalPartitionState> partitionStates = partitionStatesFut.join().get(new TablePartitionId(tableId, partId));
+        LocalPartitionStateByNode partitionStates = partitionStatesFut.join().get(new TablePartitionId(tableId, partId));
 
         return partitionStates.keySet()
                 .stream()
