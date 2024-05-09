@@ -17,34 +17,47 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import java.util.Iterator;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.exp.func.IterableTableFunction;
+import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunction;
+import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionInstance;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
 
 /**
  * Scan node.
  */
 public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT> {
-    private final Iterable<RowT> src;
+    private final TableFunction<RowT> func;
 
-    private Iterator<RowT> it;
+    private TableFunctionInstance<RowT> inst;
 
     private int requested;
 
     private boolean inLoop;
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor for a scan that returns rows from the given iterable.
      *
      * @param ctx Execution context.
-     * @param src Source.
+     * @param src Source iterable.
      */
     public ScanNode(ExecutionContext<RowT> ctx, Iterable<RowT> src) {
+        this(ctx, new IterableTableFunction<>(src));
+    }
+
+    /**
+     * Constructor for a scan that returns rows produced by the given table function.
+     *
+     * @param ctx Execution context.
+     * @param src Table function.
+     */
+    public ScanNode(ExecutionContext<RowT> ctx, TableFunction<RowT> src) {
         super(ctx);
 
-        this.src = src;
+        this.func = src;
     }
 
     /** {@inheritDoc} */
@@ -66,16 +79,16 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     public void closeInternal() {
         super.closeInternal();
 
-        Commons.closeQuiet(it);
-        it = null;
-        Commons.closeQuiet(src);
+        Commons.closeQuiet(inst);
+        inst = null;
+        Commons.closeQuiet(func);
     }
 
     /** {@inheritDoc} */
     @Override
     protected void rewindInternal() {
-        Commons.closeQuiet(it);
-        it = null;
+        Commons.closeQuiet(inst);
+        inst = null;
         requested = 0;
     }
 
@@ -100,16 +113,16 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
         inLoop = true;
         try {
-            if (it == null) {
-                it = src.iterator();
+            if (inst == null) {
+                inst = func.createInstance(context());
             }
 
             int processed = 0;
-            while (requested > 0 && it.hasNext()) {
+            while (requested > 0 && inst.hasNext()) {
                 checkState();
 
                 requested--;
-                downstream().push(it.next());
+                downstream().push(inst.next());
 
                 if (++processed == inBufSize && requested > 0) {
                     // allow others to do their job
@@ -118,13 +131,15 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                     return;
                 }
             }
+        } catch (Exception e) {
+            throw new SqlException(Sql.RUNTIME_ERR, e);
         } finally {
             inLoop = false;
         }
 
-        if (requested > 0 && !it.hasNext()) {
-            Commons.closeQuiet(it);
-            it = null;
+        if (requested > 0 && !inst.hasNext()) {
+            Commons.closeQuiet(inst);
+            inst = null;
 
             requested = 0;
 
