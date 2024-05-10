@@ -197,11 +197,11 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         } else {
             resultFut.completeExceptionally(new PrimaryReplicaMissException(
                     nodeName,
-                    null,
-                    "localNode.id()",
-                    null,
-                    null,
-                    null,
+                    previousLease == null ? null : previousLease.getLeaseholder(),
+                    clusterNodeResolver.getByConsistentId(nodeName).id(),
+                    previousLease == null ? null : previousLease.getLeaseholderId(),
+                    enlistmentConsistencyToken,
+                    previousLease == null ? null : previousLease.getStartTime().longValue(),
                     null
             ));
 
