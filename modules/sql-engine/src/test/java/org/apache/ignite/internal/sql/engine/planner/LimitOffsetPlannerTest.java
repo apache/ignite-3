@@ -201,9 +201,9 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
                 .size(ROW_CNT)
                 .distribution(IgniteDistributions.random());
 
-        IgniteSchema schema = createSchema(builder.build());
+        IgniteSchema publicSchema = createSchema(builder.build());
 
-        assertPlan("SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2)", schema,
+        assertPlan("SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2)", publicSchema,
                 isInstanceOf(IgniteLimit.class)
                         .and(s -> doubleFromRex(s.offset(), -1) == 2.0)
                         .and(input(isInstanceOf(IgniteExchange.class))
@@ -211,7 +211,7 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
                                 ))));
 
         assertPlan("SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2) t(a) UNION ALL SELECT a FROM test",
-                schema, isInstanceOf(IgniteUnionAll.class)
+                publicSchema, isInstanceOf(IgniteUnionAll.class)
                         .and(hasChildThat(isInstanceOf(IgniteLimit.class)
                                 .and(s -> doubleFromRex(s.offset(), -1) == 2.0)
                                 .and(input(isInstanceOf(IgniteExchange.class))
@@ -223,7 +223,7 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
                         ));
 
         assertPlan("SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2) t(a) UNION ALL SELECT a FROM test ORDER BY a",
-                schema, isInstanceOf(IgniteSort.class)
+                publicSchema, isInstanceOf(IgniteSort.class)
                         .and(s -> s.offset == null && s.fetch == null)
                         .and(hasChildThat(isInstanceOf(IgniteUnionAll.class)
                                 .and(hasChildThat(isInstanceOf(IgniteLimit.class)

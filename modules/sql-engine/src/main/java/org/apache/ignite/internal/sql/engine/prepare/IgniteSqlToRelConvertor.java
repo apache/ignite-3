@@ -87,8 +87,6 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
         }
     }
 
-
-
     @Override
     protected RexNode convertExtendedExpression(
             SqlNode expr,

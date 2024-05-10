@@ -154,27 +154,9 @@ public final class Commons {
             .executor(new RexExecutorImpl(DataContexts.EMPTY))
             .sqlToRelConverterConfig(SqlToRelConverter.config()
                     .withTrimUnusedFields(true)
-
-                    // Disable buggy `RemoveSortInSubQuery` hint, because a query such as
-                    //
-                    // SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2) t(a) UNION ALL SELECT a FROM test ORDER BY a
-                    //
-                    // is converted to:
-                    //
-                    // Sort(sort0=[$0], dir0=[ASC])
-                    //   UnionAll
-                    //     TableScan
-                    //     TableScan
-                    //
-                    // Instead of:
-                    //
-                    // UnionAll
-                    //   Limit(offset=[2])
-                    //     Sort(sort0=[$0], dir0=[ASC])
-                    //       TableScan
-                    //   TableScan
+                    // Disable `RemoveSortInSubQuery` hint that causes incorrect plan transformation
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-22204
                     .withRemoveSortInSubQuery(false)
-
                     // currently SqlToRelConverter creates not optimal plan for both optimization and execution
                     // so it's better to disable such rewriting right now
                     // TODO: remove this after IGNITE-14277
