@@ -119,7 +119,7 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         assertThat(response.statusCode(), is(200));
         // And configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(response.body());
-        // And rocksDb.defaultRegion.cache can be read
+        // And gc.batchSize can be read
         assertThat(config.getInt("gc.batchSize"), is(equalTo(5)));
     }
 
@@ -164,14 +164,14 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
     @Test
     @DisplayName("Cluster configuration by path is available when the cluster is initialized")
     void clusterConfigurationByPath() throws IOException, InterruptedException {
-        // When GET /management/v1/configuration/cluster and path selector is "rocksDb.defaultRegion"
+        // When GET /management/v1/configuration/cluster and path selector is "gc"
         HttpResponse<String> response = send(get("/management/v1/configuration/cluster/gc"));
 
         // Then cluster configuration is not available
         assertThat(response.statusCode(), is(200));
         // And configuration can be parsed to hocon format
         Config config = ConfigFactory.parseString(response.body());
-        // And rocksDb.defaultRegion.cache can be read
+        // And gc.batchSize can be read
         assertThat(config.getInt("batchSize"), is(equalTo(5)));
     }
 
