@@ -75,7 +75,7 @@ public class ClientSql implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public Statement createStatement(String query) {
-        return new ClientStatement(query, null, null, null);
+        return new ClientStatement(query, null, null, null, null);
     }
 
     /** {@inheritDoc} */
@@ -177,7 +177,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
-        ClientStatement statement = new ClientStatement(query, null, null, null);
+        ClientStatement statement = new ClientStatement(query, null, null, null, null);
 
         return executeAsync(transaction, statement, arguments);
     }
@@ -200,7 +200,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
-        ClientStatement statement = new ClientStatement(query, null, null, null);
+        ClientStatement statement = new ClientStatement(query, null, null, null, null);
 
         return executeAsync(transaction, mapper, statement, arguments);
     }

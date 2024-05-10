@@ -21,6 +21,7 @@ import java.time.ZoneId;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client SQL statement.
@@ -30,15 +31,19 @@ public class ClientStatement implements Statement {
     private final String query;
 
     /** Default schema. */
+    @Nullable
     private final String defaultSchema;
 
     /** Query timeout. */
+    @Nullable
     private final Long queryTimeoutMs;
 
     /** Page size. */
+    @Nullable
     private final Integer pageSize;
 
     /** Time-zone ID. */
+    @Nullable
     private final ZoneId timeZoneId;
 
     /**
@@ -52,10 +57,10 @@ public class ClientStatement implements Statement {
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     ClientStatement(
             String query,
-            String defaultSchema,
-            Long queryTimeoutMs,
-            Integer pageSize,
-            ZoneId timeZoneId) {
+            @Nullable String defaultSchema,
+            @Nullable Long queryTimeoutMs,
+            @Nullable Integer pageSize,
+            @Nullable ZoneId timeZoneId) {
         Objects.requireNonNull(query);
 
         this.query = query;
