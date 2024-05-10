@@ -1828,7 +1828,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         StoppingIndexEventParameters stoppingEventParameters = stoppingCaptor.getValue();
 
         assertEquals(indexId, stoppingEventParameters.indexId());
-        assertEquals(tableId, stoppingEventParameters.tableId());
 
         // Let's drop the table.
         assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willCompleteSuccessfully());

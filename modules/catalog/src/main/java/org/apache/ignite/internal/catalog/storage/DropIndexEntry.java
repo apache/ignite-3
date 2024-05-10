@@ -34,29 +34,18 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  */
 public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fireable {
     public static final CatalogObjectSerializer<DropIndexEntry> SERIALIZER = new DropIndexEntrySerializer();
-
-    private final int tableId;
-
     /**
      * Constructs the object.
      *
      * @param indexId An id of an index to drop.
-     * @param tableId Table ID for which the index was removed.
      */
-    public DropIndexEntry(int indexId, int tableId) {
+    public DropIndexEntry(int indexId) {
         super(indexId, CatalogIndexStatus.STOPPING);
-
-        this.tableId = tableId;
     }
 
     /** Returns an id of an index to drop. */
     public int indexId() {
         return indexId;
-    }
-
-    /** Returns table ID for which the index was removed. */
-    public int tableId() {
-        return tableId;
     }
 
     @Override
@@ -71,7 +60,7 @@ public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fi
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new StoppingIndexEventParameters(causalityToken, catalogVersion, indexId, tableId);
+        return new StoppingIndexEventParameters(causalityToken, catalogVersion, indexId);
     }
 
     @Override
@@ -86,15 +75,13 @@ public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fi
         @Override
         public DropIndexEntry readFrom(IgniteDataInput input) throws IOException {
             int indexId = input.readInt();
-            int tableId = input.readInt();
 
-            return new DropIndexEntry(indexId, tableId);
+            return new DropIndexEntry(indexId);
         }
 
         @Override
         public void writeTo(DropIndexEntry entry, IgniteDataOutput out) throws IOException {
             out.writeInt(entry.indexId());
-            out.writeInt(entry.tableId());
         }
     }
 }

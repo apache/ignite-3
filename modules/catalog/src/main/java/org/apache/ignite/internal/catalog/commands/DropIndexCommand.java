@@ -90,7 +90,7 @@ public class DropIndexCommand extends AbstractIndexCommand {
             case BUILDING:
                 return List.of(new RemoveIndexEntry(index.id()));
             case AVAILABLE:
-                return List.of(new DropIndexEntry(index.id(), index.tableId()));
+                return List.of(new DropIndexEntry(index.id()));
             default:
                 throw new IllegalStateException("Unknown index status: " + index.status());
         }

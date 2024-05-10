@@ -110,7 +110,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 break;
 
             case DROP_INDEX:
-                checkSerialization(new DropIndexEntry(231, 23), new DropIndexEntry(231, 1));
+                checkSerialization(new DropIndexEntry(231), new DropIndexEntry(231));
                 break;
 
             case DROP_TABLE:
