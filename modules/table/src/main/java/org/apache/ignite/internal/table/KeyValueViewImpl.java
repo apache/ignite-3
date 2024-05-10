@@ -507,7 +507,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
         validateNullableValue(val, valueMapper.targetType());
 
-        return sync(doGetAndRemove(tx, key, val, "getNullableAndReplace"));
+        return sync(doGetAndReplace(tx, key, val, "getNullableAndReplace"));
     }
 
     /** {@inheritDoc} */
@@ -517,10 +517,10 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
 
         validateNullableValue(val, valueMapper.targetType());
 
-        return doGetAndRemove(tx, key, val, "getNullableAndReplaceAsync");
+        return doGetAndReplace(tx, key, val, "getNullableAndReplaceAsync");
     }
 
-    private CompletableFuture<V> doGetAndRemove(@Nullable Transaction tx, K key, @Nullable V val, String altMethod) {
+    private CompletableFuture<V> doGetAndReplace(@Nullable Transaction tx, K key, @Nullable V val, String altMethod) {
         return doOperation(tx, (schemaVersion) -> {
             return tbl.getAndReplace(marshal(key, val, schemaVersion), (InternalTransaction) tx)
                     .thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion, altMethod));
