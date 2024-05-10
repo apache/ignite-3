@@ -9,7 +9,10 @@ statement ok
 INSERT INTO test VALUES (1), (2), (3), (4)
 
 query I rowsort
-SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2) t(a) UNION ALL SELECT a FROM test
+SELECT a FROM
+  (SELECT a FROM test ORDER BY a OFFSET 2) t(a)
+UNION ALL
+  SELECT a FROM test
 ----
 1
 2
@@ -19,11 +22,41 @@ SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2) t(a) UNION ALL SELECT a F
 4
 
 query I rowsort
-SELECT a FROM test UNION ALL SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2) t(a)
+SELECT a FROM test
+UNION ALL
+SELECT a FROM
+  (SELECT a FROM test ORDER BY a OFFSET 2) t(a)
 ----
 1
 2
 3
 3
 4
+4
+
+query I rowsort
+SELECT a FROM
+  (SELECT a FROM test ORDER BY a OFFSET 2) t(a)
+UNION ALL
+SELECT a FROM
+  (SELECT a FROM
+    (SELECT a FROM test ORDER BY a OFFSET 2) i(a)
+    ORDER BY a OFFSET 3
+  ) t(a)
+----
+3
+4
+
+query I rowsort
+SELECT a FROM test
+UNION ALL
+SELECT a FROM
+  (SELECT a FROM
+    (SELECT a FROM test ORDER BY a OFFSET 2) i(a)
+    ORDER BY a OFFSET 3
+  ) t(a)
+----
+1
+2
+3
 4
