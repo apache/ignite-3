@@ -43,7 +43,6 @@ public class ClientStatement implements Statement {
     private final Integer pageSize;
 
     /** Time-zone ID. */
-    @Nullable
     private final ZoneId timeZoneId;
 
     /**
@@ -89,7 +88,8 @@ public class ClientStatement implements Statement {
      *
      * @return Query timeout.
      */
-    public Long queryTimeoutNullable() {
+    @Nullable
+    Long queryTimeoutNullable() {
         return queryTimeoutMs;
     }
 
@@ -116,7 +116,8 @@ public class ClientStatement implements Statement {
      *
      * @return Page size.
      */
-    public Integer pageSizeNullable() {
+    @Nullable
+    Integer pageSizeNullable() {
         return pageSize;
     }
 
