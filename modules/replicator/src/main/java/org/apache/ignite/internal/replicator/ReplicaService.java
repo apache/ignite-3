@@ -150,18 +150,26 @@ public class ReplicaService {
                     if (errResp.throwable() instanceof ReplicaUnavailableException) {
                         CompletableFuture<NetworkMessage> awaitReplicaFut = pendingInvokes.computeIfAbsent(
                                 targetNodeConsistentId,
-                                consistentId -> {
-                                    AwaitReplicaRequest awaitReplicaReq = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
-                                            .groupId(req.groupId())
-                                            .build();
-
-                                    return messagingService.invoke(
-                                            targetNodeConsistentId,
-                                            awaitReplicaReq,
-                                            replicationConfiguration.rpcTimeout().value()
-                                    );
-                                }
+                                consistentId -> new CompletableFuture<>()
                         );
+
+                        AwaitReplicaRequest awaitReplicaReq = REPLICA_MESSAGES_FACTORY.awaitReplicaRequest()
+                                .groupId(req.groupId())
+                                .build();
+
+                        // The network call has to be done outside the map compute closure because a local call would be executed in
+                        // the same thread, which leads to the hang.
+                        messagingService.invoke(
+                                targetNodeConsistentId,
+                                awaitReplicaReq,
+                                replicationConfiguration.rpcTimeout().value()
+                        ).whenComplete((networkMessage, ex) -> {
+                            if (ex != null) {
+                                awaitReplicaFut.completeExceptionally(ex);
+                            } else {
+                                awaitReplicaFut.complete(networkMessage);
+                            }
+                        });
 
                         awaitReplicaFut.handle((response0, throwable0) -> {
                             pendingInvokes.remove(targetNodeConsistentId, awaitReplicaFut);
