@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.sql;
 
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
@@ -39,6 +38,9 @@ public class ClientStatement implements Statement {
     /** Page size. */
     private final Integer pageSize;
 
+    /** Time-zone ID. */
+    private final ZoneId timeZoneId;
+
     /**
      * Constructor.
      *
@@ -48,17 +50,19 @@ public class ClientStatement implements Statement {
      * @param pageSize Page size.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-    public ClientStatement(
+    ClientStatement(
             String query,
             String defaultSchema,
             Long queryTimeoutMs,
-            Integer pageSize) {
+            Integer pageSize,
+            ZoneId timeZoneId) {
         Objects.requireNonNull(query);
 
         this.query = query;
         this.defaultSchema = defaultSchema;
         this.queryTimeoutMs = queryTimeoutMs;
         this.pageSize = pageSize;
+        this.timeZoneId = timeZoneId != null ? timeZoneId : ZoneId.systemDefault();
     }
 
     /** {@inheritDoc} */
@@ -93,8 +97,7 @@ public class ClientStatement implements Statement {
     /** {@inheritDoc} */
     @Override
     public ZoneId timeZoneId() {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-21568
-        return ZoneOffset.UTC;
+        return timeZoneId;
     }
 
     /** {@inheritDoc} */
