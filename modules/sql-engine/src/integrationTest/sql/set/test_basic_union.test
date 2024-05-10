@@ -1,5 +1,7 @@
-# description: Basic union tests
+# name: test/sql/set/basic_union.test
+# description: UNION DISTINCT table operator
 # feature: E071-01
+# [group] Set operations
 
 statement ok
 CREATE TABLE a(i INTEGER);
