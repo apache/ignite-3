@@ -3922,7 +3922,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                 txState,
                 old == null ? null : old.txCoordinatorId(),
                 old == null ? null : old.commitPartitionId(),
-                txState == COMMITTED ? commitTimestamp : null
+                txState == COMMITTED ? commitTimestamp : null,
+                old == null ? null : old.initialVacuumObservationTimestamp(),
+                old == null ? null : old.cleanupCompletionTimestamp()
         ));
     }
 
