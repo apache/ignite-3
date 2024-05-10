@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.sql;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -287,6 +288,7 @@ public class ClientSql implements IgniteSql {
             w.out().packNil(); // pageSize
             w.out().packNil(); // queryTimeout
             w.out().packNil(); // sessionTimeout
+            w.out().packString(ZoneId.systemDefault().getId()); // TODO: No API to pass time zone to scripts? Do we need it?
 
             packProperties(w, null);
 
