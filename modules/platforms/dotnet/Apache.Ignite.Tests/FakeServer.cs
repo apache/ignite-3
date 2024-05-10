@@ -441,6 +441,7 @@ namespace Apache.Ignite.Tests
             props["timeoutMs"] = timeoutMs;
 
             props["sessionTimeoutMs"] = reader.TryReadNil() ? (long?)null : reader.ReadInt64();
+            props["timeZoneId"] = reader.TryReadNil() ? null : reader.ReadString();
 
             // ReSharper restore RedundantCast
             var propCount = reader.ReadInt32();
