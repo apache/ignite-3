@@ -36,6 +36,19 @@ SELECT a FROM
 
 query I rowsort
 SELECT a FROM
+  (SELECT a FROM test ORDER BY a LIMIT 1 OFFSET 1) t(a)
+UNION ALL
+SELECT a FROM
+  (SELECT a FROM
+    (SELECT a FROM test ORDER BY a LIMIT 3 OFFSET 2) i(a)
+    ORDER BY a OFFSET 1
+  ) t(a)
+----
+2
+4
+
+query I rowsort
+SELECT a FROM
   (SELECT a FROM test ORDER BY a OFFSET 2) t(a)
 UNION ALL
 SELECT a FROM
