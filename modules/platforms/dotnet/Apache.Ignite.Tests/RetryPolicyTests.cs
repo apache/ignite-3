@@ -69,6 +69,7 @@ namespace Apache.Ignite.Tests
             using var client = await server.ConnectClientAsync(cfg);
 
             var tx = await client.Transactions.BeginAsync();
+            await TestUtils.ForceLazyTxStart(tx, client);
 
             Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await tx.CommitAsync());
             Assert.IsEmpty(testRetryPolicy.Invocations);
@@ -227,6 +228,7 @@ namespace Apache.Ignite.Tests
             using var server = new FakeServer(ctx => ctx.RequestCount % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
             var tx = await client.Transactions.BeginAsync();
+            await TestUtils.ForceLazyTxStart(tx, client);
 
             var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
 
