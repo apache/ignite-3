@@ -1,0 +1,136 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Cluster Configuration Parameters
+
+Ignite 3 cluster configuration is shared across the whole cluster. Regardless of which node you apply the configuration on, it will be propogated to all nodes in the cluster.
+
+== Garbage Collection
+
+[source, json]
+----
+  "gc" : {
+    "batchSize" : 5,
+    "lowWatermark" : {
+      "dataAvailabilityTime" : 600000,
+      "updateFrequency" : 300000
+    },
+    "threads" : 16
+  },
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+|batchSize|5|Garbage collection batch size.
+|lowWatermark.dataAvailabilityTime|600000|The duration outdated versions are available for.
+|lowWatermark.updateFrequency|300000|The frequency of low watermark updates.
+|threads|16|The number of threads used by garbage collector.
+|======
+
+== Metastorage Configuration
+
+[source, json]
+----
+  "metaStorage" : {
+    "idleSyncTimeInterval" : 500
+  },
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+|idleSyncTimeInterval|500|How long it takes to synchronize metastorage.
+
+|======
+
+== Metrics Configuration
+
+[source, json]
+----
+  "metrics" : {
+    "exporters" : [ ]
+  },
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+|exporters||The list of metric exporters currently used. For more information, see link:/metrics/configuring-metrics.adoc[Configuring Metrics].
+|======
+
+== Replication Configuration
+
+[source, json]
+----
+  "replication" : {
+    "idleSafeTimePropagationDuration" : 1000
+  },
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+|idleSafeTimePropagationDuration|1000| How long it takes for replication of data to be replicated to other nodes in cluster.
+
+|======
+
+== Schema Sync Configuration
+
+[source, json]
+----
+  "schemaSync" : {
+    "delayDuration" : 1000
+  },
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+|delayDuration|1000|The delay between schema being updated and synchronized across the cluster.
+
+|======
+
+== SQL Configuration
+
+[source, json]
+----
+  "sql" : {
+    "statementMemoryQuota" : "10K"
+  },
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+|statementMemoryQuota|10K|The amount of memory that can be used in by a single SQL statement.
+
+|======
+
+== Transactions Configuration
+
+[source, json]
+----
+  "transaction" : {
+    "abandonedCheckTs" : 5000
+  }
+}
+----
+
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+|abandonedCheckTs|5000|The amount of time after which the transaction is considered abandoned.
+|======
