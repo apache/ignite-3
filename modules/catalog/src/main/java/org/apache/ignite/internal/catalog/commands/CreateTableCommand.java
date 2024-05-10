@@ -35,7 +35,6 @@ import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
@@ -179,9 +178,10 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         for (ColumnParams column : columns) {
             boolean partOfPk = primaryKey.columns().contains(column.name());
-            if (!partOfPk && column.defaultValueDefinition().type == Type.FUNCTION_CALL) {
-                throw new CatalogValidationException(
-                        format("Functional defaults are not supported for non-primary key columns [col={}].", column.name()));
+            if (partOfPk) {
+                CatalogUtils.ensureSupportedDefault(column.name(), column.defaultValueDefinition());
+            } else {
+                CatalogUtils.ensureNonFunctionalDefault(column.name(), column.defaultValueDefinition());
             }
         }
 
