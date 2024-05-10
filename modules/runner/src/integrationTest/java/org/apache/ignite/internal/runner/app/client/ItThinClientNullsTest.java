@@ -126,7 +126,7 @@ public class ItThinClientNullsTest extends ItAbstractThinClientTest {
 
     private static void expectNotSupported(Executable exec) {
         UnsupportedOperationException err = assertThrows(UnsupportedOperationException.class, exec);
-        assertEquals("`getNullable`* methods cannot be used when a value is not mapped to a simple type", err.getMessage());
+        assertEquals("cannot be used when a value is not mapped to a simple type", err.getMessage());
     }
 
     private static void expectNullNotAllowed(Executable exec) {

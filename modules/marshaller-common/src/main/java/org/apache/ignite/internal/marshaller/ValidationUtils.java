@@ -121,9 +121,9 @@ public class ValidationUtils {
      *
      * @param valueType Value type.
      */
-    public static void validateNullableOperation(Class<?> valueType) {
+    public static void validateNullableOperation(Class<?> valueType, String methodName) {
         if (!Mapper.nativelySupported(valueType)) {
-            String message = format("`getNullable`* methods cannot be used when a value is not mapped to a simple type");
+            String message = format("{} cannot be used when a value is not mapped to a simple type", methodName);
 
             throw new UnsupportedOperationException(message);
         }
