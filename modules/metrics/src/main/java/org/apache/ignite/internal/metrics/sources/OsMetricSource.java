@@ -30,7 +30,6 @@ import org.jetbrains.annotations.Nullable;
  * Metric source which provides OS metrics like Load Average.
  */
 public class OsMetricSource implements MetricSource {
-
     private static final String SOURCE_NAME = "os";
 
     private final OperatingSystemMXBean operatingSystemMxBean;
