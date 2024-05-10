@@ -275,6 +275,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     public V getAndPut(@Nullable Transaction tx, K key, @Nullable V val) {
         Objects.requireNonNull(key, "key");
 
+        validateNullableValue(val, valSer.mapper().targetType());
+
         return sync(doGetAndPut(tx, key, val, "getNullableAndPut"));
     }
 
@@ -303,8 +305,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     public NullableValue<V> getNullableAndPut(@Nullable Transaction tx, K key, @Nullable V val) {
         Objects.requireNonNull(key, "key");
 
-        validateNullableValue(val, valSer.mapper().targetType());
         validateNullableOperation(valSer.mapper().targetType(), "getNullableAndPutAsync");
+        validateNullableValue(val, valSer.mapper().targetType());
 
         return sync(doGetNullableAndPut(tx, key, val));
     }
@@ -314,8 +316,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     public CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, K key, @Nullable V val) {
         Objects.requireNonNull(key, "key");
 
-        validateNullableValue(val, valSer.mapper().targetType());
         validateNullableOperation(valSer.mapper().targetType(), "getNullableAndPutAsync");
+        validateNullableValue(val, valSer.mapper().targetType());
 
         return doGetNullableAndPut(tx, key, val);
     }
@@ -443,6 +445,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     @Override
     public NullableValue<V> getNullableAndRemove(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key, "key");
+
         validateNullableOperation(valSer.mapper().targetType(), "getNullableAndRemoveAsync");
 
         return sync(doGetNullableAndRemove(tx, key));
@@ -452,6 +455,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndRemoveAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key, "key");
+
         validateNullableOperation(valSer.mapper().targetType(), "getNullableAndRemoveAsync");
 
         return doGetNullableAndRemove(tx, key);
@@ -485,6 +489,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key, "key");
+
         validateNullableValue(val, valSer.mapper().targetType());
 
         return tbl.doSchemaOutOpAsync(
@@ -499,6 +504,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, V oldVal, V newVal) {
         Objects.requireNonNull(key, "key");
+
         validateNullableValue(oldVal, valSer.mapper().targetType());
         validateNullableValue(newVal, valSer.mapper().targetType());
 
@@ -518,6 +524,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     @Override
     public V getAndReplace(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key, "key");
+
         validateNullableValue(val, valSer.mapper().targetType());
 
         return sync(doGetAndReplace(tx, key, val, "getNullableAndReplace"));
@@ -527,6 +534,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     @Override
     public CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, K key, V val) {
         Objects.requireNonNull(key, "key");
+
         validateNullableValue(val, valSer.mapper().targetType());
 
         return doGetAndReplace(tx, key, val, "getNullableAndReplaceAsync");

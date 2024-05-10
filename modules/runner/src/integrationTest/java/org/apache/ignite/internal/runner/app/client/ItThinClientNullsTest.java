@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
@@ -125,12 +125,10 @@ public class ItThinClientNullsTest extends ItAbstractThinClientTest {
     }
 
     private static void expectNotSupported(Executable exec) {
-        UnsupportedOperationException err = assertThrows(UnsupportedOperationException.class, exec);
-        assertEquals("cannot be used when a value is not mapped to a simple type", err.getMessage());
+        assertThrows(UnsupportedOperationException.class, exec, "cannot be used when a value is not mapped to a simple type");
     }
 
     private static void expectNullNotAllowed(Executable exec) {
-        NullPointerException err = assertThrows(NullPointerException.class, exec);
-        assertEquals("null value cannot be used when a value is not mapped to a simple type", err.getMessage());
+        assertThrows(NullPointerException.class, exec, "null value cannot be used when a value is not mapped to a simple type");
     }
 }
