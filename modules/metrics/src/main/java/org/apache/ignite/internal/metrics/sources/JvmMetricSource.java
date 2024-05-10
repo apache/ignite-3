@@ -80,8 +80,6 @@ public class JvmMetricSource implements MetricSource {
     public synchronized @Nullable MetricSet enable() {
         var metrics = new HashMap<String, Metric>();
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22186 - metric names should be simple (no periods).
-
         CachedMemoryUsage heapMemoryUsage = new CachedMemoryUsage(memoryMxBean::getHeapMemoryUsage, MEMORY_USAGE_CACHE_TIMEOUT);
         metrics.put("memory.heap.Init",
                 new LongGauge(
