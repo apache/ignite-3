@@ -76,7 +76,7 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp(
-            @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\", size = 16777216, writeBufferSize = 16777216}")
+            @InjectConfiguration("mock.profiles.default {engine = rocksdb, size = 16777216, writeBufferSize = 16777216}")
             StorageConfiguration storageConfiguration,
             @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig
     ) throws Exception {
