@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.NativeType;
@@ -199,8 +201,7 @@ public class Column {
      */
     public void validate(@Nullable Object val) {
         if (val == null && !nullable) {
-            throw new IllegalArgumentException("Failed to set column (null was passed, but column is not nullable): "
-                    + "[col=" + this + ']');
+            throw new SchemaMismatchException(nullConstraintViolationMessage(name));
         }
 
         NativeType objType = NativeTypes.fromObject(val);
@@ -238,5 +239,15 @@ public class Column {
     @Override
     public String toString() {
         return S.toString(Column.class, this);
+    }
+
+    /**
+     * Returns an error message for NOT NULL constraint violation.
+     *
+     * @param columnName Column name.
+     * @return Error message.
+     */
+    public static String nullConstraintViolationMessage(String columnName) {
+        return format("Column '{}' does not allow NULLs", columnName);
     }
 }

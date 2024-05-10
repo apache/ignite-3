@@ -165,8 +165,8 @@ public class RowAssembler {
      */
     public RowAssembler appendNull() throws SchemaMismatchException {
         if (!columns.get(curCol).nullable()) {
-            throw new SchemaMismatchException(
-                    "Failed to set column (null was passed, but column is not nullable): " + columns.get(curCol));
+            String name = columns.get(curCol).name();
+            throw new SchemaMismatchException(Column.nullConstraintViolationMessage(name));
         }
 
         builder.appendNull();

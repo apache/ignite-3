@@ -398,7 +398,7 @@ abstract class FieldAccessor {
         try {
             write0(writer, obj);
         } catch (Exception ex) {
-            throw new MarshallerException("Failed to write field [id=" + colIdx + ']', ex);
+            throw new MarshallerException(ex.getMessage(), ex);
         }
     }
 
@@ -422,7 +422,7 @@ abstract class FieldAccessor {
         try {
             read0(reader, obj);
         } catch (Exception ex) {
-            throw new MarshallerException("Failed to read field [id=" + colIdx + ']', ex);
+            throw new MarshallerException(ex.getMessage(), ex);
         }
     }
 
