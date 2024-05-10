@@ -312,8 +312,8 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         CatalogSortedIndexDescriptor sortedIndexDescriptor = newSortedIndexDescriptor("idx1");
         CatalogHashIndexDescriptor hashIndexDescriptor = newHashIndexDescriptor("idx2");
 
-        NewIndexEntry sortedIdxEntry = new NewIndexEntry(sortedIndexDescriptor, 1);
-        NewIndexEntry hashIdxEntry = new NewIndexEntry(hashIndexDescriptor, 1);
+        NewIndexEntry sortedIdxEntry = new NewIndexEntry(sortedIndexDescriptor);
+        NewIndexEntry hashIdxEntry = new NewIndexEntry(hashIndexDescriptor);
 
         VersionedUpdate update = newVersionedUpdate(sortedIdxEntry, hashIdxEntry);
 

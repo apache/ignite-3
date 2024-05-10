@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.storage.AbstractChangeIndexStatusEntry.schemaByIndexId;
 
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -44,17 +44,13 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
 
     private final CatalogIndexDescriptor descriptor;
 
-    private final int schemaId;
-
     /**
      * Constructs the object.
      *
      * @param descriptor A descriptor of an index to add.
-     * @param schemaId Schema id.
      */
-    public NewIndexEntry(CatalogIndexDescriptor descriptor, int schemaId) {
+    public NewIndexEntry(CatalogIndexDescriptor descriptor) {
         this.descriptor = descriptor;
-        this.schemaId = schemaId;
     }
 
     /** Gets descriptor of an index to add. */
@@ -79,7 +75,7 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaId);
+        CatalogSchemaDescriptor schema = schemaByIndexId(catalog, descriptor.id());
 
         descriptor.updateToken(causalityToken);
 
@@ -111,15 +107,13 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
     private static class NewIndexEntrySerializer implements CatalogObjectSerializer<NewIndexEntry> {
         @Override
         public NewIndexEntry readFrom(IgniteDataInput input) throws IOException {
-            int schemaId = input.readInt();
             CatalogIndexDescriptor descriptor = CatalogSerializationUtils.IDX_SERIALIZER.readFrom(input);
 
-            return new NewIndexEntry(descriptor, schemaId);
+            return new NewIndexEntry(descriptor);
         }
 
         @Override
         public void writeTo(NewIndexEntry entry, IgniteDataOutput output) throws IOException {
-            output.writeInt(entry.schemaId);
             CatalogSerializationUtils.IDX_SERIALIZER.writeTo(entry.descriptor(), output);
         }
     }

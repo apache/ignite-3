@@ -84,7 +84,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
         }
 
         return List.of(
-                new NewIndexEntry(createDescriptor(catalog.objectIdGenState(), table.id(), catalog.version() + 1), schema.id()),
+                new NewIndexEntry(createDescriptor(catalog.objectIdGenState(), table.id(), catalog.version() + 1)),
                 new ObjectIdGenUpdateEntry(1)
         );
     }

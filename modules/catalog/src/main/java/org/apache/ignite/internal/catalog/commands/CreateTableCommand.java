@@ -151,7 +151,7 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         return List.of(
                 new NewTableEntry(table),
-                new NewIndexEntry(pkIndex, schema.id()),
+                new NewIndexEntry(pkIndex),
                 new MakeIndexAvailableEntry(pkIndexId),
                 new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
         );
