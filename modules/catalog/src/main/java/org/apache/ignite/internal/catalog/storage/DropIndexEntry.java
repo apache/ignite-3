@@ -34,6 +34,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  */
 public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fireable {
     public static final CatalogObjectSerializer<DropIndexEntry> SERIALIZER = new DropIndexEntrySerializer();
+
     /**
      * Constructs the object.
      *
