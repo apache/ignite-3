@@ -288,7 +288,7 @@ public class ClientSql implements IgniteSql {
             w.out().packNil(); // pageSize
             w.out().packNil(); // queryTimeout
             w.out().packNil(); // sessionTimeout
-            w.out().packString(ZoneId.systemDefault().getId()); // TODO: No API to pass time zone to scripts? Do we need it?
+            w.out().packString(ZoneId.systemDefault().getId());
 
             packProperties(w, null);
 
