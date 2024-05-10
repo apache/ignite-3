@@ -15,25 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.events;
+package org.apache.ignite.internal.catalog.commands;
 
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 
 /**
- * Event parameters for the 'index has moved to the {@link CatalogIndexStatus#STOPPING} that contains an id of the dropped index.
- *
- * @see CatalogEvent#INDEX_STOPPING
+ * Builder for a {@link CreateSchemaCommand}.
  */
-public class StoppingIndexEventParameters extends IndexEventParameters {
+public interface CreateSchemaCommandBuilder {
 
-    /**
-     * Constructor.
-     *
-     * @param causalityToken Causality token.
-     * @param catalogVersion Catalog version.
-     * @param indexId An id of dropped index.
-     */
-    public StoppingIndexEventParameters(long causalityToken, int catalogVersion, int indexId) {
-        super(causalityToken, catalogVersion, indexId);
-    }
+    /** Sets schema name. Should not be null or blank. */
+    CreateSchemaCommandBuilder name(String name);
+
+    /** Creates new schema command. */
+    CatalogCommand build();
 }
