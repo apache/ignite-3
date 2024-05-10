@@ -104,6 +104,8 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
             if (!columnNames.add(column.name())) {
                 throw new CatalogValidationException(format("Column with name '{}' specified more than once", column.name()));
             }
+
+            CatalogUtils.ensureNonFunctionalDefault(column.name(), column.defaultValueDefinition());
         }
     }
 

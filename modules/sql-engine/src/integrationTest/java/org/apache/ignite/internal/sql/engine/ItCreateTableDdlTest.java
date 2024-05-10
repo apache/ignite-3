@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SC
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableStrict;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -30,6 +31,10 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -48,7 +53,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -104,7 +108,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     public void emptyPk() {
         assertThrowsSqlException(
-                Sql.STMT_PARSE_ERR,
+                STMT_PARSE_ERR,
                 "Failed to parse query: Encountered \")\"",
                 () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY ())")
         );
@@ -119,7 +123,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     public void tableWithInvalidColumns() {
         assertThrowsSqlException(
-                Sql.STMT_PARSE_ERR,
+                STMT_PARSE_ERR,
                 "Failed to parse query: Encountered \")\"",
                 () -> sql("CREATE TABLE T0()")
         );
@@ -139,6 +143,15 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         var result = sql("select * from t");
 
         assertThat(result, hasSize(2)); // both rows are inserted without conflict
+    }
+
+    @Test
+    public void pkWithInvalidFunctionalDefault() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Functional default contains unsupported function: [col=ID, functionName=INVALID_FUNC]",
+                () -> sql("create table t (id varchar default invalid_func primary key, val int)")
+        );
     }
 
     @Test
@@ -333,16 +346,67 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    public void literalAsColumDefault() {
+        sql("CREATE TABLE T0("
+                + "id BIGINT DEFAULT 1 PRIMARY KEY, "
+                + "valdate DATE DEFAULT DATE '2001-12-21',"
+                + "valtime TIME DEFAULT TIME '11:22:33.444',"
+                + "valts TIMESTAMP DEFAULT TIMESTAMP '2001-12-21 11:22:33.444',"
+                + "valstr VARCHAR DEFAULT 'string',"
+                + "valbin VARBINARY DEFAULT x'ff'"
+                + ")");
+
+        List<Column> columns = unwrapTableViewInternal(table("T0")).schemaView().lastKnownSchema().columns();
+
+        assertEquals(6, columns.size());
+    }
+
+    @Test
+    public void addColumnWithConstantDefault() {
+        sql("CREATE TABLE test(id BIGINT DEFAULT 1 PRIMARY KEY)");
+
+        sql("ALTER TABLE test ADD COLUMN valint INTEGER DEFAULT 1");
+        sql("ALTER TABLE test ADD COLUMN valdate DATE DEFAULT DATE '2001-12-21'");
+        sql("ALTER TABLE test ADD COLUMN valtime TIME(3) DEFAULT TIME '11:22:33.444555'");
+        sql("ALTER TABLE test ADD COLUMN valts TIMESTAMP(3) DEFAULT TIMESTAMP '2001-12-21 11:22:33.444555'");
+        sql("ALTER TABLE test ADD COLUMN valstr VARCHAR DEFAULT 'string'");
+        sql("ALTER TABLE test ADD COLUMN valbin VARBINARY DEFAULT x'ff'");
+
+        sql("INSERT INTO test (id) VALUES (0)");
+
+        assertQuery("SELECT * FROM test")
+                .returns(0L,
+                        1,
+                        LocalDate.of(2001, Month.DECEMBER, 21),
+                        LocalTime.of(11, 22, 33, 444000000),
+                        LocalDateTime.of(2001, Month.DECEMBER, 21, 11, 22, 33, 444000000),
+                        "string",
+                        new byte[]{(byte) 0xff}
+                        )
+                .check();
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
     public void doNotAllowFunctionsInNonPkColumns() {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Functional defaults are not supported for non-primary key columns",
-                () -> sql("create table t (id varchar primary key, val varchar default gen_random_uuid)")
+                () -> sql("CREATE TABLE t (id VARCHAR PRIMARY KEY, val VARCHAR DEFAULT gen_random_uuid)")
+        );
+
+        sql("CREATE TABLE t (id VARCHAR PRIMARY KEY, val VARCHAR)");
+
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \"gen_random_uuid\"",
+                () -> sql("ALTER TABLE t ADD COLUMN val2 VARCHAR DEFAULT gen_random_uuid")
         );
     }
 
     @ParameterizedTest
     @MethodSource("reservedSchemaNames")
+    @SuppressWarnings("ThrowableNotThrown")
     public void testItIsNotPossibleToCreateTablesInSystemSchema(String schema) {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
