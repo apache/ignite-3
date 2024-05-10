@@ -32,6 +32,7 @@ public class MetaStorageMetricSource implements MetricSource {
 
     private final MetaStorageMetrics metaStorageMetrics;
 
+    /** Enablement status. Accessed from different threads under synchronization on this object. */
     private boolean enabled;
 
     /**

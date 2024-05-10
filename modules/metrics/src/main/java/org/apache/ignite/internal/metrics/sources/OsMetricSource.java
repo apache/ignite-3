@@ -34,6 +34,7 @@ public class OsMetricSource implements MetricSource {
 
     private final OperatingSystemMXBean operatingSystemMxBean;
 
+    /** Enablement status. Accessed from different threads under synchronization on this object. */
     private boolean enabled;
 
     /**
