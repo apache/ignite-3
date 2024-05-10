@@ -45,6 +45,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -215,7 +216,13 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
         TestNode(TestInfo testInfo) {
             this.clusterService = ClusterServiceTestUtils.clusterService(testInfo, NODE_PORT_BASE + nodes.size(), NODE_FINDER);
-            this.loza = new Loza(clusterService, raftConfiguration, workDir.resolve("node" + nodes.size()), new HybridClockImpl());
+            this.loza = new Loza(
+                    clusterService,
+                    new NoOpMetricManager(),
+                    raftConfiguration,
+                    workDir.resolve("node" + nodes.size()),
+                    new HybridClockImpl()
+            );
         }
 
         String name() {

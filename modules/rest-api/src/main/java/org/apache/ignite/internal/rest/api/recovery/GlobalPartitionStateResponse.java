@@ -28,6 +28,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "Information about global partition state.")
 public class GlobalPartitionStateResponse {
     private final int partitionId;
+    private final String zoneName;
     private final String tableName;
     private final String state;
 
@@ -38,10 +39,12 @@ public class GlobalPartitionStateResponse {
     public GlobalPartitionStateResponse(
             @JsonProperty("partitionId") int partitionId,
             @JsonProperty("tableName") String tableName,
+            @JsonProperty("zoneName") String zoneName,
             @JsonProperty("state") String state
     ) {
         this.partitionId = partitionId;
         this.tableName = tableName;
+        this.zoneName = zoneName;
         this.state = state;
     }
 
@@ -53,6 +56,11 @@ public class GlobalPartitionStateResponse {
     @JsonGetter("tableName")
     public String tableName() {
         return tableName;
+    }
+
+    @JsonGetter("zoneName")
+    public String zoneName() {
+        return zoneName;
     }
 
     @JsonGetter("state")

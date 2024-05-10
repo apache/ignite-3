@@ -23,6 +23,11 @@ import org.apache.ignite.Ignite;
  * Context of the {@link ComputeJob} execution.
  */
 public interface JobExecutionContext {
+    /**
+     * Ignite API entry point.
+     *
+     * @return Ignite instance.
+     */
     Ignite ignite();
 
     /**

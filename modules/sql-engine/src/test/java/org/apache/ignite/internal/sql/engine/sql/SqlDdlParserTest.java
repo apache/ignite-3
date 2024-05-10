@@ -48,7 +48,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test suite to verify parsing of the DDL command.
  */
-public class SqlDdlParserTest extends AbstractDdlParserTest {
+public class SqlDdlParserTest extends AbstractParserTest {
     /**
      * Very simple case where only table name and a few columns are presented.
      */

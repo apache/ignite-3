@@ -362,7 +362,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             LOG.info("CMG leader has been elected, executing onLeaderElected callback");
 
             // The cluster state is broadcast via the messaging service; hence, the future must be completed here on the leader node.
-            // TODO: This needs to be reworked following the implementation of IGNITE-18275.
             raftServiceAfterJoin().thenAccept(service -> inBusyLock(busyLock, () -> {
                 service.readClusterState()
                         .thenAccept(state -> initialClusterConfigurationFuture.complete(state.initialClusterConfiguration()));
@@ -378,7 +377,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                             // Send the ClusterStateMessage to all members of the physical topology. We do not wait for the send operation
                             // because being unable to send ClusterState messages should not fail the CMG service startup.
-                            // TODO: IGNITE-18275 - use RAFT replication instead of message sending
                             ClusterNode thisNode = topologyService.localMember();
 
                             Collection<ClusterNode> otherNodes = topologyService.allMembers().stream()

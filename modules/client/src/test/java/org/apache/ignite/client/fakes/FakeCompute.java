@@ -41,6 +41,7 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.TaskExecution;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -121,11 +122,7 @@ public class FakeCompute implements IgniteComputeInternal {
             JobExecutionOptions options,
             Object... args
     ) {
-        try {
-            return this.<R>submit(nodes, units, jobClassName, options, args).resultAsync().join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.wrap(e);
-        }
+        return sync(executeAsync(nodes, units, jobClassName, options, args));
     }
 
     @Override
@@ -163,11 +160,7 @@ public class FakeCompute implements IgniteComputeInternal {
             JobExecutionOptions options,
             Object... args
     ) {
-        try {
-            return this.<R>submitColocated(tableName, key, units, jobClassName, options, args).resultAsync().join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.wrap(e);
-        }
+        return sync(executeColocatedAsync(tableName, key, units, jobClassName, options, args));
     }
 
     /** {@inheritDoc} */
@@ -181,11 +174,7 @@ public class FakeCompute implements IgniteComputeInternal {
             JobExecutionOptions options,
             Object... args
     ) {
-        try {
-            return this.<K, R>submitColocated(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync().join();
-        } catch (CompletionException e) {
-            throw ExceptionUtils.wrap(e);
-        }
+        return sync(executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args));
     }
 
     @Override
@@ -197,6 +186,16 @@ public class FakeCompute implements IgniteComputeInternal {
             Object... args
     ) {
         return null;
+    }
+
+    @Override
+    public <R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+        return null;
+    }
+
+    @Override
+    public <R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
+        return sync(executeMapReduceAsync(units, taskClassName, args));
     }
 
     private <R> JobExecution<R> completedExecution(R result) {
@@ -260,5 +259,13 @@ public class FakeCompute implements IgniteComputeInternal {
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority) {
         return trueCompletedFuture();
+    }
+
+    private static <R> R sync(CompletableFuture<R> future) {
+        try {
+            return future.join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.wrap(e);
+        }
     }
 }

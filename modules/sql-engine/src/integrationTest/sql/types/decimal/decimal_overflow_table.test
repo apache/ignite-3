@@ -17,10 +17,10 @@ SELECT d+1 FROM decimals
 ----
 99000000000000001.0
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18658
-statement error
+query I
 SELECT d+1000000000000000.0 FROM decimals
+----
+100000000000000000.0
 
 # subtraction
 query I
@@ -28,10 +28,10 @@ SELECT -1-d FROM decimals
 ----
 -99000000000000001.0
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18658
-statement error
+query I
 SELECT -1000000000000000.0-d FROM decimals
+----
+-100000000000000000.0
 
 # multiplication
 query I
@@ -39,7 +39,7 @@ SELECT 1*d FROM decimals
 ----
 99000000000000000.0
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-18658
-statement error
+query I
 SELECT 2*d FROM decimals
+----
+198000000000000000.0

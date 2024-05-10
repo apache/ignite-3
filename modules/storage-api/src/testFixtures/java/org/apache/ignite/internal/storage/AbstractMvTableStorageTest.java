@@ -87,6 +87,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -502,6 +503,68 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThat(getAll(storage1.get(tuple)), contains(rowId1));
         assertThat(getAll(storage2.get(tuple)), contains(rowId2));
+    }
+
+    @Test
+    public void testPutIndexAndVersionRowToMemory() {
+        MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
+        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+
+        // Should be large enough to exceed inline size.
+        byte[] bytes = new byte[100];
+        new Random().nextBytes(bytes);
+        String str = new String(bytes);
+
+        BinaryRow binaryRow = binaryRow(new TestKey(10, "foo"), new TestValue(20, str));
+
+        var serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        IndexRow indexRow = serializer.serializeRow(new Object[]{str}, new RowId(PARTITION_ID));
+        partitionStorage.runConsistently(locker -> {
+            indexStorage.put(indexRow);
+
+            return null;
+        });
+
+        partitionStorage.runConsistently(locker -> {
+            RowId rowId = new RowId(PARTITION_ID);
+            locker.tryLock(rowId);
+
+            partitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, PARTITION_ID);
+
+            return null;
+        });
+    }
+
+    @Test
+    public void testPutIndexAndVersionRowToMemoryFragmented() {
+        MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
+        HashIndexStorage indexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+
+        // Should be large enough to exceed memory page size.
+        byte[] bytes = new byte[16385];
+        new Random().nextBytes(bytes);
+        String str = new String(bytes);
+
+        BinaryRow binaryRow = binaryRow(new TestKey(10, "foo"), new TestValue(20, str));
+
+        var serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        IndexRow indexRow = serializer.serializeRow(new Object[]{str}, new RowId(PARTITION_ID));
+        partitionStorage.runConsistently(locker -> {
+            indexStorage.put(indexRow);
+
+            return null;
+        });
+
+        partitionStorage.runConsistently(locker -> {
+            RowId rowId = new RowId(PARTITION_ID);
+            locker.tryLock(rowId);
+
+            partitionStorage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, PARTITION_ID);
+
+            return null;
+        });
     }
 
     private static void checkStorageDestroyed(IndexStorage storage) {

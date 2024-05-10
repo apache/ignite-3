@@ -109,6 +109,7 @@ dependencies {
     testFixturesImplementation(testFixtures(project(':ignite-placement-driver-api')))
     testFixturesImplementation(testFixtures(project(':ignite-low-watermark')))
     testFixturesImplementation(testFixtures(project(':ignite-failure-handler')))
+    testFixturesImplementation(testFixtures(project(':ignite-metrics')))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.mockito.core
@@ -137,6 +138,7 @@ dependencies {
     integrationTestImplementation project(':ignite-sql-engine')
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-low-watermark')
+    integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-api')))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
@@ -154,6 +156,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-runner')))
     integrationTestImplementation(testFixtures(project(':ignite-low-watermark')))
     integrationTestImplementation(testFixtures(project(':ignite-failure-handler')))
+    integrationTestImplementation(testFixtures(project(':ignite-metrics')))
     integrationTestImplementation libs.fastutil.core
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.calcite.core
