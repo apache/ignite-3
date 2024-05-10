@@ -716,9 +716,9 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         };
     }
 
-    private static <T> T throwIfNull(T obj, String methodName) {
+    private static <T> T throwIfNull(T obj, String altMethod) {
         if (obj == null) {
-            throw new UnexpectedNullValueException(format("Got unexpected null value: use `{}` sibling method instead.", methodName));
+            throw new UnexpectedNullValueException(format("Got unexpected null value: use `{}` sibling method instead.", altMethod));
         }
 
         return obj;
