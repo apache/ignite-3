@@ -30,7 +30,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -46,7 +45,6 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -521,32 +519,6 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 () -> client().sql().executeScript(script));
 
         assertThat(e.getMessage(), Matchers.containsString("Division by zero"));
-    }
-
-    // TODO: Move this to ItSqlApiBaseTest?
-    @ParameterizedTest
-    @ValueSource(strings = {"", "UTC", "GMT", "Europe/Athens", "America/New_York"})
-    public void testTimeZoneId(String timeZoneId) {
-        ZoneId zoneId = timeZoneId.isEmpty() ? null : ZoneId.of(timeZoneId);
-
-        StatementBuilder builder = client().sql().statementBuilder()
-                .query("SELECT CURRENT_TIMESTAMP");
-
-        if (zoneId != null) {
-            builder.timeZoneId(zoneId);
-        }
-
-        ResultSet<SqlRow> resultSet = client().sql().execute(null, builder.build());
-        SqlRow row = resultSet.next();
-
-        LocalDateTime ts = row.value(0);
-        LocalDateTime now = zoneId == null ? LocalDateTime.now() : LocalDateTime.now(zoneId);
-
-        float tsMillis = ts.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        float nowMillis = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        float deltaMillis = 5000;
-
-        assertEquals(nowMillis, tsMillis, deltaMillis);
     }
 
     private static class Pojo {
