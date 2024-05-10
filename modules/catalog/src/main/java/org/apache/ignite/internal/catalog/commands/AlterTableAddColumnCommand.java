@@ -53,15 +53,17 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
      *
      * @param tableName Name of the table to add new columns to. Should not be null or blank.
      * @param schemaName Name of the schema the table of interest belongs to. Should not be null or blank.
+     * @param ifTableExists Flag indicating whether the {@code IF EXISTS} was specified.
      * @param columns List of the columns to add to the table. There should be at least one column.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
     private AlterTableAddColumnCommand(
             String tableName,
             String schemaName,
+            boolean ifTableExists,
             List<ColumnParams> columns
     ) throws CatalogValidationException {
-        super(schemaName, tableName);
+        super(schemaName, tableName, ifTableExists);
 
         this.columns = copyOrNull(columns);
 
@@ -115,6 +117,8 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
 
         private String tableName;
 
+        private boolean ifTableExists;
+
         @Override
         public AlterTableAddColumnCommandBuilder schemaName(String schemaName) {
             this.schemaName = schemaName;
@@ -125,6 +129,13 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
         @Override
         public AlterTableAddColumnCommandBuilder tableName(String tableName) {
             this.tableName = tableName;
+
+            return this;
+        }
+
+        @Override
+        public AlterTableAddColumnCommandBuilder ifTableExists(boolean ifTableExists) {
+            this.ifTableExists = ifTableExists;
 
             return this;
         }
@@ -141,6 +152,7 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
             return new AlterTableAddColumnCommand(
                     tableName,
                     schemaName,
+                    ifTableExists,
                     columns
             );
         }
