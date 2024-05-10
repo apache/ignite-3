@@ -140,7 +140,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         Objects.requireNonNull(key, "key");
 
         validateNullableOperation(valueMapper.targetType(), "getNullable");
-        
+
         return sync(doGetNullable(tx, key));
     }
 
