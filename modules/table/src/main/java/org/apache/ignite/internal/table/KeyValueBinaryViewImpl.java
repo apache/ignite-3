@@ -307,8 +307,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(val, "val");
 
         return doOperation(tx, (schemaVersion) -> {
             Row row = marshal(key, val, schemaVersion);
@@ -338,7 +338,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public Tuple getAndRemove(@Nullable Transaction tx, Tuple key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return sync(getAndRemoveAsync(tx, key));
     }
@@ -346,7 +346,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Tuple> getAndRemoveAsync(@Nullable Transaction tx, Tuple key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return doOperation(tx, (schemaVersion) -> {
             return tbl.getAndDelete(marshal(key, null, schemaVersion), (InternalTransaction) tx)
@@ -389,8 +389,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, Tuple key, Tuple val) {
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(val, "val");
 
         return doOperation(tx, (schemaVersion) -> {
             Row row = marshal(key, val, schemaVersion);
@@ -527,7 +527,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         List<BinaryRowEx> keyRows = new ArrayList<>(keys.size());
 
         for (Tuple keyRec : keys) {
-            keyRows.add(marshal(Objects.requireNonNull(keyRec), null, schemaVersion));
+            keyRows.add(marshal(Objects.requireNonNull(keyRec, "keyRec"), null, schemaVersion));
         }
         return keyRows;
     }
@@ -577,8 +577,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         for (Entry<Tuple, Tuple> pair : pairs) {
             boolean isDeleted = deleted != null && deleted.get(rows.size());
 
-            Tuple key = Objects.requireNonNull(pair.getKey());
-            Tuple val = isDeleted ? null : Objects.requireNonNull(pair.getValue());
+            Tuple key = Objects.requireNonNull(pair.getKey(), "key");
+            Tuple val = isDeleted ? null : Objects.requireNonNull(pair.getValue(), "val");
 
             Row row = marshal(key, val, schemaVersion);
             rows.add(row);
