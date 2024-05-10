@@ -17,3 +17,13 @@ SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2) t(a) UNION ALL SELECT a F
 3
 4
 4
+
+query I rowsort
+SELECT a FROM test UNION ALL SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2) t(a)
+----
+1
+2
+3
+3
+4
+4
