@@ -228,6 +228,7 @@ public class ClientSql implements IgniteSql {
             w.out().packLongNullable(clientStatement.queryTimeoutNullable());
 
             w.out().packLongNullable(0L); // defaultSessionTimeout
+            w.out().packString(clientStatement.timeZoneId().getId());
 
             packProperties(w, null);
 
