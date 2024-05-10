@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test reserved keywords.
  */
-public class SqlReservedWordsTest extends AbstractDdlParserTest {
+public class SqlReservedWordsTest extends AbstractParserTest {
     /** List of keywords reserved in Ignite SQL. */
     private static final Set<String> RESERVED_WORDS = Set.of(
             "ABS",

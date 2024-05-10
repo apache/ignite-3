@@ -365,8 +365,7 @@ public class TypeUtils {
             case NULL:
                 return ColumnType.NULL;
             default:
-                assert false : "Unexpected type of result: " + type.getSqlTypeName();
-                return null;
+                throw new IllegalArgumentException("Unexpected type: " + type.getSqlTypeName());
         }
     }
 

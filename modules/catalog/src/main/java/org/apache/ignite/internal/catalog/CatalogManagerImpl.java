@@ -46,7 +46,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.LongSupplier;
-import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCatalogCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -376,7 +376,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                                 List.of(StorageProfileParams.builder().storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE).build())
                         )
                         .build(),
-                AlterZoneSetDefaultCatalogCommand.builder()
+                AlterZoneSetDefaultCommand.builder()
                         .zoneName(DEFAULT_ZONE_NAME)
                         .build()
         )).get(emptyCatalog);

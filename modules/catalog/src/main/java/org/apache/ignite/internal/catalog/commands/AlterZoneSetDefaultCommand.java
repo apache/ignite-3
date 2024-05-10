@@ -31,20 +31,25 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 /**
  * A command that set specified zone as default.
  */
-public class AlterZoneSetDefaultCatalogCommand extends AbstractZoneCommand {
+public class AlterZoneSetDefaultCommand extends AbstractZoneCommand {
     /** Returns builder to create a command that set specified zone as default. */
     public static Builder builder() {
-        return new AlterZoneSetDefaultCatalogCommand.Builder();
+        return new AlterZoneSetDefaultCommand.Builder();
     }
+
+    private final boolean ifExists;
 
     /**
      * Constructor.
      *
      * @param zoneName Name of the zone.
+     * @param ifExists Flag indicating whether the {@code IF EXISTS} was specified.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
-    private AlterZoneSetDefaultCatalogCommand(String zoneName) throws CatalogValidationException {
+    private AlterZoneSetDefaultCommand(String zoneName, boolean ifExists) throws CatalogValidationException {
         super(zoneName);
+
+        this.ifExists = ifExists;
     }
 
     @Override
@@ -60,11 +65,16 @@ public class AlterZoneSetDefaultCatalogCommand extends AbstractZoneCommand {
         return List.of(new SetDefaultZoneEntry(zone.id()));
     }
 
+    public boolean ifExists() {
+        return ifExists;
+    }
+
     /**
      * Builder of a command that set specified zone as default.
      */
     public static class Builder implements AbstractZoneCommandBuilder<Builder> {
         private String zoneName;
+        private boolean ifExists;
 
         @Override
         public Builder zoneName(String zoneName) {
@@ -73,9 +83,16 @@ public class AlterZoneSetDefaultCatalogCommand extends AbstractZoneCommand {
             return this;
         }
 
+        /** Sets flag indicating whether the {@code IF EXISTS} was specified. */
+        public Builder ifExists(boolean ifExists) {
+            this.ifExists = ifExists;
+
+            return this;
+        }
+
         @Override
         public CatalogCommand build() {
-            return new AlterZoneSetDefaultCatalogCommand(zoneName);
+            return new AlterZoneSetDefaultCommand(zoneName, ifExists);
         }
     }
 }

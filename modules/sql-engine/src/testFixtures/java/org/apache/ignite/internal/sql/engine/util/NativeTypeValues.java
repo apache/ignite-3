@@ -120,9 +120,6 @@ public final class NativeTypeValues {
     /** Returns a value of a {@link NativeType native type} that corresponds to the given {@link RelDataType}. */
     @Nullable
     public static Object value(int i, RelDataType type) {
-        ColumnType columnType = TypeUtils.columnType(type);
-
-        assert columnType != null : "Returned a null column type for " + type;
-        return value(i, columnType);
+        return value(i, TypeUtils.columnType(type));
     }
 }

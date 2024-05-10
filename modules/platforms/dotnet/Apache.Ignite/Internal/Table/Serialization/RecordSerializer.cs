@@ -151,21 +151,21 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// Write record.
         /// </summary>
         /// <param name="buf">Buffer.</param>
-        /// <param name="tx">Transaction.</param>
+        /// <param name="txId">Transaction id.</param>
         /// <param name="schema">Schema.</param>
         /// <param name="rec">Record.</param>
         /// <param name="keyOnly">Key only columns.</param>
         /// <returns>Colocation hash.</returns>
-        public int Write(
+        public (int ColocationHash, int TxIdPos) Write(
             PooledArrayBuffer buf,
-            Transactions.Transaction? tx,
+            long? txId,
             Schema schema,
             T rec,
             bool keyOnly = false)
         {
             var w = buf.MessageWriter;
 
-            var colocationHash = WriteWithHeader(ref w, tx, schema, rec, keyOnly);
+            var colocationHash = WriteWithHeader(ref w, txId, schema, rec, keyOnly);
 
             return colocationHash;
         }
@@ -174,15 +174,15 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// Write two records.
         /// </summary>
         /// <param name="buf">Buffer.</param>
-        /// <param name="tx">Transaction.</param>
+        /// <param name="txId">Transaction id.</param>
         /// <param name="schema">Schema.</param>
         /// <param name="t">Record 1.</param>
         /// <param name="t2">Record 2.</param>
         /// <param name="keyOnly">Key only columns.</param>
         /// <returns>First record hash.</returns>
-        public int WriteTwo(
+        public (int ColocationHash, int TxIdPos) WriteTwo(
             PooledArrayBuffer buf,
-            Transactions.Transaction? tx,
+            long? txId,
             Schema schema,
             T t,
             T t2,
@@ -190,7 +190,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var w = buf.MessageWriter;
 
-            var firstHash = WriteWithHeader(ref w, tx, schema, t, keyOnly);
+            var firstHash = WriteWithHeader(ref w, txId, schema, t, keyOnly);
             _handler.Write(ref w, schema, t2, keyOnly);
 
             return firstHash;
@@ -200,21 +200,21 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// Write multiple records.
         /// </summary>
         /// <param name="buf">Buffer.</param>
-        /// <param name="tx">Transaction.</param>
+        /// <param name="txId">Transaction.</param>
         /// <param name="schema">Schema.</param>
         /// <param name="recs">Records.</param>
         /// <param name="keyOnly">Key only columns.</param>
         /// <returns>First record hash.</returns>
-        public int WriteMultiple(
+        public (int ColocationHash, int TxIdPos) WriteMultiple(
             PooledArrayBuffer buf,
-            Transactions.Transaction? tx,
+            long? txId,
             Schema schema,
             IEnumerator<T> recs,
             bool keyOnly = false)
         {
             var w = buf.MessageWriter;
 
-            WriteIdAndTx(ref w, tx);
+            var txIdPos = WriteIdAndTx(ref w, txId);
             w.Write(schema.Version);
 
             var count = 0;
@@ -245,40 +245,46 @@ namespace Apache.Ignite.Internal.Table.Serialization
             countSpan[0] = MsgPackCode.Int32;
             BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
 
-            return firstHash;
+            return (firstHash, txIdPos);
         }
 
         /// <summary>
         /// Write record with header.
         /// </summary>
         /// <param name="w">Writer.</param>
-        /// <param name="tx">Transaction.</param>
+        /// <param name="txId">Transaction id.</param>
         /// <param name="schema">Schema.</param>
         /// <param name="rec">Record.</param>
         /// <param name="keyOnly">Key only columns.</param>
         /// <returns>Colocation hash.</returns>
-        private int WriteWithHeader(
+        private (int ColocationHash, int TxIdPos) WriteWithHeader(
             ref MsgPackWriter w,
-            Transactions.Transaction? tx,
+            long? txId,
             Schema schema,
             T rec,
             bool keyOnly = false)
         {
-            WriteIdAndTx(ref w, tx);
+            var txIdPos = WriteIdAndTx(ref w, txId);
             w.Write(schema.Version);
 
-            return _handler.Write(ref w, schema, rec, keyOnly, computeHash: true);
+            var colocationHash = _handler.Write(ref w, schema, rec, keyOnly, computeHash: true);
+
+            return (colocationHash, txIdPos);
         }
 
         /// <summary>
         /// Writes table id and transaction id, if present.
         /// </summary>
         /// <param name="w">Writer.</param>
-        /// <param name="tx">Transaction.</param>
-        private void WriteIdAndTx(ref MsgPackWriter w, Transactions.Transaction? tx)
+        /// <param name="txId">Transaction id.</param>
+        private int WriteIdAndTx(ref MsgPackWriter w, long? txId)
         {
             w.Write(_table.Id);
-            w.WriteTx(tx);
+
+            var txIdPos = w.Position;
+            w.WriteTx(txId);
+
+            return txIdPos;
         }
     }
 }
