@@ -1,0 +1,19 @@
+# name: test/sql/order/test_primary_offset.test
+# description: F863: Nested <result offset clause>. Top-level <result offset clause> in <query expression> <query expression>
+# group: [order]
+
+statement ok
+CREATE TABLE test (a INTEGER);
+
+statement ok
+INSERT INTO test VALUES (1), (2), (3), (4)
+
+query I rowsort
+SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2) t(a) UNION ALL SELECT a FROM test
+----
+1
+2
+3
+3
+4
+4
