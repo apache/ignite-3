@@ -523,6 +523,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertThat(e.getMessage(), Matchers.containsString("Division by zero"));
     }
 
+    // TODO: Move this to ItSqlApiBaseTest?
     @ParameterizedTest
     @ValueSource(strings = {"", "UTC", "GMT", "Europe/Athens", "America/New_York"})
     public void testTimeZoneId(String timeZoneId) {
