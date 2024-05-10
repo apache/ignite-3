@@ -1,9 +1,10 @@
 # name: test/sql/cte/test_cte.test
-# description: T121(WITH (excluding RECURSIVE) in query expression). Test Common Table Expressions (CTE)
+# description: Test Common Table Expressions (CTE)
+# feature: T121(WITH (excluding RECURSIVE) in query expression).
 # group: [cte]
 
 statement ok
-create table a(i integer);
+create table a(i bigint);
 
 statement ok
 insert into a values (42);
