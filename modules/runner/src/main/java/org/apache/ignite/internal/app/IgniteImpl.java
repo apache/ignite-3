@@ -788,7 +788,9 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 catalogManager,
                 distributionZoneManager,
-                raftMgr
+                raftMgr,
+                clusterSvc.topologyService(),
+                distributedTblMgr
         );
 
         indexManager = new IndexManager(

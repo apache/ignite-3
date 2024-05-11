@@ -2601,4 +2601,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             busyLock.leaveBusy();
         }
     }
+
+    /** No doc yet. */
+    // TODO: IGNITE-21304 реализовать, задокументировать и протестировать
+    public CompletableFuture<Void> restartPartition(TablePartitionId tablePartitionId, long revision) {
+        return nullCompletedFuture();
+    }
 }

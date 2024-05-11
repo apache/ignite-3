@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.table.distributed.disaster.LocalPartiti
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.INITIALIZING;
 import static org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateEnum.INSTALLING_SNAPSHOT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STATE_ERR;
 
 import java.util.ArrayList;
@@ -68,6 +69,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
@@ -81,6 +83,7 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.core.State;
 import org.jetbrains.annotations.Nullable;
@@ -125,10 +128,16 @@ public class DisasterRecoveryManager implements IgniteComponent {
     final DistributionZoneManager dzManager;
 
     /** Raft manager. */
-    private final Loza raftManager;
+    final Loza raftManager;
+
+    /** Cluster physical topology service.  */
+    private final TopologyService topologyService;
 
     /** Watch listener for {@link #RECOVERY_TRIGGER_KEY}. */
     private final WatchListener watchListener;
+
+    /** Table manager. */
+    final TableManager tableManager;
 
     /**
      * Map of operations, triggered by local node, that have not yet been processed by {@link #watchListener}. Values in the map are the
@@ -138,16 +147,16 @@ public class DisasterRecoveryManager implements IgniteComponent {
      */
     private final Map<UUID, CompletableFuture<Void>> ongoingOperationsById = new ConcurrentHashMap<>();
 
-    /**
-     * Constructor.
-     */
+    /** Constructor. */
     public DisasterRecoveryManager(
             ExecutorService threadPool,
             MessagingService messagingService,
             MetaStorageManager metaStorageManager,
             CatalogManager catalogManager,
             DistributionZoneManager dzManager,
-            Loza raftManager
+            Loza raftManager,
+            TopologyService topologyService,
+            TableManager tableManager
     ) {
         this.threadPool = threadPool;
         this.messagingService = messagingService;
@@ -155,6 +164,8 @@ public class DisasterRecoveryManager implements IgniteComponent {
         this.catalogManager = catalogManager;
         this.dzManager = dzManager;
         this.raftManager = raftManager;
+        this.topologyService = topologyService;
+        this.tableManager = tableManager;
 
         watchListener = new WatchListener() {
             @Override
@@ -219,14 +230,18 @@ public class DisasterRecoveryManager implements IgniteComponent {
     /**
      * No documentation yet.
      *
+     * @param nodeNames Names specifying nodes to restart partitions. Case-sensitive, empty set means "all nodes".
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
      * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
      * @param partitionIds IDs of partitions to restart. If empty, restart all zone's partitions.
      * @return Operation future.
      */
     // TODO: IGNITE-21304 Реализация, документация и тестирование
-    public CompletableFuture<Void> restartPartitions(String zoneName, String tableName, Set<Integer> partitionIds) {
+    public CompletableFuture<Void> restartPartitions(Set<String> nodeNames, String zoneName, String tableName, Set<Integer> partitionIds) {
         try {
+            // Validates passed node names.
+            getNodes(nodeNames);
+
             Catalog catalog = catalogLatestVersion();
 
             CatalogZoneDescriptor zone = zoneDescriptor(catalog, zoneName);
@@ -235,7 +250,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
             checkPartitionsRange(partitionIds, Set.of(zone));
 
-            return processNewRequest(new ManualGroupRestartRequest(UUID.randomUUID(), zone.id(), table.id(), partitionIds));
+            return processNewRequest(new ManualGroupRestartRequest(UUID.randomUUID(), zone.id(), table.id(), partitionIds, nodeNames));
         } catch (Throwable t) {
             return failedFuture(t);
         }
@@ -434,7 +449,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
     /**
      * Handler for {@link #RECOVERY_TRIGGER_KEY} update event. Deserializes the request and delegates the execution to
-     * {@link DisasterRecoveryRequest#handle(DisasterRecoveryManager, long, CompletableFuture)}.
+     * {@link DisasterRecoveryRequest#handle(DisasterRecoveryManager, long)}.
      */
     private CompletableFuture<Void> handleTriggerKeyUpdate(WatchEvent watchEvent) {
         Entry newEntry = watchEvent.entryEvent().newEntry();
@@ -453,12 +468,32 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
         CompletableFuture<Void> operationFuture = ongoingOperationsById.remove(request.operationId());
 
-        if (operationFuture == null) {
-            // We're not the initiator, or timeout has passed. Just ignore it.
-            return nullCompletedFuture();
-        }
+        switch (request.type()) {
+            case SINGLE_NODE:
+                if (operationFuture == null) {
+                    // We're not the initiator, or timeout has passed. Just ignore it.
+                    return nullCompletedFuture();
+                }
 
-        return request.handle(this, watchEvent.revision(), operationFuture);
+                return request.handle(this, watchEvent.revision()).whenComplete(copyStateTo(operationFuture));
+            case MULTI_NODE:
+                CompletableFuture<Void> handleFuture = request.handle(this, watchEvent.revision());
+
+                if (operationFuture == null) {
+                    // We're not the initiator, or timeout has passed.
+                    return handleFuture;
+                }
+
+                return handleFuture.whenComplete(copyStateTo(operationFuture));
+            default:
+                var error = new AssertionError("Unexpected request type: " + request.getClass());
+
+                if (operationFuture != null) {
+                    operationFuture.completeExceptionally(error);
+                }
+
+                return failedFuture(error);
+        }
     }
 
     private void handleMessage(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
@@ -726,5 +761,9 @@ public class DisasterRecoveryManager implements IgniteComponent {
         }
 
         return zoneDescriptor;
+    }
+
+    ClusterNode localNode() {
+        return topologyService.localMember();
     }
 }
