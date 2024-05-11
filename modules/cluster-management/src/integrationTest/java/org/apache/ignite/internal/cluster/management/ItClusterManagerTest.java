@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -29,60 +30,72 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Integration tests for {@link ClusterManagementGroupManager}.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 public class ItClusterManagerTest extends BaseItClusterManagementTest {
     private final List<MockNode> cluster = new ArrayList<>();
-
-    @WorkDirectory
-    private Path workDir;
 
     @AfterEach
     void tearDown() throws Exception {
         stopCluster();
     }
 
-    private void startCluster(int numNodes, TestInfo testInfo) {
-        cluster.addAll(createNodes(numNodes, testInfo, workDir));
+    private void startCluster(int numNodes) {
+        cluster.addAll(createNodes(numNodes));
 
-        cluster.parallelStream().forEach(MockNode::start);
+        cluster.parallelStream().forEach(MockNode::startAndJoin);
     }
 
     private void stopCluster() throws Exception {
         stopNodes(cluster);
+
+        cluster.clear();
+    }
+
+    private void stopNode(int idx) {
+        MockNode node = cluster.get(idx);
+
+        node.beforeNodeStop();
+        node.stop();
+
+        cluster.remove(idx);
+    }
+
+    private MockNode restartNode(int idx) {
+        stopNode(idx);
+
+        MockNode node = createNode(idx, cluster.size() + 1);
+
+        cluster.add(idx, node);
+
+        node.startAndJoin();
+
+        return node;
     }
 
     /**
      * Tests initial cluster setup.
      */
     @Test
-    void testInit(TestInfo testInfo) throws Exception {
-        startCluster(2, testInfo);
+    void testInit() throws Exception {
+        startCluster(2);
 
         String[] cmgNodes = { cluster.get(0).name() };
 
@@ -103,8 +116,8 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
      * Tests initial cluster setup with provided configuration.
      */
     @Test
-    void testInitWithProvidedConfiguration(TestInfo testInfo) throws Exception {
-        startCluster(3, testInfo);
+    void testInitWithProvidedConfiguration() throws Exception {
+        startCluster(3);
 
         String[] cmgNodes = { cluster.get(0).name() };
 
@@ -123,14 +136,12 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
      * Tests that init fails in case some nodes cannot be found.
      */
     @Test
-    void testInitDeadNodes(TestInfo testInfo) throws Exception {
-        startCluster(2, testInfo);
+    void testInitDeadNodes() {
+        startCluster(2);
 
         String[] allNodes = clusterNodeNames();
 
-        MockNode nodeToStop = cluster.remove(0);
-
-        stopNodes(List.of(nodeToStop));
+        stopNode(0);
 
         assertThrows(InitException.class, () -> initCluster(allNodes, allNodes));
     }
@@ -139,16 +150,13 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
      * Tests that re-running init after a failed init attempt can succeed.
      */
     @Test
-    void testInitCancel(TestInfo testInfo) throws Exception {
-        startCluster(2, testInfo);
+    void testInitCancel() throws Exception {
+        startCluster(2);
 
         String[] allNodes = clusterNodeNames();
 
         // stop a CMG node to make the init fail
-
-        MockNode nodeToStop = cluster.remove(0);
-
-        stopNodes(List.of(nodeToStop));
+        stopNode(0);
 
         assertThrows(InitException.class, () -> initCluster(allNodes, allNodes));
 
@@ -167,8 +175,8 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
      * Tests a scenario when a node is restarted.
      */
     @Test
-    void testNodeRestart(TestInfo testInfo) throws Exception {
-        startCluster(2, testInfo);
+    void testNodeRestart() throws Exception {
+        startCluster(2);
 
         String[] cmgNodes = {cluster.get(0).name()};
 
@@ -179,11 +187,11 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         assertThat(cluster.get(0).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
         assertThat(cluster.get(1).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
 
-        cluster.get(0).restart();
+        MockNode restartedNode = restartNode(0);
 
-        assertThat(cluster.get(0).startFuture(), willCompleteSuccessfully());
+        assertThat(restartedNode.startFuture(), willCompleteSuccessfully());
 
-        assertThat(cluster.get(0).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
+        assertThat(restartedNode.clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
 
         waitForLogicalTopology();
 
@@ -197,8 +205,8 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
      * Tests executing the init command with incorrect node names.
      */
     @Test
-    void testInitInvalidNodes(TestInfo testInfo) throws Exception {
-        startCluster(2, testInfo);
+    void testInitInvalidNodes() throws Exception {
+        startCluster(2);
 
         ClusterManagementGroupManager clusterManager = cluster.get(0).clusterManager();
 
@@ -228,8 +236,8 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
      * Tests a scenario, when every node in a cluster gets restarted.
      */
     @Test
-    void testClusterRestart(TestInfo testInfo) throws Exception {
-        startCluster(3, testInfo);
+    void testClusterRestart() throws Exception {
+        startCluster(3);
 
         String[] cmgNodes = {
                 cluster.get(0).name(),
@@ -244,9 +252,8 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
             assertThat(node.startFuture(), willCompleteSuccessfully());
         }
 
-        for (MockNode node : cluster) {
-            node.restart();
-        }
+        stopCluster();
+        startCluster(3);
 
         for (MockNode node : cluster) {
             assertThat(node.startFuture(), willCompleteSuccessfully());
@@ -259,17 +266,17 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
      * Tests a scenario when a new node joins a cluster.
      */
     @Test
-    void testNodeJoin(TestInfo testInfo) throws Exception {
-        startCluster(2, testInfo);
+    void testNodeJoin() throws Exception {
+        startCluster(2);
 
         String[] cmgNodes = clusterNodeNames();
 
         initCluster(cmgNodes, cmgNodes);
 
         // create and start a new node
-        MockNode node = addNodeToCluster(cluster, testInfo, workDir);
+        MockNode node = addNodeToCluster(cluster);
 
-        node.start();
+        node.startAndJoin();
 
         assertThat(node.startFuture(), willCompleteSuccessfully());
 
@@ -281,8 +288,8 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
      * Tests a scenario when a node leaves a cluster.
      */
     @Test
-    void testNodeLeave(TestInfo testInfo) throws Exception {
-        startCluster(2, testInfo);
+    void testNodeLeave() throws Exception {
+        startCluster(2);
 
         String[] cmgNodes = { cluster.get(0).name() };
 
@@ -290,9 +297,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         assertThat(cluster.get(0).logicalTopologyNodes(), will(containsInAnyOrder(toLogicalNodes(currentPhysicalTopology()))));
 
-        MockNode nodeToStop = cluster.remove(1);
-
-        stopNodes(List.of(nodeToStop));
+        stopNode(1);
 
         waitForLogicalTopology();
 
@@ -304,11 +309,13 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
      * Tests a scenario when a node, that participated in a cluster, tries to join a new one.
      */
     @Test
-    void testJoinInvalidTag(TestInfo testInfo) throws Exception {
+    void testJoinInvalidTag() throws Exception {
         // Start a cluster and initialize it
-        startCluster(2, testInfo);
+        startCluster(2);
 
-        String[] cmgNodes = { cluster.get(0).name() };
+        MockNode firstNode = cluster.get(0);
+
+        String[] cmgNodes = { firstNode.name() };
 
         initCluster(cmgNodes, cmgNodes);
 
@@ -316,12 +323,10 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         stopCluster();
 
         // Remove all persistent state from the first node
-        IgniteUtils.deleteIfExists(workDir.resolve("node0"));
+        IgniteUtils.deleteIfExists(firstNode.workDir());
 
         // Start the nodes again
-        for (MockNode node : cluster) {
-            node.restart();
-        }
+        startCluster(1);
 
         // Initialize the cluster again, but with a different name. It is expected that the second node will try to join the CMG
         // and will be rejected.
@@ -331,10 +336,15 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
                 "cluster2"
         );
 
-        assertThrowsWithCause(
-                () -> cluster.get(1).clusterManager().joinFuture().get(10, TimeUnit.SECONDS),
-                IgniteInternalException.class,
-                "Join request denied, reason: Cluster tags do not match"
+        assertThat(cluster.get(0).startFuture(), willCompleteSuccessfully());
+
+        MockNode secondNode = addNodeToCluster(cluster);
+
+        secondNode.startAndJoin();
+
+        assertThat(
+                secondNode.startFuture(),
+                willThrow(JoinDeniedException.class, "Join request denied, reason: Cluster tags do not match")
         );
     }
 
@@ -342,9 +352,9 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
      * Tests a scenario when a node starts joining a cluster having a CMG leader, but finishes the join after the CMG leader changed.
      */
     @Test
-    void testLeaderChangeDuringJoin(TestInfo testInfo) throws Exception {
+    void testLeaderChangeDuringJoin() throws Exception {
         // Start a cluster of 3 nodes so that the CMG leader node could be stopped later.
-        startCluster(3, testInfo);
+        startCluster(3);
 
         String[] cmgNodes = clusterNodeNames();
 
@@ -352,25 +362,25 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         initCluster(cmgNodes, cmgNodes);
 
         // Start a new node, but do not send the JoinReadyCommand.
-        MockNode node = addNodeToCluster(cluster, testInfo, workDir);
+        MockNode node = addNodeToCluster(cluster);
 
-        assertThat(node.startComponents(), willCompleteSuccessfully());
+        assertThat(node.startAsync(), willCompleteSuccessfully());
 
         assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
 
         // Find the CMG leader and stop it
-        MockNode leaderNode = findLeaderNode(cluster).orElseThrow();
+        MockNode leaderNode = findLeaderNode();
 
-        stopNodes(List.of(leaderNode));
+        stopNode(cluster.indexOf(leaderNode));
 
         // Issue the JoinReadyCommand on the joining node. It is expected that the joining node is still treated as validated.
         assertThat(node.clusterManager().onJoinReady(), willCompleteSuccessfully());
     }
 
     @Test
-    void testLeaderChangeBeforeJoin(TestInfo testInfo) throws Exception {
+    void testLeaderChangeBeforeJoin() throws Exception {
         // Start a cluster of 3 nodes so that the CMG leader node could be stopped later.
-        startCluster(3, testInfo);
+        startCluster(3);
 
         String[] cmgNodes = clusterNodeNames();
 
@@ -378,21 +388,16 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         initCluster(cmgNodes, cmgNodes);
 
         // Find the CMG leader and stop it
-        MockNode leaderNode = findLeaderNode(cluster).orElseThrow();
+        MockNode leaderNode = findLeaderNode();
 
-        stopNodes(List.of(leaderNode));
-
-        // Start a new node.
-        MockNode node = addNodeToCluster(cluster, testInfo, workDir);
-
-        node.start();
+        MockNode node = restartNode(cluster.indexOf(leaderNode));
 
         assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
     }
 
     @Test
-    void nonCmgMemberOfInitialTopologyGetsLogicalTopologyChanges(TestInfo testInfo) throws Exception {
-        startCluster(2, testInfo);
+    void nonCmgMemberOfInitialTopologyGetsLogicalTopologyChanges() throws Exception {
+        startCluster(2);
 
         String[] cmgNodes = { cluster.get(0).name() };
 
@@ -405,15 +410,15 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
     }
 
     @Test
-    void nonCmgNodeAddedLaterGetsLogicalTopologyChanges(TestInfo testInfo) throws Exception {
-        startCluster(1, testInfo);
+    void nonCmgNodeAddedLaterGetsLogicalTopologyChanges() throws Exception {
+        startCluster(1);
 
         String[] cmgNodes = { cluster.get(0).name() };
 
         initCluster(cmgNodes, cmgNodes);
 
-        MockNode nonCmgNode = addNodeToCluster(cluster, testInfo, workDir);
-        nonCmgNode.start();
+        MockNode nonCmgNode = addNodeToCluster(cluster);
+        nonCmgNode.startAndJoin();
         assertThat(nonCmgNode.startFuture(), willCompleteSuccessfully());
 
         LogicalTopologyImpl nonCmgTopology = nonCmgNode.clusterManager().logicalTopologyImpl();
@@ -422,14 +427,14 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
     }
 
     @Test
-    void majority(TestInfo testInfo) throws NodeStoppingException {
-        startCluster(5, testInfo);
+    void majority() throws NodeStoppingException {
+        startCluster(5);
 
         String[] allNodes = clusterNodeNames();
 
         initCluster(allNodes, allNodes);
 
-        MockNode leaderNode = findLeaderNode(cluster).orElseThrow();
+        MockNode leaderNode = findLeaderNode();
 
         Set<String> majority = cluster.get(0).clusterManager().majority().join();
 
@@ -437,7 +442,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
         assertThat(majority, hasItem(leaderNode.name()));
     }
 
-    private Optional<MockNode> findLeaderNode(List<MockNode> cluster) {
+    private MockNode findLeaderNode() {
         return cluster.stream()
                 .filter(n -> {
                     CompletableFuture<Boolean> isLeader = n.clusterManager().isCmgLeader();
@@ -446,7 +451,8 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
                     return isLeader.join();
                 })
-                .findAny();
+                .findAny()
+                .orElseThrow();
     }
 
     private List<ClusterNode> currentPhysicalTopology() {

@@ -77,6 +77,7 @@ enum class code : underlying_t {
     TABLE_STOPPING = 0x20005,
     TABLE_DEFINITION = 0x20006,
     SCHEMA_VERSION_MISMATCH = 0x20007,
+    UNSUPPORTED_PARTITION_TYPE = 0x20008,
 
     // Client group. Group code: 3
     CONNECTION = 0x30001,

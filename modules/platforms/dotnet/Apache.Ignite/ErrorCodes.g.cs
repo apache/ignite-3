@@ -116,6 +116,9 @@ namespace Apache.Ignite
 
             /// <summary> SchemaVersionMismatch error. </summary>
             public const int SchemaVersionMismatch = (GroupCode << 16) | (7 & 0xFFFF);
+
+            /// <summary> UnsupportedPartitionType error. </summary>
+            public const int UnsupportedPartitionType = (GroupCode << 16) | (8 & 0xFFFF);
         }
 
         /// <summary> Client errors. </summary>

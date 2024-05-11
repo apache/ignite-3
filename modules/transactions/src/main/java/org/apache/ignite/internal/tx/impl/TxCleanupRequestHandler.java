@@ -139,7 +139,7 @@ public class TxCleanupRequestHandler {
                     if (ex == null) {
                         msg = prepareResponse();
                     } else {
-                        msg = prepareErrorResponse(ex);
+                        msg = prepareErrorResponse(txCleanupMessage.txId(), ex);
 
                         // Run durable cleanup for the partitions that we failed to cleanup properly.
                         // No need to wait on this future.
@@ -178,9 +178,10 @@ public class TxCleanupRequestHandler {
                 .build();
     }
 
-    private NetworkMessage prepareErrorResponse(Throwable th) {
+    private NetworkMessage prepareErrorResponse(UUID txId, Throwable th) {
         return FACTORY
                 .txCleanupMessageErrorResponse()
+                .txId(txId)
                 .throwable(th)
                 .timestampLong(clockService.nowLong())
                 .build();

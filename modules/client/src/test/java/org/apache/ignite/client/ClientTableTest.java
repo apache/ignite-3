@@ -400,7 +400,7 @@ public class ClientTableTest extends AbstractClientTableTest {
 
         var ex = assertThrows(IgniteException.class, () -> table.upsert(null, tuple));
 
-        assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("Column 'STRNONNULL' does not allow NULLs"), ex.getMessage());
     }
 
     @Test

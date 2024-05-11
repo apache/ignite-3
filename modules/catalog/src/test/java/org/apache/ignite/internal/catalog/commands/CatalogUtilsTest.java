@@ -389,7 +389,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         Exception e = assertThrows(CatalogValidationException.class, () -> replaceIndex(schema, index));
 
-        assertThat(e.getMessage(), is(String.format("Index with ID %d has not been found in schema with ID %d", index.id(), 0)));
+        assertThat(e.getMessage(), is(String.format("Index with ID %d has not been found in schema with ID %d", index.id(), 1)));
     }
 
     @Test

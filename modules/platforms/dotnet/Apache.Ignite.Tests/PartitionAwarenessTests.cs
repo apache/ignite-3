@@ -24,7 +24,9 @@ using System.Threading.Tasks;
 using Compute;
 using Ignite.Compute;
 using Ignite.Table;
+using Ignite.Transactions;
 using Internal.Proto;
+using Internal.Transactions;
 using NUnit.Framework;
 
 /// <summary>
@@ -81,10 +83,10 @@ public class PartitionAwarenessTests
         await recordView.UpsertAsync(null, 1);
 
         // Check.
-        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2, _server1);
-        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 3), ClientOp.TupleUpsert, _server1, _server2);
-        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 4), ClientOp.TupleUpsert, _server2, _server1);
-        await AssertOpOnNode(async () => await recordView.UpsertAsync(null, 7), ClientOp.TupleUpsert, _server1, _server2);
+        await AssertOpOnNode(async tx => await recordView.UpsertAsync(tx, 1), ClientOp.TupleUpsert, _server2, _server1);
+        await AssertOpOnNode(async tx => await recordView.UpsertAsync(tx, 3), ClientOp.TupleUpsert, _server1, _server2);
+        await AssertOpOnNode(async tx => await recordView.UpsertAsync(tx, 4), ClientOp.TupleUpsert, _server2, _server1);
+        await AssertOpOnNode(async tx => await recordView.UpsertAsync(tx, 7), ClientOp.TupleUpsert, _server1, _server2);
     }
 
     [Test]
@@ -93,8 +95,13 @@ public class PartitionAwarenessTests
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
 
+        var txServer = _server1;
+        txServer.ClearOps();
+
         var tx = await client.Transactions.BeginAsync();
-        var txServer = new[] { _server1, _server2 }.Single(x => x.ClientOps.Contains(ClientOp.TxBegin));
+        await TestUtils.ForceLazyTxStart(tx, client, PreferredNode.FromName(_server1.Node.Name));
+
+        Assert.AreEqual(ClientOp.TxBegin, txServer.ClientOps.Single());
 
         for (int i = 0; i < 10; i++)
         {
@@ -106,12 +113,12 @@ public class PartitionAwarenessTests
 
     [Test]
     public async Task TestClientReceivesPartitionAssignmentUpdates() =>
-        await TestClientReceivesPartitionAssignmentUpdates(view => view.UpsertAsync(null, 1), ClientOp.TupleUpsert);
+        await TestClientReceivesPartitionAssignmentUpdates((view, tx) => view.UpsertAsync(tx, 1), ClientOp.TupleUpsert);
 
     [Test]
     public async Task TestDataStreamerReceivesPartitionAssignmentUpdates() =>
         await TestClientReceivesPartitionAssignmentUpdates(
-            view => view.StreamDataAsync(new[] { 1 }.ToAsyncEnumerable()),
+            (view, _) => view.StreamDataAsync(new[] { 1 }.ToAsyncEnumerable()),
             ClientOp.StreamerBatchSend);
 
     [Test]
@@ -128,25 +135,25 @@ public class PartitionAwarenessTests
         // Single-key operations.
         var expectedNode = node == 1 ? _server1 : _server2;
 
-        await AssertOpOnNode(() => recordView.GetAsync(null, key), ClientOp.TupleGet, expectedNode);
-        await AssertOpOnNode(() => recordView.GetAndDeleteAsync(null, key), ClientOp.TupleGetAndDelete, expectedNode);
-        await AssertOpOnNode(() => recordView.GetAndReplaceAsync(null, key), ClientOp.TupleGetAndReplace, expectedNode);
-        await AssertOpOnNode(() => recordView.GetAndUpsertAsync(null, key), ClientOp.TupleGetAndUpsert, expectedNode);
-        await AssertOpOnNode(() => recordView.UpsertAsync(null, key), ClientOp.TupleUpsert, expectedNode);
-        await AssertOpOnNode(() => recordView.InsertAsync(null, key), ClientOp.TupleInsert, expectedNode);
-        await AssertOpOnNode(() => recordView.ReplaceAsync(null, key), ClientOp.TupleReplace, expectedNode);
-        await AssertOpOnNode(() => recordView.ReplaceAsync(null, key, key), ClientOp.TupleReplaceExact, expectedNode);
-        await AssertOpOnNode(() => recordView.DeleteAsync(null, key), ClientOp.TupleDelete, expectedNode);
-        await AssertOpOnNode(() => recordView.DeleteExactAsync(null, key), ClientOp.TupleDeleteExact, expectedNode);
-        await AssertOpOnNode(() => recordView.StreamDataAsync(new[] { key }.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
+        await AssertOpOnNode(tx => recordView.GetAsync(tx, key), ClientOp.TupleGet, expectedNode);
+        await AssertOpOnNode(tx => recordView.GetAndDeleteAsync(tx, key), ClientOp.TupleGetAndDelete, expectedNode);
+        await AssertOpOnNode(tx => recordView.GetAndReplaceAsync(tx, key), ClientOp.TupleGetAndReplace, expectedNode);
+        await AssertOpOnNode(tx => recordView.GetAndUpsertAsync(tx, key), ClientOp.TupleGetAndUpsert, expectedNode);
+        await AssertOpOnNode(tx => recordView.UpsertAsync(tx, key), ClientOp.TupleUpsert, expectedNode);
+        await AssertOpOnNode(tx => recordView.InsertAsync(tx, key), ClientOp.TupleInsert, expectedNode);
+        await AssertOpOnNode(tx => recordView.ReplaceAsync(tx, key), ClientOp.TupleReplace, expectedNode);
+        await AssertOpOnNode(tx => recordView.ReplaceAsync(tx, key, key), ClientOp.TupleReplaceExact, expectedNode);
+        await AssertOpOnNode(tx => recordView.DeleteAsync(tx, key), ClientOp.TupleDelete, expectedNode);
+        await AssertOpOnNode(tx => recordView.DeleteExactAsync(tx, key), ClientOp.TupleDeleteExact, expectedNode);
+        await AssertOpOnNode(_ => recordView.StreamDataAsync(new[] { key }.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
 
         // Multi-key operations use the first key for colocation.
         var keys = new[] { key, new IgniteTuple { ["ID"] = keyId - 1 }, new IgniteTuple { ["ID"] = keyId + 1 } };
-        await AssertOpOnNode(() => recordView.GetAllAsync(null, keys), ClientOp.TupleGetAll, expectedNode);
-        await AssertOpOnNode(() => recordView.InsertAllAsync(null, keys), ClientOp.TupleInsertAll, expectedNode);
-        await AssertOpOnNode(() => recordView.UpsertAllAsync(null, keys), ClientOp.TupleUpsertAll, expectedNode);
-        await AssertOpOnNode(() => recordView.DeleteAllAsync(null, keys), ClientOp.TupleDeleteAll, expectedNode);
-        await AssertOpOnNode(() => recordView.DeleteAllExactAsync(null, keys), ClientOp.TupleDeleteAllExact, expectedNode);
+        await AssertOpOnNode(tx => recordView.GetAllAsync(tx, keys), ClientOp.TupleGetAll, expectedNode);
+        await AssertOpOnNode(tx => recordView.InsertAllAsync(tx, keys), ClientOp.TupleInsertAll, expectedNode);
+        await AssertOpOnNode(tx => recordView.UpsertAllAsync(tx, keys), ClientOp.TupleUpsertAll, expectedNode);
+        await AssertOpOnNode(tx => recordView.DeleteAllAsync(tx, keys), ClientOp.TupleDeleteAll, expectedNode);
+        await AssertOpOnNode(tx => recordView.DeleteAllExactAsync(tx, keys), ClientOp.TupleDeleteAllExact, expectedNode);
     }
 
     [Test]
@@ -162,25 +169,25 @@ public class PartitionAwarenessTests
         // Single-key operations.
         var expectedNode = node == 1 ? _server1 : _server2;
 
-        await AssertOpOnNode(() => recordView.GetAsync(null, key), ClientOp.TupleGet, expectedNode);
-        await AssertOpOnNode(() => recordView.GetAndDeleteAsync(null, key), ClientOp.TupleGetAndDelete, expectedNode);
-        await AssertOpOnNode(() => recordView.GetAndReplaceAsync(null, key), ClientOp.TupleGetAndReplace, expectedNode);
-        await AssertOpOnNode(() => recordView.GetAndUpsertAsync(null, key), ClientOp.TupleGetAndUpsert, expectedNode);
-        await AssertOpOnNode(() => recordView.UpsertAsync(null, key), ClientOp.TupleUpsert, expectedNode);
-        await AssertOpOnNode(() => recordView.InsertAsync(null, key), ClientOp.TupleInsert, expectedNode);
-        await AssertOpOnNode(() => recordView.ReplaceAsync(null, key), ClientOp.TupleReplace, expectedNode);
-        await AssertOpOnNode(() => recordView.ReplaceAsync(null, key, key), ClientOp.TupleReplaceExact, expectedNode);
-        await AssertOpOnNode(() => recordView.DeleteAsync(null, key), ClientOp.TupleDelete, expectedNode);
-        await AssertOpOnNode(() => recordView.DeleteExactAsync(null, key), ClientOp.TupleDeleteExact, expectedNode);
-        await AssertOpOnNode(() => recordView.StreamDataAsync(new[] { key }.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
+        await AssertOpOnNode(tx => recordView.GetAsync(tx, key), ClientOp.TupleGet, expectedNode);
+        await AssertOpOnNode(tx => recordView.GetAndDeleteAsync(tx, key), ClientOp.TupleGetAndDelete, expectedNode);
+        await AssertOpOnNode(tx => recordView.GetAndReplaceAsync(tx, key), ClientOp.TupleGetAndReplace, expectedNode);
+        await AssertOpOnNode(tx => recordView.GetAndUpsertAsync(tx, key), ClientOp.TupleGetAndUpsert, expectedNode);
+        await AssertOpOnNode(tx => recordView.UpsertAsync(tx, key), ClientOp.TupleUpsert, expectedNode);
+        await AssertOpOnNode(tx => recordView.InsertAsync(tx, key), ClientOp.TupleInsert, expectedNode);
+        await AssertOpOnNode(tx => recordView.ReplaceAsync(tx, key), ClientOp.TupleReplace, expectedNode);
+        await AssertOpOnNode(tx => recordView.ReplaceAsync(tx, key, key), ClientOp.TupleReplaceExact, expectedNode);
+        await AssertOpOnNode(tx => recordView.DeleteAsync(tx, key), ClientOp.TupleDelete, expectedNode);
+        await AssertOpOnNode(tx => recordView.DeleteExactAsync(tx, key), ClientOp.TupleDeleteExact, expectedNode);
+        await AssertOpOnNode(_ => recordView.StreamDataAsync(new[] { key }.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
 
         // Multi-key operations use the first key for colocation.
         var keys = new[] { key, key - 1, key + 1 };
-        await AssertOpOnNode(() => recordView.GetAllAsync(null, keys), ClientOp.TupleGetAll, expectedNode);
-        await AssertOpOnNode(() => recordView.InsertAllAsync(null, keys), ClientOp.TupleInsertAll, expectedNode);
-        await AssertOpOnNode(() => recordView.UpsertAllAsync(null, keys), ClientOp.TupleUpsertAll, expectedNode);
-        await AssertOpOnNode(() => recordView.DeleteAllAsync(null, keys), ClientOp.TupleDeleteAll, expectedNode);
-        await AssertOpOnNode(() => recordView.DeleteAllExactAsync(null, keys), ClientOp.TupleDeleteAllExact, expectedNode);
+        await AssertOpOnNode(tx => recordView.GetAllAsync(tx, keys), ClientOp.TupleGetAll, expectedNode);
+        await AssertOpOnNode(tx => recordView.InsertAllAsync(tx, keys), ClientOp.TupleInsertAll, expectedNode);
+        await AssertOpOnNode(tx => recordView.UpsertAllAsync(tx, keys), ClientOp.TupleUpsertAll, expectedNode);
+        await AssertOpOnNode(tx => recordView.DeleteAllAsync(tx, keys), ClientOp.TupleDeleteAll, expectedNode);
+        await AssertOpOnNode(tx => recordView.DeleteAllExactAsync(tx, keys), ClientOp.TupleDeleteAllExact, expectedNode);
     }
 
     [Test]
@@ -198,27 +205,27 @@ public class PartitionAwarenessTests
         // Single-key operations.
         var expectedNode = node == 1 ? _server1 : _server2;
 
-        await AssertOpOnNode(() => kvView.GetAsync(null, key), ClientOp.TupleGet, expectedNode);
-        await AssertOpOnNode(() => kvView.GetAndRemoveAsync(null, key), ClientOp.TupleGetAndDelete, expectedNode);
-        await AssertOpOnNode(() => kvView.GetAndReplaceAsync(null, key, val), ClientOp.TupleGetAndReplace, expectedNode);
-        await AssertOpOnNode(() => kvView.GetAndPutAsync(null, key, val), ClientOp.TupleGetAndUpsert, expectedNode);
-        await AssertOpOnNode(() => kvView.PutAsync(null, key, val), ClientOp.TupleUpsert, expectedNode);
-        await AssertOpOnNode(() => kvView.PutIfAbsentAsync(null, key, val), ClientOp.TupleInsert, expectedNode);
-        await AssertOpOnNode(() => kvView.ReplaceAsync(null, key, val), ClientOp.TupleReplace, expectedNode);
-        await AssertOpOnNode(() => kvView.ReplaceAsync(null, key, val, val), ClientOp.TupleReplaceExact, expectedNode);
-        await AssertOpOnNode(() => kvView.RemoveAsync(null, key), ClientOp.TupleDelete, expectedNode);
-        await AssertOpOnNode(() => kvView.RemoveAsync(null, key, val), ClientOp.TupleDeleteExact, expectedNode);
-        await AssertOpOnNode(() => kvView.ContainsAsync(null, key), ClientOp.TupleContainsKey, expectedNode);
+        await AssertOpOnNode(tx => kvView.GetAsync(tx, key), ClientOp.TupleGet, expectedNode);
+        await AssertOpOnNode(tx => kvView.GetAndRemoveAsync(tx, key), ClientOp.TupleGetAndDelete, expectedNode);
+        await AssertOpOnNode(tx => kvView.GetAndReplaceAsync(tx, key, val), ClientOp.TupleGetAndReplace, expectedNode);
+        await AssertOpOnNode(tx => kvView.GetAndPutAsync(tx, key, val), ClientOp.TupleGetAndUpsert, expectedNode);
+        await AssertOpOnNode(tx => kvView.PutAsync(tx, key, val), ClientOp.TupleUpsert, expectedNode);
+        await AssertOpOnNode(tx => kvView.PutIfAbsentAsync(tx, key, val), ClientOp.TupleInsert, expectedNode);
+        await AssertOpOnNode(tx => kvView.ReplaceAsync(tx, key, val), ClientOp.TupleReplace, expectedNode);
+        await AssertOpOnNode(tx => kvView.ReplaceAsync(tx, key, val, val), ClientOp.TupleReplaceExact, expectedNode);
+        await AssertOpOnNode(tx => kvView.RemoveAsync(tx, key), ClientOp.TupleDelete, expectedNode);
+        await AssertOpOnNode(tx => kvView.RemoveAsync(tx, key, val), ClientOp.TupleDeleteExact, expectedNode);
+        await AssertOpOnNode(tx => kvView.ContainsAsync(tx, key), ClientOp.TupleContainsKey, expectedNode);
 
         // Multi-key operations use the first key for colocation.
         var keys = new[] { key, new IgniteTuple { ["ID"] = keyId - 1 }, new IgniteTuple { ["ID"] = keyId + 1 } };
         var pairs = keys.ToDictionary(x => (IIgniteTuple)x, _ => (IIgniteTuple)val);
 
-        await AssertOpOnNode(() => kvView.GetAllAsync(null, keys), ClientOp.TupleGetAll, expectedNode);
-        await AssertOpOnNode(() => kvView.PutAllAsync(null, pairs), ClientOp.TupleUpsertAll, expectedNode);
-        await AssertOpOnNode(() => kvView.RemoveAllAsync(null, keys), ClientOp.TupleDeleteAll, expectedNode);
-        await AssertOpOnNode(() => kvView.RemoveAllAsync(null, pairs), ClientOp.TupleDeleteAllExact, expectedNode);
-        await AssertOpOnNode(() => kvView.StreamDataAsync(pairs.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
+        await AssertOpOnNode(tx => kvView.GetAllAsync(tx, keys), ClientOp.TupleGetAll, expectedNode);
+        await AssertOpOnNode(tx => kvView.PutAllAsync(tx, pairs), ClientOp.TupleUpsertAll, expectedNode);
+        await AssertOpOnNode(tx => kvView.RemoveAllAsync(tx, keys), ClientOp.TupleDeleteAll, expectedNode);
+        await AssertOpOnNode(tx => kvView.RemoveAllAsync(tx, pairs), ClientOp.TupleDeleteAllExact, expectedNode);
+        await AssertOpOnNode(_ => kvView.StreamDataAsync(pairs.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
     }
 
     [Test]
@@ -235,29 +242,29 @@ public class PartitionAwarenessTests
         // Single-key operations.
         var expectedNode = node == 1 ? _server1 : _server2;
 
-        await AssertOpOnNode(() => kvView.GetAsync(null, key), ClientOp.TupleGet, expectedNode);
-        await AssertOpOnNode(() => kvView.GetAndRemoveAsync(null, key), ClientOp.TupleGetAndDelete, expectedNode);
-        await AssertOpOnNode(() => kvView.GetAndReplaceAsync(null, key, val), ClientOp.TupleGetAndReplace, expectedNode);
-        await AssertOpOnNode(() => kvView.GetAndPutAsync(null, key, val), ClientOp.TupleGetAndUpsert, expectedNode);
-        await AssertOpOnNode(() => kvView.PutAsync(null, key, val), ClientOp.TupleUpsert, expectedNode);
-        await AssertOpOnNode(() => kvView.PutIfAbsentAsync(null, key, val), ClientOp.TupleInsert, expectedNode);
-        await AssertOpOnNode(() => kvView.ReplaceAsync(null, key, val), ClientOp.TupleReplace, expectedNode);
-        await AssertOpOnNode(() => kvView.ReplaceAsync(null, key, val, val), ClientOp.TupleReplaceExact, expectedNode);
-        await AssertOpOnNode(() => kvView.RemoveAsync(null, key), ClientOp.TupleDelete, expectedNode);
-        await AssertOpOnNode(() => kvView.RemoveAsync(null, key, val), ClientOp.TupleDeleteExact, expectedNode);
-        await AssertOpOnNode(() => kvView.ContainsAsync(null, key), ClientOp.TupleContainsKey, expectedNode);
+        await AssertOpOnNode(tx => kvView.GetAsync(tx, key), ClientOp.TupleGet, expectedNode);
+        await AssertOpOnNode(tx => kvView.GetAndRemoveAsync(tx, key), ClientOp.TupleGetAndDelete, expectedNode);
+        await AssertOpOnNode(tx => kvView.GetAndReplaceAsync(tx, key, val), ClientOp.TupleGetAndReplace, expectedNode);
+        await AssertOpOnNode(tx => kvView.GetAndPutAsync(tx, key, val), ClientOp.TupleGetAndUpsert, expectedNode);
+        await AssertOpOnNode(tx => kvView.PutAsync(tx, key, val), ClientOp.TupleUpsert, expectedNode);
+        await AssertOpOnNode(tx => kvView.PutIfAbsentAsync(tx, key, val), ClientOp.TupleInsert, expectedNode);
+        await AssertOpOnNode(tx => kvView.ReplaceAsync(tx, key, val), ClientOp.TupleReplace, expectedNode);
+        await AssertOpOnNode(tx => kvView.ReplaceAsync(tx, key, val, val), ClientOp.TupleReplaceExact, expectedNode);
+        await AssertOpOnNode(tx => kvView.RemoveAsync(tx, key), ClientOp.TupleDelete, expectedNode);
+        await AssertOpOnNode(tx => kvView.RemoveAsync(tx, key, val), ClientOp.TupleDeleteExact, expectedNode);
+        await AssertOpOnNode(tx => kvView.ContainsAsync(tx, key), ClientOp.TupleContainsKey, expectedNode);
         await AssertOpOnNode(
-            () => kvView.StreamDataAsync(new[] { new KeyValuePair<int, int>(key, val) }.ToAsyncEnumerable()),
+            _ => kvView.StreamDataAsync(new[] { new KeyValuePair<int, int>(key, val) }.ToAsyncEnumerable()),
             ClientOp.StreamerBatchSend,
             expectedNode);
 
         // Multi-key operations use the first key for colocation.
         var keys = new[] { key, key - 1, key + 1 };
         var pairs = keys.ToDictionary(x => x, _ => val);
-        await AssertOpOnNode(() => kvView.GetAllAsync(null, keys), ClientOp.TupleGetAll, expectedNode);
-        await AssertOpOnNode(() => kvView.PutAllAsync(null, pairs), ClientOp.TupleUpsertAll, expectedNode);
-        await AssertOpOnNode(() => kvView.RemoveAllAsync(null, keys), ClientOp.TupleDeleteAll, expectedNode);
-        await AssertOpOnNode(() => kvView.RemoveAllAsync(null, pairs), ClientOp.TupleDeleteAllExact, expectedNode);
+        await AssertOpOnNode(tx => kvView.GetAllAsync(tx, keys), ClientOp.TupleGetAll, expectedNode);
+        await AssertOpOnNode(tx => kvView.PutAllAsync(tx, pairs), ClientOp.TupleUpsertAll, expectedNode);
+        await AssertOpOnNode(tx => kvView.RemoveAllAsync(tx, keys), ClientOp.TupleDeleteAll, expectedNode);
+        await AssertOpOnNode(tx => kvView.RemoveAllAsync(tx, pairs), ClientOp.TupleDeleteAllExact, expectedNode);
     }
 
     [Test]
@@ -275,7 +282,7 @@ public class PartitionAwarenessTests
         await Test("c", Guid.Parse("b0000000-0000-0000-0000-000000000000"), _server1);
 
         async Task Test(string idStr, Guid idGuid, FakeServer node) =>
-            await AssertOpOnNode(() => view.UpsertAsync(null, new CompositeKey(idStr, idGuid)), ClientOp.TupleUpsert, node);
+            await AssertOpOnNode(tx => view.UpsertAsync(tx, new CompositeKey(idStr, idGuid)), ClientOp.TupleUpsert, node);
     }
 
     [Test]
@@ -292,7 +299,7 @@ public class PartitionAwarenessTests
         await Test("c", Guid.NewGuid(), _server1);
 
         async Task Test(string idStr, Guid idGuid, FakeServer node) =>
-            await AssertOpOnNode(() => view.UpsertAsync(null, new CompositeKey(idStr, idGuid)), ClientOp.TupleUpsert, node);
+            await AssertOpOnNode(tx => view.UpsertAsync(tx, new CompositeKey(idStr, idGuid)), ClientOp.TupleUpsert, node);
     }
 
     [Test]
@@ -307,7 +314,7 @@ public class PartitionAwarenessTests
         await client.Compute.SubmitColocatedAsync<object?>(FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job");
 
         await AssertOpOnNode(
-            () => client.Compute.SubmitColocatedAsync<object?>(FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job"),
+            _ => client.Compute.SubmitColocatedAsync<object?>(FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job"),
             ClientOp.ComputeExecuteColocated,
             expectedNode);
     }
@@ -325,7 +332,7 @@ public class PartitionAwarenessTests
             FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job");
 
         await AssertOpOnNode(
-            () => client.Compute.SubmitColocatedAsync<object?, SimpleKey>(
+            _ => client.Compute.SubmitColocatedAsync<object?, SimpleKey>(
                 FakeServer.ExistingTableName, key, Array.Empty<DeploymentUnit>(), "job"),
             ClientOp.ComputeExecuteColocated,
             expectedNode);
@@ -339,7 +346,7 @@ public class PartitionAwarenessTests
 
         // Check default assignment.
         await recordView.UpsertAsync(null, 1);
-        await AssertOpOnNode(() => recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2);
+        await AssertOpOnNode(tx => recordView.UpsertAsync(tx, 1), ClientOp.TupleUpsert, _server2);
 
         // One server has old assignment
         _server1.PartitionAssignment = _server1.PartitionAssignment.Reverse().ToArray();
@@ -356,20 +363,38 @@ public class PartitionAwarenessTests
         _server2.ClearOps();
 
         await recordView.UpsertAsync(null, 1);
-        await AssertOpOnNode(() => recordView.UpsertAsync(null, 1), ClientOp.TupleUpsert, _server2);
+        await AssertOpOnNode(tx => recordView.UpsertAsync(tx, 1), ClientOp.TupleUpsert, _server2);
     }
 
     private static async Task AssertOpOnNode(
-        Func<Task> action,
+        Func<ITransaction?, Task> action,
         ClientOp op,
         FakeServer node,
         FakeServer? node2 = null,
         bool allowExtraOps = false)
     {
+        await AssertOpOnNodeInner(action, op, node, node2, allowExtraOps, withTx: false);
+
+        if (op != ClientOp.StreamerBatchSend && op != ClientOp.ComputeExecuteColocated)
+        {
+            await AssertOpOnNodeInner(action, op, node, node2, allowExtraOps, withTx: true);
+        }
+    }
+
+    private static async Task AssertOpOnNodeInner(
+        Func<ITransaction?, Task> action,
+        ClientOp op,
+        FakeServer node,
+        FakeServer? node2 = null,
+        bool allowExtraOps = false,
+        bool withTx = false)
+    {
         node.ClearOps();
         node2?.ClearOps();
 
-        await action();
+        ITransaction? tx = withTx ? new LazyTransaction(default) : null;
+
+        await action(tx);
 
         if (allowExtraOps)
         {
@@ -377,7 +402,14 @@ public class PartitionAwarenessTests
         }
         else
         {
-            Assert.AreEqual(new[] { op }, node.ClientOps);
+            if (withTx)
+            {
+                Assert.AreEqual(new[] { ClientOp.TxBegin, op }, node.ClientOps);
+            }
+            else
+            {
+                Assert.AreEqual(new[] { op }, node.ClientOps);
+            }
         }
 
         if (node2 != null)
@@ -386,14 +418,14 @@ public class PartitionAwarenessTests
         }
     }
 
-    private async Task TestClientReceivesPartitionAssignmentUpdates(Func<IRecordView<int>, Task> func, ClientOp op)
+    private async Task TestClientReceivesPartitionAssignmentUpdates(Func<IRecordView<int>, ITransaction?, Task> func, ClientOp op)
     {
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
 
         // Check default assignment.
         await recordView.UpsertAsync(null, 1);
-        await AssertOpOnNode(() => func(recordView), op, _server2);
+        await AssertOpOnNode(tx => func(recordView, tx), op, _server2);
 
         // Update assignment.
         var assignmentTimestamp = DateTime.UtcNow.Ticks;
@@ -409,7 +441,7 @@ public class PartitionAwarenessTests
         await client.Tables.GetTablesAsync();
 
         // Second request loads and uses new assignment.
-        await AssertOpOnNode(() => func(recordView), op, _server1, allowExtraOps: true);
+        await AssertOpOnNode(tx => func(recordView, tx), op, _server1, allowExtraOps: true);
     }
 
     private async Task<IIgniteClient> GetClient()

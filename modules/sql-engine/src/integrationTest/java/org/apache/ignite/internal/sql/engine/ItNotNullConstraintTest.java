@@ -143,14 +143,14 @@ public abstract class ItNotNullConstraintTest extends ClusterPerClassIntegration
             KeyValueView<Integer, Integer> view = table.keyValueView(Integer.class, Integer.class);
             assertThrows(MarshallerException.class, () -> {
                 view.put(null, 1, null);
-            }, "Failed to write field [id=1]");
+            }, "Column 'VAL' does not allow NULLs");
         }
 
         {
             KeyValueView<Tuple, Tuple> view = table.keyValueView();
             assertThrows(MarshallerException.class, () -> {
                 view.put(null, Tuple.create(Map.of("id", 1)), Tuple.create());
-            }, "Failed to set column (null was passed, but column is not nullable)");
+            }, "Column 'VAL' does not allow NULLs");
         }
 
         {
@@ -158,7 +158,7 @@ public abstract class ItNotNullConstraintTest extends ClusterPerClassIntegration
             assertThrows(MarshallerException.class, () -> {
                 Val val = new Val();
                 view.put(null, 1, val);
-            }, "Failed to write field [id=0]");
+            }, "Column 'VAL' does not allow NULLs");
         }
     }
 
@@ -174,7 +174,7 @@ public abstract class ItNotNullConstraintTest extends ClusterPerClassIntegration
             assertThrows(MarshallerException.class, () -> {
                 Rec rec = new Rec();
                 view.insert(null, rec);
-            }, "Failed to write field [id=0]");
+            }, "Column 'ID' does not allow NULLs");
         }
 
         {
@@ -183,14 +183,14 @@ public abstract class ItNotNullConstraintTest extends ClusterPerClassIntegration
                 Rec rec = new Rec();
                 rec.id = 42;
                 view.insert(null, rec);
-            }, "Failed to write field [id=1]");
+            }, "Column 'VAL' does not allow NULLs");
         }
 
         {
             RecordView<Tuple> view = table.recordView();
             assertThrows(MarshallerException.class, () -> {
                 view.insert(null, Tuple.create(Map.of("id", 1)));
-            }, "Failed to set column (null was passed, but column is not nullable)");
+            }, "Column 'VAL' does not allow NULLs");
         }
     }
 
@@ -203,19 +203,18 @@ public abstract class ItNotNullConstraintTest extends ClusterPerClassIntegration
         {
             KeyValueView<Tuple, Tuple> view = table.keyValueView();
 
-            checkDataStreamer(view, new SimpleEntry<>(Tuple.create(Map.of("id", 1)), Tuple.create()),
-                    "Failed to set column (null was passed, but column is not nullable)");
+            checkDataStreamer(view, new SimpleEntry<>(Tuple.create(Map.of("id", 1)), Tuple.create()), "Column 'VAL' does not allow NULLs");
         }
 
         {
             KeyValueView<Integer, Integer> view = table.keyValueView(Integer.class, Integer.class);
-            checkDataStreamer(view, new SimpleEntry<>(1, null), "Failed to write field [id=1]");
+            checkDataStreamer(view, new SimpleEntry<>(1, null), "Column 'VAL' does not allow NULLs");
         }
 
         {
             KeyValueView<Integer, Val> view = table.keyValueView(Integer.class, Val.class);
             Val val = new Val();
-            checkDataStreamer(view, new SimpleEntry<>(1, val), "Failed to write field [id=0]");
+            checkDataStreamer(view, new SimpleEntry<>(1, val), "Column 'VAL' does not allow NULLs");
         }
     }
 
@@ -227,20 +226,20 @@ public abstract class ItNotNullConstraintTest extends ClusterPerClassIntegration
 
         {
             RecordView<Tuple> view = table.recordView();
-            checkDataStreamer(view, Tuple.create(Map.of("id", 1)), "Failed to set column (null was passed, but column is not nullable)");
+            checkDataStreamer(view, Tuple.create(Map.of("id", 1)), "Column 'VAL' does not allow NULLs");
         }
 
         {
             RecordView<Rec> view = table.recordView(Rec.class);
             Rec rec = new Rec();
-            checkDataStreamer(view, rec, "Failed to write field [id=0]");
+            checkDataStreamer(view, rec, "Column 'ID' does not allow NULLs");
         }
 
         {
             RecordView<Rec> view = table.recordView(Rec.class);
             Rec rec = new Rec();
             rec.id = 1;
-            checkDataStreamer(view, rec, "Failed to write field [id=1]");
+            checkDataStreamer(view, rec, "Column 'VAL' does not allow NULLs");
         }
     }
 

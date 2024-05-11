@@ -52,7 +52,7 @@ namespace Apache.Ignite.Internal
             var tables = new Tables(socket, sql);
 
             Tables = tables;
-            Transactions = new Transactions.Transactions(socket);
+            Transactions = new Transactions.Transactions();
             Compute = new Compute.Compute(socket, tables);
             Sql = sql;
         }

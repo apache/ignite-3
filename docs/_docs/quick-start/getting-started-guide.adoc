@@ -12,90 +12,123 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-= Getting Started Guide
+= Getting Started With Ignite 3
 
-This guide provides essential details on how to start working with Ignite 3.0 Beta by using the Ignite CLI tool, including the following information:
+This guide shows you how to start working with Ignite 3 using the Ignite CLI.
 
-* How to use the Ignite CLI tool to manage nodes.
-* How to run built-in examples.
-* Additional information regarding the use of the tool.
+//NOTE: This is called standalone mode.
 
 == Prerequisites
 
+Ignite 3 was tested on:
 
-Ignite 3.0 Beta was officially tested on:
+include::includes/prereqs.adoc[]
 
-include::../includes/prereqs.adoc[]
+== Install Ignite
 
-== Starting Ignite Node
+To start working with Ignite, you need to install it as described in the link:installation/installing-using-zip[Installation] section.
 
-In this guide we will use a link:../installation/installing-using-zip[zip] archive installation. To start an Ignite node, go to the `ignite3-db-3.0.0-beta1` folder and run the following command:
+NOTE: The Unzip operation creates two side-by-side directories: `ignite-db-3.0.0-beta2` and `ignite-cli-3.0.0-beta2`.
 
+== Start Ignite Node
 
+When starting to work with Ignite, first we need to start a Ignite node that will be handling the API calls.
+
+. Navigate to the `ignite-db-3.0.0-beta2` directory.
+. Run the `start` command:
++
 [tabs]
 --
 tab:Linux[]
+[source, shell]
 ----
 bin/ignite3db start
 ----
 
 tab:Windows[]
-NOTE: You need to install Java in Bash environment to run Ignite on Windows.
+NOTE: You need to install Java in the Bash environment to run Ignite on Windows.
+[source, bash]
 ----
 bash bin\ignite3db start
 ----
 --
++
+Successful start produces the following output:
++
+----
+Starting Ignite 3...
+Node named defaultNode started successfully. REST addresses are [http://127.0.0.1:10300]”
+----
 
+== Optional: Start Multiple Ignite Nodes in Docker
 
+Ignite 3 is designed to work in a cluster of 3 or more nodes at once. While a single node can be used in some scenarios and can be used for the tutorial, having multiple nodes in a cluster is the most common use case.
 
-== Using Ignite CLI Tool
+To run multiple instances of Ignite, you would normally install it on multiple machines before starting a cluster. If you want to emulate a Ignite cluster for this tutorial, use the docker-compose file provided to start them instead.
 
-Ignite CLI is a single entry point for all the Ignite operations. In this guide we will use it to start a cluster on a node you started on the previous step and execute a simple SQL query.
+== Optional: Set Custom JVM Options
 
-//* Manage existing nodes.
-//* Install new nodes.
-//* Update old nodes to new versions.
-//* Install or remove optional modules.
+You can set custom JVM options when starting the Ignite node by using the `IGNITE3_EXTRA_JVM_ARGS` parameter in the `${IGNITE_HOME}/etc/vars.env` file.
 
+You add the options to the `IGNITE3_EXTRA_JVM_ARGS` parameter using the `-XX` notation. For example:
+
+`IGNITE3_EXTRA_JVM_ARGS  = -XX:+PrintFlagsFinal`
+
+For additional information, see link:https://opensource.com/article/22/4/jvm-parameters-java-developers[this article].
+
+== Activate the Ignite CLI
+
+You initialize your cluster, and perform operations on that cluster, using the link:ignite-cli-tool[Ignite CLI].
+
+To activate the Ignite CLI:
+
+. Navigate to the `ignite-cli-3.0.0-2` directory.
+. Run the following command:
++
 [tabs]
 --
 tab:Linux[]
+[source, shell]
 ----
-ignite3-cli-3.0.0-beta1/bin/ignite3
+bin/ignite3
 ----
 
 tab:Windows[]
-NOTE: You need to install Java in Bash environment to run Ignite 3 beta on Windows.
+NOTE: You need to install Java in the Bash environment to run Ignite on Windows.
+[source, bash]
 ----
-bash ignite3-cli-3.0.0-beta1\bin\ignite3
+bash bin\ignite3
 ----
 --
 
-After you start the node, you need to initialize a cluster. To do this, use the `cluster init` command:
+== Initialize Your Cluster
 
+To initialize the cluster that includes the nodes you have started:
+
+. Run the following command:
++ 
 ----
 cluster init -n=sampleCluster -m=defaultNode
 ----
 
-This command creates a simple cluster you can interact with. For example, you can perform sql requests from the command line, or use the thin client to perform requests.
+== Run SQL Statements Against the Cluster
 
-NOTE: If you have issues with Ignite 3 Alpha, check the logs in the `ignite3-db-3.0.0-beta1/log` folder.
+Once your cluster has been initialized, you can manage it with SQL commands:
 
-
-* Use the `CREATE TABLE` statement to create a new table:
+. Use the `CREATE TABLE` statement to create a new table:
 +
 ----
 sql "CREATE TABLE IF NOT EXISTS Person (id int primary key,  city varchar,  name varchar,  age int,  company varchar)"
 ----
 +
-* Fill the table with data by using `INSERT` statement:
+. Fill the table with data using the `INSERT` statement:
 +
 ----
 sql "INSERT INTO Person (id, city, name, age, company) VALUES ('1', 'London', 'John Doe', '42', 'Apache')"
 sql "INSERT INTO Person (id, city, name, age, company) VALUES ('2', 'New York', 'Jane Doe', '36', 'Apache')"
 ----
 +
-* Get all data you inserted on previous step:
+. Get all data you inserted in the previous step:
 +
 ----
 sql "SELECT * FROM Person"
@@ -103,10 +136,38 @@ sql "SELECT * FROM Person"
 
 NOTE: For more information about available SQL statements, see the link:sql-reference/ddl[SQL Reference] section.
 
-== Stopping the Cluster
+== Manage Cluster Configuration
 
-After you are done working on the cluster, you need to stop the node. Go to the `ignite3-db-3.0.0-beta1` folder and run the following command:
+You can change your cluster or node configuration by using the Ignite CLI.
 
+. To see the current configuration, run the following command:
++
+----
+node config show --node-url http://localhost:10300
+----
++  
+This command prints the configuration file in the HOCON format. Note the `maxSize` value under `aimen.regions`.
++
+. Request an increase of the `maxSize` value:
++
+----
+node config update --node-url http://localhost:10300 {aimem.regions:[{name:btree_volatile_region,maxSize:412000000}]}
+----
++
+. To verify the result, run the `show` command again:
++
+----
+node config show --node-url http://localhost:10300
+----
++
+Note that `maxSize` has increased to the value you had requested. 
+
+== Stop the Cluster
+
+After you are done working with your cluster, you need to stop it:
+
+. Navigate to the `ignite-db-3.0.0-beta2` folder.
+. Run the `stop` command:
 
 [tabs]
 --
@@ -125,10 +186,5 @@ bash bin\ignite3db stop
 
 From here, you may want to:
 
-* Check out the link:ignite-cli-tool[Ignite CLI Tool] page for more detail on supported commands.
-* Try out our link:https://github.com/apache/ignite-3/tree/main/examples[examples].
-
-//== Apache Ignite Configuration
-//
-//Apache Ignite uses HOCON configuration format.
-//For more detail, please see the link:https://github.com/lightbend/config/blob/master/HOCON.md[HOCON documentation,window=_blank].
+* Check out the link:ignite-cli-tool[Ignite CLI Tool] page for more detail on supported commands
+* Try out our link:https://github.com/apache/ignite-3/tree/main/examples[examples]
