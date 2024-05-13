@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.replicator;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventListener;
@@ -29,6 +33,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.WaitReplicaStateMessage;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeResolver;
 
 /**
@@ -48,6 +53,9 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
 
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final ClusterNodeResolver clusterNodeResolver;
+
+    /** Map for saving waiting for replica state futures for each table partition. */
+    private final Map<TablePartitionId, CompletableFuture<Void>> waitPrimaryState = new ConcurrentHashMap<>();
 
 
     /**
@@ -91,8 +99,31 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
         assert zonePartitionId.tableId() != 0 : "Table id should be defined.";
 
         ZonePartitionId pureZonePartId = zonePartitionId.purify();
+        TablePartitionId tablePartitionId = new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId());
 
-        return delegate.awaitPrimaryReplicaForTable(pureZonePartId, timestamp, timeout, unit);
+        return delegate.awaitPrimaryReplicaForTable(pureZonePartId, timestamp, timeout, unit)
+                .thenCompose(replicaMeta -> {
+                    ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
+
+                    if (replicaMeta.subgroups().contains(tablePartitionId)) {
+                        waitPrimaryState.remove(tablePartitionId);
+
+                        return completedFuture(replicaMeta);
+                    }
+
+                    CompletableFuture<Void> waitReplicaStateFut = waitPrimaryState.computeIfAbsent(tablePartitionId, gerpId -> {
+                        WaitReplicaStateMessage awaitReplicaReq = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
+                                .groupId(tablePartitionId)
+                                .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
+                                .timeout(unit.toMillis(timeout))
+                                .updateLease(true)
+                                .build();
+
+                        return replicaService.invoke(leaseholderNode, awaitReplicaReq);
+                    });
+
+                    return waitReplicaStateFut.thenApply((ignored) -> replicaMeta);
+                });
     }
 
     @Override

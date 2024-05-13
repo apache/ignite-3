@@ -25,4 +25,6 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 @Transferable(ReplicaMessageGroup.WAIT_REPLICA_STATE)
 public interface WaitReplicaStateMessage extends PrimaryReplicaRequest {
     long timeout();
+
+    boolean updateLease();
 }

@@ -726,7 +726,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                                 .enlistmentConsistencyToken(meta.getStartTime().longValue())
                                                 .groupId(partId)
                                                 // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
-                                                .timeout(10)
+                                                .timeout(10_000)
+                                                .updateLease(false)
                                                 .build();
 
                                         CompletableFuture<Replica> replicaFut = replicas.get(repGrp);
@@ -739,7 +740,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                                     return allOf(requestToReplicas.toArray(CompletableFuture[]::new));
                                 }, scheduledTableLeaseUpdateExecutor)
-                                .get(500, TimeUnit.MILLISECONDS);
+                                .get(1, TimeUnit.SECONDS);
                     } catch (Exception ex) {
                         LOG.error(
                                 "Failed to add new subgroups to the replication group [repGrp={}, subGroups={}].",
