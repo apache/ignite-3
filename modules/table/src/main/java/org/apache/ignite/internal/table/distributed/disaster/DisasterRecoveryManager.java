@@ -228,7 +228,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
     }
 
     /**
-     * No documentation yet.
+     * Restarts replica service and raft group of passed partitions.
      *
      * @param nodeNames Names specifying nodes to restart partitions. Case-sensitive, empty set means "all nodes".
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
@@ -236,7 +236,6 @@ public class DisasterRecoveryManager implements IgniteComponent {
      * @param partitionIds IDs of partitions to restart. If empty, restart all zone's partitions.
      * @return Operation future.
      */
-    // TODO: IGNITE-21304 Реализация, документация и тестирование
     public CompletableFuture<Void> restartPartitions(Set<String> nodeNames, String zoneName, String tableName, Set<Integer> partitionIds) {
         try {
             // Validates passed node names.
