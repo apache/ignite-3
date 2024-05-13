@@ -556,7 +556,8 @@ namespace Apache.Ignite.Tests.Sql
             });
 
             static bool WasUpdatedRecently(TimeZoneInfo timeZoneInfo) =>
-                timeZoneInfo.GetAdjustmentRules().Any(r => (DateTime.UtcNow - r.DateStart).TotalDays < 365 * 2 && r.DaylightDelta == TimeSpan.Zero);
+                timeZoneInfo.GetAdjustmentRules().Any(
+                    r => (DateTime.UtcNow - r.DateStart).TotalDays < 365 * 2 && r.DaylightDelta == TimeSpan.Zero);
         }
 
         [Test]
