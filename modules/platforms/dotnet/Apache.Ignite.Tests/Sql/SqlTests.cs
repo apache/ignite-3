@@ -571,6 +571,8 @@ namespace Apache.Ignite.Tests.Sql
                 }
 
                 Assert.Less(skipped.Count, 20, "Too many time zones were skipped: " + skipped.StringJoin());
+
+                Console.WriteLine($"{systemZones.Count - skipped.Count} time zones tested to match in .NET and Java.");
             });
 
             static bool WasUpdatedRecently(TimeZoneInfo timeZoneInfo) =>
