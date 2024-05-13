@@ -1,0 +1,87 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Transactions
+
+All table operations in Ignite 3 are transactional. You can provide an explicit transaction as a first argument of any Table and SQL API call. If you do not provide an explicit transaction, an implicit one will be created for every call.
+
+Here is how you  can provide a transaction explicitly:
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+KeyValueView<Long, Account> accounts =
+  table.keyValueView(Mapper.of(Long.class), Mapper.of(Account.class));
+
+accounts.put(null, 42, new Account(16_000));
+
+var tx = client.transactions().begin();
+
+Account account = accounts.get(tx, 42);
+account.balance += 500;
+accounts.put(tx, 42, account);
+
+assert accounts.get(tx, 42).balance == 16_500;
+
+tx.rollback();
+
+assert accounts.get(tx, 42).balance == 16_000;
+----
+
+tab:.NET[]
+[source, csharp]
+----
+var accounts = table.GetKeyValueView<long, Account>();
+await accounts.PutAsync(transaction: null, 42, new Account(16_000));
+
+await using ITransaction tx = await client.Transactions.BeginAsync();
+
+(Account account, bool hasValue) = await accounts.GetAsync(tx, 42);
+account = account with { Balance = account.Balance + 500 };
+
+await accounts.PutAsync(tx, 42, account);
+
+Debug.Assert((await accounts.GetAsync(tx, 42)).Value.Balance == 16_500);
+
+await tx.RollbackAsync();
+
+Debug.Assert((await accounts.GetAsync(null, 42)).Value.Balance == 16_000);
+
+public record Account(decimal Balance);
+----
+
+tab:C++[]
+[source, cpp]
+----
+auto accounts = table.get_key_value_view<account, account>();
+
+account init_value(42, 16'000);
+accounts.put(nullptr, {42}, init_value);
+
+auto tx = client.get_transactions().begin();
+
+std::optional<account> res_account = accounts.get(&tx, {42});
+res_account->balance += 500;
+accounts.put(&tx, {42}, res_account);
+
+assert(accounts.get(&tx, {42})->balance == 16'500);
+
+tx.rollback();
+
+assert(accounts.get(&tx, {42})->balance == 16'000);
+----
+
+--

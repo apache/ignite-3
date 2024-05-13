@@ -50,7 +50,6 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.sql.IgniteSql;
@@ -500,7 +499,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         try {
             return marsh.marshal(key);
         } catch (MarshallerException e) {
-            throw new IgniteException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 

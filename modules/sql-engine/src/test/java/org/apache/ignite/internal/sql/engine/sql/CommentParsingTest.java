@@ -36,6 +36,7 @@ import org.junit.jupiter.params.provider.EnumSource;
  *
  * <p>Covers:<ol>
  * <li>E161: SQL comments using leading double minus</li>
+ * <li>T351: Bracketed SQL comments (&#47;*...*&#47; comments)</li>
  * </ol>
  *
  * <p>According to SQL standard, SQL text containing one or more instances of comment is equivalent to the same SQL text with the comment
@@ -47,11 +48,29 @@ public class CommentParsingTest extends AbstractParserTest {
 
     private static final String NL = System.lineSeparator();
 
+    private static final String SIMPLE_COMMENT = "-- this is simple comment ";
+    private static final String MULTILINE_COMMENT = "/* this" + NL
+            + "is" + NL
+            + "multiline" + NL
+            + "comment */";
+
     @ParameterizedTest
     @EnumSource(Statement.class)
     void leadingSimpleComment(Statement statement) {
         String originalQueryString = statement.text;
-        String queryWithComment = "-- this is comment " + NL + originalQueryString;
+        String queryWithComment = SIMPLE_COMMENT + NL + originalQueryString;
+
+        assertQueries(
+                originalQueryString,
+                queryWithComment
+        );
+    }
+
+    @ParameterizedTest
+    @EnumSource(Statement.class)
+    void leadingMultilineComment(Statement statement) {
+        String originalQueryString = statement.text;
+        String queryWithComment = MULTILINE_COMMENT + NL + originalQueryString;
 
         assertQueries(
                 originalQueryString,
@@ -63,7 +82,19 @@ public class CommentParsingTest extends AbstractParserTest {
     @EnumSource(Statement.class)
     void trailingSimpleComment(Statement statement) {
         String originalQueryString = statement.text;
-        String queryWithComment = originalQueryString + NL + "-- this is comment";
+        String queryWithComment = originalQueryString + NL + SIMPLE_COMMENT;
+
+        assertQueries(
+                originalQueryString,
+                queryWithComment
+        );
+    }
+
+    @ParameterizedTest
+    @EnumSource(Statement.class)
+    void trailingMultilineComment(Statement statement) {
+        String originalQueryString = statement.text;
+        String queryWithComment = originalQueryString + NL + MULTILINE_COMMENT;
 
         assertQueries(
                 originalQueryString,
@@ -76,7 +107,16 @@ public class CommentParsingTest extends AbstractParserTest {
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,
                 "Failed to parse query",
-                () -> parse("-- this is comment")
+                () -> parse(SIMPLE_COMMENT)
+        );
+    }
+
+    @Test
+    void emptyStatementMultilineComment() {
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query",
+                () -> parse(MULTILINE_COMMENT)
         );
     }
 
@@ -107,7 +147,7 @@ public class CommentParsingTest extends AbstractParserTest {
                 sb.app(line);
 
                 if (lineNum++ == lineToInject) {
-                    sb.app(" -- this is simple comment");
+                    sb.app(SIMPLE_COMMENT);
                 }
 
                 sb.app(NL);
@@ -117,7 +157,44 @@ public class CommentParsingTest extends AbstractParserTest {
         }
     }
 
-    private void assertQueries(String expected, String actual) {
+    /**
+     * This test injects simple comment before random line break.
+     */
+    @ParameterizedTest
+    @EnumSource(Statement.class)
+    void infixMultilineComment(Statement statement) {
+        int iterations = 50;
+        long seed = ThreadLocalRandom.current().nextLong();
+
+        LOG.info("Seed is {}", seed);
+
+        Random rnd = new Random(seed);
+
+        // it's well-known query that has less than
+        // Integer.MAX_VALUE lines
+        @SuppressWarnings("NumericCastThatLosesPrecision")
+        int linesCount = (int) statement.text.lines().count();
+
+        for (int i = 0; i < iterations; i++) {
+            int lineToInject = Integer.min(statement.maxLineBreak, rnd.nextInt(linesCount));
+
+            int lineNum = 0;
+            IgniteStringBuilder sb = new IgniteStringBuilder();
+            for (String line : statement.text.split(NL)) {
+                sb.app(line);
+
+                if (lineNum++ == lineToInject) {
+                    sb.app(MULTILINE_COMMENT);
+                }
+
+                sb.app(NL);
+            }
+
+            assertQueries(statement.text, sb.toString());
+        }
+    }
+
+    private static void assertQueries(String expected, String actual) {
         SqlNode expectedAst;
         SqlNode actualAst;
         try {

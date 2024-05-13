@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
@@ -44,6 +43,7 @@ import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.table.partition.HashPartitionManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
@@ -51,6 +51,7 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.PartitionManager;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -141,6 +142,11 @@ public class TableImpl implements TableViewInternal {
         return tbl;
     }
 
+    @Override
+    public PartitionManager partitionManager() {
+        return new HashPartitionManagerImpl(tbl, schemaReg, marshallers);
+    }
+
     @Override public String name() {
         return tbl.name();
     }
@@ -166,7 +172,7 @@ public class TableImpl implements TableViewInternal {
 
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
-        return new RecordViewImpl<R>(tbl, schemaReg, schemaVersions, sql, marshallers, recMapper);
+        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, sql, marshallers, recMapper);
     }
 
     @Override
@@ -195,7 +201,7 @@ public class TableImpl implements TableViewInternal {
 
             return tbl.partition(keyRow);
         } catch (TupleMarshallerException e) {
-            throw new IgniteInternalException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 
@@ -209,7 +215,7 @@ public class TableImpl implements TableViewInternal {
         try {
             keyRow = marshaller.marshal(key);
         } catch (MarshallerException e) {
-            throw new IgniteInternalException("Cannot marshal key", e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
 
         return tbl.partition(keyRow);

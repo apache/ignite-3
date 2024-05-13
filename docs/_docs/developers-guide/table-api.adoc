@@ -1,0 +1,396 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Table API
+
+To execute table operations on a specific table, you need to get a specific view of the table and use one of its methods. You can only create new tables by using SQL API.
+
+Ignite supports mapping user objects to table tuples. This ensures that objects created in any programming language can be used for key-value operations directly.
+
+== Getting a Table Instance
+
+First, get an instance of the table. To obtain an instance of table, use the `IgniteTables.table(String)` method. You can also use `IgniteTables.tables()` method to list all existing tables.
+
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+IgniteTables tableApi = client.tables();
+List<Table> existingTables = tableApi.tables();
+Table firstTable = existingTables.get(0);
+
+Table myTable = tableApi.table("MY_TABLE");
+----
+
+tab:.NET[]
+[source, csharp]
+----
+var existingTables = await Client.Tables.GetTablesAsync();
+var firstTable = existingTables[0];
+
+var myTable = await Client.Tables.GetTableAsync("MY_TABLE");
+----
+
+tab:C++[]
+[source, cpp]
+----
+using namespace ignite;
+
+auto table_api = client.get_tables();
+std::vector<table> existing_tables = table_api.get_tables();
+table first_table = existing_tables.front();
+
+std::optional<table> my_table = table_api.get_table("MY_TABLE);
+----
+--
+
+== Basic Table Operations
+
+Once you've got a table you need to get a specific view to choose how you want to operate table records.
+
+=== Binary Record View
+
+A binary record view. It can be used to operate table tuples directly.
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+RecordView<Tuple> view = table.recordView();
+
+Tuple fullRecord = Tuple.create()
+  .set("id", 42)
+  .set("name", "John Doe");
+
+view.upsert(null, fullRecord);
+
+Tuple keyRecord = Tuple.create().set("id", 42);
+
+Tuple resRecord = view.get(null, keyRecord);
+
+assert resRecord.columnCount() == 2;
+assert resRecord.intValue("id") == 42;
+assert resRecord.stringValue("name").equals("John Doe");
+----
+
+tab:.NET[]
+[source, csharp]
+----
+IRecordView<IIgniteTuple> view = table.RecordBinaryView;
+
+IIgniteTuple fullRecord = new IgniteTuple
+{
+  ["id"] = 42,
+  ["name"] = "John Doe"
+};
+
+await view.UpsertAsync(transaction: null, fullRecord);
+
+IIgniteTuple keyRecord = new IgniteTuple { ["id"] = 42 };
+(IIgniteTuple value, bool hasValue) = await view.GetAsync(transaction: null, keyRecord);
+
+Debug.Assert(hasValue);
+Debug.Assert(value.FieldCount == 2);
+Debug.Assert(value["id"] as int? == 42);
+Debug.Assert(value["name"] as string == "John Doe");
+----
+
+tab:C++[]
+[source, cpp]
+----
+record_view<ignite_tuple> view = table.get_record_binary_view();
+
+ignite_tuple record{
+  {"id", 42},
+  {"name", "John Doe"}
+};
+
+view.upsert(nullptr, record);
+std::optional<ignite_tuple> res_record = view.get(nullptr, {"id", 42});
+
+assert(res_record.has_value());
+assert(res_record->column_count() == 2);
+assert(res_record->get<std::int64_t>("id") == 42);
+assert(res_record->get<std::string>("name") == "John Doe");
+----
+
+--
+
+=== Record View
+
+A record view mapped to a user type. It can be used to operate table using user objects which are mapped to table tuples.
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+RecordView<Pojo> pojoView = table.recordView(Mapper.of(Pojo.class));
+
+pojoView.upsert(null, new Pojo(42, "John Doe"));
+Pojo resRecord = pojoView.get(null, new Pojo(42));
+
+assert resRecord.id == 42;
+assert resRecord.name.equals("John Doe");
+----
+
+tab:.NET[]
+[source, csharp]
+----
+var pocoView = table.GetRecordView<Poco>();
+
+await pocoView.UpsertAsync(transaction: null, new Poco(42, "John Doe"));
+var (value, hasValue) = await pocoView.GetAsync(transaction: null, new Poco(42));
+
+Debug.Assert(hasValue);
+Debug.Assert(value.Name == "John Doe");
+
+public record Poco(long Id, string? Name = null);
+----
+
+tab:C++[]
+[source, cpp]
+----
+record_view<person> view = table.get_record_view<person>();
+
+person record(42, "John Doe");
+
+view.upsert(nullptr, record);
+std::optional<person> res_record = view.get(nullptr, person{42});
+
+assert(res.has_value());
+assert(res->id == 42);
+assert(res->name == "John Doe");
+----
+
+--
+
+=== Key-Value Binary View
+
+A binary key-value view. It can be used to operate table using key and value tuples separately.
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+
+Tuple key = Tuple.create().set("id", 42)
+Tuple val = Tuple.create().set("name", "John Doe");
+
+kvView.put(null, key, val);
+Tuple res = kvView.get(null, key);
+
+assert res.columnCount() == 1;
+assert res.stringValue("name").equals("John Doe");
+----
+
+tab:.NET[]
+[source, csharp]
+----
+IKeyValueView<IIgniteTuple, IIgniteTuple> kvView = table.KeyValueBinaryView;
+
+IIgniteTuple key = new IgniteTuple { ["id"] = 42 };
+IIgniteTuple val = new IgniteTuple { ["name"] = "John Doe" };
+
+await kvView.PutAsync(transaction: null, key, val);
+(IIgniteTuple? value, bool hasValue) = await kvView.GetAsync(transaction: null, key);
+
+Debug.Assert(hasValue);
+Debug.Assert(value.FieldCount == 1);
+Debug.Assert(value["name"] as string == "John Doe");
+----
+
+tab:C++[]
+[source, cpp]
+----
+key_value_view<ignite_tuple, ignite_tuple> kv_view = table.get_key_value_binary_view();
+
+ignite_tuple key_tuple{{"id", 42}};
+ignite_tuple val_tuple{{"name", "John Doe"}};
+
+kv_view.put(nullptr, key_tuple, val_tuple);
+std::optional<ignite_tuple> res_tuple = kv_view.get(nullptr, key_tuple);
+
+assert(res_tuple.has_value());
+assert(res_tuple->column_count() == 2);
+assert(res_tuple->get<std::int64_t>("id") == 42);
+assert(res_tuple->get<std::string>("name") == "John Doe");
+----
+
+--
+
+
+=== Key-Value View
+
+A key-value view with user objects. It can be used to operate table using key and value user objects mapped to table tuples.
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+KeyValueView<Long, Pojo> pojoView =
+  table.keyValueView(Mapper.of(Long.class), Mapper.of(Pojo.class));
+
+pojoView.put(null, 42, new Pojo("John Doe"));
+Pojo val = pojoView.get(null, 42);
+
+assert val.name.equals("John Doe");
+----
+
+tab:.NET[]
+[source, csharp]
+----
+IKeyValueView<long, Poco> kvView = table.GetKeyValueView<long, Poco>();
+
+await kvView.PutAsync(transaction: null, 42, new Poco(Id: 0, Name: "John Doe"));
+(Poco? value, bool hasValue) = await kvView.GetAsync(transaction: null, 42);
+
+Debug.Assert(hasValue);
+Debug.Assert(value.Name == "John Doe");
+
+public record Poco(long Id, string? Name = null);
+----
+
+tab:C++[]
+[source, cpp]
+----
+key_value_view<person, person> kv_view = table.get_key_value_view<person, person>();
+
+kv_view.put(nullptr, {42}, {"John Doe"});
+std::optional<person> res = kv_view.get(nullptr, {42});
+
+assert(res.has_value());
+assert(res->id == 42);
+assert(res->name == "John Doe");
+----
+--
+
+
+== Criterion Queries
+
+Ignite 3 provides the criterion queries that can be used to retrieve data from tables. Criterion queries work with any type of view, returning the appropriate data to the query specified.
+
+The example below shows how you can execute a query within an implicit transaction:
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+try (Cursor<Entry<Tuple, Tuple>> cursor = kvView().query(
+        null,
+        and(columnValue("City", equalTo("New York")), columnValue("Salary", greaterThan(10000)))
+)) {
+    // ...
+}
+
+
+----
+--
+
+The comparison query are specified by using the `query()` method, and providing the comparison criteria in the `columnValue` method.
+
+You can also specify the specific transaction to execute the query in to perform the query in that specific transaction.
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+var tx = client.transactions().begin();
+
+try (Cursor<Entry<Tuple, Tuple>> cursor = kvView().query(
+        tx,
+        and(columnValue("City", equalTo("New York")), columnValue("Salary", greaterThan(10000)))
+)) {
+    // ...
+}
+
+tx.close();
+----
+--
+
+=== Asynchronous Queries
+
+You can also perform the query asynchronously by using the `queryAsync` method. This way the query is executed without blocking the thread. For example, you can execute the above query asynchronously:
+
+[tabs]
+--
+tab:Java[]
+----
+view.queryAsync(null, and(columnValue("City", equalTo("New York")), columnValue("Salary", greaterThan(10000)))
+    .thenCompose(this::fetchAllRowsInto)
+    .join();
+----
+--
+
+This operation uses the `thenCompose()` method to handle the query results asynchronously in the user-defined `fetchAllRowsInto()` method. Here is how this method may look like:
+
+[tabs]
+--
+tab:Java[]
+----
+private static CompletionStage<Void> fetchAllRowsInto(AsyncCursor<Entry<Tuple, Tuple>> cursor) {
+    // Process the current page.
+    for (var row : cursor.currentPage()) {
+       // ...
+    }
+    // Finish processing if no more data is currently available.
+    if (!cursor.hasMorePages()) {
+        return nullCompletedFuture();
+    }
+    // Request for the next page, then subscribe to the response.
+    return cursor.fetchNextPage().thenCompose(this::fetchAllRowsInto);
+}
+----
+--
+
+
+=== Comparison Expressions
+
+The following expressions are supported in criterion queries:
+
+[cols="15%,60%,25%",opts="header"]
+|======
+|Expression|Description|Example
+|`equalTo`|Checks if the object is equal to the value.|`columnValue("City", equalTo("New York"))`
+|`notEqualTo`|Checks if the object is not equal to the value.|`columnValue("City", notEqualTo("New York"))`
+|`greaterThan`|Checks if the object is greater than the value.|`columnValue("Salary", greaterThan(10000))`
+|`greaterThanOrEqualTo`|Checks if the object is greater than or equal to the value.|`columnValue("Salary", greaterThanOrEqualTo(10000))`
+|`lessThan`|Checks if the object is less than the value.|`columnValue("Salary", lessThan(10000))`
+|`lessThanOrEqualTo`|Checks if the object is less than or equal to the value.|`columnValue("Salary", lessThanOrEqualTo(10000))`
+|`nullValue`|Checks if the object is null.|`columnValue("City", nullValue()`
+|`notNullValue`|Checks if the object is not null.|`columnValue("City", notNullValue())`
+|`in`|Checks if the object is in the collection.|`columnValue("City", in("New York", "Washington"))`
+|`notIn`|Checks if the object is not in the collection.|`columnValue("City", notIn("New York", "Washington"))`
+|======
+
+=== Comparison Operators
+
+The following operators are supported in criterion queries:
+
+
+[cols="15%,60%,25%",opts="header"]
+|======
+|Operator|Description|Example
+|`not`|Negates the condition.|`not(columnValue("City", equalTo("New York")))`
+|`and`|Used to evaluate multiple conditions at the same time.|`and(columnValue("City", equalTo("New York")), columnValue("Salary", greaterThan(10000)))`
+|`or`|Used to evaluate for at least one matching condition.|`or(columnValue("City", equalTo("New York")), columnValue("Salary", greaterThan(10000)))`
+|======

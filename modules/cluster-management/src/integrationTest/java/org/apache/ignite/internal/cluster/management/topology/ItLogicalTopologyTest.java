@@ -57,29 +57,19 @@ import org.junit.jupiter.api.TestInfo;
 class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
     private final BlockingQueue<Event> events = new LinkedBlockingQueue<>();
 
-    private static final String NODE_ATTRIBUTES = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
-
-    private static final String STORAGE_PROFILES = "{lru_rocks:{engine:\"rocksDb\"},segmented_aipersist:{engine:\"aipersist\"}}";
-
     private static final Map<String, String> NODE_ATTRIBUTES_MAP = Map.of("region", "US", "storage", "SSD");
 
     private static final String[] STORAGE_PROFILES_LIST = {"lru_rocks", "segmented_aipersist"};
 
-    @Language("JSON")
+    @Language("HOCON")
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE_WITH_NODE_ATTRIBUTES_AND_STORAGE_PROFILES = "{\n"
             + "  network: {\n"
             + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
+            + "    nodeFinder.netClusterNodes: [ {} ]\n"
             + "  },\n"
-            + "  nodeAttributes: {\n"
-            + "    nodeAttributes: " + NODE_ATTRIBUTES
-            + "  },\n"
-            + "  storage: {\n"
-            + "    profiles: " + STORAGE_PROFILES
-            + "  },\n"
-            + "  clientConnector: { port:{} },\n"
+            + "  nodeAttributes.nodeAttributes: {region.attribute = US, storage.attribute = SSD},\n"
+            + "  storage.profiles: {lru_rocks.engine = rocksdb, segmented_aipersist.engine = aipersist},\n"
+            + "  clientConnector.port: {},\n"
             + "  rest.port: {}\n"
             + "}";
 
