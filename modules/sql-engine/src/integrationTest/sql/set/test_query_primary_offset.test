@@ -1,5 +1,5 @@
 # name: test/sql/set/test_query_primary_offset.test
-# description: F863: Nested <result offset clause>. Top-level <result offset clause> in <query expression> <query expression>
+# description: F863: Nested <result offset clause>.
 # group: [order]
 
 statement ok
