@@ -3,6 +3,12 @@
 # feature: SQL T122(WITH (excluding RECURSIVE) in subquery)
 # group: [cte]
 
+statement ok
+create table a(i bigint);
+
+statement ok
+insert into a values (42);
+
 # refer to CTE in subquery
 query I
 with cte1 as (Select i as j from a) select * from cte1 where j = (select max(j) from cte1 as cte2);
