@@ -523,9 +523,8 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public void TestSystemTimeZones()
+        public void TestStatementTimeZone()
         {
-            double deltaSeconds = 10;
             var statement = new SqlStatement("SELECT CURRENT_TIMESTAMP");
             var systemZones = TimeZoneInfo.GetSystemTimeZones();
 
@@ -550,21 +549,34 @@ namespace Apache.Ignite.Tests.Sql
                         continue;
                     }
 
-                    Assert.AreEqual(
-                        expected: ToUnixTimeSeconds(currentTimeInZone),
-                        actual: ToUnixTimeSeconds(resTime),
-                        delta: deltaSeconds,
-                        message: $"Time zone: {timeZoneInfo.Id}");
+                    AssertLocalDateTimeAreSimilar(currentTimeInZone, resTime, $"Time zone: {timeZoneInfo.Id}");
                 }
 
                 Assert.Less(skipped.Count, 10, "Too many time zones were skipped: " + skipped.StringJoin());
             });
 
-            static double ToUnixTimeSeconds(LocalDateTime localDateTime) =>
-                new DateTimeOffset(localDateTime.ToDateTimeUnspecified()).ToUnixTimeSeconds();
-
             static bool WasUpdatedRecently(TimeZoneInfo timeZoneInfo) =>
                 timeZoneInfo.GetAdjustmentRules().Any(r => (DateTime.UtcNow - r.DateStart).TotalDays < 365 * 2 && r.DaylightDelta == TimeSpan.Zero);
+        }
+
+        [Test]
+        public async Task TestStatementTimezoneAsUtcOffset()
+        {
+
+        }
+
+        private static void AssertLocalDateTimeAreSimilar(LocalDateTime expected, LocalDateTime actual, string message)
+        {
+            double deltaSeconds = 10;
+
+            var expectedSeconds = ToUnixTimeSeconds(expected);
+            var actualSeconds = ToUnixTimeSeconds(actual);
+
+            Assert.AreEqual(
+                expectedSeconds, actualSeconds, deltaSeconds, $"{(expectedSeconds - actualSeconds) / 3600} hours ({message})");
+
+            static double ToUnixTimeSeconds(LocalDateTime localDateTime) =>
+                new DateTimeOffset(localDateTime.ToDateTimeUnspecified()).ToUnixTimeSeconds();
         }
     }
 }
