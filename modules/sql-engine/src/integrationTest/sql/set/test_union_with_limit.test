@@ -1,6 +1,6 @@
 # name: test/sql/set/union_with_limit.test
 # description: UNION with nested sort/limit
-# group: [union]
+# group: [set]
 
 statement ok
 CREATE TABLE test (a INTEGER);

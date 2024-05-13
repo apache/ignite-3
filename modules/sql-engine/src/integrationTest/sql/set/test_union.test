@@ -1,6 +1,7 @@
 # name: test/sql/set/test_union.test
 # description: Basic union tests
 # feature: E071-01
+# group: [set]
 
 statement ok
 CREATE TABLE a(i INTEGER);

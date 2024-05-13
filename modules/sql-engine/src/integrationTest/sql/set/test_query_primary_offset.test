@@ -1,6 +1,6 @@
 # name: test/sql/set/test_query_primary_offset.test
 # description: F863: Nested <result offset clause>.
-# group: [order]
+# group: [set]
 
 statement ok
 CREATE TABLE test (a INTEGER)
