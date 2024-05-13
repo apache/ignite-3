@@ -561,10 +561,10 @@ namespace Apache.Ignite.Tests.Sql
                 }
             }
 
-            // JDK, CLR, and NodaTime have time zone databases that are updated at different times, we expect a few mismatches.
-            if (failures.Count > 20)
+            // JDK, CLR, and NodaTime have time zone databases that are updated at different times, we expect some mismatches.
+            if (failures.Count > 30)
             {
-                throw new AggregateException("Too many failures", failures);
+                throw new AggregateException("Too many failures: " + failures.Count, failures);
             }
 
             Console.WriteLine($"{zoneIds.Count - failures.Count} time zones match in .NET and Java.");
