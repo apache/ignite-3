@@ -561,12 +561,12 @@ namespace Apache.Ignite.Tests.Sql
                 }
             }
 
+            // Old JDK and CLR may have time zone databases that are updated at different times, we expect a few mismatches.
             if (failures.Count > 20)
             {
                 throw new AggregateException("Too many failures", failures);
             }
 
-            // Old JDK and CLR may have time zone databases that are updated at different times, we expect a few mismatches.
             Console.WriteLine($"{zoneIds.Count - failures.Count} time zones match in .NET and Java.");
         }
 
