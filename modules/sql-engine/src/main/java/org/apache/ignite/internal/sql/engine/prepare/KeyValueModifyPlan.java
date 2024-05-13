@@ -58,7 +58,7 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
     private final IgniteKeyValueModify modifyNode;
     private final ResultSetMetadata meta;
     private final ParameterMetadata parameterMetadata;
-    private Supplier<RowSchema> schemaSupplier;
+    private RowSchema rowSchema;
 
     KeyValueModifyPlan(
             PlanId id,
@@ -140,9 +140,13 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
 
                     RelDataType rowType = table().getRowType(ctx.getTypeFactory());
 
-                    if (schemaSupplier == null) {
-                        schemaSupplier = () -> rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
-                    }
+                    Supplier<RowSchema> schemaSupplier = () -> {
+                        if (rowSchema != null) {
+                            return rowSchema;
+                        }
+                        rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+                        return rowSchema;
+                    };
 
                     row = validateCharactersOverflowAndTrimIfPossible(rowType, ctx.rowHandler(), row, schemaSupplier);
 

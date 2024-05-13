@@ -80,7 +80,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private final TableRowConverter rowConverter;
 
-    private Supplier<RowSchema> schemaSupplier;
+    private RowSchema rowSchema;
 
     /** Constructor. */
     UpdatableTableImpl(
@@ -116,9 +116,13 @@ public final class UpdatableTableImpl implements UpdatableTable {
         validateNotNullConstraint(ectx.rowHandler(), rows);
 
         RelDataType rowType = descriptor().rowType(ectx.getTypeFactory(), null);
-        if (schemaSupplier == null) {
-            schemaSupplier = () -> rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
-        }
+        Supplier<RowSchema> schemaSupplier = () -> {
+            if (rowSchema != null) {
+                return rowSchema;
+            }
+            rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+            return rowSchema;
+        };
 
         rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
 
@@ -223,9 +227,13 @@ public final class UpdatableTableImpl implements UpdatableTable {
         validateNotNullConstraint(ectx.rowHandler(), rows);
 
         RelDataType rowType = descriptor().rowType(ectx.getTypeFactory(), null);
-        if (schemaSupplier == null) {
-            schemaSupplier = () -> rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
-        }
+        Supplier<RowSchema> schemaSupplier = () -> {
+            if (rowSchema != null) {
+                return rowSchema;
+            }
+            rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+            return rowSchema;
+        };
 
         rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
 
