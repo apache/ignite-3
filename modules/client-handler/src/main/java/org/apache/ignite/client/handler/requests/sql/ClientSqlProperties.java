@@ -18,16 +18,15 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import java.time.ZoneId;
-import javax.annotation.Nullable;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.jetbrains.annotations.Nullable;
 
 class ClientSqlProperties {
-    @Nullable
-    private final String schema;
+    private final @Nullable String schema;
 
     private final int pageSize;
 
@@ -35,8 +34,7 @@ class ClientSqlProperties {
 
     private final long idleTimeout;
 
-    @Nullable
-    private String timeZoneId;
+    private final @Nullable String timeZoneId;
 
     ClientSqlProperties(ClientMessageUnpacker in) {
         schema = in.tryUnpackNil() ? null : in.unpackString();
@@ -50,8 +48,7 @@ class ClientSqlProperties {
         in.readBinaryUnsafe(); // Binary tuple with properties
     }
 
-    @Nullable
-    public String schema() {
+    public @Nullable String schema() {
         return schema;
     }
 
