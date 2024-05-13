@@ -31,16 +31,13 @@ public class ClientStatement implements Statement {
     private final String query;
 
     /** Default schema. */
-    @Nullable
-    private final String defaultSchema;
+    private final @Nullable String defaultSchema;
 
     /** Query timeout. */
-    @Nullable
-    private final Long queryTimeoutMs;
+    private final @Nullable Long queryTimeoutMs;
 
     /** Page size. */
-    @Nullable
-    private final Integer pageSize;
+    private final @Nullable Integer pageSize;
 
     /** Time-zone ID. */
     private final ZoneId timeZoneId;
@@ -88,8 +85,7 @@ public class ClientStatement implements Statement {
      *
      * @return Query timeout.
      */
-    @Nullable
-    Long queryTimeoutNullable() {
+    @Nullable Long queryTimeoutNullable() {
         return queryTimeoutMs;
     }
 
@@ -116,8 +112,7 @@ public class ClientStatement implements Statement {
      *
      * @return Page size.
      */
-    @Nullable
-    Integer pageSizeNullable() {
+    @Nullable Integer pageSizeNullable() {
         return pageSize;
     }
 
