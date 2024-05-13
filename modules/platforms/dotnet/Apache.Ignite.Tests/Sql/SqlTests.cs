@@ -395,6 +395,7 @@ namespace Apache.Ignite.Tests.Sql
                 timeout: TimeSpan.FromSeconds(123),
                 schema: "schema-1",
                 pageSize: 987,
+                timeZoneId: "Europe/London",
                 properties: new Dictionary<string, object?> { { "prop1", 10 }, { "prop-2", "xyz" } });
 
             await using var res = await client.Sql.ExecuteAsync(null, sqlStatement);
@@ -410,6 +411,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("SELECT PROPS", props["sql"]);
             Assert.AreEqual("10", props["prop1"]);
             Assert.AreEqual("xyz", props["prop-2"]);
+            Assert.AreEqual("Europe/London", props["timeZoneId"]);
         }
 
         [Test]
@@ -476,7 +478,8 @@ namespace Apache.Ignite.Tests.Sql
                 timeout: TimeSpan.FromSeconds(123),
                 schema: "schema-1",
                 pageSize: 987,
-                properties: new Dictionary<string, object?> { { "prop1", 10 }, { "prop-2", "xyz" } });
+                properties: new Dictionary<string, object?> { { "prop1", 10 }, { "prop-2", "xyz" } },
+                timeZoneId: "Europe/Nicosia");
 
             await client.Sql.ExecuteScriptAsync(sqlStatement);
             var resProps = server.LastSqlScriptProps;
@@ -487,6 +490,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("SELECT PROPS", resProps["sql"]);
             Assert.AreEqual(10, resProps["prop1"]);
             Assert.AreEqual("xyz", resProps["prop-2"]);
+            Assert.AreEqual(sqlStatement.TimeZoneId, resProps["timeZoneId"]);
         }
 
         [Test]
@@ -514,6 +518,21 @@ namespace Apache.Ignite.Tests.Sql
             IIgniteTuple res = await resultSet.SingleAsync();
 
             Assert.AreEqual(3.333333333333333m, res[0]);
+        }
+
+        [Test]
+        public async Task TestSystemTimeZones()
+        {
+            var systemZones = TimeZoneInfo.GetSystemTimeZones();
+
+            foreach (var timeZoneInfo in systemZones)
+            {
+                var statement = new SqlStatement("SELECT CURRENT_TIMESTAMP", timeZoneId: timeZoneInfo.Id);
+                await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
+                IIgniteTuple res = await resultSet.SingleAsync();
+
+                Assert.AreEqual(timeZoneInfo.Id, res[0]);
+            }
         }
     }
 }
