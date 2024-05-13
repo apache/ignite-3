@@ -104,7 +104,7 @@ public class Replica {
 
     private final ClockService clockService;
 
-    private final CompletableFuture<Void> waitForActualStateFuture = new CompletableFuture<>();
+    private final AtomicReference<CompletableFuture<Void>> waitForActualStateFuture = new AtomicReference<>();
 
     /**
      * The constructor of a replica server.
@@ -159,30 +159,40 @@ public class Replica {
         if (request instanceof PrimaryReplicaRequest) {
             var targetPrimaryReq = (PrimaryReplicaRequest) request;
 
-            if (request instanceof WaitReplicaStateMessage) {
-                if (!waitForActualStateFuture.isDone()) {
-                    var waitReplicaStateMsg = (WaitReplicaStateMessage) request;
+            CompletableFuture<Void> waitForActualStateFuture0 = waitForActualStateFuture.get();
 
-                    return processWaitReplicaStateMessage(waitReplicaStateMsg)
-                            .thenApply(unused -> EMPTY_REPLICA_RESULT);
+            if (request instanceof WaitReplicaStateMessage) {
+                if (waitForActualStateFuture0 == null) {
+                    if (waitForActualStateFuture.compareAndSet(null, new CompletableFuture<>())) {
+                        var waitReplicaStateMsg = (WaitReplicaStateMessage) request;
+
+                        return processWaitReplicaStateMessage(waitReplicaStateMsg)
+                                .thenApply(unused -> EMPTY_REPLICA_RESULT);
+                    } else {
+                        waitForActualStateFuture.get().thenApply(unused -> EMPTY_REPLICA_RESULT);
+                    }
                 } else {
                     return completedFuture(EMPTY_REPLICA_RESULT);
                 }
             }
 
-            if (!waitForActualStateFuture.isDone()) {
-                return placementDriver.addSubgroups(
-                                zonePartitionId,
-                                targetPrimaryReq.enlistmentConsistencyToken(),
-                                Set.of(replicaGrpId)
-                        )
-                        // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
-                        .thenComposeAsync(unused -> waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + 10_000), executor)
-                        .thenComposeAsync(
-                                v -> sendPrimaryReplicaChangeToReplicationGroup(targetPrimaryReq.enlistmentConsistencyToken()),
-                                executor
-                        )
-                        .thenComposeAsync(unused -> listener.invoke(request, senderId), executor);
+            if (waitForActualStateFuture0 == null) {
+                if (waitForActualStateFuture.compareAndSet(null, new CompletableFuture<>())) {
+                    return placementDriver.addSubgroups(
+                                    zonePartitionId,
+                                    targetPrimaryReq.enlistmentConsistencyToken(),
+                                    Set.of(replicaGrpId)
+                            )
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
+                            .thenComposeAsync(unused -> waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + 10_000), executor)
+                            .thenComposeAsync(
+                                    v -> sendPrimaryReplicaChangeToReplicationGroup(targetPrimaryReq.enlistmentConsistencyToken()),
+                                    executor
+                            )
+                            .thenComposeAsync(unused -> listener.invoke(request, senderId), executor);
+                } else {
+                    waitForActualStateFuture.get().thenComposeAsync(unused -> listener.invoke(request, senderId), executor);
+                }
             }
         }
 
@@ -369,7 +379,7 @@ public class Replica {
         return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, executor)
                 .orTimeout(timeout, TimeUnit.MILLISECONDS)
                 .thenCompose(idx -> storageIndexTracker.waitFor(idx))
-                .thenRun(() -> waitForActualStateFuture.complete(null));
+                .thenRun(() -> waitForActualStateFuture.get().complete(null));
     }
 
     /**
