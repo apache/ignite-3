@@ -22,7 +22,7 @@ import org.apache.ignite.Ignite;
 /**
  * Embedded client nulls in operations test.
  */
-public class ItThinClientNullsEmbeddedTest extends ItThinClientNullsTest {
+public class ItNullsEmbeddedClientTest extends ItNullsThinClientTest {
 
     @Override
     protected Ignite ignite() {

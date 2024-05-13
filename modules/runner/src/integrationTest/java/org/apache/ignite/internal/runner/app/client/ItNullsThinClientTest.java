@@ -37,7 +37,7 @@ import org.junit.jupiter.api.function.Executable;
 /**
  * Thin client nulls in operations test.
  */
-public class ItThinClientNullsTest extends ItAbstractThinClientTest {
+public class ItNullsThinClientTest extends ItAbstractThinClientTest {
 
     static class BoolStr {
         @SuppressWarnings("unused")
