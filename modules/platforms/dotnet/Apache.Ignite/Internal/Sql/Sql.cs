@@ -238,6 +238,8 @@ namespace Apache.Ignite.Internal.Sql
             w.Write(statement.PageSize);
             w.Write((long)statement.Timeout.TotalMilliseconds);
             w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
+            w.WriteNil(); // TODO: IGNITE-21604 Time zone id.
+
             WriteProperties(statement, ref w);
             w.Write(statement.Query);
             w.WriteObjectCollectionAsBinaryTuple(args);

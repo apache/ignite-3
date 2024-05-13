@@ -1013,20 +1013,25 @@ public class PartitionReplicaListener implements ReplicaListener {
             for (int i = 0; i < rows.size(); i++) {
                 BinaryRow row = rows.get(i);
 
-                futs[i] = schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
-                        .thenCompose(validationResult -> {
-                            if (validationResult.isSuccessful()) {
-                                return completedFuture(row);
-                            } else {
-                                throw new IncompatibleSchemaException("Operation failed because schema "
-                                        + validationResult.fromSchemaVersion() + " is not backward-compatible with "
-                                        + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
-                            }
-                        });
+                futs[i] = validateBackwardCompatibility(row, txId)
+                        .thenApply(unused -> row);
             }
 
             return allOf(futs).thenApply((unused) -> rows);
         });
+    }
+
+    private CompletableFuture<Void> validateBackwardCompatibility(BinaryRow row, UUID txId) {
+        return schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
+                .thenAccept(validationResult -> {
+                    if (!validationResult.isSuccessful()) {
+                        throw new IncompatibleSchemaException(String.format(
+                                "Operation failed because it tried to access a row with newer schema version than transaction's [table=%d, "
+                                        + "txSchemaVersion=%d, rowSchemaVersion=%d]",
+                                validationResult.failedTableId(), validationResult.fromSchemaVersion(), validationResult.toSchemaVersion()
+                        ));
+                    }
+                });
     }
 
     /**
@@ -1569,16 +1574,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return nullCompletedFuture();
             }
 
-            return schemaCompatValidator.validateBackwards(row.binaryRow().schemaVersion(), tableId(), txId)
-                    .thenApply(validationResult -> {
-                        if (validationResult.isSuccessful()) {
-                            return row;
-                        } else {
-                            throw new IncompatibleSchemaException("Operation failed because schema "
-                                    + validationResult.fromSchemaVersion() + " is not backward-compatible with "
-                                    + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
-                        }
-                    });
+            return validateBackwardCompatibility(row.binaryRow(), txId)
+                    .thenApply(unused -> row);
         });
     }
 

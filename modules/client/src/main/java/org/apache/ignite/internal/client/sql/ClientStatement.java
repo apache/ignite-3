@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.client.sql;
 
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client SQL statement.
@@ -31,13 +31,16 @@ public class ClientStatement implements Statement {
     private final String query;
 
     /** Default schema. */
-    private final String defaultSchema;
+    private final @Nullable String defaultSchema;
 
     /** Query timeout. */
-    private final Long queryTimeoutMs;
+    private final @Nullable Long queryTimeoutMs;
 
     /** Page size. */
-    private final Integer pageSize;
+    private final @Nullable Integer pageSize;
+
+    /** Time-zone ID. */
+    private final ZoneId timeZoneId;
 
     /**
      * Constructor.
@@ -48,17 +51,19 @@ public class ClientStatement implements Statement {
      * @param pageSize Page size.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-    public ClientStatement(
+    ClientStatement(
             String query,
-            String defaultSchema,
-            Long queryTimeoutMs,
-            Integer pageSize) {
+            @Nullable String defaultSchema,
+            @Nullable Long queryTimeoutMs,
+            @Nullable Integer pageSize,
+            @Nullable ZoneId timeZoneId) {
         Objects.requireNonNull(query);
 
         this.query = query;
         this.defaultSchema = defaultSchema;
         this.queryTimeoutMs = queryTimeoutMs;
         this.pageSize = pageSize;
+        this.timeZoneId = timeZoneId != null ? timeZoneId : ZoneId.systemDefault();
     }
 
     /** {@inheritDoc} */
@@ -80,7 +85,7 @@ public class ClientStatement implements Statement {
      *
      * @return Query timeout.
      */
-    public Long queryTimeoutNullable() {
+    @Nullable Long queryTimeoutNullable() {
         return queryTimeoutMs;
     }
 
@@ -93,8 +98,7 @@ public class ClientStatement implements Statement {
     /** {@inheritDoc} */
     @Override
     public ZoneId timeZoneId() {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-21568
-        return ZoneOffset.UTC;
+        return timeZoneId;
     }
 
     /** {@inheritDoc} */
@@ -108,7 +112,7 @@ public class ClientStatement implements Statement {
      *
      * @return Page size.
      */
-    public Integer pageSizeNullable() {
+    @Nullable Integer pageSizeNullable() {
         return pageSize;
     }
 

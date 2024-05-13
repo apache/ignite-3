@@ -19,6 +19,7 @@ package org.apache.ignite.client.fakes;
 
 import static org.apache.ignite.internal.sql.engine.QueryProperty.DEFAULT_SCHEMA;
 import static org.apache.ignite.internal.sql.engine.QueryProperty.QUERY_TIMEOUT;
+import static org.apache.ignite.internal.sql.engine.QueryProperty.TIME_ZONE_ID;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.math.BigDecimal;
@@ -61,6 +62,7 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
 
             rows.add(getRow("schema", properties.get(DEFAULT_SCHEMA)));
             rows.add(getRow("timeout", String.valueOf(properties.get(QUERY_TIMEOUT))));
+            rows.add(getRow("timeZoneId", String.valueOf(properties.get(TIME_ZONE_ID))));
         } else if ("SELECT META".equals(qry)) {
             columns.add(new FakeColumnMetadata("BOOL", ColumnType.BOOLEAN));
             columns.add(new FakeColumnMetadata("INT8", ColumnType.INT8));

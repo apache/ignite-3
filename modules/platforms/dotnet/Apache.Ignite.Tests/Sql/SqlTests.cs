@@ -402,7 +402,7 @@ namespace Apache.Ignite.Tests.Sql
             var props = rows.ToDictionary(x => (string)x["NAME"]!, x => (string)x["VAL"]!);
 
             Assert.IsTrue(res.HasRowSet);
-            Assert.AreEqual(8, props.Count);
+            Assert.AreEqual(9, props.Count);
 
             Assert.AreEqual("schema-1", props["schema"]);
             Assert.AreEqual("987", props["pageSize"]);
