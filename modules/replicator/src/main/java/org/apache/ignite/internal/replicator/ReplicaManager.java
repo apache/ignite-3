@@ -730,7 +730,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                                 .updateLease(false)
                                                 .build();
 
-                                        CompletableFuture<Replica> replicaFut = replicas.get(repGrp);
+                                        CompletableFuture<Replica> replicaFut = replicas.get(partId);
 
                                         if (replicaFut != null) {
                                             requestToReplicas.add(replicaFut.thenCompose(
@@ -739,8 +739,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                     }
 
                                     return allOf(requestToReplicas.toArray(CompletableFuture[]::new));
-                                }, scheduledTableLeaseUpdateExecutor)
-                                .get(1, TimeUnit.SECONDS);
+                                }, scheduledTableLeaseUpdateExecutor);
                     } catch (Exception ex) {
                         LOG.error(
                                 "Failed to add new subgroups to the replication group [repGrp={}, subGroups={}].",
