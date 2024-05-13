@@ -19,11 +19,15 @@ namespace Apache.Ignite.Tests.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Collections.ObjectModel;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Sql;
     using Ignite.Table;
+    using Internal.Common;
+    using Microsoft.Extensions.Logging.Abstractions;
+    using NodaTime;
     using NUnit.Framework;
 
     /// <summary>
@@ -395,6 +399,7 @@ namespace Apache.Ignite.Tests.Sql
                 timeout: TimeSpan.FromSeconds(123),
                 schema: "schema-1",
                 pageSize: 987,
+                timeZoneId: "Europe/London",
                 properties: new Dictionary<string, object?> { { "prop1", 10 }, { "prop-2", "xyz" } });
 
             await using var res = await client.Sql.ExecuteAsync(null, sqlStatement);
@@ -410,6 +415,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("SELECT PROPS", props["sql"]);
             Assert.AreEqual("10", props["prop1"]);
             Assert.AreEqual("xyz", props["prop-2"]);
+            Assert.AreEqual("Europe/London", props["timeZoneId"]);
         }
 
         [Test]
@@ -476,7 +482,8 @@ namespace Apache.Ignite.Tests.Sql
                 timeout: TimeSpan.FromSeconds(123),
                 schema: "schema-1",
                 pageSize: 987,
-                properties: new Dictionary<string, object?> { { "prop1", 10 }, { "prop-2", "xyz" } });
+                properties: new Dictionary<string, object?> { { "prop1", 10 }, { "prop-2", "xyz" } },
+                timeZoneId: "Europe/Nicosia");
 
             await client.Sql.ExecuteScriptAsync(sqlStatement);
             var resProps = server.LastSqlScriptProps;
@@ -487,6 +494,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual("SELECT PROPS", resProps["sql"]);
             Assert.AreEqual(10, resProps["prop1"]);
             Assert.AreEqual("xyz", resProps["prop-2"]);
+            Assert.AreEqual(sqlStatement.TimeZoneId, resProps["timeZoneId"]);
         }
 
         [Test]
@@ -514,6 +522,84 @@ namespace Apache.Ignite.Tests.Sql
             IIgniteTuple res = await resultSet.SingleAsync();
 
             Assert.AreEqual(3.333333333333333m, res[0]);
+        }
+
+        [Test]
+        public async Task TestStatementTimeZoneWithAllZones([Values(true, false)] bool useNodaTime)
+        {
+            using var client = await IgniteClient.StartAsync(GetConfig() with { LoggerFactory = NullLoggerFactory.Instance });
+            var statement = new SqlStatement("SELECT CURRENT_TIMESTAMP");
+
+            ICollection<string> zoneIds = useNodaTime
+                ? DateTimeZoneProviders.Tzdb.Ids
+                : TimeZoneInfo.GetSystemTimeZones().Select(x => x.Id).ToList();
+
+            var zoneProvider = useNodaTime
+                ? DateTimeZoneProviders.Tzdb
+                : DateTimeZoneProviders.Bcl;
+
+            List<Exception> failures = new();
+
+            foreach (var zoneId in zoneIds)
+            {
+                try
+                {
+                    await using var resultSet = await client.Sql.ExecuteAsync(null, statement with { TimeZoneId = zoneId });
+
+                    var resTime = (LocalDateTime)(await resultSet.SingleAsync())[0]!;
+
+                    var currentTimeInZone = SystemClock.Instance.GetCurrentInstant()
+                        .InZone(zoneProvider[zoneId])
+                        .LocalDateTime;
+
+                    AssertLocalDateTimeSimilar(currentTimeInZone, resTime, zoneId);
+                }
+                catch (Exception e)
+                {
+                    failures.Add(e);
+                    Console.WriteLine("Time zone mismatch between .NET and Java: " + e.Message);
+                }
+            }
+
+            // JDK, CLR, and NodaTime have time zone databases that are updated at different times, we expect some mismatches.
+            if (failures.Count > 30)
+            {
+                throw new AggregateException("Too many failures: " + failures.Count, failures);
+            }
+
+            Console.WriteLine($"{zoneIds.Count - failures.Count} time zones match in .NET and Java.");
+        }
+
+        [Test]
+        public async Task TestStatementTimezoneAsUtcOffset([Values(0, 5, 10)] int offset)
+        {
+            var statement = new SqlStatement("SELECT CURRENT_TIMESTAMP", timeZoneId: $"UTC+{offset}");
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
+            var resTime = (LocalDateTime)(await resultSet.SingleAsync())[0]!;
+
+            var expectedTime = SystemClock.Instance.GetCurrentInstant()
+                .InZone(DateTimeZone.ForOffset(Offset.FromHours(offset)))
+                .LocalDateTime;
+
+            AssertLocalDateTimeSimilar(expectedTime, resTime, $"Offset: {offset}");
+        }
+
+        private static void AssertLocalDateTimeSimilar(LocalDateTime expected, LocalDateTime actual, string message)
+        {
+            double deltaSeconds = 10;
+
+            var expectedSeconds = ToUnixTimeSeconds(expected);
+            var actualSeconds = ToUnixTimeSeconds(actual);
+            var diff = Math.Abs(expectedSeconds - actualSeconds);
+
+            if (diff > deltaSeconds)
+            {
+                throw new InvalidOperationException(
+                    $"Expected: {expectedSeconds}, actual: {actualSeconds}, diff: {diff / 3600} hours ({message})");
+            }
+
+            static double ToUnixTimeSeconds(LocalDateTime localDateTime) =>
+                new DateTimeOffset(localDateTime.ToDateTimeUnspecified()).ToUnixTimeSeconds();
         }
     }
 }
