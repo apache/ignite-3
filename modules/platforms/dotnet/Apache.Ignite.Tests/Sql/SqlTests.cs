@@ -525,21 +525,28 @@ namespace Apache.Ignite.Tests.Sql
         public async Task TestSystemTimeZones()
         {
             var systemZones = TimeZoneInfo.GetSystemTimeZones();
-            double deltaTicks = TimeSpan.TicksPerSecond * 5;
+            double deltaSeconds = 10;
 
-            foreach (var timeZoneInfo in systemZones)
+            foreach (TimeZoneInfo timeZoneInfo in systemZones)
             {
                 var statement = new SqlStatement("SELECT CURRENT_TIMESTAMP", timeZoneId: timeZoneInfo.Id);
                 await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
                 IIgniteTuple res = await resultSet.SingleAsync();
                 var resTime = (LocalDateTime)res[0]!;
-                double resTimeTicks = resTime.ToDateTimeUnspecified().Ticks;
 
-                var expectedTime = LocalDateTime.FromDateTime(DateTime.UtcNow).InZoneLeniently(DateTimeZoneProviders.Bcl[timeZoneInfo.Id]);
-                double expectedTimeTicks = expectedTime.ToDateTimeUnspecified().Ticks;
+                var currentTimeInZone = SystemClock.Instance.GetCurrentInstant()
+                    .InZone(DateTimeZoneProviders.Bcl[timeZoneInfo.Id])
+                    .LocalDateTime;
 
-                Assert.AreEqual(expectedTimeTicks, resTimeTicks, deltaTicks, $"Time zone: {timeZoneInfo.Id}");
+                Assert.AreEqual(
+                    expected: ToUnixTimeSeconds(currentTimeInZone),
+                    actual: ToUnixTimeSeconds(resTime),
+                    delta: deltaSeconds,
+                    message: $"Time zone: {timeZoneInfo.Id}");
             }
+
+            static double ToUnixTimeSeconds(LocalDateTime localDateTime) =>
+                new DateTimeOffset(localDateTime.ToDateTimeUnspecified()).ToUnixTimeSeconds();
         }
     }
 }
