@@ -523,7 +523,7 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public void TestStatementTimeZone()
+        public void TestStatementTimeZoneWithAllBclZones()
         {
             var statement = new SqlStatement("SELECT CURRENT_TIMESTAMP");
             var systemZones = TimeZoneInfo.GetSystemTimeZones();
@@ -560,9 +560,17 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestStatementTimezoneAsUtcOffset()
+        public async Task TestStatementTimezoneAsUtcOffset([Values(0, 5, 10)] int offset)
         {
+            var statement = new SqlStatement("SELECT CURRENT_TIMESTAMP", timeZoneId: $"UTC+{offset}");
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
+            var resTime = (LocalDateTime)(await resultSet.SingleAsync())[0]!;
 
+            var expectedTime = SystemClock.Instance.GetCurrentInstant()
+                .InZone(DateTimeZone.ForOffset(Offset.FromHours(offset)))
+                .LocalDateTime;
+
+            AssertLocalDateTimeAreSimilar(expectedTime, resTime, $"Offset: {offset}");
         }
 
         private static void AssertLocalDateTimeAreSimilar(LocalDateTime expected, LocalDateTime actual, string message)
