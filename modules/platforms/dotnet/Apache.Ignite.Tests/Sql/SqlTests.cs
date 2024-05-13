@@ -538,6 +538,7 @@ namespace Apache.Ignite.Tests.Sql
                     .InZone(DateTimeZoneProviders.Bcl[timeZoneInfo.Id])
                     .LocalDateTime;
 
+                // TODO: Some time zones are different because the IANA database version is not the same in Java and .NET
                 Assert.AreEqual(
                     expected: ToUnixTimeSeconds(currentTimeInZone),
                     actual: ToUnixTimeSeconds(resTime),
