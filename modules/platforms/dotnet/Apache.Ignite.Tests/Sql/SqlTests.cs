@@ -24,6 +24,7 @@ namespace Apache.Ignite.Tests.Sql
     using System.Threading.Tasks;
     using Ignite.Sql;
     using Ignite.Table;
+    using NodaTime;
     using NUnit.Framework;
 
     /// <summary>
@@ -524,14 +525,20 @@ namespace Apache.Ignite.Tests.Sql
         public async Task TestSystemTimeZones()
         {
             var systemZones = TimeZoneInfo.GetSystemTimeZones();
+            double deltaTicks = TimeSpan.TicksPerSecond * 5;
 
             foreach (var timeZoneInfo in systemZones)
             {
                 var statement = new SqlStatement("SELECT CURRENT_TIMESTAMP", timeZoneId: timeZoneInfo.Id);
                 await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
                 IIgniteTuple res = await resultSet.SingleAsync();
+                var resTime = (LocalDateTime)res[0]!;
+                double resTimeTicks = resTime.ToDateTimeUnspecified().Ticks;
 
-                Assert.AreEqual(timeZoneInfo.Id, res[0]);
+                var expectedTime = LocalDateTime.FromDateTime(DateTime.UtcNow).InZoneLeniently(DateTimeZoneProviders.Bcl[timeZoneInfo.Id]);
+                double expectedTimeTicks = expectedTime.ToDateTimeUnspecified().Ticks;
+
+                Assert.AreEqual(expectedTimeTicks, resTimeTicks, deltaTicks, $"Time zone: {timeZoneInfo.Id}");
             }
         }
     }
