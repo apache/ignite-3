@@ -104,10 +104,11 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
-import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCatalogCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
+import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
@@ -173,12 +174,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testEmptyCatalog() {
-        CatalogSchemaDescriptor defaultSchema = manager.schema(DEFAULT_SCHEMA_NAME, 0);
+        CatalogSchemaDescriptor defaultSchema = manager.schema(DEFAULT_SCHEMA_NAME, 1);
 
         assertNotNull(defaultSchema);
         assertSame(defaultSchema, manager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong()));
-        assertSame(defaultSchema, manager.schema(0));
-        assertSame(defaultSchema, manager.schema(defaultSchema.id(), 0));
+        assertSame(defaultSchema, manager.schema(1));
+        assertSame(defaultSchema, manager.schema(defaultSchema.id(), 1));
         assertSame(defaultSchema, manager.activeSchema(clock.nowLong()));
 
         int nonExistingVersion = manager.latestCatalogVersion() + 1;
@@ -189,7 +190,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Validate default schema.
         assertEquals(DEFAULT_SCHEMA_NAME, defaultSchema.name());
-        assertEquals(0, defaultSchema.id());
+        assertEquals(1, defaultSchema.id());
         assertEquals(0, defaultSchema.tables().length);
         assertEquals(0, defaultSchema.indexes().length);
 
@@ -206,15 +207,15 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // System schema should exist.
 
-        CatalogSchemaDescriptor systemSchema = manager.schema(SYSTEM_SCHEMA_NAME, 0);
+        CatalogSchemaDescriptor systemSchema = manager.schema(SYSTEM_SCHEMA_NAME, 1);
         assertNotNull(systemSchema, "system schema");
         assertSame(systemSchema, manager.activeSchema(SYSTEM_SCHEMA_NAME, clock.nowLong()));
-        assertSame(systemSchema, manager.schema(SYSTEM_SCHEMA_NAME, 0));
-        assertSame(systemSchema, manager.schema(systemSchema.id(), 0));
+        assertSame(systemSchema, manager.schema(SYSTEM_SCHEMA_NAME, 1));
+        assertSame(systemSchema, manager.schema(systemSchema.id(), 1));
 
         // Validate system schema.
         assertEquals(SYSTEM_SCHEMA_NAME, systemSchema.name());
-        assertEquals(1, systemSchema.id());
+        assertEquals(2, systemSchema.id());
         assertEquals(0, systemSchema.tables().length);
         assertEquals(0, systemSchema.indexes().length);
 
@@ -260,6 +261,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateTable() {
+        long timePriorToTableCreation = clock.nowLong();
+
         int tableCreationVersion = await(
                 manager.execute(createTableCommand(
                         TABLE_NAME,
@@ -274,8 +277,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertNotNull(schema);
         assertEquals(SCHEMA_NAME, schema.name());
-        assertSame(schema, manager.activeSchema(0L));
-        assertSame(schema, manager.activeSchema(123L));
+        assertSame(schema, manager.activeSchema(timePriorToTableCreation));
 
         assertNull(schema.table(TABLE_NAME));
         assertNull(manager.table(TABLE_NAME, 123L));
@@ -1136,18 +1138,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
             return falseCompletedFuture();
         });
 
-        CompletableFuture<?> createTableFut = manager.execute(List.of(
-                CreateZoneCommand.builder()
-                        .zoneName("TEST_ZONE")
-                        .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
-                        .build(),
-                AlterZoneSetDefaultCatalogCommand.builder()
-                        .zoneName("TEST_ZONE")
-                        .build(),
-                simpleTable("T")
-        ));
+        // It should not matter what a command does
+        CatalogCommand catalogCommand = catalog -> List.of(new ObjectIdGenUpdateEntry(1));
 
-        assertThat(createTableFut, willThrow(IgniteInternalException.class, "Max retry limit exceeded"));
+        CompletableFuture<?> fut = manager.execute(List.of(catalogCommand));
+
+        assertThat(fut, willThrow(IgniteInternalException.class, "Max retry limit exceeded"));
 
         // retry limit is hardcoded at org.apache.ignite.internal.catalog.CatalogServiceImpl.MAX_RETRY_COUNT
         verify(updateLogMock, times(10)).append(any());
@@ -1203,7 +1199,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertFalse(createTableFuture2.isDone());
 
-        verify(clockWaiter, timeout(10_000).times(2)).waitFor(any());
+        verify(clockWaiter, timeout(10_000).times(3)).waitFor(any());
 
         Catalog catalog0 = manager.catalog(manager.latestCatalogVersion());
 
@@ -1386,7 +1382,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Set new zone as default.
         {
-            CatalogCommand setDefaultCmd = AlterZoneSetDefaultCatalogCommand.builder()
+            CatalogCommand setDefaultCmd = AlterZoneSetDefaultCommand.builder()
                     .zoneName(TEST_ZONE_NAME)
                     .build();
 
@@ -1415,7 +1411,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         {
             int lastVer =  manager.latestCatalogVersion();
 
-            CatalogCommand setDefaultCmd = AlterZoneSetDefaultCatalogCommand.builder()
+            CatalogCommand setDefaultCmd = AlterZoneSetDefaultCommand.builder()
                     .zoneName(TEST_ZONE_NAME)
                     .build();
 
@@ -1832,7 +1828,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         StoppingIndexEventParameters stoppingEventParameters = stoppingCaptor.getValue();
 
         assertEquals(indexId, stoppingEventParameters.indexId());
-        assertEquals(tableId, stoppingEventParameters.tableId());
 
         // Let's drop the table.
         assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willCompleteSuccessfully());
@@ -2700,6 +2695,24 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 Arguments.of(true, false), // Create hash index and update catalog (create table).
                 Arguments.of(false, true), // Create sorted index and update index status..
                 Arguments.of(false, false) // Create sorted index and update catalog (create table).
+        );
+    }
+
+    @Test
+    public void testCreateSchema() {
+        String schemaName = "S1";
+
+        assertThat(manager.execute(CreateSchemaCommand.builder().name(schemaName).build()), willCompleteSuccessfully());
+
+        Catalog latestCatalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
+
+        assertNotNull(latestCatalog);
+        assertNotNull(latestCatalog.schema(schemaName));
+        assertNotNull(latestCatalog.schema(DEFAULT_SCHEMA_NAME));
+
+        assertThat(
+                manager.execute(CreateSchemaCommand.builder().name(schemaName).build()),
+                willThrowFast(CatalogValidationException.class, "Schema with name 'S1' already exists")
         );
     }
 

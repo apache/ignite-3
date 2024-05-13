@@ -47,7 +47,7 @@ import org.rocksdb.RocksDB;
  */
 public class RocksDbStorageEngine implements StorageEngine {
     /** Engine name. */
-    public static final String ENGINE_NAME = "rocksDb";
+    public static final String ENGINE_NAME = "rocksdb";
 
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbStorageEngine.class);
 
