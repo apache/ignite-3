@@ -526,13 +526,12 @@ namespace Apache.Ignite.Tests.Sql
         {
             var systemZones = TimeZoneInfo.GetSystemTimeZones();
             double deltaSeconds = 10;
+            var statement = new SqlStatement("SELECT CURRENT_TIMESTAMP");
 
             foreach (TimeZoneInfo timeZoneInfo in systemZones)
             {
-                var statement = new SqlStatement("SELECT CURRENT_TIMESTAMP", timeZoneId: timeZoneInfo.Id);
-                await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
-                IIgniteTuple res = await resultSet.SingleAsync();
-                var resTime = (LocalDateTime)res[0]!;
+                await using var resultSet = await Client.Sql.ExecuteAsync(null, statement with { TimeZoneId = timeZoneInfo.Id });
+                var resTime = (LocalDateTime)(await resultSet.SingleAsync())[0]!;
 
                 var currentTimeInZone = SystemClock.Instance.GetCurrentInstant()
                     .InZone(DateTimeZoneProviders.Bcl[timeZoneInfo.Id])
