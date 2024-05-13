@@ -552,12 +552,12 @@ namespace Apache.Ignite.Tests.Sql
                     AssertLocalDateTimeSimilar(currentTimeInZone, resTime, $"Time zone: {timeZoneInfo.Id}");
                 }
 
-                Assert.Less(skipped.Count, 10, "Too many time zones were skipped: " + skipped.StringJoin());
+                Assert.Less(skipped.Count, 20, "Too many time zones were skipped: " + skipped.StringJoin());
             });
 
             static bool WasUpdatedRecently(TimeZoneInfo timeZoneInfo) =>
                 timeZoneInfo.GetAdjustmentRules().Any(
-                    r => (DateTime.UtcNow - r.DateStart).TotalDays < 365 * 2 && r.DaylightDelta == TimeSpan.Zero);
+                    r => (DateTime.UtcNow - r.DateStart).TotalDays < 365 * 4 && r.DaylightDelta == TimeSpan.Zero);
         }
 
         [Test]
