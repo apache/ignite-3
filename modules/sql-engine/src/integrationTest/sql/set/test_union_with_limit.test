@@ -1,6 +1,6 @@
 # name: test/sql/order/test_primary_offset.test
-# description: F863: Nested <result offset clause>. Top-level <result offset clause> in <query expression> <query expression>
-# group: [order]
+# description: UNION with nested sort/limit
+# group: [union]
 
 statement ok
 CREATE TABLE test (a INTEGER);

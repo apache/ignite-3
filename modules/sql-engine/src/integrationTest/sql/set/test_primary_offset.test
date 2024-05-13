@@ -1,0 +1,33 @@
+# name: test/sql/order/test_primary_offset.test
+# description: F863: Nested <result offset clause>. Top-level <result offset clause> in <query expression> <query expression>
+# group: [order]
+
+statement ok
+CREATE TABLE test (a INTEGER)
+
+statement ok
+INSERT INTO test VALUES (1), (2), (3), (4)
+
+query I rowsort
+(SELECT * FROM test ORDER BY a ASC OFFSET 2) UNION SELECT * FROM (VALUES (5), (6)) t(a);
+----
+3
+4
+5
+6
+
+query I rowsort
+(SELECT * FROM test ORDER BY a ASC OFFSET 2 ROWS) UNION SELECT * FROM (VALUES (5), (6)) t(a);
+----
+3
+4
+5
+6
+
+query I rowsort
+(SELECT * FROM test ORDER BY a ASC OFFSET 2 ROW) UNION SELECT * FROM (VALUES (5), (6)) t(a);
+----
+3
+4
+5
+6
