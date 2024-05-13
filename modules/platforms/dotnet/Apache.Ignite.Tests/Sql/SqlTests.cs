@@ -530,26 +530,44 @@ namespace Apache.Ignite.Tests.Sql
 
             Assert.Multiple(async () =>
             {
+                // Old JDKs may have outdated time zone info.
                 List<TimeZoneInfo> skipped = new();
 
                 foreach (TimeZoneInfo timeZoneInfo in systemZones)
                 {
-                    await using var resultSet = await Client.Sql.ExecuteAsync(null, statement with { TimeZoneId = timeZoneInfo.Id });
-                    var resTime = (LocalDateTime)(await resultSet.SingleAsync())[0]!;
-
-                    var currentTimeInZone = SystemClock.Instance.GetCurrentInstant()
-                        .InZone(DateTimeZoneProviders.Bcl[timeZoneInfo.Id])
-                        .LocalDateTime;
-
-                    if (WasUpdatedRecently(timeZoneInfo))
+                    try
                     {
-                        Console.WriteLine("Skipping time zone - it was updated recently and may be different in Java: " + timeZoneInfo.Id);
-                        skipped.Add(timeZoneInfo);
+                        await using var resultSet = await Client.Sql.ExecuteAsync(
+                            null, statement with { TimeZoneId = timeZoneInfo.Id });
 
-                        continue;
+                        var resTime = (LocalDateTime)(await resultSet.SingleAsync())[0]!;
+
+                        var currentTimeInZone = SystemClock.Instance.GetCurrentInstant()
+                            .InZone(DateTimeZoneProviders.Bcl[timeZoneInfo.Id])
+                            .LocalDateTime;
+
+                        if (WasUpdatedRecently(timeZoneInfo))
+                        {
+                            Console.WriteLine("Skipping recently updated time zone: " + timeZoneInfo.Id);
+                            skipped.Add(timeZoneInfo);
+
+                            continue;
+                        }
+
+                        AssertLocalDateTimeSimilar(currentTimeInZone, resTime, $"Time zone: {timeZoneInfo.Id}");
                     }
-
-                    AssertLocalDateTimeSimilar(currentTimeInZone, resTime, $"Time zone: {timeZoneInfo.Id}");
+                    catch (IgniteException e)
+                    {
+                        if (e.Message.StartsWith("Unknown time-zone ID", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Console.WriteLine("Skipping unknown time zone: " + timeZoneInfo.Id);
+                            skipped.Add(timeZoneInfo);
+                        }
+                        else
+                        {
+                            throw;
+                        }
+                    }
                 }
 
                 Assert.Less(skipped.Count, 20, "Too many time zones were skipped: " + skipped.StringJoin());
@@ -557,7 +575,7 @@ namespace Apache.Ignite.Tests.Sql
 
             static bool WasUpdatedRecently(TimeZoneInfo timeZoneInfo) =>
                 timeZoneInfo.GetAdjustmentRules().Any(
-                    r => (DateTime.UtcNow - r.DateStart).TotalDays < 365 * 4 && r.DaylightDelta == TimeSpan.Zero);
+                    r => (DateTime.UtcNow - r.DateStart).TotalDays < 365 * 3 && r.DaylightDelta == TimeSpan.Zero);
         }
 
         [Test]
