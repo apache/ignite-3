@@ -41,6 +41,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.avatica.util.ByteString;
@@ -55,6 +56,8 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
@@ -665,15 +668,38 @@ public class TypeUtils {
         }
     }
 
-    /** Check limitation for character types and throws exception if row contains character sequence more than type defined. */
-    public static <RowT> void validateCharactersOverflow(RelDataType rowType, RowHandler<RowT> rowHandler, RowT row) {
+    /** Check limitation for character types and throws exception if row contains character sequence more than type defined.
+     *  <br>
+     *  Store assignment section defines:
+     *  If the declared type of T is fixed-length character string with length in characters L and
+     *   the length in characters M of V is larger than L, then:
+     *  <br>
+     *  1) If the rightmost M-L characters of V are all space(s), then the value of T is set to
+     *   the first L characters of V.
+     *  <br>
+     *  2) If one or more of the rightmost M-L characters of V are not space(s), then an
+     *   exception condition is raised: data exception — string data, right truncation.
+     */
+    public static <RowT> RowT validateCharactersOverflowAndTrimIfPossible(
+            RelDataType rowType,
+            RowHandler<RowT> rowHandler,
+            RowT row,
+            Supplier<RowSchema> schema
+    ) {
+        boolean containCharType = rowType.getFieldList().stream().anyMatch(t -> CHAR_TYPES.contains(t.getType().getSqlTypeName()));
+
+        if (!containCharType) {
+            return row;
+        }
+
         int colCount = rowType.getFieldList().size();
+        RowBuilder<RowT> rowBldr = null;
 
         for (int i = 0; i < colCount; ++i) {
             RelDataType colType = rowType.getFieldList().get(i).getType();
-            if (CHAR_TYPES.contains(colType.getSqlTypeName())) {
-                Object data = rowHandler.get(i, row);
+            Object data = rowHandler.get(i, row);
 
+            if (CHAR_TYPES.contains(colType.getSqlTypeName())) {
                 if (data == null) {
                     continue;
                 }
@@ -686,10 +712,47 @@ public class TypeUtils {
 
                 assert colPrecision != RelDataType.PRECISION_NOT_SPECIFIED;
 
-                if (str.stripTrailing().length() > colPrecision) {
-                    throw new SqlException(STMT_VALIDATION_ERR, "Value too long for type: " + colType);
+                if (str.length() > colPrecision) {
+                    for (int pos = str.length(); pos > colPrecision; --pos) {
+                        if (str.charAt(pos - 1) != ' ') {
+                            throw new SqlException(STMT_VALIDATION_ERR, "Value too long for type: " + colType);
+                        }
+                    }
+
+                    str = str.substring(0, colPrecision);
+
+                    if (rowBldr == null) {
+                        rowBldr = buildPartialRow(rowHandler, schema, i, row);
+                    }
+                }
+
+                if (rowBldr != null) {
+                    rowBldr.addField(str);
+                }
+            } else {
+                if (rowBldr != null) {
+                    rowBldr.addField(data);
                 }
             }
         }
+
+        if (rowBldr != null) {
+            return rowBldr.build();
+        } else {
+            return row;
+        }
+    }
+
+    private static <RowT> RowBuilder<RowT> buildPartialRow(RowHandler<RowT> rowHandler, Supplier<RowSchema> schema, int endPos, RowT row) {
+        RowFactory<RowT> factory = rowHandler.factory(schema.get());
+        RowBuilder<RowT> bldr = factory.rowBuilder();
+
+        for (int i = 0; i < endPos; ++i) {
+            Object data = rowHandler.get(i, row);
+
+            bldr.addField(data);
+        }
+
+        return bldr;
     }
 }

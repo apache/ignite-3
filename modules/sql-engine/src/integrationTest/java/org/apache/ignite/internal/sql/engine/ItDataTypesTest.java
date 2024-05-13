@@ -500,6 +500,29 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
     @Test
     @SuppressWarnings("ThrowableNotThrown")
+    public void testCharTypesWithTrailingSpacesAreTrimmed() {
+        sql("create table limitedChar (pk int primary key, f1 VARCHAR(3), f2 CHAR(3))");
+
+        try {
+            sql("insert into limitedChar values (1, 'a b     ', 'a b    ')");
+
+            assertQuery("select length(f1), length(f2) from limitedChar")
+                    .returns(3, 3)
+                    .check();
+
+            sql("insert into limitedChar values (2, 'a ' || ?, 'a ' || ?)", "b     ", "b    ");
+
+            assertQuery("select length(f1), length(f2) from limitedChar")
+                    .returns(3, 3)
+                    .returns(3, 3)
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS limitedChar");
+        }
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
     public void insertCharLimitation() {
         sql("create table limitedChar (pk int primary key, f1 VARCHAR(2), f2 CHAR(2))");
 
@@ -517,11 +540,13 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                     sql("insert into limitedChar values (1, 'aaaa', 'aaaa')"));
 
             assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("insert into limitedChar values (1, 'aaa ', 'aaa ')"));
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
                     sql("insert into limitedChar(pk, f2) values (1, '12'), (2, '123')"));
 
             assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
                     sql("insert into limitedChar values (1, '12', '12'), (2, '123', '123')"));
-
         } finally {
             sql("DROP TABLE IF EXISTS limitedChar");
         }
@@ -600,7 +625,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         try {
             sql("create table limitedChar (pk int primary key, f1 VARCHAR(2), f2 CHAR(2), f3 CHAR(2))");
 
-            // sql("insert into limitedChar values (1, '12   ', '12   ')");
             sql("insert into limitedChar values (1, '我叫', '我叫', '我叫')");
 
             assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->

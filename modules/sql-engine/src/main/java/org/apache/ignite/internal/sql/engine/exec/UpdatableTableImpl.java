@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.Static;
@@ -79,6 +80,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private final TableRowConverter rowConverter;
 
+    private Supplier<RowSchema> schemaSupplier;
+
     /** Constructor. */
     UpdatableTableImpl(
             int tableId,
@@ -113,7 +116,11 @@ public final class UpdatableTableImpl implements UpdatableTable {
         validateNotNullConstraint(ectx.rowHandler(), rows);
 
         RelDataType rowType = descriptor().rowType(ectx.getTypeFactory(), null);
-        validateCharactersOverflow(rowType, ectx.rowHandler(), rows);
+        if (schemaSupplier == null) {
+            schemaSupplier = () -> rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+        }
+
+        rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
 
         Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
@@ -216,7 +223,11 @@ public final class UpdatableTableImpl implements UpdatableTable {
         validateNotNullConstraint(ectx.rowHandler(), rows);
 
         RelDataType rowType = descriptor().rowType(ectx.getTypeFactory(), null);
-        validateCharactersOverflow(rowType, ectx.rowHandler(), rows);
+        if (schemaSupplier == null) {
+            schemaSupplier = () -> rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+        }
+
+        rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
 
         assert commitPartitionId != null;
 
@@ -358,10 +369,19 @@ public final class UpdatableTableImpl implements UpdatableTable {
         int fromRow(BinaryRowEx row);
     }
 
-    private static <RowT> void validateCharactersOverflow(RelDataType rowType, RowHandler<RowT> rowHandler, List<RowT> rows) {
+    private static <RowT> List<RowT> validateCharactersOverflowAndTrimIfPossible(
+            RelDataType rowType,
+            RowHandler<RowT> rowHandler,
+            List<RowT> rows,
+            Supplier<RowSchema> schemaSupplier
+    ) {
+        List<RowT> out = new ArrayList<>(rows.size());
+
         for (RowT row : rows) {
-            TypeUtils.validateCharactersOverflow(rowType, rowHandler, row);
+            out.add(TypeUtils.validateCharactersOverflowAndTrimIfPossible(rowType, rowHandler, row, schemaSupplier));
         }
+
+        return out;
     }
 
     private <RowT> void validateNotNullConstraint(RowHandler<RowT> rowHandler, List<RowT> rows) {

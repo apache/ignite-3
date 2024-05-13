@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.validateCharactersOverflow;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.validateCharactersOverflowAndTrimIfPossible;
 
 import java.util.Iterator;
 import java.util.List;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -56,6 +58,7 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
     private final IgniteKeyValueModify modifyNode;
     private final ResultSetMetadata meta;
     private final ParameterMetadata parameterMetadata;
+    private Supplier<RowSchema> schemaSupplier;
 
     KeyValueModifyPlan(
             PlanId id,
@@ -137,10 +140,14 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
 
                     RelDataType rowType = table().getRowType(ctx.getTypeFactory());
 
-                    validateCharactersOverflow(rowType, ctx.rowHandler(), row);
+                    if (schemaSupplier == null) {
+                        schemaSupplier = () -> rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+                    }
+
+                    row = validateCharactersOverflowAndTrimIfPossible(rowType, ctx.rowHandler(), row, schemaSupplier);
 
                     return updatableTable.insert(
-                            tx, ctx, rowSupplier.get()
+                            tx, ctx, row
                     ).thenApply(none -> List.<InternalSqlRow>of(new InternalSqlRowSingleLong(1L)).iterator());
                 });
 
