@@ -549,7 +549,7 @@ namespace Apache.Ignite.Tests.Sql
                         continue;
                     }
 
-                    AssertLocalDateTimeAreSimilar(currentTimeInZone, resTime, $"Time zone: {timeZoneInfo.Id}");
+                    AssertLocalDateTimeSimilar(currentTimeInZone, resTime, $"Time zone: {timeZoneInfo.Id}");
                 }
 
                 Assert.Less(skipped.Count, 10, "Too many time zones were skipped: " + skipped.StringJoin());
@@ -571,10 +571,10 @@ namespace Apache.Ignite.Tests.Sql
                 .InZone(DateTimeZone.ForOffset(Offset.FromHours(offset)))
                 .LocalDateTime;
 
-            AssertLocalDateTimeAreSimilar(expectedTime, resTime, $"Offset: {offset}");
+            AssertLocalDateTimeSimilar(expectedTime, resTime, $"Offset: {offset}");
         }
 
-        private static void AssertLocalDateTimeAreSimilar(LocalDateTime expected, LocalDateTime actual, string message)
+        private static void AssertLocalDateTimeSimilar(LocalDateTime expected, LocalDateTime actual, string message)
         {
             double deltaSeconds = 10;
 
