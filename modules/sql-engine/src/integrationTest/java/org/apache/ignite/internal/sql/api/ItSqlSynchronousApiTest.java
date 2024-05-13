@@ -22,12 +22,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for synchronous SQL API.
@@ -41,6 +44,28 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     @Override
     protected long[] executeBatch(IgniteSql sql, String query, BatchedArguments args) {
         return sql.executeBatch(null, query, args);
+    }
+
+    @Test
+    public void schemaMigration() {
+        IgniteSql sql = igniteSql();
+
+        checkDdl(true, sql, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        var view = CLUSTER.node(0).tables().table("TEST").recordView();
+
+        var upsertFut = CompletableFuture.runAsync(() -> {
+            List<Tuple> tuples = new ArrayList<>();
+            for (int i = 0; i < 1000; i++) {
+                Tuple set = Tuple.create().set("ID", i).set("VAL0", i);
+//                view.upsert(null, set);
+                tuples.add(set);
+            }
+            view.insertAll(null, tuples);
+        });
+
+        checkDdl(true, sql, "ALTER TABLE TEST ADD COLUMN VAL1 INT DEFAULT -1");
+
+        upsertFut.join();
     }
 
 
