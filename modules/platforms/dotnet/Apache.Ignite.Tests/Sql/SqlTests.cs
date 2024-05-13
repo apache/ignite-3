@@ -25,6 +25,7 @@ namespace Apache.Ignite.Tests.Sql
     using Ignite.Sql;
     using Ignite.Table;
     using Internal.Common;
+    using Microsoft.Extensions.Logging.Abstractions;
     using NodaTime;
     using NUnit.Framework;
 
@@ -523,61 +524,43 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public void TestStatementTimeZoneWithAllBclZones()
+        public async Task TestStatementTimeZoneWithAllBclZones()
         {
+            using var client = await IgniteClient.StartAsync(GetConfig() with { LoggerFactory = NullLoggerFactory.Instance });
             var statement = new SqlStatement("SELECT CURRENT_TIMESTAMP");
             var systemZones = TimeZoneInfo.GetSystemTimeZones();
 
-            Assert.Multiple(async () =>
+            List<Exception> failures = new();
+
+            foreach (TimeZoneInfo timeZoneInfo in systemZones)
             {
-                // Old JDKs may have outdated time zone info.
-                List<TimeZoneInfo> skipped = new();
-
-                foreach (TimeZoneInfo timeZoneInfo in systemZones)
+                try
                 {
-                    try
-                    {
-                        await using var resultSet = await Client.Sql.ExecuteAsync(
-                            null, statement with { TimeZoneId = timeZoneInfo.Id });
+                    await using var resultSet = await client.Sql.ExecuteAsync(
+                        null, statement with { TimeZoneId = timeZoneInfo.Id });
 
-                        var resTime = (LocalDateTime)(await resultSet.SingleAsync())[0]!;
+                    var resTime = (LocalDateTime)(await resultSet.SingleAsync())[0]!;
 
-                        var currentTimeInZone = SystemClock.Instance.GetCurrentInstant()
-                            .InZone(DateTimeZoneProviders.Bcl[timeZoneInfo.Id])
-                            .LocalDateTime;
+                    var currentTimeInZone = SystemClock.Instance.GetCurrentInstant()
+                        .InZone(DateTimeZoneProviders.Bcl[timeZoneInfo.Id])
+                        .LocalDateTime;
 
-                        if (WasUpdatedRecently(timeZoneInfo))
-                        {
-                            Console.WriteLine("Skipping recently updated time zone: " + timeZoneInfo.Id);
-                            skipped.Add(timeZoneInfo);
-
-                            continue;
-                        }
-
-                        AssertLocalDateTimeSimilar(currentTimeInZone, resTime, $"Time zone: {timeZoneInfo.Id}");
-                    }
-                    catch (IgniteException e)
-                    {
-                        if (e.Message.StartsWith("Unknown time-zone ID", StringComparison.OrdinalIgnoreCase))
-                        {
-                            Console.WriteLine("Skipping unknown time zone: " + timeZoneInfo.Id);
-                            skipped.Add(timeZoneInfo);
-                        }
-                        else
-                        {
-                            throw;
-                        }
-                    }
+                    AssertLocalDateTimeSimilar(currentTimeInZone, resTime, $"Time zone: {timeZoneInfo.Id}");
                 }
+                catch (Exception e)
+                {
+                    failures.Add(e);
+                    Console.WriteLine("Time zone mismatch between .NET and Java: " + e.Message);
+                }
+            }
 
-                Assert.Less(skipped.Count, 20, "Too many time zones were skipped: " + skipped.StringJoin());
+            if (failures.Count > 20)
+            {
+                throw new AggregateException("Too many failures", failures);
+            }
 
-                Console.WriteLine($"{systemZones.Count - skipped.Count} time zones tested to match in .NET and Java.");
-            });
-
-            static bool WasUpdatedRecently(TimeZoneInfo timeZoneInfo) =>
-                timeZoneInfo.GetAdjustmentRules().Any(
-                    r => (DateTime.UtcNow - r.DateStart).TotalDays < 365 * 3 && r.DaylightDelta == TimeSpan.Zero);
+            // Old JDK and CLR may have time zone databases that are updated at different times, we expect a few mismatches.
+            Console.WriteLine($"{systemZones.Count - failures.Count} time zones match in .NET and Java.");
         }
 
         [Test]
@@ -600,9 +583,13 @@ namespace Apache.Ignite.Tests.Sql
 
             var expectedSeconds = ToUnixTimeSeconds(expected);
             var actualSeconds = ToUnixTimeSeconds(actual);
+            var diff = Math.Abs(expectedSeconds - actualSeconds);
 
-            Assert.AreEqual(
-                expectedSeconds, actualSeconds, deltaSeconds, $"{(expectedSeconds - actualSeconds) / 3600} hours ({message})");
+            if (diff > deltaSeconds)
+            {
+                throw new InvalidOperationException(
+                    $"Expected: {expectedSeconds}, actual: {actualSeconds}, diff: {diff / 3600} hours ({message})");
+            }
 
             static double ToUnixTimeSeconds(LocalDateTime localDateTime) =>
                 new DateTimeOffset(localDateTime.ToDateTimeUnspecified()).ToUnixTimeSeconds();
