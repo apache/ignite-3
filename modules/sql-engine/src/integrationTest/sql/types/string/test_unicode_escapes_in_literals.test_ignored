@@ -1,0 +1,62 @@
+# name: test/sql/types/string/test_unicode_escapes_on_literals.test
+# description: SQL feature F393 (Unicode escapes in literals)
+# group: [string]
+# Ignore: https://issues.apache.org/jira/browse/IGNITE-21942
+
+# insert unicode strings into the database
+statement ok
+CREATE TABLE t(id INTEGER, s VARCHAR);
+
+statement ok
+INSERT INTO t VALUES (1, U&'d\\0061t\\+000061'), (2, N'd\\0061t\\+000061'), (3, 'd\\x61t\\x0061'), (4, 'd\\u0061t\\U00000061')
+
+# retrieve unicode strings again
+query IT
+SELECT * FROM t ORDER BY id
+----
+1 data
+2 d\\0061t\+000061
+3 data
+4 data
+
+query IT
+SELECT * FROM t WHERE s = U&'d\\0061t\\+000061' ORDER BY id
+----
+1 data
+2 d\0061t\+000061
+3 data
+4 data
+
+query IT
+SELECT * FROM t WHERE s = 'd\\x61t\\x0061' ORDER BY id
+----
+1 data
+2 d\0061t\+000061
+3 data
+4 data
+
+# substring on t
+query TT
+SELECT substring(s, 1, 2), substring(s, 3, 2) FROM t ORDER BY id
+----
+da ta
+d\ 00
+da ta
+da ta
+
+# length on t
+query I
+SELECT length(s) FROM t ORDER BY id
+----
+4
+4
+4
+4
+
+query I
+SELECT octet_length(s) FROM t ORDER BY id
+----
+4
+4
+4
+4
