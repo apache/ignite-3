@@ -610,7 +610,8 @@ public class IgniteImpl implements Ignite {
                 messagingServiceReturningToStorageOperationsPool,
                 clock,
                 threadPoolsManager.partitionOperationsExecutor(),
-                replicationConfig
+                replicationConfig,
+                threadPoolsManager.commonScheduler()
         );
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
