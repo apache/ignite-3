@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.sql;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -75,7 +76,7 @@ public class ClientSql implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public Statement createStatement(String query) {
-        return new ClientStatement(query, null, null, null);
+        return new ClientStatement(query, null, null, null, null);
     }
 
     /** {@inheritDoc} */
@@ -177,7 +178,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
-        ClientStatement statement = new ClientStatement(query, null, null, null);
+        ClientStatement statement = new ClientStatement(query, null, null, null, null);
 
         return executeAsync(transaction, statement, arguments);
     }
@@ -200,7 +201,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
-        ClientStatement statement = new ClientStatement(query, null, null, null);
+        ClientStatement statement = new ClientStatement(query, null, null, null, null);
 
         return executeAsync(transaction, mapper, statement, arguments);
     }
@@ -228,6 +229,7 @@ public class ClientSql implements IgniteSql {
             w.out().packLongNullable(clientStatement.queryTimeoutNullable());
 
             w.out().packLongNullable(0L); // defaultSessionTimeout
+            w.out().packString(clientStatement.timeZoneId().getId());
 
             packProperties(w, null);
 
@@ -286,6 +288,7 @@ public class ClientSql implements IgniteSql {
             w.out().packNil(); // pageSize
             w.out().packNil(); // queryTimeout
             w.out().packNil(); // sessionTimeout
+            w.out().packString(ZoneId.systemDefault().getId());
 
             packProperties(w, null);
 
