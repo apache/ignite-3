@@ -21,6 +21,7 @@ namespace Apache.Ignite.Sql
     using System;
     using System.Collections.Generic;
     using Internal.Common;
+    using NodaTime;
 
     /// <summary>
     /// SQL statement.
@@ -55,12 +56,24 @@ namespace Apache.Ignite.Sql
         /// <param name="schema">Schema.</param>
         /// <param name="pageSize">Page size.</param>
         /// <param name="properties">Properties.</param>
+        /// <param name="timeZoneId">
+        /// Time zone id.
+        /// <para />
+        /// Affects time-related SQL functions (e.g. <c>CURRENT_TIME</c>)
+        /// and string literal conversions (e.g. <c>TIMESTAMP WITH LOCAL TIME ZONE '1992-01-18 02:30:00.123'</c>).
+        /// <para />
+        /// Defaults to local time zone: <see cref="TimeZoneInfo.Local"/>.
+        /// <para />
+        /// Can be obtained using the standard library with <see cref="TimeZoneInfo.Id"/>
+        /// or using NodaTime with <see cref="DateTimeZone.Id"/>.
+        /// </param>
         public SqlStatement(
             string query,
             TimeSpan? timeout = null,
             string? schema = null,
             int? pageSize = null,
-            IReadOnlyDictionary<string, object?>? properties = null)
+            IReadOnlyDictionary<string, object?>? properties = null,
+            string? timeZoneId = null)
         {
             IgniteArgumentCheck.NotNull(query);
             IgniteArgumentCheck.Ensure(pageSize is null or > 0, nameof(pageSize), "Page size must be positive.");
@@ -70,6 +83,7 @@ namespace Apache.Ignite.Sql
             Schema = schema ?? DefaultSchema;
             PageSize = pageSize ?? DefaultPageSize;
             Properties = properties == null || ReferenceEquals(properties, EmptyProperties) ? EmptyProperties : new(properties);
+            TimeZoneId = timeZoneId ?? TimeZoneInfo.Local.Id;
         }
 
         /// <summary>
@@ -96,6 +110,19 @@ namespace Apache.Ignite.Sql
         /// Gets the property bag.
         /// </summary>
         public IReadOnlyDictionary<string, object?> Properties { get; init; }
+
+        /// <summary>
+        /// Gets the time zone ID.
+        /// <para />
+        /// Affects time-related SQL functions (e.g. <c>CURRENT_TIME</c>)
+        /// and string literal conversions (e.g. <c>TIMESTAMP WITH LOCAL TIME ZONE '1992-01-18 02:30:00.123'</c>).
+        /// <para />
+        /// Defaults to local time zone: <see cref="TimeZoneInfo.Local"/>.
+        /// <para />
+        /// Can be obtained using the standard library with <see cref="TimeZoneInfo.Id"/>
+        /// or using NodaTime with <see cref="DateTimeZone.Id"/>.
+        /// </summary>
+        public string TimeZoneId { get; init; }
 
         /// <summary>
         /// Converts a query string to an instance of <see cref="SqlStatement"/>.

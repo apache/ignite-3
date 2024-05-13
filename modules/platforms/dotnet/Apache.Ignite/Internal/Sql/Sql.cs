@@ -26,6 +26,7 @@ namespace Apache.Ignite.Internal.Sql
     using Ignite.Table;
     using Ignite.Transactions;
     using Linq;
+    using NodaTime;
     using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
