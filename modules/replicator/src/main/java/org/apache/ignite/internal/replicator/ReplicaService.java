@@ -267,4 +267,15 @@ public class ReplicaService {
     public MessagingService messagingService() {
         return messagingService;
     }
+
+    /**
+     * Gets a replica operation executor.
+     * This method is used by ReplicaAwareLeaseTracker and have do be removed with it.
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-20362
+     *
+     * @return Executor.
+     */
+    public Executor getPartitionOperationsExecutor() {
+        return partitionOperationsExecutor;
+    }
 }

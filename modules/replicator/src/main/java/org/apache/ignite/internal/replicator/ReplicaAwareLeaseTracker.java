@@ -102,7 +102,7 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
         TablePartitionId tablePartitionId = new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId());
 
         return delegate.awaitPrimaryReplicaForTable(pureZonePartId, timestamp, timeout, unit)
-                .thenCompose(replicaMeta -> {
+                .thenComposeAsync(replicaMeta -> {
                     ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
 
                     if (replicaMeta.subgroups().contains(tablePartitionId)) {
@@ -123,7 +123,7 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
                     });
 
                     return waitReplicaStateFut.thenApply((ignored) -> replicaMeta);
-                });
+                }, replicaService.getPartitionOperationsExecutor());
     }
 
     @Override
