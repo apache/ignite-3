@@ -213,6 +213,7 @@ public class ClientUtils {
 
             case ClientOp.COMPUTE_EXECUTE:
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
+            case ClientOp.COMPUTE_EXECUTE_MAPREDUCE:
                 return ClientOperationType.COMPUTE_EXECUTE;
 
             case ClientOp.COMPUTE_GET_STATUS:
