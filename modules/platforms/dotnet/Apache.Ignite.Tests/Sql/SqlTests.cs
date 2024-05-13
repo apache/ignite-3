@@ -561,7 +561,7 @@ namespace Apache.Ignite.Tests.Sql
                 }
             }
 
-            // JDK, CLR, and NodeTime have time zone databases that are updated at different times, we expect a few mismatches.
+            // JDK, CLR, and NodaTime have time zone databases that are updated at different times, we expect a few mismatches.
             if (failures.Count > 20)
             {
                 throw new AggregateException("Too many failures", failures);
