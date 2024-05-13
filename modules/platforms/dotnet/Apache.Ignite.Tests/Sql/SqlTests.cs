@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Collections.ObjectModel;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
@@ -524,28 +525,34 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestStatementTimeZoneWithAllBclZones()
+        public async Task TestStatementTimeZoneWithAllZones([Values(true, false)] bool useNodaTime)
         {
             using var client = await IgniteClient.StartAsync(GetConfig() with { LoggerFactory = NullLoggerFactory.Instance });
             var statement = new SqlStatement("SELECT CURRENT_TIMESTAMP");
-            var systemZones = TimeZoneInfo.GetSystemTimeZones();
+
+            ICollection<string> zoneIds = useNodaTime
+                ? DateTimeZoneProviders.Tzdb.Ids
+                : TimeZoneInfo.GetSystemTimeZones().Select(x => x.Id).ToList();
+
+            var zoneProvider = useNodaTime
+                ? DateTimeZoneProviders.Tzdb
+                : DateTimeZoneProviders.Bcl;
 
             List<Exception> failures = new();
 
-            foreach (TimeZoneInfo timeZoneInfo in systemZones)
+            foreach (var zoneId in zoneIds)
             {
                 try
                 {
-                    await using var resultSet = await client.Sql.ExecuteAsync(
-                        null, statement with { TimeZoneId = timeZoneInfo.Id });
+                    await using var resultSet = await client.Sql.ExecuteAsync(null, statement with { TimeZoneId = zoneId });
 
                     var resTime = (LocalDateTime)(await resultSet.SingleAsync())[0]!;
 
                     var currentTimeInZone = SystemClock.Instance.GetCurrentInstant()
-                        .InZone(DateTimeZoneProviders.Bcl[timeZoneInfo.Id])
+                        .InZone(zoneProvider[zoneId])
                         .LocalDateTime;
 
-                    AssertLocalDateTimeSimilar(currentTimeInZone, resTime, $"Time zone: {timeZoneInfo.Id}");
+                    AssertLocalDateTimeSimilar(currentTimeInZone, resTime, zoneId);
                 }
                 catch (Exception e)
                 {
@@ -560,7 +567,7 @@ namespace Apache.Ignite.Tests.Sql
             }
 
             // Old JDK and CLR may have time zone databases that are updated at different times, we expect a few mismatches.
-            Console.WriteLine($"{systemZones.Count - failures.Count} time zones match in .NET and Java.");
+            Console.WriteLine($"{zoneIds.Count - failures.Count} time zones match in .NET and Java.");
         }
 
         [Test]
