@@ -1,0 +1,34 @@
+# name: test/sql/cte/test_cte_in_subquery.test
+# description: Test Common Table Expressions (CTE)
+# feature: SQL T122(WITH (excluding RECURSIVE) in subquery)
+# group: [cte]
+
+statement ok
+create table a(i bigint);
+
+statement ok
+insert into a values (42);
+
+# refer to CTE in subquery
+query I
+with cte1 as (Select i as j from a) select * from cte1 where j = (select max(j) from cte1 as cte2);
+----
+42
+
+# refer to CTE in subquery tableref
+query I
+with cte1 as (Select i as j from a) select * from (with cte2 as (select max(j) as j from cte1) select * from cte2) f
+----
+42
+
+# refer to CTE in subquery expression
+query I
+with cte1 as (Select i as j from a) select * from cte1 where j = (with cte2 as (select max(j) as j from cte1) select j from cte2);
+----
+42
+
+# refer to same-named CTE in a subquery expression
+query I
+with cte as (Select i as j from a) select * from cte where j = (with cte as (select max(j) as j from cte) select j from cte);
+----
+42
