@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.sql;
+package org.apache.ignite.internal.sql;
 
 import java.time.ZoneId;
 import java.util.Objects;
@@ -24,9 +24,9 @@ import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 
 /**
- * Client SQL statement builder.
+ * Statement builder.
  */
-public class ClientStatementBuilder implements Statement.StatementBuilder {
+public class StatementBuilderImpl implements StatementBuilder {
     /** Query. */
     private String query;
 
@@ -45,7 +45,7 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public StatementBuilder query(String query) {
-        this.query = query;
+        this.query = Objects.requireNonNull(query, "query");
 
         return this;
     }
@@ -53,7 +53,11 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public StatementBuilder queryTimeout(long timeout, TimeUnit timeUnit) {
-        Objects.requireNonNull(timeUnit);
+        Objects.requireNonNull(timeUnit, "timeUnit");
+
+        if (timeout <= 0) {
+            throw new IllegalArgumentException("Timeout must be positive: " + timeout);
+        }
 
         queryTimeoutMs = TimeUnit.MILLISECONDS.convert(timeout, timeUnit);
 
@@ -63,7 +67,7 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public StatementBuilder defaultSchema(String schema) {
-        defaultSchema = schema;
+        defaultSchema = Objects.requireNonNull(schema, "schema");
 
         return this;
     }
@@ -71,14 +75,20 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public StatementBuilder pageSize(int pageSize) {
+        if (pageSize <= 0) {
+            throw new IllegalArgumentException("Page size must be positive: " + pageSize);
+        }
+
         this.pageSize = pageSize;
 
         return this;
     }
 
+
+    /** {@inheritDoc} */
     @Override
     public StatementBuilder timeZoneId(ZoneId timeZoneId) {
-        this.timeZoneId = timeZoneId;
+        this.timeZoneId = Objects.requireNonNull(timeZoneId, "timeZoneId");
 
         return this;
     }
@@ -86,11 +96,6 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public Statement build() {
-        return new ClientStatement(
-                query,
-                defaultSchema,
-                queryTimeoutMs,
-                pageSize,
-                timeZoneId);
+        return new StatementImpl(query, defaultSchema, queryTimeoutMs, pageSize, timeZoneId);
     }
 }

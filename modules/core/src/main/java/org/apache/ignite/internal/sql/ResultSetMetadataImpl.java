@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.api;
+package org.apache.ignite.internal.sql;
 
 import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
 
