@@ -142,17 +142,8 @@ public class PartitionAwarenessTests
         await recordView.UpsertAsync(null, 1);
         await AssertOpOnNode(action, ClientOp.StreamerBatchSend, _server2);
 
-        // Update assignment.
-        var assignmentTimestamp = DateTime.UtcNow.Ticks;
-
-        foreach (var server in new[] { _server1, _server2 })
-        {
-            server.ClearOps();
-            server.PartitionAssignment = server.PartitionAssignment.Reverse().ToArray();
-            server.PartitionAssignmentTimestamp = assignmentTimestamp;
-        }
-
-        // First request receives update flag.
+        // Update assignment - first request receives update flag.
+        ReversePartitionAssignment();
         await client.Tables.GetTablesAsync();
 
         // Second request loads and uses new assignment.
@@ -469,7 +460,16 @@ public class PartitionAwarenessTests
         await recordView.UpsertAsync(null, 1);
         await AssertOpOnNode(tx => func(recordView, tx), op, _server2);
 
-        // Update assignment.
+        // Update assignment - first request receives update flag.
+        ReversePartitionAssignment();
+        await client.Tables.GetTablesAsync();
+
+        // Second request loads and uses new assignment.
+        await AssertOpOnNode(tx => func(recordView, tx), op, _server1, allowExtraOps: true);
+    }
+
+    private void ReversePartitionAssignment()
+    {
         var assignmentTimestamp = DateTime.UtcNow.Ticks;
 
         foreach (var server in new[] { _server1, _server2 })
@@ -478,12 +478,6 @@ public class PartitionAwarenessTests
             server.PartitionAssignment = server.PartitionAssignment.Reverse().ToArray();
             server.PartitionAssignmentTimestamp = assignmentTimestamp;
         }
-
-        // First request receives update flag.
-        await client.Tables.GetTablesAsync();
-
-        // Second request loads and uses new assignment.
-        await AssertOpOnNode(tx => func(recordView, tx), op, _server1, allowExtraOps: true);
     }
 
     private async Task<IIgniteClient> GetClient()
