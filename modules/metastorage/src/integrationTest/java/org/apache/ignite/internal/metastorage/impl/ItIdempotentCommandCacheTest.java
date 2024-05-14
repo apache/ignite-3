@@ -350,7 +350,6 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     private RaftGroupService raftClient() {
         Node node = nodes.get(0);
 
-
         PeersAndLearners configuration = PeersAndLearners
                 .fromConsistentIds(nodes.stream().map(n -> n.clusterService.nodeName()).collect(toSet()));
 
