@@ -52,6 +52,7 @@ public enum DefaultValueGenerator {
     }
 
     /** Returns random UUID string. */
+    @SuppressWarnings("unused") // actually method is called via reflection
     public static String genRandomUuid() {
         return UUID.randomUUID().toString();
     }

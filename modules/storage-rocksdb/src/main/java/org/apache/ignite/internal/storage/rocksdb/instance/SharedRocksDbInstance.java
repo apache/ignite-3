@@ -53,6 +53,7 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.rocksdb.ColumnFamilyDescriptor;
+import org.rocksdb.DBOptions;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -104,6 +105,8 @@ public final class SharedRocksDbInstance {
     /** RocksDB flusher instance. */
     public final RocksDbFlusher flusher;
 
+    private final DBOptions dbOptions;
+
     /** Rocks DB instance. */
     public final RocksDB db;
 
@@ -133,6 +136,7 @@ public final class SharedRocksDbInstance {
             Path path,
             IgniteSpinBusyLock busyLock,
             RocksDbFlusher flusher,
+            DBOptions dbOptions,
             RocksDB db,
             RocksDbMetaStorage meta,
             ColumnFamily partitionCf,
@@ -145,6 +149,7 @@ public final class SharedRocksDbInstance {
         this.busyLock = busyLock;
 
         this.flusher = flusher;
+        this.dbOptions = dbOptions;
         this.db = db;
 
         this.meta = meta;
@@ -203,6 +208,7 @@ public final class SharedRocksDbInstance {
         resources.add(hashIndexCf.handle());
         resources.addAll(sortedIndexCfsByName.values());
 
+        resources.add(dbOptions);
         resources.add(db);
         resources.add(flusher::stop);
 

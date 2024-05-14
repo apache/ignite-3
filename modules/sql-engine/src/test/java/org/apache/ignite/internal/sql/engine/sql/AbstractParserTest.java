@@ -36,7 +36,7 @@ public abstract class AbstractParserTest {
      * @param stmt Statement to parse.
      * @return An AST.
      */
-    protected SqlNode parse(String stmt) {
+    protected static SqlNode parse(String stmt) {
         StatementParseResult parseResult = IgniteSqlParser.parse(stmt, StatementParseResult.MODE);
         SqlNode statement = parseResult.statement();
 
@@ -53,7 +53,7 @@ public abstract class AbstractParserTest {
      * @param pred Addition check that would be applied to the object.
      * @return {@code true} in case the object if instance of the given class and matches the predicat.
      */
-    protected <T> Matcher<T> ofTypeMatching(String desc, Class<T> cls, Predicate<T> pred) {
+    static <T> Matcher<T> ofTypeMatching(String desc, Class<T> cls, Predicate<T> pred) {
         return new CustomMatcher<>(desc) {
             /** {@inheritDoc} */
             @Override
@@ -67,7 +67,7 @@ public abstract class AbstractParserTest {
      * Compares the result of calling {@link SqlNode#unparse(SqlWriter, int, int)}} on the given node with the expected string.
      * Also compares the expected string on a cloned node.
      */
-    protected static void expectUnparsed(SqlNode node, String expectedStmt) {
+    static void expectUnparsed(SqlNode node, String expectedStmt) {
         assertEquals(expectedStmt, unparse(node), "Unparsed does not match");
 
         // Verify that clone works correctly.
