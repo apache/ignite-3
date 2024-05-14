@@ -317,7 +317,11 @@ public class Replica {
                 .leaseStartTime(leaseStartTime)
                 .build();
 
-        return raftClient.run(cmd);
+        return raftClient.run(cmd).thenRun(() -> {
+            if (!waitForActualStateFuture.compareAndSet(null, nullCompletedFuture())) {
+                waitForActualStateFuture.get().complete(null);
+            }
+        });
     }
 
     private CompletableFuture<LeaseGrantedMessageResponse> acceptLease(
@@ -365,12 +369,7 @@ public class Replica {
 
         return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, executor)
                 .orTimeout(timeout, TimeUnit.MILLISECONDS)
-                .thenCompose(idx -> storageIndexTracker.waitFor(idx))
-                .thenRun(() -> {
-                    if (!waitForActualStateFuture.compareAndSet(null, nullCompletedFuture())) {
-                        waitForActualStateFuture.get().complete(null);
-                    }
-                });
+                .thenCompose(idx -> storageIndexTracker.waitFor(idx));
     }
 
     /**

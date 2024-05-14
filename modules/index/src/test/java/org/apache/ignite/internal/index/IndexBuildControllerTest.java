@@ -195,7 +195,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testExceptionIsThrownOnIndexBuildingWhenStorageIsNull() {
+    void testExceptionIsNotThrownOnIndexBuildingWhenStorageIsNull() {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
         createIndex(INDEX_NAME);
@@ -240,7 +240,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testExceptionIsThrownOnPrimaryReplicaElectedWhenStorageIsNull() {
+    void testExceptionIsNotThrownOnPrimaryReplicaElectedWhenStorageIsNull() {
         when(indexManager.getMvTableStorage(anyLong(), anyInt())).thenReturn(nullCompletedFuture());
 
         CompletableFuture<ReplicaMeta> replicaMetaFuture = completedFuture(replicaMetaForOneSecond(NODE_NAME, NODE_ID, clock.now()));
