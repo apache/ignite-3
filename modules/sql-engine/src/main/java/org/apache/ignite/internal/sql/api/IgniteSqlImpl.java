@@ -80,8 +80,6 @@ import org.jetbrains.annotations.TestOnly;
  */
 @SuppressWarnings("rawtypes")
 public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
-    public static final int DEFAULT_PAGE_SIZE = 1024;
-
     private static final IgniteLogger LOG = Loggers.forClass(IgniteSqlImpl.class);
 
     private static final int AWAIT_CURSOR_CLOSE_ON_STOP_IN_SECONDS = 10;

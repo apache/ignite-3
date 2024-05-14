@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 import java.time.ZoneId;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.StatementBuilderImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.sql.Statement;
@@ -91,7 +92,7 @@ public class StatementBuilderImplTest {
             assertThat(statement.defaultSchema(), is(SqlQueryProcessor.DEFAULT_SCHEMA_NAME));
             assertThat(statement.query(), is(QUERY));
             assertThat(statement.timeZoneId(), is(ZoneId.systemDefault()));
-            assertThat(statement.pageSize(), is(IgniteSqlImpl.DEFAULT_PAGE_SIZE));
+            assertThat(statement.pageSize(), is(SqlCommon.DEFAULT_PAGE_SIZE));
             assertThat(statement.queryTimeout(TimeUnit.NANOSECONDS), is(0L));
         }
     }

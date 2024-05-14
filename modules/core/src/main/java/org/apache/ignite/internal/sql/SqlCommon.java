@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql;
 /**
  * Common SQL utilities.
  */
-public final class SqlCommon { // TODO: Reuse those constants everywhere, remove duplicates.
+public final class SqlCommon {
     /** Name of the default schema. */
     public static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
