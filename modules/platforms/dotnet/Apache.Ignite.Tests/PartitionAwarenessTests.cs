@@ -130,7 +130,7 @@ public class PartitionAwarenessTests
         using var client = await GetClient();
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
 
-        await recordView.StreamDataAsync(producer.Reader.ReadAllAsync(), new DataStreamerOptions { PageSize = 1 });
+        var streamerTask = recordView.StreamDataAsync(producer.Reader.ReadAllAsync(), new DataStreamerOptions { PageSize = 1 });
         Func<ITransaction?, Task> action = _ => producer.Writer.WriteAsync(1).AsTask();
 
         // Check default assignment.
@@ -152,6 +152,10 @@ public class PartitionAwarenessTests
 
         // Second request loads and uses new assignment.
         await AssertOpOnNode(action, ClientOp.StreamerBatchSend, _server1, allowExtraOps: true);
+
+        // End streaming.
+        producer.Writer.Complete();
+        await streamerTask;
     }
 
     [Test]
