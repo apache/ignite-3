@@ -104,18 +104,18 @@ internal static class DataStreamer
                 // However, not all producers support cancellation, so we need to check it here as well.
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var batch = await AddWithRetryUnmapped(item).ConfigureAwait(false);
-                if (batch.Count >= options.PageSize)
-                {
-                    await SendAsync(batch).ConfigureAwait(false);
-                }
-
                 var newAssignment = await table.GetPartitionAssignmentAsync().ConfigureAwait(false);
                 if (newAssignment != partitionAssignment)
                 {
                     // Drain all batches to preserve order when partition assignment changes.
                     await Drain().ConfigureAwait(false);
                     partitionAssignment = newAssignment;
+                }
+
+                var batch = await AddWithRetryUnmapped(item).ConfigureAwait(false);
+                if (batch.Count >= options.PageSize)
+                {
+                    await SendAsync(batch).ConfigureAwait(false);
                 }
             }
 
