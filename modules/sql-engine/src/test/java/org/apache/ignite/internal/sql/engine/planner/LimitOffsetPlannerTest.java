@@ -195,6 +195,9 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testNestedOffset() throws Exception {
+        // Tests for planner for limit/sort in nested subqueries
+        // See bug https://issues.apache.org/jira/browse/IGNITE-21946
+
         TableBuilder builder = TestBuilders.table()
                 .name("TEST")
                 .addColumn("A", NativeTypes.INT32)
