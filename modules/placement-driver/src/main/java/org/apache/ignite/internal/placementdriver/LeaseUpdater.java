@@ -459,13 +459,13 @@ public class LeaseUpdater {
                     noop()
             ).whenComplete((success, e) -> {
                 if (e != null) {
-                    LOG.error("Lease update invocation failed", e);
+                    LOG.error("Lease update invocation failed.", e);
 
                     return;
                 }
 
                 if (!success) {
-                    LOG.debug("Lease update invocation failed");
+                    LOG.warn("Lease update invocation failed.");
 
                     return;
                 }

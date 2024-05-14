@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
@@ -685,7 +686,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             } finally {
                 busyLock.leaveBusy();
             }
-        }, 0, 1, TimeUnit.SECONDS);
+        }, 0, 1, SECONDS);
 
         cmgMgr.metaStorageNodes().whenComplete((nodes, e) -> {
             if (e != null) {
@@ -727,19 +728,20 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                                 .groupId(partId)
                                                 // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
                                                 .timeout(10_000)
-                                                .updateLease(false)
                                                 .build();
 
                                         CompletableFuture<Replica> replicaFut = replicas.get(partId);
 
                                         if (replicaFut != null) {
                                             requestToReplicas.add(replicaFut.thenCompose(
-                                                    replica -> replica.processRequest(req, localNodeId)));
+                                                    replica -> replica.processRequest(req, localNodeId)
+                                            ));
                                         }
                                     }
 
                                     return allOf(requestToReplicas.toArray(CompletableFuture[]::new));
-                                }, scheduledTableLeaseUpdateExecutor);
+                                }, requestsExecutor)
+                                .get(10, SECONDS);
                     } catch (Exception ex) {
                         LOG.error(
                                 "Failed to add new subgroups to the replication group [repGrp={}, subGroups={}].",
@@ -762,8 +764,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         busyLock.block();
 
-        shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, 10, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(scheduledTableLeaseUpdateExecutor, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, 10, SECONDS);
+        shutdownAndAwaitTermination(scheduledTableLeaseUpdateExecutor, 10, SECONDS);
 
         assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
                 : "There are replicas alive [replicas="

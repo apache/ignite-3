@@ -304,21 +304,8 @@ public class Replica {
     private CompletableFuture<Void> processWaitReplicaStateMessage(WaitReplicaStateMessage msg) {
         LOG.info("WaitReplicaStateMessage was received [groupId = {}]", groupId());
 
-        CompletableFuture<Void> result;
-
-        if (msg.updateLease()) {
-            result = placementDriver.addSubgroups(
-                    zonePartitionId,
-                    msg.enlistmentConsistencyToken(),
-                    Set.of(replicaGrpId)
-            );
-        } else {
-            result = nullCompletedFuture();
-        }
-
-        return result
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
-                .thenComposeAsync(unused -> waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + msg.timeout()), executor)
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
+        return waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + msg.timeout())
                 .thenComposeAsync(
                         v -> sendPrimaryReplicaChangeToReplicationGroup(msg.enlistmentConsistencyToken()),
                         executor

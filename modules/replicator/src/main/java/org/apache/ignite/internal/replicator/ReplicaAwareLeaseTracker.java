@@ -116,7 +116,6 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
                                 .groupId(tablePartitionId)
                                 .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                                 .timeout(unit.toMillis(timeout))
-                                .updateLease(true)
                                 .build();
 
                         return replicaService.invoke(leaseholderNode, awaitReplicaReq);
