@@ -103,11 +103,11 @@ public class ZonePartitionId implements ReplicationGroupId {
      * @return Zone partition id without specified {@code tableId}.
      */
     public static ZonePartitionId resetTableId(ZonePartitionId zonePartitionId) {
-        if (zonePartitionId.tableId() == 0) {
+        if (zonePartitionId.tableId == 0) {
             return zonePartitionId;
         }
 
-        return new ZonePartitionId(zonePartitionId.zoneId(), zonePartitionId.tableId());
+        return new ZonePartitionId(zonePartitionId.zoneId, zonePartitionId.partId);
     }
 
     @Override
