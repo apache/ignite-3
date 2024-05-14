@@ -142,10 +142,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Raft manager for RAFT-clients creation. */
     private final RaftManager raftManager;
 
-    /** TODO. */
+    /** Raft clients factory for raft server endpoints starting. */
     private final TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory;
 
-    /** TODO. */
+    /** Raft command marshaller for raft server endpoints starting. */
     private final Marshaller raftCommandsMarshaller;
 
     /** Message handler for placement driver messages. */
@@ -479,17 +479,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
-     * TODO.
+     * Raft group options creation for TableManager#groupOptionsForPartition.
      *
-     * @param isVolatileStorage TODO
-     * @param volatileLogStorageFactoryCreator TODO
-     * @return TODO
+     * @param isVolatileStorage is storage volatile or false if persistent storage.
+     * @param volatileLogStorageFactoryCreator factory in case of volatile storage.
+     * @return prepared blank options for following settings of  snapshot storage factory and command marshaller.
      */
     public RaftGroupOptions createRaftGroupOptions(boolean isVolatileStorage, LogStorageFactoryCreator volatileLogStorageFactoryCreator) {
         if (isVolatileStorage) {
             LogStorageBudgetView view = ((Loza) raftManager).volatileRaft().logStorage().value();
             return RaftGroupOptions.forVolatileStores()
-                    // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
                     .setLogStorageFactory(volatileLogStorageFactoryCreator.factory(view))
                     .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage());
         } else {
@@ -498,14 +497,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
-     * TODO.
+     * Starts a Raft group on the current node without starting raft service.
      *
-     * @param groupOptions TODO
-     * @param raftGrpLsnr TODO
-     * @param raftGrpEvtsLsnr TODO
-     * @param raftNodeId TODO
-     * @param stableConfiguration TODO
-     * @throws NodeStoppingException TODO
+     * @param raftNodeId Raft node ID.
+     * @param stableConfiguration Peers and Learners of the Raft group.
+     * @param raftGrpLsnr Raft group listener.
+     * @param raftGrpEvtsLsnr Raft group events listener.
+     * @param groupOptions Options to apply to the group.
+     * @throws NodeStoppingException in case of stopping node before completion
      */
     public void startPartitionRaftGroupNode(
             RaftNodeId raftNodeId,
@@ -525,18 +524,17 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
-     * Starts a replica. If a replica with the same partition id already exists, the method throws an exception.
+     * Starts a raft-client and pass it to a replica creation if the replica should be started too. If a replica with the same partition id
+     * already exists, the method throws an exception.
      *
      * @param replicaGrpId Replication group id.
-     * @param newConfiguration TODO
-     * @param createListener TODO
+     * @param newConfiguration Peers and Learners of the Raft group.
+     * @param createListener A clojure that returns done {@link ReplicaListener} by given raft-client {@link RaftGroupService}.
      * @param storageIndexTracker Storage index tracker.
      * @throws NodeStoppingException If node is stopping.
-     * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been
-     *         started.
+     * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been started.
      */
     public CompletableFuture<Void> startRaftClientAndReplica(
-            // TODO: nonsense name
             boolean shouldSkipReplicaStarting,
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
@@ -550,7 +548,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            return startReplicaInternal(
+            return startRaftClientAndReplicaInternal(
                     shouldSkipReplicaStarting,
                     replicaGrpId,
                     newConfiguration,
@@ -559,22 +557,20 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     createListener,
                     storageIndexTracker
             );
-
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     /**
-     * Internal method for starting a replica.
+     * Internal method for starting raft-client and pass it to a replica creation if the replica should be started too.
      *
      * @param replicaGrpId Replication group id.
-     * @param newConfiguration TODO
-     * @param createListener TODO
+     * @param newConfiguration Peers and Learners of the Raft group.
+     * @param createListener A clojure that returns done {@link ReplicaListener} by given raft-client {@link RaftGroupService}.
      * @param storageIndexTracker Storage index tracker.
      */
-    private CompletableFuture<Void> startReplicaInternal(
-            // TODO: nonsense name
+    private CompletableFuture<Void> startRaftClientAndReplicaInternal(
             boolean shouldSkipReplicaStarting,
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
@@ -607,12 +603,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
-     * TODO.
+     * Creates new replica.
      *
-     * @param replicaGrpId TODO
-     * @param storageIndexTracker TODO
-     * @param newReplicaListenerFut TODO
-     * @return TODO
+     * @param replicaGrpId Replication group id.
+     * @param storageIndexTracker Storage index tracker.
+     * @param newReplicaListenerFut Future that returns ready ReplicaListener for replica creation.
+     * @return Future that promises ready new replica when done.
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
