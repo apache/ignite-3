@@ -21,6 +21,7 @@ import static org.apache.ignite.client.handler.requests.compute.ClientComputeExe
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackDeploymentUnits;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest.packJobStatus;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -61,8 +62,13 @@ public class ClientComputeExecuteMapReduceRequest {
         TaskExecution<Object> execution = compute.submitMapReduce(deploymentUnits, taskClassName, args);
         sendTaskResult(execution, notificationSender);
 
+        var idsAsync = execution.idsAsync()
+                .handleAsync((ids, ex) -> {
+                    // empty ids in case of split exception to properly respond with task id and failed status
+                    return ex == null ? ids : Collections.<UUID>emptyList();}
+                );
         return execution.idAsync()
-                .thenAcceptBoth(execution.idsAsync(), (id, ids) -> {
+                .thenAcceptBoth(idsAsync, (id, ids) -> {
                     out.packUuidNullable(id);
                     packJobIds(out, ids);
                 });

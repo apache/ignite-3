@@ -32,8 +32,12 @@ import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -70,6 +74,10 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.compute.task.ComputeJobRunner;
+import org.apache.ignite.compute.task.MapReduceTask;
+import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -77,6 +85,7 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Thin client compute integration test.
@@ -668,6 +677,42 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertEquals(expected, res);
     }
 
+    @Test
+    void testExecuteMapReduce() throws Exception {
+        TaskExecution<String> execution = client().compute().submitMapReduce(List.of(), MapReduceNodeNameTask.class.getName());
+
+        assertThat(execution.resultAsync(), willBe(allOf(containsString("itcct_n_3344"), containsString("itcct_n_3345"))));
+
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+        assertThat(execution.statusesAsync(), willBe(everyItem(jobStatusWithState(COMPLETED))));
+
+        assertThat("compute task and sub tasks ids must be different",
+                execution.idsAsync(), willBe(not(hasItem(execution.idAsync().get()))));
+    }
+
+    @Test
+    void testExecuteMapReduceWithArgs() {
+        TaskExecution<String> execution = client().compute()
+                .submitMapReduce(List.of(), MapReduceArgsTask.class.getName(), 1, "2", 3.3);
+
+        assertThat(execution.resultAsync(), willBe(containsString("1_2_3.3")));
+        assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(classes = {MapReduceExceptionOnSplitTask.class, MapReduceExceptionOnReduceTask.class})
+    void testExecuteMapReduceExceptionPropagation(Class<?> taskClass) {
+        IgniteException cause = getExceptionInJobExecutionAsync(
+                client().compute().submitMapReduce(List.of(), taskClass.getName())
+        );
+
+        assertThat(cause.getMessage(), containsString("Custom job error"));
+        assertEquals(TRACE_ID, cause.traceId());
+        assertEquals(COLUMN_ALREADY_EXISTS_ERR, cause.code());
+        assertInstanceOf(CustomException.class, cause);
+        assertNull(cause.getCause()); // No stack trace by default.
+    }
+
     private void testEchoArg(Object arg) {
         Object res = client().compute().execute(Set.of(node(0)), List.of(), EchoJob.class.getName(), arg, arg.toString());
 
@@ -752,6 +797,77 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         @Override
         public BigDecimal execute(JobExecutionContext context, Object... args) {
             return new BigDecimal((String) args[0]).setScale((Integer) args[1], RoundingMode.HALF_UP);
+        }
+    }
+
+    private static class MapReduceNodeNameTask implements MapReduceTask<String> {
+        @Override
+        public List<ComputeJobRunner> split(TaskExecutionContext context, Object... args) {
+            return context.ignite().clusterNodes().stream()
+                    .map(node -> ComputeJobRunner.builder()
+                            .jobClassName(NodeNameJob.class.getName())
+                            .nodes(Set.of(node))
+                            .args(args)
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
+        @Override
+        public String reduce(Map<UUID, ?> results) {
+            return results.values().stream()
+                    .map(String.class::cast)
+                    .collect(Collectors.joining(","));
+        }
+    }
+
+    private static class MapReduceArgsTask implements MapReduceTask<String> {
+        @Override
+        public List<ComputeJobRunner> split(TaskExecutionContext context, Object... args) {
+            return context.ignite().clusterNodes().stream()
+                    .map(node -> ComputeJobRunner.builder()
+                            .jobClassName(ConcatJob.class.getName())
+                            .nodes(Set.of(node))
+                            .args(args)
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
+        @Override
+        public String reduce(Map<UUID, ?> results) {
+            return results.values().stream()
+                    .map(String.class::cast)
+                    .collect(Collectors.joining(","));
+        }
+    }
+
+    private static class MapReduceExceptionOnSplitTask implements MapReduceTask<String> {
+        @Override
+        public List<ComputeJobRunner> split(TaskExecutionContext context, Object... args) {
+            throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
+        }
+
+        @Override
+        public String reduce(Map<UUID, ?> results) {
+            return "expected split exception";
+        }
+    }
+
+    private static class MapReduceExceptionOnReduceTask implements MapReduceTask<String> {
+
+        @Override
+        public List<ComputeJobRunner> split(TaskExecutionContext context, Object... args) {
+            return context.ignite().clusterNodes().stream()
+                    .map(node -> ComputeJobRunner.builder()
+                            .jobClassName(NodeNameJob.class.getName())
+                            .nodes(Set.of(node))
+                            .args(args)
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
+        @Override
+        public String reduce(Map<UUID, ?> results) {
+            throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
         }
     }
 
