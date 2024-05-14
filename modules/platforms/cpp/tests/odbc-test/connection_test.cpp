@@ -72,7 +72,8 @@ TEST_F(connection_test, timezone_passed) {
     ret = SQLBindCol(m_statement, 1, SQL_C_CHAR, &buffer, column_len, &column_len);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    ASSERT_TRUE(column_len > 0 && column_len < 1024);
+    ASSERT_GT(column_len, 0);
+    ASSERT_LT(column_len, 1024);
     std::string ts0((char*)buffer, column_len);
     odbc_clean_up();
 
@@ -83,7 +84,8 @@ TEST_F(connection_test, timezone_passed) {
     ret = SQLBindCol(m_statement, 1, SQL_C_CHAR, &buffer, column_len, &column_len);
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    ASSERT_TRUE(column_len > 0 && column_len < 1024);
+    ASSERT_GT(column_len, 0);
+    ASSERT_LT(column_len, 1024);
     std::string ts1((char*)buffer, column_len);
     odbc_clean_up();
 
