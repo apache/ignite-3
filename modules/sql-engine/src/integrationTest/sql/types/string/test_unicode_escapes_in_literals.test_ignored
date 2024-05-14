@@ -1,7 +1,7 @@
 # name: test/sql/types/string/test_unicode_escapes_on_literals.test
 # description: SQL feature F393 (Unicode escapes in literals)
 # group: [string]
-# Ignore: https://issues.apache.org/jira/browse/IGNITE-21942
+# Ignore: https://issues.apache.org/jira/browse/IGNITE-22221
 
 # insert unicode strings into the database
 statement ok
