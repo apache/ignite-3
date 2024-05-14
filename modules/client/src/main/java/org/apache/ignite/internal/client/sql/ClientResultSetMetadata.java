@@ -17,57 +17,79 @@
 
 package org.apache.ignite.internal.client.sql;
 
-import static org.apache.ignite.lang.util.IgniteNameUtils.parseSimpleName;
-
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
+import org.apache.ignite.internal.sql.ColumnMetadataImpl;
+import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
+import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
  * Result set metadata.
  */
-class ClientResultSetMetadata implements ResultSetMetadata {
-    /** Columns. */
-    private final List<ColumnMetadata> columns;
-
-    /** Column name to index map. */
-    private final Map<String, Integer> columnIndices;
-
-    /**
-     * Constructor.
-     *
-     * @param unpacker Unpacker.
-     */
-    public ClientResultSetMetadata(ClientMessageUnpacker unpacker) {
+final class ClientResultSetMetadata {
+    static ResultSetMetadata read(ClientMessageUnpacker unpacker) {
         var size = unpacker.unpackInt();
         assert size > 0 : "ResultSetMetadata should not be empty.";
 
         var columns = new ArrayList<ColumnMetadata>(size);
-        columnIndices =  new HashMap<>(size);
 
         for (int i = 0; i < size; i++) {
-            ClientColumnMetadata column = new ClientColumnMetadata(unpacker, columns);
-            columns.add(column);
-            columnIndices.put(column.name(), i);
+            columns.add(readColumn(unpacker, columns));
         }
 
-        this.columns = Collections.unmodifiableList(columns);
+        return new ResultSetMetadataImpl(columns);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public List<ColumnMetadata> columns() {
-        return columns;
+    private static ColumnMetadata readColumn(ClientMessageUnpacker unpacker, ArrayList<ColumnMetadata> prevColumns) {
+        var propCnt = unpacker.unpackInt();
+
+        assert propCnt >= 6;
+
+        var name = unpacker.unpackString();
+        var nullable = unpacker.unpackBoolean();
+        var type = ColumnTypeConverter.fromIdOrThrow(unpacker.unpackInt());
+        var scale = unpacker.unpackInt();
+        var precision = unpacker.unpackInt();
+
+        ColumnOrigin origin;
+
+        if (unpacker.unpackBoolean()) {
+            assert propCnt >= 9;
+
+            origin = readOrigin(unpacker, name, prevColumns);
+        } else {
+            origin = null;
+        }
+
+        return new ColumnMetadataImpl(name, type, precision, scale, nullable, origin);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public int indexOf(String columnName) {
-        return columnIndices.getOrDefault(parseSimpleName(columnName), -1);
+    private static ColumnOrigin readOrigin(
+            ClientMessageUnpacker unpacker,
+            String cursorColumnName,
+            List<ColumnMetadata> prevColumns) {
+        var columnName = unpacker.tryUnpackNil() ? cursorColumnName : unpacker.unpackString();
+
+        int schemaNameIdx = unpacker.tryUnpackInt(-1);
+
+        //noinspection ConstantConditions
+        var schemaName = schemaNameIdx == -1
+                ? unpacker.unpackString()
+                : prevColumns.get(schemaNameIdx).origin().schemaName();
+
+        int tableNameIdx = unpacker.tryUnpackInt(-1);
+
+        //noinspection ConstantConditions
+        var tableName = tableNameIdx == -1
+                ? unpacker.unpackString()
+                : prevColumns.get(tableNameIdx).origin().tableName();
+
+
+        return new ColumnOriginImpl(schemaName, tableName, columnName);
     }
 }
