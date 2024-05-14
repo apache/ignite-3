@@ -346,7 +346,13 @@ namespace Apache.Ignite.Tests
 
                     case ClientOp.StreamerBatchSend:
                         reader.Skip(4);
-                        StreamerRowCount += reader.ReadInt32();
+                        var batchSize = reader.ReadInt32();
+                        StreamerRowCount += batchSize;
+
+                        if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
+                        {
+                            Thread.Sleep(MultiRowOperationDelayPerRow * batchSize);
+                        }
 
                         Send(handler, requestId, Array.Empty<byte>());
                         continue;
