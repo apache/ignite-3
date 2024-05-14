@@ -26,6 +26,7 @@ import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
@@ -50,11 +51,11 @@ final class ClientResultSetMetadata {
 
         assert propCnt >= 6;
 
-        var name = unpacker.unpackString();
-        var nullable = unpacker.unpackBoolean();
-        var type = ColumnTypeConverter.fromIdOrThrow(unpacker.unpackInt());
-        var scale = unpacker.unpackInt();
-        var precision = unpacker.unpackInt();
+        String name = unpacker.unpackString();
+        boolean nullable = unpacker.unpackBoolean();
+        ColumnType type = ColumnTypeConverter.fromIdOrThrow(unpacker.unpackInt());
+        int scale = unpacker.unpackInt();
+        int precision = unpacker.unpackInt();
 
         ColumnOrigin origin;
 
@@ -73,22 +74,21 @@ final class ClientResultSetMetadata {
             ClientMessageUnpacker unpacker,
             String cursorColumnName,
             List<ColumnMetadata> prevColumns) {
-        var columnName = unpacker.tryUnpackNil() ? cursorColumnName : unpacker.unpackString();
+        String columnName = unpacker.tryUnpackNil() ? cursorColumnName : unpacker.unpackString();
 
         int schemaNameIdx = unpacker.tryUnpackInt(-1);
 
         //noinspection ConstantConditions
-        var schemaName = schemaNameIdx == -1
+        String schemaName = schemaNameIdx == -1
                 ? unpacker.unpackString()
                 : prevColumns.get(schemaNameIdx).origin().schemaName();
 
         int tableNameIdx = unpacker.tryUnpackInt(-1);
 
         //noinspection ConstantConditions
-        var tableName = tableNameIdx == -1
+        String tableName = tableNameIdx == -1
                 ? unpacker.unpackString()
                 : prevColumns.get(tableNameIdx).origin().tableName();
-
 
         return new ColumnOriginImpl(schemaName, tableName, columnName);
     }
