@@ -155,6 +155,7 @@ public final class Commons {
             .sqlToRelConverterConfig(SqlToRelConverter.config()
                     .withTrimUnusedFields(true)
                     // Disable `RemoveSortInSubQuery` hint that causes incorrect plan transformation
+                    // because calcite does not distinguish between VIEWs and nested subqueries.
                     // TODO https://issues.apache.org/jira/browse/IGNITE-22204
                     .withRemoveSortInSubQuery(false)
                     // currently SqlToRelConverter creates not optimal plan for both optimization and execution
