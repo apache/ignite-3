@@ -126,6 +126,7 @@ public class Replica {
         raftClient.subscribeLeader(this::onLeaderElected);
     }
 
+    /** Returns Raft-client. */
     public final TopologyAwareRaftGroupService raftClient() {
         return (TopologyAwareRaftGroupService) listener.raftClient();
     }

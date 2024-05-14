@@ -34,6 +34,7 @@ public interface ReplicaListener {
      */
     CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId);
 
+    /** Returns Raft-client. */
     RaftCommandRunner raftClient();
 
     /** Callback on replica shutdown. */
