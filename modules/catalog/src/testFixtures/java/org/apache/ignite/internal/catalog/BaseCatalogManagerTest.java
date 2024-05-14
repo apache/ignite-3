@@ -31,7 +31,6 @@ import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.spy;
 
 import java.util.List;
@@ -50,7 +49,6 @@ import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -249,12 +247,12 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         return simpleTable(tableName, cols);
     }
 
-    protected static CatalogCommand simpleIndex() {
-        return createSortedIndexCommand(INDEX_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST));
-    }
-
     protected static CatalogCommand simpleTable(String tableName, List<ColumnParams> cols) {
         return createTableCommand(tableName, cols, List.of(cols.get(0).name()), List.of(cols.get(0).name()));
+    }
+
+    protected static CatalogCommand simpleIndex() {
+        return createSortedIndexCommand(INDEX_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST));
     }
 
     protected static CatalogCommand simpleIndex(String tableName, String indexName) {

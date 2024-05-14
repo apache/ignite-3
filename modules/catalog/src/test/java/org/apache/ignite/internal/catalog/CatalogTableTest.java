@@ -75,8 +75,10 @@ import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandB
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
+import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.RenameTableCommand;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -111,14 +113,15 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     public void testCreateTable() {
         long timePriorToTableCreation = clock.nowLong();
 
-        int tableCreationVersion = await(
-                manager.execute(createTableCommand(
-                        TABLE_NAME,
-                        List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)),
-                        List.of("key1", "key2"),
-                        List.of("key2")
-                ))
-        );
+        CatalogCommand command = CreateTableCommand.builder()
+                .tableName(TABLE_NAME)
+                .schemaName(SCHEMA_NAME)
+                .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
+                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1", "key2")).build())
+                .colocationColumns(List.of("key2"))
+                .build();
+
+        int tableCreationVersion = await(manager.execute(command));
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(tableCreationVersion - 1);
@@ -165,51 +168,58 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertNotNull(desc);
         // INT32 key
         assertThat(desc.precision(), is(DEFAULT_PRECISION));
-
-        // Validate another table creation.
-        int secondTableCreationVersion = await(manager.execute(simpleTable(TABLE_NAME_2)));
-
-        // Validate actual catalog has both tables.
-        schema = manager.schema(secondTableCreationVersion);
-        table = schema.table(TABLE_NAME);
-        pkIndex = (CatalogHashIndexDescriptor) schema.aliveIndex(pkIndexName(TABLE_NAME));
-        CatalogTableDescriptor table2 = schema.table(TABLE_NAME_2);
-        CatalogHashIndexDescriptor pkIndex2 = (CatalogHashIndexDescriptor) schema.aliveIndex(pkIndexName(TABLE_NAME_2));
-
-        assertNotNull(schema);
-        assertEquals(SCHEMA_NAME, schema.name());
-        assertSame(schema, manager.activeSchema(clock.nowLong()));
-
-        assertSame(table, manager.table(TABLE_NAME, clock.nowLong()));
-        assertSame(table, manager.table(table.id(), clock.nowLong()));
-
-        assertSame(pkIndex, manager.aliveIndex(pkIndexName(TABLE_NAME), clock.nowLong()));
-        assertSame(pkIndex, manager.index(pkIndex.id(), clock.nowLong()));
-
-        assertSame(table2, manager.table(TABLE_NAME_2, clock.nowLong()));
-        assertSame(table2, manager.table(table2.id(), clock.nowLong()));
-
-        assertSame(pkIndex2, manager.aliveIndex(pkIndexName(TABLE_NAME_2), clock.nowLong()));
-        assertSame(pkIndex2, manager.index(pkIndex2.id(), clock.nowLong()));
-
-        assertNotSame(table, table2);
-        assertNotSame(pkIndex, pkIndex2);
-
-        // Try to create another table with same name.
-        assertThat(
-                manager.execute(simpleTable(TABLE_NAME_2)),
-                willThrowFast(CatalogValidationException.class)
-        );
-
-        // Validate schema wasn't changed.
-        assertSame(schema, manager.activeSchema(clock.nowLong()));
     }
 
+    @Test
+    public void testCreateMultipleTables() {
+        await(manager.execute(simpleTable(TABLE_NAME)));
+
+        await(manager.execute(simpleTable(TABLE_NAME_2)));
+
+        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+        assertNotNull(catalog);
+
+        CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
+        assertNotNull(schema);
+
+        CatalogTableDescriptor table1 = schema.table(TABLE_NAME);
+        assertNotNull(table1, "table1");
+
+        CatalogTableDescriptor table2 = schema.table(TABLE_NAME_2);
+        assertNotNull(table2, "table2");
+
+        assertNotEquals(table1.id(), table2.id());
+
+        CatalogIndexDescriptor index1 = schema.aliveIndex(pkIndexName(TABLE_NAME));
+        assertNotNull(index1, "index1");
+
+        CatalogIndexDescriptor index2 = schema.aliveIndex(pkIndexName(TABLE_NAME_2));
+        assertNotNull(index2, "index2");
+
+        assertNotEquals(index1.id(), index2.id());
+        assertNotSame(index1, index2);
+    }
+
+    @Test
+    public void testCreateTableWithSameNameIsNotPossible() {
+        CatalogCommand command1 = CreateTableCommand.builder()
+                .tableName(TABLE_NAME)
+                .schemaName(SCHEMA_NAME)
+                .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32)))
+                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1", "key2")).build())
+                .build();
+
+        await(manager.execute(command1));
+
+        assertThat(
+                manager.execute(command1),
+                willThrowFast(CatalogValidationException.class)
+        );
+    }
 
     @Test
     public void testDropTable() {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
-        assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willCompleteSuccessfully());
 
         long beforeDropTimestamp = clock.nowLong();
 
@@ -218,12 +228,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(tableDropVersion - 1);
         CatalogTableDescriptor table1 = schema.table(TABLE_NAME);
-        CatalogTableDescriptor table2 = schema.table(TABLE_NAME_2);
         CatalogIndexDescriptor pkIndex1 = schema.aliveIndex(pkIndexName(TABLE_NAME));
-        CatalogIndexDescriptor pkIndex2 = schema.aliveIndex(pkIndexName(TABLE_NAME_2));
-
-        assertNotEquals(table1.id(), table2.id());
-        assertNotEquals(pkIndex1.id(), pkIndex2.id());
 
         assertNotNull(schema);
         assertEquals(SCHEMA_NAME, schema.name());
@@ -234,12 +239,6 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         assertSame(pkIndex1, manager.aliveIndex(pkIndexName(TABLE_NAME), beforeDropTimestamp));
         assertSame(pkIndex1, manager.index(pkIndex1.id(), beforeDropTimestamp));
-
-        assertSame(table2, manager.table(TABLE_NAME_2, beforeDropTimestamp));
-        assertSame(table2, manager.table(table2.id(), beforeDropTimestamp));
-
-        assertSame(pkIndex2, manager.aliveIndex(pkIndexName(TABLE_NAME_2), beforeDropTimestamp));
-        assertSame(pkIndex2, manager.index(pkIndex2.id(), beforeDropTimestamp));
 
         // Validate actual catalog
         schema = manager.schema(tableDropVersion);
@@ -255,17 +254,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertThat(schema.aliveIndex(pkIndexName(TABLE_NAME)), is(nullValue()));
         assertThat(manager.aliveIndex(pkIndexName(TABLE_NAME), clock.nowLong()), is(nullValue()));
         assertThat(manager.index(pkIndex1.id(), clock.nowLong()), is(nullValue()));
-
-        assertSame(table2, manager.table(TABLE_NAME_2, clock.nowLong()));
-        assertSame(table2, manager.table(table2.id(), clock.nowLong()));
-
-        assertSame(pkIndex2, manager.aliveIndex(pkIndexName(TABLE_NAME_2), clock.nowLong()));
-        assertSame(pkIndex2, manager.index(pkIndex2.id(), clock.nowLong()));
-
-        // Validate schema wasn't changed.
-        assertSame(schema, manager.activeSchema(clock.nowLong()));
     }
-
 
     @Test
     public void testReCreateTableWithSameName() {

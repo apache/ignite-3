@@ -31,7 +31,6 @@ import java.util.Iterator;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.Tuple;
 
 /**
  * Enumeration of tables from TPC-H specification.
