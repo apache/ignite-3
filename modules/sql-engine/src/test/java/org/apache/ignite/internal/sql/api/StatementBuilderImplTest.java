@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 import java.time.ZoneId;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.sql.StatementBuilderImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.sql.Statement;
 import org.junit.jupiter.api.Test;

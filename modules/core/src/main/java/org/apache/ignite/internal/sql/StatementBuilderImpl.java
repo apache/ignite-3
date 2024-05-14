@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.api;
+package org.apache.ignite.internal.sql;
 
 import java.time.ZoneId;
 import java.util.Objects;
@@ -26,7 +26,7 @@ import org.apache.ignite.sql.Statement.StatementBuilder;
 /**
  * Statement builder.
  */
-class StatementBuilderImpl implements StatementBuilder {
+public class StatementBuilderImpl implements StatementBuilder {
     /** Query. */
     private String query;
 

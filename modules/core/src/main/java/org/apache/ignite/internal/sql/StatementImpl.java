@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.api;
+package org.apache.ignite.internal.sql;
 
 import java.time.ZoneId;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.sql.Statement;
 
 /**
  * Statement.
  */
-class StatementImpl implements Statement {
+public class StatementImpl implements Statement {
     /** Default query timeout is not limited. */
     private static final long DEFAULT_QUERY_TIMEOUT = 0;
 
@@ -50,7 +49,7 @@ class StatementImpl implements Statement {
      *
      * @param query Query.
      */
-    StatementImpl(String query) {
+    public StatementImpl(String query) {
         this(query, null, null, null, null);
     }
 
@@ -63,7 +62,7 @@ class StatementImpl implements Statement {
      * @param pageSize Page size.
      * @param timeZoneId Time-zone ID.
      */
-    StatementImpl(
+    public StatementImpl(
             String query,
             String defaultSchema,
             Long queryTimeoutMs,
@@ -71,9 +70,9 @@ class StatementImpl implements Statement {
             ZoneId timeZoneId
     ) {
         this.query = Objects.requireNonNull(query, "Parameter 'query' cannot be null");
-        this.defaultSchema = Objects.requireNonNullElse(defaultSchema, SqlQueryProcessor.DEFAULT_SCHEMA_NAME);
+        this.defaultSchema = Objects.requireNonNullElse(defaultSchema, SqlCommon.DEFAULT_SCHEMA_NAME);
         this.queryTimeoutMs = Objects.requireNonNullElse(queryTimeoutMs, DEFAULT_QUERY_TIMEOUT);
-        this.pageSize =  Objects.requireNonNullElse(pageSize, IgniteSqlImpl.DEFAULT_PAGE_SIZE);
+        this.pageSize =  Objects.requireNonNullElse(pageSize, SqlCommon.DEFAULT_PAGE_SIZE);
 
         // If the user has not explicitly specified a time zone, then we use the system default value.
         this.timeZoneId = Objects.requireNonNullElse(timeZoneId, ZoneId.systemDefault());
