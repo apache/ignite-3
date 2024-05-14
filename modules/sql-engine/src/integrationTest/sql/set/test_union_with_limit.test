@@ -3,7 +3,7 @@
 # group: [set]
 
 statement ok
-CREATE TABLE test (a INTEGER);
+CREATE TABLE test (a INTEGER)
 
 statement ok
 INSERT INTO test VALUES (1), (2), (3), (4)
