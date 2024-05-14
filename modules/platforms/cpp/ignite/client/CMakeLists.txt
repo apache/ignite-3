@@ -19,8 +19,6 @@ project(ignite-client)
 
 set(TARGET ${PROJECT_NAME})
 
-find_package(date REQUIRED)
-
 set(SOURCES
     ignite_client.cpp
     compute/compute.cpp
@@ -79,7 +77,6 @@ set(LIBRARIES
     ignite-tuple
     ignite-network
     ignite-protocol
-    date::date
 )
 
 set(_target_libs ${TARGET} ${TARGET}-obj)

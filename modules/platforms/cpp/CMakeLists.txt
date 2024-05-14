@@ -40,7 +40,6 @@ get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
 set(conan_packages
     msgpack-c/4.0.0
-    date/3.0.1
 )
 
 if (${ENABLE_TESTS})

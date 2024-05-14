@@ -148,7 +148,7 @@ public:
      * Affects time-related SQL functions (e.g. @c CURRENT_TIME) and string literal conversions
      * (e.g. <tt>TIMESTAMP WITH LOCAL TIME ZONE '1992-01-18 02:30:00.123'</tt>).
      *
-     * If left empty, defaults to local time zone.
+     * If left empty, defaults to server time zone.
      *
      * @param val Timezone ID.
      */
