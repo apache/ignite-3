@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
+import java.io.Serializable;
+import java.util.Map;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.CommandId;
+import org.apache.ignite.internal.metastorage.command.IdempotentCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
@@ -50,6 +55,7 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Class containing some common logic for Meta Storage Raft group listeners.
@@ -61,6 +67,8 @@ public class MetaStorageWriteHandler {
     private final KeyValueStorage storage;
     private final ClusterTimeImpl clusterTime;
 
+    private final Map<CommandId, IdempotentCommandCachedResult> idempotentCommandCache = new ConcurrentHashMap<>();
+
     MetaStorageWriteHandler(KeyValueStorage storage, ClusterTimeImpl clusterTime) {
         this.storage = storage;
         this.clusterTime = clusterTime;
@@ -70,6 +78,29 @@ public class MetaStorageWriteHandler {
      * Processes a given {@link WriteCommand}.
      */
     void handleWriteCommand(CommandClosure<WriteCommand> clo) {
+        WriteCommand command = clo.command();
+
+        CommandClosure<WriteCommand> resultClosure;
+
+        if (command instanceof IdempotentCommand) {
+            CommandId commandId = ((IdempotentCommand) command).id();
+            IdempotentCommandCachedResult cachedResult = idempotentCommandCache.get(commandId);
+
+            if (cachedResult != null) {
+                clo.result(cachedResult.result);
+
+                return;
+            } else {
+                resultClosure = new ResultCachingClosure(clo);
+            }
+        } else {
+            resultClosure = clo;
+        }
+
+        handleNonCachedWriteCommand(resultClosure);
+    }
+
+    private void handleNonCachedWriteCommand(CommandClosure<WriteCommand> clo) {
         WriteCommand command = clo.command();
 
         try {
@@ -277,5 +308,54 @@ public class MetaStorageWriteHandler {
         }
 
         return false;
+    }
+
+    private static class IdempotentCommandCachedResult {
+        @Nullable
+        final Serializable result;
+
+        final HybridTimestamp commandStartTime;
+
+        IdempotentCommandCachedResult(@Nullable Serializable result, HybridTimestamp commandStartTime) {
+            this.result = result;
+            this.commandStartTime = commandStartTime;
+        }
+    }
+
+    private class ResultCachingClosure implements CommandClosure<WriteCommand> {
+        CommandClosure<WriteCommand> closure;
+
+        ResultCachingClosure(CommandClosure<WriteCommand> closure) {
+            this.closure = closure;
+
+            assert closure.command() instanceof IdempotentCommand;
+        }
+
+        @Override
+        public long index() {
+            return closure.index();
+        }
+
+        @Override
+        public long term() {
+            return closure.term();
+        }
+
+        @Override
+        public WriteCommand command() {
+            return closure.command();
+        }
+
+        @Override
+        public void result(@Nullable Serializable res) {
+            IdempotentCommand command = (IdempotentCommand) closure.command();
+
+            // Exceptions are not cached.
+            if (!(res instanceof Throwable)) {
+                idempotentCommandCache.put(command.id(), new IdempotentCommandCachedResult(res, command.initiatorTime()));
+            }
+
+            closure.result(res);
+        }
     }
 }

@@ -15,36 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+package org.apache.ignite.internal.metastorage;
 
-import java.util.Collection;
-import org.apache.ignite.internal.metastorage.dsl.Condition;
-import org.apache.ignite.internal.metastorage.dsl.Operation;
+import java.util.UUID;
+import org.apache.ignite.internal.metastorage.dsl.MetaStorageMessageGroup;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Represents invoke command for meta storage.
+ * Command id. It consists of node id and a counter that is generated on the node and is unique for that node, so the whole command id
+ * would be unique cluster-wide.
  */
-@Transferable(MetastorageCommandsMessageGroup.INVOKE)
-public interface InvokeCommand extends IdempotentCommand {
-    /**
-     * Returns condition.
-     *
-     * @return Condition.
-     */
-    Condition condition();
+@Transferable(MetaStorageMessageGroup.COMMAND_ID)
+public interface CommandId extends NetworkMessage {
+    UUID nodeId();
 
-    /**
-     * Returns success operations.
-     *
-     * @return Success operations.
-     */
-    Collection<Operation> success();
-
-    /**
-     * Returns failure operations.
-     *
-     * @return Failure operations.
-     */
-    Collection<Operation> failure();
+    long counter();
 }
