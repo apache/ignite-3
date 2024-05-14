@@ -131,7 +131,12 @@ public class PartitionAwarenessTests
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
 
         var streamerTask = recordView.StreamDataAsync(producer.Reader.ReadAllAsync(), new DataStreamerOptions { PageSize = 1 });
-        Func<ITransaction?, Task> action = _ => producer.Writer.WriteAsync(1).AsTask();
+        Func<ITransaction?, Task> action = async _ =>
+        {
+             await producer.Writer.WriteAsync(1);
+             TestUtils.WaitForCondition(
+                 () => new[] { _server1, _server2 }.SelectMany(x => x.ClientOps).Contains(ClientOp.StreamerBatchSend));
+        };
 
         // Check default assignment.
         await recordView.UpsertAsync(null, 1);
