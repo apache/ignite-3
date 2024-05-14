@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.raft.util;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
@@ -54,5 +58,22 @@ public class SharedLogStorageFactoryUtils {
         return IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, false)
                 ? new LogitLogStorageFactory(nodeName, new StoreOptions(), logStoragePath)
                 : baseFactory.apply(nodeName, logStoragePath);
+    }
+
+    /** Wraps the LogStorageFactory in a IgniteComponent. */
+    public static IgniteComponent wrapWithComponent(LogStorageFactory logStorageFactory) {
+        return new IgniteComponent() {
+            @Override
+            public CompletableFuture<Void> startAsync() {
+                logStorageFactory.start();
+                return nullCompletedFuture();
+            }
+
+            @Override
+            public CompletableFuture<Void> stopAsync() {
+                logStorageFactory.close();
+                return nullCompletedFuture();
+            }
+        };
     }
 }

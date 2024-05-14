@@ -341,8 +341,6 @@ public class JraftServerImpl implements RaftServer {
             opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
         }
 
-        logStorageFactory.start();
-
         rpcServer.init(null);
 
         return nullCompletedFuture();
@@ -405,8 +403,6 @@ public class JraftServerImpl implements RaftServer {
         }
 
         ExecutorServiceHelper.shutdownAndAwaitTermination(requestExecutor);
-
-        logStorageFactory.close();
 
         return nullCompletedFuture();
     }

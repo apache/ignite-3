@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft.server;
 
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -76,6 +77,17 @@ public class JraftServerUtils {
             RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
         LogStorageFactory defaultLogStorageFactory = SharedLogStorageFactoryUtils.create(service.nodeName(), dataPath, raftConfiguration);
-        return new JraftServerImpl(service, dataPath, opts, raftGroupEventsClientListener, defaultLogStorageFactory);
+        return new JraftServerImpl(service, dataPath, opts, raftGroupEventsClientListener, defaultLogStorageFactory) {
+            @Override
+            public CompletableFuture<Void> startAsync() {
+                defaultLogStorageFactory.start();
+                return super.startAsync();
+            }
+
+            @Override
+            public CompletableFuture<Void> stopAsync() {
+                return super.stopAsync().thenRun(defaultLogStorageFactory::close);
+            }
+        };
     }
 }

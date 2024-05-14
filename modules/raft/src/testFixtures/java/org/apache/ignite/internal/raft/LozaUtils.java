@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft;
 
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -76,6 +77,17 @@ public class LozaUtils {
                 dataPath,
                 clock,
                 raftGroupEventsClientListener,
-                logStorageFactory);
+                logStorageFactory) {
+            @Override
+            public CompletableFuture<Void> startAsync() {
+                logStorageFactory.start();
+                return super.startAsync();
+            }
+
+            @Override
+            public CompletableFuture<Void> stopAsync() {
+                return super.stopAsync().thenRun(logStorageFactory::close);
+            }
+        };
     }
 }
