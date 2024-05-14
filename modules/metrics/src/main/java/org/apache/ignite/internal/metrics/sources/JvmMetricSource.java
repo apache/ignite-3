@@ -128,7 +128,7 @@ public class JvmMetricSource implements MetricSource {
                 "gc.CollectionTime",
                 new LongGauge(
                         "gc.CollectionTime",
-                        "Approximate accumulated collection elapsed time in milliseconds, summed across all collectors.",
+                        "Approximate total time spent on garbage collection in milliseconds, summed across all collectors.",
                         () -> totalCollectionTime()
                 )
         );

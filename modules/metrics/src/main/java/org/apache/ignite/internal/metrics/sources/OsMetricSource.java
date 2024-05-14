@@ -68,8 +68,8 @@ public class OsMetricSource implements MetricSource {
                         "LoadAverage",
                         "System load average for the last minute. System load average is the sum of the number of runnable entities "
                                 + "queued to the available processors and the number of runnable entities running on the available "
-                                + "processors averaged over a period of time. The way in which the load average is calculated is operating"
-                                + " system specific but is typically a damped time-dependent average. "
+                                + "processors averaged over a period of time. The way in which the load average is calculated depends on "
+                                + "the operating system. "
                                 + "If the load average is not available, a negative value is returned.",
                         operatingSystemMxBean::getSystemLoadAverage
                 )
