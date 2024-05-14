@@ -65,8 +65,8 @@ public class ClientComputeExecuteMapReduceRequest {
         var idsAsync = execution.idsAsync()
                 .handleAsync((ids, ex) -> {
                     // empty ids in case of split exception to properly respond with task id and failed status
-                    return ex == null ? ids : Collections.<UUID>emptyList();}
-                );
+                    return ex == null ? ids : Collections.<UUID>emptyList();
+                });
         return execution.idAsync()
                 .thenAcceptBoth(idsAsync, (id, ids) -> {
                     out.packUuidNullable(id);
