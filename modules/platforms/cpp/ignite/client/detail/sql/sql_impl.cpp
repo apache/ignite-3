@@ -29,6 +29,7 @@ void write_statement(protocol::writer &writer, const sql_statement &statement) {
     writer.write(statement.page_size());
     writer.write(std::int64_t(statement.timeout().count()));
     writer.write_nil(); // Session timeout (unused, session is closed by the server immediately).
+    writer.write_nil(); // TODO: IGNITE-21605 Time zone id.
 
     const auto &properties = statement.properties();
     auto props_num = std::int32_t(properties.size());

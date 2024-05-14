@@ -1,0 +1,339 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Node Configuration Parameters
+
+Node configuration is individual for each node and is not shared across the whole cluster.
+
+== Storage Configuration
+
+See the link:/config/storage/persistent[Persistent storage] section for information on storage configuration settings.
+
+== Client Connector
+
+See the link:/clients/overview[Clients] section for information on configuring client connector.
+
+== Cluster Configuration
+
+[source, json]
+----
+  "cluster" : {
+    "networkInvokeTimeout" : 500
+  },
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+|networkInvokeTimeout|500|Timeout for network requests within the cluster.
+|======
+
+
+== Compute Configuration
+
+[source, json]
+----
+  "compute" : {
+    "queueMaxSize" : 2147483647,
+    "statesLifetimeMillis" : 60000,
+    "threadPoolSize" : 64,
+    "threadPoolStopTimeoutMillis" : 10000
+  },
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+|queueMaxSize|2147483647|Maximum number of compute tasks in queue.
+|statesLifetimeMillis|60000|The lifetime of job states after the job finishes, in milliseconds.
+|threadPoolSize|64|The number of threads available to compute jobs.
+|threadPoolStopTimeoutMillis|10000| Job thread pool stop timeout, in milliseconds.
+|======
+
+
+== Code Deployment Configuration
+
+[source, json]
+----
+  "deployment" : {
+    "deploymentLocation" : "deployment"
+  },
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+|deploymentLocation|deployment|Relative path to folder in the working directory. All deployment units content will be stored there.
+|======
+
+
+== Expiration Configuration
+
+[source, json]
+----
+  "expiration" : {
+    "batchSize" : 1000,
+    "checkFrequency" : 600000,
+    "parallelismLevel" : 1
+  },
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+|batchSize|1000|The number of items that can be expired at once.
+|checkFrequency|600000|How often the data is checked for expiration.
+|parallelismLevel|1|The number of threads used for data expiry.
+|======
+
+
+== Network Configuration
+
+[source, json]
+----
+  "network" : {
+    "fileTransfer" : {
+      "chunkSize" : 1048576,
+      "maxConcurrentRequests" : 4,
+      "responseTimeout" : 10000,
+      "threadPoolSize" : 8
+    },
+    "inbound" : {
+      "soBacklog" : 128,
+      "soKeepAlive" : true,
+      "soLinger" : 0,
+      "soReuseAddr" : true,
+      "tcpNoDelay" : true
+    },
+    "membership" : {
+      "failurePingInterval" : 1000,
+      "membershipSyncInterval" : 30000,
+      "scaleCube" : {
+        "failurePingRequestMembers" : 3,
+        "gossipInterval" : 200,
+        "gossipRepeatMult" : 3,
+        "membershipSuspicionMultiplier" : 5,
+        "metadataTimeout" : 3000
+      }
+    },
+    "nodeFinder" : {
+      "netClusterNodes" : [ "localhost:3344" ],
+      "type" : "STATIC"
+    },
+    "outbound" : {
+      "soKeepAlive" : true,
+      "soLinger" : 0,
+      "tcpNoDelay" : true
+    },
+    "port" : 3344,
+    "shutdownQuietPeriod" : 0,
+    "shutdownTimeout" : 15000,
+    "ssl" : {
+      "ciphers" : "",
+      "clientAuth" : "none",
+      "enabled" : false,
+      "keyStore" : {
+        "password" : "********",
+        "path" : "",
+        "type" : "PKCS12"
+      },
+      "trustStore" : {
+        "password" : "********",
+        "path" : "",
+        "type" : "PKCS12"
+      }
+    }
+  },
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+|fileTransfer||File transfer configuration.
+|fileTransfer.chunkSize|1048576|Chunk size in bytes.
+|fileTransfer.maxConcurrentRequests|4|Maximum number of concurrent requests.
+|fileTransfer.responseTimeout|10000|Node response timeout during file transfer.
+|fileTransfer.threadPoolSize|8|File sender thread pool size.
+|inbound||Server socket configuration. See link:https://man7.org/linux/man-pages/man7/tcp.7.html[TCP documentation] and link:https://man7.org/linux/man-pages/man7/socket.7.html[socket documentaion] for more information.
+|inbound.soBacklog|128| The size of the backlog.
+|inbound.soKeepAlive|true| Defines if the keep-alive packets are allowed.
+|inbound.soLinger|0| Defines how long the closed socket should linger.
+|inbound.soReuseAddr|true| Defines if the address can be reused.
+|inbound.tcpNoDelay|true| Defines if the TCP no delay option is used.
+|membership||Node membership configuration.
+|membership.failurePingInterval|1000| Failure detector ping interval.
+|membership.membershipSyncInterval|30000|Periodic membership data synchronization interval.
+|membership.scaleCube|| ScaleCube-specific configuration.
+|scaleCube.failurePingRequestMembers|3|Number of members that are randomly selected by a cluster node for an indirect ping request.
+|scaleCube.gossipInterval|200|link:https://en.wikipedia.org/wiki/Gossip_protocol[Gossip] spreading interval.
+|scaleCube.gossipRepeatMult|3|Gossip repeat multiplier.
+|scaleCube.membershipSuspicionMultiplier|5|The multiplier that is used to calculate the timeout after which the node is considered dead.
+|scaleCube.metadataTimeout|3000|The timeout on metadata update operation, in milliseconds.
+|nodeFinder||Configuration for how the node finds other nodes in the cluster.
+|nodeFinder.netClusterNodes|localhost:3344|Addresses of all nodes in the cluster in a host:port format.
+|nodeFinder.type|STATIC|Node finder type.
+|outbound||Outbound request configuration.
+|outbound.soKeepAlive|true| Defines if the keep-alive packets are allowed.
+|outbound.soLinger|0|Defines how long the closed socket should linger.
+|outbound.tcpNoDelay|true| Defines if the TCP no delay option is used.
+|port|3344|Node port.
+|shutdownQuietPeriod|0| The period during node shutdown when Ignite ensures that no tasks are submitted for the before the node shuts itself down. If a task is submitted during this period, it is guaranteed to be accepted.
+|shutdownTimeout|15000|The maximum amount of time until the node is shut down regardless of if new network messages were submitted during shutdownQuietPeriod.
+|ssl.ciphers||Explicitly set node ssl cipher.
+|ssl.clientAuth|none|Client authorization used by the node, if any.
+|ssl.enabled|false|Defines if SSL is enabled for the node.
+|ssl.keyStore|| SSL keystore configuration.
+|keyStore.password||Keystore password.
+|keyStore.path||Path to the keystore.
+|keyStore.type|PKCS12|Keystore type.
+|ssl.port||Port used for SSL connections.
+|ssl.trustStore||SSL trustsore configuration.
+|trustStore.password||Truststore password.
+|trustStore.path||Path to the truststore.
+|trustStore.type|PKCS12|Truststore type.
+
+
+|======
+
+
+== Node Attributes
+
+[source, json]
+----
+  "nodeAttributes" : {
+    "nodeAttributes" : [ ]
+  },
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+|nodeAttributes||The list of node attributes used for data region configuration.
+|======
+
+
+== Raft Configuration
+
+[source, json]
+----
+  "raft" : {
+    "fsync" : true,
+    "responseTimeout" : 3000,
+    "retryDelay" : 200,
+    "retryTimeout" : 10000,
+    "rpcInstallSnapshotTimeout" : 300000,
+    "volatileRaft" : {
+      "logStorage" : {
+        "name" : "unlimited"
+      }
+    }
+  },
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+|fsync|true|Defines if fsync will be used to transfer data in the cluster.
+|responseTimeout|3000|Raft group response timeout.
+|retryDelay|200|The delay before the request is retried.
+|retryTimeout|10000|The timeout after which the request is considered timed out.
+|rpcInstallSnapshotTimeout|300000|The maximum allowed duration from sending InstallSnapshot request and getting a response to it. During it, the snapshot must be fully transferred to a recipient and installed.
+|volatileRaft.logStorage.name||The name of the log storage used by the node.
+
+|======
+
+
+== REST Configuration
+
+[source, json]
+----
+  "rest" : {
+    "dualProtocol" : false,
+    "httpToHttpsRedirection" : false,
+    "port" : 10300,
+    "ssl" : {
+      "ciphers" : "",
+      "clientAuth" : "none",
+      "enabled" : false,
+      "keyStore" : {
+        "password" : "********",
+        "path" : "",
+        "type" : "PKCS12"
+      },
+      "port" : 10400,
+      "trustStore" : {
+        "password" : "********",
+        "path" : "",
+        "type" : "PKCS12"
+      }
+    }
+  },
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+|dualProtocol|false|Defines if both HTTP and HTTPS protocols are used by the endpoint.
+|httpToHttpsRedirection|false|Defines if requests to HTTP endpoint will be redirected to HTTPS.
+|port|10300|The port of the node's REST endpoint.
+|ssl.ciphers||Explicitly set node ssl cipher.
+|ssl.clientAuth|none|Client authorization used by the node, if any.
+|ssl.enabled|false|Defines if SSL is enabled for the node
+|ssl.keyStore|| SSL keystore configuration.
+|keyStore.password||Keystore password.
+|keyStore.path||Path to the keystore.
+|keyStore.type|PKCS12|Keystore type.
+|ssl.port|10400|Port used for SSL connections.
+|ssl.trustStore||SSL trustsore configuration.
+|trustStore.password||Truststore password.
+|trustStore.path||Path to the truststore.
+|trustStore.type|PKCS12|Truststore type.
+|======
+
+
+== SQL Configuration
+
+[source, json]
+----
+  "sql" : {
+    "nodeMemoryQuota" : "1000g"
+  },
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+
+|nodeMemoryQuota|1000g| Node-wide limit for memory that can be used for SQL queries.
+
+|======
+
+
+== Storage Profiles Configuration
+
+[source, json]
+----
+  "storageProfiles" : {
+    "storageProfiles" : [ ]
+  }
+}
+----
+
+[cols="1,1,3",opts="header", stripes=none]
+|======
+|Property|Default|Description
+
+|storageProfiles||The list of available storage profiles.
+
+|======

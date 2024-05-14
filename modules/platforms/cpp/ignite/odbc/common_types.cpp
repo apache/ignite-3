@@ -135,6 +135,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::TABLE_STOPPING:
         case error::code::TABLE_DEFINITION:
         case error::code::SCHEMA_VERSION_MISMATCH:
+        case error::code::UNSUPPORTED_PARTITION_TYPE:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Client group. Group code: 3

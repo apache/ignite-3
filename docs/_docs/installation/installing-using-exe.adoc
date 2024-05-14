@@ -18,19 +18,14 @@
 
 Ignite was tested on:
 
-include::../includes/prereqs.adoc[]
+include::includes/prereqs.adoc[]
 
 
 == Installing Using Distributive
 
-WARNING:
-----
-If you have installed one of the Ignite 3 Alpha releases before, please remove the `~/.ignitecfg` file before proceeding. This is a temporary step, the procedure will be improved in the future releases.
-----
+To install Ignite, perform the following steps:
 
-To install Apache Ignite, perform the following steps:
-
-. Navigate to link:https://ignite.apache.org/download.cgi[Apache Ignite Downloads,window=_blank] page to download the distributive.
+. Navigate to link:https://ignite.apache.org/download.cgi[Ignite Downloads,window=_blank] page to download the distributive.
 
 . Put the distributed file into the installation folder in your system.
 

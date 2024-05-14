@@ -19,12 +19,14 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.commands.DefaultValue.Type.FUNCTION_CALL;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -36,6 +38,8 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
@@ -120,6 +124,11 @@ public class CatalogUtils {
 
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
+    /**
+     * Functions that are allowed to be used as columns' functional default. The set contains uppercase function names.
+     */
+    private static final Set<String> FUNCTIONAL_DEFAULT_FUNCTIONS = new HashSet<>();
+
     static {
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT8, EnumSet.of(ColumnType.INT8, ColumnType.INT16, ColumnType.INT32,
                 ColumnType.INT64));
@@ -131,6 +140,8 @@ public class CatalogUtils {
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.STRING, EnumSet.of(ColumnType.STRING));
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.BYTE_ARRAY, EnumSet.of(ColumnType.BYTE_ARRAY));
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.DECIMAL, EnumSet.of(ColumnType.DECIMAL));
+
+        FUNCTIONAL_DEFAULT_FUNCTIONS.add("GEN_RANDOM_UUID");
     }
 
     public static final List<String> SYSTEM_SCHEMAS = List.of(SYSTEM_SCHEMA_NAME);
@@ -580,5 +591,53 @@ public class CatalogUtils {
         CatalogZoneDescriptor defaultZone = catalog.defaultZone();
 
         return defaultZone != null ? defaultZone.id() : null;
+    }
+
+    /**
+     * Return {@code true} if a function with given name is allowed to be used as functional default for a column, {@code false} otherwise.
+     */
+    static boolean isSupportedFunctionalDefault(String functionName) {
+        return FUNCTIONAL_DEFAULT_FUNCTIONS.contains(functionName.toUpperCase());
+    }
+
+    /**
+     * Check if provided default value is a constant or a functional default of supported function, or fail otherwise.
+     */
+    static void ensureSupportedDefault(String columnName, @Nullable DefaultValue defaultValue) {
+        if (defaultValue == null || defaultValue.type == Type.CONSTANT) {
+            return;
+        }
+
+        if (defaultValue.type == FUNCTION_CALL) {
+            String functionName = ((FunctionCall) defaultValue).functionName();
+
+            if (isSupportedFunctionalDefault(functionName)) {
+                return;
+            }
+
+            throw new CatalogValidationException(
+                    format("Functional default contains unsupported function: [col={}, functionName={}]",
+                            columnName, functionName));
+        }
+
+        throw new CatalogValidationException(
+                format("Default of unsupported kind: [col={}, defaultType={}]", columnName, defaultValue.type));
+    }
+
+    /**
+     * Check if provided default value is a constant, or fail otherwise.
+     */
+    static void ensureNonFunctionalDefault(String columnName, @Nullable DefaultValue defaultValue) {
+        if (defaultValue == null || defaultValue.type == Type.CONSTANT) {
+            return;
+        }
+
+        if (defaultValue.type == FUNCTION_CALL) {
+            throw new CatalogValidationException(
+                    format("Functional defaults are not supported for non-primary key columns [col={}].", columnName));
+        }
+
+        throw new CatalogValidationException(
+                format("Default of unsupported kind: [col={}, defaultType={}]", columnName, defaultValue.type));
     }
 }

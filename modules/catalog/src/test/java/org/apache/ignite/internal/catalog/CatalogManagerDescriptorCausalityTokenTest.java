@@ -66,12 +66,12 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
     @Test
     public void testEmptyCatalog() {
-        CatalogSchemaDescriptor defaultSchema = manager.schema(DEFAULT_SCHEMA_NAME, 0);
+        CatalogSchemaDescriptor defaultSchema = manager.schema(DEFAULT_SCHEMA_NAME, 1);
 
         assertNotNull(defaultSchema);
         assertNull(manager.catalog(0).defaultZone());
         assertSame(defaultSchema, manager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong()));
-        assertSame(defaultSchema, manager.schema(0));
+        assertSame(defaultSchema, manager.schema(1));
         assertSame(defaultSchema, manager.activeSchema(clock.nowLong()));
 
         Catalog catalogWithDefaultZone = manager.catalog(1);
@@ -89,7 +89,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertThrows(IllegalStateException.class, () -> manager.activeSchema(-1L));
 
         // Validate default schema.
-        assertEquals(INITIAL_CAUSALITY_TOKEN, defaultSchema.updateToken());
+        assertEquals(1, defaultSchema.updateToken());
     }
 
     @Test
@@ -108,8 +108,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
         assertNotNull(schema);
         assertEquals(SCHEMA_NAME, schema.name());
-        assertSame(schema, manager.activeSchema(123L));
-        assertEquals(INITIAL_CAUSALITY_TOKEN, schema.updateToken());
+        assertEquals(1, schema.updateToken());
 
         assertNull(schema.table(TABLE_NAME));
         assertNull(manager.table(TABLE_NAME, 123L));

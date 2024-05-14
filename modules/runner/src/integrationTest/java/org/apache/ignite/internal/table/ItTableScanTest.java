@@ -135,7 +135,11 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     private void checkResourcesAreReleased(IgniteImpl ignite) {
         checkCursorsAreClosed(ignite);
 
-        assertTrue(ignite.txManager().lockManager().isEmpty());
+        try {
+            assertTrue(waitForCondition(() -> ignite.txManager().lockManager().isEmpty(), 1000));
+        } catch (InterruptedException e) {
+            fail("Unexpected interruption");
+        }
     }
 
     /**

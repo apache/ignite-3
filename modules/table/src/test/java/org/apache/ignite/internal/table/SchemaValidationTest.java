@@ -100,7 +100,7 @@ public class SchemaValidationTest extends TableKvOperationsTestBase {
         RecordView<Tuple> tbl = createTable(schema).recordView();
 
         // Check not-nullable column.
-        assertThrowsWithCause(IllegalArgumentException.class, () -> tbl.insert(null, Tuple.create().set("id", null)));
+        assertThrowsWithCause(SchemaMismatchException.class, () -> tbl.insert(null, Tuple.create().set("id", null)));
 
         // Check length of the string column
         assertThrowsWithCause(InvalidTypeException.class,

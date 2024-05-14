@@ -18,13 +18,13 @@
 
 Ignite was tested on:
 
-include::../includes/prereqs.adoc[]
+include::includes/prereqs.adoc[]
 
 == Building Docker Image
 
-Apache Ignite 3 Beta is not currently available on DockerHub. To use a Docker image, you need to build it locally:
+Ignite 3 is not currently available on DockerHub. To use a Docker image, you need to build it locally:
 
-- Check out the Apache Ignite 3 link:https://github.com/apache/ignite-3[repository].
+- Check out the Ignite 3 link:https://github.com/apache/ignite-3[repository].
 - Run the Gradle command to build a Docker image:
 ----
 ./gradlew docker
