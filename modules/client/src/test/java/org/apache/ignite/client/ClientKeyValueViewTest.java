@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
@@ -28,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
@@ -105,10 +105,12 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         key.id = "1";
         key.gid = 1;
 
-        IgniteException e = assertThrows(IgniteException.class, () -> pojoView.get(null, key));
-        assertEquals("Failed to deserialize server response: No mapped object field found for column 'ZBOOLEAN'", e.getMessage());
+        Throwable e = assertThrowsWithCause(
+                () -> pojoView.get(null, key),
+                IgniteException.class,
+                "Failed to deserialize server response: No mapped object field found for column 'ZBOOLEAN'"
+        );
         assertThat(Arrays.asList(e.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueView"))));
-
     }
 
     @Test
@@ -206,9 +208,11 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     public void testMissingKeyColumnThrowsException() {
         var kvView = defaultTable().keyValueView(NamePojo.class, NamePojo.class);
 
-        IgniteException e = assertThrows(IgniteException.class, () -> kvView.get(null, new NamePojo()));
-
-        assertThat(e.getMessage(), containsString("No mapped object field found for column 'ID'"));
+        Throwable e = assertThrowsWithCause(
+                () -> kvView.get(null, new NamePojo()),
+                IgniteException.class,
+                "No mapped object field found for column 'ID'"
+        );
         assertThat(Arrays.asList(e.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueView"))));
     }
 
@@ -510,39 +514,41 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         var pojo = new DefaultValuesValPojo();
         pojo.strNonNull = null;
 
-        var ex = assertThrows(IgniteException.class, () -> pojoView.put(null, 1, pojo));
-
-        assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
+        var ex = assertThrowsWithCause(
+                () -> pojoView.put(null, 1, pojo),
+                IgniteException.class,
+                "Column 'STRNONNULL' does not allow NULLs"
+        );
         assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueView"))));
     }
 
     @Test
     public void testGetNullValueThrows() {
-        testNullValueThrows(view -> view.get(null, DEFAULT_ID));
+        testNullValueThrows(view -> view.get(null, DEFAULT_ID), "getNullable");
     }
 
     @Test
     public void testGetAndPutNullValueThrows() {
-        testNullValueThrows(view -> view.getAndPut(null, DEFAULT_ID, DEFAULT_NAME));
+        testNullValueThrows(view -> view.getAndPut(null, DEFAULT_ID, DEFAULT_NAME), "getNullableAndPut");
     }
 
     @Test
     public void testGetAndRemoveNullValueThrows() {
-        testNullValueThrows(view -> view.getAndRemove(null, DEFAULT_ID));
+        testNullValueThrows(view -> view.getAndRemove(null, DEFAULT_ID), "getNullableAndRemove");
     }
 
     @Test
     public void testGetAndReplaceNullValueThrows() {
-        testNullValueThrows(view -> view.getAndReplace(null, DEFAULT_ID, DEFAULT_NAME));
+        testNullValueThrows(view -> view.getAndReplace(null, DEFAULT_ID, DEFAULT_NAME), "getNullableAndReplace");
     }
 
-    private void testNullValueThrows(Consumer<KeyValueView<Long, String>> run) {
+    private void testNullValueThrows(Consumer<KeyValueView<Long, String>> run, String methodName) {
         KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
         primitiveView.put(null, DEFAULT_ID, null);
 
         var ex = assertThrowsWithCause(() -> run.accept(primitiveView), UnexpectedNullValueException.class);
         assertEquals(
-                "Failed to deserialize server response: Got unexpected null value: use `getNullable` sibling method instead.",
+                format("Failed to deserialize server response: Got unexpected null value: use `{}` sibling method instead.", methodName),
                 ex.getMessage());
     }
 

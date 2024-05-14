@@ -37,7 +37,7 @@ package org.apache.ignite.example.storage;
  *     </li>
  *     <li>
  *         Add configuration for a data region of the RocksDB storage engine using the CLI tool (if not done yet):<br>
- *         {@code ignite cluster config update "rocksDb.regions.rocksdb-example{}"}
+ *         {@code ignite cluster config update "rocksdb.regions.rocksdb-example{}"}
  *     </li>
  *     <li>Run the example in the IDE.</li>
  *     <li>

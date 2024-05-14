@@ -1098,7 +1098,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterService.messagingService(),
                     hybridClock,
                     threadPoolsManager.partitionOperationsExecutor(),
-                    replicationConfiguration
+                    replicationConfiguration,
+                    threadPoolsManager.commonScheduler()
             );
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();

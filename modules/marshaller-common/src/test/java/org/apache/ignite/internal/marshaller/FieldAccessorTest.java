@@ -294,7 +294,7 @@ public class FieldAccessorTest extends BaseIgniteAbstractTest {
         assertThrowsWithCause(
                 () -> accessor.write(mocks.getFirst(), "Other string"),
                 MarshallerException.class,
-                "Failed to write field [id=42]"
+                "class java.lang.String cannot be cast to class java.util.UUID"
         );
     }
 

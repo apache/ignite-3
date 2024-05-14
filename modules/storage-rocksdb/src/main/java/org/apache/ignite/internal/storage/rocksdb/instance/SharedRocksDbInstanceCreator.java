@@ -143,6 +143,7 @@ public class SharedRocksDbInstanceCreator {
                     path,
                     busyLock,
                     flusher,
+                    dbOptions,
                     db,
                     requireNonNull(meta, "meta"),
                     requireNonNull(partitionCf, "partitionCf"),

@@ -69,7 +69,6 @@ import org.jetbrains.annotations.Nullable;
  * <p>To avoid errors when using indexes while applying replication log during node recovery, the registration of indexes was moved to the
  * start of the tables.</p>
  */
-// TODO: IGNITE-19082 Delete this class
 public class IndexManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 

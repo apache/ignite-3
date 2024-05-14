@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -64,16 +65,15 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogTableDescriptor tableDescriptor = requireNonNull(catalog.table(tableId));
+        CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
+        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
-        CatalogSchemaDescriptor schemaDescriptor = requireNonNull(catalog.schema(tableDescriptor.schemaId()));
-
-        CatalogTableDescriptor newTableDescriptor = tableDescriptor.newDescriptor(
+        CatalogTableDescriptor newTable = table.newDescriptor(
                 newTableName,
-                tableDescriptor.tableVersion() + 1,
-                tableDescriptor.columns(),
+                table.tableVersion() + 1,
+                table.columns(),
                 causalityToken,
-                tableDescriptor.storageProfile()
+                table.storageProfile()
         );
 
         return new Catalog(
@@ -81,7 +81,7 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                replaceSchema(replaceTable(schemaDescriptor, newTableDescriptor), catalog.schemas()),
+                replaceSchema(replaceTable(schema, newTable), catalog.schemas()),
                 defaultZoneIdOpt(catalog)
         );
     }

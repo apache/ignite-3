@@ -26,12 +26,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions.TableVersion;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
@@ -55,7 +55,9 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     private final CatalogTableSchemaVersions schemaVersions;
 
     private final List<CatalogTableColumnDescriptor> columns;
+    @IgniteToStringInclude
     private final List<String> primaryKeyColumns;
+    @IgniteToStringInclude
     private final List<String> colocationColumns;
 
     @IgniteToStringExclude
@@ -125,22 +127,12 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         this.pkIndexId = pkIndexId;
         this.zoneId = zoneId;
         this.columns = Objects.requireNonNull(columns, "No columns defined.");
-        primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
-        colocationColumns = colocationCols == null || colocationCols.isEmpty() ? pkCols : colocationCols;
-
+        this.primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
         this.columnsMap = columns.stream().collect(Collectors.toMap(CatalogTableColumnDescriptor::name, Function.identity()));
-
-        this.schemaVersions = schemaVersions;
-
+        this.colocationColumns = Objects.requireNonNullElse(colocationCols, pkCols);
+        this.schemaVersions =  Objects.requireNonNull(schemaVersions, "No catalog schema versions.");
+        this.storageProfile = Objects.requireNonNull(storageProfile, "No storage profile.");
         this.creationToken = creationToken;
-
-        this.storageProfile = storageProfile;
-
-        // TODO: IGNITE-19082 Throw proper exceptions.
-        assert !columnsMap.isEmpty() : "No columns.";
-
-        assert primaryKeyColumns.stream().noneMatch(c -> Objects.requireNonNull(columnsMap.get(c), c).nullable());
-        assert Set.copyOf(primaryKeyColumns).containsAll(colocationColumns);
     }
 
     /**
