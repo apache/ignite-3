@@ -21,6 +21,7 @@ set(TARGET ${PROJECT_NAME})
 
 include(find_odbc)
 find_package(ODBC REQUIRED)
+find_package(date REQUIRED)
 
 set(SOURCES
     app/application_data_buffer.cpp
@@ -65,6 +66,7 @@ set(LIBRARIES
     ignite-tuple
     ignite-network
     ignite-protocol
+    date::date
     ${ODBC_LIBRARIES}
 )
 

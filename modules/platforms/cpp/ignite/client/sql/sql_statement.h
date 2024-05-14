@@ -51,16 +51,18 @@ public:
      * @param schema Schema.
      * @param page_size Page size.
      * @param properties Properties list.
+     * @param timezone_id Timezone ID.
      */
     sql_statement( // NOLINT(google-explicit-constructor)
         std::string query, std::chrono::milliseconds timeout = DEFAULT_TIMEOUT, std::string schema = DEFAULT_SCHEMA,
         std::int32_t page_size = DEFAULT_PAGE_SIZE,
-        std::initializer_list<std::pair<const std::string, primitive>> properties = {})
+        std::initializer_list<std::pair<const std::string, primitive>> properties = {}, std::string timezone_id = {})
         : m_query(std::move(query))
         , m_timeout(timeout)
         , m_schema(std::move(schema))
         , m_page_size(page_size)
-        , m_properties(properties) {}
+        , m_properties(properties)
+        , m_timezone_id(std::move(timezone_id)) {}
 
     /**
      * Gets the query text.
@@ -132,6 +134,26 @@ public:
      */
     void properties(std::initializer_list<std::pair<const std::string, primitive>> val) { m_properties = val; }
 
+    /**
+     * Gets the Timezone ID.
+     *
+     * @return Timezone ID.
+     */
+    [[nodiscard]] const std::string &timezone_id() const { return m_timezone_id; }
+
+    /**
+     * Sets the Timezone ID.
+     *
+     * Examples: "America/New_York", "UTC+3".
+     * Affects time-related SQL functions (e.g. @c CURRENT_TIME) and string literal conversions
+     * (e.g. <tt>TIMESTAMP WITH LOCAL TIME ZONE '1992-01-18 02:30:00.123'</tt>).
+     *
+     * If left empty, defaults to local time zone.
+     *
+     * @param val Timezone ID.
+     */
+    void timezone_id(std::string val) { m_timezone_id = std::move(val); }
+
 private:
     /** Query text. */
     std::string m_query;
@@ -147,6 +169,9 @@ private:
 
     /** Properties. */
     std::unordered_map<std::string, primitive> m_properties;
+
+    /** Timezone ID. */
+    std::string m_timezone_id;
 };
 
 } // namespace ignite

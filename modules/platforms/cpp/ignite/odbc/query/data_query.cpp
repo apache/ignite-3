@@ -21,6 +21,8 @@
 #include "ignite/odbc/query/cursor.h"
 #include "ignite/tuple/binary_tuple_builder.h"
 
+#include <date/tz.h>
+
 #include <memory>
 #include <utility>
 
@@ -274,7 +276,7 @@ sql_result data_query::make_request_execute() {
             writer.write(m_connection.get_configuration().get_page_size().get_value());
             writer.write(std::int64_t(m_connection.get_timeout()) * 1000);
             writer.write_nil(); // Session timeout (unused, session is closed by the server immediately).
-            writer.write_nil(); // TODO: IGNITE-21605 Time zone id.
+            writer.write(date::current_zone()->name());
 
             // Properties are not used for now.
             writer.write(0);

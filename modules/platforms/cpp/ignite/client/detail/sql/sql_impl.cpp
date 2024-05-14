@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-#include "sql_impl.h"
-
+#include "ignite/client/detail/sql/sql_impl.h"
 #include "ignite/client/detail/sql/result_set_impl.h"
 #include "ignite/client/detail/utils.h"
 
-#include <ignite/tuple/binary_tuple_builder.h>
+#include "ignite/tuple/binary_tuple_builder.h"
+
+#include <date/tz.h>
 
 namespace ignite::detail {
 
@@ -29,7 +30,7 @@ void write_statement(protocol::writer &writer, const sql_statement &statement) {
     writer.write(statement.page_size());
     writer.write(std::int64_t(statement.timeout().count()));
     writer.write_nil(); // Session timeout (unused, session is closed by the server immediately).
-    writer.write_nil(); // TODO: IGNITE-21605 Time zone id.
+    writer.write(date::current_zone()->name());
 
     const auto &properties = statement.properties();
     auto props_num = std::int32_t(properties.size());
