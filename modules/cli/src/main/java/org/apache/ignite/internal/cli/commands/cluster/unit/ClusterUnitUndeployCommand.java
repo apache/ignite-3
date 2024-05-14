@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cli.commands.cluster.unit;
 
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VERSION_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.UNIT_VERSION_OPTION_SHORT;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.VERSION_OPTION;
 
 import jakarta.inject.Inject;
@@ -47,7 +46,7 @@ public class ClusterUnitUndeployCommand extends BaseCommand implements Callable<
     private String id;
 
     /** Unit version. */
-    @Option(names = {VERSION_OPTION, UNIT_VERSION_OPTION_SHORT},
+    @Option(names = VERSION_OPTION,
             description = UNIT_VERSION_OPTION_DESC,
             required = true)
     private String version;

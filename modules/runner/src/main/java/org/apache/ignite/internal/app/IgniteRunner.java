@@ -30,7 +30,7 @@ import picocli.CommandLine.Option;
 /**
  * The main entry point for running new Ignite node. Command-line arguments can be provided using environment variables
  * {@code IGNITE_CONFIG_PATH}, {@code IGNITE_WORK_DIR} and {@code IGNITE_NODE_NAME} for {@code --config-path}, {@code --work-dir} and
- * {@code --node-name} command line arguments respectively.
+ * {@code --name} command line arguments respectively.
  */
 @Command(name = "runner")
 public class IgniteRunner implements Callable<CompletableFuture<Ignite>> {
@@ -40,7 +40,7 @@ public class IgniteRunner implements Callable<CompletableFuture<Ignite>> {
     @Option(names = "--work-dir", description = "Path to node working directory.", required = true)
     private Path workDir;
 
-    @Option(names = "--node-name", description = "Node name.", required = true)
+    @Option(names = "--name", description = "Node name.", required = true)
     private String nodeName;
 
     @Override

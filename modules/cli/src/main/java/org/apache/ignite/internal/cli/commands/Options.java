@@ -27,32 +27,30 @@ import org.apache.ignite.internal.cli.config.CliConfigKeys;
  * Constants to use in {@code Option} annotations for commands.
  */
 public enum Options {
-    CLUSTER_URL(Constants.CLUSTER_URL_OPTION, Constants.URL_OPTION_SHORT, Constants.CLUSTER_URL_OPTION_DESC),
-    NODE_URL(Constants.NODE_URL_OPTION, Constants.URL_OPTION_SHORT, Constants.NODE_URL_OPTION_DESC),
+    CLUSTER_URL(Constants.CLUSTER_URL_OPTION, Constants.CLUSTER_URL_OPTION_DESC),
+    NODE_URL(Constants.NODE_URL_OPTION, Constants.NODE_URL_OPTION_DESC),
 
-    CLUSTER_NAME(Constants.CLUSTER_NAME_OPTION, Constants.CLUSTER_NAME_OPTION_SHORT, Constants.CLUSTER_NAME_OPTION_DESC),
+    CLUSTER_NAME(Constants.CLUSTER_NAME_OPTION, Constants.CLUSTER_NAME_OPTION_DESC),
     NODE_NAME(Constants.NODE_NAME_OPTION, Constants.NODE_NAME_OPTION_SHORT, Constants.NODE_NAME_OPTION_DESC),
 
-    CMG_NODE_NAME(Constants.CMG_NODE_NAME_OPTION, Constants.CMG_NODE_NAME_OPTION_SHORT, Constants.CMG_NODE_NAME_OPTION_DESC),
+    CMG_NODE_NAME(Constants.CMG_NODE_NAME_OPTION, Constants.CMG_NODE_NAME_OPTION_DESC),
     META_STORAGE_NODE_NAME(
             Constants.META_STORAGE_NODE_NAME_OPTION,
-            Constants.META_STORAGE_NODE_NAME_OPTION_SHORT,
             Constants.META_STORAGE_NODE_NAME_OPTION_DESC
     ),
 
-    PROFILE(Constants.PROFILE_OPTION, Constants.PROFILE_OPTION_SHORT, Constants.PROFILE_OPTION_DESC),
+    PROFILE(Constants.PROFILE_OPTION, Constants.PROFILE_OPTION_DESC),
     PROFILE_COPY_FROM(
             Constants.PROFILE_COPY_FROM_OPTION,
-            Constants.PROFILE_COPY_FROM_OPTION_SHORT,
             Constants.PROFILE_COPY_FROM_OPTION_DESC
     ),
-    PROFILE_ACTIVATE(Constants.PROFILE_ACTIVATE_OPTION, Constants.PROFILE_ACTIVATE_OPTION_SHORT, Constants.PROFILE_ACTIVATE_OPTION_DESC),
+    PROFILE_ACTIVATE(Constants.PROFILE_ACTIVATE_OPTION, Constants.PROFILE_ACTIVATE_OPTION_DESC),
 
-    SCRIPT_FILE(Constants.SCRIPT_FILE_OPTION, Constants.SCRIPT_FILE_OPTION_SHORT, Constants.SCRIPT_FILE_OPTION_DESC),
-    JDBC_URL(Constants.JDBC_URL_OPTION, Constants.JDBC_URL_OPTION_SHORT, Constants.JDBC_URL_OPTION_DESC),
+    SCRIPT_FILE(Constants.SCRIPT_FILE_OPTION, Constants.SCRIPT_FILE_OPTION_DESC),
+    JDBC_URL(Constants.JDBC_URL_OPTION, Constants.JDBC_URL_OPTION_DESC),
 
-    UNIT_PATH(Constants.UNIT_PATH_OPTION, Constants.UNIT_PATH_OPTION_SHORT, Constants.UNIT_PATH_OPTION_DESC),
-    UNIT_VERSION(Constants.VERSION_OPTION, Constants.UNIT_VERSION_OPTION_SHORT, Constants.UNIT_VERSION_OPTION_DESC),
+    UNIT_PATH(Constants.UNIT_PATH_OPTION, Constants.UNIT_PATH_OPTION_DESC),
+    UNIT_VERSION(Constants.VERSION_OPTION, Constants.UNIT_VERSION_OPTION_DESC),
     UNIT_NODES(Constants.UNIT_NODES_OPTION, Constants.UNIT_NODES_OPTION, Constants.UNIT_NODES_OPTION_DESC),
 
     PLAIN(Constants.PLAIN_OPTION, Constants.PLAIN_OPTION, Constants.PLAIN_OPTION_DESC),
@@ -60,10 +58,9 @@ public enum Options {
     HELP(Constants.HELP_OPTION, Constants.HELP_OPTION_SHORT, Constants.HELP_OPTION_DESC),
     VERSION(Constants.VERSION_OPTION, Constants.VERSION_OPTION, Constants.VERSION_OPTION_DESC),
 
-    CLUSTER_CONFIG(Constants.CLUSTER_CONFIG_OPTION, Constants.CLUSTER_CONFIG_OPTION_SHORT, Constants.CLUSTER_CONFIG_OPTION_DESC),
+    CLUSTER_CONFIG(Constants.CLUSTER_CONFIG_OPTION, Constants.CLUSTER_CONFIG_OPTION_DESC),
     CLUSTER_CONFIG_FILE(
             Constants.CLUSTER_CONFIG_FILE_OPTION,
-            Constants.CLUSTER_CONFIG_FILE_OPTION_SHORT,
             Constants.CLUSTER_CONFIG_FILE_OPTION_DESC
     );
 
@@ -74,6 +71,12 @@ public enum Options {
     Options(String fullName, String shortName, String description) {
         this.fullName = fullName;
         this.shortName = shortName;
+        this.description = description;
+    }
+
+    Options(String fullName, String description) {
+        this.fullName = fullName;
+        this.shortName = fullName;
         this.description = description;
     }
 
@@ -96,7 +99,7 @@ public enum Options {
     /** Constants for all options. */
     public static final class Constants {
         /** Cluster endpoint URL option long name. */
-        public static final String CLUSTER_URL_OPTION = "--cluster-endpoint-url";
+        public static final String CLUSTER_URL_OPTION = "--url";
 
         /** Cluster endpoint URL option description. */
         public static final String CLUSTER_URL_OPTION_DESC = "URL of cluster endpoint";
@@ -105,7 +108,7 @@ public enum Options {
         public static final String CLUSTER_URL_KEY = CliConfigKeys.Constants.CLUSTER_URL;
 
         /** Node URL option long name. */
-        public static final String NODE_URL_OPTION = "--node-url";
+        public static final String NODE_URL_OPTION = "--url";
 
         /** Node URL option description. */
         public static final String NODE_URL_OPTION_DESC = "URL of an Ignite node";
@@ -116,17 +119,11 @@ public enum Options {
         /** Profile name option long name. */
         public static final String PROFILE_OPTION = "--profile";
 
-        /** Profile name option short name. */
-        public static final String PROFILE_OPTION_SHORT = "-p";
-
         /** Profile name option description. */
         public static final String PROFILE_OPTION_DESC = "Profile name";
 
-        /** URL option short name. */
-        public static final String URL_OPTION_SHORT = "-u";
-
         /** Node name option long name. */
-        public static final String NODE_NAME_OPTION = "--node-name";
+        public static final String NODE_NAME_OPTION = "--node";
 
         /** Node name option short name. */
         public static final String NODE_NAME_OPTION_SHORT = "-n";
@@ -155,17 +152,11 @@ public enum Options {
         /** Profile copy from option long name. */
         public static final String PROFILE_COPY_FROM_OPTION = "--copy-from";
 
-        /** Profile copy from option short name. */
-        public static final String PROFILE_COPY_FROM_OPTION_SHORT = "-c";
-
         /** Profile copy from option description. */
         public static final String PROFILE_COPY_FROM_OPTION_DESC = "Profile whose content will be copied to new one";
 
         /** Profile activate option long name. */
         public static final String PROFILE_ACTIVATE_OPTION = "--activate";
-
-        /** Profile activate option short name. */
-        public static final String PROFILE_ACTIVATE_OPTION_SHORT = "-a";
 
         /** Profile activate option description. */
         public static final String PROFILE_ACTIVATE_OPTION_DESC = "Activate new profile as current or not";
@@ -173,30 +164,21 @@ public enum Options {
         /** Cluster management node name option long name. */
         public static final String CMG_NODE_NAME_OPTION = "--cmg-node";
 
-        /** Cluster management node name option short name. */
-        public static final String CMG_NODE_NAME_OPTION_SHORT = "-c";
-
         /** Cluster management node name option description. */
         public static final String CMG_NODE_NAME_OPTION_DESC = "Name of the node (repeat like '--cmg-node node1 --cmg-node node2' "
                 + "to specify more than one node) that will host the Cluster Management Group."
-                + "If omitted, then --meta-storage-node values will also supply the nodes for the Cluster Management Group.";
+                + "If omitted, then --ms-node values will also supply the nodes for the Cluster Management Group.";
 
         /** Meta storage management node name option long name. */
-        public static final String META_STORAGE_NODE_NAME_OPTION = "--meta-storage-node";
-
-        /** Meta storage node name option short name. */
-        public static final String META_STORAGE_NODE_NAME_OPTION_SHORT = "-m";
+        public static final String META_STORAGE_NODE_NAME_OPTION = "--ms-node";
 
         /** Meta storage node name option description. */
-        public static final String META_STORAGE_NODE_NAME_OPTION_DESC = "Name of the node (repeat like '--meta-storage-node node1 "
-                + "--meta-storage-node node2' to specify more than one node) that will host the Meta Storage."
+        public static final String META_STORAGE_NODE_NAME_OPTION_DESC = "Name of the node (repeat like '--ms-node node1 "
+                + "--ms-node node2' to specify more than one node) that will host the Meta Storage."
                 + "If the --cmg-node parameter is omitted, the same nodes will also host the Cluster Management Group.";
 
         /** Cluster name option long name. */
-        public static final String CLUSTER_NAME_OPTION = "--cluster-name";
-
-        /** Cluster name option short name. */
-        public static final String CLUSTER_NAME_OPTION_SHORT = "-n";
+        public static final String CLUSTER_NAME_OPTION = "--name";
 
         /** Cluster name option description. */
         public static final String CLUSTER_NAME_OPTION_DESC = "Human-readable name of the cluster";
@@ -210,9 +192,6 @@ public enum Options {
         /** JDBC URL option long name. */
         public static final String JDBC_URL_OPTION = "--jdbc-url";
 
-        /** JDBC URL option short name. */
-        public static final String JDBC_URL_OPTION_SHORT = "-u";
-
         /** JDBC URL option description. */
         public static final String JDBC_URL_OPTION_DESC = "JDBC url to ignite cluster";
 
@@ -220,10 +199,7 @@ public enum Options {
         public static final String JDBC_URL_KEY = CliConfigKeys.Constants.JDBC_URL;
 
         /** SQL script file option long name. */
-        public static final String SCRIPT_FILE_OPTION = "--script-file";
-
-        /** SQL script file option short name. */
-        public static final String SCRIPT_FILE_OPTION_SHORT = "-f";
+        public static final String SCRIPT_FILE_OPTION = "--file";
 
         /** SQL script file option description. */
         public static final String SCRIPT_FILE_OPTION_DESC = "Path to file with SQL commands to execute";
@@ -234,17 +210,11 @@ public enum Options {
         /** Version option description. */
         public static final String VERSION_OPTION_DESC = "Print version information and exit";
 
-        /** Version option short name. */
-        public static final String UNIT_VERSION_OPTION_SHORT = "-uv";
-
         /** Unit version option description. */
         public static final String UNIT_VERSION_OPTION_DESC = "Unit version (x.y.z)";
 
         /** Unit path option long name. */
         public static final String UNIT_PATH_OPTION = "--path";
-
-        /** Unit path option short name. */
-        public static final String UNIT_PATH_OPTION_SHORT = "-up";
 
         /** Unit path option description. */
         public static final String UNIT_PATH_OPTION_DESC = "Path to deployment unit file or directory";
@@ -255,15 +225,11 @@ public enum Options {
         /** Unit nodes option description. */
         public static final String UNIT_NODES_OPTION_DESC = "Initial set of nodes to deploy to";
 
-        public static final String CLUSTER_CONFIG_OPTION = "--cluster-config";
-
-        public static final String CLUSTER_CONFIG_OPTION_SHORT = "-cfg";
+        public static final String CLUSTER_CONFIG_OPTION = "--config";
 
         public static final String CLUSTER_CONFIG_OPTION_DESC = "Cluster configuration";
 
-        public static final String CLUSTER_CONFIG_FILE_OPTION = "--cluster-config-file";
-
-        public static final String CLUSTER_CONFIG_FILE_OPTION_SHORT = "-cfgf";
+        public static final String CLUSTER_CONFIG_FILE_OPTION = "--config-file";
 
         public static final String CLUSTER_CONFIG_FILE_OPTION_DESC = "Path to cluster configuration file";
 
@@ -278,10 +244,6 @@ public enum Options {
         public static final String USERNAME_OPTION_SHORT = "-u";
 
         public static final String USERNAME_OPTION_DESC = "Username to connect to cluster";
-
-        public static final String USERNAME_KEY = CliConfigKeys.Constants.BASIC_AUTHENTICATION_USERNAME;
-
-        public static final String PASSWORD_KEY = CliConfigKeys.Constants.BASIC_AUTHENTICATION_PASSWORD;
 
         public static final String RECOVERY_PARTITION_GLOBAL_OPTION = "--global";
 

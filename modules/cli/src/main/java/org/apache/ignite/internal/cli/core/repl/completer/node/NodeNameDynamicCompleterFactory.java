@@ -23,7 +23,7 @@ import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactor
 import org.apache.ignite.internal.cli.core.repl.completer.StringDynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 
-/** Factory for --node-name option completer. */
+/** Factory for --name option completer. */
 @Singleton
 public class NodeNameDynamicCompleterFactory implements DynamicCompleterFactory {
 

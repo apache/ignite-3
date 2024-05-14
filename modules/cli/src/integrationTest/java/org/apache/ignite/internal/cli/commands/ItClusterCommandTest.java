@@ -159,10 +159,10 @@ class ItClusterCommandTest extends AbstractCliTest {
     void initClusterWithNodesOfDifferentRoles(TestInfo testInfo) throws InterruptedException {
         int exitCode = execute(
                 "cluster", "init",
-                "--cluster-endpoint-url", FIRST_NODE.restHostPort(),
-                "--meta-storage-node", SECOND_NODE.nodeName(testInfo),
+                "--url", FIRST_NODE.restHostPort(),
+                "--ms-node", SECOND_NODE.nodeName(testInfo),
                 "--cmg-node", THIRD_NODE.nodeName(testInfo),
-                "--cluster-name", "ignite-cluster"
+                "--name", "ignite-cluster"
         );
 
         assertThat(
@@ -183,7 +183,7 @@ class ItClusterCommandTest extends AbstractCliTest {
 
             int code = execute(
                     "cluster", "topology", "logical",
-                    "--cluster-endpoint-url", FIRST_NODE.restHostPort()
+                    "--url", FIRST_NODE.restHostPort()
             );
 
             assertThat(

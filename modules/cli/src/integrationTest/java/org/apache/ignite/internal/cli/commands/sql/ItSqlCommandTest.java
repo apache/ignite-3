@@ -31,7 +31,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     @Test
     @DisplayName("Should throw error if executed with non-existing file")
     void nonExistingFile() {
-        execute("sql", "-f", "nonexisting", "--jdbc-url", JDBC_URL);
+        execute("sql", "--file", "nonexisting", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 () -> assertExitCodeIs(1),
@@ -128,7 +128,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     @DisplayName("Should execute multiline sql script from file")
     void multilineScript() {
         String filePath = getClass().getResource("/multiline.sql").getPath();
-        execute("sql", "-f", filePath, "--jdbc-url", JDBC_URL);
+        execute("sql", "--file", filePath, "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,

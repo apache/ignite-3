@@ -53,7 +53,7 @@ public class IgniteRunnerTest extends IgniteIntegrationTest {
         CompletableFuture<Ignite> ign = IgniteRunner.start(
                 "--config-path", configPath.toAbsolutePath().toString(),
                 "--work-dir", workDir.resolve("node").toAbsolutePath().toString(),
-                "--node-name", NODE_NAME
+                "--name", NODE_NAME
         );
 
         InitParameters initParameters = InitParameters.builder()

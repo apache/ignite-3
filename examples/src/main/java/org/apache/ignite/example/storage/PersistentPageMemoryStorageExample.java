@@ -33,7 +33,7 @@ package org.apache.ignite.example.storage;
  *     </li>
  *     <li>
  *         Cluster initialization using the CLI tool (if not done yet):<br>
- *         {@code ignite cluster init --cluster-name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=my-first-node}
+ *         {@code ignite cluster init --name=ignite-cluster --node-endpoint=localhost:10300 --ms-node=my-first-node}
  *     </li>
  *     <li>
  *         Add configuration for a persistent data region of the PageMemory storage engine using the CLI tool (if not done yet):<br>

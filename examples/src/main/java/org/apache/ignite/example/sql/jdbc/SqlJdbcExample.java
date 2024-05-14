@@ -39,7 +39,7 @@ import java.sql.Statement;
  *     </li>
  *     <li>
  *         Cluster initialization using the CLI tool (if not done yet):<br>
- *         {@code ignite cluster init --cluster-name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=my-first-node}
+ *         {@code ignite cluster init --name=ignite-cluster --node-endpoint=localhost:10300 --ms-node=my-first-node}
  *     </li>
  *     <li>Run the example in the IDE.</li>
  *     <li>

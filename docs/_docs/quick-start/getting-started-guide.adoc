@@ -143,7 +143,7 @@ You can change your cluster or node configuration by using the Ignite CLI.
 . To see the current configuration, run the following command:
 +
 ----
-node config show --node-url http://localhost:10300
+node config show --url http://localhost:10300
 ----
 +  
 This command prints the configuration file in the HOCON format. Note the `maxSize` value under `aimen.regions`.
@@ -151,13 +151,13 @@ This command prints the configuration file in the HOCON format. Note the `maxSiz
 . Request an increase of the `maxSize` value:
 +
 ----
-node config update --node-url http://localhost:10300 {aimem.regions:[{name:btree_volatile_region,maxSize:412000000}]}
+node config update --url http://localhost:10300 {aimem.regions:[{name:btree_volatile_region,maxSize:412000000}]}
 ----
 +
 . To verify the result, run the `show` command again:
 +
 ----
-node config show --node-url http://localhost:10300
+node config show --url http://localhost:10300
 ----
 +
 Note that `maxSize` has increased to the value you had requested. 

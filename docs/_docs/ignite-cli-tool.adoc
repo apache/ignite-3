@@ -52,7 +52,7 @@ These commands help you configure your CLI tool and cluster.
 | `cli config profile show` | | Gets the current profile details.
 | `cli config get` | `<key>` | Gets the value for the specified configuration key.
 | `cli config set` | `<key=value>` | Sets configuration parameters using comma-separated input key-value pair(s).
-| `cli config show` | `[--cluster-endpoint-url] [--selector]` | Shows the cluster configuration.
+| `cli config show` | `[--url] [--selector]` | Shows the cluster configuration.
 | `cli config remove` | `<key>` | Removes a configuration key.
 |===
 
@@ -63,14 +63,15 @@ These commands let you manage your cluster.
 [cols="1,1,3",opts="header", stripes=none]
 |===
 | Command| Parameters | Description
-| `cluster init` | `[--cmg-node] [--meta-storage-node] <clusterName> or < --cluster-endpoint-url> <cluster-config> or < --cluster-config-file>`| Initializes a cluster.
-| `cluster status` | `[--cluster-endpoint-url]` | Displays the detailed status of the specified cluster.
-| `cluster topology physical` | `[--plain] [--cluster-endpoint-url]` | Shows physical topology of the specified cluster.
-| `cluster topology logical` | `[--plain] [--cluster-endpoint-url]` | Shows logical topology of the specified cluster.
+| `cluster init` | `[--cmg-node] [--ms
+ode] <clusterName> or < --url> <cluster-config> or < --config-file>`| Initializes a cluster.
+| `cluster status` | `[--url]` | Displays the detailed status of the specified cluster.
+| `cluster topology physical` | `[--plain] [--url]` | Shows physical topology of the specified cluster.
+| `cluster topology logical` | `[--plain] [--url]` | Shows logical topology of the specified cluster.
 | `cluster unit deploy` | `[clusterUrl] [--nodes] <path> <version> <id>` | Deploys a unit for the cluster.
 | `cluster unit undeploy` | `[clusterUrl] <version> <id>` | Undeploys a cluster's unit.
 | `cluster unit list` | `[--plain] [clusterUrl] [--status] [<unitId>[--version]]` | Lists cluster's deployed units.
-| `connect` | `[--username] [--password] --node-url[--node-name]` | Connects to the specified cluster, or to `localhost:3000` if no cluster is specified. All subsequent commands use the specified cluster URL.
+| `connect` | `[--username] [--password] --url[--name]` | Connects to the specified cluster, or to `localhost:3000` if no cluster is specified. All subsequent commands use the specified cluster URL.
 | `disconnect` || Disconnects from the current cluster.
 |===
 
@@ -91,15 +92,15 @@ These commands address specific node(s) in a cluster.
 [cols="1,1,3",opts="header", stripes=none]
 |===
 | Command| Parameters | Description
-| `node config show` | `[--node-url]/[--node-name] [--selector]` | Gets the specified node configuration.
-|`node config update` | `[--node-url]/[--node-name] [<args>...]` | Updates the local node configuration with the arguments in the HOCON format.
-| `node status` | `[--node-url]/[--node-name]` |Shows the status of the default node, or a different one if specified.
-| `node version` | `[--node-url]/[--node-name]` |Shows the node's build version.
-| `node metric list` | `[--node-url]/[--node-name][--plain]` |Lists node's metrics.
-| `node metric source enable` | `[--node-url]/[--node-name]<srcName>` |Enables a metric source for the node.
-| `node metric source disable` | `[--node-url]/[--node-name]<srcName>` |Disables a metric source for the node.
-| `node metric source list` | `[--node-url]/[--node-name][--plain]` |Lists node metrics' sources.
-| `node unit list` | `[--plain] [--status] [<unitId> [--version]] [--node-url]/[--node-name]]` |Lists node's deployment units.
+| `node config show` | `[--url]/[--name] [--selector]` | Gets the specified node configuration.
+|`node config update` | `[--url]/[--name] [<args>...]` | Updates the local node configuration with the arguments in the HOCON format.
+| `node status` | `[--url]/[--name]` |Shows the status of the default node, or a different one if specified.
+| `node version` | `[--url]/[--name]` |Shows the node's build version.
+| `node metric list` | `[--url]/[--name][--plain]` |Lists node's metrics.
+| `node metric source enable` | `[--url]/[--name]<srcName>` |Enables a metric source for the node.
+| `node metric source disable` | `[--url]/[--name]<srcName>` |Disables a metric source for the node.
+| `node metric source list` | `[--url]/[--name][--plain]` |Lists node metrics' sources.
+| `node unit list` | `[--plain] [--status] [<unitId> [--version]] [--url]/[--name]]` |Lists node's deployment units.
 |===
 
 === User and Role Commands
@@ -109,19 +110,19 @@ These commands help you manage access to the system - users and and roles.
 [cols="1,1,3",opts="header", stripes=none]
 |===
 | Command| Parameters | Description
-|`role create`|`[--cluster-endpoint-url] <roleName>`| Creates a new role. New roles do not have any privileges.
-|`role delete`|`[--cluster-endpoint-url] <roleName>`| Deletes the specified role. Role with assigned privileges cannot be deleted.
-|`role list`|`[--plain] [--cluster-endpoint-url] [--user]`| Lists roles for the specified cluster, optionally filtered by user(s).
-|`role show`|`[--with-privileges] [--with-users] [--cluster-endpoint-url] <roleName>`| Shows the role information, optionally including privileges assigned to the role and/or the users who have that role.
-|`role privilege grant`|`[--on] [--cluster-endpoint-url] [--action] --to`| Grants to the specified role a privilege (permission to perform the specified action on an the specified object). For more information, see link:security/permissions[User Permissions and Roles].
-|`role privilege revoke`|`[--action] [--from] [--cluster-endpoint-url] --to`|Revoke privilege(s) (permissions)(s) to perform the specified action on the specified object) from the role. For more information, see link:security/permissions[User Permissions and Roles].
+|`role create`|`[--url] <roleName>`| Creates a new role. New roles do not have any privileges.
+|`role delete`|`[--url] <roleName>`| Deletes the specified role. Role with assigned privileges cannot be deleted.
+|`role list`|`[--plain] [--url] [--user]`| Lists roles for the specified cluster, optionally filtered by user(s).
+|`role show`|`[--with-privileges] [--with-users] [--url] <roleName>`| Shows the role information, optionally including privileges assigned to the role and/or the users who have that role.
+|`role privilege grant`|`[--on] [--url] [--action] --to`| Grants to the specified role a privilege (permission to perform the specified action on an the specified object). For more information, see link:security/permissions[User Permissions and Roles].
+|`role privilege revoke`|`[--action] [--from] [--url] --to`|Revoke privilege(s) (permissions)(s) to perform the specified action on the specified object) from the role. For more information, see link:security/permissions[User Permissions and Roles].
 | `user create` |`[--password] [cluster-endpoint-url] <username>` | Creates a new user.
-| `user delete` |`[--cluster-endpoint-url] [--with-revoke] <username>`| Deletes the user.
-| `user edit` |`[--password] [--cluster-endpoint-url] <username>` |  Edits user configuration.
-| `user list` |`[--plain] [--cluster-endpoint-url] [--role]`| Provides a list of users on the server, optionally filtered by role(s).
-| `user show` |`[--with-roles] [--cluster-endpoint-url] <username>`| Provides extended information about the specific user, optionally with information about roles assigned to the user.
-| `user role assign` | `[--profile] [--cluster-endpoint-url] [--role] [--to]`| Assigns role(s) to the specified user.
-| `user role revoke` | `[--profile] [--cluster-endpoint-url] [--from] [--role]`| Revokes role(s) from the specified user.
+| `user delete` |`[--url] [--with-revoke] <username>`| Deletes the user.
+| `user edit` |`[--password] [--url] <username>` |  Edits user configuration.
+| `user list` |`[--plain] [--url] [--role]`| Provides a list of users on the server, optionally filtered by role(s).
+| `user show` |`[--with-roles] [--url] <username>`| Provides extended information about the specific user, optionally with information about roles assigned to the user.
+| `user role assign` | `[--profile] [--url] [--role] [--to]`| Assigns role(s) to the specified user.
+| `user role revoke` | `[--profile] [--url] [--from] [--role]`| Revokes role(s) from the specified user.
 |===
 
 === Miscellaneous Commands
@@ -134,7 +135,7 @@ These are general-purpose commands.
 | `cls` || Clears the terminal.
 | `exit` || Stops the current interactive session.
 | `help` | `<command or command group>` | Provides information on available command groups, commands in the specified group, or for the specified command.
-| `sql` | `[--plain] [jdbc-url] [--script-file] <command>`| Executes the specified SQL query (command) or teh queries included in the specified file, on the specified cluster.
-|`token revoke`|`[--cluster-endpoint-url] [--profile] [--token\|--username]`| Revokes the link:security/jwt[JWT token]. Can revoke a specific token, or all tokens from the user.
+| `sql` | `[--plain] [jdbc-url] [--file] <command>`| Executes the specified SQL query (command) or teh queries included in the specified file, on the specified cluster.
+|`token revoke`|`[--url] [--profile] [--token\|--username]`| Revokes the link:security/jwt[JWT token]. Can revoke a specific token, or all tokens from the user.
 | `version` || Displays the current CLI tool version.
 |===

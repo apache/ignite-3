@@ -25,7 +25,7 @@ import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterFactor
 import org.apache.ignite.internal.cli.core.repl.completer.StringDynamicCompleter;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 
-/** Factory for --cluster-endpoint-url option completer. */
+/** Factory for --url option completer. */
 @Singleton
 public class ClusterUrlDynamicCompleterFactory implements DynamicCompleterFactory {
 

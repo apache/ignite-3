@@ -272,10 +272,13 @@ docker run -it --rm -p 10300:10300 -p 10800:10800 apacheignite/ignite3
 There's a sample docker compose file which allows to run 3 nodes in a cluster in the `packaging/docker` directory. You can also use CLI from
 the docker image using `cli` parameter and connect to nodes using their names from the docker network.
 ```shell
-docker compose -f packaging/docker/docker-compose.yml up -d
+docker compose --file packaging/docker/docker-compose.yml up -d
 docker run -it --rm --net ignite3_default apacheignite/ignite3 cli
 > connect http://node1:10300
-> cluster init --cluster-name cluster --meta-storage-node node1 --meta-storage-node node2 --meta-storage-node node3
+> cluster init --cluster cluster --ms
+ode node1 --ms
+ode node2 --ms
+ode node3
 ```
 
 ### How to launch multiple nodes on the same machine
@@ -388,9 +391,10 @@ To initialize a cluster run the following command inside Ignite CLI:
 
 ```shell
 cluster init 
-  --cluster-name myClusterOfThreeNodes 
+  --name myClusterOfThreeNodes 
   --cmg-node node1 --cmg-node node2 --cmg-node node3 
-  --meta-storage-node node1 --meta-storage-node node2 --meta-storage-node node3
+  --ms
+ode node1 --ms-node node2 --ms-node node3
 ```
 
 To stop all nodes:

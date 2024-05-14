@@ -91,7 +91,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         @DisplayName("config")
         class Config {
             @Test
-            @DisplayName("show --node-url http://localhost:10300")
+            @DisplayName("show --url http://localhost:10300")
             void show() {
                 clientAndServer
                         .when(request()
@@ -100,7 +100,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
 
-                int exitCode = execute("node config show --node-url " + mockUrl);
+                int exitCode = execute("node config show --url " + mockUrl);
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
@@ -114,7 +114,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             }
 
             @Test
-            @DisplayName("show --node-url http://localhost:10300 local.baseline")
+            @DisplayName("show --url http://localhost:10300 local.baseline")
             void showSubtree() {
                 clientAndServer
                         .when(request()
@@ -123,7 +123,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
 
-                int exitCode = execute("node config show --node-url " + mockUrl + " local.baseline");
+                int exitCode = execute("node config show --url " + mockUrl + " local.baseline");
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
@@ -137,7 +137,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             }
 
             @Test
-            @DisplayName("update --node-url http://localhost:10300 local.baseline.autoAdjust.enabled=true")
+            @DisplayName("update --url http://localhost:10300 local.baseline.autoAdjust.enabled=true")
             void updateHocon() {
                 clientAndServer
                         .when(request()
@@ -147,7 +147,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response(null));
 
-                int exitCode = execute("node config update --node-url " + mockUrl + " local.baseline.autoAdjust.enabled=true");
+                int exitCode = execute("node config update --url " + mockUrl + " local.baseline.autoAdjust.enabled=true");
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
@@ -171,7 +171,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response(null));
 
-                int exitCode = execute("node metric source enable --node-url " + mockUrl + " srcName");
+                int exitCode = execute("node metric source enable --url " + mockUrl + " srcName");
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
@@ -190,7 +190,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response(null));
 
-                int exitCode = execute("node metric source disable --node-url " + mockUrl + " srcName");
+                int exitCode = execute("node metric source disable --url " + mockUrl + " srcName");
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
@@ -209,7 +209,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response(responseBody));
 
-                int exitCode = execute("node metric source list --plain --node-url " + mockUrl);
+                int exitCode = execute("node metric source list --plain --url " + mockUrl);
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
@@ -228,7 +228,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response(responseBody));
 
-                int exitCode = execute("node metric list --plain --node-url " + mockUrl);
+                int exitCode = execute("node metric list --plain --url " + mockUrl);
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
@@ -245,8 +245,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
     @DisplayName("cluster")
     class Cluster {
         @Test
-        @DisplayName("init --cluster-endpoint-url http://localhost:10300 --meta-storage-node node1ConsistentId --meta-storage-node node2ConsistentId "
-                + "--cmg-node node2ConsistentId --cmg-node node3ConsistentId --cluster-name cluster")
+        @DisplayName("init --url http://localhost:10300 --ms-node node1ConsistentId --ms-node node2ConsistentId "
+                + "--cmg-node node2ConsistentId --cmg-node node3ConsistentId --name cluster")
         void initSuccess() {
             var expectedSentContent = "{\"metaStorageNodes\":[\"node1ConsistentId\",\"node2ConsistentId\"],"
                     + "\"cmgNodes\":[\"node2ConsistentId\",\"node3ConsistentId\"],"
@@ -264,12 +264,12 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             int exitCode = execute(
                     "cluster", "init",
-                    "--cluster-endpoint-url", mockUrl,
-                    "--meta-storage-node", "node1ConsistentId",
-                    "--meta-storage-node", "node2ConsistentId",
+                    "--url", mockUrl,
+                    "--ms-node", "node1ConsistentId",
+                    "--ms-node", "node2ConsistentId",
                     "--cmg-node", "node2ConsistentId",
                     "--cmg-node", "node3ConsistentId",
-                    "--cluster-name", "cluster"
+                    "--name", "cluster"
             );
 
             assertThatExitCodeMeansSuccess(exitCode);
@@ -280,8 +280,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
         @Test
         @DisplayName(
-                "init --cluster-endpoint-url http://localhost:10300 --meta-storage-node node1ConsistentId --meta-storage-node node2ConsistentId "
-                        + "--cmg-node node2ConsistentId --cmg-node node3ConsistentId --cluster-name cluster "
+                "init --url http://localhost:10300 --ms-node node1ConsistentId --ms-node node2ConsistentId "
+                        + "--cmg-node node2ConsistentId --cmg-node node3ConsistentId --name cluster "
                         + "--auth-enabled --basic-auth-username admin --basic-auth-password password")
         void initWithAuthenticationSuccess() throws IOException {
 
@@ -312,13 +312,13 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             int exitCode = execute(
                     "cluster", "init",
-                    "--cluster-endpoint-url", mockUrl,
-                    "--meta-storage-node", "node1ConsistentId",
-                    "--meta-storage-node", "node2ConsistentId",
+                    "--url", mockUrl,
+                    "--ms-node", "node1ConsistentId",
+                    "--ms-node", "node2ConsistentId",
                     "--cmg-node", "node2ConsistentId",
                     "--cmg-node", "node3ConsistentId",
-                    "--cluster-name", "cluster",
-                    "--cluster-config-file", clusterConfigurationFile.toString()
+                    "--name", "cluster",
+                    "--config-file", clusterConfigurationFile.toString()
             );
 
             assertThatExitCodeMeansSuccess(exitCode);
@@ -341,12 +341,12 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             int exitCode = execute(
                     "cluster", "init",
-                    "--cluster-endpoint-url", mockUrl,
-                    "--meta-storage-node", "node1ConsistentId",
-                    "--meta-storage-node", "node2ConsistentId",
+                    "--url", mockUrl,
+                    "--ms-node", "node1ConsistentId",
+                    "--ms-node", "node2ConsistentId",
                     "--cmg-node", "node2ConsistentId",
                     "--cmg-node", "node3ConsistentId",
-                    "--cluster-name", "cluster"
+                    "--name", "cluster"
             );
 
             assertThatExitCodeIs(1, exitCode);
@@ -356,24 +356,24 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         }
 
         @Test
-        @DisplayName("init --cluster-endpoint-url http://localhost:10300 --cmg-node node2ConsistentId --cmg-node node3ConsistentId")
+        @DisplayName("init --url http://localhost:10300 --cmg-node node2ConsistentId --cmg-node node3ConsistentId")
         void metastorageNodesAreMandatoryForInit() {
             int exitCode = execute(
                     "cluster", "init",
-                    "--cluster-endpoint-url", mockUrl,
+                    "--url", mockUrl,
                     "--cmg-node", "node2ConsistentId",
                     "--cmg-node", "node3ConsistentId",
-                    "--cluster-name", "cluster"
+                    "--name", "cluster"
             );
 
             assertThatExitCodeIs(2, exitCode);
 
             assertThatStdoutIsEmpty();
-            assertThat(err.toString(UTF_8), startsWith("Missing required option: '--meta-storage-node=<metaStorageNodes>'"));
+            assertThat(err.toString(UTF_8), startsWith("Missing required option: '--ms-node=<metaStorageNodes>'"));
         }
 
         @Test
-        @DisplayName("init --cluster-endpoint-url http://localhost:10300 --meta-storage-node node2ConsistentId --meta-storage-node node3ConsistentId")
+        @DisplayName("init --url http://localhost:10300 --ms-node node2ConsistentId --ms-node node3ConsistentId")
         void cmgNodesAreNotMandatoryForInit() {
             clientAndServer
                     .when(request()
@@ -384,10 +384,10 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             int exitCode = execute(
                     "cluster", "init",
-                    "--cluster-endpoint-url", mockUrl,
-                    "--meta-storage-node", "node1ConsistentId",
-                    "--meta-storage-node", "node2ConsistentId",
-                    "--cluster-name", "cluster"
+                    "--url", mockUrl,
+                    "--ms-node", "node1ConsistentId",
+                    "--ms-node", "node2ConsistentId",
+                    "--name", "cluster"
             );
 
             assertThatExitCodeMeansSuccess(exitCode);
@@ -397,26 +397,26 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         }
 
         @Test
-        @DisplayName("init --cluster-endpoint-url http://localhost:10300 --meta-storage-node node1ConsistentId --cmg-node node2ConsistentId")
+        @DisplayName("init --url http://localhost:10300 --ms-node node1ConsistentId --cmg-node node2ConsistentId")
         void clusterNameIsMandatoryForInit() {
             int exitCode = execute(
                     "cluster", "init",
-                    "--cluster-endpoint-url", mockUrl,
-                    "--meta-storage-node", "node1ConsistentId",
+                    "--url", mockUrl,
+                    "--ms-node", "node1ConsistentId",
                     "--cmg-node", "node2ConsistentId"
             );
 
             assertThatExitCodeIs(2, exitCode);
 
             assertThatStdoutIsEmpty();
-            assertThat(err.toString(UTF_8), startsWith("Missing required option: '--cluster-name=<clusterName>'"));
+            assertThat(err.toString(UTF_8), startsWith("Missing required option: '--name=<clusterName>'"));
         }
 
         @Nested
         @DisplayName("config")
         class Config {
             @Test
-            @DisplayName("show --cluster-endpoint-url http://localhost:10300")
+            @DisplayName("show --url http://localhost:10300")
             void show() {
                 clientAndServer
                         .when(request()
@@ -425,7 +425,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
 
-                int exitCode = execute("cluster config show --cluster-endpoint-url " + mockUrl);
+                int exitCode = execute("cluster config show --url " + mockUrl);
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
@@ -438,7 +438,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             }
 
             @Test
-            @DisplayName("show --cluster-endpoint-url http://localhost:10300 local.baseline")
+            @DisplayName("show --url http://localhost:10300 local.baseline")
             void showSubtree() {
                 clientAndServer
                         .when(request()
@@ -447,7 +447,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
 
-                int exitCode = execute("cluster config show --cluster-endpoint-url " + mockUrl + " local.baseline");
+                int exitCode = execute("cluster config show --url " + mockUrl + " local.baseline");
 
                 assertThatExitCodeMeansSuccess(exitCode);
 
@@ -460,7 +460,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             }
 
             @Test
-            @DisplayName("update --cluster-endpoint-url http://localhost:10300 local.baseline.autoAdjust.enabled=true")
+            @DisplayName("update --url http://localhost:10300 local.baseline.autoAdjust.enabled=true")
             void updateHocon() {
                 clientAndServer
                         .when(request()
@@ -470,7 +470,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                         )
                         .respond(response(null));
 
-                int exitCode = execute("cluster config update --cluster-endpoint-url "
+                int exitCode = execute("cluster config update --url "
                         + mockUrl + " local.baseline.autoAdjust.enabled=true");
 
                 assertThatExitCodeMeansSuccess(exitCode);

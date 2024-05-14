@@ -91,8 +91,8 @@ import picocli.CommandLine;
 public class UrlOptionsNegativeTest {
     private static final String NODE_URL = "http://localhost:10300";
 
-    private static final String CLUSTER_URL_OPTION = "--cluster-endpoint-url=";
-    private static final String NODE_URL_OPTION = "--node-url=";
+    private static final String CLUSTER_URL_OPTION = "--url=";
+    private static final String NODE_URL_OPTION = "--url=";
 
     @Inject
     private ApplicationContext context;
@@ -159,7 +159,7 @@ public class UrlOptionsNegativeTest {
                 arguments(ClusterUnitUndeployCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
                 arguments(ClusterUnitListCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(NodeUnitListCommand.class, NODE_URL_OPTION, List.of()),
-                arguments(ClusterInitCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),
+                arguments(ClusterInitCommand.class, CLUSTER_URL_OPTION, List.of("--name=cluster", "--ms-node=test")),
                 arguments(ConnectCommand.class, "", List.of())
         // TODO https://issues.apache.org/jira/browse/IGNITE-18378
         //                Arguments.arguments(ClusterShowCommand.class, CLUSTER_URL_OPTION, List.of()),
@@ -185,7 +185,7 @@ public class UrlOptionsNegativeTest {
                 arguments(ClusterUnitUndeployReplCommand.class, CLUSTER_URL_OPTION, List.of("id", "--version=1.0.0")),
                 arguments(ClusterUnitListReplCommand.class, CLUSTER_URL_OPTION, List.of()),
                 arguments(NodeUnitListReplCommand.class, NODE_URL_OPTION, List.of()),
-                arguments(ClusterInitReplCommand.class, CLUSTER_URL_OPTION, List.of("--cluster-name=cluster", "--meta-storage-node=test")),
+                arguments(ClusterInitReplCommand.class, CLUSTER_URL_OPTION, List.of("--name=cluster", "--ms-node=test")),
                 arguments(ConnectReplCommand.class, "", List.of())
         // TODO https://issues.apache.org/jira/browse/IGNITE-18378
         //                Arguments.arguments(ClusterShowReplCommand.class, CLUSTER_URL_OPTION, List.of()),
