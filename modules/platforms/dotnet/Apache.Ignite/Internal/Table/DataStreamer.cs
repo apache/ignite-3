@@ -47,8 +47,6 @@ using Serialization;
 /// </summary>
 internal static class DataStreamer
 {
-    private static readonly TimeSpan PartitionAssignmentUpdateFrequency = TimeSpan.FromSeconds(15);
-
     /// <summary>
     /// Streams the data.
     /// </summary>
@@ -93,7 +91,6 @@ internal static class DataStreamer
         var partitionAssignment = await table.GetPartitionAssignmentAsync().ConfigureAwait(false);
         var partitionCount = partitionAssignment.Length; // Can't be changed.
         Debug.Assert(partitionCount > 0, "partitionCount > 0");
-        var lastPartitionsAssignmentCheck = Stopwatch.StartNew();
 
         using var flushCts = new CancellationTokenSource();
 
@@ -113,18 +110,12 @@ internal static class DataStreamer
                     await SendAsync(batch).ConfigureAwait(false);
                 }
 
-                if (lastPartitionsAssignmentCheck.Elapsed > PartitionAssignmentUpdateFrequency)
+                var newAssignment = await table.GetPartitionAssignmentAsync().ConfigureAwait(false);
+                if (newAssignment != partitionAssignment)
                 {
-                    var newAssignment = await table.GetPartitionAssignmentAsync().ConfigureAwait(false);
-
-                    if (newAssignment != partitionAssignment)
-                    {
-                        // Drain all batches to preserve order when partition assignment changes.
-                        await Drain().ConfigureAwait(false);
-                        partitionAssignment = newAssignment;
-                    }
-
-                    lastPartitionsAssignmentCheck.Restart();
+                    // Drain all batches to preserve order when partition assignment changes.
+                    await Drain().ConfigureAwait(false);
+                    partitionAssignment = newAssignment;
                 }
             }
 
