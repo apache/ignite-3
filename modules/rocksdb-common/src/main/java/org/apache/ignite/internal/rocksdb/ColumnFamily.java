@@ -22,6 +22,7 @@ import java.util.List;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
+import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.IngestExternalFileOptions;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
@@ -45,21 +46,27 @@ public class ColumnFamily {
     /** Column family handle. */
     private final ColumnFamilyHandle cfHandle;
 
+    /** Column family options, if exclusive to this CF. */
+    @Nullable
+    private final ColumnFamilyOptions options;
+
     /**
      * Constructor.
      *
      * @param db Db.
      * @param handle Column family handle.
      */
-    private ColumnFamily(RocksDB db, ColumnFamilyHandle handle) throws RocksDBException {
+    private ColumnFamily(RocksDB db, ColumnFamilyHandle handle, @Nullable ColumnFamilyOptions options) throws RocksDBException {
         this.db = db;
         this.cfHandle = handle;
         cfNameBytes = cfHandle.getName();
         this.cfName = new String(cfNameBytes, StandardCharsets.UTF_8);
+        this.options = options;
     }
 
     /**
      * Creates a new Column Family in the provided RocksDB instance.
+     * <b>Warning!!</b> This method tracks will track the options in the ColumnFamilyDescriptor to close them on {@link #destroy()}.
      *
      * @param db RocksDB instance.
      * @param descriptor Column Family descriptor.
@@ -69,7 +76,7 @@ public class ColumnFamily {
     public static ColumnFamily create(RocksDB db, ColumnFamilyDescriptor descriptor) throws RocksDBException {
         ColumnFamilyHandle cfHandle = db.createColumnFamily(descriptor);
 
-        return new ColumnFamily(db, cfHandle);
+        return new ColumnFamily(db, cfHandle, descriptor.getOptions());
     }
 
     /**
@@ -81,7 +88,7 @@ public class ColumnFamily {
      * @throws RocksDBException If an error has occurred during creation.
      */
     public static ColumnFamily wrap(RocksDB db, ColumnFamilyHandle handle) throws RocksDBException {
-        return new ColumnFamily(db, handle);
+        return new ColumnFamily(db, handle, null);
     }
 
     /**
@@ -93,6 +100,11 @@ public class ColumnFamily {
         db.dropColumnFamily(cfHandle);
 
         db.destroyColumnFamilyHandle(cfHandle);
+
+        // If we are tracking the options then we also close them.
+        if (this.options != null) {
+            options.close();
+        }
     }
 
     /**
@@ -206,6 +218,16 @@ public class ColumnFamily {
      */
     public ColumnFamilyHandle handle() {
         return cfHandle;
+    }
+
+    /**
+     * Returns the tracked options, if any.
+     *
+     * @return The ColumnFamilyOptions, if they are tracked by this class.
+     */
+    @Nullable
+    public ColumnFamilyOptions options() {
+        return options;
     }
 
     /**
