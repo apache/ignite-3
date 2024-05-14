@@ -95,11 +95,10 @@ import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
-import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
-import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.LozaUtils;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -191,9 +190,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             HybridClock clock = new HybridClockImpl();
 
-            this.raftManager = new Loza(
+            this.raftManager = LozaUtils.create(
                     clusterService,
-                    new NoOpMetricManager(),
                     raftConfiguration,
                     dataPath.resolve(name()),
                     clock

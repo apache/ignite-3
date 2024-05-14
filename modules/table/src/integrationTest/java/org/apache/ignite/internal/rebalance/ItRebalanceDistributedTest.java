@@ -156,7 +156,9 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -1038,13 +1040,16 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
+            LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), dir, raftConfiguration);
+
             raftManager = spy(new Loza(
                     clusterService,
                     metricManager,
                     raftConfiguration,
                     dir,
                     hybridClock,
-                    raftGroupEventsClientListener
+                    raftGroupEventsClientListener,
+                    logStorageFactory
             ));
 
             var clusterStateStorage = new TestClusterStateStorage();

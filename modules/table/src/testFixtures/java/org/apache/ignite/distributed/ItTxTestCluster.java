@@ -83,7 +83,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
-import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -91,6 +90,7 @@ import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.LozaUtils;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
@@ -386,9 +386,8 @@ public class ItTxTestCluster {
             clocks.put(node.name(), clock);
             clockServices.put(node.name(), clockService);
 
-            var raftSrv = new Loza(
+            var raftSrv = LozaUtils.create(
                     clusterService,
-                    new NoOpMetricManager(),
                     raftConfig,
                     workDir.resolve("node" + i),
                     clock

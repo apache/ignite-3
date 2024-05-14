@@ -61,6 +61,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-network')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-metrics:')))
+    testImplementation(testFixtures(project(':ignite-raft')))
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-network')
@@ -92,6 +93,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-network')))
     integrationTestImplementation testFixtures(project(':ignite-workers'))
     integrationTestImplementation testFixtures(project(':ignite-metrics:'))
+    integrationTestImplementation testFixtures(project(':ignite-raft'))
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation libs.jetbrains.annotations

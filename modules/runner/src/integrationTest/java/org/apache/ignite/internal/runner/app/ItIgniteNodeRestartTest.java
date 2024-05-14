@@ -136,7 +136,6 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
-import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NettyWorkersRegistrar;
@@ -146,6 +145,7 @@ import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceF
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.LozaUtils;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -351,7 +351,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-        var raftMgr = new Loza(clusterSvc, new NoOpMetricManager(), raftConfiguration, dir, hybridClock, raftGroupEventsClientListener);
+        var raftMgr = LozaUtils.create(
+                clusterSvc,
+                raftConfiguration,
+                dir,
+                hybridClock,
+                raftGroupEventsClientListener
+        );
 
         var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"), name);
 

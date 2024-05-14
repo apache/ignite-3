@@ -18,6 +18,7 @@
 package org.apache.ignite.raft.server;
 
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
+import static org.apache.ignite.internal.testframework.MockitoTestUtils.tryCallRealMethod;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
@@ -28,10 +29,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doAnswer;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -42,12 +43,13 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.server.JraftServerUtils;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
+import org.apache.ignite.internal.testframework.MockitoTestUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
@@ -99,12 +101,8 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         ClusterService service = clusterService(PORT, List.of(addr), true);
 
-        server = new JraftServerImpl(service, workDir, raftConfiguration) {
-            @Override
-            public CompletableFuture<Void> stopAsync() {
-                return IgniteUtils.stopAsync(super::stopAsync, service::stopAsync);
-            }
-        };
+        server = MockitoTestUtils.spyStubOnly(() -> JraftServerUtils.create(service, workDir, raftConfiguration));
+        doAnswer(ans -> IgniteUtils.stopAsync(() -> tryCallRealMethod(ans), service::stopAsync)).when(server).stopAsync();
 
         assertThat(server.startAsync(), willCompleteSuccessfully());
 

@@ -175,6 +175,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-jdbc'))
     integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation testFixtures(project(':ignite-metrics:'))
+    integrationTestImplementation testFixtures(project(':ignite-raft'))
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.rocksdb.jni

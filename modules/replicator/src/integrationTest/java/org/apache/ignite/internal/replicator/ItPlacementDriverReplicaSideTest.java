@@ -64,7 +64,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteTriConsumer;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -74,6 +73,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverActorMe
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.LozaUtils;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
@@ -169,9 +169,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 
-            var raftManager = new Loza(
+            var raftManager = LozaUtils.create(
                     clusterService,
-                    new NoOpMetricManager(),
                     raftConfiguration,
                     workDir.resolve(nodeName + "_loza"),
                     clock,
