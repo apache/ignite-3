@@ -37,7 +37,6 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
@@ -123,13 +122,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * Constructor.
      *
      * @param partitionId Partition ID.
-     * @param pageEvictionTracker Page eviction tracker.
      * @param tableStorage Table storage instance.
      */
     AbstractPageMemoryMvPartitionStorage(
             int partitionId,
             AbstractPageMemoryTableStorage tableStorage,
-            PageEvictionTracker pageEvictionTracker,
             RenewablePartitionStorageState renewableState,
             ExecutorService destructionExecutor
     ) {
@@ -142,8 +139,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
         rowVersionDataPageReader = new DataPageReader(pageMemory, tableStorage.getTableId(), IoStatisticsHolderNoOp.INSTANCE);
-        updateNextLinkHandler = new UpdateNextLinkHandler(pageEvictionTracker);
-        updateTimestampHandler = new UpdateTimestampHandler(pageEvictionTracker);
+        updateNextLinkHandler = new UpdateNextLinkHandler();
+        updateTimestampHandler = new UpdateTimestampHandler();
     }
 
     protected abstract GradualTaskExecutor createGradualTaskExecutor(ExecutorService threadPool);
