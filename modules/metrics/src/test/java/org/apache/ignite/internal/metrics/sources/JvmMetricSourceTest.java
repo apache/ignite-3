@@ -79,18 +79,18 @@ public class JvmMetricSourceTest {
     void testGcMetrics() {
         var memoryBean = new MemoryBean(5, 15, 20, 90,
                 100, 115, 120, 200);
-        var gcBean = new GarbageCollectorBean(10, 100);
-        var metricSource = new JvmMetricSource(memoryBean, List.of(gcBean));
+        var gcBean1 = new GarbageCollectorBean(10, 100);
+        var gcBean2 = new GarbageCollectorBean(20, 200);
+        var metricSource = new JvmMetricSource(memoryBean, List.of(gcBean1, gcBean2));
 
         var metricSet = metricSource.enable();
 
-        assertEquals(gcBean.collectionCount, metricSet.<LongMetric>get("gc.fictional_collector.CollectionCount").value());
-        assertEquals(gcBean.collectionTime, metricSet.<LongMetric>get("gc.fictional_collector.CollectionTime").value());
+        assertEquals(300, metricSet.<LongMetric>get("gc.CollectionTime").value());
 
-        gcBean.changeCollectionMetrics(1, 10);
+        gcBean1.changeCollectionMetrics(1, 10);
+        gcBean2.changeCollectionMetrics(1, 15);
 
-        assertEquals(gcBean.collectionCount, metricSet.<LongMetric>get("gc.fictional_collector.CollectionCount").value());
-        assertEquals(gcBean.collectionTime, metricSet.<LongMetric>get("gc.fictional_collector.CollectionTime").value());
+        assertEquals(325, metricSet.<LongMetric>get("gc.CollectionTime").value());
     }
 
     /**

@@ -23,7 +23,6 @@ import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.Metric;
@@ -125,34 +124,32 @@ public class JvmMetricSource implements MetricSource {
                         () -> nonHeapMemoryUsage.get().getMax()
                 ));
 
-        for (GarbageCollectorMXBean gcMxBean : gcMxBeans) {
-            metrics.put(
-                    "gc." + nameForMetricName(gcMxBean) + ".CollectionCount",
-                    new LongGauge(
-                            "gc." + nameForMetricName(gcMxBean) + ".CollectionCount",
-                            "Total number of collections that have occurred. -1 if the collection count is undefined for this collector.",
-                            gcMxBean::getCollectionCount
-                    )
-            );
-
-            metrics.put(
-                    "gc." + nameForMetricName(gcMxBean) + ".CollectionTime",
-                    new LongGauge(
-                            "gc." + nameForMetricName(gcMxBean) + ".CollectionTime",
-                            "Approximate accumulated collection elapsed time in milliseconds. -1 if the collection elapsed time is"
-                                    + " undefined for this collector.",
-                            gcMxBean::getCollectionTime
-                    )
-            );
-        }
+        metrics.put(
+                "gc.CollectionTime",
+                new LongGauge(
+                        "gc.CollectionTime",
+                        "Approximate accumulated collection elapsed time in milliseconds, summed across all collectors.",
+                        () -> totalCollectionTime()
+                )
+        );
 
         enabled = true;
 
         return new MetricSet(SOURCE_NAME, metrics);
     }
 
-    private static String nameForMetricName(GarbageCollectorMXBean gcMxBean) {
-        return gcMxBean.getName().replaceAll("\\s", "_").toLowerCase(Locale.ENGLISH);
+    private long totalCollectionTime() {
+        long total = 0;
+
+        for (GarbageCollectorMXBean gcMxBean : gcMxBeans) {
+            long time = gcMxBean.getCollectionTime();
+
+            if (time > 0) {
+                total += time;
+            }
+        }
+
+        return total;
     }
 
     /** {@inheritDoc} */
