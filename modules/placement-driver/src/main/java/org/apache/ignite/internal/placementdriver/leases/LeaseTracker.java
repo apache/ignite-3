@@ -228,7 +228,13 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                     // Throttling.
                     Thread.sleep(200);
                 } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+                    LOG.error("The retry process is interrupted, so the subgroups won't be added [zoneId={}, subGrps={}].",
+                            e,
+                            zoneId,
+                            subGrps
+                    );
+
+                    return;
                 }
 
                 addSubgroups(zoneId, enlistmentConsistencyToken, subGrps).whenComplete((unused, throwable1) -> {
@@ -422,7 +428,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     ) {
         assert groupId instanceof ZonePartitionId : "Unexpected replication group type [grp=" + groupId + "].";
 
-        var zonePartId = ((ZonePartitionId) groupId).purify();
+        var zonePartId = ZonePartitionId.resetTableId(((ZonePartitionId) groupId));
 
         CompletableFuture<ReplicaMeta> future = new CompletableFuture<>();
 

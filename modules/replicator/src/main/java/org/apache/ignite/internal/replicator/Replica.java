@@ -369,7 +369,7 @@ public class Replica {
 
         return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, executor)
                 .orTimeout(timeout, TimeUnit.MILLISECONDS)
-                .thenCompose(idx -> storageIndexTracker.waitFor(idx));
+                .thenCompose(storageIndexTracker::waitFor);
     }
 
     /**

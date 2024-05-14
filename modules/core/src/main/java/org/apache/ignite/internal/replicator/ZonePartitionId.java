@@ -96,16 +96,18 @@ public class ZonePartitionId implements ReplicationGroupId {
     }
 
     /**
-     * Creates a new object if this one has a defined table id or returns itself if it does not have a value of the table id.
+     * Creates a new {@link ZonePartitionId} without {@code tableId} if {@code zonePartitionId} has a specified {@code tableId}
+     * or returns provided {@code zonePartitionId} otherwise.
      *
-     * @return Pure zone partition id.
+     * @param zonePartitionId Zone partition id.
+     * @return Zone partition id without specified {@code tableId}.
      */
-    public ZonePartitionId purify() {
-        if (tableId == 0) {
-            return this;
+    public static ZonePartitionId resetTableId(ZonePartitionId zonePartitionId) {
+        if (zonePartitionId.tableId() == 0) {
+            return zonePartitionId;
         }
 
-        return new ZonePartitionId(zoneId, partId);
+        return new ZonePartitionId(zonePartitionId.zoneId(), zonePartitionId.tableId());
     }
 
     @Override

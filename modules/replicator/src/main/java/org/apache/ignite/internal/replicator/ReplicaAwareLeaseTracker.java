@@ -98,7 +98,7 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
 
         assert zonePartitionId.tableId() != 0 : "Table id should be defined.";
 
-        ZonePartitionId pureZonePartId = zonePartitionId.purify();
+        ZonePartitionId pureZonePartId = ZonePartitionId.resetTableId(zonePartitionId);
         TablePartitionId tablePartitionId = new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId());
 
         return delegate.awaitPrimaryReplicaForTable(pureZonePartId, timestamp, timeout, unit)
@@ -111,7 +111,7 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
                         return completedFuture(replicaMeta);
                     }
 
-                    CompletableFuture<Void> waitReplicaStateFut = waitPrimaryState.computeIfAbsent(tablePartitionId, gerpId -> {
+                    CompletableFuture<Void> waitReplicaStateFut = waitPrimaryState.computeIfAbsent(tablePartitionId, grpId -> {
                         WaitReplicaStateMessage awaitReplicaReq = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
                                 .groupId(tablePartitionId)
                                 .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
