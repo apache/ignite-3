@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeStringCollection;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
@@ -50,19 +50,16 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
 
     private final int tableId;
     private final Set<String> columns;
-    private final String schemaName;
 
     /**
      * Constructs the object.
      *
      * @param tableId Table id.
      * @param columns Names of columns to drop.
-     * @param schemaName Schema name.
      */
-    public DropColumnsEntry(int tableId, Set<String> columns, String schemaName) {
+    public DropColumnsEntry(int tableId, Set<String> columns) {
         this.tableId = tableId;
         this.columns = columns;
-        this.schemaName = schemaName;
     }
 
     /** Returns table id. */
@@ -92,18 +89,17 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+        CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
+        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
-        CatalogTableDescriptor currentTableDescriptor = requireNonNull(catalog.table(tableId));
-
-        CatalogTableDescriptor newTableDescriptor = currentTableDescriptor.newDescriptor(
-                currentTableDescriptor.name(),
-                currentTableDescriptor.tableVersion() + 1,
-                currentTableDescriptor.columns().stream()
+        CatalogTableDescriptor newTable = table.newDescriptor(
+                table.name(),
+                table.tableVersion() + 1,
+                table.columns().stream()
                         .filter(col -> !columns.contains(col.name()))
                         .collect(toList()),
                 causalityToken,
-                currentTableDescriptor.storageProfile()
+                table.storageProfile()
         );
 
         return new Catalog(
@@ -111,7 +107,7 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                replaceSchema(replaceTable(schema, newTableDescriptor), catalog.schemas()),
+                replaceSchema(replaceTable(schema, newTable), catalog.schemas()),
                 defaultZoneIdOpt(catalog)
         );
     }
@@ -127,16 +123,14 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
     private static class DropColumnEntrySerializer implements CatalogObjectSerializer<DropColumnsEntry> {
         @Override
         public DropColumnsEntry readFrom(IgniteDataInput input) throws IOException {
-            String schemaName = input.readUTF();
             int tableId = input.readInt();
             Set<String> columns = CatalogSerializationUtils.readStringCollection(input, size -> new HashSet<>(capacity(size)));
 
-            return new DropColumnsEntry(tableId, columns, schemaName);
+            return new DropColumnsEntry(tableId, columns);
         }
 
         @Override
         public void writeTo(DropColumnsEntry object, IgniteDataOutput output) throws IOException {
-            output.writeUTF(object.schemaName);
             output.writeInt(object.tableId());
             writeStringCollection(object.columns(), output);
         }

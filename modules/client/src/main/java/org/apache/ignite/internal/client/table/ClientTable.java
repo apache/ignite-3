@@ -54,6 +54,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -129,6 +130,12 @@ public class ClientTable implements Table {
     @Override
     public String name() {
         return name;
+    }
+
+    @Override
+    // TODO: IGNITE-22149
+    public PartitionManager partitionManager() {
+        throw new UnsupportedOperationException("This operation doesn't implemented yet.");
     }
 
     /** {@inheritDoc} */

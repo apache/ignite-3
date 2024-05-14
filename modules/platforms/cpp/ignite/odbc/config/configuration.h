@@ -43,11 +43,14 @@ public:
         /** Default value for TCP port attribute. */
         static inline const std::uint16_t port{10800};
 
-        /** Default value for address attribute. */
+        /** Default value for Address attribute. */
         static inline const std::vector<end_point> address{{host, port}};
 
-        /** Default value for Driver attribute. */
+        /** Default value for Schema attribute. */
         static inline const std::string schema{"PUBLIC"};
+
+        /** Default value for Timezone attribute. */
+        static inline const std::string timezone{};
     };
 
     // Default.
@@ -101,6 +104,13 @@ public:
     [[nodiscard]] const value_with_default<std::string> &get_auth_secret() const { return m_auth_secret; };
 
     /**
+     * Get Timezone.
+     *
+     * @return Timezone.
+     */
+    [[nodiscard]] const value_with_default<std::string> &get_timezone() const { return m_timezone; };
+
+    /**
      * Fill from configuration params.
      *
      * @throw odbc_error On parsing error.
@@ -126,6 +136,9 @@ private:
 
     /** Secret. */
     value_with_default<std::string> m_auth_secret{"", false};
+
+    /** Timezone. */
+    value_with_default<std::string> m_timezone{"", false};
 };
 
 } // namespace ignite

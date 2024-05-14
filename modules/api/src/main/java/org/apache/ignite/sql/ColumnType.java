@@ -114,6 +114,8 @@ public enum ColumnType {
     }
 
     ColumnType(int id, Class<?> clazz, boolean precisionDefined, boolean scaleDefined, boolean lengthDefined) {
+        assert !lengthDefined || (!precisionDefined && !scaleDefined);
+
         javaClass = clazz;
         this.precisionAllowed = precisionDefined;
         this.scaleAllowed = scaleDefined;

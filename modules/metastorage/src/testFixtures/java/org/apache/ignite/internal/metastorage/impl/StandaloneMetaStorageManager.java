@@ -26,6 +26,7 @@ import static org.mockito.Mockito.withSettings;
 
 import java.io.Serializable;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftManager;
@@ -47,6 +49,8 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 import org.mockito.ArgumentCaptor;
@@ -63,6 +67,8 @@ import org.mockito.quality.Strictness;
 @TestOnly
 public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     private static final String TEST_NODE_NAME = "standalone-ms-node";
+
+    private static final String TEST_NODE_ID = UUID.randomUUID().toString();
 
     private static final MockSettings LENIENT_SETTINGS = withSettings().strictness(Strictness.LENIENT);
 
@@ -139,6 +145,11 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         ClusterService clusterService = mock(ClusterService.class);
 
         when(clusterService.nodeName()).thenReturn(TEST_NODE_NAME);
+
+        TopologyService topologyService = mock(TopologyService.class);
+        when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(TEST_NODE_ID, TEST_NODE_NAME, mock(NetworkAddress.class)));
+
+        when(clusterService.topologyService()).thenReturn(topologyService);
 
         return clusterService;
     }

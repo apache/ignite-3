@@ -212,12 +212,6 @@ public class DataStreamerTests : IgniteTestsBase
         [Values(1, 2, 100)] int pageSize,
         [Values(true, false)] bool existingMinKey)
     {
-        if (pageSize > 1)
-        {
-            // TODO: IGNITE-21992 Data Streamer removal does not work for a new key in the same batch
-            return;
-        }
-
         var minKey = existingMinKey ? UpdatedKey : Interlocked.Add(ref _unknownKey, 10);
         await Table.GetRecordView<Poco>().StreamDataAsync(
             GetData(),
