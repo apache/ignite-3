@@ -965,7 +965,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         startGroupFut
                 .thenComposeAsync(isStartedRaftNode -> inBusyLock(busyLock, () -> {
-                    // TODO: have to figure out how to pass this condition between internal table updating and replica starting
                     boolean shouldSkipReplicaStarting = localMemberAssignment == null
                             || !isStartedRaftNode
                             || replicaMgr.isReplicaStarted(replicaGrpId);
@@ -988,7 +987,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 .tableRaftService()
                                 .updateInternalTableRaftGroupService(partId, raftClient);
 
-                        // ToDo: this code should be removed after next ticket IGNITE-22036
                         Function<RaftGroupService, ReplicaListener> createListener = (raftClient) -> createReplicaListener(
                                     replicaGrpId,
                                     table,

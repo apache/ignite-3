@@ -203,7 +203,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     partitionOperationsExecutor,
                     () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                     new NoOpFailureProcessor(),
-                    // TODO can't pass ThreadLocalPartitionCommandsMarshaller there due to dependency loop
+                    // TODO: IGNITE-22222 can't pass ThreadLocalPartitionCommandsMarshaller there due to dependency loop
                     null,
                     topologyAwareRaftGroupServiceFactory,
                     raftManager

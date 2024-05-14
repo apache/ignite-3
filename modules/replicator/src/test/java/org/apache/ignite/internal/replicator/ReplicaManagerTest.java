@@ -170,7 +170,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         var groupId = new TablePartitionId(0, 0);
         when(raftManager.startRaftGroupService(any(), any(), any(), any())).thenReturn(completedFuture(raftGroupService));
-        when(replicaListener.raftClient()).thenReturn(raftGroupService); // TODO does we really need it?
+        when(replicaListener.raftClient()).thenReturn(raftGroupService);
 
         String nodeName = testNodeName(testInfo, 0);
         PeersAndLearners newConfiguration = PeersAndLearners.fromConsistentIds(Set.of(nodeName));

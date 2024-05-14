@@ -462,18 +462,37 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         });
     }
 
+    /**
+     * Returns future with a replica if it was created or null if there no any replicas starting with given identifier.
+     *
+     * @param replicationGroupId Table-Partition identifier.
+     * @return replica if it was created or null otherwise.
+     */
     public CompletableFuture<Replica> getReplica(ReplicationGroupId replicationGroupId) {
         return replicas.get(replicationGroupId);
     }
 
+    /**
+     * Checks that RAFT-server endpoint with given identifier is started.
+     *
+     * @param raftNodeId RAFT-node's identifier.
+     * @return true if it is started and false otherwise.
+     */
     public boolean isRaftClientStarted(RaftNodeId raftNodeId) {
         return ((Loza) raftManager).isStarted(raftNodeId);
     }
 
+    /**
+     * Performs a {@code resetPeers} operation on raft node.
+     *
+     * @param raftNodeId Raft node ID.
+     * @param peersAndLearners New node configuration.
+     */
     public void resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners) {
         ((Loza) raftManager).resetPeers(raftNodeId, peersAndLearners);
     }
 
+    /** Getter for wrapped write-ahead log syncer. */
     public LogSyncer getLogSyncer() {
         return raftManager.getLogSyncer();
     }

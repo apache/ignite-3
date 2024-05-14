@@ -618,6 +618,7 @@ public class IgniteImpl implements Ignite {
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
 
+        // TODO: IGNITE-22222 this instantiation should be moved inside ReplicaManager's constructor
         Marshaller raftMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterSvc.serializationRegistry());
         replicaMgr = new ReplicaManager(
                 name,

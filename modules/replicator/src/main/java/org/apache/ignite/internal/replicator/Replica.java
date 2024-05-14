@@ -127,7 +127,6 @@ public class Replica {
     }
 
     public final TopologyAwareRaftGroupService raftClient() {
-        // ToDo: there we're assuming that the only type of raft client exists, passed to Replica and so on
         return (TopologyAwareRaftGroupService) listener.raftClient();
     }
 
