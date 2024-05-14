@@ -17,16 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.validateCharactersOverflowAndTrimIfPossible;
-
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -37,7 +33,6 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -58,7 +53,6 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
     private final IgniteKeyValueModify modifyNode;
     private final ResultSetMetadata meta;
     private final ParameterMetadata parameterMetadata;
-    private RowSchema rowSchema;
 
     KeyValueModifyPlan(
             PlanId id,
@@ -136,22 +130,8 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
 
                     UpdatableTable updatableTable = execTable.updatableTable();
 
-                    RowT row = rowSupplier.get();
-
-                    RelDataType rowType = table().getRowType(ctx.getTypeFactory());
-
-                    Supplier<RowSchema> schemaSupplier = () -> {
-                        if (rowSchema != null) {
-                            return rowSchema;
-                        }
-                        rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
-                        return rowSchema;
-                    };
-
-                    row = validateCharactersOverflowAndTrimIfPossible(rowType, ctx.rowHandler(), row, schemaSupplier);
-
                     return updatableTable.insert(
-                            tx, ctx, row
+                            tx, ctx, rowSupplier.get()
                     ).thenApply(none -> List.<InternalSqlRow>of(new InternalSqlRowSingleLong(1L)).iterator());
                 });
 
