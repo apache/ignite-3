@@ -452,8 +452,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
     }
 
-    @Override
     /** Returns Raft-client. */
+    @Override
     public RaftCommandRunner raftClient() {
         if (raftClient instanceof ExecutorInclinedRaftCommandRunner) {
             return ((ExecutorInclinedRaftCommandRunner) raftClient).decoratedCommandRunner();
