@@ -62,7 +62,7 @@ public class StatementImpl implements Statement {
      * @param pageSize Page size.
      * @param timeZoneId Time-zone ID.
      */
-    public StatementImpl(
+    StatementImpl(
             String query,
             String defaultSchema,
             Long queryTimeoutMs,
