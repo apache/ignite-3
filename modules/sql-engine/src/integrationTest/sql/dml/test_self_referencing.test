@@ -1,0 +1,96 @@
+# Test for self-referencing table without using Feature F781
+statement ok
+CREATE TABLE test (a INTEGER, val VARCHAR)
+
+statement ok
+INSERT INTO test VALUES (1, 'A'), (2, 'B')
+
+# INSERT
+
+statement ok
+INSERT INTO test (a, val) SELECT a, 'C' FROM test WHERE a IN (SELECT a FROM test WHERE val = 'A')
+
+query IT rowsort
+SELECT a, val FROM test
+----
+1	A
+1	C
+2	B
+
+statement ok
+INSERT INTO test (val, a) VALUES ('D', (SELECT COUNT(*) FROM test))
+
+query IT rowsort
+SELECT a, val FROM test
+----
+1	A
+1	C
+2	B
+3	D
+
+# Clean up
+
+statement ok
+DELETE FROM test
+
+statement ok
+INSERT INTO test VALUES (1, 'A'), (2, 'B')
+
+# UPDATE
+
+statement ok
+UPDATE test SET a = 11 WHERE a IN (SELECT a FROM test WHERE val = 'A')
+
+query IT rowsort
+SELECT a, val FROM test
+----
+11	A
+2	B
+
+statement ok
+UPDATE test SET a = (SELECT a + 1 FROM test WHERE val = 'A')
+
+query IT rowsort
+SELECT a, val FROM test
+----
+12	A
+12	B
+
+# Clean up
+
+statement ok
+DELETE FROM test
+
+statement ok
+INSERT INTO test VALUES (1, 'A'), (2, 'B')
+
+# MERGE
+
+statement ok
+MERGE INTO test dst USING test src ON dst.a = src.a WHEN MATCHED THEN UPDATE SET val = src.val || dst.val
+
+query IT rowsort
+SELECT a, val FROM test
+----
+1	AA
+2	BB
+
+statement ok
+MERGE INTO test dst USING test src ON dst.a = src.a + 1 WHEN NOT MATCHED THEN INSERT (a, val) VALUES (3, 'CC')
+
+query IT rowsort
+SELECT a, val FROM test
+----
+1	AA
+2	BB
+3	CC
+
+statement ok
+MERGE INTO test dst USING (SELECT * FROM test WHERE val = 'AA') src ON dst.a = src.a WHEN MATCHED THEN UPDATE SET val = src.val || dst.val
+
+query IT rowsort
+SELECT a, val FROM test
+----
+1	AAAA
+2	BB
+3	CC
