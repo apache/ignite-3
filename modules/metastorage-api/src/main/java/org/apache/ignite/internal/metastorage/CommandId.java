@@ -23,7 +23,8 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Command id.
+ * Command id. It consists of node id and a counter that is generated on the node and is unique for that node, so the whole command id
+ * would be unique cluster-wide.
  */
 @Transferable(MetaStorageMessageGroup.COMMAND_ID)
 public interface CommandId extends NetworkMessage {

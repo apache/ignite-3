@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
@@ -87,12 +86,13 @@ public class IdempotentCommandCacheTest {
     public void testIdempotentInvoke() {
         ByteArray testKey = new ByteArray("key".getBytes(StandardCharsets.UTF_8));
         ByteArray testValue = new ByteArray("value".getBytes(StandardCharsets.UTF_8));
+        ByteArray anotherValue = new ByteArray("another".getBytes(StandardCharsets.UTF_8));
 
         InvokeCommand command = CMD_FACTORY.invokeCommand()
                 .id(commandIdGenerator.newId())
                 .condition(notExists(testKey))
                 .success(List.of(put(testKey, testValue.bytes())))
-                .failure(List.of(noop()))
+                .failure(List.of(put(testKey, anotherValue.bytes())))
                 .safeTimeLong(clock.now().longValue())
                 .initiatorTimeLong(clock.now().longValue())
                 .build();
@@ -114,11 +114,12 @@ public class IdempotentCommandCacheTest {
     public void testIdempotentMultiInvoke() {
         ByteArray testKey = new ByteArray("key".getBytes(StandardCharsets.UTF_8));
         ByteArray testValue = new ByteArray("value".getBytes(StandardCharsets.UTF_8));
+        ByteArray anotherValue = new ByteArray("another".getBytes(StandardCharsets.UTF_8));
 
         Iif iif = iif(
                 notExists(testKey),
                 ops(put(testKey, testValue.bytes())).yield(true),
-                ops(noop()).yield(false)
+                ops(put(testKey, anotherValue.bytes())).yield(false)
         );
 
         MultiInvokeCommand command = CMD_FACTORY.multiInvokeCommand()
@@ -147,23 +148,36 @@ public class IdempotentCommandCacheTest {
     public void testNonIdempotentCommand() {
         ByteArray testKey = new ByteArray("key".getBytes(StandardCharsets.UTF_8));
         ByteArray testValue0 = new ByteArray("value".getBytes(StandardCharsets.UTF_8));
+        ByteArray testValue1 = new ByteArray("value".getBytes(StandardCharsets.UTF_8));
 
-        PutCommand command = CMD_FACTORY.putCommand()
+        PutCommand command0 = CMD_FACTORY.putCommand()
                 .key(testKey.bytes())
                 .value(testValue0.bytes())
                 .safeTimeLong(clock.now().longValue())
                 .initiatorTimeLong(clock.now().longValue())
                 .build();
 
-        metaStorageListener.onWrite(commandIterator(command));
+        metaStorageListener.onWrite(commandIterator(command0));
 
         assertNull(lastCommandResult);
         checkValueInStorage(testKey.bytes(), testValue0.bytes());
 
         // Another call of same command.
-        metaStorageListener.onWrite(commandIterator(command));
+        metaStorageListener.onWrite(commandIterator(command0));
         assertNull(lastCommandResult);
         checkValueInStorage(testKey.bytes(), testValue0.bytes());
+
+        PutCommand command1 = CMD_FACTORY.putCommand()
+                .key(testKey.bytes())
+                .value(testValue1.bytes())
+                .safeTimeLong(clock.now().longValue())
+                .initiatorTimeLong(clock.now().longValue())
+                .build();
+
+        metaStorageListener.onWrite(commandIterator(command1));
+
+        assertNull(lastCommandResult);
+        checkValueInStorage(testKey.bytes(), testValue1.bytes());
     }
 
     private void checkValueInStorage(byte[] testKey, byte[] testValueExpected) {

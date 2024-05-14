@@ -29,7 +29,7 @@ import org.apache.ignite.internal.metastorage.dsl.MetaStorageMessagesFactory;
 public class CommandIdGenerator {
     private static final MetaStorageMessagesFactory MSG_FACTORY = new MetaStorageMessagesFactory();
 
-    /** Supplies nodeId for transactionId generation. */
+    /** Supplies nodeId for command id generation. */
     private final Supplier<String> nodeIdSupplier;
 
     private volatile UUID nodeId;

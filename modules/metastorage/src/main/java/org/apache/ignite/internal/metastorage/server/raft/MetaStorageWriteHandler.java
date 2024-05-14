@@ -67,7 +67,7 @@ public class MetaStorageWriteHandler {
     private final KeyValueStorage storage;
     private final ClusterTimeImpl clusterTime;
 
-    private final Map<CommandId, IdempotentCommandCache> idempotentCommandCache = new ConcurrentHashMap<>();
+    private final Map<CommandId, IdempotentCommandCachedResult> idempotentCommandCache = new ConcurrentHashMap<>();
 
     MetaStorageWriteHandler(KeyValueStorage storage, ClusterTimeImpl clusterTime) {
         this.storage = storage;
@@ -84,10 +84,10 @@ public class MetaStorageWriteHandler {
 
         if (command instanceof IdempotentCommand) {
             CommandId commandId = ((IdempotentCommand) command).id();
-            IdempotentCommandCache cache = idempotentCommandCache.get(commandId);
+            IdempotentCommandCachedResult cachedResult = idempotentCommandCache.get(commandId);
 
-            if (cache != null) {
-                clo.result(cache.result);
+            if (cachedResult != null) {
+                clo.result(cachedResult.result);
 
                 return;
             } else {
@@ -310,13 +310,13 @@ public class MetaStorageWriteHandler {
         return false;
     }
 
-    private static class IdempotentCommandCache {
+    private static class IdempotentCommandCachedResult {
         @Nullable
         final Serializable result;
 
         final HybridTimestamp commandStartTime;
 
-        IdempotentCommandCache(@Nullable Serializable result, HybridTimestamp commandStartTime) {
+        IdempotentCommandCachedResult(@Nullable Serializable result, HybridTimestamp commandStartTime) {
             this.result = result;
             this.commandStartTime = commandStartTime;
         }
@@ -350,7 +350,10 @@ public class MetaStorageWriteHandler {
         public void result(@Nullable Serializable res) {
             IdempotentCommand command = (IdempotentCommand) closure.command();
 
-            idempotentCommandCache.put(command.id(), new IdempotentCommandCache(res, command.initiatorTime()));
+            // Exceptions are not cached.
+            if (!(res instanceof Throwable)) {
+                idempotentCommandCache.put(command.id(), new IdempotentCommandCachedResult(res, command.initiatorTime()));
+            }
 
             closure.result(res);
         }

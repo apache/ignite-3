@@ -76,8 +76,13 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
         var clusterTime = new ClusterTimeImpl(followerNode.name(), new IgniteSpinBusyLock(), new HybridClockImpl());
 
-        metaStorage = new MetaStorageServiceImpl(followerNode.name(), service, new IgniteSpinBusyLock(), clusterTime,
-                () -> followerNode.id());
+        metaStorage = new MetaStorageServiceImpl(
+                followerNode.name(),
+                service,
+                new IgniteSpinBusyLock(),
+                clusterTime,
+                followerNode::id
+        );
 
         // Put some data in the metastorage
         metaStorage.put(FIRST_KEY, FIRST_VALUE).get();
