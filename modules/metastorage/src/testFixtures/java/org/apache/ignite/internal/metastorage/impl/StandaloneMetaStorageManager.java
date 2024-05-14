@@ -37,6 +37,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Command;
@@ -135,6 +136,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 storage,
                 clock,
                 raftServiceFactory,
+                new NoOpMetricManager(),
                 configuration
         );
     }

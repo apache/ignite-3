@@ -194,6 +194,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     createStorage(name(), basePath),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
+                    new NoOpMetricManager(),
                     metaStorageConfiguration
             );
 

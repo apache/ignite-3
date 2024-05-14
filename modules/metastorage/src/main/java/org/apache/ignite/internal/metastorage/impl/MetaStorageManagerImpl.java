@@ -47,12 +47,14 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetricSource;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -119,6 +121,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
     private final TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory;
 
+    private final MetricManager metricManager;
+
+    private final MetaStorageMetricSource metaStorageMetricSource;
+
     private volatile long appliedRevision = 0;
 
     private volatile MetaStorageConfiguration metaStorageConfiguration;
@@ -132,6 +138,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
      * @param raftMgr Raft manager.
      * @param storage Storage. This component owns this resource and will manage its lifecycle.
      * @param clock A hybrid logical clock.
+     * @param metricManager Metric manager.
      */
     public MetaStorageManagerImpl(
             ClusterService clusterService,
@@ -140,7 +147,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             RaftManager raftMgr,
             KeyValueStorage storage,
             HybridClock clock,
-            TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory
+            TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
+            MetricManager metricManager
     ) {
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -148,7 +156,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
         this.logicalTopologyService = logicalTopologyService;
         this.storage = storage;
         this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), busyLock, clock);
+        metaStorageMetricSource = new MetaStorageMetricSource(clusterTime);
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
+        this.metricManager = metricManager;
     }
 
     /**
@@ -163,9 +173,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
             KeyValueStorage storage,
             HybridClock clock,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
+            MetricManager metricManager,
             MetaStorageConfiguration configuration
     ) {
-        this(clusterService, cmgMgr, logicalTopologyService, raftMgr, storage, clock, topologyAwareRaftGroupServiceFactory);
+        this(clusterService, cmgMgr, logicalTopologyService, raftMgr, storage, clock, topologyAwareRaftGroupServiceFactory, metricManager);
 
         configure(configuration);
     }
@@ -371,6 +382,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
                     }
                 });
 
+        metricManager.registerSource(metaStorageMetricSource);
+
         return nullCompletedFuture();
     }
 
@@ -388,6 +401,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
 
         try {
             IgniteUtils.closeAllManually(
+                    () -> metricManager.unregisterSource(metaStorageMetricSource),
                     clusterTime,
                     () -> cancelOrConsume(metaStorageSvcFut, MetaStorageServiceImpl::close),
                     () -> raftMgr.stopRaftNodes(MetastorageGroupId.INSTANCE),

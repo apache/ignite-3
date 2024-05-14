@@ -158,6 +158,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     storage,
                     clock,
                     topologyAwareRaftGroupServiceFactory,
+                    new NoOpMetricManager(),
                     metaStorageConfiguration
             );
         }
