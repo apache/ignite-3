@@ -726,9 +726,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         initialClusterConfigurationFuture.completeExceptionally(new NodeStoppingException());
 
-        fireEvent(ClusterManagerGroupEvent.AFTER_STOP_RAFT_GROUP, EmptyEventParameters.INSTANCE);
-
-        return nullCompletedFuture();
+        return fireEvent(ClusterManagerGroupEvent.AFTER_STOP_RAFT_GROUP, EmptyEventParameters.INSTANCE);
     }
 
     /**
