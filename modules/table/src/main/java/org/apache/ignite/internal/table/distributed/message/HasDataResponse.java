@@ -20,12 +20,17 @@ package org.apache.ignite.internal.table.distributed.message;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A response to the {@link HasDataRequest}.
  */
 @Transferable(TableMessageGroup.HAS_DATA_RESPONSE)
 public interface HasDataResponse extends NetworkMessage {
-    /** {@code true} if a node has data for a partition of a table, {@code false} otherwise. */
-    boolean result();
+    /**
+     * {@code true} if a node surely has data for a partition of a table, {@code false} if it surely hasn't data, {@code null} if the
+     * information is not available (for instance, the partition is being rebalanced).
+     */
+    @Nullable
+    Boolean result();
 }

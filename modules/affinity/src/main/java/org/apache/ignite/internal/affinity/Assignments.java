@@ -108,6 +108,22 @@ public class Assignments implements Serializable {
     }
 
     /**
+     * Adds an assignment to this collection of assignments.
+     *
+     * @param assignment Assignment to add.
+     */
+    public void add(Assignment assignment) {
+        nodes.add(assignment);
+    }
+
+    /**
+     * Returns {@code true} if this collection has no assignments, {@code false} if it has some assignments.
+     */
+    public boolean isEmpty() {
+        return nodes.isEmpty();
+    }
+
+    /**
      * Serializes the instance into an array of bytes.
      */
     public byte[] toBytes() {
