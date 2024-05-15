@@ -75,8 +75,7 @@ import picocli.CommandLine.Parameters;
  */
 @Command(name = "sql", description = "Executes SQL query")
 public class SqlReplCommand extends BaseCommand implements Runnable {
-    @Option(names = JDBC_URL_OPTION, required = true,
-            descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
+    @Option(names = JDBC_URL_OPTION, required = true, descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
     private String jdbc;
 
     @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
