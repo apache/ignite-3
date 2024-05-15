@@ -46,9 +46,7 @@ public class ClusterUnitUndeployCommand extends BaseCommand implements Callable<
     private String id;
 
     /** Unit version. */
-    @Option(names = VERSION_OPTION,
-            description = UNIT_VERSION_OPTION_DESC,
-            required = true)
+    @Option(names = VERSION_OPTION, description = UNIT_VERSION_OPTION_DESC, required = true)
     private String version;
 
     @Inject
