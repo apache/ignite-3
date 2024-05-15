@@ -68,9 +68,7 @@ public enum IgniteMethod {
     /** See {@link BiScalar#execute(ExecutionContext, Object, Object, RowBuilder)}. */
     BI_SCALAR_EXECUTE(BiScalar.class, "execute", ExecutionContext.class, Object.class, Object.class, RowBuilder.class),
 
-    SYSTEM_RANGE2(IgniteSqlFunctions.class, "systemRange", Object.class, Object.class),
-
-    SYSTEM_RANGE3(IgniteSqlFunctions.class, "systemRange", Object.class, Object.class, Object.class),
+    SYSTEM_RANGE(IgniteSqlFunctions.class, "systemRange", Object.class, Object.class, Object.class),
 
     STRING_TO_TIMESTAMP(IgniteSqlFunctions.class, "timestampStringToNumeric", String.class),
 

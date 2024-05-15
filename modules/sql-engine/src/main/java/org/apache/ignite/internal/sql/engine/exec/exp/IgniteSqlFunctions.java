@@ -43,6 +43,7 @@ import org.apache.calcite.linq4j.Enumerable;
 import org.apache.calcite.linq4j.Enumerator;
 import org.apache.calcite.linq4j.Linq4j;
 import org.apache.calcite.linq4j.function.NonDeterministic;
+import org.apache.calcite.linq4j.function.Parameter;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.runtime.SqlFunctions;
@@ -86,13 +87,11 @@ public class IgniteSqlFunctions {
         // No-op.
     }
 
-    /** SQL SYSTEM_RANGE(start, end) table function. */
-    public static ScannableTable systemRange(Object rangeStart, Object rangeEnd) {
-        return new RangeTable(rangeStart, rangeEnd, 1L);
-    }
-
     /** SQL SYSTEM_RANGE(start, end, increment) table function. */
-    public static ScannableTable systemRange(Object rangeStart, Object rangeEnd, Object increment) {
+    public static ScannableTable systemRange(
+            @Parameter(name = "from") Object rangeStart,
+            @Parameter(name = "to") Object rangeEnd,
+            @Parameter(name = "step", optional = true) Object increment) {
         return new RangeTable(rangeStart, rangeEnd, increment);
     }
 
@@ -682,7 +681,8 @@ public class IgniteSqlFunctions {
         RangeTable(Object rangeStart, Object rangeEnd, Object increment) {
             this.rangeStart = rangeStart;
             this.rangeEnd = rangeEnd;
-            this.increment = increment;
+            // calcite sets empty optional parameter value as null by default
+            this.increment = increment == null ? 1 : increment;
         }
 
         /** {@inheritDoc} */
@@ -694,7 +694,7 @@ public class IgniteSqlFunctions {
         /** {@inheritDoc} */
         @Override
         public Enumerable<@Nullable Object[]> scan(DataContext root) {
-            if (rangeStart == null || rangeEnd == null || increment == null) {
+            if (rangeStart == null || rangeEnd == null) {
                 return Linq4j.emptyEnumerable();
             }
 

@@ -40,6 +40,7 @@ import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
@@ -55,7 +56,8 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     OperandTypes.CHARACTER.or(OperandTypes.BINARY),
                     SqlFunctionCategory.NUMERIC);
 
-    public static final SqlFunction SYSTEM_RANGE = new SqlSystemRangeFunction();
+    // static initialization not acceptable here
+    private final SqlFunction systemRangeFunc = new SqlSystemRangeFunction(IgniteMethod.SYSTEM_RANGE.method(), "SYSTEM_RANGE");
 
     public static final SqlFunction TYPEOF =
             new SqlFunction(
@@ -483,7 +485,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
 
         // Ignite specific operators
         register(LENGTH);
-        register(SYSTEM_RANGE);
+        register(systemRangeFunc);
         register(TYPEOF);
         register(LEAST2);
         register(GREATEST2);

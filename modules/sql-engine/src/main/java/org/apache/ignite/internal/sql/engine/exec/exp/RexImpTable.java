@@ -333,7 +333,6 @@ import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UPPER;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.USER;
 import static org.apache.calcite.util.ReflectUtil.isStatic;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SUBSTR;
-import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SYSTEM_RANGE;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.TYPEOF;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.GEN_RANDOM_UUID;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.GREATEST2;
@@ -435,9 +434,8 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 /**
  * Contains implementations of Rex operators as Java code.
  * Changes in comparison with original code:
- * 1. AbstractRexCallImplementor#genValueStatement() -> append op instanceof SqlTableFunction)
- * 2. populateIgnite()
- * 3. Replaces implementation of ROUND, TRUNCATE operators and removes TRUNC operator.
+ * 1. populateIgnite()
+ * 2. Replaces implementation of ROUND, TRUNCATE operators and removes TRUNC operator.
  *
  * <p>Immutable.
  */
@@ -1020,7 +1018,6 @@ public class RexImpTable {
       defineMethod(IgniteSqlOperatorTable.DECIMAL_DIVIDE, IgniteMethod.DECIMAL_DIVIDE.method(), NullPolicy.ARG0);
 
       map.put(TYPEOF, systemFunctionImplementor);
-      map.put(SYSTEM_RANGE, systemFunctionImplementor);
       return this;
     }
 
@@ -1034,17 +1031,7 @@ public class RexImpTable {
       Expression implementSafe(final RexToLixTranslator translator,
               final RexCall call, final List<Expression> argValueList) {
         final SqlOperator op = call.getOperator();
-        if (op == SYSTEM_RANGE) {
-          if (call.getOperands().size() == 2) {
-            return createTableFunctionImplementor(IgniteMethod.SYSTEM_RANGE2.method())
-                    .implement(translator, call, NullAs.NULL);
-          }
-
-          if (call.getOperands().size() == 3) {
-            return createTableFunctionImplementor(IgniteMethod.SYSTEM_RANGE3.method())
-                    .implement(translator, call, NullAs.NULL);
-          }
-        } else if (op == TYPEOF) {
+        if (op == TYPEOF) {
           if (call.getOperands().size() == 1) {
             CallImplementor implementor = createTypeOfImplementor();
 
@@ -3832,7 +3819,6 @@ public class RexImpTable {
       final boolean noConvert =
           returnType == callValue.getType()
               || op instanceof SqlUserDefinedTableMacro
-              || op instanceof SqlTableFunction
               || op instanceof SqlUserDefinedTableFunction;
       Expression convertedCallValue;
 
