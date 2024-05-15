@@ -51,14 +51,8 @@ class CliConfigShowCommandTest extends CliConfigCommandTestBase {
     public void testWithProfile() {
         execute("--profile owner");
 
-        String expectedResult = "[owner]" + System.lineSeparator()
+        assertSuccessfulOutputIs("[owner]" + System.lineSeparator()
                 + "name=John Smith" + System.lineSeparator()
-                + "organization=Apache Ignite" + System.lineSeparator();
-
-        assertAll(
-                this::assertExitCodeIsZero,
-                () -> assertOutputIs(expectedResult),
-                this::assertErrOutputIsEmpty
-        );
+                + "organization=Apache Ignite" + System.lineSeparator());
     }
 }
