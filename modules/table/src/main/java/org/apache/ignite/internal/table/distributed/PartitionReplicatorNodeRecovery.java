@@ -51,13 +51,13 @@ import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.message.DataPresence;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.utils.RebalanceUtilEx;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Code specific to recovering a partition replicator group node. This includes a case when we lost metadata
@@ -119,7 +119,7 @@ class PartitionReplicatorNodeRecovery {
         int tableId = msg.tableId();
         int partitionId = msg.partitionId();
 
-        Boolean storageHasData = null;
+        DataPresence dataPresence = DataPresence.UNKNOWN;
 
         TableViewInternal table = tableById.apply(tableId);
 
@@ -130,14 +130,19 @@ class PartitionReplicatorNodeRecovery {
 
             if (mvPartition != null) {
                 try {
-                    storageHasData = mvPartition.closestRowId(RowId.lowestRowId(partitionId)) != null;
+                    dataPresence = mvPartition.closestRowId(RowId.lowestRowId(partitionId)) != null
+                            ? DataPresence.HAS_DATA : DataPresence.EMPTY;
                 } catch (StorageClosedException | StorageRebalanceException ignored) {
-                    // Ignoring so we'll return null for storageHasData meaning that we have no idea.
+                    // Ignoring so we'll return UNKNOWN for storageHasData meaning that we have no idea.
                 }
             }
         }
 
-        messagingService.respond(sender, TABLE_MESSAGES_FACTORY.hasDataResponse().result(storageHasData).build(), correlationId);
+        messagingService.respond(
+                sender,
+                TABLE_MESSAGES_FACTORY.hasDataResponse().presenceString(dataPresence.name()).build(),
+                correlationId
+        );
     }
 
     /**
@@ -187,7 +192,7 @@ class PartitionReplicatorNodeRecovery {
 
         // No majority and not a full partition restart - need to 'remove, then add' nodes
         // with current partition.
-        return waitForPeersAndQueryDataNodesCount(tableId, partId, newConfiguration.peers())
+        return waitForPeersAndQueryDataNodesCounts(tableId, partId, newConfiguration.peers())
                 .thenApply(dataNodesCounts -> {
                     boolean fullPartitionRestart = dataNodesCounts.nodesSurelyEmpty == newConfiguration.peers().size();
 
@@ -219,7 +224,7 @@ class PartitionReplicatorNodeRecovery {
      * @param peers Raft peers.
      * @return A future that will hold the counts of data nodes.
      */
-    private CompletableFuture<DataNodesCounts> waitForPeersAndQueryDataNodesCount(int tblId, int partId, Collection<Peer> peers) {
+    private CompletableFuture<DataNodesCounts> waitForPeersAndQueryDataNodesCounts(int tblId, int partId, Collection<Peer> peers) {
         HasDataRequest request = TABLE_MESSAGES_FACTORY.hasDataRequest().tableId(tblId).partitionId(partId).build();
 
         return allPeersAreInTopology(peers)
@@ -300,7 +305,7 @@ class PartitionReplicatorNodeRecovery {
 
     private CompletableFuture<DataNodesCounts> queryDataNodesCounts(Collection<Peer> peers, HasDataRequest request) {
         //noinspection unchecked
-        CompletableFuture<Boolean>[] requestFutures = peers.stream()
+        CompletableFuture<DataPresence>[] presenceFutures = peers.stream()
                 .map(Peer::consistentId)
                 .map(topologyService::getByConsistentId)
                 .filter(Objects::nonNull)
@@ -309,19 +314,19 @@ class PartitionReplicatorNodeRecovery {
                         .thenApply(response -> {
                             assert response instanceof HasDataResponse : response;
 
-                            return ((HasDataResponse) response).result();
+                            return ((HasDataResponse) response).presence();
                         })
-                        .exceptionally(unused -> null))
+                        .exceptionally(unused -> DataPresence.UNKNOWN))
                 .toArray(CompletableFuture[]::new);
 
-        return allOf(requestFutures)
+        return allOf(presenceFutures)
                 .thenApply(unused -> {
-                    List<@Nullable Boolean> hasDataFlags = Arrays.stream(requestFutures)
+                    List<DataPresence> hasDataFlags = Arrays.stream(presenceFutures)
                             .map(CompletableFuture::join)
                             .collect(toList());
 
-                    long nodesSurelyHavingData = hasDataFlags.stream().filter(flag -> flag != null && flag).count();
-                    long nodesSurelyEmpty = hasDataFlags.stream().filter(flag -> flag != null && !flag).count();
+                    long nodesSurelyHavingData = hasDataFlags.stream().filter(presence -> presence == DataPresence.HAS_DATA).count();
+                    long nodesSurelyEmpty = hasDataFlags.stream().filter(presence -> presence == DataPresence.EMPTY).count();
                     return new DataNodesCounts(nodesSurelyHavingData, nodesSurelyEmpty);
                 });
     }
