@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 @DisplayName("node config")
 public class NodeConfigTest extends IgniteCliInterfaceTestBase {
     @Test
-    @DisplayName("show --node-url http://localhost:10300")
+    @DisplayName("show --url http://localhost:10300")
     void show() {
         clientAndServer
                 .when(request()
@@ -39,7 +39,7 @@ public class NodeConfigTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
 
-        execute("node config show --node-url " + mockUrl);
+        execute("node config show --url " + mockUrl);
 
         assertSuccessfulOutputIs("{\n"
                 + "  \"autoAdjust\" : {\n"
@@ -49,7 +49,7 @@ public class NodeConfigTest extends IgniteCliInterfaceTestBase {
     }
 
     @Test
-    @DisplayName("show --node-url http://localhost:10300 local.baseline")
+    @DisplayName("show --url http://localhost:10300 local.baseline")
     void showSubtree() {
         clientAndServer
                 .when(request()
@@ -58,7 +58,7 @@ public class NodeConfigTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
 
-        execute("node config show --node-url " + mockUrl + " local.baseline");
+        execute("node config show --url " + mockUrl + " local.baseline");
 
         assertSuccessfulOutputIs("{\n"
                 + "  \"autoAdjust\" : {\n"
@@ -68,7 +68,7 @@ public class NodeConfigTest extends IgniteCliInterfaceTestBase {
     }
 
     @Test
-    @DisplayName("update --node-url http://localhost:10300 local.baseline.autoAdjust.enabled=true")
+    @DisplayName("update --url http://localhost:10300 local.baseline.autoAdjust.enabled=true")
     void updateHocon() {
         clientAndServer
                 .when(request()
@@ -78,7 +78,7 @@ public class NodeConfigTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response(null));
 
-        execute("node config update --node-url " + mockUrl + " local.baseline.autoAdjust.enabled=true");
+        execute("node config update --url " + mockUrl + " local.baseline.autoAdjust.enabled=true");
 
         assertSuccessfulOutputIs("Node configuration updated. "
                 + fg(Color.YELLOW).mark("Restart the node to apply changes."));

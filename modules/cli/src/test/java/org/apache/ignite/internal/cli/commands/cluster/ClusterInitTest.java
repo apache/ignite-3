@@ -38,8 +38,8 @@ import org.mockserver.model.MediaType;
 @DisplayName("cluster init")
 class ClusterInitTest extends IgniteCliInterfaceTestBase {
     @Test
-    @DisplayName("--cluster-endpoint-url http://localhost:10300 --meta-storage-node node1ConsistentId"
-            + " --meta-storage-node node2ConsistentId --cmg-node node2ConsistentId --cmg-node node3ConsistentId --cluster-name cluster")
+    @DisplayName("--url http://localhost:10300 --ms-node node1ConsistentId"
+            + " --ms-node node2ConsistentId --cmg-node node2ConsistentId --cmg-node node3ConsistentId --name cluster")
     void initSuccess() {
         var expectedSentContent = "{\"metaStorageNodes\":[\"node1ConsistentId\",\"node2ConsistentId\"],"
                 + "\"cmgNodes\":[\"node2ConsistentId\",\"node3ConsistentId\"],"
@@ -56,20 +56,20 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
 
         execute(
                 "cluster", "init",
-                "--cluster-endpoint-url", mockUrl,
-                "--meta-storage-node", "node1ConsistentId",
-                "--meta-storage-node", "node2ConsistentId",
+                "--url", mockUrl,
+                "--ms-node", "node1ConsistentId",
+                "--ms-node", "node2ConsistentId",
                 "--cmg-node", "node2ConsistentId",
                 "--cmg-node", "node3ConsistentId",
-                "--cluster-name", "cluster"
+                "--name", "cluster"
         );
 
         assertSuccessfulOutputIs("Cluster was initialized successfully");
     }
 
     @Test
-    @DisplayName("--cluster-endpoint-url http://localhost:10300 --meta-storage-node node1ConsistentId --meta-storage-node node2ConsistentId"
-            + " --cmg-node node2ConsistentId --cmg-node node3ConsistentId --cluster-name cluster"
+    @DisplayName("--url http://localhost:10300 --ms-node node1ConsistentId --ms-node node2ConsistentId"
+            + " --cmg-node node2ConsistentId --cmg-node node3ConsistentId --name cluster"
             + " --auth-enabled --basic-auth-username admin --basic-auth-password password")
     void initWithAuthenticationSuccess() throws IOException {
 
@@ -100,13 +100,13 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
 
         execute(
                 "cluster", "init",
-                "--cluster-endpoint-url", mockUrl,
-                "--meta-storage-node", "node1ConsistentId",
-                "--meta-storage-node", "node2ConsistentId",
+                "--url", mockUrl,
+                "--ms-node", "node1ConsistentId",
+                "--ms-node", "node2ConsistentId",
                 "--cmg-node", "node2ConsistentId",
                 "--cmg-node", "node3ConsistentId",
-                "--cluster-name", "cluster",
-                "--cluster-config-file", clusterConfigurationFile.toString()
+                "--name", "cluster",
+                "--config-file", clusterConfigurationFile.toString()
         );
 
         assertSuccessfulOutputIs("Cluster was initialized successfully");
@@ -126,12 +126,12 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
 
         execute(
                 "cluster", "init",
-                "--cluster-endpoint-url", mockUrl,
-                "--meta-storage-node", "node1ConsistentId",
-                "--meta-storage-node", "node2ConsistentId",
+                "--url", mockUrl,
+                "--ms-node", "node1ConsistentId",
+                "--ms-node", "node2ConsistentId",
                 "--cmg-node", "node2ConsistentId",
                 "--cmg-node", "node3ConsistentId",
-                "--cluster-name", "cluster"
+                "--name", "cluster"
         );
 
         assertAll(
@@ -142,25 +142,25 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
     }
 
     @Test
-    @DisplayName("--cluster-endpoint-url http://localhost:10300 --cmg-node node2ConsistentId --cmg-node node3ConsistentId")
+    @DisplayName("--url http://localhost:10300 --cmg-node node2ConsistentId --cmg-node node3ConsistentId")
     void metastorageNodesAreMandatoryForInit() {
         execute(
                 "cluster", "init",
-                "--cluster-endpoint-url", mockUrl,
+                "--url", mockUrl,
                 "--cmg-node", "node2ConsistentId",
                 "--cmg-node", "node3ConsistentId",
-                "--cluster-name", "cluster"
+                "--name", "cluster"
         );
 
         assertAll(
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Missing required option: '--meta-storage-node=<metaStorageNodes>'")
+                () -> assertErrOutputContains("Missing required option: '--ms-node=<metaStorageNodes>'")
         );
     }
 
     @Test
-    @DisplayName("--cluster-endpoint-url http://localhost:10300 --meta-storage-node node2ConsistentId --meta-storage-node node3ConsistentId")
+    @DisplayName("--url http://localhost:10300 --ms-node node2ConsistentId --ms-node node3ConsistentId")
     void cmgNodesAreNotMandatoryForInit() {
         clientAndServer
                 .when(request()
@@ -171,29 +171,29 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
 
         execute(
                 "cluster", "init",
-                "--cluster-endpoint-url", mockUrl,
-                "--meta-storage-node", "node1ConsistentId",
-                "--meta-storage-node", "node2ConsistentId",
-                "--cluster-name", "cluster"
+                "--url", mockUrl,
+                "--ms-node", "node1ConsistentId",
+                "--ms-node", "node2ConsistentId",
+                "--name", "cluster"
         );
 
         assertSuccessfulOutputIs("Cluster was initialized successfully");
     }
 
     @Test
-    @DisplayName("--cluster-endpoint-url http://localhost:10300 --meta-storage-node node1ConsistentId --cmg-node node2ConsistentId")
+    @DisplayName("--url http://localhost:10300 --ms-node node1ConsistentId --cmg-node node2ConsistentId")
     void clusterNameIsMandatoryForInit() {
         execute(
                 "cluster", "init",
-                "--cluster-endpoint-url", mockUrl,
-                "--meta-storage-node", "node1ConsistentId",
+                "--url", mockUrl,
+                "--ms-node", "node1ConsistentId",
                 "--cmg-node", "node2ConsistentId"
         );
 
         assertAll(
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Missing required option: '--cluster-name=<clusterName>'")
+                () -> assertErrOutputContains("Missing required option: '--name=<clusterName>'")
         );
     }
 }

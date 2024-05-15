@@ -102,7 +102,8 @@ public enum Options {
         public static final String CLUSTER_URL_OPTION = "--url";
 
         /** Cluster endpoint URL option description. */
-        public static final String CLUSTER_URL_OPTION_DESC = "URL of cluster endpoint";
+        public static final String CLUSTER_URL_OPTION_DESC = "URL of cluster endpoint. It can be any node URL."
+                + "If not set, then the default URL from the profile settings will be used";
 
         /** Cluster endpoint URL option description key. */
         public static final String CLUSTER_URL_KEY = CliConfigKeys.Constants.CLUSTER_URL;
@@ -111,16 +112,15 @@ public enum Options {
         public static final String NODE_URL_OPTION = "--url";
 
         /** Node URL option description. */
-        public static final String NODE_URL_OPTION_DESC = "URL of an Ignite node";
-
-        /** Node URL or name option description. */
-        public static final String NODE_URL_OR_NAME_DESC = "URL or name of an Ignite node";
+        public static final String NODE_URL_OPTION_DESC = "URL of a node that will be used as a communication endpoint. "
+                + "It can be any node URL. If not set, then the default URL from the profile settings will be used";
 
         /** Profile name option long name. */
         public static final String PROFILE_OPTION = "--profile";
 
         /** Profile name option description. */
-        public static final String PROFILE_OPTION_DESC = "Profile name";
+        public static final String PROFILE_OPTION_DESC = "Local CLI profile name. "
+                + "Profile stores useful settings like default cluster URL, jdbc URL, etc";
 
         /** Node name option long name. */
         public static final String NODE_NAME_OPTION = "--node";
@@ -129,7 +129,8 @@ public enum Options {
         public static final String NODE_NAME_OPTION_SHORT = "-n";
 
         /** Node name option description. */
-        public static final String NODE_NAME_OPTION_DESC = "Name of an Ignite node";
+        public static final String NODE_NAME_OPTION_DESC = "The name of the node to perform the operation on. "
+                + "Node names can be seen in the output of the 'cluster topology' command";
 
         /** Verbose option long name. */
         public static final String VERBOSE_OPTION = "--verbose";
@@ -138,7 +139,8 @@ public enum Options {
         public static final String VERBOSE_OPTION_SHORT = "-v";
 
         /** Verbose option description. */
-        public static final String VERBOSE_OPTION_DESC = "Show additional information: logs, REST calls";
+        public static final String VERBOSE_OPTION_DESC = "Show additional information: logs, REST calls."
+                + "This flag is useful for debugging";
 
         /** Help option long name. */
         public static final String HELP_OPTION = "--help";
@@ -159,7 +161,8 @@ public enum Options {
         public static final String PROFILE_ACTIVATE_OPTION = "--activate";
 
         /** Profile activate option description. */
-        public static final String PROFILE_ACTIVATE_OPTION_DESC = "Activate new profile as current or not";
+        public static final String PROFILE_ACTIVATE_OPTION_DESC = "Activate new profile as current or not. "
+                + "By activating a profile, you set profile settings for the current session";
 
         /** Cluster management node name option long name. */
         public static final String CMG_NODE_NAME_OPTION = "--cmg-node";
@@ -187,13 +190,14 @@ public enum Options {
         public static final String PLAIN_OPTION = "--plain";
 
         /** Plain option description. */
-        public static final String PLAIN_OPTION_DESC = "Display output with plain formatting";
+        public static final String PLAIN_OPTION_DESC = "Display output with plain formatting. "
+                + "Might be useful if you want to pipe the output to another command";
 
         /** JDBC URL option long name. */
         public static final String JDBC_URL_OPTION = "--jdbc-url";
 
         /** JDBC URL option description. */
-        public static final String JDBC_URL_OPTION_DESC = "JDBC url to ignite cluster";
+        public static final String JDBC_URL_OPTION_DESC = "JDBC url to ignite cluster. For example, 'jdbc:ignite:thin://127.0.0.1:10800'";
 
         /** JDBC URL option description key. */
         public static final String JDBC_URL_KEY = CliConfigKeys.Constants.JDBC_URL;
@@ -208,7 +212,7 @@ public enum Options {
         public static final String VERSION_OPTION = "--version";
 
         /** Version option description. */
-        public static final String VERSION_OPTION_DESC = "Print version information and exit";
+        public static final String VERSION_OPTION_DESC = "Print version information";
 
         /** Unit version option description. */
         public static final String UNIT_VERSION_OPTION_DESC = "Unit version (x.y.z)";
@@ -223,11 +227,12 @@ public enum Options {
         public static final String UNIT_NODES_OPTION = "--nodes";
 
         /** Unit nodes option description. */
-        public static final String UNIT_NODES_OPTION_DESC = "Initial set of nodes to deploy to";
+        public static final String UNIT_NODES_OPTION_DESC = "Initial set of nodes where the unit will be deployed";
 
         public static final String CLUSTER_CONFIG_OPTION = "--config";
 
-        public static final String CLUSTER_CONFIG_OPTION_DESC = "Cluster configuration";
+        public static final String CLUSTER_CONFIG_OPTION_DESC = "Cluster configuration that "
+                + "will be applied during the cluster initialization";
 
         public static final String CLUSTER_CONFIG_FILE_OPTION = "--config-file";
 
