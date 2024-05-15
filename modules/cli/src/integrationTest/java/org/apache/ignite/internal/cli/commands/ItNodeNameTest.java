@@ -40,7 +40,6 @@ public class ItNodeNameTest extends CliIntegrationTest {
     @BeforeEach
     void connect() {
         execute("connect");
-        resetOutput();
         // wait to pulling node names
         await().until(() -> !nodeNameRegistry.names().isEmpty());
     }

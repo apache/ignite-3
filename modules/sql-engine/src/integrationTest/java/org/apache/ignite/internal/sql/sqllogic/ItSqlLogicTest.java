@@ -42,6 +42,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -338,7 +339,9 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
                 .clusterName("cluster")
                 .clusterConfiguration("{"
                         + "gc.lowWatermark.dataAvailabilityTime: 1010,\n"
-                        + "gc.lowWatermark.updateFrequency: 3000\n"
+                        + "gc.lowWatermark.updateFrequency: 3000,\n"
+                        + "metrics.exporters.logPush.exporterName: logPush,\n"
+                        + "metrics.exporters.logPush.period: 5000\n"
                         + "}")
                 .build();
         TestIgnitionManager.init(initParameters);
@@ -346,7 +349,12 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());
 
-            CLUSTER_NODES.add(await(future));
+            IgniteImpl ignite = (IgniteImpl) await(future);
+            CLUSTER_NODES.add(ignite);
+
+            ignite.metricManager().enable("jvm");
+            ignite.metricManager().enable("os");
+            ignite.metricManager().enable("metastorage");
         }
     }
 

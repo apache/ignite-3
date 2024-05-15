@@ -1,0 +1,38 @@
+# name: sql/subquery/exists/test_enhanced_exists_predicate.test
+# description: T501 Enhanced EXISTS predicate
+# group: [exists]
+
+statement ok
+CREATE TABLE test (a INTEGER, b INTEGER);
+
+statement ok
+INSERT INTO test VALUES (11, 22)
+
+statement ok
+INSERT INTO test VALUES (12, 21)
+
+statement ok
+INSERT INTO test VALUES (13, 22)
+
+query II
+SELECT * FROM test WHERE EXISTS (SELECT a FROM test ts WHERE ts.a = test.a AND b>21) ORDER BY 1
+----
+11	22
+13	22
+
+query II
+SELECT * FROM test WHERE NOT EXISTS (SELECT a FROM test ts WHERE ts.a = test.a AND b>21) ORDER BY 1
+----
+12	21
+
+query II
+SELECT * FROM test WHERE EXISTS (SELECT a+1 FROM test ts WHERE ts.a = test.a AND b>21) ORDER BY 1
+----
+11	22
+13	22
+
+query II
+SELECT * FROM test WHERE EXISTS (SELECT * FROM test ts WHERE ts.a = test.a AND b>21) ORDER BY 1
+----
+11	22
+13	22

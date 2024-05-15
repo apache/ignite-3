@@ -54,8 +54,6 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
                 this::assertErrOutputIsEmpty
         );
 
-        resetOutput();
-
         execute("--jdbc-url", JDBC_URL);
 
         assertAll(
@@ -74,8 +72,6 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
                 this::assertErrOutputIsEmpty
         );
 
-        resetOutput();
-
         execute("SELECT COUNT(*) FROM MULTILINE_TABLE;", "--jdbc-url", JDBC_URL);
 
         assertAll(
@@ -92,8 +88,6 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains("nonexisting] not found")
         );
-
-        resetOutput();
 
         execute("--jdbc-url", JDBC_URL);
 

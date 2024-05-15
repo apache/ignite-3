@@ -188,8 +188,6 @@ class ItConfigCommandTest extends CliIntegrationTest {
                 this::assertOutputIsEmpty
         );
 
-        resetOutput();
-
         execute("cluster", "config", "update", "--url", NODE_URL,
                 "\"security.authentication.providers.default={type=basic,users=[{username: --verbose, password=--verbose}]}\"");
 
@@ -209,8 +207,6 @@ class ItConfigCommandTest extends CliIntegrationTest {
                 () -> assertErrOutputContains("'network' configuration doesn't have the 'foo' sub-configuration"),
                 this::assertOutputIsEmpty
         );
-
-        resetOutput();
 
         execute("node", "config", "update", "--url", NODE_URL, "network.shutdownQuietPeriod=asd");
 

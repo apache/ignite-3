@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.api;
+package org.apache.ignite.internal.sql;
 
 import java.util.List;
 import org.apache.ignite.internal.tostring.S;
@@ -38,7 +38,7 @@ public class ColumnMetadataImpl implements ColumnMetadata {
             return null;
         }
 
-        String schemaName = origin.size() < 1 ? "" : origin.get(0); // NOPMD
+        String schemaName = origin.isEmpty() ? "" : origin.get(0);
         String tableName = origin.size() < 2 ? "" : origin.get(1);
         String columnName = origin.size() < 3 ? "" : origin.get(2);
 

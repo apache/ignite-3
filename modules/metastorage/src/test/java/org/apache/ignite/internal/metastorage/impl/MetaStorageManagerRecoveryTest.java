@@ -41,6 +41,7 @@ import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
@@ -86,6 +87,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
                 kvs,
                 clock,
                 mock(TopologyAwareRaftGroupServiceFactory.class),
+                new NoOpMetricManager(),
                 metaStorageConfiguration
         );
     }
