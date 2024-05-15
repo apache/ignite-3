@@ -169,7 +169,7 @@ public class Replica {
                         return processWaitReplicaStateMessage(waitReplicaStateMsg)
                                 .thenApply(unused -> EMPTY_REPLICA_RESULT);
                     } else {
-                        waitForActualStateFuture.get().thenApply(unused -> EMPTY_REPLICA_RESULT);
+                        return waitForActualStateFuture.get().thenApply(unused -> EMPTY_REPLICA_RESULT);
                     }
                 } else {
                     return completedFuture(EMPTY_REPLICA_RESULT);
@@ -191,7 +191,7 @@ public class Replica {
                             )
                             .thenComposeAsync(unused -> listener.invoke(request, senderId), executor);
                 } else {
-                    waitForActualStateFuture.get().thenComposeAsync(unused -> listener.invoke(request, senderId), executor);
+                    return waitForActualStateFuture.get().thenComposeAsync(unused -> listener.invoke(request, senderId), executor);
                 }
             }
         }
