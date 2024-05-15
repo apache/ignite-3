@@ -327,11 +327,19 @@ public class CatalogTestUtils {
     }
 
     static CatalogCommand dropColumnParams(String tableName, String... columns) {
-        return AlterTableDropColumnCommand.builder().schemaName(SqlCommon.DEFAULT_SCHEMA_NAME).tableName(tableName).columns(Set.of(columns)).build();
+        return AlterTableDropColumnCommand.builder()
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(Set.of(columns))
+                .build();
     }
 
     static CatalogCommand addColumnParams(String tableName, ColumnParams... columns) {
-        return AlterTableAddColumnCommand.builder().schemaName(SqlCommon.DEFAULT_SCHEMA_NAME).tableName(tableName).columns(List.of(columns)).build();
+        return AlterTableAddColumnCommand.builder()
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(columns))
+                .build();
     }
 
     /**
