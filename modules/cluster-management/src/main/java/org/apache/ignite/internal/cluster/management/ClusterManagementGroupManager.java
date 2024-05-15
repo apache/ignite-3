@@ -43,7 +43,7 @@ import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalStat
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.events.BeforeStartRaftGroupEventParameters;
 import org.apache.ignite.internal.cluster.management.events.ClusterManagerGroupEvent;
-import org.apache.ignite.internal.cluster.management.events.EmptyEventParams;
+import org.apache.ignite.internal.cluster.management.events.EmptyEventParameters;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageHandlerFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.ClusterStateMessage;
@@ -442,7 +442,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
      */
     private void destroyCmg() {
         try {
-            fireEvent(ClusterManagerGroupEvent.BEFORE_RAFT_GROUP_DESTROY, EmptyEventParams.INSTANCE).join();
+            fireEvent(ClusterManagerGroupEvent.BEFORE_DESTROY_RAFT_GROUP, EmptyEventParameters.INSTANCE).join();
         } catch (RuntimeException ex) {
             LOG.error("Error while waiting for destroy listeners", ex);
         }
@@ -726,7 +726,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         initialClusterConfigurationFuture.completeExceptionally(new NodeStoppingException());
 
-        fireEvent(ClusterManagerGroupEvent.AFTER_STOP_RAFT_GROUP, EmptyEventParams.INSTANCE);
+        fireEvent(ClusterManagerGroupEvent.AFTER_STOP_RAFT_GROUP, EmptyEventParameters.INSTANCE);
 
         return nullCompletedFuture();
     }

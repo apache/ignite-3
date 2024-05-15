@@ -19,11 +19,11 @@ package org.apache.ignite.internal.cluster.management.events;
 
 import org.apache.ignite.internal.event.EventParameters;
 
-/** Empty Event Paramter Singleton. */
-public class EmptyEventParams implements EventParameters {
-    public static final EmptyEventParams INSTANCE = new EmptyEventParams();
+/** Empty Event Parameters Singleton. */
+public class EmptyEventParameters implements EventParameters {
+    public static final EmptyEventParameters INSTANCE = new EmptyEventParameters();
 
-    private EmptyEventParams() {
+    private EmptyEventParameters() {
         // Intentionally left blank.
     }
 }

@@ -25,8 +25,8 @@ import org.apache.ignite.internal.event.Event;
 public enum ClusterManagerGroupEvent implements Event {
     /** Fired before starting the cmg raft group. */
     BEFORE_START_RAFT_GROUP,
-    /** Fired before cleaning the local state. */
-    BEFORE_RAFT_GROUP_DESTROY,
-    /** Fired after the service is stopped. */
+    /** Fired before destroying the cmg raft group and cleaning the local state. */
+    BEFORE_DESTROY_RAFT_GROUP,
+    /** Fired after stopping the cmg raft group. */
     AFTER_STOP_RAFT_GROUP
 }

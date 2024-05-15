@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.cluster.management.events;
 
-import java.util.HashSet;
 import java.util.Set;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.event.EventParameters;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,9 +27,16 @@ public class BeforeStartRaftGroupEventParameters implements EventParameters {
     private final Set<String> nodeNames;
     private final @Nullable String initialClusterConfig;
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     *
+     * @param nodeNames The names of the nodes in the cluster. This set is copied internally.
+     * @param initialClusterConfig the initial cluster configuration provided by the {@link CmgInitMessage#initialClusterConfiguration()},
+     *      if the cluster is being initialized for the first time, as part of a cluster init. Otherwise {@code null}, if starting after
+     *      recovering state of an already initialized cluster.
+     */
     public BeforeStartRaftGroupEventParameters(Set<String> nodeNames, @Nullable String initialClusterConfig) {
-        this.nodeNames = new HashSet<>(nodeNames);
+        this.nodeNames = Set.copyOf(nodeNames);
         this.initialClusterConfig = initialClusterConfig;
     }
 
