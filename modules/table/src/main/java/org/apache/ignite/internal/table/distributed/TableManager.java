@@ -385,7 +385,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Versioned value used only at manager startup to correctly fire table creation events. */
     private final IncrementalVersionedValue<Void> startVv;
 
-    /** Ends at the {@link #stop()} with an {@link NodeStoppingException}. */
+    /** Ends at the {@link #stopAsync()} with an {@link NodeStoppingException}. */
     private final CompletableFuture<Void> stopManagerFuture = new CompletableFuture<>();
 
     /** Configuration for {@link StorageUpdateHandler}. */
@@ -1607,14 +1607,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return Future.
      */
     public CompletableFuture<TableViewInternal> tableAsync(long causalityToken, int id) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return tablesById(causalityToken).thenApply(tablesById -> tablesById.get(id));
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return inBusyLockAsync(busyLock, () -> tablesById(causalityToken).thenApply(tablesById -> tablesById.get(id)));
     }
 
     @Override
