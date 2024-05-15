@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.micronaut.configuration.picocli.MicronautFactory;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
+import io.netty.util.ResourceLeakDetector;
 import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -94,6 +95,11 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
     @BeforeAll
     static void setDumbTerminal() {
         System.setProperty("org.jline.terminal.dumb", "true");
+    }
+
+    @BeforeAll
+    static void setResourceLeakDetector() {
+        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
     }
 
     @BeforeEach
