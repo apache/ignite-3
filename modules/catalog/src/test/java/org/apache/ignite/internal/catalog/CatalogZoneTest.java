@@ -406,6 +406,45 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    public void testCreateZoneDropZoneReuseName() {
+        String zoneName = TEST_ZONE_NAME;
+
+        CatalogCommand cmd = CreateZoneCommand.builder()
+                .zoneName(zoneName)
+                .partitions(42)
+                .replicas(15)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
+                .build();
+
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
+        assertNotNull(zone);
+
+        // Try to create zone with same name.
+        cmd = DropZoneCommand.builder().zoneName(zoneName).build();
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+
+        cmd = CreateZoneCommand.builder()
+                .zoneName(zoneName)
+                .partitions(10)
+                .replicas(5)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
+                .build();
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+
+        CatalogZoneDescriptor newZone = manager.zone(zoneName, clock.nowLong());
+        assertNotNull(newZone);
+        assertNotEquals(zone.id(), newZone.id());
+
+        assertSame(newZone, manager.zone(zoneName, clock.nowLong()));
+        assertSame(newZone, manager.zone(newZone.id(), clock.nowLong()));
+
+        assertEquals(zoneName, newZone.name());
+        assertEquals(10, newZone.partitions());
+        assertEquals(5, newZone.replicas());
+    }
+
+    @Test
     public void testCreateZoneEvents() {
         String zoneName = TEST_ZONE_NAME;
 
