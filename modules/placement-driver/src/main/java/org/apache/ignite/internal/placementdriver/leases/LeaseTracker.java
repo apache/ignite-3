@@ -46,6 +46,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -70,7 +72,9 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeResolver;
@@ -113,18 +117,27 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
     private final ClockService clockService;
 
+    /** Node name. */
+    private final String nodeName;
+
+    /** Repeated Meta storage lease subgroup updates will be handled in this thread pool. */
+    private ExecutorService leaseUpdateRetryExecutor;
+
     /**
      * Constructor.
      *
+     * @param nodeName Node name.
      * @param msManager Meta storage manager.
      * @param clockService Clock service.
      */
     public LeaseTracker(
+            String nodeName,
             MetaStorageManager msManager,
             ClusterNodeResolver clusterNodeResolver,
             ClockService clockService,
             Function<TablePartitionId, ZonePartitionId> tablePartIdToZoneIdProvider
     ) {
+        this.nodeName = nodeName;
         this.msManager = msManager;
         this.clusterNodeResolver = clusterNodeResolver;
         this.clockService = clockService;
@@ -141,6 +154,10 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             msManager.registerExactWatch(PLACEMENTDRIVER_LEASES_KEY, updateListener);
 
             loadLeasesBusyAsync(recoveryRevision);
+
+            leaseUpdateRetryExecutor = Executors.newSingleThreadExecutor(
+                    NamedThreadFactory.create(nodeName, "lease-update-retry-executor", LOG)
+            );
         });
     }
 
@@ -179,12 +196,12 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                     subgroups));
         } else {
             resultFut.completeExceptionally(new PrimaryReplicaMissException(
-                    "localNode.name()",
-                    null,
-                    "localNode.id()",
-                    null,
-                    null,
-                    null,
+                    nodeName,
+                    previousLease == null ? null : previousLease.getLeaseholder(),
+                    clusterNodeResolver.getByConsistentId(nodeName).id(),
+                    previousLease == null ? null : previousLease.getLeaseholderId(),
+                    enlistmentConsistencyToken,
+                    previousLease == null ? null : previousLease.getStartTime().longValue(),
                     null
             ));
 
@@ -207,6 +224,19 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             if (invokeResult) {
                 resultFut.complete(null);
             } else {
+                try {
+                    // Throttling.
+                    Thread.sleep(200);
+                } catch (InterruptedException e) {
+                    LOG.error("The retry process is interrupted, so the subgroups won't be added [zoneId={}, subGrps={}].",
+                            e,
+                            zoneId,
+                            subGrps
+                    );
+
+                    return;
+                }
+
                 addSubgroups(zoneId, enlistmentConsistencyToken, subGrps).whenComplete((unused, throwable1) -> {
                     if (throwable1 != null) {
                         resultFut.completeExceptionally(throwable1);
@@ -215,7 +245,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                     resultFut.complete(null);
                 });
             }
-        });
+        }, leaseUpdateRetryExecutor);
 
         return resultFut;
     }
@@ -230,6 +260,8 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
         primaryReplicaWaiters.forEach((groupId, pendingTracker) -> pendingTracker.close());
         primaryReplicaWaiters.clear();
+
+        IgniteUtils.shutdownAndAwaitTermination(leaseUpdateRetryExecutor, 10, TimeUnit.SECONDS);
 
         msManager.unregisterWatch(updateListener);
     }
@@ -379,18 +411,37 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
         ReplicationGroupId groupId0 = tablePartIdToZoneIdProvider.apply(tblPartId);
 
+        return awaitPrimaryReplicaForTable(
+                groupId0,
+                timestamp,
+                timeout,
+                unit
+        );
+    }
+
+    @Override
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
+        assert groupId instanceof ZonePartitionId : "Unexpected replication group type [grp=" + groupId + "].";
+
+        var zonePartId = ZonePartitionId.resetTableId(((ZonePartitionId) groupId));
+
         CompletableFuture<ReplicaMeta> future = new CompletableFuture<>();
 
-        awaitPrimaryReplica(groupId0, timestamp, future);
+        awaitPrimaryReplica(zonePartId, timestamp, future);
 
         return future
                 .orTimeout(timeout, unit)
                 .exceptionally(e -> {
                     if (e instanceof TimeoutException) {
-                        throw new PrimaryReplicaAwaitTimeoutException(groupId0, timestamp, leases.leaseByGroupId().get(groupId0), e);
+                        throw new PrimaryReplicaAwaitTimeoutException(zonePartId, timestamp, leases.leaseByGroupId().get(zonePartId), e);
                     }
 
-                    throw new PrimaryReplicaAwaitException(groupId0, timestamp, e);
+                    throw new PrimaryReplicaAwaitException(zonePartId, timestamp, e);
                 });
     }
 

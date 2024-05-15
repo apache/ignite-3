@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
@@ -424,7 +425,17 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            Set<ReplicationGroupId> replicationGroupIds = zonePartIdToTablePartId.getOrDefault((ZonePartitionId) msg.groupId(), Set.of());
+            Set<ReplicationGroupId> replicationGroupIds = new HashSet<>();
+
+            zonePartIdToTablePartId.compute((ZonePartitionId) msg.groupId(), (key, tablePartIds) -> {
+                if (tablePartIds == null) {
+                    tablePartIds = new HashSet<>();
+                }
+
+                replicationGroupIds.addAll(tablePartIds);
+
+                return tablePartIds;
+            });
 
             CompletableFuture<LeaseGrantedMessageResponse>[] futures = new CompletableFuture[replicationGroupIds.size()];
 
@@ -685,7 +696,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             } finally {
                 busyLock.leaveBusy();
             }
-        }, 0, 1, TimeUnit.SECONDS);
+        }, 0, 1, SECONDS);
 
         cmgMgr.metaStorageNodes().whenComplete((nodes, e) -> {
             if (e != null) {
@@ -714,11 +725,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 diff.removeAll(meta.subgroups());
 
                 if (meta.getLeaseholderId().equals(localNodeId) && !diff.isEmpty()) {
-                    LOG.info("New subgroups are found for existing lease [repGrp={}, subGroups={}]", repGrp, diff);
+                    LOG.info("New subgroups are found for existing lease [repGrp={}, subGroups={}].", repGrp, diff);
 
                     try {
                         placementDriver.addSubgroups(repGrp, meta.getStartTime().longValue(), diff)
-                                .thenCompose(unused -> {
+                                .thenComposeAsync(unused -> {
                                     ArrayList<CompletableFuture<?>> requestToReplicas = new ArrayList<>();
 
                                     for (ReplicationGroupId partId : diff) {
@@ -726,22 +737,24 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                                 .enlistmentConsistencyToken(meta.getStartTime().longValue())
                                                 .groupId(partId)
                                                 // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
-                                                .timeout(10)
+                                                .timeout(10_000)
                                                 .build();
 
-                                        CompletableFuture<Replica> replicaFut = replicas.get(repGrp);
+                                        CompletableFuture<Replica> replicaFut = replicas.get(partId);
 
                                         if (replicaFut != null) {
                                             requestToReplicas.add(replicaFut.thenCompose(
-                                                    replica -> replica.processRequest(req, localNodeId)));
+                                                    replica -> replica.processRequest(req, localNodeId)
+                                            ));
                                         }
                                     }
 
                                     return allOf(requestToReplicas.toArray(CompletableFuture[]::new));
-                                }).get(10, TimeUnit.SECONDS);
+                                }, requestsExecutor)
+                                .get(10, SECONDS);
                     } catch (Exception ex) {
                         LOG.error(
-                                "Failed to add new subgroups to the replication group [repGrp={}, subGroups={}]",
+                                "Failed to add new subgroups to the replication group [repGrp={}, subGroups={}].",
                                 ex,
                                 repGrp,
                                 diff
@@ -761,8 +774,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         busyLock.block();
 
-        shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, 10, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(scheduledTableLeaseUpdateExecutor, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, 10, SECONDS);
+        shutdownAndAwaitTermination(scheduledTableLeaseUpdateExecutor, 10, SECONDS);
 
         assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
                 : "There are replicas alive [replicas="

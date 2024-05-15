@@ -145,6 +145,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         when(pdClusterService.topologyService()).thenAnswer(inv -> pdTopologyService);
 
         LeaseTracker leaseTracker = new LeaseTracker(
+                NODE_0_NAME,
                 metaStorageManager,
                 pdClusterService.topologyService(),
                 new TestClockService(new HybridClockImpl()),
@@ -166,7 +167,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
     private static LeaseGrantedMessageResponse createLeaseGrantedMessageResponse(boolean accept) {
         return MSG_FACTORY.leaseGrantedMessageResponse()
-                .appliedGroups(Set.of(new TablePartitionId(0, 0)))
+                .appliedGroups(Set.of(new TablePartitionId(42, 0)))
                 .accepted(accept)
                 .build();
     }

@@ -19,8 +19,10 @@ package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventListener;
@@ -51,6 +53,9 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
 
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final ClusterNodeResolver clusterNodeResolver;
+
+    /** Map for saving waiting for replica state futures for each table partition. */
+    private final Map<TablePartitionId, CompletableFuture<Void>> waitPrimaryState = new ConcurrentHashMap<>();
 
 
     /**
@@ -91,24 +96,33 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
     ) {
         ZonePartitionId zonePartitionId = (ZonePartitionId) groupId;
 
+        assert zonePartitionId.tableId() != 0 : "Table id should be defined.";
+
+        ZonePartitionId pureZonePartId = ZonePartitionId.resetTableId(zonePartitionId);
         TablePartitionId tablePartitionId = new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId());
 
-        return delegate.awaitPrimaryReplica(tablePartitionId, timestamp, timeout, unit)
-                .thenCompose(replicaMeta -> {
+        return delegate.awaitPrimaryReplicaForTable(pureZonePartId, timestamp, timeout, unit)
+                .thenComposeAsync(replicaMeta -> {
                     ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
 
                     if (replicaMeta.subgroups().contains(tablePartitionId)) {
+                        waitPrimaryState.remove(tablePartitionId);
+
                         return completedFuture(replicaMeta);
                     }
 
-                    WaitReplicaStateMessage awaitReplicaReq = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
-                            .groupId(tablePartitionId)
-                            .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                            .timeout(timeout)
-                            .build();
+                    CompletableFuture<Void> waitReplicaStateFut = waitPrimaryState.computeIfAbsent(tablePartitionId, grpId -> {
+                        WaitReplicaStateMessage awaitReplicaReq = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
+                                .groupId(tablePartitionId)
+                                .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
+                                .timeout(unit.toMillis(timeout))
+                                .build();
 
-                    return replicaService.invoke(leaseholderNode, awaitReplicaReq).thenApply((ignored) -> replicaMeta);
-                });
+                        return replicaService.invoke(leaseholderNode, awaitReplicaReq);
+                    });
+
+                    return waitReplicaStateFut.thenApply((ignored) -> replicaMeta);
+                }, replicaService.getPartitionOperationsExecutor());
     }
 
     @Override

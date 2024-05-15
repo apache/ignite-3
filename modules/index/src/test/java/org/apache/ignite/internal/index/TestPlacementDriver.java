@@ -43,6 +43,23 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             long timeout,
             TimeUnit unit
     ) {
+        assert groupId instanceof ZonePartitionId : "Unexpected replication group type [type=" + groupId.getClass().getSimpleName() + ']';
+
+        return awaitPrimaryReplicaForTable(
+                groupId,
+                timestamp,
+                timeout,
+                unit
+        );
+    }
+
+    @Override
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
         return primaryReplicaMetaFutureById.get(groupId);
     }
 

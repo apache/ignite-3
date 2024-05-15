@@ -710,6 +710,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private LeaseTracker createPlacementDriver() {
         return new LeaseTracker(
+                LEASEHOLDER_ID_1,
                 metastore,
                 new ClusterNodeResolver() {
                     @Override

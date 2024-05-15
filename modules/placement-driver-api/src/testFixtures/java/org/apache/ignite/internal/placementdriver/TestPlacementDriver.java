@@ -71,6 +71,16 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     }
 
     @Override
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
+            ReplicationGroupId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
+        return getReplicaMetaFuture();
+    }
+
+    @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
         return getReplicaMetaFuture();
     }

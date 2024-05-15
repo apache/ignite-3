@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -50,8 +49,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
@@ -198,18 +195,16 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testExceptionIsThrownOnIndexBuildingWhenStorageIsNull() {
+    void testExceptionIsNotThrownOnIndexBuildingWhenStorageIsNull() {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
         createIndex(INDEX_NAME);
 
         when(indexManager.getMvTableStorage(anyLong(), anyInt())).thenReturn(nullCompletedFuture());
 
-        assertThrows(
-                ExecutionException.class,
-                () -> catalogManager.execute(StartBuildingIndexCommand.builder().indexId(indexId(INDEX_NAME)).build())
-                        .get(10_000, TimeUnit.MILLISECONDS),
-                "Table storage for the specified table cannot be null"
+        assertThat(
+                catalogManager.execute(StartBuildingIndexCommand.builder().indexId(indexId(INDEX_NAME)).build()),
+                willCompleteSuccessfully()
         );
     }
 
@@ -245,16 +240,14 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testExceptionIsThrownOnPrimaryReplicaElectedWhenStorageIsNull() {
+    void testExceptionIsNotThrownOnPrimaryReplicaElectedWhenStorageIsNull() {
         when(indexManager.getMvTableStorage(anyLong(), anyInt())).thenReturn(nullCompletedFuture());
 
         CompletableFuture<ReplicaMeta> replicaMetaFuture = completedFuture(replicaMetaForOneSecond(NODE_NAME, NODE_ID, clock.now()));
 
-        assertThrows(
-                ExecutionException.class,
-                () -> placementDriver.setPrimaryReplicaMeta(0, replicaId(PARTITION_ID), replicaMetaFuture)
-                        .get(10_000, TimeUnit.MILLISECONDS),
-                "Table storage for the specified table cannot be null"
+        assertThat(
+                placementDriver.setPrimaryReplicaMeta(0, replicaId(PARTITION_ID), replicaMetaFuture),
+                willCompleteSuccessfully()
         );
     }
 
