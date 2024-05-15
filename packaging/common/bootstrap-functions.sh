@@ -55,4 +55,4 @@ export JAVA_CMD_WITH_ARGS="${JAVACMD} \
 export APPLICATION_ARGS="\
   --config-path ${CONFIG_FILE} \
   --work-dir ${WORK_DIR} \
-  --name ${NODE_NAME}"
+  --node-name ${NODE_NAME}"

@@ -61,7 +61,7 @@ public class ItRestAddressReportTest extends IgniteIntegrationTest {
         CompletableFuture<Ignite> ign = IgniteRunner.start(
                 "--config-path", configPath.toAbsolutePath().toString(),
                 "--work-dir", workDir.resolve(NODE_NAME).toAbsolutePath().toString(),
-                "--node", NODE_NAME
+                "--node-name", NODE_NAME
         );
 
         // And init cluster
