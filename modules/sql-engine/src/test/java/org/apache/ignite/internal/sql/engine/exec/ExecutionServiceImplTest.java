@@ -92,6 +92,8 @@ import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
+import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
@@ -902,6 +904,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         var partitionPruner = new PartitionPrunerImpl();
         var mappingService = new MappingServiceImpl(nodeName, targetProvider, EmptyCacheFactory.INSTANCE, 0, partitionPruner, taskExecutor);
+        var tableFunctionRegistry = new TableFunctionRegistryImpl();
 
         List<LogicalNode> logicalNodes = nodeNames.stream()
                 .map(name -> new LogicalNode(name, name, NetworkAddress.from("127.0.0.1:10000")))
@@ -919,7 +922,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 ArrayRowHandler.INSTANCE,
                 executableTableRegistry,
                 dependencyResolver,
-                (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps),
+                (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps, tableFunctionRegistry),
                 clockService,
                 SHUTDOWN_TIMEOUT
         );
@@ -1090,8 +1093,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                     ExecutionContext<Object[]> ctx,
                     MailboxRegistry mailboxRegistry,
                     ExchangeService exchangeService,
-                    ResolvedDependencies deps) {
-                return new LogicalRelImplementor<>(ctx, mailboxRegistry, exchangeService, deps) {
+                    ResolvedDependencies deps,
+                    TableFunctionRegistry tableFunctionRegistry
+            ) {
+                return new LogicalRelImplementor<>(ctx, mailboxRegistry, exchangeService, deps, tableFunctionRegistry) {
                     @Override
                     public Node<Object[]> visit(IgniteTableScan rel) {
                         return new ScanNode<>(ctx, dataset) {
