@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.raft.jraft.disruptor;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -27,6 +28,8 @@ import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -58,10 +61,10 @@ public class StripedDisruptor<T extends NodeIdAware> {
     /** Array of Ring buffer. It placed according to disruptors in the array. */
     private final RingBuffer<T>[] queues;
 
-    /** Disruptor event handler array. It placed according to disruptors in the array.*/
+    /** Disruptor event handler array. It placed according to disruptors in the array. */
     private final ArrayList<StripeEntryHandler> eventHandlers;
 
-    /** Disruptor error handler array. It placed according to disruptors in the array.*/
+    /** Disruptor error handler array. It placed according to disruptors in the array. */
     private final ArrayList<StripeExceptionHandler> exceptionHandlers;
 
     /** Amount of stripes. */
@@ -86,7 +89,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param eventFactory Event factory for the Striped disruptor.
      * @param stripes Amount of stripes.
      * @param supportsBatches If {@code false}, this stripe will always pass {@code true} into
-     *      {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
+     *         {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
      * @param useYieldStrategy If {@code true}, the yield strategy is to be used, otherwise the blocking strategy.
      * @param metrics Metrics.
      */
@@ -121,7 +124,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param eventFactory Event factory for the Striped disruptor.
      * @param stripes Amount of stripes.
      * @param supportsBatches If {@code false}, this stripe will always pass {@code true} into
-     *      {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
+     *         {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
      * @param useYieldStrategy If {@code true}, the yield strategy is to be used, otherwise the blocking strategy.
      * @param raftMetrics Metrics.
      */
@@ -149,12 +152,12 @@ public class StripedDisruptor<T extends NodeIdAware> {
             String stripeName = format("{}_stripe_{}", poolName, i);
 
             Disruptor<T> disruptor = DisruptorBuilder.<T>newInstance()
-                .setRingBufferSize(bufferSize)
-                .setEventFactory(eventFactory)
-                .setThreadFactory(threadFactorySupplier.apply(nodeName, stripeName))
-                .setProducerType(ProducerType.MULTI)
-                .setWaitStrategy(useYieldStrategy ? new YieldingWaitStrategy() : new BlockingWaitStrategy())
-                .build();
+                    .setRingBufferSize(bufferSize)
+                    .setEventFactory(eventFactory)
+                    .setThreadFactory(threadFactorySupplier.apply(nodeName, stripeName))
+                    .setProducerType(ProducerType.MULTI)
+                    .setWaitStrategy(useYieldStrategy ? new YieldingWaitStrategy() : new BlockingWaitStrategy())
+                    .build();
 
             eventHandlers.add(new StripeEntryHandler(i));
             exceptionHandlers.add(new StripeExceptionHandler(name));
@@ -172,8 +175,9 @@ public class StripedDisruptor<T extends NodeIdAware> {
      */
     public void shutdown() {
         for (int i = 0; i < stripes; i++) {
-            if (disruptors[i] != null)
+            if (disruptors[i] != null) {
                 disruptors[i].shutdown();
+            }
 
             // Help GC to collect unused resources.
             queues[i] = null;
@@ -212,8 +216,9 @@ public class StripedDisruptor<T extends NodeIdAware> {
 
         eventHandlers.get(stripeId).subscribe(nodeId, handler);
 
-        if (exceptionHandler != null)
+        if (exceptionHandler != null) {
             exceptionHandlers.get(stripeId).subscribe(nodeId, exceptionHandler);
+        }
 
         return queues[stripeId];
     }
@@ -251,6 +256,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
 
     /**
      * Generates the next stripe number in a round-robin manner.
+     *
      * @return The stripe number.
      */
     private int nextStripeToSubscribe() {
@@ -278,6 +284,12 @@ public class StripedDisruptor<T extends NodeIdAware> {
     private class StripeEntryHandler implements EventHandler<T> {
         private final ConcurrentHashMap<NodeId, EventHandler<T>> subscribers = new ConcurrentHashMap<>();
 
+        /** The cache is used to correct handling the disruptor batch. */
+        private final Map<NodeId, T> eventCache;
+
+        /** Current batch sizes. This map is used when the disruptor does not support native batching. */
+        private final Map<NodeId, Integer> currentBatchSizes;
+
         /** Size of the batch that is currently being handled. */
         private int currentBatchSize = 0;
 
@@ -289,10 +301,14 @@ public class StripedDisruptor<T extends NodeIdAware> {
          */
         StripeEntryHandler(int stripeId) {
             this.stripeId = stripeId;
+
+            eventCache = supportsBatches ? null : new HashMap<>();
+            currentBatchSizes = supportsBatches ? null : new HashMap<>();
         }
 
         /**
          * Checks the replication group is subscribed to this stripe or not.
+         *
          * @param nodeId Replication group node id.
          * @return True if the group is subscribed, false otherwise.
          */
@@ -320,7 +336,75 @@ public class StripedDisruptor<T extends NodeIdAware> {
         }
 
         /** {@inheritDoc} */
-        @Override public void onEvent(T event, long sequence, boolean endOfBatch) throws Exception {
+        @Override
+        public void onEvent(T event, long sequence, boolean endOfBatch) throws Exception {
+            if (supportsBatches || subscribers.size() <= 1) {
+                nativeBatchSupport(event, sequence, endOfBatch);
+            } else {
+                internalBatching(event, sequence, endOfBatch);
+            }
+        }
+
+        /**
+         * Processes the event with intermediate cache to batch internally for each subscriber for the stripe.
+         *
+         * @param event Disruptor event to process.
+         * @param sequence Number in the sequence of the element.
+         * @param endOfBatch Flag signals indicate the batch has ended.
+         * @throws Exception Throw when some handler fails.
+         */
+        private void internalBatching(T event, long sequence, boolean endOfBatch) throws Exception {
+            T prevEvent = eventCache.put(event.nodeId(), event);
+
+            if (prevEvent != null) {
+                EventHandler<T> grpHandler = subscribers.get(event.nodeId());
+
+                if (grpHandler != null) {
+                    if (metrics != null && metrics.enabled()) {
+                        metrics.hitToStripe(stripeId);
+
+                        currentBatchSizes.compute(event.nodeId(), (nodeId, cnt) -> {
+                            if (cnt == null) {
+                                return 1;
+                            }
+
+                            return cnt + 1;
+                        });
+                    }
+
+                    grpHandler.onEvent(prevEvent, sequence, false);
+                }
+            }
+
+            if (endOfBatch) {
+                for (Map.Entry<NodeId, T> grpEvent : eventCache.entrySet()) {
+                    EventHandler<T> grpHandler = subscribers.get(grpEvent.getKey());
+
+                    if (grpHandler != null) {
+                        if (metrics != null && metrics.enabled()) {
+                            metrics.hitToStripe(stripeId);
+
+                            metrics.addBatchSize(currentBatchSizes.get(grpEvent.getKey()) + 1);
+                        }
+
+                        grpHandler.onEvent(grpEvent.getValue(), sequence, true);
+                    }
+                }
+
+                currentBatchSizes.clear();
+                eventCache.clear();
+            }
+        }
+
+        /**
+         * Processes the event using native disruptor batching.
+         *
+         * @param event Disruptor event to process.
+         * @param sequence Number in the sequence of the element.
+         * @param endOfBatch Flag signals indicate the batch has ended.
+         * @throws Exception Throw when some handler fails.
+         */
+        private void nativeBatchSupport(T event, long sequence, boolean endOfBatch) throws Exception {
             EventHandler<T> handler = subscribers.get(event.nodeId());
 
             // TODO: IGNITE-20536 Need to add assert that handler is not null and to implement a no-op handler.
@@ -333,11 +417,11 @@ public class StripedDisruptor<T extends NodeIdAware> {
 
                         currentBatchSize = 0;
                     } else {
-                        currentBatchSize ++;
+                        currentBatchSize++;
                     }
                 }
 
-                handler.onEvent(event, sequence, endOfBatch || subscribers.size() > 1 && !supportsBatches);
+                handler.onEvent(event, sequence, endOfBatch);
             } else {
                 LOG.warn(format("Group of the event is unsupported [nodeId={}, event={}]", event.nodeId(), event));
             }
@@ -383,31 +467,36 @@ public class StripedDisruptor<T extends NodeIdAware> {
         }
 
         /** {@inheritDoc} */
-        @Override public void handleOnStartException(Throwable ex) {
+        @Override
+        public void handleOnStartException(Throwable ex) {
             LOG.error("Fail to start disruptor [name={}]", ex, name);
         }
 
         /** {@inheritDoc} */
-        @Override public void handleOnShutdownException(Throwable ex) {
+        @Override
+        public void handleOnShutdownException(Throwable ex) {
             LOG.error("Fail to shutdown disruptor [name={}]", ex, name);
 
         }
 
         /** {@inheritDoc} */
-        @Override public void handleEventException(Throwable ex, long sequence, T event) {
+        @Override
+        public void handleEventException(Throwable ex, long sequence, T event) {
             NodeId nodeId = event.nodeId();
 
             BiConsumer<T, Throwable> handler = nodeId == null ? null : subscribers.get(nodeId);
 
             LOG.error("Handle disruptor event error [name={}, event={}, hasHandler={}]", ex, name, event, handler != null);
 
-            if (handler != null)
+            if (handler != null) {
                 handler.accept(event, ex);
+            }
         }
     }
 
     /** {@inheritDoc} */
-    @Override public String toString() {
+    @Override
+    public String toString() {
         return format("{} [name={}]", StripedDisruptor.class.getSimpleName(), name);
     }
 }
