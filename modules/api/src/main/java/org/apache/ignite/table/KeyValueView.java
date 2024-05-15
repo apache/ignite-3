@@ -407,12 +407,13 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
      *
      * @param tx Transaction or {@code null} to auto-commit.
      * @param key Key the specified value is associated with. The key cannot be {@code null}.
-     * @param oldValue Expected value associated with the specified key.
+     * @param oldValue Expected value associated with the specified key. Can be {@code null} when mapped to a single column
+     *     with a simple type.
      * @param newValue Value to be associated with the specified key. Can be {@code null} when mapped to a single column with a simple type.
      * @return {@code True} if an old value was replaced, {@code false} otherwise.
      * @throws MarshallerException if the key, the oldValue, or the newValue doesn't match the schema.
      */
-    boolean replace(@Nullable Transaction tx, K key, V oldValue, @Nullable V newValue);
+    boolean replace(@Nullable Transaction tx, K key, @Nullable V oldValue, @Nullable V newValue);
 
     /**
      * Asynchronously replaces a value for a key if it exists. See {@link #replace(Transaction, Object, Object)}.

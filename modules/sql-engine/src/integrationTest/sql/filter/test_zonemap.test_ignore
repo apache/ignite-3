@@ -1,4 +1,4 @@
-# name: test/sql/filter/test_zonemap.test_slow
+# name: test/sql/filter/test_zonemap.test
 # description: Test expressions with transitive filters
 # group: [filter]
 # Ignore: https://issues.apache.org/jira/browse/IGNITE-17268

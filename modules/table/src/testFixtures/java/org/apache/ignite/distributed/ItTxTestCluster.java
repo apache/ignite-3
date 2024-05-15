@@ -248,7 +248,6 @@ public class ItTxTestCluster {
     protected String localNodeName;
 
     private final ClusterNodeResolver nodeResolver = new ClusterNodeResolver() {
-
         @Override
         public @Nullable ClusterNode getById(String id) {
             for (ClusterService service : cluster) {
@@ -426,7 +425,8 @@ public class ItTxTestCluster {
                     clusterService.messagingService(),
                     clock,
                     partitionOperationsExecutor,
-                    replicationConfiguration
+                    replicationConfiguration,
+                    executor
             ));
 
             replicaServices.put(node.name(), replicaSvc);
@@ -984,7 +984,8 @@ public class ItTxTestCluster {
                 client.messagingService(),
                 clientClock,
                 partitionOperationsExecutor,
-                replicationConfiguration
+                replicationConfiguration,
+                executor
         ));
 
         LOG.info("The client has been started");

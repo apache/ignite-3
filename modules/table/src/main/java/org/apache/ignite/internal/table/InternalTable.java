@@ -26,6 +26,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -493,4 +494,12 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Streamer flush executor.
      */
     ScheduledExecutorService streamerFlushExecutor();
+
+    /**
+     * Returns {@link ClusterNode} where primary replica of replication group is located.
+     *
+     * @param partition Replication group identifier.
+     * @return Cluster node with primary replica.
+     */
+    CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId partition);
 }

@@ -203,6 +203,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 storage,
                 nodeClock,
                 topologyAwareRaftGroupServiceFactory,
+                new NoOpMetricManager(),
                 metaStorageConfiguration
         );
 

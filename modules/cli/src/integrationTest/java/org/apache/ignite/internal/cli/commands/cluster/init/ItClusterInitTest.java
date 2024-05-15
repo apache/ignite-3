@@ -47,18 +47,18 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
         // when
         connect(NODE_URL);
 
-        resetOutput();
-
         File clusterConfigurationFile = TestConfigManagerHelper.readClusterConfigurationWithEnabledAuthFile();
 
         execute(
                 "cluster", "init",
-                "--meta-storage-node", testNodeName(TEST_INFO, 0),
+                "--meta-storage-node", testNodeName(TEST_INFO, 1),
+                "--cmg-node", testNodeName(TEST_INFO, 2),
                 "--cluster-name", "cluster",
                 "--cluster-config-file", clusterConfigurationFile.getAbsolutePath()
         );
 
         assertAll(
+                this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Cluster was initialized successfully")
         );
@@ -75,6 +75,12 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
 
         // REST is available
         assertRestIsAvailable();
+
+        execute("cluster", "topology", "logical");
+        assertExitCodeIsZero();
+        for (int i = 0; i < initialNodes(); i++) {
+            assertOutputContains(testNodeName(TEST_INFO, i));
+        }
     }
 
     private void awaitClusterInitialized() throws InterruptedException {
@@ -82,7 +88,6 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
     }
 
     private void assertRestIsUnavailable() {
-        resetOutput();
         execute("cluster", "config", "show");
 
         assertAll(
@@ -92,7 +97,6 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
     }
 
     private void assertRestIsAvailable() {
-        resetOutput();
         execute("cluster", "config", "show");
 
         assertAll(
@@ -100,5 +104,4 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
                 this::assertOutputIsNotEmpty
         );
     }
-
 }

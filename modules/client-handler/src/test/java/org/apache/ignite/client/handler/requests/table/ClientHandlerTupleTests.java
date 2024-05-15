@@ -40,7 +40,7 @@ import java.time.LocalTime;
 import java.time.Month;
 import java.util.Random;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
@@ -91,7 +91,7 @@ public class ClientHandlerTupleTests {
     public void testTupleEquality() throws TupleMarshallerException {
         Tuple tuple = createTuple();
 
-        BinaryTuple binaryTuple = new TupleMarshallerImpl(fullSchema).marshal(tuple).binaryTuple();
+        BinaryTupleReader binaryTuple = new TupleMarshallerImpl(fullSchema).marshal(tuple).binaryTuple();
         Tuple clientHandlerTuple = new ClientHandlerTuple(fullSchema, null, binaryTuple, false);
 
         assertEquals(tuple, clientHandlerTuple);
@@ -101,7 +101,7 @@ public class ClientHandlerTupleTests {
     public void testTupleEqualityKeyOnly() throws TupleMarshallerException {
         Tuple tuple = createKeyTuple();
 
-        BinaryTuple binaryTuple = new TupleMarshallerImpl(fullSchema).marshalKey(tuple).binaryTuple();
+        BinaryTupleReader binaryTuple = new TupleMarshallerImpl(fullSchema).marshalKey(tuple).binaryTuple();
         Tuple clientHandlerTuple = new ClientHandlerTuple(fullSchema, null, binaryTuple, true);
 
         assertEquals(tuple, clientHandlerTuple);

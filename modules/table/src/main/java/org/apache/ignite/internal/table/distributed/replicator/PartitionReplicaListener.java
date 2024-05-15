@@ -1013,20 +1013,25 @@ public class PartitionReplicaListener implements ReplicaListener {
             for (int i = 0; i < rows.size(); i++) {
                 BinaryRow row = rows.get(i);
 
-                futs[i] = schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
-                        .thenCompose(validationResult -> {
-                            if (validationResult.isSuccessful()) {
-                                return completedFuture(row);
-                            } else {
-                                throw new IncompatibleSchemaException("Operation failed because schema "
-                                        + validationResult.fromSchemaVersion() + " is not backward-compatible with "
-                                        + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
-                            }
-                        });
+                futs[i] = validateBackwardCompatibility(row, txId)
+                        .thenApply(unused -> row);
             }
 
             return allOf(futs).thenApply((unused) -> rows);
         });
+    }
+
+    private CompletableFuture<Void> validateBackwardCompatibility(BinaryRow row, UUID txId) {
+        return schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
+                .thenAccept(validationResult -> {
+                    if (!validationResult.isSuccessful()) {
+                        throw new IncompatibleSchemaException(String.format(
+                                "Operation failed because it tried to access a row with newer schema version than transaction's [table=%d, "
+                                        + "txSchemaVersion=%d, rowSchemaVersion=%d]",
+                                validationResult.failedTableId(), validationResult.fromSchemaVersion(), validationResult.toSchemaVersion()
+                        ));
+                    }
+                });
     }
 
     /**
@@ -1569,16 +1574,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return nullCompletedFuture();
             }
 
-            return schemaCompatValidator.validateBackwards(row.binaryRow().schemaVersion(), tableId(), txId)
-                    .thenApply(validationResult -> {
-                        if (validationResult.isSuccessful()) {
-                            return row;
-                        } else {
-                            throw new IncompatibleSchemaException("Operation failed because schema "
-                                    + validationResult.fromSchemaVersion() + " is not backward-compatible with "
-                                    + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
-                        }
-                    });
+            return validateBackwardCompatibility(row.binaryRow(), txId)
+                    .thenApply(unused -> row);
         });
     }
 
@@ -2219,7 +2216,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_DELETE_EXACT_ALL: {
                 CompletableFuture<RowId>[] deleteExactLockFuts = new CompletableFuture[searchRows.size()];
 
-                Map<UUID, HybridTimestamp> lastCommitTimes = new HashMap<>();
+                Map<UUID, HybridTimestamp> lastCommitTimes = new ConcurrentHashMap<>();
 
                 for (int i = 0; i < searchRows.size(); i++) {
                     BinaryRow searchRow = searchRows.get(i);
@@ -2353,28 +2350,41 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
             case RW_UPSERT_ALL: {
                 CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>>[] rowIdFuts = new CompletableFuture[searchRows.size()];
+                BinaryTuple[] pks = new BinaryTuple[searchRows.size()];
 
-                Map<UUID, HybridTimestamp> lastCommitTimes = new HashMap<>();
+                Map<UUID, HybridTimestamp> lastCommitTimes = new ConcurrentHashMap<>();
                 BitSet deleted = request.deleted();
 
                 // When the same key is updated multiple times within the same batch, we need to maintain operation order and apply
                 // only the last update. This map stores the previous searchRows index for each key.
-                Map<ByteBuffer, Integer> newKeyMap = new HashMap<>();
+                Map<ByteBuffer, Integer> prevRowIdx = new HashMap<>();
 
                 for (int i = 0; i < searchRows.size(); i++) {
                     BinaryRow searchRow = searchRows.get(i);
-
                     boolean isDelete = deleted != null && deleted.get(i);
 
                     BinaryTuple pk = isDelete
                             ? resolvePk(searchRow.tupleSlice())
                             : extractPk(searchRow);
 
-                    int rowIdx = i;
+                    pks[i] = pk;
 
-                    rowIdFuts[i] = resolveRowByPk(pk, txId, (rowId, row, lastCommitTime) -> {
+                    Integer prevRowIdx0 = prevRowIdx.put(pk.byteBuffer(), i);
+                    if (prevRowIdx0 != null) {
+                        rowIdFuts[prevRowIdx0] = nullCompletedFuture(); // Skip previous row with the same key.
+                    }
+                }
+
+                for (int i = 0; i < searchRows.size(); i++) {
+                    if (rowIdFuts[i] != null) {
+                        continue; // Skip previous row with the same key.
+                    }
+
+                    BinaryRow searchRow = searchRows.get(i);
+                    boolean isDelete = deleted != null && deleted.get(i);
+
+                    rowIdFuts[i] = resolveRowByPk(pks[i], txId, (rowId, row, lastCommitTime) -> {
                         if (isDelete && rowId == null) {
-                            // Does not exist, nothing to delete.
                             return nullCompletedFuture();
                         }
 
@@ -2383,33 +2393,15 @@ public class PartitionReplicaListener implements ReplicaListener {
                             lastCommitTimes.put(rowId.uuid(), lastCommitTime);
                         }
 
-                        boolean insert = rowId == null;
-                        RowId rowId0;
-
-                        if (insert) {
-                            Integer prevRowIdx = newKeyMap.put(pk.byteBuffer(), rowIdx);
-
-                            if (prevRowIdx != null) {
-                                // Return existing lock.
-                                CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> lockFut = rowIdFuts[prevRowIdx];
-
-                                // Skip previous update with the same key.
-                                rowIdFuts[prevRowIdx] = nullCompletedFuture();
-
-                                return lockFut;
-                            }
-
-                            rowId0 = new RowId(partId(), UUID.randomUUID());
-                        } else {
-                            rowId0 = rowId;
-                        }
-
                         if (isDelete) {
                             assert row != null;
 
-                            return takeLocksForDelete(row, rowId0, txId)
+                            return takeLocksForDelete(row, rowId, txId)
                                     .thenApply(id -> new IgniteBiTuple<>(id, null));
                         }
+
+                        boolean insert = rowId == null;
+                        RowId rowId0 = insert ? new RowId(partId(), UUID.randomUUID()) : rowId;
 
                         return insert
                                 ? takeLocksForInsert(searchRow, rowId0, txId)
@@ -2526,7 +2518,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_DELETE_ALL: {
                 CompletableFuture<RowId>[] rowIdLockFuts = new CompletableFuture[primaryKeys.size()];
 
-                Map<UUID, HybridTimestamp> lastCommitTimes = new HashMap<>();
+                Map<UUID, HybridTimestamp> lastCommitTimes = new ConcurrentHashMap<>();
 
                 for (int i = 0; i < primaryKeys.size(); i++) {
                     rowIdLockFuts[i] = resolveRowByPk(primaryKeys.get(i), txId, (rowId, row, lastCommitTime) -> {
@@ -3927,7 +3919,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                 txState,
                 old == null ? null : old.txCoordinatorId(),
                 old == null ? null : old.commitPartitionId(),
-                txState == COMMITTED ? commitTimestamp : null
+                txState == COMMITTED ? commitTimestamp : null,
+                old == null ? null : old.initialVacuumObservationTimestamp(),
+                old == null ? null : old.cleanupCompletionTimestamp()
         ));
     }
 

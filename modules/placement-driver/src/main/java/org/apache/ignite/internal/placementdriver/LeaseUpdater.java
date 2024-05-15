@@ -336,6 +336,8 @@ public class LeaseUpdater {
                     Thread.sleep(UPDATE_LEASE_MS);
                 } catch (InterruptedException e) {
                     LOG.warn("Lease updater is interrupted");
+
+                    return;
                 }
             }
         }

@@ -60,6 +60,7 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Component is responsible for starting and stopping the building of indexes on primary replicas.
@@ -319,6 +320,11 @@ class IndexBuildController implements ManuallyCloseable {
     ) {
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, replicaId);
 
+        // TODO: IGNITE-22202 Deal with this situation
+        if (mvPartition == null) {
+            return;
+        }
+
         IndexStorage indexStorage = indexStorage(mvTableStorage, replicaId, indexDescriptor);
 
         indexBuilder.scheduleBuildIndex(
@@ -341,6 +347,11 @@ class IndexBuildController implements ManuallyCloseable {
             long enlistmentConsistencyToken
     ) {
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, replicaId);
+
+        // TODO: IGNITE-22202 Deal with this situation
+        if (mvPartition == null) {
+            return;
+        }
 
         IndexStorage indexStorage = indexStorage(mvTableStorage, replicaId, indexDescriptor);
 
@@ -368,10 +379,11 @@ class IndexBuildController implements ManuallyCloseable {
         return replicaMeta.getStartTime().longValue();
     }
 
-    private static MvPartitionStorage mvPartitionStorage(MvTableStorage mvTableStorage, TablePartitionId replicaId) {
+    private static @Nullable MvPartitionStorage mvPartitionStorage(MvTableStorage mvTableStorage, TablePartitionId replicaId) {
         MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(replicaId.partitionId());
 
-        assert mvPartition != null : replicaId;
+        // TODO: IGNITE-22202 Deal with this situation
+        // assert mvPartition != null : replicaId;
 
         return mvPartition;
     }

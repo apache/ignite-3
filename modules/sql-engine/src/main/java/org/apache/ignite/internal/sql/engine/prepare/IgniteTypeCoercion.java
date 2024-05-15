@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.calcite.sql.type.NonNullableAccessors.getCollation;
+import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
+import static org.apache.calcite.sql.type.SqlTypeName.VARCHAR;
 import static org.apache.calcite.util.Static.RESOURCE;
 
 import java.nio.charset.Charset;
@@ -227,6 +230,22 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         }
 
         try {
+            SqlKind kind = query.getKind();
+            // prevent to cast derived [var]char types into narrow [var]char types.
+            if (kind == SqlKind.VALUES) {
+                boolean coerceValues = false;
+                for (SqlNode rowConstructor : ((SqlCall) query).getOperandList()) {
+                    if (coerceOperandTypeEx(scope, (SqlCall) rowConstructor, columnIndex, targetType, false)) {
+                        coerceValues = true;
+                    }
+                }
+                if (coerceValues) {
+                    updateInferredColumnType(
+                            requireNonNull(scope, "scope"), query, columnIndex, targetType);
+                }
+                return coerceValues;
+            }
+
             return super.rowTypeCoercion(scope, query, columnIndex, targetType);
         } finally {
             ctxStack.pop(ctx);
@@ -309,8 +328,6 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         return super.needToCast(scope, node, toType);
     }
 
-    // The method is fully copy from parent class with modified handling of dynamic parameters.
-
     /** {@inheritDoc} */
     @Override
     protected boolean coerceOperandType(
@@ -318,6 +335,16 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             SqlCall call,
             int index,
             RelDataType targetType) {
+        return coerceOperandTypeEx(scope, call, index, targetType, true);
+    }
+
+    // The method is fully copy from parent class with modified handling of dynamic parameters and [var]char types coercion.
+    private boolean coerceOperandTypeEx(
+            @Nullable SqlValidatorScope scope,
+            SqlCall call,
+            int index,
+            RelDataType targetType,
+            boolean strictCoerceCharTypes) {
         // Transform the JavaType to SQL type because the SqlDataTypeSpec
         // does not support deriving JavaType yet.
         if (RelDataTypeFactoryImpl.isJavaType(targetType)) {
@@ -351,6 +378,17 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         }
         // Fix up nullable attr.
         RelDataType targetType1 = syncAttributes(operandType, targetType);
+
+        if (!strictCoerceCharTypes && CHAR_TYPES.contains(targetType1.getSqlTypeName())
+                && targetType1.getPrecision() != PRECISION_NOT_SPECIFIED) {
+            RelDataType varCharType = typeFactory.createTypeWithNullability(typeFactory.createSqlType(VARCHAR), targetType1.isNullable());
+            if (targetType1.getCharset() != null && targetType1.getCollation() != null) {
+                varCharType = typeFactory.createTypeWithCharsetAndCollation(varCharType, targetType1.getCharset(),
+                        targetType1.getCollation());
+            }
+            targetType1 = varCharType;
+        }
+
         SqlNode desired = castTo(operand, targetType1);
         call.setOperand(index, desired);
         updateInferredType(desired, targetType1);

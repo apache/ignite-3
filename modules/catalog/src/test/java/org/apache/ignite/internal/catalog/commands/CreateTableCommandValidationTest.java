@@ -112,12 +112,31 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         builder = fillProperties(builder);
 
         builder.columns(List.of(
-                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.functionCall("function")).build(),
+                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.functionCall("gen_random_uuid")).build(),
                 ColumnParams.builder().name("D").type(INT32).defaultValue(DefaultValue.constant(1)).build()
 
         )).primaryKey(primaryKey("C", "D"));
 
         builder.build();
+    }
+
+    @Test
+    void unsupportedFunctionalDefault() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder);
+
+        builder.columns(List.of(
+                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.functionCall("function")).build(),
+                ColumnParams.builder().name("D").type(INT32).defaultValue(DefaultValue.constant(1)).build()
+
+        )).primaryKey(primaryKey("C", "D"));
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Functional default contains unsupported function: [col=C, functionName=function]"
+        );
     }
 
     @Test

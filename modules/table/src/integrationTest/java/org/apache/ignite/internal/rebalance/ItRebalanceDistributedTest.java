@@ -140,6 +140,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
@@ -1035,11 +1036,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             lockManager = new HeapLockManager();
 
+            MetricManager metricManager = new NoOpMetricManager();
+
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
             raftManager = spy(new Loza(
                     clusterService,
-                    new NoOpMetricManager(),
+                    metricManager,
                     raftConfiguration,
                     dir,
                     hybridClock,
@@ -1087,6 +1090,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     keyValueStorage,
                     hybridClock,
                     topologyAwareRaftGroupServiceFactory,
+                    metricManager,
                     metaStorageConfiguration
             );
 
@@ -1100,7 +1104,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterService.messagingService(),
                     hybridClock,
                     threadPoolsManager.partitionOperationsExecutor(),
-                    replicationConfiguration
+                    replicationConfiguration,
+                    threadPoolsManager.commonScheduler()
             );
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();

@@ -106,15 +106,15 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 break;
 
             case DROP_COLUMN:
-                checkSerialization(new DropColumnsEntry(1, Set.of("C1", "C2"), "PUBLIC"));
+                checkSerialization(new DropColumnsEntry(1, Set.of("C1", "C2")));
                 break;
 
             case DROP_INDEX:
-                checkSerialization(new DropIndexEntry(231, 23), new DropIndexEntry(231, 1));
+                checkSerialization(new DropIndexEntry(231), new DropIndexEntry(231));
                 break;
 
             case DROP_TABLE:
-                checkSerialization(new DropTableEntry(23, "PUBLIC"), new DropTableEntry(3, "SYSTEM"));
+                checkSerialization(new DropTableEntry(23), new DropTableEntry(3));
                 break;
 
             case DROP_ZONE:
@@ -167,6 +167,11 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
             case SET_DEFAULT_ZONE:
                 checkSerialization(new SetDefaultZoneEntry(1), new SetDefaultZoneEntry(Integer.MAX_VALUE));
+                break;
+
+            case NEW_SCHEMA:
+                checkSerialization(new NewSchemaEntry(new CatalogSchemaDescriptor(
+                        0, "S", new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0], 0)));
                 break;
 
             default:
@@ -282,10 +287,10 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 newCatalogTableColumnDescriptor("c2", DefaultValue.functionCall("function"));
         CatalogTableColumnDescriptor desc4 = newCatalogTableColumnDescriptor("c3", DefaultValue.constant(null));
 
-        UpdateEntry entry1 = new AlterColumnEntry(1, desc1, "public");
-        UpdateEntry entry2 = new AlterColumnEntry(1, desc2, "public");
-        UpdateEntry entry3 = new AlterColumnEntry(1, desc3, "public");
-        UpdateEntry entry4 = new AlterColumnEntry(1, desc4, "public");
+        UpdateEntry entry1 = new AlterColumnEntry(1, desc1);
+        UpdateEntry entry2 = new AlterColumnEntry(1, desc2);
+        UpdateEntry entry3 = new AlterColumnEntry(1, desc3);
+        UpdateEntry entry4 = new AlterColumnEntry(1, desc4);
 
         VersionedUpdate update = newVersionedUpdate(entry1, entry2, entry3, entry4);
 
@@ -296,7 +301,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         CatalogTableColumnDescriptor columnDescriptor1 = newCatalogTableColumnDescriptor("c1", DefaultValue.constant(null));
         CatalogTableColumnDescriptor columnDescriptor2 = newCatalogTableColumnDescriptor("c2", DefaultValue.functionCall("func"));
 
-        NewColumnsEntry entry = new NewColumnsEntry(11, List.of(columnDescriptor1, columnDescriptor2), "PUBLIC");
+        NewColumnsEntry entry = new NewColumnsEntry(11, List.of(columnDescriptor1, columnDescriptor2));
 
         VersionedUpdate update = newVersionedUpdate(entry);
 
@@ -307,8 +312,8 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         CatalogSortedIndexDescriptor sortedIndexDescriptor = newSortedIndexDescriptor("idx1");
         CatalogHashIndexDescriptor hashIndexDescriptor = newHashIndexDescriptor("idx2");
 
-        NewIndexEntry sortedIdxEntry = new NewIndexEntry(sortedIndexDescriptor, "PUBLIC");
-        NewIndexEntry hashIdxEntry = new NewIndexEntry(hashIndexDescriptor, "PUBLIC");
+        NewIndexEntry sortedIdxEntry = new NewIndexEntry(sortedIndexDescriptor);
+        NewIndexEntry hashIdxEntry = new NewIndexEntry(hashIndexDescriptor);
 
         VersionedUpdate update = newVersionedUpdate(sortedIdxEntry, hashIdxEntry);
 
@@ -323,10 +328,10 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
         List<CatalogTableColumnDescriptor> columns = List.of(col1, col2, col3, col4);
 
-        NewTableEntry entry1 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), null), "PUBLIC");
-        NewTableEntry entry2 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of()), "PUBLIC");
-        NewTableEntry entry3 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c2")), "PUBLIC");
-        NewTableEntry entry4 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c1")), "PUBLIC");
+        NewTableEntry entry1 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), null));
+        NewTableEntry entry2 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of()));
+        NewTableEntry entry3 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c2")));
+        NewTableEntry entry4 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c1")));
 
         VersionedUpdate update = newVersionedUpdate(entry1, entry2, entry3, entry4);
         VersionedUpdate deserialized = serialize(update);
@@ -342,12 +347,12 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c2", null);
 
         CatalogSystemViewDescriptor nodeDesc =
-                new CatalogSystemViewDescriptor(1, "view1", List.of(col1, col2), SystemViewType.NODE);
+                new CatalogSystemViewDescriptor(1, 2, "view1", List.of(col1, col2), SystemViewType.NODE);
         CatalogSystemViewDescriptor clusterDesc =
-                new CatalogSystemViewDescriptor(1, "view1", List.of(col1, col2), SystemViewType.CLUSTER);
+                new CatalogSystemViewDescriptor(1, 2, "view1", List.of(col1, col2), SystemViewType.CLUSTER);
 
-        NewSystemViewEntry nodeEntry = new NewSystemViewEntry(nodeDesc, "PUBLIC");
-        NewSystemViewEntry clusterEntry = new NewSystemViewEntry(clusterDesc, "PUBLIC");
+        NewSystemViewEntry nodeEntry = new NewSystemViewEntry(nodeDesc);
+        NewSystemViewEntry clusterEntry = new NewSystemViewEntry(clusterDesc);
 
         VersionedUpdate update = newVersionedUpdate(nodeEntry, clusterEntry);
 
@@ -371,8 +376,8 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         };
 
         CatalogSystemViewDescriptor[] views = {
-                new CatalogSystemViewDescriptor(1, "view1", columns, SystemViewType.NODE),
-                new CatalogSystemViewDescriptor(1, "view2", columns, SystemViewType.CLUSTER)
+                new CatalogSystemViewDescriptor(1, 2, "view1", columns, SystemViewType.NODE),
+                new CatalogSystemViewDescriptor(1, 2, "view2", columns, SystemViewType.CLUSTER)
         };
 
         CatalogStorageProfilesDescriptor profiles =

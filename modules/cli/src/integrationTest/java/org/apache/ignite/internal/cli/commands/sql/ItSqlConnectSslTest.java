@@ -62,12 +62,13 @@ class ItSqlConnectSslTest extends CliSqlConnectCommandTestBase {
         // Given connected state
         execute("connect");
 
+        assertOutputIs("Connected to " + NODE_URL + System.lineSeparator());
+
         // When
         execute("sql", "select * from person");
 
         // Then the query is failed
         assertAll(
-                () -> assertOutputIs("Connected to " + NODE_URL + System.lineSeparator()),
                 () -> assertErrOutputContains("Connection failed"),
                 () -> assertErrOutputContains("Handshake error")
         );
