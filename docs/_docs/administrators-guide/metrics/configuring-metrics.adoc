@@ -1,0 +1,71 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Configuring Metrics
+
+Metrics collection might affect the performance of an application. So, by default all metric sources are disabled.
+
+== Metrics Management
+
+All metric management is performed through the link:ignite-cli-tool[Ignite CLI tool].
+
+=== Checking Metric Sources and Enabled Metrics
+
+The Ignite CLI tool can list all available metric sources:
+
+[source, bash]
+----
+node metric source list
+----
+
+This command lists all metric sources. To check the list of metrics, enable the metric source you need and then use the following command:
+
+[source, bash]
+----
+node metric list
+----
+
+This command will return the list of all currently available metrics, organized with their exporters.
+
+=== Enabling Metric Sources
+
+Metric sources are enabled on per-node basis. You can specify the node interact with by using the `-u` parameter to specify node URL or `-n` parameter to specify node name. For example, here is how you can enable `jvm` metric source:
+
+[source, bash]
+----
+node metric source enable -n=defaultNode jvm
+----
+
+=== Disabling Metric Sources
+
+Metric sources are also disabled on per-node basis. You can specify the node interact with by using the `-u` parameter to specify node URL or `-n` parameter to specify node name. For example, here is how you can enable `jvm` metric source:
+
+[source, bash]
+----
+node metric source disable -n=defaultNode jvm
+----
+
+== Accessing Metrics
+
+// Might add about  -Dcom.sun.management.jmxremote.port=1099 as a way to hard link port later
+
+You can work with metrics by using any external tool. To access the metrics, you need to enable the jmx exporter in cluster configuration:
+
+----
+сluster config update metrics.exporters.jmx.exporterName=jmx
+----
+
+After you do, monitoring tools will be able to collect enabled metrics from the node:
+
+image::images/jmc-metrics.png[]

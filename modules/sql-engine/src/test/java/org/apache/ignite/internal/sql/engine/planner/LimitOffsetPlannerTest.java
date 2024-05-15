@@ -193,6 +193,55 @@ public class LimitOffsetPlannerTest extends AbstractPlannerTest {
                     .and(hasChildThat(isInstanceOf(IgniteExchange.class)).negate()));
     }
 
+    @Test
+    public void testNestedOffset() throws Exception {
+        // Tests for planner for limit/sort in nested subqueries
+        // See bug https://issues.apache.org/jira/browse/IGNITE-21946
+
+        TableBuilder builder = TestBuilders.table()
+                .name("TEST")
+                .addColumn("A", NativeTypes.INT32)
+                .size(ROW_CNT)
+                .distribution(IgniteDistributions.random());
+
+        IgniteSchema publicSchema = createSchema(builder.build());
+
+        assertPlan("SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2)", publicSchema,
+                isInstanceOf(IgniteLimit.class)
+                        .and(s -> doubleFromRex(s.offset(), -1) == 2.0)
+                        .and(input(isInstanceOf(IgniteExchange.class))
+                                .and(hasChildThat(isInstanceOf(IgniteSort.class)
+                                ))));
+
+        assertPlan("SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2) t(a) UNION ALL SELECT a FROM test",
+                publicSchema, isInstanceOf(IgniteUnionAll.class)
+                        .and(hasChildThat(isInstanceOf(IgniteLimit.class)
+                                .and(s -> doubleFromRex(s.offset(), -1) == 2.0)
+                                .and(input(isInstanceOf(IgniteExchange.class))
+                                        .and(hasChildThat(isInstanceOf(IgniteSort.class)
+                                                .and(s -> s.offset == null)))))
+                        )
+                        .and(hasChildThat(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteTableScan.class))))
+                        ));
+
+        assertPlan("SELECT a FROM (SELECT a FROM test ORDER BY a OFFSET 2) t(a) UNION ALL SELECT a FROM test ORDER BY a",
+                publicSchema, isInstanceOf(IgniteSort.class)
+                        .and(s -> s.offset == null && s.fetch == null)
+                        .and(hasChildThat(isInstanceOf(IgniteUnionAll.class)
+                                .and(hasChildThat(isInstanceOf(IgniteLimit.class)
+                                        .and(s -> doubleFromRex(s.offset(), -1) == 2.0)
+                                        .and(input(isInstanceOf(IgniteExchange.class))
+                                                .and(hasChildThat(isInstanceOf(IgniteSort.class)
+                                                        .and(s -> s.offset == null)))))
+                                )
+                                .and(hasChildThat(isInstanceOf(IgniteExchange.class)
+                                        .and(input(isInstanceOf(IgniteTableScan.class))))
+                                )
+                        ))
+        );
+    }
+
     /**
      * Creates PUBLIC schema with one TEST table.
      */

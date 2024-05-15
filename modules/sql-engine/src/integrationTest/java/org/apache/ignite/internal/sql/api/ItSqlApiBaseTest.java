@@ -29,6 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -38,7 +40,8 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
+import org.apache.ignite.internal.sql.ColumnMetadataImpl;
+import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Common;
@@ -56,6 +59,7 @@ import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -838,6 +842,28 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         ResultProcessor result = execute(sql, "SELECT step FROM test");
         assertEquals(1, result.result().size());
         assertEquals(1, result.result().get(0).intValue(0));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "UTC", "Europe/Athens", "America/New_York", "Asia/Tokyo"})
+    public void testTimeZoneId(String timeZoneId) {
+        ZoneId zoneId = timeZoneId.isEmpty() ? ZoneId.systemDefault() : ZoneId.of(timeZoneId);
+
+        StatementBuilder builder = igniteSql().statementBuilder()
+                .query("SELECT CURRENT_TIMESTAMP")
+                .timeZoneId(zoneId);
+
+        ResultSet<SqlRow> resultSet = igniteSql().execute(null, builder.build());
+        SqlRow row = resultSet.next();
+
+        LocalDateTime ts = row.value(0);
+        assertNotNull(ts);
+
+        float tsMillis = ts.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        float nowMillis = LocalDateTime.now(zoneId).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        float deltaMillis = 5000;
+
+        assertEquals(nowMillis, tsMillis, deltaMillis);
     }
 
     protected ResultSet<SqlRow> executeForRead(IgniteSql sql, String query, Object... args) {

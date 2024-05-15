@@ -18,6 +18,7 @@
 #include "ignite/odbc/utility.h"
 #include "ignite/odbc/system/odbc_constants.h"
 
+#include <algorithm>
 #include <cstring>
 
 namespace ignite {
