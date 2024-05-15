@@ -26,6 +26,8 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Class for creating {@link NetworkMessageHandler} instances that share some common logic.
@@ -61,28 +63,30 @@ public class CmgMessageHandlerFactory {
     public NetworkMessageHandler wrapHandler(NetworkMessageHandler handler) {
         return (message, sender, correlationId) -> {
             if (!busyLock.enterBusy()) {
-                if (correlationId != null) {
-                    clusterService.messagingService().respond(sender, initFailed(new NodeStoppingException()), correlationId);
-                }
-
+                onError(sender, correlationId, new NodeStoppingException());
                 return;
             }
 
             try {
                 handler.onReceived(message, sender, correlationId);
             } catch (Exception e) {
-                LOG.debug("CMG message handling failed", e);
-
-                if (correlationId != null) {
-                    clusterService.messagingService().respond(sender, initFailed(e), correlationId);
-                }
+                onError(sender, correlationId, e);
             } finally {
                 busyLock.leaveBusy();
             }
         };
     }
 
-    private NetworkMessage initFailed(Exception e) {
-        return msgFactory.initErrorMessage().cause(e.getMessage()).build();
+    /**
+     * Handles the response in case of an error during the handler code.
+     * The arguments are parse with the same logic as in {@link #wrapHandler(NetworkMessageHandler)}.
+     */
+    public void onError(ClusterNode sender, @Nullable Long correlationId, Throwable e) {
+        LOG.debug("CMG message handling failed", e);
+
+        if (correlationId != null) {
+            NetworkMessage msg = msgFactory.initErrorMessage().cause(e.getMessage()).build();
+            clusterService.messagingService().respond(sender, msg, correlationId);
+        }
     }
 }
