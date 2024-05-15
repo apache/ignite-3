@@ -64,12 +64,12 @@ class ClientTaskExecution<R> implements TaskExecution<R> {
 
         resultAsync = reqFuture
                 .thenCompose(SubmitTaskResult::notificationFuture)
-                .thenApply(r -> {
+                .thenApply(payloadInputChannel -> {
                     // Notifications require explicit input close.
-                    try (r) {
-                        R result = (R) r.in().unpackObjectFromBinaryTuple();
-                        statusFuture.complete(unpackJobStatus(r));
-                        statusesFutures.complete(unpackJobStatuses(r));
+                    try (payloadInputChannel) {
+                        R result = (R) payloadInputChannel.in().unpackObjectFromBinaryTuple();
+                        statusFuture.complete(unpackJobStatus(payloadInputChannel));
+                        statusesFutures.complete(unpackJobStatuses(payloadInputChannel));
                         return result;
                     }
                 });

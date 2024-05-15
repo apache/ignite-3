@@ -82,6 +82,8 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.hamcrest.Matcher;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -681,7 +683,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExecuteMapReduce() throws Exception {
         TaskExecution<String> execution = client().compute().submitMapReduce(List.of(), MapReduceNodeNameTask.class.getName());
 
-        assertThat(execution.resultAsync(), willBe(allOf(containsString("itcct_n_3344"), containsString("itcct_n_3345"))));
+        List<Matcher<? super String>> nodeNames = sortedNodes().stream()
+                .map(ClusterNode::name)
+                .map(Matchers::containsString)
+                .collect(Collectors.toList());
+        assertThat(execution.resultAsync(), willBe(allOf(nodeNames)));
 
         assertThat(execution.statusAsync(), willBe(jobStatusWithState(COMPLETED)));
         assertThat(execution.statusesAsync(), willBe(everyItem(jobStatusWithState(COMPLETED))));
