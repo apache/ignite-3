@@ -46,9 +46,9 @@ public class ColumnFamily {
     /** Column family handle. */
     private final ColumnFamilyHandle cfHandle;
 
-    /** Column family options, if exclusive to this CF. */
+    /** Private ColumnFamilyOptions owned exclusively by this CF, if any. */
     @Nullable
-    private final ColumnFamilyOptions options;
+    private final ColumnFamilyOptions privateCfOptions;
 
     /**
      * Constructor.
@@ -56,24 +56,25 @@ public class ColumnFamily {
      * @param db Db.
      * @param handle Column family handle.
      */
-    private ColumnFamily(RocksDB db, ColumnFamilyHandle handle, @Nullable ColumnFamilyOptions options) throws RocksDBException {
+    private ColumnFamily(RocksDB db, ColumnFamilyHandle handle, @Nullable ColumnFamilyOptions privateCfOptions) throws RocksDBException {
         this.db = db;
         this.cfHandle = handle;
         cfNameBytes = cfHandle.getName();
         this.cfName = new String(cfNameBytes, StandardCharsets.UTF_8);
-        this.options = options;
+        this.privateCfOptions = privateCfOptions;
     }
 
     /**
      * Creates a new Column Family in the provided RocksDB instance.
-     * <b>Warning!!</b> This method tracks will track the options in the ColumnFamilyDescriptor to close them on {@link #destroy()}.
+     * <b>Warning!!</b> This method assumes that the ColumnFamilyOptions in the descriptor are exclusive to this ColumnFamily, as such,
+     * {@link #destroy()} will close them.
      *
      * @param db RocksDB instance.
      * @param descriptor Column Family descriptor.
      * @return new Column Family.
      * @throws RocksDBException If an error has occurred during creation.
      */
-    public static ColumnFamily create(RocksDB db, ColumnFamilyDescriptor descriptor) throws RocksDBException {
+    public static ColumnFamily withPrivateOptions(RocksDB db, ColumnFamilyDescriptor descriptor) throws RocksDBException {
         ColumnFamilyHandle cfHandle = db.createColumnFamily(descriptor);
 
         return new ColumnFamily(db, cfHandle, descriptor.getOptions());
@@ -102,8 +103,8 @@ public class ColumnFamily {
         db.destroyColumnFamilyHandle(cfHandle);
 
         // If we are tracking the options then we also close them.
-        if (this.options != null) {
-            options.close();
+        if (this.privateCfOptions != null) {
+            privateCfOptions.close();
         }
     }
 
@@ -221,13 +222,13 @@ public class ColumnFamily {
     }
 
     /**
-     * Returns the tracked options, if any.
+     * Returns the private column family options, if any.
      *
-     * @return The ColumnFamilyOptions, if they are tracked by this class.
+     * @return The ColumnFamilyOptions, if they are exclusive to this column family.
      */
     @Nullable
     public ColumnFamilyOptions options() {
-        return options;
+        return privateCfOptions;
     }
 
     /**

@@ -407,14 +407,13 @@ public final class SharedRocksDbInstance {
     }
 
     private ColumnFamily createSortedIndexCf(byte[] cfName) {
-        // TODO: CfOptions not closed!!!!
         ColumnFamilyOptions cfOptions = sortedIndexCfOptions(cfName);
         this.resources.add(0, cfOptions); // Added to the first position of the resources.
         ColumnFamilyDescriptor cfDescriptor = new ColumnFamilyDescriptor(cfName, cfOptions);
 
         ColumnFamily columnFamily;
         try {
-            columnFamily = ColumnFamily.create(db, cfDescriptor);
+            columnFamily = ColumnFamily.withPrivateOptions(db, cfDescriptor);
         } catch (RocksDBException e) {
             throw new StorageException("Failed to create new RocksDB column family: " + toStringName(cfName), e);
         }
