@@ -296,7 +296,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
         /** Counter of applied events. */
         int applied = 0;
 
-        /** Amount of applied batches */
+        /** Amount of applied batches. */
         int batchesApplied = 0;
 
         /** {@inheritDoc} */
@@ -307,7 +307,7 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
             if (endOfBatch) {
                 applied += batch.size();
 
-                batchesApplied ++;
+                batchesApplied++;
 
                 batch.clear();
             }
