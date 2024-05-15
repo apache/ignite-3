@@ -35,6 +35,7 @@ dependencies {
     implementation project(':ignite-affinity')
     implementation project(':ignite-catalog')
     implementation project(':ignite-raft-api')
+    implementation project(':ignite-raft')
 
     implementation libs.auto.service.annotations
     implementation libs.fastutil.core

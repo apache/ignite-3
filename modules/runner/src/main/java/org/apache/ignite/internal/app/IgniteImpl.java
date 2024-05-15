@@ -106,6 +106,7 @@ import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationSt
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
+import org.apache.ignite.internal.datareplication.DataReplicationManager;
 import org.apache.ignite.internal.deployunit.DeploymentManagerImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
@@ -358,6 +359,8 @@ public class IgniteImpl implements Ignite {
     private final IgniteDeployment deploymentManager;
 
     private final DistributionZoneManager distributionZoneManager;
+
+    private final DataReplicationManager dataReplicationManager;
 
     /** Creator for volatile {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} instances. */
     private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
@@ -693,6 +696,8 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 rebalanceScheduler
         );
+
+        dataReplicationManager = new DataReplicationManager();
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
 
@@ -1083,6 +1088,7 @@ public class IgniteImpl implements Ignite {
                                     schemaManager,
                                     volatileLogStorageFactoryCreator,
                                     outgoingSnapshotsManager,
+                                    dataReplicationManager,
                                     distributedTblMgr,
                                     disasterRecoveryManager,
                                     indexManager,
