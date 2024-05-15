@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
@@ -115,6 +114,7 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -888,7 +888,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private void createTable(String tableName) {
         TableTestUtils.createTable(
                 catalogManager,
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 tableName,
                 List.of(
@@ -900,7 +900,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     private void dropTable(String tableName) {
-        TableTestUtils.dropTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName);
+        TableTestUtils.dropTable(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
     }
 
     private Collection<CatalogTableDescriptor> allTableDescriptors() {

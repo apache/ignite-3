@@ -1,7 +1,7 @@
 # name: test/sql/set/test_intersect.test
 # description: INTERSECT [ALL] table operator.
 # feature: F302-02
-# [group] Set operations
+# group: [set]
 
 query I
 SELECT NULL INTERSECT SELECT NULL

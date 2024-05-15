@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.disaster;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
@@ -33,6 +32,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,7 +72,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         CompletableFuture<Void> restartPartitionsFuture = node.disasterRecoveryManager().restartPartitions(
                 Set.of(node.name()),
                 ZONE_NAME,
-                DEFAULT_SCHEMA_NAME + "." + TABLE_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME + "." + TABLE_NAME,
                 Set.of(partitionId)
         );
 

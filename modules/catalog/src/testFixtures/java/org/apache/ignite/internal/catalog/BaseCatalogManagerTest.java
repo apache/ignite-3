@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
@@ -54,6 +53,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -126,7 +126,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
             @Nullable List<String> indexColumns
     ) {
         return CreateHashIndexCommand.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .tableName(tableName)
                 .indexName(indexName)
                 .unique(uniq)
@@ -166,7 +166,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
             @Nullable List<CatalogColumnCollation> columnsCollations
     ) {
         return CreateSortedIndexCommand.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .tableName(tableName)
                 .indexName(indexName)
                 .unique(unique)
@@ -202,7 +202,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 .build();
 
         return CreateTableCommand.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .tableName(tableName)
                 .columns(columns)
                 .primaryKey(primaryKey)
@@ -236,14 +236,14 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     protected static CatalogCommand dropTableCommand(String tableName) {
         return DropTableCommand.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .tableName(tableName)
                 .build();
     }
 
     protected static CatalogCommand dropIndexCommand(String indexName) {
         return DropIndexCommand.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .indexName(indexName)
                 .build();
     }

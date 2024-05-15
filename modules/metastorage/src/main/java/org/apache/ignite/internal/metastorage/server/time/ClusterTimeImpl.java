@@ -32,6 +32,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
+import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetrics;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -42,7 +43,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Cluster time implementation with additional methods to adjust time and update safe time.
  */
-public class ClusterTimeImpl implements ClusterTime, ManuallyCloseable {
+public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterTimeImpl.class);
 
     private final String nodeName;
@@ -62,6 +63,11 @@ public class ClusterTimeImpl implements ClusterTime, ManuallyCloseable {
      * <p>Concurrent access is guarded by {@code this}.
      */
     private @Nullable SafeTimeScheduler safeTimeScheduler;
+
+    @Override
+    public long safeTimeLag() {
+        return clock.now().getPhysical() - safeTime.current().getPhysical();
+    }
 
     /** Action that issues a time sync command. */
     @FunctionalInterface

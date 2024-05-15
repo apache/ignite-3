@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Compute;
 using Ignite.Compute;
@@ -120,6 +121,38 @@ public class PartitionAwarenessTests
         await TestClientReceivesPartitionAssignmentUpdates(
             (view, _) => view.StreamDataAsync(new[] { 1 }.ToAsyncEnumerable()),
             ClientOp.StreamerBatchSend);
+
+    [Test]
+    public async Task TestDataStreamerReceivesPartitionAssignmentUpdatesWhileStreaming()
+    {
+        var producer = Channel.CreateUnbounded<int>();
+
+        using var client = await GetClient();
+        var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.GetRecordView<int>();
+
+        var streamerTask = recordView.StreamDataAsync(producer.Reader.ReadAllAsync(), new DataStreamerOptions { PageSize = 1 });
+        Func<ITransaction?, Task> action = async _ =>
+        {
+             await producer.Writer.WriteAsync(1);
+             TestUtils.WaitForCondition(
+                 () => new[] { _server1, _server2 }.SelectMany(x => x.ClientOps).Contains(ClientOp.StreamerBatchSend));
+        };
+
+        // Check default assignment.
+        await recordView.UpsertAsync(null, 1);
+        await AssertOpOnNode(action, ClientOp.StreamerBatchSend, _server2);
+
+        // Update assignment - first request receives update flag.
+        ReversePartitionAssignment();
+        await client.Tables.GetTablesAsync();
+
+        // Second request loads and uses new assignment.
+        await AssertOpOnNode(action, ClientOp.StreamerBatchSend, _server1, allowExtraOps: true);
+
+        // End streaming.
+        producer.Writer.Complete();
+        await streamerTask;
+    }
 
     [Test]
     [TestCaseSource(nameof(KeyNodeCases))]
@@ -427,7 +460,16 @@ public class PartitionAwarenessTests
         await recordView.UpsertAsync(null, 1);
         await AssertOpOnNode(tx => func(recordView, tx), op, _server2);
 
-        // Update assignment.
+        // Update assignment - first request receives update flag.
+        ReversePartitionAssignment();
+        await client.Tables.GetTablesAsync();
+
+        // Second request loads and uses new assignment.
+        await AssertOpOnNode(tx => func(recordView, tx), op, _server1, allowExtraOps: true);
+    }
+
+    private void ReversePartitionAssignment()
+    {
         var assignmentTimestamp = DateTime.UtcNow.Ticks;
 
         foreach (var server in new[] { _server1, _server2 })
@@ -436,12 +478,6 @@ public class PartitionAwarenessTests
             server.PartitionAssignment = server.PartitionAssignment.Reverse().ToArray();
             server.PartitionAssignmentTimestamp = assignmentTimestamp;
         }
-
-        // First request receives update flag.
-        await client.Tables.GetTablesAsync();
-
-        // Second request loads and uses new assignment.
-        await AssertOpOnNode(tx => func(recordView, tx), op, _server1, allowExtraOps: true);
     }
 
     private async Task<IIgniteClient> GetClient()

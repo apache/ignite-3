@@ -22,7 +22,6 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
@@ -60,6 +59,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -89,6 +89,7 @@ import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory
 import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -101,6 +102,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -227,10 +229,12 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
 
+        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> UUID.randomUUID().toString());
+
         lenient().doAnswer(invocationClose -> {
             Iif iif = invocationClose.getArgument(0);
 
-            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).build();
+            MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand().iif(iif).id(commandIdGenerator.newId()).build();
 
             return metaStorageService.run(multiInvokeCommand);
         }).when(metaStorageManager).invoke(any());
@@ -547,7 +551,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     private void createTable(String zoneName, String tableName) {
         TableTestUtils.createTable(
                 catalogManager,
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 zoneName,
                 tableName,
                 List.of(ColumnParams.builder().name("k1").type(STRING).length(100).build()),
