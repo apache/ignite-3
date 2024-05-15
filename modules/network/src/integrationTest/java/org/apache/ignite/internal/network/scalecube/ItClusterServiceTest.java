@@ -19,6 +19,8 @@ package org.apache.ignite.internal.network.scalecube;
 
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
@@ -37,7 +39,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
@@ -55,9 +56,9 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
 
         ClusterService service = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
 
-        service.start();
+        assertThat(service.startAsync(), willCompleteSuccessfully());
 
-        service.stop();
+        assertThat(service.stopAsync(), willCompleteSuccessfully());
 
         assertThat(service.isStopped(), is(true));
 
@@ -77,8 +78,8 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
         var addr2 = new NetworkAddress("localhost", 10001);
         ClusterService service1 = clusterService(testInfo, addr1.port(), new StaticNodeFinder(List.of(addr1, addr2)));
         ClusterService service2 = clusterService(testInfo, addr2.port(), new StaticNodeFinder(List.of(addr1, addr2)));
-        service1.start();
-        service2.start();
+        assertThat(service1.startAsync(), willCompleteSuccessfully());
+        assertThat(service2.startAsync(), willCompleteSuccessfully());
         assertTrue(waitForCondition(() -> service1.topologyService().allMembers().size() == 2, 1000));
         assertTrue(waitForCondition(() -> service2.topologyService().allMembers().size() == 2, 1000));
         try {
@@ -94,7 +95,7 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
             checkAllMeta(service1, Set.of(meta1, meta2));
             checkAllMeta(service2, Set.of(meta1, meta2));
         } finally {
-            IgniteUtils.closeAll(service1::stop, service2::stop);
+            assertThat(stopAsync(service1, service2), willCompleteSuccessfully());
         }
     }
 

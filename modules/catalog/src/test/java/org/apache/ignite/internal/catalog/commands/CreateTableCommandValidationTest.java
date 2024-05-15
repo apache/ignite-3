@@ -112,12 +112,31 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         builder = fillProperties(builder);
 
         builder.columns(List.of(
-                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.functionCall("function")).build(),
+                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.functionCall("gen_random_uuid")).build(),
                 ColumnParams.builder().name("D").type(INT32).defaultValue(DefaultValue.constant(1)).build()
 
         )).primaryKey(primaryKey("C", "D"));
 
         builder.build();
+    }
+
+    @Test
+    void unsupportedFunctionalDefault() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder);
+
+        builder.columns(List.of(
+                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.functionCall("function")).build(),
+                ColumnParams.builder().name("D").type(INT32).defaultValue(DefaultValue.constant(1)).build()
+
+        )).primaryKey(primaryKey("C", "D"));
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Functional default contains unsupported function: [col=C, functionName=function]"
+        );
     }
 
     @Test
@@ -301,6 +320,21 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         );
     }
 
+    @Test
+    void exceptionIsThrownIfZoneNeitherSpecifiedExplicitlyNorDefaultWasSet() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        Catalog catalog = emptyCatalog();
+
+        CatalogCommand command = fillProperties(builder).zone(null).build();
+
+        assertThrowsWithCause(
+                () -> command.get(catalog),
+                CatalogValidationException.class,
+                "The zone is not specified. Please specify zone explicitly or set default one."
+        );
+    }
+
     private static CreateTableCommandBuilder fillProperties(CreateTableCommandBuilder builder) {
         return builder
                 .schemaName(SCHEMA_NAME)
@@ -320,7 +354,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     void exceptionIsThrownIfSchemaNotExists() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = fillProperties(builder).schemaName(SCHEMA_NAME + "_UNK").build();
 
@@ -349,7 +383,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     void exceptionIsThrownIfZoneNotExists() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = fillProperties(builder).zone(ZONE_NAME + "_UNK").build();
 

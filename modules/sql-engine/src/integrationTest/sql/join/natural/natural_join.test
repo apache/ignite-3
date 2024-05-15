@@ -12,6 +12,8 @@ CREATE TABLE t1 (a INTEGER, b INTEGER)
 statement ok
 INSERT INTO t1 VALUES (1, 2)
 
+# https://issues.apache.org/jira/browse/IGNITE-22158
+# Let's amend both type for t2 table to BIGINT after resolve the ticket.
 statement ok
 CREATE TABLE t2 (a INTEGER, c INTEGER)
 

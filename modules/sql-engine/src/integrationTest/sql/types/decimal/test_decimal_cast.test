@@ -1,4 +1,4 @@
-# name: test/sql/types/decimal/test_decimal_cast.test_slow
+# name: test/sql/types/decimal/test_decimal_cast.test
 # description: Exhaustively test many decimal cast combinations
 # group: [decimal]
 

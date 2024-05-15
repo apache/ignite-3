@@ -810,7 +810,14 @@ public final class ReliableChannel implements AutoCloseable {
                             new IgniteClientConnectionException(CONNECTION_ERR, "Reconnect is not allowed due to applied throttling"));
                 }
 
-                chFut0 = chFactory.create(chCfg, connMgr, metrics).thenApply(ch -> {
+                CompletableFuture<ClientChannel> createFut = chFactory.create(
+                        chCfg,
+                        connMgr,
+                        metrics,
+                        ReliableChannel.this::onPartitionAssignmentChanged,
+                        ReliableChannel.this::onObservableTimestampReceived);
+
+                chFut0 = createFut.thenApply(ch -> {
                     var oldClusterId = clusterId.compareAndExchange(null, ch.protocolContext().clusterId());
 
                     if (oldClusterId != null && !oldClusterId.equals(ch.protocolContext().clusterId())) {
@@ -824,9 +831,6 @@ public final class ReliableChannel implements AutoCloseable {
                                 CLUSTER_ID_MISMATCH_ERR,
                                 "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + ch.protocolContext().clusterId());
                     }
-
-                    ch.addPartitionAssignmentChangeListener(ReliableChannel.this::onPartitionAssignmentChanged);
-                    ch.addObservableTimestampListener(ReliableChannel.this::onObservableTimestampReceived);
 
                     ClusterNode newNode = ch.protocolContext().clusterNode();
 

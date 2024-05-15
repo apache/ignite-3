@@ -14,25 +14,26 @@
 // limitations under the License.
 = Data Definition Language (DDL)
 
-This section walks you through all data definition language (DDL) commands supported by Apache Ignite 3.0.
+This section walks you through all data definition language (DDL) commands supported by Ignite 3.
 
 == CREATE TABLE
 
 Creates a new table.
 
+NOTE: This can also be done via the link:developers-guide/java-to-tables[Java API].
 
 [.diagram-container]
 Diagram(
-NonTerminal('CREATE'),
-NonTerminal('TABLE'),
-Optional('IF NOT EXISTS'),
-NonTerminal('table_name'),
-NonTerminal('('),
+Terminal('CREATE'),
+Terminal('TABLE'),
+Optional(Terminal('IF NOT EXISTS')),
+NonTerminal('table_name', {href:'./grammar-reference/#qualified_table_name'}),
+Terminal('('),
 Choice(1,
-NonTerminal('constraint'),
-NonTerminal('column_definition'),
-NonTerminal(',')),
-NonTerminal(')'),
+NonTerminal('constraint', {href:'./grammar-reference/#constraint'}),
+NonTerminal('column_definition', {href:'./grammar-reference/#column_definition'}),
+Terminal(',')),
+Terminal(')'),
 End({type:'complex'})
 )
 
@@ -41,33 +42,35 @@ Diagram(
 Start({type:'complex'}),
 Optional(
 Sequence(
-NonTerminal('COLOCATE'),
+Terminal('COLOCATE'),
 Optional('BY'),
-NonTerminal('column_list')
+NonTerminal('column_list', {href:'./grammar-reference/#column_list'})
 )
 ),
 Optional(
 Sequence(
-NonTerminal('WITH'),
-OneOrMore('param_name')
+Terminal('WITH'),
+OneOrMore (NonTerminal('parameter', {href:'./grammar-reference/#parameter'}), Terminal(','))
+)
+),
+Optional(
+Sequence(
+Terminal('EXPIRE'),
+Terminal('AT'),
+NonTerminal('expiry_column_name')
 )
 )
 )
 
-
-Parameters:
+Keywords and parameters:
 
 * `table_name` - name of the table. Can be schema-qualified.
-* `table_column` - name and type of a column to be created in the new table.
 * `IF NOT EXISTS` - create the table only if a table with the same name does not exist.
-* `COLOCATED BY` - colocation key. The key can be composite. Primary key must include colocation key. Was `affinity_key` in Ignite 2.x.
-* `WITH` - accepts the following additional parameters:
-
-** `Replicas` - sets the number of partition copies, including the master copy.
-** `Partitions` - sets the number of table partitions.
-** `PRIMARY_ZONE` - sets the link:distribution-zones[Distriburion Zone].
-** Other parameters, depending on the database engine.
-
+* `COLOCATE BY` - colocation key. The key can be composite. Primary key must include colocation key. Was `affinity_key` in Ignite 2.x.
+* `WITH` - accepts additional parameters; currently, accepts only:
+** `PRIMARY_ZONE` - sets the link:sql-reference/distribution-zones[Distribution Zone].
+* `EXPIRE AT` - allows specifying a column with a point in time when a record should be deleted. 
+* `expiry_column_name` - name of the column that contains values on which the record expiry is based.
 
 Examples:
 
@@ -80,115 +83,90 @@ CREATE TABLE IF NOT EXISTS Person (
   city_id int,
   name varchar,
   age int,
-  company varchar,
+  company varchar
 )
 ----
-//
-== ALTER TABLE
-//
-Modifies the structure of an existing table.
-//
-//[NOTE]
-//====
-//[discrete]
-//=== Scope of ALTER TABLE
-//Presently, Apache Ignite only supports addition and removal of columns.
-//====
-//
-//* *ALTER TABLE IF EXISTS table LOGGING*
-//
-//[source,sql]
-//----
-//ALTER TABLE [IF EXISTS] tableName {LOGGING}
-//----
-//
-//Parameters:
-//
-//- `IF EXISTS` - if applied to `TABLE`, do not throw an error if a table with the specified table name does not exist. If applied to `COLUMN`, do not throw an error if a column with the specified name does not exist.
-//- `qualified_table_name` - the name of the table.
-//- `LOGGING` - enables write-ahead logging for the table. The command is relevant only if Ignite link:https://ignite.apache.org/docs/3.0.0-alpha/persistence[persistence,window=_blank] is used.
-//
-//image::images/svg/alter_table_logging_bnf.svg[Embedded,opts=inline]
-//
-//* *ALTER TABLE IF EXISTS table NOLOGGING*
-//
-//[source,sql]
-//----
-//ALTER TABLE [IF EXISTS] tableName {NOLOGGING}
-//----
-//
-//Parameters:
-//
-//- `IF EXISTS` - if applied to `TABLE`, do not throw an error if a table with the specified table name does not exist. If applied to `COLUMN`, do not throw an error if a column with the specified name does not exist.
-//- `qualified_table_name` - the name of the table.
-//- `NOLOGGING` - disables write-ahead logging for the table. The command is relevant only if Ignite link:https://ignite.apache.org/docs/3.0.0-alpha/persistence[persistence,window=_blank] is used.
-//
-//image::images/svg/alter_table_no_logging_bnf.svg[Embedded,opts=inline]
-//
 
-==== ALTER TABLE IF EXISTS table ADD COLUMN (column1 int, column2 int)
+Creates a Person table that uses distribution zone `MYZONE`:
+
+[source,sql]
+----
+CREATE TABLE IF NOT EXISTS Person (
+  id int primary key,
+  city_id int,
+  name varchar,
+  age int,
+  company varchar
+) WITH PRIMARY_ZONE=`MYZONE`
+----
+
+Creates a Person table where the records expire at timestamps in the `ttl` column:
+
+[source,sql]
+----
+CREATE TABLE IF NOT EXISTS Person ( 
+  id int PRIMARY KEY,
+  name varchar,
+  ttl timestamp
+) EXPIRE AT ttl
+----
+
+Creates a Person table where the default value if the `city_id` column is 1:
+
+[source,sql]
+----
+CREATE TABLE IF NOT EXISTS Person (
+  id int primary key,
+  city_id int default 1,
+  name varchar,
+  age int,
+  company varchar
+)
+----
+
+Creates a Person table with the `duration` column automatically set a week into the future:
+
+[source,sql]
+----
+CREATE TABLE IF NOT EXISTS Person (
+  id int primary key,
+  city_id int,
+  name varchar,
+  age int,
+  company varchar,
+  duration timestamp default CURRENT_TIMESTAMP + INTERVAL '1' WEEK
+)
+----
+
+== ALTER TABLE
+
+Modifies the structure of an existing table.
+
+=== ALTER TABLE IF EXISTS table ADD COLUMN (column1 int, column2 int)
+
+Adds column(s) to an existing table.
 
 [.diagram-container]
 Diagram(
-  NonTerminal('ALTER TABLE'),
-  Optional('IF EXISTS'),
-  NonTerminal('qualified_table_name'),
-  NonTerminal('ADD'),
-  Optional('COLUMN'),
+  Terminal('ALTER TABLE'),
+  Optional(Terminal('IF EXISTS')),
+  NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+  Terminal('ADD'),
+  Optional(Terminal('COLUMN')),
 End({type:'complex'})
 )
 
 [.diagram-container]
 Diagram(
   Start({type:'complex'}),
-  NonTerminal('column_definition_or_list')
+  NonTerminal('column_definition_or_list', {href:'./grammar-reference/#column_definition_or_list'})
 )
 
+Keywords and parameters:
 
-Parameters:
-
-- `IF EXISTS` - if applied to `TABLE`, do not throw an error if a table with the specified table name does not exist. If applied to `COLUMN`, do not throw an error if a column with the specified name does not exist.
-- `qualified_table_name` - the name of the table.
-- `ADD` - adds a new column or several columns to a previously created table. Once a column is added, it can be accessed using link:sql-reference/dml[DML commands,window=_blank] and indexed with the CREATE INDEX statement.
-- `COLUMN` - name of the defined column.
-- `column_definition_or_list` - definition of the column to add to the table.
-
-
-
-==== ALTER TABLE IF EXISTS table DROP COLUMN (column1, column2 int)
-
-[.diagram-container]
-Diagram(
-NonTerminal('ALTER TABLE'),
-Optional('IF EXISTS'),
-NonTerminal('qualified_table_name'),
-NonTerminal('DROP'),
-Optional('COLUMN'),
-End({type:'complex'})
-)
-
-[.diagram-container]
-Diagram(
-Start({type:'complex'}),
-NonTerminal('column_list')
-)
-
-
-Parameters:
-
-- `IF EXISTS` - if applied to `TABLE`, do not throw an error if a table with the specified table name does not exist. If applied to `COLUMN`, do not throw an error if a column with the specified name does not exist.
-- `qualified_table_name` - the name of the table.
-- `DROP` - removes an existing column or multiple columns from a table. Once a column is removed, it cannot be accessed within queries. Consider the following notes and limitations:
-- `column_list` - the name of the list of columns to be removed.
-
-
-- If the column was indexed, the index has to be dropped manually in advance by using the 'DROP INDEX' command.
-- It is not possible to remove a column if it represents the whole value stored in the cluster. The limitation is relevant for primitive values.
-Ignite stores data in the form of key-value pairs and all the new columns will belong to the value. It's not possible to change a set of columns of the key (`PRIMARY KEY`).
-
-//Both DDL and DML commands targeting the same table are blocked for a short time until `ALTER TABLE` is in progress.
-
-Schema changes applied by this command are persisted on disk. Thus, the changes can survive full cluster restarts.
+* `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
+* `ADD` - adds a new column or several columns to a previously created table. Once a column is added, it can be accessed using link:sql-reference/dml[DML commands,window=_blank] and indexed with the CREATE INDEX statement.
+* `COLUMN` - name of the defined column.
 
 Examples:
 
@@ -213,6 +191,42 @@ Add several columns to the table at once:
 ALTER TABLE Region ADD COLUMN (code varchar, gdp double);
 ----
 
+=== ALTER TABLE IF EXISTS table DROP COLUMN (column1, column2 int)
+
+Removes column(s) from an existing table.
+
+[.diagram-container]
+Diagram(
+Terminal('ALTER TABLE'),
+Optional(Terminal('IF EXISTS')),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+Terminal('DROP'),
+Optional(Terminal('COLUMN')),
+End({type:'complex'})
+)
+
+[.diagram-container]
+Diagram(
+Start({type:'complex'}),
+NonTerminal('column_list', {href:'./grammar-reference/#column_list'})
+)
+
+Keywords and parameters:
+
+* `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
+* `DROP` - removes an existing column or multiple columns from a table. Once a column is removed, it cannot be accessed within queries. Consider the following notes and limitations:
++
+If the column was indexed, the index has to be dropped manually in advance by using the 'DROP INDEX' command.
+It is not possible to remove a column if it represents the whole value stored in the cluster. The limitation is relevant for primitive values.
+Ignite stores data in the form of key-value pairs and all the new columns will belong to the value. It's not possible to change a set of columns of the key (`PRIMARY KEY`).
++
+* `COLUMN` - name of the defined column.
+//Both DDL and DML commands targeting the same table are blocked for a short time until `ALTER TABLE` is in progress.
+
+Schema changes applied by this command are persisted on disk. Thus, the changes can survive full cluster restarts.
+
+Examples:
+
 Drop a column from the table:
 
 [source,sql]
@@ -234,35 +248,222 @@ Drop several columns from the table at once:
 ALTER TABLE Person DROP COLUMN (code, gdp);
 ----
 
-//Disable write-ahead logging:
-//
-//[source,sql]
-//----
-//ALTER TABLE Person NOLOGGING
-//----
+=== ALTER TABLE IF EXISTS table ALTER COLUMN column SET DATA TYPE
+
+Modifies column(s) in an existing table.
+
+[.diagram-container]
+Diagram(
+Terminal('ALTER TABLE'),
+Optional(Terminal('IF EXISTS')),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+Terminal('ALTER COLUMN'),
+NonTerminal('column_name', {href:'./grammar-reference/#column_name'}),
+End({type:'complex'})
+)
+
+
+[.diagram-container]
+Diagram(
+Start({type:'complex'}),
+Terminal('SET DATA TYPE'),
+NonTerminal('data_type'),
+NonTerminal('('),
+Optional(
+Sequence(
+Choice (0,'NOT NULL','NULLABLE')
+)
+)
+)
+
+Keywords and parameters:
+
+* `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
+* `ALTER COLUMN` - alter the defined column.
+* `SET DATA TYPE` - set data type of the defined column.
+* `data_type` - a valid link:sql-reference/data-types[data type]. If the data type supports arguments, you can specify them as well.
+
+Examples:
+
+Alter a column in the table:
+
+[source,sql]
+----
+ALTER TABLE Person ALTER COLUMN city varchar;
+----
+
+Alter several columns in the table at once:
+
+[source,sql]
+----
+ALTER TABLE Region ALTER COLUMN (code varchar, gdp double);
+----
+
+//The above examples need to be changed as they must show HOW the column(s) must be altered.
+
+==== Supported Transitions
+
+Not all data type transitions are supported. The limitations are listed below:
+
+* `FLOAT` can be transitioned to `DOUBLE`
+* `INT8`, `INT16` and `INT64` can be transitioned to `INT32`
+* `TYPE SCALE` change is forbidden
+* `TYPE PRECISION` increase is allowed for DECIMAL non PK column
+* `TYPE LENGTH` increase is allowed for STRING and BYTE_ARRAY non PK column
+
+Other transitions are not supported.
+
+Examples:
+
+Changes the possible range of IDs to BIGINT ranges:
+
+[source,sql]
+----
+ALTER TABLE cities ALTER COLUMN ID SET DATA TYPE BIGINT
+----
+
+Sets the length of a column text to 11:
+
+[source,sql]
+----
+ALTER TABLE cities ALTER COLUMN name SET DATA TYPE varchar(11)
+----
+
+=== ALTER TABLE IF EXISTS table ALTER COLUMN column SET NOT NULL
+
+[.diagram-container]
+Diagram(
+Terminal('ALTER TABLE'),
+Optional(Terminal('IF EXISTS')),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+Terminal('ALTER COLUMN'),
+NonTerminal('column_name', {href:'./grammar-reference/#column_name'}),
+End({type:'complex'})
+)
+
+
+[.diagram-container]
+Diagram(
+Start({type:'complex'}),
+Terminal('SET NOT NULL'),
+End({type:'simple'})
+)
+
+Keywords and parameters:
+
+* `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
+* `ALTER COLUMN` - alter the defined column.
+* `SET DATA TYPE` - set the defined column value to no a not-null value.
+
+==== Supported Transitions
+
+Not all data type transitions are supported. The limitations are listed below:
+
+* `NULLABLE` to `NOT NULL` transition is forbidden
+
+
+=== ALTER TABLE IF EXISTS table ALTER COLUMN column DROP NOT NULL
+
+[.diagram-container]
+Diagram(
+Terminal('ALTER TABLE'),
+Optional(Terminal('IF EXISTS')),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+Terminal('ALTER COLUMN'),
+NonTerminal('column_name', {href:'./grammar-reference/#column_name'}),
+End({type:'complex'})
+)
+
+
+[.diagram-container]
+Diagram(
+Start({type:'complex'}),
+Terminal('DROP NOT NULL'),
+End({type:'simple'})
+)
+
+Keywords and parameters:
+
+* `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
+* `ALTER COLUMN` - alter the defined column.
+* `DROP NOT NULL` - drop all not-null values.
+
+==== Supported Transitions
+
+Not all data type transitions are supported. The limitations are listed below:
+
+* `NOT NULL` to `NULLABLE` transition is allowed for any non-PK column
+
+=== ALTER TABLE IF EXISTS table ALTER COLUMN column SET DEFAULT
+
+[.diagram-container]
+Diagram(
+Terminal('ALTER TABLE'),
+Optional(Terminal('IF EXISTS')),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+Terminal('ALTER COLUMN'),
+NonTerminal('column_name', {href:'./grammar-reference/#column_name'}),
+End({type:'complex'})
+)
+
+
+[.diagram-container]
+Diagram(
+Start({type:'complex'}),
+Terminal('SET DEFAULT'),
+NonTerminal('default_value'),
+End({type:'simple'})
+)
+
+Keywords and parameters:
+
+* `IF NOT EXISTS` - do not throw an error if a table with the specified table name does not exist.
+* `ALTER COLUMN` - alter the defined column.
+* `SET DEFAULT` - set the defined column's default value to the provided one.
+* `default_value` - new default value for the column.
+
+=== ALTER TABLE IF EXISTS table ALTER COLUMN column DROP DEFAULT
+
+[.diagram-container]
+Diagram(
+Terminal('ALTER TABLE'),
+Optional(Terminal('IF EXISTS')),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
+Terminal('ALTER COLUMN'),
+NonTerminal('column_name', {href:'./grammar-reference/#column_name'}),
+End({type:'complex'})
+)
+
+
+[.diagram-container]
+Diagram(
+Start({type:'complex'}),
+Terminal('DROP DEFAULT'),
+End({type:'simple'})
+)
+
+Keywords and parameters:
+
+* `IF EXISTS` - do not throw an error if a table with the specified table name does not exist.
+* `ALTER COLUMN` - alter the defined column.
+* `DROP DEFAULT` - dropt the default value for the defined column.
 
 == DROP TABLE
 
 The `DROP TABLE` command drops an existing table.
 
+NOTE: This can also be done via the link:developers-guide/java-to-tables[Java API].
 
 [.diagram-container]
 Diagram(
-NonTerminal('DROP TABLE'),
-Optional('IF EXISTS'),
-NonTerminal('qualified_table_name')
+Terminal('DROP TABLE'),
+Optional(Terminal('IF EXISTS')),
+NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'})
 )
 
+Keywords and parameters:
 
-
-Parameters:
-
-- `IF EXISTS` - do not throw an error if a table with the same name does not exist.
-- `qualified_table_name` - the name of the table. Can be schema-qualified.
-
-
-//Both DDL and DML commands targeting the same table are blocked while the `DROP TABLE` is in progress.
-//Once the table is dropped, all pending commands will fail with appropriate errors.
+* `IF EXISTS` - do not throw an error if a table with the same name does not exist.
 
 Schema changes applied by this command are persisted on disk. Thus, the changes can survive full cluster restarts.
 
@@ -275,87 +476,100 @@ Drop Person table if the one exists:
 DROP TABLE IF EXISTS "Person";
 ----
 
-== DESCRIBE TABLE
-
-Returns information about the distribution zones of the table.
-
-[.diagram-container]
-Diagram(
-NonTerminal('DESCRIBE TABLE'),
-Optional('IF NOT EXISTS'),
-NonTerminal('qualified_table_name'),
-End({type:'complex'})
-)
-
-Parameters:
-
-- `IF EXISTS` - do not throw an error if a table with the same name does not exist.
-- `qualified_table_name` - the name of the table. Can be schema-qualified.
-
 == CREATE INDEX
 
 Creates a new index.
+
+NOTE: This can also be done via the link:developers-guide/java-to-tables[Java API].
+
+When you create a new index, it will start building only after all transactions started before the index creation had been completed. Index build will not start if there are any “hung“ transactions in the logical topology of the cluster.
+
+The index status, with the status reason description (e.g., PENDING - “Waiting for transaction ABC to complete”) is reflected in the system view.
+
 
 NOTE: The index cannot include the same column more than once.
 
 [.diagram-container]
 Diagram(
-  NonTerminal('CREATE INDEX'),
-  Optional('IF NOT EXISTS'),
+  Terminal('CREATE INDEX'),
+  Optional(Terminal('IF NOT EXISTS')),
   NonTerminal('name'),
-  NonTerminal('ON'),
-  NonTerminal('qualified_table_name'),
+  Terminal('ON'),
+  NonTerminal('qualified_table_name', {href:'./grammar-reference/#qualified_table_name'}),
   End({type:'complex'})
 )
 
 [.diagram-container]
 Diagram(
-  Start({type:'complex'}),
-  Optional(
-   Sequence(
-    NonTerminal('USING'),
-    Choice (0,'HASH','SORTED')
-   )
-  ),
-  Optional('column_definition')
+Start({type:'complex'}),
+Sequence(
+Choice (0,
+Sequence(
+Terminal('USING'),
+Choice (0,
+Sequence('TREE',NonTerminal ('sorted_column_list', {href:'./grammar-reference/#sorted_column_list'})),
+Sequence('HASH',NonTerminal ('column_list', {href:'./grammar-reference/#column_list'}))
+),
+),
+NonTerminal ('sorted_column_list', {href:'./grammar-reference/#sorted_column_list'})
+)),
+End({type:'simple'})
 )
 
 
-Parameters:
+Keywords and parameters:
 
-
-* `name` - name of the index.
-* `qualified_table_name` - name of the table to create the index on. Can be schema-qualified.
 * `IF NOT EXISTS` - create the index only if an index with the same name does not exist.
-* `USING` - specifies whether the command creates a sorted index or a hash index. Possible values: `HASH`, `SORTED`. Default is `SORTED`.
+* `name` - name of the index.
+* `ON` - create index on the defined table.
+* `USING TREE` -if specified, creates a tree index.
+* `USING HASH` - if specified, creates a hash index.
 
-
-//NOTE: Add image
 
 Examples:
 
-Create index Persons for Person table:
+Create an index `department_name_idx` for the Person table:
 
 [source,sql]
 ----
-CREATE INDEX IF NOT EXISTS Persons ON Person (column1)
+CREATE INDEX IF NOT EXISTS department_name_idx ON Person (department_id DESC, name ASC);
+----
+
+Create a hash index `department_name_idx` for the Person table:
+
+[source,sql]
+----
+CREATE INDEX name_surname_idx ON Person USING HASH (name, surname);
+----
+
+Create a tree index `department_city_idx` for the Person table:
+
+[source,sql]
+----
+CREATE INDEX department_city_idx ON Person USING TREE (department_id ASC, city_id DESC);
 ----
 
 == DROP INDEX
 
+Drops an index.
+
+NOTE: This can also be done via the link:developers-guide/java-to-tables[Java API].
+
+When you drop an index, it stays in the STOPPING status until all transactions started before the DROP INDEX command had been completed (even those that do not affect any of the tables for which the index is being dropped).
+Upon completion of all transactions described above, the space the dropped index had occupied is freed up only when LWM of the relevant partition becomes greater than the time when the index dropping had been activated.
+The index status, with the status reason description (e.g., PENDING - “Waiting for transaction ABC to complete”) is reflected in the system view.
+
 [.diagram-container]
 Diagram(
-NonTerminal('DROP INDEX'),
-Optional('IF EXISTS'),
+Terminal('DROP INDEX'),
+Optional(Terminal('IF EXISTS')),
 NonTerminal('index_name')
 )
 
-Parameters:
+Keywords and parameters:
 
-- `index_name` - the name of the index.
-- `IF EXISTS` - do not throw an error if an index with the specified name does not exist.
-
-
+* `index_name` - the name of the index.
+* `IF EXISTS` - do not throw an error if an index with the specified name does not exist.
 
 Examples:
 
@@ -366,153 +580,57 @@ Drop index if the one exists:
 DROP INDEX IF EXISTS Persons;
 ----
 
-== Grammar Reference
 
-=== column_definition_or_list
+== CREATE CACHE
 
-[.diagram-container]
-Diagram(
-Group(Sequence(
-Optional('('),
-Choice(0,Sequence(
-NonTerminal('column_name'),
-NonTerminal('data_type')),
-NonTerminal(',')
-),
-Optional(')')
-), 'column_definition_or_list')
-)
-
-
-Referenced by:
-
-* link:sql-reference/ddl#alter-table[ALTER TABLE]
-
-'''
-
-=== column_list
-
-
-[.diagram-container]
-Diagram(Group(Sequence(
-Optional('('),
-OneOrMore('column_name', ','),
-Optional(')')))
-)
-
-
-Referenced by:
-
-* link:sql-reference/ddl#alter-table[ALTER TABLE]
-
-'''
-
-=== constraint
-
-[.diagram-container]
-Diagram(Group(Sequence(
-Optional(Sequence(NonTerminal('Constraint'),NonTerminal('constraint_name')
-)),
-NonTerminal('PRIMARY KEY'),
-NonTerminal('('),
-OneOrMore('column_name', ','),
-NonTerminal(')')
-),'constraint')
-)
-
-
-Referenced by:
-
-* link:sql-reference/ddl#create-table[CREATE TABLE]
-
-'''
-
-=== qualified_table_name
-
-[.diagram-container]
-Diagram(Group(Sequence(
-Optional(Sequence(NonTerminal('schema'),NonTerminal('.')
-),),
-NonTerminal('table_name')
-),'qualified_table_name')
-)
-
-Referenced by:
-
-* link:sql-reference/ddl#сreate-table[CREATE TABLE]
-* link:sql-reference/ddl#alter-table[ALTER TABLE]
-* link:sql-reference/ddl#drop-table[DROP TABLE]
-
-'''
-
-=== column_definition
-//NOTE: Replace code with image
+Creates a new link:ddl.adoc/developers-guide/cache[cache].
 
 [.diagram-container]
 Diagram(
-Group(Sequence(
-NonTerminal('column_name'),
-NonTerminal('DATA TYPE'),
-Optional(Sequence(Optional('NOT'),NonTerminal('NULL')))
-), 'column_definition'),
+Terminal('CREATE'),
+Terminal('CACHE'),
+Optional(Terminal('IF NOT EXISTS')),
+NonTerminal('table_name', {href:'./grammar-reference/#qualified_table_name'}),
+Terminal('('),
+Choice(1,
+NonTerminal('constraint', {href:'./grammar-reference/#constraint'}),
+NonTerminal('column_definition', {href:'./grammar-reference/#column_definition'}),
+Terminal(',')),
+Terminal(')'),
 End({type:'complex'})
 )
 
 [.diagram-container]
 Diagram(
 Start({type:'complex'}),
-Group(Sequence(
-Optional(Sequence(NonTerminal('DEFAULT'), NonTerminal('literal_value'))),
-NonTerminal('PRIMARY KEY')
-), 'column_definition')
+Optional(
+Sequence(
+Terminal('COLOCATE'),
+Optional('BY'),
+NonTerminal('column_list', {href:'./grammar-reference/#column_list'})
+)
+),
+Optional(
+Sequence(
+Terminal('WITH'),
+OneOrMore (NonTerminal('parameter', {href:'./grammar-reference/#parameter'}), Terminal(','))
+)
+),
+Optional(
+Sequence(
+Terminal('EXPIRE'),
+Terminal('AT'),
+NonTerminal('expiry_column_name')
+)
+)
 )
 
+Keywords and parameters:
 
-Parameters:
-
-* `ASC` or `DESC` - specifies that the column should be sorted in an ascending or descending order respectively.
-* `NULLS` - specifies whether null values will be at the start or at the end of the index. Possible values: `FIRST`, `LAST`.
-
-Referenced by:
-
-* link:sql-reference/ddl#сreate-index[CREATE INDEX]
-
-'''
-
-=== tableColumn
-//NOTE: Replace code with image
-
-
-[.diagram-container]
-Diagram(Group(Sequence(
-NonTerminal('columnName'),
-NonTerminal('columnType'),
-Optional(Sequence(Optional('NOT'),NonTerminal('NULL')
-),),
-Optional('DEFAULT')
-),'tableColumn')
-)
-
-Parameters:
-
-* `[NOT] NULL` - specifies that values in the column always contain null or not null values.
-* `DEFAULT` - specifies a default value for the column. You can specify a constant value, or use a link:sql-reference/ddl#system-functions[system function] to generate a value.
-
-'''
-
-== System Functions
-
-=== gen_random_uuid
-
-This function generates a random UUID value each time it is called.
-
-Example:
-
-[source,sql]
-----
-CREATE TABLE t (id varchar default gen_random_uuid primary key, val int)
-----
-
-Referenced by:
-
-* link:sql-reference/ddl#create-table[CREATE TABLE]
+* `cache_name` - name of the cache. Can be schema-qualified.
+* `IF NOT EXISTS` - create the cache only if a cache with the same name does not exist.
+* `COLOCATE BY` - colocation key. The key can be composite. Primary key must include colocation key. Was `affinity_key` in Ignite 2.x.
+* `WITH` - accepts additional parameters; currently, accepts only:
+** `PRIMARY_ZONE` - sets the link:sql-reference/distribution-zones[Distribution Zone]. The selected distribution zone must use `aimem` storage engine.
+* `EXPIRE AT` - allows specifying a column with a point in time when a record should be deleted.
+* `expiry_column_name` - name of the column that contains values on which the record expiry is based.

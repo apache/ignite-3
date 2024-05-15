@@ -14,7 +14,7 @@
 // limitations under the License.
 = Data Manipulation Language (DML)
 
-This section walks you through all data manipulation language (DML) commands supported by Apache Ignite 3.0.
+This section walks you through all data manipulation language (DML) commands supported by Ignite 3.
 
 WARNING: Currently, `WITH` and `MERGE` commands are not supported.
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 
 /**
@@ -36,5 +37,7 @@ public interface ClientChannelFactory {
     CompletableFuture<ClientChannel> create(
             ClientChannelConfiguration cfg,
             ClientConnectionMultiplexer multiplexer,
-            ClientMetricSource metrics);
+            ClientMetricSource metrics,
+            Consumer<Long> assignmentChangeListener,
+            Consumer<Long> observableTimestampListener);
 }

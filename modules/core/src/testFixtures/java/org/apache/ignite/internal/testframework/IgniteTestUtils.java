@@ -802,7 +802,7 @@ public final class IgniteTestUtils {
      * @return A result of the stage.
      */
     @SuppressWarnings("UnusedReturnValue")
-    public static <T> @Nullable T await(CompletionStage<T> stage, long timeout, TimeUnit unit) {
+    public static <T> T await(CompletionStage<T> stage, long timeout, TimeUnit unit) {
         try {
             return stage.toCompletableFuture().get(timeout, unit);
         } catch (Throwable e) {
@@ -821,9 +821,7 @@ public final class IgniteTestUtils {
             sneakyThrow(original);
         }
 
-        assert false;
-
-        return null;
+        throw new AssertionError("Should not get here");
     }
 
     /**
@@ -834,7 +832,7 @@ public final class IgniteTestUtils {
      * @return A result of the stage.
      */
     @SuppressWarnings("UnusedReturnValue")
-    public static <T> @Nullable T await(CompletionStage<T> stage) {
+    public static <T> T await(CompletionStage<T> stage) {
         return await(stage, TIMEOUT_SEC, TimeUnit.SECONDS);
     }
 

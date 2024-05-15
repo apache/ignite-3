@@ -28,6 +28,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.PartitionManager;
 
 /**
  * Wrapper around {@link Table} that maintains public API invariants relating to threading.
@@ -51,6 +52,11 @@ class PublicApiThreadingTable implements Table, Wrapper {
     @Override
     public String name() {
         return table.name();
+    }
+
+    @Override
+    public PartitionManager partitionManager() {
+        return table.partitionManager();
     }
 
     @Override

@@ -99,7 +99,7 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         inBusyLock(busyLock, () -> {
             if (!startGuard.compareAndSet(false, true)) {
                 throw new IllegalStateException("System view manager cannot be started twice");
@@ -117,8 +117,7 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
                     .map(SystemViewUtils::toSystemViewCreateCommand)
                     .collect(Collectors.toList());
 
-            catalogManager.execute(commands).whenComplete(
-                    (r, t) -> {
+            catalogManager.catalogReadyFuture(1).thenCompose((x) -> catalogManager.execute(commands)).whenComplete((r, t) -> {
                         viewsRegistrationFuture.complete(null);
 
                         if (t != null) {
@@ -134,14 +133,16 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         viewsRegistrationFuture.completeExceptionally(new NodeStoppingException());
 
         busyLock.block();
+
+        return nullCompletedFuture();
     }
 
     @Override

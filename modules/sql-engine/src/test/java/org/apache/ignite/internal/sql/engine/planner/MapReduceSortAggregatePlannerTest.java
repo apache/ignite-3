@@ -260,7 +260,8 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
      */
     @Test
     public void noSortAppendingWithCorrectCollation() throws Exception {
-        String[] additionalRulesToDisable = {"NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "CorrelateToNestedLoopRule"};
+        String[] additionalRulesToDisable = {"NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "CorrelateToNestedLoopRule",
+                "HashJoinConverter"};
 
         assertPlan(TestCase.CASE_16,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)

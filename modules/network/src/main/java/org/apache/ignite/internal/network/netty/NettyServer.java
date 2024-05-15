@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.netty;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Network.PORT_IN_USE_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -41,6 +42,7 @@ import org.apache.ignite.internal.network.serialization.PerSessionSerializationS
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -151,12 +153,10 @@ public class NettyServer {
                 } else if (future.isCancelled()) {
                     bindFuture.cancel(true);
                 } else {
-                    bindFuture.completeExceptionally(
-                            new IllegalStateException(address.isEmpty()
-                                    ? "Port " + port + " is not available."
-                                    : String.format("Address %s:%d is not available", address, port)
-                            )
-                    );
+                    String errorMessage = address.isEmpty()
+                            ? "Port " + port + " is not available."
+                            : String.format("Address %s:%d is not available", address, port);
+                    bindFuture.completeExceptionally(new IgniteException(PORT_IN_USE_ERR, errorMessage, future.cause()));
                 }
             });
 

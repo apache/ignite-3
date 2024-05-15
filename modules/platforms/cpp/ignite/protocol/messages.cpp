@@ -69,6 +69,8 @@ handshake_response parse_handshake_response(bytes_view message) {
     res.context.set_cluster_id(reader.read_uuid());
     res.context.set_cluster_name(reader.read_string());
 
+    res.observable_timestamp = reader.read_int64();
+
     auto dbms_ver_major = reader.read_uint8();
     auto dbms_ver_minor = reader.read_uint8();
     auto dbms_ver_maintenance = reader.read_uint8();

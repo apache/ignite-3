@@ -43,6 +43,7 @@ public class TxStateMeta implements TransactionMeta {
 
     private final Long initialVacuumObservationTimestamp;
 
+    @Nullable
     private final Long cleanupCompletionTimestamp;
 
     /**
@@ -69,6 +70,7 @@ public class TxStateMeta implements TransactionMeta {
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition replication group id.
      * @param commitTimestamp Commit timestamp.
+     * @param initialVacuumObservationTimestamp Initial vacuum observation timestamp.
      */
     public TxStateMeta(
             TxState txState,

@@ -74,6 +74,7 @@ import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
@@ -210,6 +211,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /**
      * Creates the execution services.
      *
+     * @param <RowT> Type of the sql row.
      * @param topSrvc Topology service.
      * @param msgSrvc Message service.
      * @param sqlSchemaManager Schema manager.
@@ -218,7 +220,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * @param handler Row handler.
      * @param mailboxRegistry Mailbox registry.
      * @param exchangeSrvc Exchange service.
-     * @param <RowT> Type of the sql row.
+     * @param mappingService Nodes mapping calculation service.
+     * @param tableRegistry Table registry.
+     * @param dependencyResolver Dependency resolver.
+     * @param tableFunctionRegistry Table function registry.
      * @return An execution service.
      */
     public static <RowT> ExecutionServiceImpl<RowT> create(
@@ -233,6 +238,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             MappingService mappingService,
             ExecutableTableRegistry tableRegistry,
             ExecutionDependencyResolver dependencyResolver,
+            TableFunctionRegistry tableFunctionRegistry,
             ClockService clockService,
             long shutdownTimeout
     ) {
@@ -250,7 +256,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         ctx,
                         mailboxRegistry,
                         exchangeSrvc,
-                        deps),
+                        deps,
+                        tableFunctionRegistry
+                        ),
                 clockService,
                 shutdownTimeout
         );

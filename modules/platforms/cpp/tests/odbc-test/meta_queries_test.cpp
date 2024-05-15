@@ -234,7 +234,7 @@ public:
         ret = exec_query(
             "insert into "
             "test_scale_precision(id, dec1, dec2, dec3, char1, char2, char3, vchar) "
-            "values (1, 12, 160.23, -1234.56789, 'TST', 'Lorem Ipsum', 'Some test value', 'Some test varchar')");
+            "values (1, 12, 160.23, -1234.56789, 'TST', 'Lorem Ipsum', 'C', 'Some test varchar')");
 
         ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
@@ -645,8 +645,8 @@ TEST_F(meta_queries_test, insert_too_long_value_ok) {
 
     SQLRETURN ret = SQLExecDirect(m_statement, insert_req, SQL_NTS);
 
-    if (!SQL_SUCCEEDED(ret))
-        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
+    if (SQL_SUCCEEDED(ret))
+        FAIL() << ("Exception need to be raised");
 }
 
 TEST_F(meta_queries_test, get_info_scroll_options) {

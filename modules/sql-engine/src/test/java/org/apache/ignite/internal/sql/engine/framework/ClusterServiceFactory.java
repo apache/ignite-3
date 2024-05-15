@@ -115,7 +115,7 @@ public class ClusterServiceFactory {
 
             /** {@inheritDoc} */
             @Override
-            public CompletableFuture<Void> start() {
+            public CompletableFuture<Void> startAsync() {
                 return nullCompletedFuture();
             }
         };

@@ -94,7 +94,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         changer.start();
 
         return nullCompletedFuture();
@@ -102,8 +102,10 @@ public class ConfigurationRegistry implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         changer.stop();
+
+        return nullCompletedFuture();
     }
 
     /**
@@ -116,7 +118,7 @@ public class ConfigurationRegistry implements IgniteComponent {
     /**
      * Initializes the configuration with the given source. This method should be used only for the initial setup of the configuration. The
      * configuration is initialized with the provided source only if the storage is empty, and it is saved along with the defaults. This
-     * method must be called before {@link #start()}.
+     * method must be called before {@link #startAsync()}.
      *
      * @param configurationSource the configuration source to initialize with.
      */

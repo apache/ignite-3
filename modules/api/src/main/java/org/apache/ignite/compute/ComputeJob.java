@@ -22,13 +22,12 @@ package org.apache.ignite.compute;
  *
  * @param <R> Job result type.
  */
-
 public interface ComputeJob<R> {
     /**
      * Executes the job on an Ignite node.
      *
-     * @param context  The execution context.
-     * @param args     Job arguments.
+     * @param context The execution context.
+     * @param args Job arguments.
      * @return Job result.
      */
     R execute(JobExecutionContext context, Object... args);

@@ -53,6 +53,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -128,12 +129,12 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             if (!placementDriverNodeNames.contains(nodeName)) {
                 var service = clusterServices.get(nodeName);
 
-                service.start();
+                assertThat(service.startAsync(), willCompleteSuccessfully());
 
                 servicesToClose.add(() -> {
                     service.beforeNodeStop();
 
-                    service.stop();
+                    assertThat(service.stopAsync(), willCompleteSuccessfully());
                 });
             }
         }
@@ -243,6 +244,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
             var raftManager = new Loza(
                     clusterService,
+                    new NoOpMetricManager(),
                     raftConfiguration,
                     workDir.resolve(nodeName + "_loza"),
                     nodeClock,
@@ -259,6 +261,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     storage,
                     nodeClock,
                     topologyAwareRaftGroupServiceFactory,
+                    new NoOpMetricManager(),
                     metaStorageConfiguration
             );
 
@@ -314,7 +317,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
     }
 
     @Test
-    public void prolongAfterActiveActorChanger() throws Exception {
+    public void prolongAfterActiveActorChanged() throws Exception {
         var acceptedNodeRef = new AtomicReference<String>();
 
         leaseGrantHandler = (msg, from, to) -> {

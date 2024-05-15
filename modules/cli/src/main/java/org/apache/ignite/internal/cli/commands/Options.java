@@ -283,6 +283,26 @@ public enum Options {
 
         public static final String PASSWORD_KEY = CliConfigKeys.Constants.BASIC_AUTHENTICATION_PASSWORD;
 
+        public static final String RECOVERY_PARTITION_GLOBAL_OPTION = "--global";
 
+        public static final String RECOVERY_PARTITION_GLOBAL_OPTION_DESC = "Get global partitions states";
+
+        public static final String RECOVERY_PARTITION_LOCAL_OPTION = "--local";
+
+        public static final String RECOVERY_PARTITION_LOCAL_OPTION_DESC = "Get local partition states";
+
+        public static final String RECOVERY_PARTITION_IDS_OPTION = "--partitions";
+
+        public static final String RECOVERY_PARTITION_IDS_OPTION_DESC = "IDs of partitions to get states. All partitions if not set";
+
+        public static final String RECOVERY_ZONE_NAMES_OPTION = "--zones";
+
+        public static final String RECOVERY_ZONE_NAMES_OPTION_DESC = "Names specifying zones to get partition states from. "
+                + "Case-sensitive, all zones if not set";
+
+        public static final String RECOVERY_NODE_NAMES_OPTION = "--nodes";
+
+        public static final String RECOVERY_NODE_NAMES_OPTION_DESC = "Names specifying nodes to get partition states from. "
+                + "Case-sensitive, all nodes if not set";
     }
 }

@@ -1,0 +1,79 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Available Metrics
+
+This topic lists all metrics available in Ignite 3.
+
+== client.handler
+
+The metrics provided by the client handler and related to active clients.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+|Metric name | Description
+
+|ConnectionsInitiated|Total initiated connections.
+|SessionsAccepted|Total accepted sessions.
+|SessionsActive|The number of currently active sessions.
+|SessionsRejected|Total sessions rejected due to handshake errors.
+|SessionsRejectedTls|Total sessions rejected due to TLS handshake errors.
+|SessionsRejectedTimeout|Total sessions rejected due to timeout.
+|BytesSent|Total bytes sent.
+|BytesReceived|Total bytes received.
+|RequestsActive|Requests in progress.
+|RequestsProcessed|Total processed requests.
+|RequestsFailed|Total failed requests.
+|TransactionsActive|Active transactions.
+|CursorsActive|Active cursors.
+|=======================================================================
+
+== jvm
+
+The metrics for Ignite Java Virtual Machine resource use.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+|Metric name | Description
+
+|memory.heap.Committed|Committed amount of heap memory.
+|memory.non-heap.Init|Initial amount of non-heap memory.
+|memory.heap.Max|Maximum amount of heap memory.
+|memory.heap.Used|Currently used amount of heap memory.
+|memory.non-heap.Max|Maximum amount of non-heap memory.
+|memory.non-heap.Committed|Committed amount of non-heap memory.
+|memory.non-heap.Used|Used amount of non-heap memory.
+|memory.heap.Init|Initial amount of heap memory.
+|=======================================================================
+
+== sql.client
+
+SQL client metrics.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+|Metric name | Description
+|OpenCursors | Number of currently open cursors.
+|=======================================================================
+
+== sql.plan.cache
+
+Metrics for SQL cache planning.
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+|Metric name | Description
+|Hits | Cache plan hits.
+|Misses | Cache plan misses.
+|=======================================================================

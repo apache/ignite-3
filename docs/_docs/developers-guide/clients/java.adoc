@@ -1,0 +1,144 @@
+// Licensed to the Apache Software Foundation (ASF) under one or more
+// contributor license agreements.  See the NOTICE file distributed with
+// this work for additional information regarding copyright ownership.
+// The ASF licenses this file to You under the Apache License, Version 2.0
+// (the "License"); you may not use this file except in compliance with
+// the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+= Java Client
+
+Ignite 3 clients connect to the cluster via a standard socket connection. Unlike Ignite 2.x, there is no separate Thin and Thick clients in Ignite 3. All clients are 'thin'.
+
+Clients do not become a part of the cluster topology, never hold any data, and are not used as a destination for compute calculations.
+
+== Getting Started
+=== Prerequisites
+
+To use Java thin client, Java 11 or newer is required.
+
+=== Installation
+
+Java client can be added to your project by using maven:
+
+[source, xml]
+----
+<dependency>
+    <groupId>org.apache.ignite</groupId>
+    <artifactId>ignite-client</artifactId>
+    <version>3.0.0-beta2</version>
+</dependency>
+----
+
+== Connecting to Cluster
+
+To initialize a client, use the `IgniteClient` class, and provide it with the configuration:
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+try (IgniteClient client = IgniteClient.builder()
+  .addresses("127.0.0.1:10800")
+  .build()
+) {
+  // Your code goes here
+}
+----
+--
+
+== Authentication
+
+To pass authentication information, use the `IgniteClientAuthenticator` class and pass it to `IgniteClient` builder:
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+IgniteClientAuthenticator auth = BasicAuthenticator.builder().username("myUser").password("myPassword").build()
+IgniteClient.builder()
+            .addresses("127.0.0.1:" + server.port())
+            .authenticator(authenticator)
+            .build();
+----
+--
+
+=== Limitations
+
+There are limitations to user types that can be used for such a mapping. Some limitations are common, and others are platform-specific due to the programming language used.
+
+- Only flat field structure is supported, meaning no nesting user objects. This is because Ignite tables, and therefore tuples have flat structure themselves;
+- Fields should be mapped to Ignite types;
+- All fields in user type should either be mapped to Table column or explicitly excluded;
+- All columns from Table should be mapped to some field in the user type;
+- *Java only*: Users should implement Mapper classes for user types for more flexibility;
+
+=== SQL Scripts
+
+The default API executes SQL statements one at a time. If you want to execute large SQL statements, pass them to the `executeScript()` method. These statements will be executed in order.
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+String script = ""
+                + "CREATE TABLE IF NOT EXISTS Person (id int primary key, city_id int, name varchar, age int, company varchar);"
+                + "INSERT INTO Person (1,3, John, 43, Sample)";
+
+ignite.sql().createSession().executeScript(script);
+----
+--
+
+NOTE: Execution of each statement is considered complete when the first page is ready to be returned. As a result, when working with large data sets, SELECT statement may be affected by later statements in the same script.
+
+
+== Client Metrics
+
+=== Java
+
+When running Java client, you need to enable metrics in the client builder:
+
+[source, java]
+----
+IgniteClient client = IgniteClient.builder()
+  .addresses("127.0.0.1:10800")
+  .metricsEnabled(true)
+  .build()
+
+----
+
+After that, client metrics will be available to any Java monitoring tool, for example link:https://www.oracle.com/java/technologies/jdk-mission-control.html[JDK Mission Control].
+
+==== Available Java Metrics
+
+[width="100%",cols="20%,80%",opts="header"]
+|=======================================================================
+|Metric name | Description
+
+|ConnectionsActive|The number of currently active connections.
+|ConnectionsEstablished|The number of established connections.
+|ConnectionsLost|The number of connections lost.
+|ConnectionsLostTimeout|The number of connections lost due to a timeout.
+|HandshakesFailed|The number of failed handshakes.
+|HandshakesFailedTimeout|The number of handshakes that failed due to a timeout.
+|RequestsActive|The number of currently active requests.
+|RequestsSent|The number of requests sent.
+|RequestsCompleted|The number of completed requests. Requests are completed once a response is received.
+|RequestsRetried|The number of request retries.
+|RequestsFailed|The number of failed requests.
+|BytesSent|The amount of bytes sent.
+|BytesReceived|The amount of bytes received.
+|StreamerBatchesSent|The number of data streamer batches sent.
+|StreamerItemsSent|The number of data streamer items sent.
+|StreamerBatchesActive|The number of existing data streamer batches.
+|StreamerItemsQueued|The number of queued data streamer items.
+
+|=======================================================================

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management.topology;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -93,7 +94,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        storage.start();
+        assertThat(storage.startAsync(), willCompleteSuccessfully());
 
         topology = new LogicalTopologyImpl(storage);
 
@@ -101,8 +102,8 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        storage.stop();
+    void tearDown() {
+        assertThat(storage.stopAsync(), willCompleteSuccessfully());
     }
 
     /**

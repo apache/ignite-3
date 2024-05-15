@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
@@ -29,6 +27,8 @@ import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -95,6 +95,7 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -358,10 +359,14 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             }
         };
 
-        assertThat(allOf(metaStorageManager.start(), metaStorageManager.recoveryFinishedFuture()), willCompleteSuccessfully());
-        assertThat(allOf(catalogManager.start(), sm.start(), tableManager.start()), willCompleteSuccessfully());
-        assertThat(((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
-        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        assertThat(
+                metaStorageManager.startAsync()
+                        .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
+                        .thenCompose(unused -> startAsync(catalogManager, sm, tableManager))
+                        .thenCompose(unused -> ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart())
+                        .thenCompose(unused -> metaStorageManager.deployWatches()),
+                willCompleteSuccessfully()
+        );
     }
 
     /**
@@ -370,14 +375,14 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private void stopComponents() throws Exception {
         if (tableManager != null) {
             tableManager.beforeNodeStop();
-            tableManager.stop();
+            assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
         }
 
-        IgniteUtils.closeAll(
-                dsm == null ? null : dsm::stop,
-                sm == null ? null : sm::stop,
-                catalogManager == null ? null : catalogManager::stop,
-                metaStorageManager == null ? null : metaStorageManager::stop,
+        closeAll(
+                dsm == null ? null : () -> assertThat(dsm.stopAsync(), willCompleteSuccessfully()),
+                sm == null ? null : () -> assertThat(sm.stopAsync(), willCompleteSuccessfully()),
+                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
+                metaStorageManager == null ? null : () -> assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully()),
                 partitionOperationsExecutor == null ? null
                         : () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
         );
@@ -405,7 +410,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 config
         );
 
-        assertThat(manager.start(), willCompleteSuccessfully());
+        assertThat(manager.startAsync(), willCompleteSuccessfully());
 
         return manager;
     }
@@ -413,7 +418,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private void createTable(String tableName) {
         TableTestUtils.createTable(
                 catalogManager,
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 tableName,
                 List.of(
@@ -429,15 +434,15 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     }
 
     private void dropTable(String tableName) {
-        TableTestUtils.dropTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName);
+        TableTestUtils.dropTable(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
     }
 
     private void createIndex(String tableName, String indexName) {
-        createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(INDEXED_COLUMN_NAME), false);
+        createHashIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(INDEXED_COLUMN_NAME), false);
     }
 
     private void dropIndex(String indexName) {
-        TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
+        TableTestUtils.dropIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, indexName);
     }
 
     private static PersistentPageMemoryDataStorageModule createDataStorageModule() {

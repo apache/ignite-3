@@ -30,6 +30,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -46,24 +47,23 @@ import org.rocksdb.RocksDB;
  */
 public class RocksDbStorageEngine implements StorageEngine {
     /** Engine name. */
-    // TODO: KKK db vs Db
-    public static final String ENGINE_NAME = "rocksDb";
+    public static final String ENGINE_NAME = "rocksdb";
 
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbStorageEngine.class);
 
     private static class RocksDbStorage implements ManuallyCloseable {
-        final RocksDbDataRegion dataRegion;
+        final RocksDbStorageProfile profile;
 
         final SharedRocksDbInstance rocksDbInstance;
 
-        RocksDbStorage(RocksDbDataRegion dataRegion, SharedRocksDbInstance rocksDbInstance) {
-            this.dataRegion = dataRegion;
+        RocksDbStorage(RocksDbStorageProfile profile, SharedRocksDbInstance rocksDbInstance) {
+            this.profile = profile;
             this.rocksDbInstance = rocksDbInstance;
         }
 
         @Override
         public void close() throws Exception {
-            IgniteUtils.closeAllManually(rocksDbInstance::stop, dataRegion::stop);
+            IgniteUtils.closeAllManually(rocksDbInstance::stop, profile::stop);
         }
     }
 
@@ -82,11 +82,9 @@ public class RocksDbStorageEngine implements StorageEngine {
     private final ScheduledExecutorService scheduledPool;
 
     /**
-     * Mapping from the data region name to the shared RocksDB instance. Most likely, the association of shared
-     * instances with regions will be removed/revisited in the future.
+     * Mapping from the storage profile name to the shared RocksDB instance.
      */
-    // TODO IGNITE-19762 Think of proper way to use regions and storages.
-    private final Map<String, RocksDbStorage> storageByRegionName = new ConcurrentHashMap<>();
+    private final Map<String, RocksDbStorage> storageByProfileName = new ConcurrentHashMap<>();
 
     private final LogSyncer logSyncer;
 
@@ -99,8 +97,13 @@ public class RocksDbStorageEngine implements StorageEngine {
      * @param storagePath Storage path.
      * @param logSyncer Write-ahead log synchronizer.
      */
-    public RocksDbStorageEngine(String nodeName, RocksDbStorageEngineConfiguration engineConfig,
-            StorageConfiguration storageConfiguration, Path storagePath, LogSyncer logSyncer) {
+    public RocksDbStorageEngine(
+            String nodeName,
+            RocksDbStorageEngineConfiguration engineConfig,
+            StorageConfiguration storageConfiguration,
+            Path storagePath,
+            LogSyncer logSyncer
+    ) {
         this.engineConfig = engineConfig;
         this.storageConfiguration = storageConfiguration;
         this.storagePath = storagePath;
@@ -148,31 +151,33 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     @Override
     public void start() throws StorageException {
-        // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
-        storageConfiguration.profiles().value().stream().forEach(p -> {
-            if (p instanceof RocksDbProfileView) {
-                registerDataRegion((RocksDbProfileView) p);
+        // TODO: IGNITE-17066 Add handling deleting/updating storage profiles configuration
+        for (StorageProfileView profile : storageConfiguration.profiles().value()) {
+            if (profile instanceof RocksDbProfileView) {
+                registerProfile((RocksDbProfileView) profile);
             }
-        });
+        }
     }
 
-    private void registerDataRegion(RocksDbProfileView dataRegionView) {
-        String regionName = dataRegionView.name();
+    private void registerProfile(RocksDbProfileView profileConfig) {
+        String profileName = profileConfig.name();
 
-        var region = new RocksDbDataRegion(dataRegionView);
+        var profile = new RocksDbStorageProfile(profileConfig);
 
-        region.start();
+        profile.start();
 
-        SharedRocksDbInstance rocksDbInstance = newRocksDbInstance(regionName, region);
+        SharedRocksDbInstance rocksDbInstance = newRocksDbInstance(profileName, profile);
 
-        RocksDbStorage previousStorage = storageByRegionName.put(regionName, new RocksDbStorage(region, rocksDbInstance));
+        RocksDbStorage previousStorage = storageByProfileName.put(profileName, new RocksDbStorage(profile, rocksDbInstance));
 
-        assert previousStorage == null : regionName;
+        assert previousStorage == null : "Storage already exists for profile: " + profileName;
     }
 
-    private SharedRocksDbInstance newRocksDbInstance(String regionName, RocksDbDataRegion region) {
+    private SharedRocksDbInstance newRocksDbInstance(String profileName, RocksDbStorageProfile profile) {
+        Path dbPath = storagePath.resolve("rocksdb-" + profileName);
+
         try {
-            return new SharedRocksDbInstanceCreator().create(this, region, storagePath.resolve("rocksdb-" + regionName));
+            return new SharedRocksDbInstanceCreator().create(this, profile, dbPath);
         } catch (Exception e) {
             throw new StorageException("Failed to create new RocksDB instance", e);
         }
@@ -181,7 +186,7 @@ public class RocksDbStorageEngine implements StorageEngine {
     @Override
     public void stop() throws StorageException {
         try {
-            IgniteUtils.closeAllManually(storageByRegionName.values());
+            IgniteUtils.closeAllManually(storageByProfileName.values());
         } catch (Exception e) {
             throw new StorageException("Error when stopping the rocksdb engine", e);
         }
@@ -200,12 +205,14 @@ public class RocksDbStorageEngine implements StorageEngine {
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier
     ) throws StorageException {
-        String regionName = tableDescriptor.getStorageProfile();
+        String profileName = tableDescriptor.getStorageProfile();
 
-        RocksDbStorage storage = storageByRegionName.get(regionName);
+        RocksDbStorage storage = storageByProfileName.get(profileName);
 
         assert storage != null :
-                String.format("RocksDB instance has not yet been created for [tableId=%d, region=%s]", tableDescriptor.getId(), regionName);
+                String.format(
+                        "RocksDB instance has not yet been created for [tableId=%d, profile=%s]", tableDescriptor.getId(), profileName
+                );
 
         var tableStorage = new RocksDbTableStorage(storage.rocksDbInstance, tableDescriptor, indexDescriptorSupplier);
 
@@ -216,7 +223,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     @Override
     public void dropMvTable(int tableId) {
-        for (RocksDbStorage rocksDbStorage : storageByRegionName.values()) {
+        for (RocksDbStorage rocksDbStorage : storageByProfileName.values()) {
             rocksDbStorage.rocksDbInstance.destroyTable(tableId);
         }
     }

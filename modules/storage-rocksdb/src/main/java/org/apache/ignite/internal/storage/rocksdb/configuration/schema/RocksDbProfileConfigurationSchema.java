@@ -24,9 +24,9 @@ import org.apache.ignite.internal.storage.configurations.StorageProfileConfigura
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 
 /**
- * Data region configuration for {@link RocksDbStorageEngine}.
+ * Storage profile configuration for {@link RocksDbStorageEngine}.
  */
-@PolymorphicConfigInstance("rocksDb")
+@PolymorphicConfigInstance("rocksdb")
 public class RocksDbProfileConfigurationSchema extends StorageProfileConfigurationSchema {
     /** Size of the rocksdb offheap cache. */
     @Value(hasDefault = true)

@@ -28,13 +28,13 @@ namespace Apache.Ignite.Transactions
         /// Starts a new transaction.
         /// </summary>
         /// <param name="options">Transaction options.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<ITransaction> BeginAsync(TransactionOptions options);
+        /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
+        ValueTask<ITransaction> BeginAsync(TransactionOptions options);
 
         /// <summary>
         /// Starts a new transaction.
         /// </summary>
-        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<ITransaction> BeginAsync() => BeginAsync(default);
+        /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
+        ValueTask<ITransaction> BeginAsync() => BeginAsync(default);
     }
 }

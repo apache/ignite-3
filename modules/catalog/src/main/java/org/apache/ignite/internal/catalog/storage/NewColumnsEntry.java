@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceSchema;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readList;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeList;
 
@@ -48,7 +49,6 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
 
     private final int tableId;
     private final List<CatalogTableColumnDescriptor> descriptors;
-    private final String schemaName;
 
     /**
      * Constructs the object.
@@ -56,10 +56,9 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
      * @param tableId Table id.
      * @param descriptors Descriptors of columns to add.
      */
-    public NewColumnsEntry(int tableId, List<CatalogTableColumnDescriptor> descriptors, String schemaName) {
+    public NewColumnsEntry(int tableId, List<CatalogTableColumnDescriptor> descriptors) {
         this.tableId = tableId;
         this.descriptors = descriptors;
-        this.schemaName = schemaName;
     }
 
     /** Returns table id. */
@@ -89,16 +88,15 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+        CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
+        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
-        CatalogTableDescriptor currentTableDescriptor = requireNonNull(catalog.table(tableId));
-
-        CatalogTableDescriptor newTableDescriptor = currentTableDescriptor.newDescriptor(
-                currentTableDescriptor.name(),
-                currentTableDescriptor.tableVersion() + 1,
-                CollectionUtils.concat(currentTableDescriptor.columns(), descriptors),
+        CatalogTableDescriptor newTable = table.newDescriptor(
+                table.name(),
+                table.tableVersion() + 1,
+                CollectionUtils.concat(table.columns(), descriptors),
                 causalityToken,
-                currentTableDescriptor.storageProfile()
+                table.storageProfile()
         );
 
         return new Catalog(
@@ -106,8 +104,8 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                replaceSchema(replaceTable(schema, newTableDescriptor), catalog.schemas()),
-                catalog.defaultZone().id()
+                replaceSchema(replaceTable(schema, newTable), catalog.schemas()),
+                defaultZoneIdOpt(catalog)
         );
     }
 
@@ -124,16 +122,14 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
         public NewColumnsEntry readFrom(IgniteDataInput in) throws IOException {
             List<CatalogTableColumnDescriptor> columns = readList(CatalogTableColumnDescriptor.SERIALIZER, in);
             int tableId = in.readInt();
-            String schemaName = in.readUTF();
 
-            return new NewColumnsEntry(tableId, columns, schemaName);
+            return new NewColumnsEntry(tableId, columns);
         }
 
         @Override
         public void writeTo(NewColumnsEntry entry, IgniteDataOutput out) throws IOException {
             writeList(entry.descriptors(), CatalogTableColumnDescriptor.SERIALIZER, out);
             out.writeInt(entry.tableId());
-            out.writeUTF(entry.schemaName);
         }
     }
 }

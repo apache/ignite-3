@@ -99,7 +99,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         long livenessCheckIntervalMs = configuration.livenessCheckInterval().value();
 
         livenessProbeTaskFuture = scheduler.scheduleAtFixedRate(
@@ -252,10 +252,11 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         ScheduledFuture<?> taskFuture = livenessProbeTaskFuture;
         if (taskFuture != null) {
             taskFuture.cancel(false);
         }
+        return nullCompletedFuture();
     }
 }

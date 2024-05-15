@@ -587,7 +587,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return inBusyLockAsync(busyLock, () -> {
             mvGc.start();
 
@@ -1176,26 +1176,32 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         assert beforeStopGuard.get() : "'stop' called before 'beforeNodeStop'";
 
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         int shutdownTimeoutSeconds = 10;
 
-        IgniteUtils.closeAllManually(
-                mvGc,
-                fullStateTransferIndexChooser,
-                sharedTxStateStorage,
-                () -> shutdownAndAwaitTermination(rebalanceScheduler, shutdownTimeoutSeconds, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(txStateStoragePool, shutdownTimeoutSeconds, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, shutdownTimeoutSeconds, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(streamerFlushExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS)
-        );
+        try {
+            IgniteUtils.closeAllManually(
+                    mvGc,
+                    fullStateTransferIndexChooser,
+                    sharedTxStateStorage,
+                    () -> shutdownAndAwaitTermination(rebalanceScheduler, shutdownTimeoutSeconds, TimeUnit.SECONDS),
+                    () -> shutdownAndAwaitTermination(txStateStoragePool, shutdownTimeoutSeconds, TimeUnit.SECONDS),
+                    () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, shutdownTimeoutSeconds, TimeUnit.SECONDS),
+                    () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
+                    () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
+                    () -> shutdownAndAwaitTermination(streamerFlushExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS)
+            );
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        return nullCompletedFuture();
     }
 
     /**
@@ -1795,7 +1801,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         var replicaGrpId = new TablePartitionId(tblId, partId);
 
         // Stable assignments from the meta store, which revision is bounded by the current pending event.
-        Entry stableAssignmentsEntry = metaStorageMgr.getLocally(stablePartAssignmentsKey(replicaGrpId), revision);
+        Assignments stableAssignments = stableAssignments(replicaGrpId, revision);
 
         Assignments pendingAssignments = Assignments.fromBytes(pendingAssignmentsEntry.value());
 
@@ -1826,17 +1832,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     stringKey, partId, table.name(), localNode().address(), pendingAssignments);
                         }
 
-                        Set<Assignment> stableAssignments = stableAssignmentsEntry.value() == null
-                                ? emptySet()
-                                : Assignments.fromBytes(stableAssignmentsEntry.value()).nodes();
-
                         return setTablesPartitionCountersForRebalance(replicaGrpId, revision, pendingAssignments.force())
                                 .thenCompose(r ->
                                         handleChangePendingAssignmentEvent(
                                                 replicaGrpId,
                                                 table,
                                                 pendingAssignments,
-                                                stableAssignments,
+                                                stableAssignments == null ? emptySet() : stableAssignments.nodes(),
                                                 revision,
                                                 isRecovery
                                         )
@@ -2201,11 +2203,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(partitionId);
 
-        assert mvPartition != null;
+        assert mvPartition != null : "tableId=" + table.tableId() + ", partitionId=" + partitionId;
 
         TxStateStorage txStateStorage = internalTable.txStateStorage().getTxStateStorage(partitionId);
 
-        assert txStateStorage != null;
+        assert txStateStorage != null : "tableId=" + table.tableId() + ", partitionId=" + partitionId;
 
         return new PartitionStorages(mvPartition, txStateStorage);
     }
@@ -2594,5 +2596,34 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Restarts the table partition including the replica and raft node.
+     *
+     * @param tablePartitionId Table partition that needs to be restarted.
+     * @param revision Metastore revision.
+     * @return Operation future.
+     */
+    public CompletableFuture<Void> restartPartition(TablePartitionId tablePartitionId, long revision) {
+        return inBusyLockAsync(busyLock, () -> tablesVv.get(revision).thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
+            TableImpl table = tables.get(tablePartitionId.tableId());
+
+            return stopPartition(tablePartitionId, table).thenComposeAsync(unused1 -> {
+                Assignments stableAssignments = stableAssignments(tablePartitionId, revision);
+
+                assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;
+
+                int zoneId = getTableDescriptor(tablePartitionId.tableId(), catalogService.latestCatalogVersion()).zoneId();
+
+                return startPartitionAndStartClient(table, tablePartitionId.partitionId(), stableAssignments, null, zoneId, false);
+            }, ioExecutor);
+        }), ioExecutor));
+    }
+
+    private @Nullable Assignments stableAssignments(TablePartitionId tablePartitionId, long revision) {
+        Entry entry = metaStorageMgr.getLocally(stablePartAssignmentsKey(tablePartitionId), revision);
+
+        return Assignments.fromBytes(entry.value());
     }
 }

@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -53,6 +55,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
@@ -136,6 +139,8 @@ public class TestNode implements LifecycleAware {
                 tableRegistry, view -> () -> systemViewManager.scanView(view.name())
         );
 
+        TableFunctionRegistryImpl tableFunctionRegistry = new TableFunctionRegistryImpl();
+
         executionService = registerService(ExecutionServiceImpl.create(
                 topologyService,
                 messageService,
@@ -148,6 +153,7 @@ public class TestNode implements LifecycleAware {
                 mappingService,
                 tableRegistry,
                 dependencyResolver,
+                tableFunctionRegistry,
                 clockService,
                 5_000
         ));
@@ -279,7 +285,7 @@ public class TestNode implements LifecycleAware {
                 .cancel(new QueryCancel())
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(schemaManager.schema(Long.MAX_VALUE).getSubSchema(DEFAULT_SCHEMA_NAME))
+                                .defaultSchema(schemaManager.schema(Long.MAX_VALUE).getSubSchema(SqlCommon.DEFAULT_SCHEMA_NAME))
                                 .build()
                 )
                 .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
@@ -302,12 +308,12 @@ public class TestNode implements LifecycleAware {
 
         @Override
         public void start() {
-            component.start();
+            assertThat(component.startAsync(), willCompleteSuccessfully());
         }
 
         @Override
-        public void stop() throws Exception {
-            component.stop();
+        public void stop() {
+            assertThat(component.stopAsync(), willCompleteSuccessfully());
         }
     }
 }

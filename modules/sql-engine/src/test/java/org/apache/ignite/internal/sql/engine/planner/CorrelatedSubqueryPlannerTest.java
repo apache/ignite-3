@@ -233,7 +233,7 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
         RelNode rel = planner.rel(sqlNode).rel;
 
         // Convert sub-queries to correlates.
-        return planner.transform(PlannerPhase.HEP_DECORRELATE, rel.getTraitSet(), rel);
+        return planner.transform(PlannerPhase.HEP_SUBQUERIES_TO_CORRELATES, rel.getTraitSet(), rel);
     }
 
     /** Creates test table with columns of given name and INT32 type. */

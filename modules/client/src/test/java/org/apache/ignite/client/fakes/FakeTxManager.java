@@ -50,14 +50,15 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         // No-op.
         return nullCompletedFuture();
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         // No-op.
+        return nullCompletedFuture();
     }
 
     @Override
@@ -212,8 +213,8 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public void vacuum() {
-        // No-op.
+    public CompletableFuture<Void> vacuum() {
+        return nullCompletedFuture();
     }
 
     @Override

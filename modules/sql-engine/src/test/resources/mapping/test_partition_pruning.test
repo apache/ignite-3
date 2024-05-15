@@ -20,7 +20,7 @@ Fragment#1
 ---
 # Partition pruning of joined tables (relies on predicate push down)
 N1
-SELECT * FROM t1_n1n2n3 as t1, t2_n4n5 as t2 WHERE t1.c1 = t2.c1 and t1.id = 1 and t2.id = 42
+SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'HashJoinConverter', 'CorrelatedNestedLoopJoin') */ * FROM t1_n1n2n3 as t1, t2_n4n5 as t2 WHERE t1.c1 = t2.c1 and t1.id = 1 and t2.id = 42
 ---
 Fragment#0 root
   executionNodes: [N1]
@@ -53,7 +53,7 @@ Fragment#1
 ---
 # Self join, different predicates that produce same set of partitions
 N1
-SELECT * FROM t1_n1n2n3 as t1, t1_n1n2n3 as t2 WHERE t1.c1 = t2.c1 and t1.id = 1 and t2.id = 17
+SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'HashJoinConverter', 'CorrelatedNestedLoopJoin') */ * FROM t1_n1n2n3 as t1, t1_n1n2n3 as t2 WHERE t1.c1 = t2.c1 and t1.id = 1 and t2.id = 17
 ---
 Fragment#0 root
   executionNodes: [N1]
@@ -86,7 +86,7 @@ Fragment#1
 ---
 # Self join, different predicates that produce disjoint set of partitions
 N1
-SELECT * FROM t1_n1n2n3 as t1, t1_n1n2n3 as t2 WHERE t1.id = t2.id and t1.id = 1 and t2.id = 42
+SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'HashJoinConverter', 'CorrelatedNestedLoopJoin') */ * FROM t1_n1n2n3 as t1, t1_n1n2n3 as t2 WHERE t1.id = t2.id and t1.id = 1 and t2.id = 42
 ---
 Fragment#0 root
   executionNodes: [N1]

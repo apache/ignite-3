@@ -27,6 +27,9 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
@@ -69,6 +72,7 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -79,7 +83,6 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterNode;
@@ -148,6 +151,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
             this.raftManager = new Loza(
                     clusterService,
+                    new NoOpMetricManager(),
                     raftConfiguration,
                     basePath.resolve("raft"),
                     clock,
@@ -190,6 +194,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     createStorage(name(), basePath),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
+                    new NoOpMetricManager(),
                     metaStorageConfiguration
             );
 
@@ -206,7 +211,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     metaStorageManager
             );
 
-            components.forEach(IgniteComponent::start);
+            assertThat(startAsync(components), willCompleteSuccessfully());
         }
 
         /**
@@ -230,11 +235,10 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     vaultManager
             );
 
-            Stream<AutoCloseable> beforeNodeStop = components.stream().map(c -> c::beforeNodeStop);
-
-            Stream<AutoCloseable> nodeStop = components.stream().map(c -> c::stop);
-
-            IgniteUtils.closeAll(Stream.concat(beforeNodeStop, nodeStop));
+            closeAll(Stream.concat(
+                    components.stream().map(c -> c::beforeNodeStop),
+                    Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()))
+            ));
         }
 
         CompletableFuture<Set<String>> getMetaStorageLearners() {
@@ -264,7 +268,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(nodes.parallelStream().map(node -> node::stop));
+        closeAll(nodes.parallelStream().map(node -> node::stop));
     }
 
     /**

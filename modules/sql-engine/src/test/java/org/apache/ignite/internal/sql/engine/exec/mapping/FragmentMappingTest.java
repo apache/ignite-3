@@ -30,9 +30,9 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingTestRunner.TestSetup;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
@@ -159,6 +159,20 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         setRowCount("T2", 100);
 
         testRunner.runTest(this::initSchema, "merge_join.test");
+    }
+
+    @Test
+    public void testHashJoin() {
+        addNodes("N0", "N1", "N2", "N3", "N4");
+
+        addTable("T1", "N1");
+        addTable("T2", "N1");
+        addTable("T2", "N2");
+
+        setRowCount("T1", 200);
+        setRowCount("T2", 100);
+
+        testRunner.runTest(this::initSchema, "hash_join.test");
     }
 
     @Test
@@ -353,7 +367,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
             objectId += 1;
         }
 
-        IgniteSchema schema = new IgniteSchema(CatalogManager.DEFAULT_SCHEMA_NAME, 1, dataSources);
+        IgniteSchema schema = new IgniteSchema(SqlCommon.DEFAULT_SCHEMA_NAME, 1, dataSources);
         ExecutionTargetProvider executionTargetProvider = TestBuilders.executionTargetProviderBuilder()
                 .useTablePartitions(true)
                 .addTables(table2NodeNames)

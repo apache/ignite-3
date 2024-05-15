@@ -64,6 +64,7 @@ import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -73,8 +74,6 @@ import org.jetbrains.annotations.TestOnly;
 public class JdbcConnection implements Connection {
     /** Network timeout permission. */
     private static final String SET_NETWORK_TIMEOUT_PERM = "setNetworkTimeout";
-
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     /** Statements modification mutex. */
     private final Object stmtsMux = new Object();
@@ -192,7 +191,7 @@ public class JdbcConnection implements Connection {
 
         holdability = HOLD_CURSORS_OVER_COMMIT;
 
-        schema = DEFAULT_SCHEMA_NAME;
+        schema = SqlCommon.DEFAULT_SCHEMA_NAME;
 
         client = null;
         connectionId = -1;
@@ -927,7 +926,7 @@ public class JdbcConnection implements Connection {
      */
     public static String normalizeSchema(String schemaName) {
         if (schemaName == null || schemaName.isEmpty()) {
-            return DEFAULT_SCHEMA_NAME;
+            return SqlCommon.DEFAULT_SCHEMA_NAME;
         }
 
         String res;

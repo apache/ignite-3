@@ -324,6 +324,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 + "AS agg ON t2_colo_va1.val1 = agg.val1";
 
         assertQuery(sql)
+                .disableRules("HashJoinConverter", "MergeJoinConverter")
                 .matches(QueryChecker.matches(".*Exchange.*Join.*Colocated.*Aggregate.*"))
                 .returns("val0", 50L)
                 .returns("val1", 50L)

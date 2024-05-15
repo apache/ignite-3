@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
@@ -269,8 +270,23 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     private Marshaller commandsMarshaller;
 
+    private RaftMetricSource raftMetrics;
+
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
+    }
+
+    /**
+    * Gets raft metrics.
+    *
+    * @return Raft metrics.
+    */
+    public RaftMetricSource getRaftMetrics() {
+        return raftMetrics;
+    }
+
+    public void setRaftMetrics(RaftMetricSource raftMetrics) {
+        this.raftMetrics = raftMetrics;
     }
 
     /**

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType.HASH;
 
 import java.util.Collection;
@@ -27,6 +26,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -75,7 +75,7 @@ public class ItIndexesSystemViewTest extends BaseSqlIntegrationTest {
                         index.tableId(),
                         TABLE_NAME,
                         tableDescriptor.schemaId(),
-                        DEFAULT_SCHEMA_NAME,
+                        SqlCommon.DEFAULT_SCHEMA_NAME,
                         index.unique(),
                         index.indexType() == HASH ? COLUMNS : COLUMNS_COLLATIONS,
                         index.status().name()

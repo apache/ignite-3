@@ -28,6 +28,8 @@ import org.jetbrains.annotations.Nullable;
  * side effects on builder's state or any object created by the same builder.
  */
 public interface AlterZoneCommandBuilder extends AbstractZoneCommandBuilder<AlterZoneCommandBuilder> {
+    AlterZoneCommandBuilder ifExists(boolean ifExists);
+
     /**
      * Sets the number of partitions.
      *

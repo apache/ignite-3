@@ -22,10 +22,12 @@ import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
+import java.util.Set;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
+import org.apache.ignite.lang.ErrorGroups.DisasterRecovery;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 
 /**
@@ -35,11 +37,17 @@ import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 @Requires(classes = {IgniteInternalException.class, ExceptionHandler.class})
 public class IgniteInternalExceptionHandler implements ExceptionHandler<IgniteInternalException, HttpResponse<? extends Problem>> {
 
+    private static final Set<Integer> BAD_REQUEST_CODES = Set.of(
+            DistributionZones.ZONE_NOT_FOUND_ERR,
+            DisasterRecovery.ILLEGAL_PARTITION_ID_ERR,
+            DisasterRecovery.NODES_NOT_FOUND_ERR
+    );
+
     @Override
     public HttpResponse<? extends Problem> handle(HttpRequest request, IgniteInternalException exception) {
-        if (exception.code() == DistributionZones.ZONE_NOT_FOUND_ERR) {
+        if (BAD_REQUEST_CODES.contains(exception.code())) {
             return HttpProblemResponse.from(
-                    Problem.fromHttpCode(HttpCode.NOT_FOUND)
+                    Problem.fromHttpCode(HttpCode.BAD_REQUEST)
                             .detail(exception.getMessage())
                             .traceId(exception.traceId())
                             .code(exception.codeAsString())

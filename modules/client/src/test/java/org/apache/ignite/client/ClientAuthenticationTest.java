@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+
 import java.util.UUID;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -25,7 +27,6 @@ import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticat
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -47,7 +48,7 @@ public class ClientAuthenticationTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     public void afterEach() throws Exception {
-        IgniteUtils.closeAll(client, server);
+        closeAll(client, server);
     }
 
     @Test

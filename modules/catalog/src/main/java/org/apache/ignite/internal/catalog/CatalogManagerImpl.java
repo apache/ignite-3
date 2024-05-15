@@ -21,8 +21,13 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.joining;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTsSafeForRoReads;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType.HASH;
 import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.type.NativeTypes.INT32;
@@ -41,6 +46,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
+import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -66,6 +75,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.systemview.api.SystemViews;
@@ -111,6 +121,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     /** Versioned catalog descriptors sorted in chronological order. */
     private final NavigableMap<Long, Catalog> catalogByTs = new ConcurrentSkipListMap<>();
 
+    /** A future that completes when an empty catalog is initialised. If catalog is not empty this future when this completes starts. */
+    private final CompletableFuture<Void> catalogInitializationFuture = new CompletableFuture<>();
+
     private final UpdateLog updateLog;
 
     private final PendingComparableValuesTracker<Integer, Void> versionTracker = new PendingComparableValuesTracker<>(0);
@@ -128,19 +141,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
      * Constructor.
      */
     public CatalogManagerImpl(UpdateLog updateLog, ClockService clockService) {
-        this(updateLog, clockService, DEFAULT_DELAY_DURATION, DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
-    }
-
-    /**
-     * Constructor.
-     */
-    CatalogManagerImpl(
-            UpdateLog updateLog,
-            ClockService clockService,
-            long delayDurationMs,
-            long partitionIdleSafeTimePropagationPeriod
-    ) {
-        this(updateLog, clockService, () -> delayDurationMs, () -> partitionIdleSafeTimePropagationPeriod);
+        this(updateLog, clockService, () -> DEFAULT_DELAY_DURATION, () -> DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
     }
 
     /**
@@ -159,53 +160,46 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         int objectIdGen = 0;
 
-        // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
-        CatalogSchemaDescriptor publicSchema = new CatalogSchemaDescriptor(
-                objectIdGen++,
-                DEFAULT_SCHEMA_NAME,
-                new CatalogTableDescriptor[0],
-                new CatalogIndexDescriptor[0],
-                new CatalogSystemViewDescriptor[0],
-                INITIAL_CAUSALITY_TOKEN
-        );
+        Catalog emptyCatalog = new Catalog(0, 0L, objectIdGen, List.of(), List.of(), null);
 
-        // TODO: IGNITE-19082 Move system schema objects initialization to cluster init procedure.
-        CatalogSchemaDescriptor systemSchema = new CatalogSchemaDescriptor(
-                objectIdGen++,
-                SYSTEM_SCHEMA_NAME,
-                new CatalogTableDescriptor[0],
-                new CatalogIndexDescriptor[0],
-                new CatalogSystemViewDescriptor[0],
-                INITIAL_CAUSALITY_TOKEN
-        );
-
-        CatalogZoneDescriptor defaultZone = fromParams(
-                objectIdGen++,
-                DEFAULT_ZONE_NAME
-        );
-
-        registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(publicSchema, systemSchema), defaultZone.id()));
+        registerCatalog(emptyCatalog);
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 
-        updateLog.start();
+        return updateLog.startAsync()
+                .thenCompose(none -> {
+                    if (latestCatalogVersion() == emptyCatalog.version()) {
+                        int initializedCatalogVersion = emptyCatalog.version() + 1;
 
-        return nullCompletedFuture();
+                        this.catalogReadyFuture(initializedCatalogVersion)
+                                .thenCompose(ignored -> awaitVersionActivation(initializedCatalogVersion))
+                                .handle((r, e) -> catalogInitializationFuture.complete(null));
+
+                        return initCatalog(emptyCatalog);
+                    } else {
+                        catalogInitializationFuture.complete(null);
+                        return nullCompletedFuture();
+                    }
+                });
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         busyLock.block();
         versionTracker.close();
-        updateLog.stop();
+        return updateLog.stopAsync();
     }
 
     @Override
     public @Nullable CatalogTableDescriptor table(String tableName, long timestamp) {
-        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).table(tableName);
+        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(SqlCommon.DEFAULT_SCHEMA_NAME);
+        if (schema == null) {
+            return null;
+        }
+        return schema.table(tableName);
     }
 
     @Override
@@ -225,7 +219,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public @Nullable CatalogIndexDescriptor aliveIndex(String indexName, long timestamp) {
-        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).aliveIndex(indexName);
+        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(SqlCommon.DEFAULT_SCHEMA_NAME);
+        if (schema == null) {
+            return null;
+        }
+        return schema.aliveIndex(indexName);
     }
 
     @Override
@@ -250,7 +248,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public @Nullable CatalogSchemaDescriptor schema(int catalogVersion) {
-        return schema(DEFAULT_SCHEMA_NAME, catalogVersion);
+        return schema(SqlCommon.DEFAULT_SCHEMA_NAME, catalogVersion);
     }
 
     @Override
@@ -261,7 +259,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             return null;
         }
 
-        return catalog.schema(schemaName == null ? DEFAULT_SCHEMA_NAME : schemaName);
+        return catalog.schema(schemaName == null ? SqlCommon.DEFAULT_SCHEMA_NAME : schemaName);
     }
 
     @Override
@@ -293,12 +291,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public @Nullable CatalogSchemaDescriptor activeSchema(long timestamp) {
-        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME);
+        return catalogAt(timestamp).schema(SqlCommon.DEFAULT_SCHEMA_NAME);
     }
 
     @Override
     public @Nullable CatalogSchemaDescriptor activeSchema(String schemaName, long timestamp) {
-        return catalogAt(timestamp).schema(schemaName == null ? DEFAULT_SCHEMA_NAME : schemaName);
+        return catalogAt(timestamp).schema(schemaName == null ? SqlCommon.DEFAULT_SCHEMA_NAME : schemaName);
     }
 
     @Override
@@ -319,6 +317,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public CompletableFuture<Void> catalogReadyFuture(int version) {
         return versionTracker.waitFor(version);
+    }
+
+    @Override
+    public CompletableFuture<Void> catalogInitializationFuture() {
+        return catalogInitializationFuture;
     }
 
     @Override
@@ -363,6 +366,40 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return updateLog.saveSnapshot(new SnapshotEntry(catalog));
     }
 
+    private CompletableFuture<Void> initCatalog(Catalog emptyCatalog) {
+        List<CatalogCommand> initCommands = List.of(
+                // Init default zone
+                CreateZoneCommand.builder()
+                        .zoneName(DEFAULT_ZONE_NAME)
+                        .partitions(DEFAULT_PARTITION_COUNT)
+                        .replicas(DEFAULT_REPLICA_COUNT)
+                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
+                        .filter(DEFAULT_FILTER)
+                        .storageProfilesParams(
+                                List.of(StorageProfileParams.builder().storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE).build())
+                        )
+                        .build(),
+                AlterZoneSetDefaultCommand.builder()
+                        .zoneName(DEFAULT_ZONE_NAME)
+                        .build(),
+                // Add schemas
+                CreateSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).build(),
+                CreateSchemaCommand.builder().name(SYSTEM_SCHEMA_NAME).build()
+        );
+
+        List<UpdateEntry> entries = new BulkUpdateProducer(initCommands).get(emptyCatalog);
+
+        return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, entries))
+                .handle((result, error) -> {
+                    if (error != null) {
+                        LOG.warn("Unable to create default zone.", error);
+                    }
+
+                    return null;
+                });
+    }
+
     private void registerCatalog(Catalog newCatalog) {
         catalogByVer.put(newCatalog.version(), newCatalog);
         catalogByTs.put(newCatalog.time(), newCatalog);
@@ -379,13 +416,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         CompletableFuture<Integer> resultFuture = new CompletableFuture<>();
 
         saveUpdate(updateProducer, 0)
-                .thenCompose(newVersion -> {
-                    Catalog catalog = catalogByVer.get(newVersion);
-
-                    HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
-
-                    return clockService.waitFor(tsSafeForRoReadingInPastOptimization).thenApply(unused -> newVersion);
-                })
+                .thenCompose(this::awaitVersionActivation)
                 .whenComplete((newVersion, err) -> {
                     if (err != null) {
                         Throwable errUnwrapped = ExceptionUtils.unwrapCause(err);
@@ -418,6 +449,14 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 });
 
         return resultFuture;
+    }
+
+    private CompletableFuture<Integer> awaitVersionActivation(int version) {
+        Catalog catalog = catalogByVer.get(version);
+
+        HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
+
+        return clockService.waitFor(tsSafeForRoReadingInPastOptimization).thenApply(unused -> version);
     }
 
     private HybridTimestamp calcClusterWideEnsureActivationTime(Catalog catalog) {
@@ -568,7 +607,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 catalog.schemas(),
-                catalog.defaultZone().id()
+                defaultZoneIdOpt(catalog)
         );
     }
 
@@ -662,8 +701,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 .<Boolean>addColumn("IS_DEFAULT_ZONE", BOOLEAN, wrapper -> wrapper.isDefault)
                 .dataProvider(SubscriptionUtils.fromIterable(() -> {
                             Catalog catalog = catalogAt(clockService.nowLong());
+                            CatalogZoneDescriptor defaultZone = catalog.defaultZone();
                             return new TransformingIterator<>(catalog.zones().iterator(),
-                                    (zone) -> new ZoneWithDefaultMarker(zone, catalog.defaultZone().id() == zone.id()));
+                                    (zone) -> new ZoneWithDefaultMarker(zone, defaultZone != null && defaultZone.id() == zone.id()));
                         }
                 ))
                 .build();
