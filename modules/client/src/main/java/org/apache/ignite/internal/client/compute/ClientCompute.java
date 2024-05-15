@@ -51,6 +51,7 @@ import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -62,8 +63,6 @@ import org.apache.ignite.table.mapper.Mapper;
  * Client compute implementation.
  */
 public class ClientCompute implements IgniteCompute {
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
     /** Channel. */
     private final ReliableChannel ch;
 
@@ -369,7 +368,7 @@ public class ClientCompute implements IgniteCompute {
 
         return tables.tableAsync(tableName).thenApply(t -> {
             if (t == null) {
-                throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, tableName);
+                throw new TableNotFoundException(SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
             }
 
             ClientTable clientTable = (ClientTable) t;

@@ -75,8 +75,8 @@ import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.exec.mapping.IdGenerator;
 import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
@@ -680,7 +680,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * @return Public schema.
      */
     protected static IgniteSchema createSchema(IgniteTable... tbls) {
-        return createSchema(CatalogService.DEFAULT_SCHEMA_NAME, tbls);
+        return createSchema(SqlCommon.DEFAULT_SCHEMA_NAME, tbls);
     }
 
     /**
