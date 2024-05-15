@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.lmax.disruptor.EventHandler;
+import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
 import java.util.ArrayList;
 import java.util.Random;
@@ -174,6 +175,119 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
         }
     }
 
+    @Test
+    public void testOneSubscriberBatching() throws Exception {
+        Random random = new Random();
+
+        int stripes = random.nextInt(20) + 1;
+
+        StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test", "test-disruptor",
+                16384,
+                NodeIdAwareTestObj::new,
+                stripes,
+                false,
+                false,
+                null);
+
+        GroupAwareTestObjHandler[] handlers = new GroupAwareTestObjHandler[stripes];
+        NodeId[] nodesIds = new NodeId[stripes];
+
+        for (int i = 0; i < stripes; i++) {
+            GroupAwareTestObjHandler handler = new GroupAwareTestObjHandler();
+
+            var nodeId = new NodeId("grp", new PeerId(String.valueOf(i)));
+
+            disruptor.subscribe(nodeId, handler);
+            handlers[i] = handler;
+            nodesIds[i] = nodeId;
+        }
+
+        int batchSize = random.nextInt(50) + 1;
+
+        for (NodeId nodeId : nodesIds) {
+            EventTranslator<NodeIdAwareTestObj>[] eventTranslators = new EventTranslator[batchSize];
+
+            for (int i = 0; i < batchSize; i++) {
+                int finalI = i;
+
+                eventTranslators[i] = (event, sequence) -> {
+                    event.nodeId = nodeId;
+                    event.num = finalI;
+                };
+            }
+
+            disruptor.queue(nodeId).publishEvents(eventTranslators);
+        }
+
+        IgniteTestUtils.waitForCondition(() -> {
+            for (GroupAwareTestObjHandler handler : handlers) {
+                if (handler.applied != batchSize || handler.batchesApplied != 1) {
+                    return false;
+                }
+
+                log.info("applied={}, batchesApplied={}", handler.applied, handler.batchesApplied);
+            }
+
+            return true;
+        }, 10_000);
+    }
+
+    @Test
+    public void testMultipleSubscriberBatching() throws Exception {
+        Random random = new Random();
+
+        int totalHandlers = random.nextInt(20) + 1;
+
+        StripedDisruptor<NodeIdAwareTestObj> disruptor = new StripedDisruptor<>("test", "test-disruptor",
+                16384,
+                NodeIdAwareTestObj::new,
+                1,
+                false,
+                false,
+                null);
+
+        GroupAwareTestObjHandler[] handlers = new GroupAwareTestObjHandler[totalHandlers];
+        NodeId[] nodesIds = new NodeId[totalHandlers];
+
+        for (int i = 0; i < totalHandlers; i++) {
+            GroupAwareTestObjHandler handler = new GroupAwareTestObjHandler();
+
+            var nodeId = new NodeId("grp", new PeerId(String.valueOf(i)));
+
+            disruptor.subscribe(nodeId, handler);
+            handlers[i] = handler;
+            nodesIds[i] = nodeId;
+        }
+
+        int batchSize = random.nextInt(50) + 1;
+
+        EventTranslator<NodeIdAwareTestObj>[] eventTranslators = new EventTranslator[totalHandlers * batchSize];
+
+        for (int i = 0; i < totalHandlers * batchSize; i++) {
+            int finalI = i;
+
+            eventTranslators[i] = (event, sequence) -> {
+                event.nodeId = nodesIds[finalI % totalHandlers];
+                event.num = finalI;
+            };
+        }
+
+        // Any node id can use here, because the striped disruptor has the only stripe.
+        disruptor.queue(nodesIds[0]).publishEvents(eventTranslators);
+
+        IgniteTestUtils.waitForCondition(() -> {
+            for (GroupAwareTestObjHandler handler : handlers) {
+                if (handler.applied != batchSize || handler.batchesApplied != 1) {
+                    return false;
+                }
+
+                log.info("applied={}, batchesApplied={}", handler.applied, handler.batchesApplied);
+            }
+
+            return true;
+        }, 10_000);
+    }
+
     /** Group event handler. */
     private static class GroupAwareTestObjHandler implements EventHandler<NodeIdAwareTestObj> {
         /** This is a container for the batch events. */
@@ -182,6 +296,9 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
         /** Counter of applied events. */
         int applied = 0;
 
+        /** Amount of applied batches */
+        int batchesApplied = 0;
+
         /** {@inheritDoc} */
         @Override
         public void onEvent(NodeIdAwareTestObj event, long sequence, boolean endOfBatch) {
@@ -189,6 +306,8 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
 
             if (endOfBatch) {
                 applied += batch.size();
+
+                batchesApplied ++;
 
                 batch.clear();
             }
