@@ -36,6 +36,7 @@ import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.TopologyCache;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
@@ -77,6 +78,8 @@ public class ClientTable implements Table {
 
     private final IgniteLogger log;
 
+    private final TopologyCache topologyCache;
+
     private static final int UNKNOWN_SCHEMA_VERSION = -1;
 
     private volatile int latestSchemaVer = UNKNOWN_SCHEMA_VERSION;
@@ -95,13 +98,20 @@ public class ClientTable implements Table {
      * @param id Table id.
      * @param name Table name.
      */
-    public ClientTable(ReliableChannel ch, MarshallersProvider marshallers, int id, String name) {
+    public ClientTable(
+            ReliableChannel ch,
+            MarshallersProvider marshallers,
+            TopologyCache topologyCache,
+            int id,
+            String name
+    ) {
         assert ch != null;
         assert marshallers != null;
         assert name != null && !name.isEmpty();
 
         this.ch = ch;
         this.marshallers = marshallers;
+        this.topologyCache = topologyCache;
         this.id = id;
         this.name = name;
         this.log = ClientUtils.logger(ch.configuration(), ClientTable.class);
@@ -133,9 +143,8 @@ public class ClientTable implements Table {
     }
 
     @Override
-    // TODO: IGNITE-22149
     public PartitionManager partitionManager() {
-        throw new UnsupportedOperationException("This operation doesn't implemented yet.");
+        return new ClientPartitionManager(this, topologyCache);
     }
 
     /** {@inheritDoc} */

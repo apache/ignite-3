@@ -170,4 +170,10 @@ public class ClientOp {
 
     /** Execute SQL query with the parameters batch. */
     public static final int SQL_EXEC_BATCH = 63;
+
+    public static final int PARTITION_PRIMARY_GET = 64;
+
+    public static final int PARTITIONS_PRIMARY_GET = 65;
+
+    public static final int KEY_PARTITION_PRIMARY_GET = 66;
 }

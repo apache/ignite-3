@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.table.partition;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
@@ -25,16 +25,21 @@ import static org.apache.ignite.internal.table.TableRow.tuple;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.table.partition.HashPartition;
+import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.partition.Partition;
 import org.apache.ignite.table.partition.PartitionManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,19 +47,25 @@ import org.junit.jupiter.api.Test;
 /**
  * Test suite for {@link PartitionManager}.
  */
-public class ItPartitionManagerTest extends ClusterPerTestIntegrationTest {
-    private static final String TABLE_NAME = "tableName";
+public abstract class ItAbstractPartitionManagerTest extends ClusterPerTestIntegrationTest {
+    protected static final String TABLE_NAME = "tableName";
+
+    protected static final String ZONE_NAME = "TEST_ZONE";
 
     private static final int PARTITIONS = 3;
 
+    protected abstract PartitionManager partitionManager();
+
+    protected abstract Partition toPartition(int i);
+
     @BeforeEach
     public void setup() {
-        String zoneSql = "create zone test_zone with"
+        String zoneSql = "create zone " + ZONE_NAME + " with"
                 + " partitions=" + PARTITIONS + ","
                 + " replicas=3,"
                 + " storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
 
-        String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) with primary_zone='TEST_ZONE'";
+        String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) with primary_zone='" + ZONE_NAME + "'";
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);
@@ -68,20 +79,48 @@ public class ItPartitionManagerTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    public void partitionsForAllKeys() {
-        PartitionManager partitionManager = cluster.aliveNode().tables().table(TABLE_NAME).partitionManager();
+    public void primaryPartitions() {
         TableViewInternal tableViewInternal = unwrapTableViewInternal(cluster.aliveNode().tables().table(TABLE_NAME));
+
+        verifyPrimaryPartition(tableViewInternal, PARTITIONS);
+
+        executeSql("ALTER TABLE " + TABLE_NAME + " ADD COLUMN val1 VARCHAR DEFAULT 'newDefault'");
+        verifyPrimaryPartition(tableViewInternal, PARTITIONS);
+        verifyAllKeys(tableViewInternal, PARTITIONS);
+    }
+
+    @Test
+    public void partitionsForAllKeys() {
+        TableViewInternal tableViewInternal = unwrapTableViewInternal(cluster.aliveNode().tables().table(TABLE_NAME));
+
+        verifyAllKeys(tableViewInternal, PARTITIONS);
+    }
+
+    private void verifyPrimaryPartition(TableViewInternal tableViewInternal, int partitions) {
         InternalTable internalTable = tableViewInternal.internalTable();
 
-        CompletableFuture<?>[] futures = new CompletableFuture<?>[PARTITIONS];
-        for (int i = 0; i < PARTITIONS; i++) {
+        for (int i = 0; i < partitions; i++) {
+            CompletableFuture<ClusterNode> clusterNodeCompletableFuture = internalTable.partitionLocation(
+                    new TablePartitionId(internalTable.tableId(), i));
+
+            CompletableFuture<ClusterNode> clusterNodeCompletableFuture1 = partitionManager().primaryReplicaAsync(toPartition(i));
+
+            assertThat(clusterNodeCompletableFuture.join().id(), equalTo(clusterNodeCompletableFuture1.join().id()));
+        }
+    }
+
+    private void verifyAllKeys(TableViewInternal tableViewInternal, int partitions) {
+        InternalTable internalTable = tableViewInternal.internalTable();
+
+        CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
+        for (int i = 0; i < partitions; i++) {
             CompletableFuture<Object> future = new CompletableFuture<>();
 
             futures[i] = future;
 
             Publisher<BinaryRow> scan = internalTable.scan(i, null);
 
-            HashPartition value = new HashPartition(i);
+            Partition value = toPartition(i);
 
             scan.subscribe(new Subscriber<>() {
                 @Override
@@ -95,7 +134,13 @@ public class ItPartitionManagerTest extends ClusterPerTestIntegrationTest {
                     Tuple tuple = tuple(registry.resolve(item, registry.lastKnownSchemaVersion()));
 
                     Tuple key = Tuple.create().set("key", tuple.intValue("key"));
-                    assertThat(partitionManager.partitionAsync(key), willBe(value));
+                    try {
+                        assertThat(partitionManager().partitionAsync(key), willBe(value));
+                    } catch (AssertionError e) {
+                        InternalTable internalTable1 = internalTable;
+                        System.out.println(e);
+                        throw e;
+                    }
                 }
 
                 @Override
