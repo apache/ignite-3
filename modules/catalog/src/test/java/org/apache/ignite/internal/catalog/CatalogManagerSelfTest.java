@@ -19,7 +19,6 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.addColumnParams;
@@ -150,6 +149,7 @@ import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
@@ -166,7 +166,7 @@ import org.mockito.ArgumentCaptor;
  * Catalog manager self test.
  */
 public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
-    private static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
+    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
     private static final String TEST_ZONE_NAME = "TEST_ZONE_NAME";
     private static final String NEW_COLUMN_NAME = "NEWCOL";
     private static final String NEW_COLUMN_NAME_2 = "NEWCOL2";
@@ -174,10 +174,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testEmptyCatalog() {
-        CatalogSchemaDescriptor defaultSchema = manager.schema(DEFAULT_SCHEMA_NAME, 1);
+        CatalogSchemaDescriptor defaultSchema = manager.schema(SqlCommon.DEFAULT_SCHEMA_NAME, 1);
 
         assertNotNull(defaultSchema);
-        assertSame(defaultSchema, manager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong()));
+        assertSame(defaultSchema, manager.activeSchema(SqlCommon.DEFAULT_SCHEMA_NAME, clock.nowLong()));
         assertSame(defaultSchema, manager.schema(1));
         assertSame(defaultSchema, manager.schema(defaultSchema.id(), 1));
         assertSame(defaultSchema, manager.activeSchema(clock.nowLong()));
@@ -189,7 +189,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThrows(IllegalStateException.class, () -> manager.activeSchema(-1L));
 
         // Validate default schema.
-        assertEquals(DEFAULT_SCHEMA_NAME, defaultSchema.name());
+        assertEquals(SqlCommon.DEFAULT_SCHEMA_NAME, defaultSchema.name());
         assertEquals(1, defaultSchema.id());
         assertEquals(0, defaultSchema.tables().length);
         assertEquals(0, defaultSchema.indexes().length);
@@ -2196,7 +2196,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     private void dropIndex(String indexName) {
         assertThat(
-                manager.execute(DropIndexCommand.builder().indexName(indexName).schemaName(DEFAULT_SCHEMA_NAME).build()),
+                manager.execute(DropIndexCommand.builder().indexName(indexName).schemaName(SqlCommon.DEFAULT_SCHEMA_NAME).build()),
                 willCompleteSuccessfully()
         );
     }
@@ -2708,7 +2708,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertNotNull(latestCatalog);
         assertNotNull(latestCatalog.schema(schemaName));
-        assertNotNull(latestCatalog.schema(DEFAULT_SCHEMA_NAME));
+        assertNotNull(latestCatalog.schema(SqlCommon.DEFAULT_SCHEMA_NAME));
 
         assertThat(
                 manager.execute(CreateSchemaCommand.builder().name(schemaName).build()),

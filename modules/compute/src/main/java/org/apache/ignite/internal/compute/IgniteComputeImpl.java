@@ -51,6 +51,7 @@ import org.apache.ignite.compute.task.ComputeJobRunner;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -69,8 +70,6 @@ import org.jetbrains.annotations.TestOnly;
  * Implementation of {@link IgniteCompute}.
  */
 public class IgniteComputeImpl implements IgniteComputeInternal {
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
     private final TopologyService topologyService;
 
     private final IgniteTablesInternal tables;
@@ -304,7 +303,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         return tables.tableViewAsync(parsedName)
                 .thenApply(table -> {
                     if (table == null) {
-                        throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, parsedName);
+                        throw new TableNotFoundException(SqlCommon.DEFAULT_SCHEMA_NAME, parsedName);
                     }
                     return table;
                 });
