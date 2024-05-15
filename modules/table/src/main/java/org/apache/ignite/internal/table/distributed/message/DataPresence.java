@@ -18,10 +18,14 @@
 package org.apache.ignite.internal.table.distributed.message;
 
 /**
- * Whether a node has data or not (or it's not known).
+ * Whether a node has data or not (or it's not known because it did not respond in time, or the corresopnding storage is
+ * already closed or still being rebalanced to).
  */
 public enum DataPresence {
+    /** The storage is empty. */
     EMPTY,
+    /** The storage has some data. */
     HAS_DATA,
+    /** We don't know for some reason. */
     UNKNOWN
 }
