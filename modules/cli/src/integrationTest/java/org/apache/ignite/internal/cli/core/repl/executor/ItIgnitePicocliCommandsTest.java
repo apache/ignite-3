@@ -151,8 +151,8 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                 words("node", "config", ""),
                 words("node", "config", "show"),
                 words("node", "config", "show", ""),
-                words("node", "config", "show", "", "name"),
-                words("node", "config", "show", "", "name", "")
+                words("node", "config", "show", "--node", "name"),
+                words("node", "config", "show", "--node", "name", "")
         ).map(this::named).map(Arguments::of);
     }
 
@@ -177,7 +177,7 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                 words("node", "config", "show", "--"),
                 words("node", "status", "-"),
                 words("node", "status", "--"),
-                words("node", "config", "show", "", "name", "-")
+                words("node", "config", "show", "--node", "name", "-")
         ).map(this::named).map(Arguments::of);
     }
 
@@ -347,7 +347,7 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("nodeNamesSource")
-    @DisplayName("node names suggested after  option")
+    @DisplayName("node names suggested after --node option")
     void nodeNameSuggested(ParsedLine givenParsedLine) {
         // Given
         connected();

@@ -297,7 +297,7 @@ setupBuilder {
                            "-Djava.util.logging.config.file=etc\\ignite.java.util.logging.properties",
                            "-Dio.netty.tryReflectionSetAccessible=true"]
 
-        startArguments = "--name node1 --work-dir work --config-path etc\\ignite-config.conf"
+        startArguments = "--node node1 --work-dir work --config-path etc\\ignite-config.conf"
     }
 
     into('') {

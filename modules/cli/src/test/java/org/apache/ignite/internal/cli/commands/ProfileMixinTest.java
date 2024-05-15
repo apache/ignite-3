@@ -44,7 +44,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Test for --profile override for --url and --url options.
+ * Test for --profile override for --url options.
  */
 public class ProfileMixinTest extends CliCommandTestBase {
     /**

@@ -26,19 +26,19 @@ x-ignite-def:
 services:
   node1:
     << : *ignite-def
-    command: --name node1
+    command: --node-name node1
     ports:
       - 10300:10300
       - 10800:10800
   node2:
     << : *ignite-def
-    command: --name node2
+    command: --node-name node2
     ports:
       - 10301:10300
       - 10801:10800
   node3:
     << : *ignite-def
-    command: --name node3
+    command: --node-name node3
     ports:
       - 10302:10300
       - 10802:10800
