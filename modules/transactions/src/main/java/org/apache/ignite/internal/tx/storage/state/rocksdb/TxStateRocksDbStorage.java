@@ -152,7 +152,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
-    public void put(UUID txId, TxMeta txMeta) {
+    public void putForRebalance(UUID txId, TxMeta txMeta) {
         busy(() -> {
             try {
                 sharedStorage.db().put(txIdToKey(txId), toBytes(txMeta));

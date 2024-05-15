@@ -110,7 +110,7 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
 
             txIds.add(txId);
 
-            storage.put(txId, new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(i), generateTimestamp(txId)));
+            storage.putForRebalance(txId, new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(i), generateTimestamp(txId)));
         }
 
         for (int i = 0; i < 100; i++) {
@@ -230,10 +230,10 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
         TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
 
         UUID txId0 = UUID.randomUUID();
-        storage0.put(txId0, new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(1), generateTimestamp(txId0)));
+        storage0.putForRebalance(txId0, new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(1), generateTimestamp(txId0)));
 
         UUID txId1 = UUID.randomUUID();
-        storage1.put(txId1, new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(1), generateTimestamp(txId1)));
+        storage1.putForRebalance(txId1, new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(1), generateTimestamp(txId1)));
 
         storage0.destroy();
 
@@ -266,13 +266,13 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
         TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
 
         UUID existingBeforeScan = new UUID(2, 0);
-        partitionStorage.put(existingBeforeScan, randomTxMeta(1, existingBeforeScan));
+        partitionStorage.putForRebalance(existingBeforeScan, randomTxMeta(1, existingBeforeScan));
 
         try (Cursor<IgniteBiTuple<UUID, TxMeta>> cursor = partitionStorage.scan()) {
             UUID prependedDuringScan = new UUID(1, 0);
-            partitionStorage.put(prependedDuringScan, randomTxMeta(1, prependedDuringScan));
+            partitionStorage.putForRebalance(prependedDuringScan, randomTxMeta(1, prependedDuringScan));
             UUID appendedDuringScan = new UUID(3, 0);
-            partitionStorage.put(appendedDuringScan, randomTxMeta(1, appendedDuringScan));
+            partitionStorage.putForRebalance(appendedDuringScan, randomTxMeta(1, appendedDuringScan));
 
             List<UUID> txIdsReturnedByScan = cursor.stream()
                     .map(IgniteBiTuple::getKey)
@@ -518,7 +518,7 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
             if ((i % 2) == 0) {
                 assertTrue(storage.compareAndSet(row.get1(), null, row.get2(), i * 10L, i * 10L));
             } else {
-                storage.put(row.get1(), row.get2());
+                storage.putForRebalance(row.get1(), row.get2());
             }
         }
     }

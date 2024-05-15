@@ -54,10 +54,10 @@ public class ThreadAssertingTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public void put(UUID txId, TxMeta txMeta) {
+    public void putForRebalance(UUID txId, TxMeta txMeta) {
         assertThreadAllowsToWrite();
 
-        storage.put(txId, txMeta);
+        storage.putForRebalance(txId, txMeta);
     }
 
     @Override

@@ -61,7 +61,7 @@ public class TestTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public void put(UUID txId, TxMeta txMeta) {
+    public void putForRebalance(UUID txId, TxMeta txMeta) {
         checkStorageClosed();
 
         storage.put(txId, txMeta);
