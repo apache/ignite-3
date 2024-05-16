@@ -24,15 +24,17 @@ import static org.hamcrest.Matchers.equalTo;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.IgniteEvents;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class IgniteEventsTest {
-    private static String USER = "test_user";
-    private static String PROVIDER = "test_provider";
+    private static final String USER = "test_user";
 
-    static Stream<Arguments> events() {
+    private static final String PROVIDER = "test_provider";
+
+    private static Stream<Arguments> events() {
         Event connectionClosedEvent = IgniteEvents.CONNECTION_CLOSED.create(EventUser.of(USER, PROVIDER));
         Event connectionEstablishedEvent = IgniteEvents.USER_AUTHENTICATED.create(EventUser.of(USER, PROVIDER));
 
@@ -41,7 +43,7 @@ class IgniteEventsTest {
                         connectionClosedEvent,
                         Event.builder()
                                 .type("CONNECTION_CLOSED")
-                                .productVersion("3.0.0")
+                                .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
                                 .timestamp(connectionClosedEvent.getTimestamp())
                                 .user(EventUser.of(USER, PROVIDER))
                                 .build()
@@ -50,7 +52,7 @@ class IgniteEventsTest {
                         connectionEstablishedEvent,
                         Event.builder()
                                 .type("USER_AUTHENTICATED")
-                                .productVersion("3.0.0")
+                                .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
                                 .timestamp(connectionEstablishedEvent.getTimestamp())
                                 .user(EventUser.of(USER, PROVIDER))
                                 .build()
