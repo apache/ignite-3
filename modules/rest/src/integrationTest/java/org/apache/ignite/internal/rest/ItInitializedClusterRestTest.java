@@ -31,6 +31,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.http.HttpResponse;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,11 +41,6 @@ import org.junit.jupiter.api.TestInfo;
  * Test for the REST endpoints in case cluster is initialized.
  */
 public class ItInitializedClusterRestTest extends AbstractRestTestBase {
-    /** <a href="https://semver.org">semver</a> compatible regex. */
-    private static final String IGNITE_SEMVER_REGEX =
-            "(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)"
-                    + "((?<snapshot>-SNAPSHOT)|-(?<alpha>alpha\\d+)|--(?<beta>beta\\d+)|---(?<ea>ea\\d+))?";
-
     @BeforeEach
     @Override
     void setUp(TestInfo testInfo) throws IOException, InterruptedException {
@@ -249,6 +245,6 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
         // Then
         assertThat(response.statusCode(), is(200));
         // And version is a semver
-        assertThat(response.body(), matchesRegex(IGNITE_SEMVER_REGEX));
+        assertThat(response.body(), matchesRegex(IgniteProductVersion.VERSION_PATTERN));
     }
 }
