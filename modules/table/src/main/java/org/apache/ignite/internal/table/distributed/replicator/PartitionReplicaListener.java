@@ -1837,7 +1837,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return null;
             }
 
-            // Update futures are empty in two cases:
+            // Cleanup futures (both read and update) are empty in two cases:
             // - there were no actions in the transaction
             // - write intent switch is being executed on the new primary (the primary has changed after write intent appeared)
             // Both cases are expected to happen extremely rarely so we are fine to force the write intent switch.
