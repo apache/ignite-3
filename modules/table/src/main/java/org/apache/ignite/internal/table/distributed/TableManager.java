@@ -886,7 +886,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         var raftNodeId = localMemberAssignment == null ? null : new RaftNodeId(replicaGrpId, serverPeer);
 
-        boolean shouldStartRaftListeners = localMemberAssignment != null && !replicaMgr.isRaftClientStarted(raftNodeId);
+        boolean shouldStartRaftListeners = RebalanceUtil.subtract(nonStableNodeAssignments.nodes(), assignments.nodes())
+                .stream()
+                .anyMatch(assignment -> assignment.consistentId().equals(localNode().id()));
 
         if (shouldStartRaftListeners) {
             ((InternalTableImpl) internalTbl).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
@@ -920,17 +922,33 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 }
 
                 try {
-                    startPartitionRaftGroupNode(
-                            replicaGrpId,
-                            raftNodeId,
-                            newConfiguration,
+                    InternalTable internalTable = table.internalTable();
+
+                    RaftGroupListener raftGrpLsnr = new PartitionListener(
+                            txManager,
+                            partitionDataStorage,
+                            partitionUpdateHandlers.storageUpdateHandler,
+                            partitionStorages.getTxStateStorage(),
                             safeTimeTracker,
                             storageIndexTracker,
-                            table,
-                            partitionStorages.getTxStateStorage(),
-                            partitionDataStorage,
-                            partitionUpdateHandlers,
-                            zoneId
+                            catalogService,
+                            table.schemaView(),
+                            clockService
+                    );
+
+                    SnapshotStorageFactory snapshotStorageFactory = createSnapshotStorageFactory(replicaGrpId,
+                            partitionUpdateHandlers, internalTable);
+
+                    // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                    replicaMgr.startPartitionRaftGroupNode(
+                            replicaGrpId,
+                            zoneId,
+                            raftNodeId,
+                            newConfiguration,
+                            raftGrpLsnr,
+                            metaStorageMgr,
+                            internalTable.storage(),
+                            snapshotStorageFactory
                     );
 
                     return true;
@@ -1950,35 +1968,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 });
     }
 
-    private void startPartitionRaftGroupNode(
+    private SnapshotStorageFactory createSnapshotStorageFactory(
             TablePartitionId replicaGrpId,
-            RaftNodeId raftNodeId,
-            PeersAndLearners stableConfiguration,
-            PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            TableImpl table,
-            TxStateStorage txStatePartitionStorage,
-            PartitionDataStorage partitionDataStorage,
             PartitionUpdateHandlers partitionUpdateHandlers,
-            int zoneId
-    ) throws NodeStoppingException {
-        InternalTable internalTable = table.internalTable();
-
-        RaftGroupListener raftGrpLsnr = new PartitionListener(
-                txManager,
-                partitionDataStorage,
-                partitionUpdateHandlers.storageUpdateHandler,
-                txStatePartitionStorage,
-                safeTimeTracker,
-                storageIndexTracker,
-                catalogService,
-                table.schemaView(),
-                clockService
-        );
-
+            InternalTable internalTable
+    ) {
         PartitionKey partitionKey = partitionKey(internalTable, replicaGrpId.partitionId());
 
-        SnapshotStorageFactory snapshotStorageFactory = new PartitionSnapshotStorageFactory(
+        return new PartitionSnapshotStorageFactory(
                 topologyService,
                 outgoingSnapshotsManager,
                 new PartitionAccessImpl(
@@ -1994,18 +1991,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 ),
                 catalogService,
                 incomingSnapshotsExecutor
-        );
-
-        // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-        replicaMgr.startPartitionRaftGroupNode(
-                replicaGrpId,
-                zoneId,
-                raftNodeId,
-                stableConfiguration,
-                raftGrpLsnr,
-                metaStorageMgr,
-                internalTable.storage(),
-                snapshotStorageFactory
         );
     }
 

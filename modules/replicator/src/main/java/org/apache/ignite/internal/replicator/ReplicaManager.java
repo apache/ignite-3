@@ -496,6 +496,22 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
+     * TODO a small workaround to shrink checking boilerplate.
+     *
+     * @param replicaGrpId group id.
+     * @return raft-client.
+     */
+    @Nullable
+    public RaftGroupService raftClient(TablePartitionId replicaGrpId) {
+        CompletableFuture<Replica> replicaFut = getReplica(replicaGrpId);
+        if (replicaFut == null) {
+            return null;
+        }
+        // TODO: make it async
+        return replicaFut.join().raftClient();
+    }
+
+    /**
      * Checks that RAFT-server endpoint with given identifier is started.
      *
      * @param raftNodeId RAFT-node's identifier.
