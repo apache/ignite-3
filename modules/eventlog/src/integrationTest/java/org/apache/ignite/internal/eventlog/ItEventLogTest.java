@@ -60,7 +60,7 @@ class ItEventLogTest extends ClusterPerClassIntegrationTest {
     protected void configureInitParameters(InitParametersBuilder builder) {
         String securityConfiguration = "security {\n"
                 + "  enabled:true,\n"
-                + "  authentication.providers." + PROVIDER_NAME  +":{\n"
+                + "  authentication.providers." + PROVIDER_NAME + ":{\n"
                 + "    type:basic, users." + USERNAME + ".password:" + PASSWORD + "\n"
                 + "  }\n},\n";
 
