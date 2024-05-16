@@ -1610,14 +1610,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return Future.
      */
     public CompletableFuture<TableViewInternal> tableAsync(long causalityToken, int id) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return tablesById(causalityToken).thenApply(tablesById -> tablesById.get(id));
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return inBusyLockAsync(busyLock, () -> tablesById(causalityToken).thenApply(tablesById -> tablesById.get(id)));
     }
 
     @Override
