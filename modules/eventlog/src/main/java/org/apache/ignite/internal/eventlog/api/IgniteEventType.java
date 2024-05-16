@@ -28,9 +28,10 @@ public enum IgniteEventType {
     USER_AUTHENTICATED,
     CONNECTION_CLOSED;
 
-    static {
-        // Without the following line, the IgniteEventType enum will not be registered in the EventTypeRegistry
-        // and the EventTypeRegistry will not be able to validate the event types.
+    /**
+     * Registers all event types.
+     */
+    public static void initialize() {
         Arrays.stream(values()).forEach(type -> EventTypeRegistry.register(type.name()));
     }
 }
