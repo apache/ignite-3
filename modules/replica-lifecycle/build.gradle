@@ -27,4 +27,4 @@ dependencies {
     implementation project(':ignite-core')
 }
 
-description = 'ignite-data-replication'
+description = 'ignite-replica-lifecycle'
