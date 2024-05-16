@@ -470,6 +470,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clockService
         );
 
+        ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
+                NamedThreadFactory.create(name, "test-rebalance-scheduler", logger()));
+
         ReplicaManager replicaMgr = new ReplicaManager(
                 name,
                 clusterSvc,
@@ -478,11 +481,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
                 placementDriverManager.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
+                rebalanceScheduler,
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 failureProcessor,
                 new ThreadLocalPartitionCommandsMarshaller(clusterSvc.serializationRegistry()),
                 topologyAwareRaftGroupServiceFactory,
-                raftMgr
+                raftMgr,
+                view -> new LocalLogStorageFactory()
         );
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
@@ -562,9 +567,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var dataNodesMock = dataNodesMockByNode.get(idx);
 
-        ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                NamedThreadFactory.create(name, "test-rebalance-scheduler", logger()));
-
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
                 registry,
@@ -604,7 +606,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 storagePath,
                 metaStorageMgr,
                 schemaManager,
-                view -> new LocalLogStorageFactory(),
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 hybridClock,
@@ -617,7 +618,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 placementDriverManager.placementDriver(),
                 sqlRef::get,
                 resourcesRegistry,
-                rebalanceScheduler,
                 lowWatermark,
                 transactionInflights
         );

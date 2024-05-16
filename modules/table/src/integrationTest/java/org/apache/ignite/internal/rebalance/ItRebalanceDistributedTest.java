@@ -1181,6 +1181,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     lowWatermark
             );
 
+            rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
+                    NamedThreadFactory.create(name, "test-rebalance-scheduler", logger()));
+
             replicaManager = spy(new ReplicaManager(
                     name,
                     clusterService,
@@ -1189,11 +1192,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     Set.of(TableMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
                     threadPoolsManager.partitionOperationsExecutor(),
+                    rebalanceScheduler,
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
                     new NoOpFailureProcessor(),
                     new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()),
                     topologyAwareRaftGroupServiceFactory,
-                    raftManager
+                    raftManager,
+                    view -> new LocalLogStorageFactory()
             ));
 
             LongSupplier delayDurationMsSupplier = () -> 10L;
@@ -1208,9 +1213,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             schemaManager = new SchemaManager(registry, catalogManager);
 
             schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
-
-            rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                    NamedThreadFactory.create(name, "test-rebalance-scheduler", logger()));
 
             distributionZoneManager = new DistributionZoneManager(
                     name,
@@ -1242,7 +1244,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     storagePath,
                     metaStorageManager,
                     schemaManager,
-                    view -> new LocalLogStorageFactory(),
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.partitionOperationsExecutor(),
                     clock,
@@ -1255,7 +1256,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     placementDriver,
                     () -> mock(IgniteSql.class),
                     resourcesRegistry,
-                    rebalanceScheduler,
                     lowWatermark,
                     transactionInflights
             ) {

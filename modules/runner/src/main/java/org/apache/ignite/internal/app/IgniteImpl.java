@@ -618,8 +618,14 @@ public class IgniteImpl implements Ignite {
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
 
+        ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
+                NamedThreadFactory.create(name, "rebalance-scheduler", LOG));
+
         // TODO: IGNITE-22222 this instantiation should be moved inside ReplicaManager's constructor
         Marshaller raftMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterSvc.serializationRegistry());
+
+        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout"));
+
         replicaMgr = new ReplicaManager(
                 name,
                 clusterSvc,
@@ -628,11 +634,13 @@ public class IgniteImpl implements Ignite {
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
                 placementDriverMgr.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
+                rebalanceScheduler,
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 failureProcessor,
                 raftMarshaller,
                 topologyAwareRaftGroupServiceFactory,
-                raftMgr
+                raftMgr,
+                volatileLogStorageFactoryCreator
         );
 
         metricManager.configure(clusterConfigRegistry.getConfiguration(MetricConfiguration.KEY));
@@ -663,8 +671,6 @@ public class IgniteImpl implements Ignite {
                 nodeConfigRegistry.getConfiguration(StorageConfiguration.KEY)
         );
 
-        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout"));
-
         outgoingSnapshotsManager = new OutgoingSnapshotsManager(name, clusterSvc.messagingService());
 
         LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
@@ -689,9 +695,6 @@ public class IgniteImpl implements Ignite {
         SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
 
         schemaManager = new SchemaManager(registry, catalogManager);
-
-        ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
-                NamedThreadFactory.create(name, "rebalance-scheduler", LOG));
 
         distributionZoneManager = new DistributionZoneManager(
                 name,
@@ -770,7 +773,6 @@ public class IgniteImpl implements Ignite {
                 storagePath,
                 metaStorageMgr,
                 schemaManager,
-                volatileLogStorageFactoryCreator,
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 clock,
@@ -783,7 +785,6 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 this::bareSql,
                 resourcesRegistry,
-                rebalanceScheduler,
                 lowWatermark,
                 transactionInflights
         );

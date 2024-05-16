@@ -39,6 +39,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -56,6 +58,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -78,6 +81,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class ReplicaManagerTest extends BaseIgniteAbstractTest {
     private ExecutorService requestsExecutor;
 
+    private ScheduledExecutorService rebalanceScheduler;
+
     private ReplicaManager replicaManager;
 
     @Mock
@@ -92,7 +97,8 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
             @Mock MessagingService messagingService,
             @Mock TopologyService topologyService,
             @Mock Marshaller marshaller,
-            @Mock TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory
+            @Mock TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
+            @Mock VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator
     ) {
         String nodeName = testNodeName(testInfo, 0);
 
@@ -112,6 +118,10 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 NamedThreadFactory.create(nodeName, "partition-operations", log)
         );
 
+        rebalanceScheduler = new ScheduledThreadPoolExecutor(
+                20,
+                NamedThreadFactory.create("test", "rebalance-scheduler", log));
+
         replicaManager = new ReplicaManager(
                 nodeName,
                 clusterService,
@@ -120,11 +130,13 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 Set.of(),
                 placementDriver,
                 requestsExecutor,
+                rebalanceScheduler,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new NoOpFailureProcessor(),
                 marshaller,
                 raftGroupServiceFactory,
-                raftManager
+                raftManager,
+                volatileLogStorageFactoryCreator
         );
 
         assertThat(replicaManager.startAsync(), willCompleteSuccessfully());
@@ -147,6 +159,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         assertThat(replicaManager.stopAsync(), willCompleteSuccessfully());
 
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
     }
 
     /**

@@ -50,6 +50,8 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -60,6 +62,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -80,6 +83,7 @@ import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.exception.ExpectedReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicaIsAlreadyStartedException;
@@ -94,6 +98,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.PublicApiThreading;
@@ -145,6 +150,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Raft clients factory for raft server endpoints starting. */
     private final TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory;
 
+    /** Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for volatile tables. */
+    private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
+
     /** Raft command marshaller for raft server endpoints starting. */
     private final Marshaller raftCommandsMarshaller;
 
@@ -164,8 +172,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Scheduled executor for idle safe time sync. */
     private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor;
 
+    /** Executor that will be used to execute requests by replicas. */
     private final Executor requestsExecutor;
 
+    /** Executor for scheduling rebalance routine. */
+    private final ScheduledExecutorService rebalanceScheduler;
+
+    /** Executor for scheduling rebalance routine. */
     private final FailureProcessor failureProcessor;
 
     /** Set of message groups to handler as replica requests. */
@@ -187,7 +200,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param messageGroupsToHandle Message handlers.
      * @param placementDriver A placement driver.
      * @param requestsExecutor Executor that will be used to execute requests by replicas.
+     * @param rebalanceScheduler Executor for scheduling rebalance routine.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
+     * @param failureProcessor TODO.
+     * @param raftCommandsMarshaller  TODO.
+     * @param raftGroupServiceFactory TODO.
+     * @param raftManager TODO.
+     * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
+     *      volatile tables.
      */
     public ReplicaManager(
             String nodeName,
@@ -197,23 +217,26 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
             Executor requestsExecutor,
+            ScheduledExecutorService rebalanceScheduler,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             FailureProcessor failureProcessor,
             Marshaller raftCommandsMarshaller,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
-            RaftManager raftManager
+            RaftManager raftManager,
+            LogStorageFactoryCreator volatileLogStorageFactoryCreator
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
         this.clockService = clockService;
         this.messageGroupsToHandle = messageGroupsToHandle;
+        this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.handler = this::onReplicaMessageReceived;
         this.placementDriverMessageHandler = this::onPlacementDriverMessageReceived;
         this.placementDriver = placementDriver;
         this.requestsExecutor = requestsExecutor;
+        this.rebalanceScheduler = rebalanceScheduler;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
         this.failureProcessor = failureProcessor;
-
         this.raftCommandsMarshaller = raftCommandsMarshaller;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.raftManager = raftManager;
@@ -497,41 +520,58 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return raftManager.getLogSyncer();
     }
 
-    /**
-     * Raft group options creation for TableManager#groupOptionsForPartition.
-     *
-     * @param isVolatileStorage is storage volatile or false if persistent storage.
-     * @param volatileLogStorageFactoryCreator factory in case of volatile storage.
-     * @return prepared blank options for following settings of  snapshot storage factory and command marshaller.
-     */
-    public RaftGroupOptions createRaftGroupOptions(boolean isVolatileStorage, LogStorageFactoryCreator volatileLogStorageFactoryCreator) {
-        if (isVolatileStorage) {
+    private RaftGroupOptions groupOptionsForPartition(MvTableStorage mvTableStorage, SnapshotStorageFactory snapshotFactory) {
+        RaftGroupOptions raftGroupOptions;
+
+        if (mvTableStorage.isVolatile()) {
             LogStorageBudgetView view = ((Loza) raftManager).volatileRaft().logStorage().value();
-            return RaftGroupOptions.forVolatileStores()
+            raftGroupOptions = RaftGroupOptions.forVolatileStores()
                     .setLogStorageFactory(volatileLogStorageFactoryCreator.factory(view))
                     .raftMetaStorageFactory((groupId, raftOptions) -> new VolatileRaftMetaStorage());
         } else {
-            return RaftGroupOptions.forPersistentStores();
+            raftGroupOptions = RaftGroupOptions.forPersistentStores();
         }
+
+        raftGroupOptions.snapshotStorageFactory(snapshotFactory);
+
+        raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
+
+        return raftGroupOptions;
     }
 
     /**
      * Starts a Raft group on the current node without starting raft service.
+     * TODO: must to add all params description if the method will be public yet
      *
      * @param raftNodeId Raft node ID.
      * @param stableConfiguration Peers and Learners of the Raft group.
      * @param raftGrpLsnr Raft group listener.
-     * @param raftGrpEvtsLsnr Raft group events listener.
-     * @param groupOptions Options to apply to the group.
      * @throws NodeStoppingException in case of stopping node before completion
      */
     public void startPartitionRaftGroupNode(
+            TablePartitionId replicaGrpId,
+            int zoneId,
             RaftNodeId raftNodeId,
             PeersAndLearners stableConfiguration,
             RaftGroupListener raftGrpLsnr,
-            RaftGroupEventsListener raftGrpEvtsLsnr,
-            RaftGroupOptions groupOptions
+            MetaStorageManager metaStorageMgr,
+            MvTableStorage mvTableStorage,
+            SnapshotStorageFactory snapshotStorageFactory
     ) throws NodeStoppingException {
+        RaftGroupOptions groupOptions = groupOptionsForPartition(
+                mvTableStorage,
+                snapshotStorageFactory);
+
+        RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
+                metaStorageMgr,
+                replicaGrpId,
+                busyLock,
+                // TODO: to async
+                new PartitionMover(busyLock, () -> getReplica(replicaGrpId).join().raftClient()),
+                rebalanceScheduler,
+                zoneId
+        );
+
         // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
         ((Loza) raftManager).startRaftGroupNodeWithoutService(
                 raftNodeId,
@@ -804,8 +844,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         busyLock.block();
 
-        shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, 10, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        int shutdownTimeoutSeconds = 10;
+
+        shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(rebalanceScheduler, shutdownTimeoutSeconds, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(executor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
 
         assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
                 : "There are replicas alive [replicas="

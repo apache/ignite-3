@@ -114,7 +114,6 @@ import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -141,16 +140,13 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
-import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
+import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -187,7 +183,6 @@ import org.apache.ignite.internal.table.distributed.schema.ExecutorInclinedSchem
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
-import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
@@ -310,11 +305,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Schema manager. */
     private final SchemaManager schemaManager;
 
-    private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
-
-    /** Executor for scheduling rebalance routine. */
-    private final ScheduledExecutorService rebalanceScheduler;
-
     /** Transaction state storage scheduled pool. */
     private final ScheduledExecutorService txStateStorageScheduledPool;
 
@@ -358,8 +348,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final MvGc mvGc;
 
     private final LowWatermark lowWatermark;
-
-    private final Marshaller raftCommandsMarshaller;
 
     private final HybridTimestampTracker observableTimestampTracker;
 
@@ -422,15 +410,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param txManager Transaction manager.
      * @param dataStorageMgr Data storage manager.
      * @param schemaManager Schema manager.
-     * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
-     *         volatile tables.
      * @param ioExecutor Separate executor for IO operations like partition storage initialization or partition raft group meta data
      *     persisting.
      * @param partitionOperationsExecutor Striped executor on which partition operations (potentially requiring I/O with storages)
      *     will be executed.
      * @param placementDriver Placement driver.
      * @param sql A supplier function that returns {@link IgniteSql}.
-     * @param rebalanceScheduler Executor for scheduling rebalance routine.
      * @param lowWatermark Low watermark.
      * @param transactionInflights Transaction inflights.
      */
@@ -451,7 +436,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Path storagePath,
             MetaStorageManager metaStorageMgr,
             SchemaManager schemaManager,
-            LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             ExecutorService ioExecutor,
             Executor partitionOperationsExecutor,
             HybridClock clock,
@@ -464,7 +448,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PlacementDriver placementDriver,
             Supplier<IgniteSql> sql,
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
-            ScheduledExecutorService rebalanceScheduler,
             LowWatermark lowWatermark,
             TransactionInflights transactionInflights
     ) {
@@ -476,7 +459,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.dataStorageMgr = dataStorageMgr;
         this.metaStorageMgr = metaStorageMgr;
         this.schemaManager = schemaManager;
-        this.volatileLogStorageFactoryCreator = volatileLogStorageFactoryCreator;
         this.ioExecutor = ioExecutor;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.clock = clock;
@@ -488,7 +470,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.sql = sql;
         this.storageUpdateConfig = storageUpdateConfig;
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
-        this.rebalanceScheduler = rebalanceScheduler;
         this.lowWatermark = lowWatermark;
         this.transactionInflights = transactionInflights;
         this.txCfg = txCfg;
@@ -548,8 +529,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         assignmentsSwitchRebalanceListener = createAssignmentsSwitchRebalanceListener();
 
         mvGc = new MvGc(nodeName, gcConfig, lowWatermark);
-
-        raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(messageSerializationRegistry);
 
         partitionReplicatorNodeRecovery = new PartitionReplicatorNodeRecovery(
                 metaStorageMgr,
@@ -1076,40 +1055,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return new PartitionKey(internalTbl.tableId(), partId);
     }
 
-    private RaftGroupOptions groupOptionsForPartition(
-            MvTableStorage mvTableStorage,
-            TxStateTableStorage txStateTableStorage,
-            PartitionKey partitionKey,
-            PartitionUpdateHandlers partitionUpdateHandlers
-    ) {
-        RaftGroupOptions raftGroupOptions = replicaMgr.createRaftGroupOptions(
-                mvTableStorage.isVolatile(),
-                volatileLogStorageFactoryCreator
-        );
-
-        raftGroupOptions.snapshotStorageFactory(new PartitionSnapshotStorageFactory(
-                topologyService,
-                outgoingSnapshotsManager,
-                new PartitionAccessImpl(
-                        partitionKey,
-                        mvTableStorage,
-                        txStateTableStorage,
-                        mvGc,
-                        partitionUpdateHandlers.indexUpdateHandler,
-                        partitionUpdateHandlers.gcUpdateHandler,
-                        fullStateTransferIndexChooser,
-                        schemaManager.schemaRegistry(partitionKey.tableId()),
-                        lowWatermark
-                ),
-                catalogService,
-                incomingSnapshotsExecutor
-        ));
-
-        raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
-
-        return raftGroupOptions;
-    }
-
     @Override
     public void beforeNodeStop() {
         if (!beforeStopGuard.compareAndSet(false, true)) {
@@ -1142,7 +1087,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     mvGc,
                     fullStateTransferIndexChooser,
                     sharedTxStateStorage,
-                    () -> shutdownAndAwaitTermination(rebalanceScheduler, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(txStateStoragePool, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
@@ -2020,13 +1964,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     ) throws NodeStoppingException {
         InternalTable internalTable = table.internalTable();
 
-        RaftGroupOptions groupOptions = groupOptionsForPartition(
-                internalTable.storage(),
-                internalTable.txStateStorage(),
-                partitionKey(internalTable, replicaGrpId.partitionId()),
-                partitionUpdateHandlers
-        );
-
         RaftGroupListener raftGrpLsnr = new PartitionListener(
                 txManager,
                 partitionDataStorage,
@@ -2039,22 +1976,36 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 clockService
         );
 
-        RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(
-                metaStorageMgr,
-                replicaGrpId,
-                busyLock,
-                createPartitionMover(internalTable, replicaGrpId.partitionId()),
-                rebalanceScheduler,
-                zoneId
+        PartitionKey partitionKey = partitionKey(internalTable, replicaGrpId.partitionId());
+
+        SnapshotStorageFactory snapshotStorageFactory = new PartitionSnapshotStorageFactory(
+                topologyService,
+                outgoingSnapshotsManager,
+                new PartitionAccessImpl(
+                        partitionKey,
+                        internalTable.storage(),
+                        internalTable.txStateStorage(),
+                        mvGc,
+                        partitionUpdateHandlers.indexUpdateHandler,
+                        partitionUpdateHandlers.gcUpdateHandler,
+                        fullStateTransferIndexChooser,
+                        schemaManager.schemaRegistry(partitionKey.tableId()),
+                        lowWatermark
+                ),
+                catalogService,
+                incomingSnapshotsExecutor
         );
 
         // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
         replicaMgr.startPartitionRaftGroupNode(
+                replicaGrpId,
+                zoneId,
                 raftNodeId,
                 stableConfiguration,
                 raftGrpLsnr,
-                raftGrpEvtsLsnr,
-                groupOptions
+                metaStorageMgr,
+                internalTable.storage(),
+                snapshotStorageFactory
         );
     }
 

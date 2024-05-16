@@ -50,6 +50,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
@@ -85,6 +86,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
+import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageTestGroup;
@@ -141,6 +143,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
     private ExecutorService partitionOperationsExecutor;
 
+    private ScheduledThreadPoolExecutor rebalanceScheduler;
+
     /** List of services to have to close before the test will be completed. */
     private final List<Closeable> servicesToClose = new ArrayList<>();
 
@@ -154,6 +158,10 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create("test", "partition-operations", log)
         );
+
+        rebalanceScheduler = new ScheduledThreadPoolExecutor(
+                20,
+                NamedThreadFactory.create("test", "rebalance-scheduler", log));
 
         placementDriverNodeNames = IntStream.range(BASE_PORT, BASE_PORT + 3).mapToObj(port -> testNodeName(testInfo, port))
                 .collect(toSet());
@@ -201,12 +209,14 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     Set.of(ReplicaMessageTestGroup.class),
                     new TestPlacementDriver(primaryReplicaSupplier),
                     partitionOperationsExecutor,
+                    rebalanceScheduler,
                     () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                     new NoOpFailureProcessor(),
                     // TODO: IGNITE-22222 can't pass ThreadLocalPartitionCommandsMarshaller there due to dependency loop
                     null,
                     topologyAwareRaftGroupServiceFactory,
-                    raftManager
+                    raftManager,
+                    new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout"))
             );
 
             replicaManagers.put(nodeName, replicaManager);
@@ -226,7 +236,10 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                 }
             });
 
-            servicesToClose.add(() -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS));
+            servicesToClose.addAll(List.of(
+                    () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS),
+                    () -> IgniteUtils.shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS)
+            ));
         }
     }
 

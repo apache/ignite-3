@@ -45,6 +45,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
@@ -65,6 +66,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
+import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaResult;
@@ -136,6 +138,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     private ExecutorService requestsExecutor;
 
+    private ScheduledThreadPoolExecutor rebalanceScheduler;
+
     private Loza raftManager;
 
     private TopologyAwareRaftGroupService raftClient;
@@ -177,6 +181,10 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 NamedThreadFactory.create(NODE_NAME, "partition-operations", log)
         );
 
+        rebalanceScheduler = new ScheduledThreadPoolExecutor(
+                20,
+                NamedThreadFactory.create("test", "rebalance-scheduler", log));
+
         replicaService = new ReplicaService(
                 clusterService.messagingService(),
                 clock,
@@ -191,11 +199,13 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
                 new TestPlacementDriver(clusterService.topologyService().localMember()),
                 requestsExecutor,
+                rebalanceScheduler,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new NoOpFailureProcessor(),
                 mock(ThreadLocalPartitionCommandsMarshaller.class),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
-                raftManager
+                raftManager,
+                view -> new LocalLogStorageFactory()
         );
 
         assertThat(replicaManager.startAsync(), willCompleteSuccessfully());
@@ -204,6 +214,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     @AfterEach
     public void teardown() {
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
 
         assertThat(clusterService.stopAsync(), willCompleteSuccessfully());
     }
