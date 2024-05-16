@@ -886,9 +886,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         var raftNodeId = localMemberAssignment == null ? null : new RaftNodeId(replicaGrpId, serverPeer);
 
-        boolean shouldStartRaftListeners = RebalanceUtil.subtract(nonStableNodeAssignments.nodes(), assignments.nodes())
-                .stream()
-                .anyMatch(assignment -> assignment.consistentId().equals(localNode().id()));
+        boolean shouldStartRaftListeners = localMemberAssignment != null && !replicaMgr.isRaftClientStarted(raftNodeId);
 
         if (shouldStartRaftListeners) {
             ((InternalTableImpl) internalTbl).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
