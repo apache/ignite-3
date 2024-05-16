@@ -1053,6 +1053,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new TestConfigurationValidator()
             );
 
+            failureProcessor = new FailureProcessor(name);
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -1061,7 +1063,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    new NodeAttributesCollector(nodeAttributes, storageConfiguration)
+                    new NodeAttributesCollector(nodeAttributes, storageConfiguration),
+                    failureProcessor
             );
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -1142,7 +1145,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             Path storagePath = dir.resolve("storage");
 
-            failureProcessor = new FailureProcessor(name);
 
             dataStorageMgr = new DataStorageManager(
                     dataStorageModules.createStorageEngines(

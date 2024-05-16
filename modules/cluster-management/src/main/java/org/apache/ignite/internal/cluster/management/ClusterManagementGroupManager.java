@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
+import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
@@ -62,6 +63,8 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventParameters;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -141,6 +144,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     /** Future that resolves into the initial cluster configuration in HOCON format. */
     private final CompletableFuture<String> initialClusterConfigurationFuture = new CompletableFuture<>();
 
+    /** Failure processor that is used to handle critical errors. */
+    private final FailureProcessor failureProcessor;
+
     /** Constructor. */
     public ClusterManagementGroupManager(
             VaultManager vault,
@@ -150,7 +156,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology,
             ClusterManagementConfiguration configuration,
-            NodeAttributes nodeAttributes
+            NodeAttributes nodeAttributes,
+            FailureProcessor failureProcessor
     ) {
         this.clusterService = clusterService;
         this.clusterInitializer = clusterInitializer;
@@ -160,6 +167,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.configuration = configuration;
         this.localStateStorage = new LocalStateStorage(vault);
         this.nodeAttributes = nodeAttributes;
+        this.failureProcessor = failureProcessor;
 
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
@@ -442,13 +450,11 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         LOG.info("CMG cancellation procedure started");
         return inBusyLockAsync(busyLock,
                 () -> fireEvent(ClusterManagerGroupEvent.BEFORE_DESTROY_RAFT_GROUP, EmptyEventParameters.INSTANCE)
-                    .whenCompleteAsync((none, err) -> {
-                        if (err != null) {
-                            LOG.error("Error while waiting for destroy listeners", err);
-                        }
-
-                        destroyCmg();
-                    }, this.scheduledExecutor)
+                    .thenRunAsync(this::destroyCmg, this.scheduledExecutor)
+                    .exceptionally(err -> {
+                        failureProcessor.process(new FailureContext(CRITICAL_ERROR, err));
+                        throw (err instanceof RuntimeException) ? (RuntimeException) err : new CompletionException(err);
+                    })
         );
     }
 
