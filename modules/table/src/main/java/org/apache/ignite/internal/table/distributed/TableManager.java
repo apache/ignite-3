@@ -886,7 +886,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         var raftNodeId = localMemberAssignment == null ? null : new RaftNodeId(replicaGrpId, serverPeer);
 
-        boolean shouldStartRaftListeners = localMemberAssignment != null && !replicaMgr.isRaftClientStarted(raftNodeId);
+        boolean shouldStartRaftListeners = shouldStartRaftListeners(assignments, nonStableNodeAssignments);
 
         if (shouldStartRaftListeners) {
             ((InternalTableImpl) internalTbl).updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
@@ -1014,6 +1014,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 });
 
         return resultFuture;
+    }
+
+    private boolean shouldStartRaftListeners(Assignments assignments, @Nullable Assignments nonStableNodeAssignments) {
+        Set<Assignment> nodesForStarting = nonStableNodeAssignments == null
+                ? assignments.nodes()
+                : RebalanceUtil.subtract(nonStableNodeAssignments.nodes(), assignments.nodes());
+        return nodesForStarting
+                .stream()
+                .anyMatch(assignment -> assignment.consistentId().equals(localNode().id()));
     }
 
     private PartitionReplicaListener createReplicaListener(
