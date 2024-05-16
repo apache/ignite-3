@@ -54,3 +54,7 @@ dependencies {
 test {
     systemProperty "buildDirPath", project.buildDir.path
 }
+
+integrationTest {
+    systemProperty "buildDirPath", project.buildDir.path
+}
