@@ -39,7 +39,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -229,8 +228,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
                         handleClusterState((ClusterStateMessage) message, sender, correlationId);
                     } else if (message instanceof CancelInitMessage) {
-                        // I think the none of the cancel iniØt messages will have correlation id but...
-                        handleCancelInit((CancelInitMessage) message, err -> messageHandlerFactory.onError(sender, correlationId, err));
+                        handleCancelInit((CancelInitMessage) message);
                     } else if (message instanceof CmgInitMessage) {
                         assert correlationId != null;
 
@@ -434,17 +432,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 }));
     }
 
-    private void handleCancelInit(CancelInitMessage msg, Consumer<Throwable> onError) {
+    private void handleCancelInit(CancelInitMessage msg) {
         LOG.info("CMG initialization cancelled [reason={}]", msg.reason());
-        this.scheduledExecutor.execute(() -> this.destroyCmgWithEvents().exceptionally(toFunction(onError)));
-    }
-
-    /** Converts the consumer to a function that returns null. */
-    private static <T> Function<T, Void> toFunction(Consumer<T> consumer) {
-        return arg -> {
-            consumer.accept(arg);
-            return null;
-        };
+        this.scheduledExecutor.execute(this::destroyCmgWithEvents);
     }
 
     /** Delegates call to {@link #destroyCmg()} but fires the associated events. */
@@ -452,15 +442,13 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         LOG.info("CMG cancellation procedure started");
         return inBusyLockAsync(busyLock,
                 () -> fireEvent(ClusterManagerGroupEvent.BEFORE_DESTROY_RAFT_GROUP, EmptyEventParameters.INSTANCE)
-                    .handle((none, err) -> {
+                    .whenCompleteAsync((none, err) -> {
                         if (err != null) {
                             LOG.error("Error while waiting for destroy listeners", err);
                         }
 
                         destroyCmg();
-
-                        return null;
-                    })
+                    }, this.scheduledExecutor)
         );
     }
 
