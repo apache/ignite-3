@@ -33,6 +33,7 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -90,7 +91,7 @@ class ItEventLogTest extends ClusterPerClassIntegrationTest {
         String expectedEventJsonPattern = "\\{"
                 + "\"type\":\"USER_AUTHENTICATED\","
                 + "\"timestamp\":\\d*,"
-                + "\"productVersion\":\".*\","
+                + "\"productVersion\":\"" + IgniteProductVersion.VERSION_PATTERN.pattern() + "\","
                 + "\"user\":\\{\"username\":\"" + USERNAME + "\",\"authenticationProvider\":\"" + PROVIDER_NAME + "\"},"
                 + "\"fields\":\\{}"
                 + "}";
