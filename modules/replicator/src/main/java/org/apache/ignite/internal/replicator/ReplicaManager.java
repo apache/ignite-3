@@ -572,7 +572,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupListener raftGrpLsnr,
             MetaStorageManager metaStorageMgr,
             MvTableStorage mvTableStorage,
-            SnapshotStorageFactory snapshotStorageFactory
+            SnapshotStorageFactory snapshotStorageFactory,
+            PartitionMover partitionMover
     ) throws NodeStoppingException {
         RaftGroupOptions groupOptions = groupOptionsForPartition(
                 mvTableStorage,
@@ -583,7 +584,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 replicaGrpId,
                 busyLock,
                 // TODO: to async
-                new PartitionMover(busyLock, () -> getReplica(replicaGrpId).join().raftClient()),
+                partitionMover,
                 rebalanceScheduler,
                 zoneId
         );

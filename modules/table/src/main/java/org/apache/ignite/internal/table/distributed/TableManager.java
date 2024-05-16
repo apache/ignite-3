@@ -946,7 +946,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             raftGrpLsnr,
                             metaStorageMgr,
                             internalTable.storage(),
-                            snapshotStorageFactory
+                            snapshotStorageFactory,
+                            new PartitionMover(busyLock, () -> table
+                                    .internalTable()
+                                    .tableRaftService()
+                                    .partitionRaftGroupService(replicaGrpId.partitionId()))
                     );
 
                     return true;
