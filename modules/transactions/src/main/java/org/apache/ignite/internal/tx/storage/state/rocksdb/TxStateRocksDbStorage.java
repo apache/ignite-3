@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.nio.ByteOrder.BIG_ENDIAN;
+import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage.TABLE_PREFIX_SIZE_BYTES;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
@@ -215,6 +216,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     @Override
     public void removeAll(Collection<UUID> txIds, long commandIndex, long commandTerm) {
+        requireNonNull(txIds, "Collection of the transaction IDs intended for removal cannot be null.");
+
         updateData(writeBatch -> {
             throwExceptionIfStorageInProgressOfRebalance();
 

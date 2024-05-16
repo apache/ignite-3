@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.storage.state.test;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
@@ -113,6 +114,8 @@ public class TestTxStateStorage implements TxStateStorage {
 
     @Override
     public void removeAll(Collection<UUID> txIds, long commandIndex, long commandTerm) {
+        requireNonNull(txIds, "Collection of the transaction IDs intended for removal cannot be null.");
+
         checkStorageClosedOrInProgressOfRebalance();
 
         for (UUID txId : txIds) {

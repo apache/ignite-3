@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.storage.state;
 
+import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -155,6 +156,45 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
         }
 
         return hybridTimestamp(time);
+    }
+
+    @Test
+    public void testRemoveAll() {
+        TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
+
+        List<UUID> txIds = new ArrayList<>();
+
+        for (int i = 0; i < 100; i++) {
+            UUID txId = UUID.randomUUID();
+
+            txIds.add(txId);
+
+            storage.putForRebalance(txId, new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(i), generateTimestamp(txId)));
+        }
+
+        assertThrows(NullPointerException.class, () -> storage.removeAll(null, 0, 0),
+                "Collection of the transaction IDs intended for removal cannot be null.");
+
+        storage.removeAll(emptyList(), 1, 1);
+
+        UUID uuid0 = txIds.get(0);
+        UUID uuid1 = txIds.get(1);
+
+        storage.removeAll(List.of(uuid0, uuid0, uuid1, uuid1, UUID.randomUUID()), 2, 1);
+
+        assertNull(storage.get(uuid0));
+        assertNull(storage.get(uuid1));
+
+        for (int i = 2; i < 100; i++) {
+            TxMeta txMetaExpected = new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(i), generateTimestamp(txIds.get(i)));
+            assertEquals(txMetaExpected, storage.get(txIds.get(i)));
+        }
+
+        storage.removeAll(txIds, 3, 1);
+
+        for (int i = 0; i < 100; i++) {
+            assertNull(storage.get(txIds.get(i)));
+        }
     }
 
     @Test
