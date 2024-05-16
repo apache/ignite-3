@@ -194,13 +194,13 @@ class PartitionReplicatorNodeRecovery {
         // with current partition.
         return waitForPeersAndQueryDataNodesCounts(tableId, partId, newConfiguration.peers())
                 .thenApply(dataNodesCounts -> {
-                    boolean fullPartitionRestart = dataNodesCounts.nodesSurelyEmpty == newConfiguration.peers().size();
+                    boolean fullPartitionRestart = dataNodesCounts.emptyNodes == newConfiguration.peers().size();
 
                     if (fullPartitionRestart) {
                         return true;
                     }
 
-                    boolean majorityAvailable = dataNodesCounts.nodesSurelyHavingData >= (newConfiguration.peers().size() / 2) + 1;
+                    boolean majorityAvailable = dataNodesCounts.nonEmptyNodes >= (newConfiguration.peers().size() / 2) + 1;
 
                     if (majorityAvailable) {
                         RebalanceUtilEx.startPeerRemoval(tablePartitionId, localMemberAssignment, metaStorageManager);
@@ -331,13 +331,19 @@ class PartitionReplicatorNodeRecovery {
                 });
     }
 
+    /**
+     * It is not guaranteed that {@link #nonEmptyNodes} plus {@link #emptyNodes} gives the replicator group size
+     * as for some nodes we don't know at the moment whether they have data or not.
+     */
     private static class DataNodesCounts {
-        private final long nodesSurelyHavingData;
-        private final long nodesSurelyEmpty;
+        /** Number of nodes that reported that they have some data for the partition of interest. */
+        private final long nonEmptyNodes;
+        /* Number of nodes that reported that they don't have any data for the partition of interest. */
+        private final long emptyNodes;
 
-        private DataNodesCounts(long nodesSurelyHavingData, long nodesSurelyEmpty) {
-            this.nodesSurelyHavingData = nodesSurelyHavingData;
-            this.nodesSurelyEmpty = nodesSurelyEmpty;
+        private DataNodesCounts(long nonEmptyNodes, long emptyNodes) {
+            this.nonEmptyNodes = nonEmptyNodes;
+            this.emptyNodes = emptyNodes;
         }
     }
 }
