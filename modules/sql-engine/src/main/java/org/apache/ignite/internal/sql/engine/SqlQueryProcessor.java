@@ -635,6 +635,10 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .thenCompose(schema -> {
                     SqlOperationContext ctx = SqlOperationContext.builder()
                             .queryId(UUID.randomUUID())
+                            //@formatter:off
+                            .timeZoneId(DEFAULT_TIME_ZONE_ID) // time zone is used in execution phase,
+                                                              // so we may use any time zone for preparation only
+                            //@formatter:on
                             .defaultSchemaName(schemaName)
                             .operationTime(timestamp)
                             .cancel(queryCancel)
