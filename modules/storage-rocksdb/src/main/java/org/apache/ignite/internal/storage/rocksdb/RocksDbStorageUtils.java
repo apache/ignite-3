@@ -38,6 +38,9 @@ public class RocksDbStorageUtils {
     /** Index ID size in bytes. */
     public static final int INDEX_ID_SIZE = Integer.BYTES;
 
+    /** Zone ID size in bytes. */
+    public static final int ZONE_ID_SIZE = Integer.BYTES;
+
     /** Table ID size in bytes. */
     public static final int TABLE_ID_SIZE = Integer.BYTES;
 

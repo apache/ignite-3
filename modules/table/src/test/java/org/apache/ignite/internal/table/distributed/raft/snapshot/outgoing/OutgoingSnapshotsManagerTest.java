@@ -48,7 +48,7 @@ class OutgoingSnapshotsManagerTest extends BaseIgniteAbstractTest {
     @Mock
     private CatalogService catalogService;
 
-    private final PartitionKey partitionKey = new PartitionKey(1, 1);
+    private final PartitionKey partitionKey = new PartitionKey(11, 1, 1);
 
     @SuppressWarnings("EmptyTryBlock")
     @Test

@@ -65,6 +65,7 @@ import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowSingleBoolean;
@@ -1062,21 +1063,21 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     return super.visit(rel);
                 }
 
-                private void enlist(int tableId, Int2ObjectMap<NodeWithConsistencyToken> assignments) {
+                private void enlist(int zoneId, int tableId, Int2ObjectMap<NodeWithConsistencyToken> assignments) {
                     if (assignments.isEmpty()) {
                         return;
                     }
 
                     int partsCnt = assignments.size();
 
-                    tx.assignCommitPartition(new TablePartitionId(tableId, ThreadLocalRandom.current().nextInt(partsCnt)));
+                    tx.assignCommitPartition(new ZonePartitionId(zoneId, tableId, ThreadLocalRandom.current().nextInt(partsCnt)));
 
                     for (Map.Entry<Integer, NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
-                        TablePartitionId tablePartId = new TablePartitionId(tableId, partWithToken.getKey());
+                        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, partWithToken.getKey());
 
                         NodeWithConsistencyToken assignment = partWithToken.getValue();
 
-                        tx.enlist(tablePartId,
+                        tx.enlist(zonePartitionId,
                                 new IgniteBiTuple<>(
                                         topSrvc.getByConsistentId(assignment.name()),
                                         assignment.enlistmentConsistencyToken())
@@ -1086,11 +1087,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 private void enlist(SourceAwareIgniteRel rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
+                    int zoneId = rel.getTable().unwrap(IgniteTable.class).zoneId();
 
                     ColocationGroup colocationGroup = mappedFragment.groupsBySourceId().get(rel.sourceId());
                     Int2ObjectMap<NodeWithConsistencyToken> assignments = colocationGroup.assignments();
 
-                    enlist(tableId, assignments);
+                    enlist(zoneId, tableId, assignments);
                 }
             }.visit(mappedFragment.fragment().root());
         }

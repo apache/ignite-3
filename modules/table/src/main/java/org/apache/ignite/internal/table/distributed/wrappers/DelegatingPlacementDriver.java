@@ -71,6 +71,11 @@ abstract class DelegatingPlacementDriver implements PlacementDriver {
     }
 
     @Override
+    public CompletableFuture<ReplicaMeta> getPrimaryReplicaForTable(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+        return delegate.getPrimaryReplicaForTable(replicationGroupId, timestamp);
+    }
+
+    @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
         return delegate.previousPrimaryExpired(grpId);
     }

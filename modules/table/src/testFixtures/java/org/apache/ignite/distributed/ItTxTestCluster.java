@@ -531,6 +531,7 @@ public class ItTxTestCluster {
      * @return Groups map.
      */
     public TableViewInternal startTable(String tableName, SchemaDescriptor schemaDescriptor) throws Exception {
+        int zoneId = globalCatalogId.getAndIncrement();
         int tableId = globalCatalogId.getAndIncrement();
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
@@ -620,7 +621,7 @@ public class ItTxTestCluster {
                         new PendingComparableValuesTracker<>(clockServices.get(assignment).now());
                 PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
-                PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, partId, mvPartStorage);
+                PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(zoneId, tableId, partId, mvPartStorage);
 
                 IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
                         DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()))
@@ -669,6 +670,7 @@ public class ItTxTestCluster {
                                         txManagers.get(assignment),
                                         Runnable::run,
                                         partId,
+                                        zoneId,
                                         tableId,
                                         () -> Map.of(pkLocker.id(), pkLocker),
                                         pkStorage,
@@ -775,6 +777,7 @@ public class ItTxTestCluster {
             TxManager txManager,
             Executor scanRequestExecutor,
             int partId,
+            int zoneId,
             int tableId,
             Supplier<Map<Integer, IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
@@ -800,6 +803,7 @@ public class ItTxTestCluster {
                 txManager.lockManager(),
                 Runnable::run,
                 partId,
+                zoneId,
                 tableId,
                 indexesLockers,
                 pkIndexStorage,

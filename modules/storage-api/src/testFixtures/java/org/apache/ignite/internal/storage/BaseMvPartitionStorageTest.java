@@ -33,6 +33,7 @@ import org.junit.jupiter.api.AfterEach;
 public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     protected static final int PARTITION_ID = 1;
 
+    protected static final int COMMIT_ZONE_ID = 9999;
     protected static final int COMMIT_TABLE_ID = 999;
 
     protected static final UUID TX_ID = newTransactionId();
@@ -110,7 +111,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
         return storage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            return storage.addWrite(rowId, binaryRow, txId, COMMIT_TABLE_ID, PARTITION_ID);
+            return storage.addWrite(rowId, binaryRow, txId, COMMIT_ZONE_ID, COMMIT_TABLE_ID, PARTITION_ID);
         });
     }
 
@@ -128,7 +129,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     }
 
     /**
-     * Writes a row to storage like if it was first added using {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)}
+     * Writes a row to storage like if it was first added using {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int, int)}
      * and immediately committed with {@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)}.
      */
     protected void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) {

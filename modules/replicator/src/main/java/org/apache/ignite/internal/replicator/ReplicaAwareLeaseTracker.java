@@ -126,6 +126,29 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
     }
 
     @Override
+    public CompletableFuture<ReplicaMeta> getPrimaryReplicaForTable(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+        ZonePartitionId zonePartitionId = (ZonePartitionId) replicationGroupId;
+
+        TablePartitionId tablePartitionId = new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId());
+
+        return delegate.getPrimaryReplicaForTable(zonePartitionId, timestamp).thenCompose(replicaMeta -> {
+            ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
+
+            if (replicaMeta.subgroups().contains(tablePartitionId)) {
+                return completedFuture(replicaMeta);
+            }
+
+            WaitReplicaStateMessage awaitReplicaReq = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
+                    .groupId(tablePartitionId)
+                    .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
+                    .timeout(10)
+                    .build();
+
+            return replicaService.invoke(leaseholderNode, awaitReplicaReq).thenApply((ignored) -> replicaMeta);
+        });
+    }
+
+    @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
         return delegate.getPrimaryReplica(replicationGroupId, timestamp);
     }

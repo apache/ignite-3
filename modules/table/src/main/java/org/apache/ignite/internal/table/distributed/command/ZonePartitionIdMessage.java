@@ -15,35 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.message;
+package org.apache.ignite.internal.table.distributed.command;
 
 import java.io.Serializable;
-import java.util.Collection;
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup.Commands;
 
 /**
- * The result of a replicated cleanup request.
+ * Network Message interface to transfer {@link ZonePartitionId} as part of {@link NetworkMessage}.
  */
-public class CleanupReplicatedInfo implements Serializable {
+@Transferable(Commands.ZONE_PARTITION_ID)
+public interface ZonePartitionIdMessage extends NetworkMessage, Serializable {
+    int zoneId();
 
-    private static final long serialVersionUID = -975001033274630774L;
+    int tableId();
 
-    private final UUID txId;
+    int partitionId();
 
-    private final Collection<ZonePartitionId> partitions;
-
-    public CleanupReplicatedInfo(UUID txId, Collection<ZonePartitionId> partitions) {
-        this.txId = txId;
-        this.partitions = partitions;
-    }
-
-    public UUID txId() {
-        return txId;
-    }
-
-    public Collection<ZonePartitionId> partitions() {
-        return partitions;
+    default ZonePartitionId asZonePartitionId() {
+        return new ZonePartitionId(zoneId(), tableId(), partitionId());
     }
 }

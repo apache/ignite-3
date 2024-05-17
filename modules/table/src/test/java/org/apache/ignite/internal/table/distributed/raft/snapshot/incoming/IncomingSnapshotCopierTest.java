@@ -70,6 +70,7 @@ import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkRequest;
 import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -125,6 +126,8 @@ import org.mockito.Answers;
 
 /** For {@link IncomingSnapshotCopier} testing. */
 public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
+    private static final int ZONE_ID = 11;
+
     private static final int TABLE_ID = 1;
 
     private static final String NODE_NAME = "node";
@@ -334,7 +337,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 SnapshotUri.toStringUri(snapshotId, NODE_NAME),
                 mock(RaftOptions.class),
                 spy(new PartitionAccessImpl(
-                        new PartitionKey(TABLE_ID, PARTITION_ID),
+                        new PartitionKey(ZONE_ID, TABLE_ID, PARTITION_ID),
                         incomingTableStorage,
                         incomingTxStateTableStorage,
                         mvGc,
@@ -367,7 +370,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                     storage.addWriteCommitted(rowIds.get(i), createRow("k" + i, "v" + i), CLOCK.now());
                 } else {
                     // Writes an intent to write (uncommitted version).
-                    storage.addWrite(rowIds.get(i), createRow("k" + i, "v" + i), generateTxId(), 999, PARTITION_ID);
+                    storage.addWrite(rowIds.get(i), createRow("k" + i, "v" + i), generateTxId(), 9999, 999, PARTITION_ID);
                 }
             }
 
@@ -387,12 +390,14 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     ) {
         assertEquals(0, txIds.size() % 2, "size=" + txIds.size());
 
+        int zoneId = 22;
+
         int tableId = 2;
 
         for (int i = 0; i < txIds.size(); i++) {
             TxState txState = i % 2 == 0 ? COMMITTED : ABORTED;
 
-            storage.put(txIds.get(i), new TxMeta(txState,  List.of(new TablePartitionId(tableId, PARTITION_ID)), CLOCK.now()));
+            storage.put(txIds.get(i), new TxMeta(txState,  List.of(new ZonePartitionId(zoneId, tableId, PARTITION_ID)), CLOCK.now()));
         }
 
         storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
@@ -410,6 +415,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             long[] timestamps = new long[readResults.size() + (readResults.get(0).isWriteIntent() ? -1 : 0)];
 
             UUID txId = null;
+            Integer commitZoneId = null;
             Integer commitTableId = null;
             int commitPartitionId = ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
@@ -424,6 +430,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
                 if (readResult.isWriteIntent()) {
                     txId = readResult.transactionId();
+                    commitZoneId = readResult.commitZoneId();
                     commitTableId = readResult.commitTableId();
                     commitPartitionId = readResult.commitPartitionId();
                 } else {
@@ -437,6 +444,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                             .rowVersions(rowVersions)
                             .timestamps(timestamps)
                             .txId(txId)
+                            .commitZoneId(commitZoneId)
                             .commitTableId(commitTableId)
                             .commitPartitionId(commitPartitionId)
                             .build()
@@ -474,6 +482,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
                 assertEquals(expReadResult.commitTimestamp(), actReadResult.commitTimestamp(), msg);
                 assertEquals(expReadResult.transactionId(), actReadResult.transactionId(), msg);
+                assertEquals(expReadResult.commitZoneId(), actReadResult.commitZoneId(), msg);
                 assertEquals(expReadResult.commitTableId(), actReadResult.commitTableId(), msg);
                 assertEquals(expReadResult.commitPartitionId(), actReadResult.commitPartitionId(), msg);
                 assertEquals(expReadResult.isWriteIntent(), actReadResult.isWriteIntent(), msg);
@@ -594,7 +603,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
             return null;
         }).when(partitionSnapshotStorage.partition())
-                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt(), anyInt());
+                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt(), anyInt(), anyInt());
 
         // Let's start rebalancing.
         SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
@@ -638,7 +647,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         // Let's add an error on the rebalance.
         doThrow(StorageException.class).when(partitionSnapshotStorage.partition())
-                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt(), anyInt());
+                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt(), anyInt(), anyInt());
 
         // Let's start rebalancing.
         SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
@@ -662,7 +671,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     void cancellationsFromMultipleThreadsDoNotBlockEachOther() throws Exception {
         PartitionSnapshotStorage partitionSnapshotStorage = mock(PartitionSnapshotStorage.class, Answers.RETURNS_DEEP_STUBS);
 
-        when(partitionSnapshotStorage.partition().partitionKey()).thenReturn(new PartitionKey(1, 0));
+        when(partitionSnapshotStorage.partition().partitionKey()).thenReturn(new PartitionKey(11, 1, 0));
 
         IncomingSnapshotCopier copier = new IncomingSnapshotCopier(
                 partitionSnapshotStorage,

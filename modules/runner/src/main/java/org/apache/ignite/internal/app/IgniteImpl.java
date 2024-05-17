@@ -730,7 +730,10 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.messagingService()
         );
 
-        var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
+        ReplicaAwareLeaseTracker replicaAwarePlacementDriver = new ReplicaAwareLeaseTracker(placementDriverMgr.placementDriver(),
+                replicaSvc, clusterSvc.topologyService());
+
+        var transactionInflights = new TransactionInflights(replicaAwarePlacementDriver, clockService);
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -742,7 +745,7 @@ public class IgniteImpl implements Ignite {
                 lockMgr,
                 clockService,
                 new TransactionIdGenerator(() -> clusterSvc.nodeName().hashCode()),
-                placementDriverMgr.placementDriver(),
+                replicaAwarePlacementDriver,
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 indexNodeFinishedRwTransactionsChecker,
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -818,9 +821,6 @@ public class IgniteImpl implements Ignite {
                 registry,
                 lowWatermark
         );
-
-        ReplicaAwareLeaseTracker replicaAwarePlacementDriver = new ReplicaAwareLeaseTracker(placementDriverMgr.placementDriver(),
-                replicaSvc, clusterSvc.topologyService());
 
         indexBuildingManager = new IndexBuildingManager(
                 name,

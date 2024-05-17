@@ -27,6 +27,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
@@ -86,8 +87,8 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
-        return transaction.enlistedNodeAndConsistencyToken(tablePartitionId);
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ZonePartitionId zonePartitionId) {
+        return transaction.enlistedNodeAndConsistencyToken(zonePartitionId);
     }
 
     @Override
@@ -96,8 +97,13 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
-        return transaction.assignCommitPartition(tablePartitionId);
+    public boolean assignCommitPartition(ZonePartitionId zonePartitionId) {
+        return transaction.assignCommitPartition(zonePartitionId);
+    }
+
+    @Override
+    public ZonePartitionId zoneCommitPartition() {
+        return transaction.zoneCommitPartition();
     }
 
     @Override
@@ -106,9 +112,9 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId,
+    public IgniteBiTuple<ClusterNode, Long> enlist(ZonePartitionId zonePartitionId,
             IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
-        return transaction.enlist(tablePartitionId, nodeAndConsistencyToken);
+        return transaction.enlist(zonePartitionId, nodeAndConsistencyToken);
     }
 
     @Override

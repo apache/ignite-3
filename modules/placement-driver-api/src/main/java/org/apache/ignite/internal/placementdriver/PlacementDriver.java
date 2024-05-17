@@ -95,6 +95,19 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
     CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp);
 
     /**
+     * Same as {@link #awaitPrimaryReplica(ReplicationGroupId, HybridTimestamp, long, TimeUnit)} despite the fact that given method await
+     * logic is bounded. It will wait for a primary replica for a reasonable period of time, and complete a future with null if a matching
+     * lease isn't found. Generally speaking reasonable here means enough for distribution across cluster nodes.
+     *
+     * @param replicationGroupId Replication group id.
+     * @param timestamp CLOCK_SKEW aware timestamp reference value.
+     * @return Primary replica future.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20362
+    @Deprecated
+    CompletableFuture<ReplicaMeta> getPrimaryReplicaForTable(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp);
+
+    /**
      * Returns a future that completes when all expiration event {@link PrimaryReplicaEvent#PRIMARY_REPLICA_EXPIRED} listeners of previous
      * primary complete.
      *

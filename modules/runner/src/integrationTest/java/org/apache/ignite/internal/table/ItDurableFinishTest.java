@@ -48,6 +48,7 @@ import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -324,7 +325,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
         TxMeta txMetaToSet = new TxMeta(
                 ABORTED,
-                asList(new TablePartitionId(tableImpl.tableId(), 0)),
+                asList(new ZonePartitionId(tableImpl.internalTable().zoneId(), tableImpl.tableId(), 0)),
                 null
         );
         bypassingThreadAssertions(() -> storage.put(tx.id(), txMetaToSet));

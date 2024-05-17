@@ -33,7 +33,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -91,6 +91,7 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
 
     @BeforeEach
     void setUp() {
+        int zoneId = 11;
         int tableId = 1;
         int pkIndexId = 2;
         int sortedIndexId = 3;
@@ -159,7 +160,7 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
                 hashIndexId, hashIndexStorage
         );
 
-        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PARTITION_ID, storage);
+        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(zoneId, tableId, PARTITION_ID, storage);
 
         indexUpdateHandler = spy(new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(indexes)));
 
@@ -181,7 +182,7 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
         BinaryRow row2 = binaryRow(new TestKey(3, "foo3"), new TestValue(4, "baz"));
         BinaryRow row3 = binaryRow(new TestKey(5, "foo5"), new TestValue(7, "zzu"));
 
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         TimedBinaryRow tb1 = new TimedBinaryRow(row1, null);
         TimedBinaryRow tb2 = new TimedBinaryRow(row2, null);
@@ -204,7 +205,7 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
         assertEquals(3, storage.rowsCount());
 
         // We have three writes to the storage.
-        verify(storage, times(3)).addWrite(any(), any(), any(), anyInt(), anyInt());
+        verify(storage, times(3)).addWrite(any(), any(), any(), anyInt(), anyInt(), anyInt());
 
         // First entry calls lock(). Second calls tryLock and fails, starts second batch, calls lock(). Same for third.
         verify(lock, times(2)).tryLock(any());

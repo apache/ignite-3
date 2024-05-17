@@ -75,6 +75,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -196,9 +197,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             @Override
             public CompletableFuture<Void> finish(
                     HybridTimestampTracker observableTimestampTracker,
-                    TablePartitionId commitPartition,
+                    ZonePartitionId commitPartition,
                     boolean commitIntent,
-                    Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+                    Map<ZonePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
                     UUID txId
             ) {
                 return nullCompletedFuture();
@@ -241,7 +242,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         when(replicaService.invoke(any(ClusterNode.class), any())).thenAnswer(invocation -> {
             ClusterNode node = invocation.getArgument(0);
             ReplicaRequest request = invocation.getArgument(1);
-            var commitPartId = new TablePartitionId(2, 0);
+            var commitPartId = new ZonePartitionId(22, 2, 0);
 
             RaftGroupService r = groupRafts.get(request.groupId());
 
@@ -257,7 +258,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                         );
 
                 return r.run(MSG_FACTORY.updateAllCommand()
-                                .tablePartitionId(MSG_FACTORY.tablePartitionIdMessage()
+                                .zonePartitionId(MSG_FACTORY.zonePartitionIdMessage()
+                                        .zoneId(commitPartId.zoneId())
                                         .tableId(commitPartId.tableId())
                                         .partitionId(commitPartId.partitionId())
                                         .build()
@@ -272,8 +274,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 ReadWriteSingleRowReplicaRequest singleRowReplicaRequest = (ReadWriteSingleRowReplicaRequest) request;
 
                 return r.run(MSG_FACTORY.updateCommand()
-                        .tablePartitionId(
-                                MSG_FACTORY.tablePartitionIdMessage()
+                        .zonePartitionId(
+                                MSG_FACTORY.zonePartitionIdMessage()
+                                        .zoneId(commitPartId.zoneId())
                                         .tableId(commitPartId.tableId())
                                         .partitionId(commitPartId.partitionId())
                                         .build()

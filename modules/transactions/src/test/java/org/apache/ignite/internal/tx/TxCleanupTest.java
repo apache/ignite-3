@@ -53,6 +53,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
@@ -132,14 +133,14 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
     @Test
     void testCleanupAllNodes() {
-        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
-        TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
-        TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
+        ZonePartitionId zonePartitionId1 = new ZonePartitionId(11, 1, 0);
+        ZonePartitionId zonePartitionId2 = new ZonePartitionId(11, 2, 0);
+        ZonePartitionId zonePartitionId3 = new ZonePartitionId(11, 3, 0);
 
-        Map<TablePartitionId, String> partitions = Map.of(
-                tablePartitionId1, LOCAL_NODE.name(),
-                tablePartitionId2, LOCAL_NODE.name(),
-                tablePartitionId3, LOCAL_NODE.name());
+        Map<ZonePartitionId, String> partitions = Map.of(
+                zonePartitionId1, LOCAL_NODE.name(),
+                zonePartitionId2, LOCAL_NODE.name(),
+                zonePartitionId3, LOCAL_NODE.name());
 
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = idGenerator.transactionIdFor(beginTimestamp);
@@ -156,25 +157,25 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
     @Test
     void testPrimaryNotFoundForSomeAfterException() {
-        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
-        TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
-        TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
+        ZonePartitionId zonePartitionId1 = new ZonePartitionId(11, 1, 0);
+        ZonePartitionId zonePartitionId2 = new ZonePartitionId(11, 2, 0);
+        ZonePartitionId zonePartitionId3 = new ZonePartitionId(11, 3, 0);
 
-        Map<TablePartitionId, String> partitions = Map.of(
-                tablePartitionId1, LOCAL_NODE.name(),
-                tablePartitionId2, LOCAL_NODE.name(),
-                tablePartitionId3, LOCAL_NODE.name());
+        Map<ZonePartitionId, String> partitions = Map.of(
+                zonePartitionId1, LOCAL_NODE.name(),
+                zonePartitionId2, LOCAL_NODE.name(),
+                zonePartitionId3, LOCAL_NODE.name());
 
         // First cleanup fails:
         when(messagingService.invoke(anyString(), any(), anyLong()))
                 .thenReturn(failedFuture(new IOException("Test failure")), nullCompletedFuture());
 
-        when(placementDriver.getPrimaryReplica(any(), any()))
+        when(placementDriver.getPrimaryReplicaForTable(any(), any()))
                 .thenReturn(completedFuture(new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
-        when(placementDriver.getPrimaryReplica(eq(tablePartitionId1), any()))
+        when(placementDriver.getPrimaryReplicaForTable(eq(zonePartitionId1), any()))
                 .thenReturn(nullCompletedFuture());
 
-        when(placementDriver.awaitPrimaryReplica(eq(tablePartitionId1), any(), anyLong(), any()))
+        when(placementDriver.awaitPrimaryReplicaForTable(eq(zonePartitionId1), any(), anyLong(), any()))
                 .thenReturn(completedFuture(new TestReplicaMetaImpl(REMOTE_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
         HybridTimestamp beginTimestamp = clock.now();
@@ -192,23 +193,23 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
     @Test
     void testPrimaryNotFoundForAll() {
-        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
-        TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
-        TablePartitionId tablePartitionId3 = new TablePartitionId(3, 0);
+        ZonePartitionId zonePartitionId1 = new ZonePartitionId(11, 1, 0);
+        ZonePartitionId zonePartitionId2 = new ZonePartitionId(11, 2, 0);
+        ZonePartitionId zonePartitionId3 = new ZonePartitionId(11, 3, 0);
 
-        Map<TablePartitionId, String> partitions = Map.of(
-                tablePartitionId1, LOCAL_NODE.name(),
-                tablePartitionId2, LOCAL_NODE.name(),
-                tablePartitionId3, LOCAL_NODE.name());
+        Map<ZonePartitionId, String> partitions = Map.of(
+                zonePartitionId1, LOCAL_NODE.name(),
+                zonePartitionId2, LOCAL_NODE.name(),
+                zonePartitionId3, LOCAL_NODE.name());
 
         // First cleanup fails:
         when(messagingService.invoke(anyString(), any(), anyLong()))
                 .thenReturn(failedFuture(new IOException("Test failure")), nullCompletedFuture());
 
-        when(placementDriver.getPrimaryReplica(any(), any()))
+        when(placementDriver.getPrimaryReplicaForTable(any(), any()))
                 .thenReturn(nullCompletedFuture());
 
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any()))
+        when(placementDriver.awaitPrimaryReplicaForTable(any(), any(), anyLong(), any()))
                 .thenReturn(completedFuture(new TestReplicaMetaImpl(REMOTE_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
         HybridTimestamp beginTimestamp = clock.now();

@@ -59,6 +59,7 @@ import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -215,7 +216,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 internalTable.scan(
                         PART_ID,
                         tx1.id(),
-                        tx1.commitPartition(),
+                        tx1.zoneCommitPartition(),
                         tx1.coordinatorId(),
                         recipient,
                         sortedIndexId,
@@ -502,7 +503,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 internalTable.scan(
                         PART_ID,
                         tx.id(),
-                        tx.commitPartition(),
+                        tx.zoneCommitPartition(),
                         tx.coordinatorId(),
                         recipient,
                         sortedIndexId,
@@ -541,7 +542,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 internalTable.scan(
                         PART_ID,
                         tx.id(),
-                        tx.commitPartition(),
+                        tx.zoneCommitPartition(),
                         tx.coordinatorId(),
                         recipient,
                         sortedIndexId,
@@ -580,7 +581,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 internalTable.scan(
                         PART_ID,
                         tx.id(),
-                        tx.commitPartition(),
+                        tx.zoneCommitPartition(),
                         tx.coordinatorId(),
                         recipient,
                         soredIndexId,
@@ -608,7 +609,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 internalTable.scan(
                         PART_ID,
                         tx.id(),
-                        tx.commitPartition(),
+                        tx.zoneCommitPartition(),
                         tx.coordinatorId(),
                         recipient,
                         soredIndexId,
@@ -667,7 +668,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                         internalTable.scan(
                                 PART_ID,
                                 tx.id(),
-                                tx.commitPartition(),
+                                tx.zoneCommitPartition(),
                                 tx.coordinatorId(),
                                 recipient,
                                 sortedIndexId,
@@ -704,7 +705,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                         internalTable.scan(
                                 PART_ID,
                                 tx.id(),
-                                tx.commitPartition(),
+                                tx.zoneCommitPartition(),
                                 tx.coordinatorId(),
                                 recipient,
                                 sortedIndexId,
@@ -752,10 +753,10 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         if (readOnly) {
             IgniteImpl ignite = CLUSTER.aliveNode();
 
-            var tablePartId = new TablePartitionId(internalTable.tableId(), PART_ID);
+            var zonePartId = new ZonePartitionId(internalTable.zoneId(), internalTable.tableId(), PART_ID);
 
             ReplicaMeta primaryReplica = IgniteTestUtils.await(
-                    ignite.placementDriver().awaitPrimaryReplica(tablePartId, ignite.clock().now(), 30, TimeUnit.SECONDS));
+                    ignite.placementDriver().awaitPrimaryReplicaForTable(zonePartId, ignite.clock().now(), 30, TimeUnit.SECONDS));
 
             ClusterNode recipientNode = ignite.clusterNodes().stream().filter(node -> node.name().equals(primaryReplica.getLeaseholder()))
                     .findFirst().get();
@@ -830,7 +831,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                         internalTable.scan(
                                 PART_ID,
                                 tx.id(),
-                                tx.commitPartition(),
+                                tx.zoneCommitPartition(),
                                 tx.coordinatorId(),
                                 recipient,
                                 sortedIndexId,
@@ -852,7 +853,9 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     }
 
     private PrimaryReplica getPrimaryReplica(int partId, InternalTransaction tx) {
-        IgniteBiTuple<ClusterNode, Long> primaryReplica = tx.enlistedNodeAndConsistencyToken(new TablePartitionId(table.tableId(), partId));
+        IgniteBiTuple<ClusterNode, Long> primaryReplica = tx.enlistedNodeAndConsistencyToken(
+                new ZonePartitionId(table.internalTable().zoneId(), table.tableId(), partId)
+        );
 
         return new PrimaryReplica(primaryReplica.get1(), primaryReplica.get2());
     }
@@ -1020,13 +1023,14 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();
         TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
+        ZonePartitionId zonePartId = new ZonePartitionId(table.zoneId(), table.tableId(), partId);
 
         PlacementDriver placementDriver = ignite.placementDriver();
         ReplicaMeta primaryReplica = IgniteTestUtils.await(
                 placementDriver.awaitPrimaryReplica(tblPartId, ignite.clock().now(), 30, TimeUnit.SECONDS));
 
         tx.enlist(
-                tblPartId,
+                zonePartId,
                 new IgniteBiTuple<>(
                         ignite.clusterNodes().stream().filter(n -> n.name().equals(primaryReplica.getLeaseholder()))
                                 .findFirst().orElseThrow(),
@@ -1034,7 +1038,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 )
         );
 
-        tx.assignCommitPartition(tblPartId);
+        tx.assignCommitPartition(zonePartId);
 
         return tx;
     }

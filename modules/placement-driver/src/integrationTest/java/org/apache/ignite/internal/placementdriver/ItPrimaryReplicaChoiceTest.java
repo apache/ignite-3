@@ -355,7 +355,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
             publisher = unwrappedTable.internalTable().lookup(
                     PART_ID,
                     rwTx.id(),
-                    rwTx.commitPartition(),
+                    rwTx.zoneCommitPartition(),
                     rwTx.coordinatorId(),
                     new PrimaryReplica(primaryNode, primaryReplicaFut.get().getStartTime().longValue()),
                     idxId,

@@ -47,6 +47,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -60,6 +61,7 @@ import org.junit.jupiter.api.function.Executable;
  * Abstract tx storage test.
  */
 public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest {
+    protected static final int ZONE_ID = 11;
     protected static final int TABLE_ID = 1;
 
     protected TxStateTableStorage tableStorage;
@@ -119,9 +121,9 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
         }
     }
 
-    private List<TablePartitionId> generateEnlistedPartitions(int c) {
+    private List<ZonePartitionId> generateEnlistedPartitions(int c) {
         return IntStream.range(0, c)
-                .mapToObj(partitionNumber -> new TablePartitionId(TABLE_ID, partitionNumber))
+                .mapToObj(partitionNumber -> new ZonePartitionId(ZONE_ID, TABLE_ID, partitionNumber))
                 .collect(toList());
     }
 

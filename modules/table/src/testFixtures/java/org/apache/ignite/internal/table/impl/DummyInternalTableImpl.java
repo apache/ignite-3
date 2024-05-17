@@ -335,6 +335,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 }
         ).when(svc).run(any());
 
+        int zoneId = zoneId();
         int tableId = tableId();
         int indexId = 1;
 
@@ -357,7 +358,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         safeTime = new PendingIndependentComparableValuesTracker<>(HybridTimestamp.MIN_VALUE);
 
-        PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage);
+        PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(zoneId, tableId, PART_ID, mvPartStorage);
         TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(indexes);
@@ -390,6 +391,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 this.txManager.lockManager(),
                 Runnable::run,
                 PART_ID,
+                zoneId,
                 tableId,
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
@@ -411,7 +413,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         partitionListener = new PartitionListener(
                 this.txManager,
-                new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage),
+                new TestPartitionDataStorage(zoneId, tableId, PART_ID, mvPartStorage),
                 storageUpdateHandler,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 safeTime,

@@ -141,7 +141,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
     }
 
     private static PartitionKey testPartitionKey() {
-        return new PartitionKey(1, TEST_PARTITION_ID);
+        return new PartitionKey(11, 1, TEST_PARTITION_ID);
     }
 
     @Test
@@ -202,13 +202,15 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
         BinaryRow binaryRowV0 = binaryRow(SCHEMA_V0, 1, 2);
         BinaryRow binaryRowV1 = binaryRow(SCHEMA_V1, 1, 2, 100500L);
         UUID txId = transactionId(hybridTimestamp(System.currentTimeMillis()), 1);
+        int commitZoneId = 9999;
         int commitTableId = 999;
         int snapshotCatalogVersion = 666;
         HybridTimestamp beginTs = beginTimestamp(txId);
 
-        partitionAccess.addWrite(rowId, binaryRowV0, txId, commitTableId, TEST_PARTITION_ID, snapshotCatalogVersion);
+        partitionAccess.addWrite(rowId, binaryRowV0, txId, commitZoneId, commitTableId, TEST_PARTITION_ID, snapshotCatalogVersion);
 
-        verify(mvPartitionStorage).addWrite(eq(rowId), same(binaryRowV0), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
+        verify(mvPartitionStorage)
+                .addWrite(eq(rowId), same(binaryRowV0), eq(txId), eq(commitZoneId), eq(commitTableId), eq(TEST_PARTITION_ID));
 
         verify(fullStateTransferIndexChooser).chooseForAddWrite(eq(snapshotCatalogVersion), eq(TABLE_ID), eq(beginTs));
 
@@ -220,9 +222,10 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
         clearInvocations(mvPartitionStorage, indexUpdateHandler, fullStateTransferIndexChooser);
 
-        partitionAccess.addWrite(rowId, binaryRowV0, txId, commitTableId, TEST_PARTITION_ID, snapshotCatalogVersion);
+        partitionAccess.addWrite(rowId, binaryRowV0, txId, commitZoneId, commitTableId, TEST_PARTITION_ID, snapshotCatalogVersion);
 
-        verify(mvPartitionStorage).addWrite(eq(rowId), same(binaryRowV0), eq(txId), eq(commitTableId), eq(TEST_PARTITION_ID));
+        verify(mvPartitionStorage)
+                .addWrite(eq(rowId), same(binaryRowV0), eq(txId), eq(commitZoneId), eq(commitTableId), eq(TEST_PARTITION_ID));
 
         verify(fullStateTransferIndexChooser).chooseForAddWrite(eq(snapshotCatalogVersion), eq(TABLE_ID), eq(beginTs));
 

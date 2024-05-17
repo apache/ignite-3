@@ -39,6 +39,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
@@ -73,13 +74,13 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
-    private final TablePartitionId partition1Id = new TablePartitionId(1, 1);
-    private final TablePartitionId partition2Id = new TablePartitionId(2, 2);
+    private final ZonePartitionId partition1Id = new ZonePartitionId(11, 1, 1);
+    private final ZonePartitionId partition2Id = new ZonePartitionId(11, 2, 2);
 
     private final TxMeta meta1 = new TxMeta(TxState.ABORTED, List.of(partition1Id), clock.now());
     private final TxMeta meta2 = new TxMeta(TxState.COMMITTED, List.of(partition1Id, partition2Id), clock.now());
 
-    private final PartitionKey partitionKey = new PartitionKey(1, 1);
+    private final PartitionKey partitionKey = new PartitionKey(11, 1, 1);
 
     @BeforeEach
     void createTestInstance() {

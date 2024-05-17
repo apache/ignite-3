@@ -453,8 +453,17 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
         ReplicationGroupId groupId0 = tablePartIdToZoneIdProvider.apply(tblPartId);
 
+        return getPrimaryReplicaForTable(groupId0, timestamp);
+    }
+
+    @Override
+    public CompletableFuture<ReplicaMeta> getPrimaryReplicaForTable(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+        assert replicationGroupId instanceof ZonePartitionId : "Unexpected replication group type [grp=" + replicationGroupId + "].";
+
+        var zonePartId = ZonePartitionId.resetTableId(((ZonePartitionId) replicationGroupId));
+
         return inBusyLockAsync(busyLock, () -> {
-            Lease lease = getLease(groupId0);
+            Lease lease = getLease(zonePartId);
 
             if (lease.isAccepted() && clockService.after(lease.getExpirationTime(), timestamp)) {
                 return completedFuture(lease);
@@ -464,7 +473,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                     .clusterTime()
                     .waitFor(timestamp.addPhysicalTime(clockService.maxClockSkewMillis()))
                     .thenApply(ignored -> inBusyLock(busyLock, () -> {
-                        Lease lease0 = getLease(groupId0);
+                        Lease lease0 = getLease(zonePartId);
 
                         if (lease0.isAccepted() && clockService.after(lease0.getExpirationTime(), timestamp)) {
                             return lease0;

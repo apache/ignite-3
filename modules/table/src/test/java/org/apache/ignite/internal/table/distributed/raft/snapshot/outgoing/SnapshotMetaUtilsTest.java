@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.table.TableTestUtils.createSimpleHashIn
 import static org.apache.ignite.internal.table.TableTestUtils.createSimpleTable;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
+import static org.apache.ignite.internal.table.TableTestUtils.getTableZoneIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.startBuildingIndex;
 import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils.collectNextRowIdToBuildIndexes;
 import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils.snapshotMetaAt;
@@ -113,12 +114,13 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
 
             PartitionAccess partitionAccess = mock(PartitionAccess.class, withSettings().strictness(LENIENT));
 
+            int zoneId = getTableZoneIdStrict(catalogManager, TABLE_NAME, clock.nowLong());
             int tableId = getTableIdStrict(catalogManager, TABLE_NAME, clock.nowLong());
             int partitionId = 0;
 
             var nextRowIdToBuildIndex2 = new RowId(partitionId);
 
-            when(partitionAccess.partitionKey()).thenReturn(new PartitionKey(tableId, partitionId));
+            when(partitionAccess.partitionKey()).thenReturn(new PartitionKey(zoneId, tableId, partitionId));
             when(partitionAccess.getNextRowIdToBuildIndex(eq(indexId2))).thenReturn(nextRowIdToBuildIndex2);
 
             assertThat(

@@ -1084,6 +1084,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PartitionUpdateHandlers partitionUpdateHandlers,
             RaftGroupService raftClient
     ) {
+        int zoneId = table.internalTable().zoneId();
         int tableId = table.tableId();
 
         return new PartitionReplicaListener(
@@ -1093,6 +1094,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 lockMgr,
                 scanRequestExecutor,
                 partId,
+                zoneId,
                 tableId,
                 table.indexesLockers(partId),
                 new Lazy<>(() -> table.indexStorageAdapters(partId).get().get(table.pkId())),
@@ -1126,7 +1128,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private static PartitionKey partitionKey(InternalTable internalTbl, int partId) {
-        return new PartitionKey(internalTbl.tableId(), partId);
+        return new PartitionKey(internalTbl.zoneId(), internalTbl.tableId(), partId);
     }
 
     private RaftGroupOptions groupOptionsForPartition(

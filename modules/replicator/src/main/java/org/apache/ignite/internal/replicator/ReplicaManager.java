@@ -506,6 +506,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been
      *         started.
      */
+    // TODO: Start replica must use only one of replicaGrpId or zonePartitionId
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
             ZonePartitionId zonePartitionId,

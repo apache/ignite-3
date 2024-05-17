@@ -75,6 +75,11 @@ public class ExecutorInclinedPlacementDriver extends DelegatingPlacementDriver {
     }
 
     @Override
+    public CompletableFuture<ReplicaMeta> getPrimaryReplicaForTable(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+        return decorateFuture(super.getPrimaryReplicaForTable(replicationGroupId, timestamp));
+    }
+
+    @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
         return decorateFuture(super.previousPrimaryExpired(grpId));
     }
