@@ -384,7 +384,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
                         if (metrics != null && metrics.enabled()) {
                             metrics.hitToStripe(stripeId);
 
-                            metrics.addBatchSize(currentBatchSizes.get(grpEvent.getKey()) + 1);
+                            metrics.addBatchSize(currentBatchSizes.getOrDefault(grpEvent.getKey(), 0) + 1);
                         }
 
                         grpHandler.onEvent(grpEvent.getValue(), sequence, true);
