@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static org.apache.calcite.tools.Frameworks.createRootSchema;
 import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonWriter.toJson;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
@@ -73,10 +72,13 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
+import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.exec.mapping.IdGenerator;
 import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
@@ -105,7 +107,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -167,40 +168,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             RelCollation collation = TraitUtils.collation(node);
             return expected.equals(collation);
         };
-    }
-
-    interface TestVisitor {
-        void visit(RelNode node, int ordinal, RelNode parent);
-    }
-
-    /**
-     * TestRelVisitor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static class TestRelVisitor extends RelVisitor {
-        final TestVisitor visitor;
-
-        /**
-         * Constructor.
-         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-         */
-        TestRelVisitor(TestVisitor visitor) {
-            this.visitor = visitor;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void visit(RelNode node, int ordinal, RelNode parent) {
-            visitor.visit(node, ordinal, parent);
-
-            super.visit(node, ordinal, parent);
-        }
-    }
-
-    protected static void relTreeVisit(RelNode n, TestVisitor v) {
-        v.visit(n, -1, null);
-
-        n.childrenAccept(new TestRelVisitor(v));
     }
 
     protected static IgniteDistribution someAffinity() {
@@ -285,8 +252,28 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             }
         }
 
+        SqlToRelConverter.Config relConvCfg = FRAMEWORK_CONFIG.getSqlToRelConverterConfig();
+
+        if (hintStrategies != null) {
+            relConvCfg = relConvCfg.withHintStrategyTable(hintStrategies);
+        }
+
+        SchemaPlus rootSchema = createRootSchema(schemas);
+        SchemaPlus defaultSchema = rootSchema.getSubSchema(DEFAULT_SCHEMA);
+
+        if (defaultSchema == null && !schemas.isEmpty()) {
+            defaultSchema = rootSchema.getSubSchema(schemas.iterator().next().getName());
+        }
+
+        assertNotNull(defaultSchema);
+
         PlanningContext ctx = PlanningContext.builder()
-                .parentContext(baseQueryContext(schemas, hintStrategies, params.toArray()))
+                .frameworkConfig(
+                        newConfigBuilder(FRAMEWORK_CONFIG)
+                                .defaultSchema(defaultSchema)
+                                .sqlToRelConverterConfig(relConvCfg)
+                                .build()
+                )
                 .query(sql)
                 .parameters(paramsMap)
                 .build();
@@ -300,37 +287,23 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         return ctx;
     }
 
-    protected BaseQueryContext baseQueryContext(
-            Collection<IgniteSchema> schemas,
-            @Nullable HintStrategyTable hintStrategies,
+    protected static SchemaPlus createRootSchema(Collection<IgniteSchema> subSchemas) {
+        SchemaPlus rootSchema = Frameworks.createRootSchema(false);
+
+        for (IgniteSchema igniteSchema : subSchemas) {
+            rootSchema.add(igniteSchema.getName(), igniteSchema);
+        }
+
+        return rootSchema;
+    } 
+
+    protected static SqlOperationContext operationContext(
             Object... params
     ) {
-        SchemaPlus rootSchema = createRootSchema(false);
-        SchemaPlus dfltSchema = null;
-
-        for (IgniteSchema igniteSchema : schemas) {
-            SchemaPlus schema = rootSchema.add(igniteSchema.getName(), igniteSchema);
-
-            if (dfltSchema == null || DEFAULT_SCHEMA.equals(schema.getName())) {
-                dfltSchema = schema;
-            }
-        }
-
-        SqlToRelConverter.Config relConvCfg = FRAMEWORK_CONFIG.getSqlToRelConverterConfig();
-
-        if (hintStrategies != null) {
-            relConvCfg = relConvCfg.withHintStrategyTable(hintStrategies);
-        }
-
-
-        return BaseQueryContext.builder()
+        return SqlOperationContext.builder()
                 .queryId(UUID.randomUUID())
-                .frameworkConfig(
-                        newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(dfltSchema)
-                                .sqlToRelConverterConfig(relConvCfg)
-                                .build()
-                )
+                .operationTime(new HybridClockImpl().now())
+                .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .parameters(params)
                 .build();
     }
@@ -719,10 +692,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         List<RelNode> deserializedNodes = new ArrayList<>();
 
-        BaseQueryContext ctx = baseQueryContext(schemas, null);
+        SchemaPlus rootSchema = createRootSchema(schemas);
 
         for (String s : serialized) {
-            RelJsonReader reader = new RelJsonReader(ctx.catalogReader());
+            RelJsonReader reader = new RelJsonReader(rootSchema);
             deserializedNodes.add(reader.read(s));
         }
 

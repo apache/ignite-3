@@ -1,0 +1,183 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.ignite.internal.sql.engine;
+
+import static java.util.Objects.requireNonNull;
+
+import java.time.ZoneId;
+import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
+import org.apache.ignite.internal.util.ArrayUtils;
+
+/**
+ * Context of the sql operation.
+ *
+ * <p>Encloses parameters provided by user as well as default substitutions of omitted parameters required for initialization and
+ * kick-starting of the statement execution.
+ */
+public final class SqlOperationContext {
+    private final QueryCancel cancel;
+
+    private final UUID queryId;
+
+    private final Object[] parameters;
+
+    private final PrefetchCallback prefetchCallback;
+
+    private final ZoneId timeZoneId;
+
+    private final HybridTimestamp operationTime;
+
+    private final String defaultSchemaName;
+
+    /**
+     * Private constructor, used by a builder.
+     */
+    private SqlOperationContext(
+            UUID queryId,
+            HybridTimestamp operationTime,
+            QueryCancel cancel,
+            Object[] parameters,
+            PrefetchCallback prefetchCallback,
+            ZoneId timeZoneId,
+            String defaultSchemaName
+    ) {
+        this.queryId = queryId;
+        this.cancel = cancel;
+        this.parameters = parameters;
+        this.prefetchCallback = prefetchCallback;
+        this.timeZoneId = timeZoneId;
+        this.operationTime = operationTime;
+        this.defaultSchemaName = defaultSchemaName;
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /** Returns unique identifier of the query. */
+    public UUID queryId() {
+        return queryId;
+    }
+
+    /** Returns parameters provided by user required to execute the statement. May be empty but never null. */
+    public Object[] parameters() {
+        return parameters;
+    }
+
+    /** Returns callback to notify about readiness of the first page of the results. */ 
+    public PrefetchCallback prefetchCallback() {
+        return prefetchCallback;
+    }
+
+    /** Returns handler to cancel running operation, as well as add listeners to be notified about cancellation of the query. */
+    public QueryCancel cancel() {
+        return cancel;
+    }
+
+    /** Returns zone id provided by user, to adjust temporal values to match user's time zone during to string conversion. */
+    public ZoneId timeZoneId() {
+        return timeZoneId;
+    }
+
+    /**
+     * Returns name of the schema to use to resolve schema objects, like tables or system views, for which name of the schema was omitted.
+     */
+    public String defaultSchemaName() {
+        return defaultSchemaName;
+    }
+
+    /**
+     * Returns the operation time.
+     *
+     * <p>The time the operation started is the logical time it runs, and all the time readings during the execution time as well as all
+     * time-related operations (like acquiring an active schema) should reflect the same time.
+     */
+    public HybridTimestamp operationTime() {
+        return operationTime;
+    }
+
+    /**
+     * Query context builder.
+     */
+    @SuppressWarnings("PublicInnerClass")
+    public static class Builder {
+        private QueryCancel cancel = new QueryCancel();
+
+        private UUID queryId;
+
+        private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
+
+        private ZoneId timeZoneId;
+
+        private PrefetchCallback prefetchCallback;
+
+        private HybridTimestamp operationTime;
+
+        private String defaultSchemaName;
+
+        public Builder cancel(QueryCancel cancel) {
+            this.cancel = requireNonNull(cancel);
+            return this;
+        }
+
+        public Builder queryId(UUID queryId) {
+            this.queryId = requireNonNull(queryId);
+            return this;
+        }
+
+        public Builder prefetchCallback(PrefetchCallback prefetchCallback) {
+            this.prefetchCallback = prefetchCallback;
+            return this;
+        }
+
+        public Builder parameters(Object... parameters) {
+            this.parameters = requireNonNull(parameters);
+            return this;
+        }
+
+        public Builder timeZoneId(ZoneId timeZoneId) {
+            this.timeZoneId = timeZoneId;
+            return this;
+        }
+
+        public Builder defaultSchemaName(String defaultSchemaName) {
+            this.defaultSchemaName = defaultSchemaName;
+            return this;
+        }
+
+        public Builder operationTime(HybridTimestamp operationTime) {
+            this.operationTime = operationTime;
+            return this;
+        }
+
+        /** Creates new context. */
+        public SqlOperationContext build() {
+            return new SqlOperationContext(
+                    requireNonNull(queryId, "queryId"),
+                    requireNonNull(operationTime, "operationTime"),
+                    requireNonNull(cancel, "cancel"),
+                    requireNonNull(parameters, "parameters"),
+                    requireNonNull(prefetchCallback, "prefetchCallback"),
+                    requireNonNull(timeZoneId, "timeZoneId"),
+                    requireNonNull(defaultSchemaName, "defaultSchemaName")
+            );
+        }
+    }
+}

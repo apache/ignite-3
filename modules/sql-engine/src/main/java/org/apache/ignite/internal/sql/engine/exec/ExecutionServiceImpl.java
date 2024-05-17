@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fromJson;
-import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -55,9 +54,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.calcite.tools.Frameworks;
+import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -72,6 +72,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRowSingleString;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
+import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
@@ -103,7 +104,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -275,37 +275,37 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private AsyncCursor<InternalSqlRow> executeQuery(
             InternalTransaction tx,
-            BaseQueryContext ctx,
+            SqlOperationContext operationContext,
             MultiStepPlan plan
     ) {
-        DistributedQueryManager queryManager = new DistributedQueryManager(localNode.name(), true, ctx);
+        DistributedQueryManager queryManager = new DistributedQueryManager(localNode.name(), true, operationContext);
 
-        DistributedQueryManager old = queryManagerMap.put(ctx.queryId(), queryManager);
+        DistributedQueryManager old = queryManagerMap.put(operationContext.queryId(), queryManager);
 
         assert old == null;
 
-        ctx.cancel().add(() -> queryManager.close(true));
+        operationContext.cancel().add(() -> queryManager.close(true));
 
         return queryManager.execute(tx, plan);
     }
 
-    private BaseQueryContext createQueryContext(UUID queryId, int schemaVersion, ZoneId timeZoneId, Object[] params) {
-        return BaseQueryContext.builder()
+    private static SqlOperationContext createOperationContext(
+            UUID queryId, ZoneId timeZoneId, Object[] params, HybridTimestamp operationTime
+    ) {
+        return SqlOperationContext.builder()
                 .queryId(queryId)
                 .parameters(params)
-                .frameworkConfig(
-                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(sqlSchemaManager.schema(schemaVersion))
-                                .build()
-                )
                 .timeZoneId(timeZoneId)
+                .operationTime(operationTime)
                 .build();
     }
 
-    private IgniteRel relationalTreeFromJsonString(int schemaVersion, String jsonFragment, BaseQueryContext ctx) {
+    private IgniteRel relationalTreeFromJsonString(int catalogVersion, String jsonFragment) {
+        SchemaPlus rootSchema = sqlSchemaManager.schema(catalogVersion);
+
         return physNodesCache.computeIfAbsent(
-                new FragmentCacheKey(schemaVersion, jsonFragment),
-                key -> fromJson(ctx, key.fragmentString)
+                new FragmentCacheKey(catalogVersion, jsonFragment),
+                key -> fromJson(rootSchema, key.fragmentString)
         );
     }
 
@@ -313,7 +313,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     @Override
     @SuppressWarnings("CastConflictsWithInstanceof") // IDEA incorrectly highlights casts in EXPLAIN and DDL branches
     public AsyncCursor<InternalSqlRow> executePlan(
-            InternalTransaction tx, QueryPlan plan, BaseQueryContext ctx
+            InternalTransaction tx, QueryPlan plan, SqlOperationContext operationContext
     ) {
         SqlQueryType queryType = plan.type();
 
@@ -321,16 +321,16 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             case DML:
             case QUERY:
                 if (plan instanceof ExecutablePlan) {
-                    return executeExecutablePlan(tx, ctx, (ExecutablePlan) plan, ctx.prefetchCallback());
+                    return executeExecutablePlan(tx, operationContext, (ExecutablePlan) plan, operationContext.prefetchCallback());
                 }
 
                 assert plan instanceof MultiStepPlan : plan.getClass();
 
-                return executeQuery(tx, ctx, (MultiStepPlan) plan);
+                return executeQuery(tx, operationContext, (MultiStepPlan) plan);
             case EXPLAIN:
-                return executeExplain((ExplainPlan) plan, ctx.prefetchCallback());
+                return executeExplain((ExplainPlan) plan, operationContext.prefetchCallback());
             case DDL:
-                return executeDdl((DdlPlan) plan, ctx.prefetchCallback());
+                return executeDdl((DdlPlan) plan, operationContext.prefetchCallback());
 
             default:
                 throw new AssertionError("Unexpected query type: " + plan);
@@ -350,20 +350,20 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private AsyncCursor<InternalSqlRow> executeExecutablePlan(
             InternalTransaction tx,
-            BaseQueryContext ctx,
+            SqlOperationContext operationContext,
             ExecutablePlan plan,
             @Nullable QueryPrefetchCallback callback
     ) {
         ExecutionContext<RowT> ectx = new ExecutionContext<>(
                 taskExecutor,
-                ctx.queryId(),
+                operationContext.queryId(),
                 localNode,
                 localNode.name(),
                 DUMMY_DESCRIPTION,
                 handler,
-                Commons.parametersMap(ctx.parameters()),
+                Commons.parametersMap(operationContext.parameters()),
                 TxAttributes.fromTx(tx),
-                ctx.timeZoneId()
+                operationContext.timeZoneId()
         );
 
         return plan.execute(ectx, tx, tableRegistry, callback);
@@ -415,7 +415,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private void onMessage(String nodeName, QueryStartRequest msg) {
         assert nodeName != null && msg != null;
 
-        CompletableFuture<Void> fut = sqlSchemaManager.schemaReadyFuture(msg.schemaVersion());
+        CompletableFuture<Void> fut = sqlSchemaManager.schemaReadyFuture(msg.catalogVersion());
 
         if (fut.isDone()) {
             submitFragment(nodeName, msg);
@@ -519,7 +519,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private void submitFragment(String nodeName, QueryStartRequest msg) {
         DistributedQueryManager queryManager = getOrCreateQueryManager(nodeName, msg);
 
-        queryManager.submitFragment(nodeName, msg.schemaVersion(), msg.root(), msg.fragmentDescription(), msg.txAttributes());
+        queryManager.submitFragment(nodeName, msg.catalogVersion(), msg.root(), msg.fragmentDescription(), msg.txAttributes());
     }
 
     private void handleError(Throwable ex, String nodeName, QueryStartRequest msg) {
@@ -530,9 +530,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private DistributedQueryManager getOrCreateQueryManager(String coordinatorNodeName, QueryStartRequest msg) {
         return queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
-            BaseQueryContext ctx = createQueryContext(key, msg.schemaVersion(), ZoneId.of(msg.timeZoneId()), msg.parameters());
+            SqlOperationContext operationContext = createOperationContext(
+                    key, ZoneId.of(msg.timeZoneId()), msg.parameters(), msg.operationTime()
+            );
 
-            return new DistributedQueryManager(coordinatorNodeName, ctx);
+            return new DistributedQueryManager(coordinatorNodeName, operationContext);
         });
     }
 
@@ -669,7 +671,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private final String coordinatorNodeName;
 
-        private final BaseQueryContext ctx;
+        private final SqlOperationContext ctx;
 
         private final CompletableFuture<Void> cancelFut = new CompletableFuture<>();
 
@@ -686,7 +688,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private DistributedQueryManager(
                 String coordinatorNodeName,
                 boolean coordinator,
-                BaseQueryContext ctx
+                SqlOperationContext ctx
         ) {
             this.ctx = ctx;
             this.coordinator = coordinator;
@@ -713,7 +715,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
         }
 
-        private DistributedQueryManager(String coordinatorNodeName, BaseQueryContext ctx) {
+        private DistributedQueryManager(String coordinatorNodeName, SqlOperationContext ctx) {
             this(coordinatorNodeName, false, ctx);
         }
 
@@ -722,7 +724,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private CompletableFuture<Void> sendFragment(
-                String targetNodeName, String serialisedFragment, FragmentDescription desc, TxAttributes txAttributes
+                String targetNodeName, String serialisedFragment, FragmentDescription desc, TxAttributes txAttributes, int catalogVersion
         ) {
             QueryStartRequest request = FACTORY.queryStartRequest()
                     .queryId(ctx.queryId())
@@ -731,8 +733,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .fragmentDescription(desc)
                     .parameters(ctx.parameters())
                     .txAttributes(txAttributes)
-                    .schemaVersion(ctx.schemaVersion())
+                    .catalogVersion(catalogVersion)
                     .timeZoneId(ctx.timeZoneId().getId())
+                    .operationTimeLong(ctx.operationTime().longValue())
                     .timestampLong(clockService.nowLong())
                     .build();
 
@@ -827,7 +830,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private void submitFragment(
                 String initiatorNode,
-                int schemaVersion,
+                int catalogVersion,
                 String fragmentString,
                 FragmentDescription desc,
                 TxAttributes txAttributes
@@ -838,9 +841,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 // that is going to be used for fragment execution.
                 ExecutionContext<RowT> context = createContext(initiatorNode, desc, txAttributes);
                 Executor exec = (r) -> context.execute(r::run, err -> handleError(err, initiatorNode, desc.fragmentId()));
-                IgniteRel treeRoot = relationalTreeFromJsonString(schemaVersion, fragmentString, ctx);
+                IgniteRel treeRoot = relationalTreeFromJsonString(catalogVersion, fragmentString);
 
-                dependencyResolver.resolveDependencies(List.of(treeRoot), schemaVersion)
+                dependencyResolver.resolveDependencies(List.of(treeRoot), catalogVersion)
                         .thenComposeAsync(deps -> executeFragment(treeRoot, deps, context), exec)
                         .exceptionally(ex -> {
                             handleError(ex, initiatorNode, desc.fragmentId());
@@ -936,7 +939,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                         for (String nodeName : mappedFragment.nodes()) {
                             CompletableFuture<Void> resultOfSending =
-                                    sendFragment(nodeName, fragment.serialized(), fragmentDesc, attributes);
+                                    sendFragment(nodeName, fragment.serialized(), fragmentDesc, attributes, multiStepPlan.catalogVersion());
 
                             resultsOfFragmentSending.add(
                                     resultOfSending.handle((ignored, t) -> {
