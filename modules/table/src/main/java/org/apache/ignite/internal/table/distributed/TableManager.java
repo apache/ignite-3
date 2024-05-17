@@ -1026,7 +1026,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 : RebalanceUtil.subtract(nonStableNodeAssignments.nodes(), assignments.nodes());
         return nodesForStarting
                 .stream()
-                .anyMatch(assignment -> assignment.consistentId().equals(localNode().id()));
+                .anyMatch(assignment -> assignment.consistentId().equals(localNode().name()));
     }
 
     private PartitionReplicaListener createReplicaListener(
@@ -1855,7 +1855,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }), ioExecutor);
         } else {
             localServicesStartFuture = runAsync(() -> {
-                if (pendingAssignmentsAreForced && (replicaMgr.isRaftClientStarted(raftNodeId))) {
+                if (pendingAssignmentsAreForced && replicaMgr.isRaftClientStarted(raftNodeId)) {
                     replicaMgr.resetPeers(raftNodeId, configurationFromAssignments(nonStableNodeAssignmentsFinal.nodes()));
                 }
             }, ioExecutor);
