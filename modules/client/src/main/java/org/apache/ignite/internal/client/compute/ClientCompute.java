@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -485,15 +484,10 @@ public class ClientCompute implements IgniteCompute {
     private static SubmitTaskResult unpackSubmitTaskResult(PayloadInputChannel ch) {
         var jobId = ch.in().unpackUuid();
 
-        List<UUID> jobIds;
         var size = ch.in().unpackInt();
-        if (size == 0) {
-            jobIds = Collections.emptyList();
-        } else {
-            jobIds = new ArrayList<>(size);
-            for (int i = 0; i < size; i++) {
-                jobIds.add(ch.in().unpackUuidNullable());
-            }
+        List<UUID> jobIds = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            jobIds.add(ch.in().unpackUuidNullable());
         }
 
         return new SubmitTaskResult(jobId, jobIds, ch.notificationFuture());

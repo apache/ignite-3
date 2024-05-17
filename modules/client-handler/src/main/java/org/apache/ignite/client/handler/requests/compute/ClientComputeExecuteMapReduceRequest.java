@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler.requests.compute;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackArgs;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackDeploymentUnits;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest.packJobStatus;
+import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
 
 import java.util.Collections;
 import java.util.List;
@@ -32,14 +33,11 @@ import org.apache.ignite.compute.TaskExecution;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
-import org.jetbrains.annotations.Nullable;
-
 
 /**
  * Compute MapReduce request.
  */
 public class ClientComputeExecuteMapReduceRequest {
-
     /**
      * Processes the request.
      *
@@ -54,7 +52,6 @@ public class ClientComputeExecuteMapReduceRequest {
             ClientMessagePacker out,
             IgniteComputeInternal compute,
             NotificationSender notificationSender) {
-
         List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
         String taskClassName = in.unpackString();
         Object[] args = unpackArgs(in);
@@ -67,17 +64,18 @@ public class ClientComputeExecuteMapReduceRequest {
                     // empty ids in case of split exception to properly respond with task id and failed status
                     return ex == null ? ids : Collections.<UUID>emptyList();
                 });
+
         return execution.idAsync()
                 .thenAcceptBoth(idsAsync, (id, ids) -> {
-                    out.packUuidNullable(id);
+                    out.packUuid(id);
                     packJobIds(out, ids);
                 });
     }
 
-    static void packJobIds(ClientMessagePacker out, List<@Nullable UUID> ids) {
+    static void packJobIds(ClientMessagePacker out, List<UUID> ids) {
         out.packInt(ids.size());
         for (var uuid : ids) {
-            out.packUuidNullable(uuid);
+            out.packUuid(uuid);
         }
     }
 
@@ -89,7 +87,7 @@ public class ClientComputeExecuteMapReduceRequest {
                                     w.packObjectAsBinaryTuple(val);
                                     packJobStatus(w, status);
                                     packJobStatuses(w, statuses);
-                                }, err))
+                                }, firstNotNull(err, errStatus, errStatuses)))
                 ));
     }
 

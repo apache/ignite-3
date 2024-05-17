@@ -133,6 +133,11 @@ public enum ClientOperationType {
     COMPUTE_EXECUTE,
 
     /**
+     * Compute Execute MapReduce ({@link org.apache.ignite.compute.IgniteCompute#submitMapReduce(List, String, Object...)}).
+     */
+    COMPUTE_EXECUTE_MAPREDUCE,
+
+    /**
      * Get compute job status ({@link org.apache.ignite.compute.JobExecution#statusAsync()}).
      */
     COMPUTE_GET_STATUS,

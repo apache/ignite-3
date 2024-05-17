@@ -28,7 +28,6 @@ import org.jetbrains.annotations.Nullable;
  * Contains unpacked job id, a collection of ids of the jobs which are executing under this task, and notification future.
  */
 class SubmitTaskResult extends SubmitResult {
-
     private final List<@Nullable UUID> jobIds;
 
     SubmitTaskResult(UUID jobId, List<@Nullable UUID> jobIds, CompletableFuture<PayloadInputChannel> notificationFuture) {
