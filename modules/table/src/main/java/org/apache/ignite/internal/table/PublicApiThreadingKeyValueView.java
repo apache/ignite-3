@@ -18,12 +18,18 @@
 package org.apache.ignite.internal.table;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Flow;
+import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.lang.NullableValue;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -240,5 +246,12 @@ public class PublicApiThreadingKeyValueView<K, V> extends PublicApiThreadingView
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, K key, @Nullable V val) {
         return executeAsyncOp(() -> view.getNullableAndReplaceAsync(tx, key, val));
+    }
+
+    @Override
+    public <E, T, R> CompletableFuture<Void> streamData(Publisher<E> publisher, @Nullable DataStreamerOptions options,
+            Function<E, Entry<K, V>> keyFunc, Function<E, T> payloadFunc, @Nullable Flow.Subscriber<R> resultSubscriber,
+            List<DeploymentUnit> deploymentUnits, String receiverClassName, Object... receiverArgs) {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 }

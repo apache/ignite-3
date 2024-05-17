@@ -36,10 +36,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiver;
+import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -354,6 +357,28 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertEquals("bar", view.get(null, tupleKey(2)).stringValue("name"));
     }
 
+    @Test
+    public void testReceiver() {
+        CompletableFuture<Void> streamerFut;
+        RecordView<Tuple> view = defaultTable().recordView();
+
+        try (var publisher = new SubmissionPublisher<CustomData>()) {
+            streamerFut = view.<CustomData, String, Boolean>streamData(
+                    publisher,
+                    null,
+                    item -> Tuple.create().set("id", item.getId()),
+                    item -> item.serializeToString(),
+                    null,
+                    List.of(new DeploymentUnit("test", "1.0.0")),
+                    DemoReceiver.class.getName(),
+                    "receiverArg1");
+
+            publisher.submit(new CustomData(1, "x"));
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+    }
+
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             @SuppressWarnings("resource")
@@ -416,6 +441,50 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         PersonValPojo(String name) {
             this.name = name;
+        }
+    }
+
+    private static class CustomData {
+        private final int id;
+        private final String info;
+
+        public CustomData(int id, String info) {
+            this.id = id;
+            this.info = info;
+        }
+
+        public int getId() {
+            return id;
+        }
+
+        public String getInfo() {
+            return info;
+        }
+
+        public String serializeToString() {
+            return id + ":" + info;
+        }
+
+        public static CustomData deserializeFromString(String str) {
+            String[] parts = str.split(":");
+            return new CustomData(Integer.parseInt(parts[0]), parts[1]);
+        }
+    }
+
+    private static class DemoReceiver implements DataStreamerReceiver<String, Boolean> {
+        @Override
+        public CompletableFuture<List<Boolean>> receive(List<String> page, DataStreamerReceiverContext ctx, Object... args) {
+            List<Tuple> dataItems = page.stream()
+                    .map(CustomData::deserializeFromString)
+                    .map(data -> tuple(data.getId(), data.getInfo()))
+                    .collect(Collectors.toList());
+
+            return ctx.ignite()
+                    .tables()
+                    .table(TABLE_NAME)
+                    .recordView()
+                    .insertAllAsync(null, dataItems)
+                    .thenApply(ignored -> List.of(true));
         }
     }
 }

@@ -21,8 +21,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Flow;
+import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
+import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -214,5 +219,12 @@ public class PublicApiThreadingRecordView<R> extends PublicApiThreadingViewBase<
     @Override
     public <T> T unwrap(Class<T> classToUnwrap) {
         return classToUnwrap.cast(view);
+    }
+
+    @Override
+    public <E, V, R1> CompletableFuture<Void> streamData(Publisher<E> publisher, @Nullable DataStreamerOptions options,
+            Function<E, R> keyFunc, Function<E, V> payloadFunc, @Nullable Flow.Subscriber<R1> resultSubscriber,
+            List<DeploymentUnit> deploymentUnits, String receiverClassName, Object... receiverArgs) {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 }
