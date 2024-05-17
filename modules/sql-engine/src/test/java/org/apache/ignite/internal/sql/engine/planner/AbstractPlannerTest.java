@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -302,6 +303,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     ) {
         return SqlOperationContext.builder()
                 .queryId(UUID.randomUUID())
+                .timeZoneId(ZoneId.systemDefault())
                 .operationTime(new HybridClockImpl().now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .parameters(params)

@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -251,6 +252,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     private static SqlOperationContext createContext(Object... params) {
         return SqlOperationContext.builder()
                 .queryId(UUID.randomUUID())
+                .timeZoneId(ZoneId.systemDefault())
                 .operationTime(new HybridClockImpl().now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .parameters(params)

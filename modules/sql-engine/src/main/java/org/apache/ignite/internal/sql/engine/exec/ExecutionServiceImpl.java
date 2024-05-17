@@ -70,6 +70,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowSingleBoolean;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowSingleString;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
+import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
@@ -284,7 +285,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert old == null;
 
-        operationContext.cancel().add(() -> queryManager.close(true));
+        QueryCancel cancelHandler = operationContext.cancel();
+
+        assert cancelHandler != null;
+
+        cancelHandler.add(() -> queryManager.close(true));
 
         return queryManager.execute(tx, plan);
     }
@@ -1126,10 +1131,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 queryManagerMap.remove(ctx.queryId());
 
-                try {
-                    ctx.cancel().cancel();
-                } catch (Exception th) {
-                    LOG.debug("Exception raised while cancel", th);
+                QueryCancel cancelHandler = ctx.cancel();
+
+                if (cancelHandler != null) {
+                    try {
+                        cancelHandler.cancel();
+                    } catch (Exception th) {
+                        LOG.debug("Exception raised while cancel", th);
+                    }
                 }
 
                 cancelFut.complete(null);

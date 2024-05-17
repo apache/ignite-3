@@ -213,6 +213,9 @@ public class PrepareServiceImpl implements PrepareService {
         CompletableFuture<QueryPlan> result;
 
         String schemaName = operationContext.defaultSchemaName();
+
+        assert schemaName != null;
+
         SchemaPlus schema = schemaManager.schema(operationContext.operationTime().longValue())
                 .getSubSchema(schemaName);
 

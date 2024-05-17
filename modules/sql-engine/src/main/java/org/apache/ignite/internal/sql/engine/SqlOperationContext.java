@@ -24,6 +24,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Context of the sql operation.
@@ -32,31 +33,26 @@ import org.apache.ignite.internal.util.ArrayUtils;
  * kick-starting of the statement execution.
  */
 public final class SqlOperationContext {
-    private final QueryCancel cancel;
-
     private final UUID queryId;
-
-    private final Object[] parameters;
-
-    private final PrefetchCallback prefetchCallback;
-
     private final ZoneId timeZoneId;
-
+    private final Object[] parameters;
     private final HybridTimestamp operationTime;
 
-    private final String defaultSchemaName;
+    private final @Nullable QueryCancel cancel;
+    private final @Nullable String defaultSchemaName;
+    private final @Nullable PrefetchCallback prefetchCallback;
 
     /**
      * Private constructor, used by a builder.
      */
     private SqlOperationContext(
             UUID queryId,
-            HybridTimestamp operationTime,
-            QueryCancel cancel,
-            Object[] parameters,
-            PrefetchCallback prefetchCallback,
             ZoneId timeZoneId,
-            String defaultSchemaName
+            Object[] parameters,
+            HybridTimestamp operationTime,
+            @Nullable QueryCancel cancel,
+            @Nullable String defaultSchemaName,
+            @Nullable PrefetchCallback prefetchCallback
     ) {
         this.queryId = queryId;
         this.cancel = cancel;
@@ -81,13 +77,21 @@ public final class SqlOperationContext {
         return parameters;
     }
 
-    /** Returns callback to notify about readiness of the first page of the results. */ 
-    public PrefetchCallback prefetchCallback() {
+    /**
+     * Returns callback to notify about readiness of the first page of the results.
+     *
+     * <p>May be null on remote side, but never null on node initiator.
+     */ 
+    public @Nullable PrefetchCallback prefetchCallback() {
         return prefetchCallback;
     }
 
-    /** Returns handler to cancel running operation, as well as add listeners to be notified about cancellation of the query. */
-    public QueryCancel cancel() {
+    /**
+     * Returns handler to cancel running operation, as well as add listeners to be notified about cancellation of the query.
+     *
+     * <p>May be null on remote side, but never null on node initiator.
+     */
+    public @Nullable QueryCancel cancel() {
         return cancel;
     }
 
@@ -98,8 +102,10 @@ public final class SqlOperationContext {
 
     /**
      * Returns name of the schema to use to resolve schema objects, like tables or system views, for which name of the schema was omitted.
+     *
+     * <p>May be null on remote side, but never null on node initiator.
      */
-    public String defaultSchemaName() {
+    public @Nullable String defaultSchemaName() {
         return defaultSchemaName;
     }
 
@@ -126,7 +132,7 @@ public final class SqlOperationContext {
 
         private ZoneId timeZoneId;
 
-        private PrefetchCallback prefetchCallback;
+        private @Nullable PrefetchCallback prefetchCallback;
 
         private HybridTimestamp operationTime;
 
@@ -171,12 +177,12 @@ public final class SqlOperationContext {
         public SqlOperationContext build() {
             return new SqlOperationContext(
                     requireNonNull(queryId, "queryId"),
-                    requireNonNull(operationTime, "operationTime"),
-                    requireNonNull(cancel, "cancel"),
-                    requireNonNull(parameters, "parameters"),
-                    requireNonNull(prefetchCallback, "prefetchCallback"),
                     requireNonNull(timeZoneId, "timeZoneId"),
-                    requireNonNull(defaultSchemaName, "defaultSchemaName")
+                    requireNonNull(parameters, "parameters"),
+                    requireNonNull(operationTime, "operationTime"),
+                    cancel,
+                    defaultSchemaName,
+                    prefetchCallback
             );
         }
     }

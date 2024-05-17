@@ -683,12 +683,16 @@ public class SqlQueryProcessor implements QueryProcessor {
             SqlQueryType queryType = plan.type();
             UUID queryId = ctx.queryId();
 
+            PrefetchCallback prefetchCallback = ctx.prefetchCallback();
+
+            assert prefetchCallback != null;
+
             AsyncSqlCursorImpl<InternalSqlRow> cursor = new AsyncSqlCursorImpl<>(
                     queryType,
                     plan.metadata(),
                     txWrapper,
                     dataCursor,
-                    ctx.prefetchCallback().prefetchFuture(),
+                    prefetchCallback.prefetchFuture(),
                     nextStatement
             );
 
