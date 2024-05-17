@@ -79,8 +79,6 @@ public class TcpIgniteClient implements IgniteClient {
     /** Marshallers provider. */
     private final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
-    private final TopologyCache topologyCache;
-
     /**
      * Cluster name.
      */
@@ -107,11 +105,9 @@ public class TcpIgniteClient implements IgniteClient {
 
         this.cfg = cfg;
 
-        topologyCache = new TopologyCache(this::clusterNodes);
-
         metrics = new ClientMetricSource();
         ch = new ReliableChannel(chFactory, cfg, metrics);
-        tables = new ClientTables(ch, marshallers, topologyCache);
+        tables = new ClientTables(ch, marshallers);
         transactions = new ClientTransactions(ch);
         compute = new ClientCompute(ch, tables);
         sql = new ClientSql(ch, marshallers);
@@ -208,7 +204,6 @@ public class TcpIgniteClient implements IgniteClient {
                         new NetworkAddress(r.in().unpackString(), r.in().unpackInt())));
             }
 
-            topologyCache.refresh(res);
             return res;
         });
     }

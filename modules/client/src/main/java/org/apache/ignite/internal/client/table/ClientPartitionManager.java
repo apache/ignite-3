@@ -20,19 +20,18 @@ package org.apache.ignite.internal.client.table;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getPartitionAwarenessProvider;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.client.PayloadInputChannel;
-import org.apache.ignite.internal.client.PayloadOutputChannel;
-import org.apache.ignite.internal.client.TopologyCache;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
-import org.apache.ignite.internal.client.proto.TuplePart;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
@@ -47,32 +46,36 @@ import org.jetbrains.annotations.Nullable;
 public class ClientPartitionManager implements PartitionManager {
     private final ClientTable tbl;
 
-    private final TopologyCache topologyCache;
+    private final Lock lock = new ReentrantLock();
 
-    ClientPartitionManager(ClientTable clientTable, TopologyCache topologyCache) {
+    private final Map<Partition, ClusterNode> cache = new HashMap<>();
+
+    private @Nullable Instant aliveUntil;
+
+    ClientPartitionManager(ClientTable clientTable) {
         this.tbl = clientTable;
-        this.topologyCache = topologyCache;
     }
 
     @Override
-    @SuppressWarnings("resource")
     public CompletableFuture<ClusterNode> primaryReplicaAsync(Partition partition) {
-        if (!(partition instanceof ClientHashPartition)) {
-            throw new IllegalArgumentException();
+        if (!(partition instanceof HashPartition)) {
+            throw new IllegalArgumentException("Unsupported partition type: " + partition);
         }
 
-        ClientHashPartition clientPartition = (ClientHashPartition) partition;
-        return tbl.getPartitionAssignment().thenCompose(names -> {
-            String node = names.get(clientPartition.partitionId);
-            if (node == null) {
-                return tbl.channel().serviceAsync(ClientOp.PARTITION_PRIMARY_GET,
-                        w -> {
-                            w.out().packInt(tbl.tableId());
-                            w.out().packInt(clientPartition.partitionId);
-                        },
-                        ClientPartitionManager::unpackClusterNode);
-            } else {
-                return completedFuture(topologyCache.get(node));
+        ClusterNode clusterNode = getClusterNode(partition);
+
+        if (clusterNode != null) {
+            return completedFuture(clusterNode);
+        }
+
+        return primaryReplicasAsync().thenApply(map -> {
+            lock.lock();
+            try {
+                cache.putAll(map);
+                aliveUntil = Instant.now().plus(1, ChronoUnit.MINUTES);
+                return map.get(partition);
+            } finally {
+                lock.unlock();
             }
         });
     }
@@ -95,7 +98,7 @@ public class ClientPartitionManager implements PartitionManager {
 
                     for (int i = 0; i < size; i++) {
                         int partition = in.unpackInt();
-                        res.put(new ClientHashPartition(partition), unpackClusterNode(r));
+                        res.put(new HashPartition(partition), unpackClusterNode(r));
                     }
 
                     return res;
@@ -104,45 +107,35 @@ public class ClientPartitionManager implements PartitionManager {
 
     @Override
     public <K> CompletableFuture<Partition> partitionAsync(K key, Mapper<K> mapper) {
-        return getPartition(getPartitionAwarenessProvider(null, mapper, key),
-                (schema, w) -> ClientRecordSerializer.writeRecRaw(key, mapper, schema, w.out(), TuplePart.KEY)
-        );
+        return getPartition(getPartitionAwarenessProvider(null, mapper, key));
     }
 
     @Override
     public CompletableFuture<Partition> partitionAsync(Tuple key) {
-        return getPartition(getPartitionAwarenessProvider(null, key),
-                (schema, w) -> ClientTupleSerializer.writeTupleRaw(key, schema, w, true)
-        );
+        return getPartition(getPartitionAwarenessProvider(null, key));
     }
 
-    @SuppressWarnings("resource")
-    private CompletableFuture<Partition> getPartition(
-            PartitionAwarenessProvider partitionAwarenessProvider,
-            BiConsumer<ClientSchema, PayloadOutputChannel> keyPack
-    ) {
+    private @Nullable ClusterNode getClusterNode(Partition partition) {
+        lock.lock();
+        try {
+            if (aliveUntil == null || Instant.now().isAfter(aliveUntil)) {
+                cache.clear();
+                aliveUntil = null;
+                return null;
+            }
+            return cache.get(partition);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private CompletableFuture<Partition> getPartition(PartitionAwarenessProvider partitionAwarenessProvider) {
         return tbl.getPartitionAssignment()
                 .thenCompose(partitions -> tbl.getLatestSchema().thenApply(schema -> {
                     Integer hash = partitionAwarenessProvider.getObjectHashCode(schema);
 
-                    return Math.abs(hash % partitions.size());
-                }))
-                .exceptionally(t -> -1)
-                .thenCompose(partition -> {
-                    if (partition == -1) {
-                        return tbl.getLatestSchema()
-                                .thenCompose(schema ->
-                                        tbl.channel().serviceAsync(ClientOp.KEY_PARTITION_PRIMARY_GET,
-                                                w -> {
-                                                    w.out().packInt(tbl.tableId());
-                                                    keyPack.accept(schema, w);
-                                                },
-                                                r -> r.in().unpackInt()
-                                        ));
-                    }
-
-                    return completedFuture(partition);
-                }).thenApply(ClientHashPartition::new);
+                    return new HashPartition(Math.abs(hash % partitions.size()));
+                }));
     }
 
     private static @Nullable ClusterNode unpackClusterNode(PayloadInputChannel r) {
@@ -155,44 +148,5 @@ public class ClientPartitionManager implements PartitionManager {
                 in.unpackString(),
                 in.unpackString(),
                 new NetworkAddress(in.unpackString(), in.unpackInt()));
-    }
-
-    public static class ClientHashPartition implements Partition {
-        private static final long serialVersionUID = -2089375867774271170L;
-
-        private final int partitionId;
-
-        public ClientHashPartition(int partitionId) {
-            this.partitionId = partitionId;
-            if (partitionId > 2 || partitionId < 0) {
-                System.out.println();
-            }
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            ClientHashPartition that = (ClientHashPartition) o;
-
-            return partitionId == that.partitionId;
-        }
-
-        @Override
-        public int hashCode() {
-            return partitionId;
-        }
-
-        @Override
-        public String toString() {
-            return "ClientHashPartition{"
-                    + "partitionId=" + partitionId
-                    + '}';
-        }
     }
 }

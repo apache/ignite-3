@@ -88,9 +88,7 @@ import org.apache.ignite.client.handler.requests.table.ClientTupleReplaceExactRe
 import org.apache.ignite.client.handler.requests.table.ClientTupleReplaceRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertAllRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertRequest;
-import org.apache.ignite.client.handler.requests.table.partition.ClientKeyPartitionGetRequest;
-import org.apache.ignite.client.handler.requests.table.partition.ClientPartitionPrimaryGetRequest;
-import org.apache.ignite.client.handler.requests.table.partition.ClientPartitionsPrimaryGetRequest;
+import org.apache.ignite.client.handler.requests.table.partition.ClientPrimaryPartitionsToNodesGetRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
@@ -777,14 +775,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             case ClientOp.STREAMER_BATCH_SEND:
                 return ClientStreamerBatchSendRequest.process(in, out, igniteTables);
 
-            case ClientOp.PARTITION_PRIMARY_GET:
-                return ClientPartitionPrimaryGetRequest.process(in, out, igniteTables);
-
             case ClientOp.PARTITIONS_PRIMARY_GET:
-                return ClientPartitionsPrimaryGetRequest.process(in, out, igniteTables);
-
-            case ClientOp.KEY_PARTITION_PRIMARY_GET:
-                return ClientKeyPartitionGetRequest.process(in, out, igniteTables);
+                return ClientPrimaryPartitionsToNodesGetRequest.process(in, out, igniteTables);
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
         }

@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ReliableChannel;
-import org.apache.ignite.internal.client.TopologyCache;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.table.Table;
@@ -38,19 +37,15 @@ public class ClientTables implements IgniteTables {
 
     private final MarshallersProvider marshallers;
 
-    private final TopologyCache topologyCache;
-
     /**
      * Constructor.
      *
      * @param ch Channel.
      * @param marshallers Marshallers provider.
-     * @param topologyCache Server topology cache.
      */
-    public ClientTables(ReliableChannel ch, MarshallersProvider marshallers, TopologyCache topologyCache) {
+    public ClientTables(ReliableChannel ch, MarshallersProvider marshallers) {
         this.ch = ch;
         this.marshallers = marshallers;
-        this.topologyCache = topologyCache;
     }
 
     /** {@inheritDoc} */
@@ -68,7 +63,7 @@ public class ClientTables implements IgniteTables {
             var res = new ArrayList<Table>(cnt);
 
             for (int i = 0; i < cnt; i++) {
-                res.add(new ClientTable(ch, marshallers, topologyCache, in.unpackInt(), in.unpackString()));
+                res.add(new ClientTable(ch, marshallers, in.unpackInt(), in.unpackString()));
             }
 
             return res;
@@ -87,6 +82,6 @@ public class ClientTables implements IgniteTables {
         Objects.requireNonNull(name);
 
         return ch.serviceAsync(ClientOp.TABLE_GET, w -> w.out().packString(name),
-                r -> r.in().tryUnpackNil() ? null : new ClientTable(ch, marshallers, topologyCache, r.in().unpackInt(), name));
+                r -> r.in().tryUnpackNil() ? null : new ClientTable(ch, marshallers, r.in().unpackInt(), name));
     }
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler.requests.table.partition;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -27,12 +28,13 @@ import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Client table primary partition get request.
+ * Client all primary partitions get request.
  */
-public class ClientPartitionPrimaryGetRequest {
+public class ClientPrimaryPartitionsToNodesGetRequest {
 
     /**
      * Process the request.
@@ -47,22 +49,27 @@ public class ClientPartitionPrimaryGetRequest {
             ClientMessagePacker out,
             IgniteTables tables
     ) {
-
         return readTableAsync(in, tables).thenCompose(table -> {
             if (table == null) {
                 out.packNil();
                 return nullCompletedFuture();
             } else {
-                int partition = in.unpackInt();
                 return table.partitionManager()
-                        .primaryReplicaAsync(new HashPartition(partition))
-                        .thenAccept(node -> packClusterNode(node, out));
+                        .primaryReplicasAsync()
+                        .thenAccept(partitions -> {
+                            out.packInt(partitions.size());
+                            for (Entry<Partition, ClusterNode> e : partitions.entrySet()) {
+                                HashPartition partition = (HashPartition) e.getKey();
+
+                                out.packInt(partition.partitionId());
+                                packClusterNode(e.getValue(), out);
+                            }
+                        });
             }
         });
     }
 
-
-    static void packClusterNode(@Nullable ClusterNode clusterNode, ClientMessagePacker out) {
+    private static void packClusterNode(@Nullable ClusterNode clusterNode, ClientMessagePacker out) {
         if (clusterNode == null) {
             out.packNil();
         } else {

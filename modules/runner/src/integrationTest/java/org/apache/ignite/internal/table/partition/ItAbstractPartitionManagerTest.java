@@ -56,8 +56,6 @@ public abstract class ItAbstractPartitionManagerTest extends ClusterPerTestInteg
 
     protected abstract PartitionManager partitionManager();
 
-    protected abstract Partition toPartition(int i);
-
     @BeforeEach
     public void setup() {
         String zoneSql = "create zone " + ZONE_NAME + " with"
@@ -103,7 +101,7 @@ public abstract class ItAbstractPartitionManagerTest extends ClusterPerTestInteg
             CompletableFuture<ClusterNode> clusterNodeCompletableFuture = internalTable.partitionLocation(
                     new TablePartitionId(internalTable.tableId(), i));
 
-            CompletableFuture<ClusterNode> clusterNodeCompletableFuture1 = partitionManager().primaryReplicaAsync(toPartition(i));
+            CompletableFuture<ClusterNode> clusterNodeCompletableFuture1 = partitionManager().primaryReplicaAsync(new HashPartition(i));
 
             assertThat(clusterNodeCompletableFuture.join().id(), equalTo(clusterNodeCompletableFuture1.join().id()));
         }
@@ -120,7 +118,7 @@ public abstract class ItAbstractPartitionManagerTest extends ClusterPerTestInteg
 
             Publisher<BinaryRow> scan = internalTable.scan(i, null);
 
-            Partition value = toPartition(i);
+            Partition value = new HashPartition(i);
 
             scan.subscribe(new Subscriber<>() {
                 @Override
@@ -134,13 +132,7 @@ public abstract class ItAbstractPartitionManagerTest extends ClusterPerTestInteg
                     Tuple tuple = tuple(registry.resolve(item, registry.lastKnownSchemaVersion()));
 
                     Tuple key = Tuple.create().set("key", tuple.intValue("key"));
-                    try {
-                        assertThat(partitionManager().partitionAsync(key), willBe(value));
-                    } catch (AssertionError e) {
-                        InternalTable internalTable1 = internalTable;
-                        System.out.println(e);
-                        throw e;
-                    }
+                    assertThat(partitionManager().partitionAsync(key), willBe(value));
                 }
 
                 @Override

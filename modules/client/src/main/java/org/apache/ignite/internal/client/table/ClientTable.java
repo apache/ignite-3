@@ -36,7 +36,6 @@ import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
-import org.apache.ignite.internal.client.TopologyCache;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
@@ -78,8 +77,6 @@ public class ClientTable implements Table {
 
     private final IgniteLogger log;
 
-    private final TopologyCache topologyCache;
-
     private static final int UNKNOWN_SCHEMA_VERSION = -1;
 
     private volatile int latestSchemaVer = UNKNOWN_SCHEMA_VERSION;
@@ -89,6 +86,8 @@ public class ClientTable implements Table {
     private final Object partitionAssignmentLock = new Object();
 
     private volatile PartitionAssignment partitionAssignment = null;
+
+    private final ClientPartitionManager clientPartitionManager;
 
     /**
      * Constructor.
@@ -101,7 +100,6 @@ public class ClientTable implements Table {
     public ClientTable(
             ReliableChannel ch,
             MarshallersProvider marshallers,
-            TopologyCache topologyCache,
             int id,
             String name
     ) {
@@ -111,11 +109,11 @@ public class ClientTable implements Table {
 
         this.ch = ch;
         this.marshallers = marshallers;
-        this.topologyCache = topologyCache;
         this.id = id;
         this.name = name;
         this.log = ClientUtils.logger(ch.configuration(), ClientTable.class);
         this.sql = new ClientSql(ch, marshallers);
+        clientPartitionManager = new ClientPartitionManager(this);
     }
 
     /**
@@ -144,7 +142,7 @@ public class ClientTable implements Table {
 
     @Override
     public PartitionManager partitionManager() {
-        return new ClientPartitionManager(this, topologyCache);
+        return clientPartitionManager;
     }
 
     /** {@inheritDoc} */
