@@ -94,3 +94,14 @@ SELECT a, val FROM test
 1	AAAA
 2	BB
 3	CC
+
+# DELETE
+
+statement ok
+DELETE FROM test WHERE a IN (SELECT a FROM test WHERE val = 'AAAA')
+
+query IT rowsort
+SELECT a, val FROM test
+----
+2	BB
+3	CC
