@@ -170,4 +170,7 @@ public class ClientOp {
 
     /** Execute SQL query with the parameters batch. */
     public static final int SQL_EXEC_BATCH = 63;
+
+    /** Send streamer batch with receiver. */
+    public static final int STREAMER_WITH_RECEIVER_BATCH_SEND = 64;
 }
