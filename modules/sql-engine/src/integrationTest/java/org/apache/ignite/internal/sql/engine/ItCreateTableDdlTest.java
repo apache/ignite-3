@@ -527,6 +527,33 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         sql("DROP ZONE ZONE1");
     }
 
+    @Test
+    public void testStringZeroLength() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for column 'ID' of type 'STRING' must be non-negative",
+                () -> sql("CREATE TABLE TEST(ID CHAR(0) PRIMARY KEY, VAL0 INT)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for column 'ID' of type 'STRING' must be non-negative",
+                () -> sql("CREATE TABLE TEST(ID VARCHAR(0) PRIMARY KEY, VAL0 INT)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for column 'ID' of type 'BYTE_ARRAY' must be non-negative",
+                () -> sql("CREATE TABLE TEST(ID BINARY(0) PRIMARY KEY, VAL0 INT)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for column 'ID' of type 'BYTE_ARRAY' must be non-negative",
+                () -> sql("CREATE TABLE TEST(ID VARBINARY(0) PRIMARY KEY, VAL0 INT)")
+        );
+    }
+
     private static CatalogZoneDescriptor getDefaultZone(IgniteImpl node) {
         CatalogManager catalogManager = node.catalogManager();
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()));

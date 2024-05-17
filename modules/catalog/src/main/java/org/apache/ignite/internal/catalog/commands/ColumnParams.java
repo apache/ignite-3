@@ -234,14 +234,14 @@ public class ColumnParams {
 
             boolean validatePrecision = params.type.precisionAllowed();
             boolean validateScale = params.type.scaleAllowed();
-            boolean validateLenght = params.type.lengthAllowed();
+            boolean validateLength = params.type.lengthAllowed();
 
-            if (validateLenght) {
+            if (validateLength) {
                 if (params.length() == null) {
                     throw new CatalogValidationException(format(ERR_COL_PARAM_DEFINITION, "Length", params.name(), params.type()));
                 }
 
-                if (params.length() < 0) {
+                if (params.length() <= 0) {
                     throw new CatalogValidationException(format(ERR_COL_PARAM_VALIDATION, "Length", params.name(), params.type()));
                 }
             } else {
