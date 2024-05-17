@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.hlc;
 
 import static org.apache.ignite.internal.hlc.HybridClockTestUtils.mockToEpochMilli;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,10 +26,6 @@ import static org.mockito.Mockito.verify;
 import java.time.Clock;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.hlc.ClockUpdateListener;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
