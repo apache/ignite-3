@@ -26,7 +26,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -127,7 +127,7 @@ public class CatalogUtils {
     /**
      * Functions that are allowed to be used as columns' functional default. The set contains uppercase function names.
      */
-    private static final Set<String> FUNCTIONAL_DEFAULT_FUNCTIONS = new HashSet<>();
+    private static final Map<String, ColumnType> FUNCTIONAL_DEFAULT_FUNCTIONS = new HashMap<>();
 
     static {
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT8, EnumSet.of(ColumnType.INT8, ColumnType.INT16, ColumnType.INT32,
@@ -141,7 +141,7 @@ public class CatalogUtils {
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.BYTE_ARRAY, EnumSet.of(ColumnType.BYTE_ARRAY));
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.DECIMAL, EnumSet.of(ColumnType.DECIMAL));
 
-        FUNCTIONAL_DEFAULT_FUNCTIONS.add("GEN_RANDOM_UUID");
+        FUNCTIONAL_DEFAULT_FUNCTIONS.put("RAND_UUID", ColumnType.UUID);
     }
 
     public static final List<String> SYSTEM_SCHEMAS = List.of(SYSTEM_SCHEMA_NAME);
@@ -594,25 +594,25 @@ public class CatalogUtils {
     }
 
     /**
-     * Return {@code true} if a function with given name is allowed to be used as functional default for a column, {@code false} otherwise.
-     */
-    static boolean isSupportedFunctionalDefault(String functionName) {
-        return FUNCTIONAL_DEFAULT_FUNCTIONS.contains(functionName.toUpperCase());
-    }
-
-    /**
      * Check if provided default value is a constant or a functional default of supported function, or fail otherwise.
      */
-    static void ensureSupportedDefault(String columnName, @Nullable DefaultValue defaultValue) {
+    static void ensureSupportedDefault(String columnName, @Nullable DefaultValue defaultValue, ColumnType columnType) {
         if (defaultValue == null || defaultValue.type == Type.CONSTANT) {
             return;
         }
 
         if (defaultValue.type == FUNCTION_CALL) {
             String functionName = ((FunctionCall) defaultValue).functionName();
+            ColumnType returnType = FUNCTIONAL_DEFAULT_FUNCTIONS.get(functionName.toUpperCase());
 
-            if (isSupportedFunctionalDefault(functionName)) {
+            if (returnType == columnType) {
                 return;
+            }
+
+            if (returnType != null) {
+                throw new CatalogValidationException(
+                        format("Functional default type mismatch: [col={}, functionName={}, expectedType={}, actualType={}]",
+                                columnName, functionName, returnType, columnType));
             }
 
             throw new CatalogValidationException(

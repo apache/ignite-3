@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.UUID;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.util.List;
@@ -112,7 +113,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         builder = fillProperties(builder);
 
         builder.columns(List.of(
-                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.functionCall("gen_random_uuid")).build(),
+                ColumnParams.builder().name("C").type(UUID).defaultValue(DefaultValue.functionCall("rand_uuid")).build(),
                 ColumnParams.builder().name("D").type(INT32).defaultValue(DefaultValue.constant(1)).build()
 
         )).primaryKey(primaryKey("C", "D"));

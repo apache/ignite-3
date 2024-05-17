@@ -540,6 +540,12 @@ public class IgniteSqlFunctions {
         return UUID.randomUUID().toString();
     }
 
+    /** Generates a random UUID. **/
+    @NonDeterministic
+    public static UUID randUuid() {
+        return UUID.randomUUID();
+    }
+
     /** Returns the second argument and ignores the first. */
     public static Object consumeFirstArgument(Object args0, Object args1) {
         return args1;

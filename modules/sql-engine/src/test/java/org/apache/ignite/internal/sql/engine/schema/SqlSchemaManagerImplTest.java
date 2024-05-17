@@ -320,8 +320,8 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                         .defaultValue(DefaultValue.constant(null)).build(),
                                 ColumnParams.builder().name("C3").type(ColumnType.INT32)
                                         .defaultValue(DefaultValue.constant(1)).build(),
-                                ColumnParams.builder().name("C4").type(ColumnType.STRING).length(256)
-                                        .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.GEN_RANDOM_UUID.name())).build()
+                                ColumnParams.builder().name("C4").type(ColumnType.UUID)
+                                        .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.RAND_UUID.name())).build()
                         ))
                         .primaryKey(primaryKey("C1", "C4"))
                         .zone("Default")
@@ -371,8 +371,8 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                 ColumnParams.builder().name("C1").type(ColumnType.INT32).nullable(false).build(),
                                 ColumnParams.builder().name("C2").type(ColumnType.INT32)
                                         .defaultValue(DefaultValue.constant(null)).build(),
-                                ColumnParams.builder().name("C3").type(ColumnType.STRING).length(256)
-                                        .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.GEN_RANDOM_UUID.name())).build(),
+                                ColumnParams.builder().name("C3").type(ColumnType.UUID)
+                                        .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.RAND_UUID.name())).build(),
                                 ColumnParams.builder().name("C4").type(ColumnType.INT8).nullable(true).build()
                         ))
                         .primaryKey(primaryKey)
