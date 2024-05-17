@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -34,9 +33,10 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
+import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -44,7 +44,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -62,7 +62,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests to verify {@link PrepareServiceImpl}.
  */
-@SuppressWarnings("DataFlowIssue")
 public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     private static final List<PrepareService> createdServices = new ArrayList<>();
 
@@ -187,7 +186,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 "Ambiguous operator <UNKNOWN> + <UNKNOWN>. Dynamic parameter requires adding explicit type cast",
                 () -> {
                     ParsedResult parsedResult = parse("SELECT ? + ?");
-                    BaseQueryContext context = createContext();
+                    SqlOperationContext context = createContext();
                     await(service.prepareAsync(parsedResult, context));
                 }
         );
@@ -202,14 +201,15 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
                 .distribution(IgniteDistributions.single())
                 .build();
 
-        PrepareService service = createPlannerService();
-
         IgniteSchema schema = new IgniteSchema("PUBLIC", 0, List.of(table));
+
+        PrepareService service = createPlannerService(schema);
+
         Object paramValue = SqlTestUtils.generateValueByType(nativeType.spec().asColumnType());
 
         QueryPlan queryPlan = await(service.prepareAsync(
                 parse("SELECT * FROM t WHERE c = ?"),
-                createContext(schema, paramValue)
+                createContext(paramValue)
         ));
 
         ParameterType parameterType = queryPlan.parameterMetadata().parameterTypes().get(0);
@@ -248,36 +248,13 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
         return new ParserServiceImpl().parse(query);
     }
 
-    private static BaseQueryContext createContext(Object... params) {
-        return BaseQueryContext.builder()
+    private static SqlOperationContext createContext(Object... params) {
+        return SqlOperationContext.builder()
                 .queryId(UUID.randomUUID())
-                .frameworkConfig(
-                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(wrap(createSchema()))
-                                .build()
-                )
+                .operationTime(new HybridClockImpl().now())
+                .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .parameters(params)
                 .build();
-    }
-
-    private static BaseQueryContext createContext(IgniteSchema schema, Object... params) {
-        return BaseQueryContext.builder()
-                .queryId(UUID.randomUUID())
-                .frameworkConfig(
-                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(wrap(schema))
-                                .build()
-                )
-                .parameters(params)
-                .build();
-    }
-
-    private static SchemaPlus wrap(IgniteSchema schema) {
-        var schemaPlus = Frameworks.createRootSchema(false);
-
-        schemaPlus.add(schema.getName(), schema);
-
-        return schemaPlus.getSubSchema(schema.getName());
     }
 
     private static IgniteSchema createSchema() {
@@ -292,8 +269,13 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private static PrepareService createPlannerService() {
+        return createPlannerService(createSchema());
+    }
+
+    private static PrepareService createPlannerService(IgniteSchema schema) {
         PrepareService service = new PrepareServiceImpl("test", 1_000, CaffeineCacheFactory.INSTANCE,
-                mock(DdlSqlToCommandConverter.class), 5_000, 2, mock(MetricManagerImpl.class));
+                mock(DdlSqlToCommandConverter.class), 5_000, 2, mock(MetricManagerImpl.class),
+                new PredefinedSchemaManager(schema));
 
         createdServices.add(service);
 

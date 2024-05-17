@@ -55,7 +55,7 @@ public class IgniteSchema extends AbstractSchema {
     }
 
     /** Schema version. */
-    public int version() {
+    public int catalogVersion() {
         return version;
     }
 

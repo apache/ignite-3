@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
+import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUT_ERR;
@@ -26,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 
 import java.time.Duration;
-import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
@@ -34,6 +36,7 @@ import org.apache.calcite.plan.volcano.VolcanoTimeoutException;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelVisitor;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
+import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
@@ -46,7 +49,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -62,10 +65,10 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
     public void testPlannerTimeout() throws Exception {
         long plannerTimeout = 1L;
         IgniteSchema schema = createSchema(createTestTable("T1"));
-        BaseQueryContext ctx = baseQueryContext(Collections.singletonList(schema), null);
+        SqlOperationContext ctx = operationContext();
 
         PrepareService prepareService = new PrepareServiceImpl("test", 0,
-                CaffeineCacheFactory.INSTANCE, null, plannerTimeout, 1, new MetricManagerImpl());
+                CaffeineCacheFactory.INSTANCE, null, plannerTimeout, 1, new MetricManagerImpl(), new PredefinedSchemaManager(schema));
         prepareService.start();
         try {
             ParserService parserService = new ParserServiceImpl();
@@ -93,8 +96,10 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
         String sql = "SELECT * FROM T1 JOIN T2 ON T1.A = T2.A";
 
         PlanningContext ctx = PlanningContext.builder()
-                .parentContext(baseQueryContext(Collections.singletonList(schema), null))
                 .plannerTimeout(plannerTimeout)
+                .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
+                        .defaultSchema(createRootSchema(List.of(schema)).getSubSchema(schema.getName()))
+                        .build())
                 .query(sql)
                 .build();
 

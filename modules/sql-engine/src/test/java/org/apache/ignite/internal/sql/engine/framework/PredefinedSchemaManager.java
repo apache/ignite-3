@@ -46,7 +46,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     private final Int2ObjectMap<IgniteTable> tableById;
 
     /** Constructs schema manager from a single schema. */
-    PredefinedSchemaManager(IgniteSchema schema) {
+    public PredefinedSchemaManager(IgniteSchema schema) {
         this(List.of(schema));
     }
 

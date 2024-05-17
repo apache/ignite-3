@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.SqlOperationContext;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 
@@ -27,5 +27,7 @@ import org.apache.ignite.internal.util.AsyncCursor;
  * SQL query plan execution interface.
  */
 public interface ExecutionService extends LifecycleAware {
-    AsyncCursor<InternalSqlRow> executePlan(InternalTransaction tx, QueryPlan plan, BaseQueryContext ctx);
+    AsyncCursor<InternalSqlRow> executePlan(
+            InternalTransaction tx, QueryPlan plan, SqlOperationContext operationContext
+    );
 }

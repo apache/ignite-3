@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.SqlOperationContext;
 
 /**
  * Preparation service that accepts an AST of the query and returns a prepared query plan.
@@ -35,5 +35,5 @@ public interface PrepareService extends LifecycleAware {
      *
      * @return Future that contains prepared query plan when completes.
      */
-    CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, BaseQueryContext ctx);
+    CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, SqlOperationContext ctx);
 }
