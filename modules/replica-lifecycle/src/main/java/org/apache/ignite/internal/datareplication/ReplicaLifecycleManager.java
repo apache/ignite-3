@@ -33,7 +33,7 @@ public class ReplicaLifecycleManager implements IgniteComponent {
 
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
-    public static boolean ENABLED = getBoolean("IGNITE_ZONE_BASED_REPLICATION", false);
+    private static final boolean ENABLED = getBoolean("IGNITE_ZONE_BASED_REPLICATION", false);
 
     @Override
     public CompletableFuture<Void> startAsync() {
