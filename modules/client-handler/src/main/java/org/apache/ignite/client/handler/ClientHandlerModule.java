@@ -219,7 +219,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

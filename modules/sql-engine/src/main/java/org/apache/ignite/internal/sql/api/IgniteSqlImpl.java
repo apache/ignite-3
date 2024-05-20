@@ -129,7 +129,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         if (!closed.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

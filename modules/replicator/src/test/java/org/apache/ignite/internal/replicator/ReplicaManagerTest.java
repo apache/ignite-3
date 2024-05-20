@@ -130,7 +130,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(allOf(replicaStopFutures), willCompleteSuccessfully());
 
-        assertThat(replicaManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(replicaManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
     }

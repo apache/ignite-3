@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -102,8 +103,11 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         server = new JraftServerImpl(service, workDir, raftConfiguration) {
             @Override
-            public CompletableFuture<Void> stopAsync() {
-                return IgniteUtils.stopAsync(super::stopAsync, service::stopAsync);
+            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(stopExecutor),
+                        () -> service.stopAsync(stopExecutor)
+                );
             }
         };
 
@@ -155,7 +159,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
         closeAll(
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_0),
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_1),
-                () -> assertThat(server.stopAsync(), willCompleteSuccessfully()),
+                () -> assertThat(server.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
                 client1::shutdown,
                 client2::shutdown,
                 () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)

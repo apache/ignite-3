@@ -171,7 +171,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         if (!closeGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

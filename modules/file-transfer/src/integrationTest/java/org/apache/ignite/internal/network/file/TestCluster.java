@@ -186,7 +186,7 @@ public class TestCluster {
         void stop() throws Exception {
             closeAll(Stream.concat(
                     components.stream().map(c -> c::beforeNodeStop),
-                    Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()))
+                    Stream.of(() -> assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully()))
             ));
         }
     }

@@ -83,7 +83,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
     @AfterEach
     public void tearDown() throws Exception {
         closeAll(
-                metastore == null ? null : () -> assertThat(metastore.stopAsync(), willCompleteSuccessfully()),
+                metastore == null ? null : () -> assertThat(metastore.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
                 keyValueStorage == null ? null : keyValueStorage::close
         );
     }
@@ -100,7 +100,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         appendUpdates(updateLogImpl, expectedUpdates);
 
         // Let's restart the log and metastore with recovery.
-        assertThat(updateLogImpl.stopAsync(), willCompleteSuccessfully());
+        assertThat(updateLogImpl.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         restartMetastore();
 
@@ -133,7 +133,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         compactCatalog(updateLogImpl, snapshotEntryOfVersion(2));
 
         // Let's restart the log and metastore with recovery.
-        assertThat(updateLogImpl.stopAsync(), willCompleteSuccessfully());
+        assertThat(updateLogImpl.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         restartMetastore();
 
@@ -190,7 +190,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
     private void restartMetastore() {
         long recoverRevision = metastore.appliedRevision();
 
-        assertThat(metastore.stopAsync(), willCompleteSuccessfully());
+        assertThat(metastore.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         metastore = StandaloneMetaStorageManager.create(keyValueStorage);
         assertThat(metastore.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());

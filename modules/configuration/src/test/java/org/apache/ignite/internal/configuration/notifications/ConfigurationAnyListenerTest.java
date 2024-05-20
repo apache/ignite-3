@@ -240,7 +240,7 @@ public class ConfigurationAnyListenerTest {
 
     @AfterEach
     public void after() {
-        assertThat(registry.stopAsync(), willCompleteSuccessfully());
+        assertThat(registry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         generator.close();
     }
 

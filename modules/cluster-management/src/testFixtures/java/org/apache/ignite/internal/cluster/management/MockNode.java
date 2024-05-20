@@ -155,7 +155,7 @@ public class MockNode {
 
         reverse(componentsToStop);
 
-        assertThat(stopAsync(componentsToStop), willCompleteSuccessfully());
+        assertThat(stopAsync(ForkJoinPool.commonPool(), componentsToStop), willCompleteSuccessfully());
     }
 
     public ClusterNode localMember() {

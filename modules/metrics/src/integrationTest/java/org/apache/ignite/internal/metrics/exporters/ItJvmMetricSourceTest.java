@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -80,7 +81,7 @@ public class ItJvmMetricSourceTest extends BaseIgniteAbstractTest {
         assertNotNull(jvmMetrics.get("memory.non-heap.Committed"));
         assertNotNull(jvmMetrics.get("memory.non-heap.Max"));
 
-        assertThat(metricManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(metricManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     private void assertPositiveLongValue(String metric) {

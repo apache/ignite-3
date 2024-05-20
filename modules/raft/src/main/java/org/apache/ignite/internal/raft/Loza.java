@@ -208,7 +208,7 @@ public class Loza implements RaftManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }
@@ -217,7 +217,7 @@ public class Loza implements RaftManager {
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
-        return raftServer.stopAsync();
+        return raftServer.stopAsync(stopExecutor);
     }
 
     @Override

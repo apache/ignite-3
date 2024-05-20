@@ -270,7 +270,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                 igniteComponent.beforeNodeStop();
             }
 
-            assertThat(stopAsync(components), willCompleteSuccessfully());
+            assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully());
 
             generator.close();
         }

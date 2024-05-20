@@ -68,7 +68,7 @@ public class DataStorageManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         try {
             closeAll(engines.values().stream().map(engine -> engine::stop));
         } catch (Exception e) {

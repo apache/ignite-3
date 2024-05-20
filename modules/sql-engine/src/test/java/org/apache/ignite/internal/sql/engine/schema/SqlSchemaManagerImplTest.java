@@ -112,7 +112,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void cleanup() {
-        assertThat(catalogManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @Test

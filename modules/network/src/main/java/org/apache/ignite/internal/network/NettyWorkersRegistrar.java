@@ -141,7 +141,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         Future<?> heartBeatsTaskFuture = sendHearbeatsTaskFuture;
         if (heartBeatsTaskFuture != null) {
             heartBeatsTaskFuture.cancel(false);

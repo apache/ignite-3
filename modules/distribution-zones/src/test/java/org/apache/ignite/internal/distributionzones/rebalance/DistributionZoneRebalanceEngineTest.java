@@ -268,7 +268,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     @AfterEach
     public void tearDown() throws Exception {
         closeAll(
-                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
+                catalogManager == null ? null :
+                        () -> assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
                 keyValueStorage == null ? null : keyValueStorage::close,
                 rebalanceEngine == null ? null : rebalanceEngine::stop,
                 () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS)
@@ -434,7 +435,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
         } finally {
-            assertThat(realMetaStorageManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(realMetaStorageManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
     }
 
@@ -466,7 +467,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
         } finally {
-            assertThat(realMetaStorageManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(realMetaStorageManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
     }
 

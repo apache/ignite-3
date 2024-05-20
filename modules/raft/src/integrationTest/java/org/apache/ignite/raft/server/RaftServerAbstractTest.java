@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -72,7 +73,7 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
 
     @AfterEach
     protected void after() throws Exception {
-        assertThat(stopAsync(clusterServices), willCompleteSuccessfully());
+        assertThat(stopAsync(ForkJoinPool.commonPool(), clusterServices), willCompleteSuccessfully());
     }
 
     /**
@@ -109,10 +110,13 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
                 new RaftGroupEventsClientListener()
         ) {
             @Override
-            public CompletableFuture<Void> stopAsync() {
+            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
                 servers.remove(this);
 
-                return IgniteUtils.stopAsync(super::stopAsync, service::stopAsync);
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(stopExecutor),
+                        () -> service.stopAsync(stopExecutor)
+                );
             }
         };
     }

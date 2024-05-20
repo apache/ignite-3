@@ -116,7 +116,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(lowWatermark.stopAsync(), willCompleteSuccessfully());
+        assertThat(lowWatermark.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @Test

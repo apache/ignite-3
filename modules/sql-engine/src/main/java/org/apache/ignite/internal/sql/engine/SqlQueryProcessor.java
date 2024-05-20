@@ -444,7 +444,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized CompletableFuture<Void> stopAsync() {
+    public synchronized CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

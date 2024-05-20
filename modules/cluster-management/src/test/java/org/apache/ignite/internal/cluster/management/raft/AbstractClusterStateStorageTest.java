@@ -61,7 +61,7 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
 
     @AfterEach
     void tearDown() {
-        assertThat(storage.stopAsync(), willCompleteSuccessfully());
+        assertThat(storage.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     /**
@@ -278,7 +278,7 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
 
         assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
-        assertThat(storage.stopAsync(), willCompleteSuccessfully());
+        assertThat(storage.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         storage = createStorage(testNodeName(testInfo, 1));
 
@@ -333,7 +333,7 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
 
     @Test
     void throwsNodeStoppingException() {
-        assertThat(storage.stopAsync(), willCompleteSuccessfully());
+        assertThat(storage.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertThrowsWithCause(() -> storage.get(BYTE_EMPTY_ARRAY), NodeStoppingException.class);
         assertThrowsWithCause(() -> storage.put(BYTE_EMPTY_ARRAY, BYTE_EMPTY_ARRAY), NodeStoppingException.class);

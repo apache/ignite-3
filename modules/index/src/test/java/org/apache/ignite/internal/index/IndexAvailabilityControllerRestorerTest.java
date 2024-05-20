@@ -105,8 +105,10 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
     void tearDown() throws Exception {
         closeAll(
                 controller == null ? null : controller::close,
-                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
-                metaStorageManager == null ? null : () -> assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully())
+                catalogManager == null ? null :
+                        () -> assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                metaStorageManager == null ? null :
+                        () -> assertThat(metaStorageManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
         );
     }
 
@@ -193,8 +195,10 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
 
         closeAll(
-                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
-                metaStorageManager == null ? null : () -> assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully())
+                catalogManager == null ? null :
+                        () -> assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                metaStorageManager == null ? null :
+                        () -> assertThat(metaStorageManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
         );
 
         keyValueStorage = new TestRocksDbKeyValueStorage(NODE_NAME, workDir);

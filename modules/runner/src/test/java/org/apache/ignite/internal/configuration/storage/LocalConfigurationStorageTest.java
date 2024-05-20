@@ -45,7 +45,7 @@ public class LocalConfigurationStorageTest extends ConfigurationStorageTest {
      */
     @AfterEach
     void stopVault() {
-        assertThat(vaultManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(vaultManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     /** {@inheritDoc} */

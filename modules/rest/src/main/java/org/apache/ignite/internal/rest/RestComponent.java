@@ -265,7 +265,7 @@ public class RestComponent implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized CompletableFuture<Void> stopAsync() {
+    public synchronized CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         // TODO: IGNITE-16636 Use busy-lock approach to guard stopping RestComponent
         if (context != null) {
             context.stop();

@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -137,7 +138,9 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         List<IgniteComponent> components = Stream.concat(servers.stream(), cluster.stream()).collect(toList());
 
-        Stream<AutoCloseable> nodeStop = Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()));
+        Stream<AutoCloseable> nodeStop = Stream.of(() ->
+                assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully())
+        );
 
         IgniteUtils.closeAll(
                 Stream.of(stopRaftGroups, shutdownClients, stopExecutor, beforeNodeStop, nodeStop).flatMap(Function.identity())
@@ -254,7 +257,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         // Shutdown that node
         toStop.stopRaftNode(nodeId);
         toStop.beforeNodeStop();
-        assertThat(toStop.stopAsync(), willCompleteSuccessfully());
+        assertThat(toStop.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         // Create a snapshot of the raft group
         service.snapshot(service.leader()).get();
@@ -424,8 +427,11 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         JraftServerImpl server = new JraftServerImpl(service, jraft, raftConfiguration) {
             @Override
-            public CompletableFuture<Void> stopAsync() {
-                return IgniteUtils.stopAsync(super::stopAsync, service::stopAsync);
+            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(stopExecutor),
+                        () -> service.stopAsync(stopExecutor)
+                );
             }
         };
 

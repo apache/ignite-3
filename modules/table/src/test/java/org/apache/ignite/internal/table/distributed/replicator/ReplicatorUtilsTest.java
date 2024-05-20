@@ -144,7 +144,10 @@ public class ReplicatorUtilsTest extends IgniteAbstractTest {
         try {
             consumer.accept(catalogManager);
         } finally {
-            closeAll(catalogManager::beforeNodeStop, () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()));
+            closeAll(
+                    catalogManager::beforeNodeStop,
+                    () -> assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
+            );
         }
     }
 

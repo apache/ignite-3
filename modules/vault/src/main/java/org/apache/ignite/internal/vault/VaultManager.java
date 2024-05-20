@@ -55,7 +55,7 @@ public class VaultManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         // TODO: IGNITE-15161 Implement component's stop.
         vaultSvc.close();
 

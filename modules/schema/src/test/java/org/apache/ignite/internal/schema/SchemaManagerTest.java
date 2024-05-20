@@ -114,7 +114,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(stopAsync(schemaManager, metaStorageManager), willCompleteSuccessfully());
+        assertThat(stopAsync(ForkJoinPool.commonPool(), schemaManager, metaStorageManager), willCompleteSuccessfully());
     }
 
     private void createSomeTable() {
@@ -270,7 +270,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     void loadingPreExistingSchemasWorks() {
         create2TableVersions();
 
-        assertThat(schemaManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(schemaManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         when(catalogService.latestCatalogVersion()).thenReturn(2);
         when(catalogService.tables(anyInt())).thenReturn(List.of(tableDescriptorAfterColumnAddition()));

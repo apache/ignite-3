@@ -85,7 +85,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                assertThat(service.stopAsync(), willCompleteSuccessfully());
+                assertThat(service.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             }
         };
 
@@ -108,7 +108,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                assertThat(service.stopAsync(), willCompleteSuccessfully());
+                assertThat(service.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             }
         };
 

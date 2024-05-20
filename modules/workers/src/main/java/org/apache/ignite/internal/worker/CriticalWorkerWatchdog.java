@@ -253,7 +253,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         ScheduledFuture<?> taskFuture = livenessProbeTaskFuture;
         if (taskFuture != null) {
             taskFuture.cancel(false);

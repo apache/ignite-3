@@ -124,7 +124,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(fileTransferService.stopAsync(), willCompleteSuccessfully());
+        assertThat(fileTransferService.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @Test

@@ -43,7 +43,7 @@ public class UsageTest {
 
     @AfterEach
     public void after() {
-        assertThat(registry.stopAsync(), willCompleteSuccessfully());
+        assertThat(registry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     /**

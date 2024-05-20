@@ -235,7 +235,7 @@ public class HoconConverterTest {
      */
     @AfterAll
     public static void after() {
-        assertThat(registry.stopAsync(), willCompleteSuccessfully());
+        assertThat(registry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         registry = null;
 

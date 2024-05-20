@@ -169,7 +169,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     void tearDown() throws Exception {
         closeAll(
                 placementDriver == null ? null : placementDriver::stopTrack,
-                metastore == null ? null : () -> assertThat(metastore.stopAsync(), willCompleteSuccessfully())
+                metastore == null ? null : () -> assertThat(metastore.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
         );
     }
 

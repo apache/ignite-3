@@ -286,11 +286,13 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         // Forcing the leader change by stopping the actual leader.
         var raftServiceToStop = raftServers.remove(new NetworkAddress("localhost", leader.address().port()));
         raftServiceToStop.stopRaftNodes(GROUP_ID);
-        assertThat(raftServiceToStop.stopAsync(), willCompleteSuccessfully());
+        assertThat(raftServiceToStop.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         afterNodeStop(leader.name());
 
-        CompletableFuture<Void> stopFuture = clusterServices.remove(new NetworkAddress("localhost", leader.address().port())).stopAsync();
+        CompletableFuture<Void> stopFuture =
+                clusterServices.remove(new NetworkAddress("localhost", leader.address().port()))
+                        .stopAsync(ForkJoinPool.commonPool());
         assertThat(stopFuture, willCompleteSuccessfully());
 
         // Waiting for the notifications to check.
@@ -365,10 +367,10 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
             if (raftServers.containsKey(addr)) {
                 raftServers.get(addr).stopRaftNodes(GROUP_ID);
 
-                assertThat(raftServers.get(addr).stopAsync(), willCompleteSuccessfully());
+                assertThat(raftServers.get(addr).stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             }
 
-            assertThat(clusterServices.get(addr).stopAsync(), willCompleteSuccessfully());
+            assertThat(clusterServices.get(addr).stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
 
         raftServers.clear();

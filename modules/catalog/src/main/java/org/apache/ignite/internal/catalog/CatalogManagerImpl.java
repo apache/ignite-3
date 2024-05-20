@@ -188,10 +188,10 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         busyLock.block();
         versionTracker.close();
-        return updateLog.stopAsync();
+        return updateLog.stopAsync(stopExecutor);
     }
 
     @Override

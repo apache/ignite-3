@@ -207,7 +207,9 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             Stream<AutoCloseable> beforeNodeStop = components.stream().map(c -> c::beforeNodeStop);
 
-            Stream<AutoCloseable> nodeStop = Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()));
+            Stream<AutoCloseable> nodeStop = Stream.of(() ->
+                    assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully())
+            );
 
             IgniteUtils.closeAll(Stream.concat(beforeNodeStop, nodeStop));
         }

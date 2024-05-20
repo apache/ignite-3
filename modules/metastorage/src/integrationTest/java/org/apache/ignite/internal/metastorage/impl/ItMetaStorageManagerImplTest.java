@@ -158,7 +158,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         closeAll(Stream.concat(
                 components.stream().map(c -> c::beforeNodeStop),
-                Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()))
+                Stream.of(() -> assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully()))
         ));
     }
 
@@ -199,10 +199,10 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testMetaStorageStopClosesRaftService() throws Exception {
+    void testMetaStorageStopClosesRaftService() {
         MetaStorageServiceImpl svc = metaStorageManager.metaStorageService().join();
 
-        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         CompletableFuture<Entry> fut = svc.get(ByteArray.fromString("ignored"));
 
@@ -210,8 +210,9 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testMetaStorageStopBeforeRaftServiceStarted() throws Exception {
-        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully()); // Close MetaStorage that is created in setUp.
+    void testMetaStorageStopBeforeRaftServiceStarted() {
+        // Close MetaStorage that is created in setUp.
+        assertThat(metaStorageManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
@@ -231,7 +232,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 new NoOpMetricManager()
         );
 
-        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         // Unblock the future so raft service can be initialized. Although the future should be cancelled already by the
         // stop method.
@@ -265,7 +266,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
      * Tests that idle safe time propagation does not advance safe time while watches of a normal command are being executed.
      */
     @Test
-    void testIdleSafeTimePropagationAndNormalSafeTimePropagationInteraction(TestInfo testInfo) throws Exception {
+    void testIdleSafeTimePropagationAndNormalSafeTimePropagationInteraction(TestInfo testInfo) {
         var key = new ByteArray("foo");
         byte[] value = "bar".getBytes(UTF_8);
 

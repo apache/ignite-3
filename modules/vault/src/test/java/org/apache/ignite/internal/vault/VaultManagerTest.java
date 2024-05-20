@@ -48,7 +48,7 @@ public class VaultManagerTest {
     void tearDown() {
         vaultManager.beforeNodeStop();
 
-        assertThat(vaultManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(vaultManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     /**

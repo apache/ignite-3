@@ -176,7 +176,7 @@ public class TxManagerTest extends IgniteAbstractTest {
     public void tearDown() {
         txManager.beforeNodeStop();
 
-        assertThat(txManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(txManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @Test

@@ -77,7 +77,7 @@ public abstract class MetaStorageRangeTest extends BaseIgniteAbstractTest {
     @AfterEach
     void tearDown() {
         metaStorageManager.beforeNodeStop();
-        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @Test

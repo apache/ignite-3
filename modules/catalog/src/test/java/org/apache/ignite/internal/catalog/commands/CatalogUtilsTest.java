@@ -84,7 +84,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(catalogManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @Test

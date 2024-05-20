@@ -81,7 +81,7 @@ public class ConfigurationRegistryTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(configRegistry.stopAsync(), willCompleteSuccessfully());
+        assertThat(configRegistry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @Test
@@ -134,7 +134,7 @@ public class ConfigurationRegistryTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(configRegistry.stopAsync(), willCompleteSuccessfully());
+        assertThat(configRegistry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @Test
@@ -188,7 +188,7 @@ public class ConfigurationRegistryTest {
                                     .changePolyNamed(c2 -> c2.create("5", toFirst0Polymorphic(5)))))
             ).get(1, SECONDS);
         } finally {
-            assertThat(registry.stopAsync(), willCompleteSuccessfully());
+            assertThat(registry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
     }
 
@@ -221,7 +221,7 @@ public class ConfigurationRegistryTest {
         UUID internalId = configuration.internalIds().get(0);
         assertThat(configuration.get(internalId), instanceOf(Fourth0PolymorphicConfiguration.class));
 
-        assertThat(registry.stopAsync(), willCompleteSuccessfully());
+        assertThat(registry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @Test
@@ -262,7 +262,7 @@ public class ConfigurationRegistryTest {
             assertEquals("foo", firstConfiguration.str().value());
             assertEquals("bar", secondConfiguration.str().value());
         } finally {
-            assertThat(registry.stopAsync(), willCompleteSuccessfully());
+            assertThat(registry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
     }
 

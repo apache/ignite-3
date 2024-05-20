@@ -51,7 +51,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(server.stopAsync(), willCompleteSuccessfully());
+        assertThat(server.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @Test

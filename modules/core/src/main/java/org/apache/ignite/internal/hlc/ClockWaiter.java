@@ -99,7 +99,7 @@ public class ClockWaiter implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

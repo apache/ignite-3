@@ -71,7 +71,7 @@ class Node implements AutoCloseable {
 
         closeAll(Stream.concat(
                 igniteComponents.stream().map(component -> component::beforeNodeStop),
-                Stream.of(() -> assertThat(stopAsync(igniteComponents), willCompleteSuccessfully()))
+                Stream.of(() -> assertThat(stopAsync(ForkJoinPool.commonPool(), igniteComponents), willCompleteSuccessfully()))
         ));
     }
 }

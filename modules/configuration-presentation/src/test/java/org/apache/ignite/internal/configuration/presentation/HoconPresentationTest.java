@@ -103,7 +103,7 @@ public class HoconPresentationTest {
      */
     @AfterAll
     static void afterAll() {
-        assertThat(cfgRegistry.stopAsync(), willCompleteSuccessfully());
+        assertThat(cfgRegistry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         cfgRegistry = null;
 
         generator.close();

@@ -124,7 +124,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     public void tearDown() {
-        assertThat(stopAsync(manager, clockWaiter, metastore), willCompleteSuccessfully());
+        assertThat(stopAsync(ForkJoinPool.commonPool(), manager, clockWaiter, metastore), willCompleteSuccessfully());
     }
 
     protected void createSomeTable(String tableName) {

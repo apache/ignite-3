@@ -139,7 +139,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         closeAll(Stream.concat(
                 components.stream().map(c -> c::beforeNodeStop),
-                Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()))
+                Stream.of(() -> assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully()))
         ));
     }
 

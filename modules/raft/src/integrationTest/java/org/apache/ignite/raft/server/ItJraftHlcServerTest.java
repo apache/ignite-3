@@ -110,7 +110,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
             server.beforeNodeStop();
 
-            assertThat(server.stopAsync(), willCompleteSuccessfully());
+            assertThat(server.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
 
         TestUtils.assertAllJraftThreadsStopped();

@@ -149,7 +149,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
             server.beforeNodeStop();
 
-            assertThat(server.stopAsync(), willCompleteSuccessfully());
+            assertThat(server.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
 
         servers.clear();

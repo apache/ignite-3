@@ -66,7 +66,7 @@ public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstr
 
     @AfterEach
     void tearDown() {
-        assertThat(storage.stopAsync(), willCompleteSuccessfully());
+        assertThat(storage.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     /**

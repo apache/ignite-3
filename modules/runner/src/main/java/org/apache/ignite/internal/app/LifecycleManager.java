@@ -135,21 +135,21 @@ class LifecycleManager implements StateProvider {
     /**
      * Stops all started components and transfers the node into the {@link State#STOPPING} state.
      */
-    CompletableFuture<Void> stopNode() {
+    CompletableFuture<Void> stopNode(ExecutorService lifecycleExecutor) {
         State currentStatus = status.getAndSet(State.STOPPING);
 
         if (currentStatus != State.STOPPING) {
-            stopAllComponents();
+            stopAllComponents(lifecycleExecutor);
         }
 
         return stopFuture;
     }
 
     /**
-     * Calls {@link IgniteComponent#beforeNodeStop()} and then {@link IgniteComponent#stopAsync()} for all components in
+     * Calls {@link IgniteComponent#beforeNodeStop()} and then {@link IgniteComponent#stopAsync(ExecutorService)} for all components in
      * start-reverse-order.
      */
-    private synchronized void stopAllComponents() {
+    private synchronized void stopAllComponents(ExecutorService lifecycleExecutor) {
         List<IgniteComponent> components = new ArrayList<>(startedComponents);
         reverse(components);
 
@@ -161,7 +161,7 @@ class LifecycleManager implements StateProvider {
             }
         }
 
-        stopAsync(components)
+        stopAsync(lifecycleExecutor, components)
                 .whenComplete((v, e) -> stopFuture.complete(null));
     }
 }

@@ -267,7 +267,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void stop() {
-            assertThat(stopAsync(loza, clusterService), willCompleteSuccessfully());
+            assertThat(stopAsync(ForkJoinPool.commonPool(), loza, clusterService), willCompleteSuccessfully());
         }
     }
 }

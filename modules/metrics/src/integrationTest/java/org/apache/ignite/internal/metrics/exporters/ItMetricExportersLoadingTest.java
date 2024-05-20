@@ -86,7 +86,7 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
             waitForOutput(pullOutputStream, "TestMetricsSource:\nMetric:1");
             assertTrue(pullOutputStream.toString().contains("TestMetricsSource:\nMetric:1"));
 
-            assertThat(metricManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(metricManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
     }
 

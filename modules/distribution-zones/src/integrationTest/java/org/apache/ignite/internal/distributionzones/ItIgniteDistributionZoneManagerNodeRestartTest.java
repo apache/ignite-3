@@ -226,7 +226,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(logicalTopology.getLogicalTopology()));
         when(cmgManager.startAsync(ForkJoinPool.commonPool())).thenReturn(nullCompletedFuture());
-        when(cmgManager.stopAsync()).thenReturn(nullCompletedFuture());
+        when(cmgManager.stopAsync(ForkJoinPool.commonPool())).thenReturn(nullCompletedFuture());
 
         metastore = spy(StandaloneMetaStorageManager.create(
                 new TestRocksDbKeyValueStorage(name, workDir.resolve("metastorage"))

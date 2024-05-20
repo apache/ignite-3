@@ -64,7 +64,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
      */
     @AfterEach
     void stop() throws Exception {
-        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         metaStorage.close();
     }
 
@@ -97,7 +97,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
         });
 
         when(mock.startAsync(ForkJoinPool.commonPool())).thenReturn(nullCompletedFuture());
-        when(mock.stopAsync()).thenReturn(nullCompletedFuture());
+        when(mock.stopAsync(ForkJoinPool.commonPool())).thenReturn(nullCompletedFuture());
 
         return mock;
     }

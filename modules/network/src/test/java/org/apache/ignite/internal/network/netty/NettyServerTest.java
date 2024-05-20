@@ -92,7 +92,8 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     final void tearDown() throws Exception {
         closeAll(
                 server == null ? null : () -> server.stop().join(),
-                bootstrapFactory == null ? null : () -> assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully())
+                bootstrapFactory == null ? null :
+                        () -> assertThat(bootstrapFactory.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
         );
     }
 

@@ -51,7 +51,7 @@ class ItNodeRestartsTest {
     /** Tear down method. */
     @AfterEach
     void tearDown() {
-        assertThat(stopAsync(services), willCompleteSuccessfully());
+        assertThat(stopAsync(ForkJoinPool.commonPool(), services), willCompleteSuccessfully());
     }
 
     /**
@@ -78,10 +78,10 @@ class ItNodeRestartsTest {
         int idx1 = 2;
 
         LOG.info("Shutdown {}", addresses.get(idx0));
-        assertThat(services.get(idx0).stopAsync(), willCompleteSuccessfully());
+        assertThat(services.get(idx0).stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         LOG.info("Shutdown {}", addresses.get(idx1));
-        assertThat(services.get(idx1).stopAsync(), willCompleteSuccessfully());
+        assertThat(services.get(idx1).stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         LOG.info("Starting {}", addresses.get(idx0));
         ClusterService svc0 = startNetwork(testInfo, addresses.get(idx0), nodeFinder);

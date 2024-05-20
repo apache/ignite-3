@@ -270,7 +270,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         closeAll(Stream.concat(
                 igniteComponents.stream().filter(Objects::nonNull).map(component -> component::beforeNodeStop),
-                Stream.of(() -> assertThat(stopAsync(igniteComponents), willCompleteSuccessfully())))
+                Stream.of(() -> assertThat(stopAsync(ForkJoinPool.commonPool(), igniteComponents), willCompleteSuccessfully())))
         );
     }
 
@@ -414,7 +414,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
      */
     private void stopAnotherNode(ClusterService nodeClusterService) throws Exception {
         nodeClusterService.beforeNodeStop();
-        assertThat(nodeClusterService.stopAsync(), willCompleteSuccessfully());
+        assertThat(nodeClusterService.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertTrue(waitForCondition(
                 () -> !clusterService.topologyService().allMembers().contains(nodeClusterService.topologyService().localMember()),

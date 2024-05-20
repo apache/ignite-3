@@ -1197,7 +1197,7 @@ public class IgniteImpl implements Ignite {
         IgniteException igniteException = new IgniteException(errMsg, e);
 
         try {
-            lifecycleManager.stopNode().get();
+            lifecycleManager.stopNode(stopExecutor()).get();
         } catch (Exception ex) {
             igniteException.addSuppressed(ex);
         }
@@ -1216,8 +1216,14 @@ public class IgniteImpl implements Ignite {
      * Asynchronously stops ignite node.
      */
     public CompletableFuture<Void> stopAsync() {
-        return lifecycleManager.stopNode()
+        return lifecycleManager.stopNode(stopExecutor())
                 .whenComplete((unused, throwable) -> restAddressReporter.removeReport());
+    }
+
+    private ExecutorService stopExecutor() {
+        return Executors.newSingleThreadExecutor(
+                IgniteThreadFactory.create(name, "stop", LOG, STORAGE_READ, STORAGE_WRITE)
+        );
     }
 
     /** {@inheritDoc} */

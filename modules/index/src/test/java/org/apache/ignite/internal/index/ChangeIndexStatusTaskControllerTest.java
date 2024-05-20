@@ -96,7 +96,7 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     void tearDown() throws Exception {
         closeAllManually(
                 catalogManager::beforeNodeStop,
-                () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
+                () -> assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
                 taskController
         );
     }

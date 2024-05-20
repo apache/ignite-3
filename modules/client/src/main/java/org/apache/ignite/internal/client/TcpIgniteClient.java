@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.Options;
 import org.apache.ignite.client.IgniteClient;
@@ -219,7 +220,7 @@ public class TcpIgniteClient implements IgniteClient {
         ch.close();
 
         if (metricManager != null) {
-            metricManager.stopAsync().join();
+            metricManager.stopAsync(ForkJoinPool.commonPool()).join();
         }
     }
 

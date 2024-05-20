@@ -113,7 +113,7 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     public void cleanup() {
-        assertThat(restComponent.stopAsync(), willCompleteSuccessfully());
+        assertThat(restComponent.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @Test

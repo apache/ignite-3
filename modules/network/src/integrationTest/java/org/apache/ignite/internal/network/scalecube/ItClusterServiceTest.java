@@ -59,7 +59,7 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
 
         assertThat(service.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
-        assertThat(service.stopAsync(), willCompleteSuccessfully());
+        assertThat(service.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertThat(service.isStopped(), is(true));
 
@@ -96,7 +96,7 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
             checkAllMeta(service1, Set.of(meta1, meta2));
             checkAllMeta(service2, Set.of(meta1, meta2));
         } finally {
-            assertThat(stopAsync(service1, service2), willCompleteSuccessfully());
+            assertThat(stopAsync(ForkJoinPool.commonPool(), service1, service2), willCompleteSuccessfully());
         }
     }
 

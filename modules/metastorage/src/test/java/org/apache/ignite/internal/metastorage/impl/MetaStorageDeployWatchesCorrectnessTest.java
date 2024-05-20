@@ -111,6 +111,6 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
 
         metastore.beforeNodeStop();
 
-        assertThat(metastore.stopAsync(), willCompleteSuccessfully());
+        assertThat(metastore.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 }

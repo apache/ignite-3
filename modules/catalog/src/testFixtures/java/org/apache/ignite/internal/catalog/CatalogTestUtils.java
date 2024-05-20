@@ -100,8 +100,12 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync() {
-                return IgniteUtils.stopAsync(super::stopAsync, clockWaiter::stopAsync, metastore::stopAsync);
+            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(stopExecutor),
+                        () -> clockWaiter.stopAsync(stopExecutor),
+                        () -> metastore.stopAsync(stopExecutor)
+                );
             }
         };
     }
@@ -133,8 +137,11 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync() {
-                return IgniteUtils.stopAsync(super::stopAsync, metastore::stopAsync);
+            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(stopExecutor),
+                        () -> metastore.stopAsync(stopExecutor)
+                );
             }
         };
     }
@@ -165,8 +172,11 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync() {
-                return IgniteUtils.stopAsync(super::stopAsync, clockWaiter::stopAsync);
+            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(stopExecutor),
+                        () -> clockWaiter.stopAsync(stopExecutor)
+                );
             }
         };
     }
@@ -211,8 +221,11 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync() {
-                return IgniteUtils.stopAsync(super::stopAsync, clockWaiter::stopAsync);
+            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(stopExecutor),
+                        () -> clockWaiter.stopAsync(stopExecutor)
+                );
             }
         };
     }
@@ -247,8 +260,11 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync() {
-                return IgniteUtils.stopAsync(super::stopAsync, clockWaiter::stopAsync);
+            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+                return IgniteUtils.stopAsync(
+                        () -> super.stopAsync(stopExecutor),
+                        () -> clockWaiter.stopAsync(stopExecutor)
+                );
             }
         };
     }
@@ -412,7 +428,7 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public CompletableFuture<Void> stopAsync() {
+        public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
             return nullCompletedFuture();
         }
     }

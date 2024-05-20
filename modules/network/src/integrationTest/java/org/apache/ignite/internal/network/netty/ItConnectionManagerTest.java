@@ -547,7 +547,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
             return wrapper;
         } catch (Exception e) {
-            assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully());
+            assertThat(bootstrapFactory.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
             throw e;
         }
@@ -568,7 +568,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             closeAll(
                     connectionManager::initiateStopping,
                     connectionManager::stop,
-                    () -> assertThat(nettyFactory.stopAsync(), willCompleteSuccessfully())
+                    () -> assertThat(nettyFactory.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
             );
         }
 

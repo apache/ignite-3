@@ -91,7 +91,7 @@ public class TestServer {
     }
 
     void tearDown() {
-        assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     ClientHandlerModule start(TestInfo testInfo) {

@@ -118,7 +118,7 @@ public class MetricManagerImpl implements MetricManager {
         }
     }
 
-    @Override public CompletableFuture<Void> stopAsync() {
+    @Override public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         for (MetricExporter metricExporter : enabledMetricExporters.values()) {
             metricExporter.stop();
         }

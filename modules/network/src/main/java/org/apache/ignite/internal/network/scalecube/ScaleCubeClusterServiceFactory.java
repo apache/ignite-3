@@ -35,6 +35,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -215,7 +216,7 @@ public class ScaleCubeClusterServiceFactory {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync() {
+            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
                 ConnectionManager localConnectionMgr = connectionMgr;
 
                 if (localConnectionMgr != null) {
@@ -254,7 +255,7 @@ public class ScaleCubeClusterServiceFactory {
 
             @Override
             public void beforeNodeStop() {
-                this.stopAsync().join();
+                this.stopAsync(ForkJoinPool.commonPool()).join();
             }
 
             @Override

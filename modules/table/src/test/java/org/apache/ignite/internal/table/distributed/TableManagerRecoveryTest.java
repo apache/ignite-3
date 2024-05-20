@@ -376,14 +376,16 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private void stopComponents() throws Exception {
         if (tableManager != null) {
             tableManager.beforeNodeStop();
-            assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(tableManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
 
         closeAll(
-                dsm == null ? null : () -> assertThat(dsm.stopAsync(), willCompleteSuccessfully()),
-                sm == null ? null : () -> assertThat(sm.stopAsync(), willCompleteSuccessfully()),
-                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
-                metaStorageManager == null ? null : () -> assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully()),
+                dsm == null ? null : () -> assertThat(dsm.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                sm == null ? null : () -> assertThat(sm.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                catalogManager == null ? null :
+                        () -> assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                metaStorageManager == null ? null :
+                        () -> assertThat(metaStorageManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
                 partitionOperationsExecutor == null ? null
                         : () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
         );

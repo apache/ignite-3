@@ -85,7 +85,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(stopAsync(catalogManager, metaStorageManager), willCompleteSuccessfully());
+        assertThat(stopAsync(ForkJoinPool.commonPool(), catalogManager, metaStorageManager), willCompleteSuccessfully());
     }
 
     @Test
@@ -238,6 +238,6 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     }
 
     private void stopComponents() {
-        assertThat(stopAsync(catalogManager, metaStorageManager), willCompleteSuccessfully());
+        assertThat(stopAsync(ForkJoinPool.commonPool(), catalogManager, metaStorageManager), willCompleteSuccessfully());
     }
 }

@@ -82,7 +82,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
     public void tearDown() throws Exception {
         for (PlacementDriverManager pdMgr : placementDriverManagers.values()) {
             pdMgr.beforeNodeStop();
-            assertThat(pdMgr.stopAsync(), willCompleteSuccessfully());
+            assertThat(pdMgr.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
 
         placementDriverManagers.clear();
@@ -146,7 +146,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
         PlacementDriverManager placementDriverManager = placementDriverManagers.remove(nodeName);
 
         placementDriverManager.beforeNodeStop();
-        assertThat(placementDriverManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(placementDriverManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     private boolean checkSingleActiveActor(String leaderName) {

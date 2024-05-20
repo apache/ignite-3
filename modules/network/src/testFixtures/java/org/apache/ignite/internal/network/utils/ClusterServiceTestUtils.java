@@ -182,8 +182,8 @@ public class ClusterServiceTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync() {
-                return IgniteUtils.stopAsync(clusterSvc, bootstrapFactory, nodeConfigurationMgr);
+            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+                return IgniteUtils.stopAsync(stopExecutor, clusterSvc, bootstrapFactory, nodeConfigurationMgr);
             }
         };
     }

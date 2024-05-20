@@ -118,7 +118,7 @@ public class DirectPropertiesTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(registry.stopAsync(), willCompleteSuccessfully());
+        assertThat(registry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     /**

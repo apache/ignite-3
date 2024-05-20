@@ -201,14 +201,14 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void registrationFutureCompletesWhenComponentStops() {
-        assertThat(viewMgr.stopAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertThat(viewMgr.completeRegistration(), willThrowFast(NodeStoppingException.class));
     }
 
     @Test
     public void startAfterStopFails() {
-        assertThat(viewMgr.stopAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         //noinspection ThrowableNotThrown
         assertThrowsWithCause(() -> viewMgr.startAsync(ForkJoinPool.commonPool()), NodeStoppingException.class);
@@ -216,7 +216,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void registerAfterStopFails() {
-        assertThat(viewMgr.stopAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         //noinspection ThrowableNotThrown
         assertThrowsWithCause(() -> viewMgr.register(() -> List.of(dummyView("test"))), NodeStoppingException.class);
@@ -224,8 +224,8 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void stopAfterStopDoesNothing() {
-        assertThat(viewMgr.stopAsync(), willCompleteSuccessfully());
-        assertThat(viewMgr.stopAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(viewMgr.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @Test

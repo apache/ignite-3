@@ -389,7 +389,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         if (!isStopped.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

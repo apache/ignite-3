@@ -169,7 +169,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     public void teardown() {
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
 
-        assertThat(clusterService.stopAsync(), willCompleteSuccessfully());
+        assertThat(clusterService.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     public ReplicaUnavailableTest(TestInfo testInfo) {

@@ -409,7 +409,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         deployer.stop();
         nodeStatusWatchListener.stop();
         tracker.cancelAll();

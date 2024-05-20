@@ -172,7 +172,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
             var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, nodeName);
 
             assertThat(nettyBootstrapFactory.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
-            cleanup.add(() -> assertThat(nettyBootstrapFactory.stopAsync(), willCompleteSuccessfully()));
+            cleanup.add(() -> assertThat(nettyBootstrapFactory.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()));
 
             clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
                     nodeName,
@@ -184,12 +184,12 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     mock(FailureProcessor.class));
 
             assertThat(clusterSvc.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
-            cleanup.add(() -> assertThat(clusterSvc.stopAsync(), willCompleteSuccessfully()));
+            cleanup.add(() -> assertThat(clusterSvc.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()));
 
             raftMgr = new Loza(clusterSvc, new NoOpMetricManager(), raftConfiguration, nodeDir, hybridClock);
 
             assertThat(raftMgr.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
-            cleanup.add(() -> assertThat(raftMgr.stopAsync(), willCompleteSuccessfully()));
+            cleanup.add(() -> assertThat(raftMgr.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()));
 
             cleanup.add(this::stopService);
         }

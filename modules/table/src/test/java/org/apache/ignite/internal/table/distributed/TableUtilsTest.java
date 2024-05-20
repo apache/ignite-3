@@ -74,7 +74,7 @@ public class TableUtilsTest extends IgniteAbstractTest {
     void tearDown() throws Exception {
         closeAll(
                 catalogManager::beforeNodeStop,
-                () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully())
+                () -> assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
         );
     }
 

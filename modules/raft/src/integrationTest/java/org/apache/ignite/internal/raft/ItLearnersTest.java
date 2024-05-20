@@ -132,8 +132,9 @@ public class ItLearnersTest extends IgniteAbstractTest {
                     loza == null ? null : () -> loza.stopRaftNodes(RAFT_GROUP_ID),
                     loza == null ? null : loza::beforeNodeStop,
                     clusterService == null ? null : clusterService::beforeNodeStop,
-                    loza == null ? null : () -> assertThat(loza.stopAsync(), willCompleteSuccessfully()),
-                    clusterService == null ? null : () -> assertThat(clusterService.stopAsync(), willCompleteSuccessfully())
+                    loza == null ? null : () -> assertThat(loza.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                    clusterService == null ? null :
+                            () -> assertThat(clusterService.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
             );
         }
     }

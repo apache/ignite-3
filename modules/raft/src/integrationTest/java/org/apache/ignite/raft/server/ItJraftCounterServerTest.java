@@ -46,6 +46,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -784,7 +785,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         toStop.beforeNodeStop();
 
-        assertThat(toStop.stopAsync(), willCompleteSuccessfully());
+        assertThat(toStop.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         applyIncrements(client1, 11, 20);
         applyIncrements(client2, 21, 30);
@@ -816,7 +817,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         svc2.beforeNodeStop();
 
-        assertThat(svc2.stopAsync(), willCompleteSuccessfully());
+        assertThat(svc2.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         var svc3 = startServer(stopIdx, r -> {
             String localNodeName = r.clusterService().topologyService().localMember().name();

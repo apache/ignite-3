@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.net.ConnectException;
 import java.net.Socket;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -53,7 +54,8 @@ public class ItClientHandlerBindTest extends BaseIgniteAbstractTest {
     final void tearDown() throws Exception {
         closeAll(
                 server == null ? null : () -> server.tearDown(),
-                serverModule == null ? null : () -> assertThat(serverModule.stopAsync(), willCompleteSuccessfully())
+                serverModule == null ? null :
+                        () -> assertThat(serverModule.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
         );
     }
 

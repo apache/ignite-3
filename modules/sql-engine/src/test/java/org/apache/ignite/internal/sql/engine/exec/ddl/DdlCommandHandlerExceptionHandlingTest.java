@@ -67,7 +67,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     @AfterEach
     public void after() {
-        assertThat(stopAsync(clockWaiter, catalogManager), willCompleteSuccessfully());
+        assertThat(stopAsync(ForkJoinPool.commonPool(), clockWaiter, catalogManager), willCompleteSuccessfully());
     }
 
     @Test

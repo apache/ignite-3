@@ -314,7 +314,7 @@ public class TestNode implements LifecycleAware {
 
         @Override
         public void stop() {
-            assertThat(component.stopAsync(), willCompleteSuccessfully());
+            assertThat(component.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
     }
 }

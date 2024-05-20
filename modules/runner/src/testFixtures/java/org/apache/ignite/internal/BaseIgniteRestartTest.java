@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
@@ -433,7 +434,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
                 }
             }
 
-            assertThat(stopAsync(components), willCompleteSuccessfully());
+            assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully());
 
             closeables.forEach(c -> {
                 try {

@@ -177,7 +177,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             assertThat(txManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
-            closeables.add(() -> assertThat(txManager.stopAsync(), willCompleteSuccessfully()));
+            closeables.add(() -> assertThat(txManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()));
 
             TestInternalTableImpl internalTable = new TestInternalTableImpl(replicaSvc, size, timestampTracker, txManager);
 

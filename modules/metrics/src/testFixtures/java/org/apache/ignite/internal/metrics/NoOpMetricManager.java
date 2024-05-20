@@ -51,7 +51,7 @@ public class NoOpMetricManager implements MetricManager {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         return nullCompletedFuture();
     }
 

@@ -291,7 +291,7 @@ public class TestCluster {
 
                     // Network service must be stopped after a node because raft initiates timeoutnowrequest on stop for faster
                     // leader election.
-                    assertThat(clusterService.stopAsync(), willCompleteSuccessfully());
+                    assertThat(clusterService.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
                 }
             };
 

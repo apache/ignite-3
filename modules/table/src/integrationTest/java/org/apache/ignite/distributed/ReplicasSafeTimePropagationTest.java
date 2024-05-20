@@ -303,8 +303,10 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     raftManager == null ? null : () -> raftManager.stopRaftNodes(GROUP_ID),
                     raftManager == null ? null : raftManager::beforeNodeStop,
                     clusterService == null ? null : clusterService::beforeNodeStop,
-                    raftManager == null ? null : () -> assertThat(raftManager.stopAsync(), willCompleteSuccessfully()),
-                    clusterService == null ? null : () -> assertThat(clusterService.stopAsync(), willCompleteSuccessfully())
+                    raftManager == null ? null :
+                            () -> assertThat(raftManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                    clusterService == null ? null :
+                            () -> assertThat(clusterService.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
             );
         }
     }

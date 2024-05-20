@@ -1202,12 +1202,12 @@ public class IgniteUtils {
         return startAsync(startupExecutor, components.stream());
     }
 
-    private static CompletableFuture<Void> stopAsync(Stream<? extends IgniteComponent> components) {
+    private static CompletableFuture<Void> stopAsync(ExecutorService stopExecutor, Stream<? extends IgniteComponent> components) {
         return allOf(components
                 .filter(Objects::nonNull)
                 .map(igniteComponent -> {
                     try {
-                        return igniteComponent.stopAsync();
+                        return igniteComponent.stopAsync(stopExecutor);
                     } catch (Throwable e) {
                         // Make sure a failure in the synchronous part will not interrupt the stopping process of other components.
                         return failedFuture(e);
@@ -1239,20 +1239,22 @@ public class IgniteUtils {
     /**
      * Asynchronously stops all ignite components.
      *
+     * @param stopExecutor The executor that will execute the async part of stop.
      * @param components Array of ignite components to stop.
      * @return CompletableFuture that will be completed when all components are stopped.
      */
-    public static CompletableFuture<Void> stopAsync(IgniteComponent... components) {
-        return stopAsync(Stream.of(components));
+    public static CompletableFuture<Void> stopAsync(ExecutorService stopExecutor, IgniteComponent... components) {
+        return stopAsync(stopExecutor, Stream.of(components));
     }
 
     /**
      * Asynchronously stops all ignite components.
      *
+     * @param stopExecutor The executor that will execute the async part of stop.
      * @param components Collection of ignite components to stop.
      * @return CompletableFuture that will be completed when all components are stopped.
      */
-    public static CompletableFuture<Void> stopAsync(Collection<? extends IgniteComponent> components) {
-        return stopAsync(components.stream());
+    public static CompletableFuture<Void> stopAsync(ExecutorService stopExecutor, Collection<? extends IgniteComponent> components) {
+        return stopAsync(stopExecutor, components.stream());
     }
 }

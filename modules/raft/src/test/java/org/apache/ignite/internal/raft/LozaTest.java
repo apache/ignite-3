@@ -71,7 +71,7 @@ public class LozaTest extends IgniteAbstractTest {
         assertThat(loza.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         loza.beforeNodeStop();
-        assertThat(loza.stopAsync(), willCompleteSuccessfully());
+        assertThat(loza.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         TestReplicationGroupId raftGroupId = new TestReplicationGroupId("test_raft_group");
 

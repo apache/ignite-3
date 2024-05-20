@@ -187,26 +187,26 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
     public void afterTest() {
         if (metaStorageRaftSrv3 != null) {
             metaStorageRaftSrv3.stopRaftNodes(MetastorageGroupId.INSTANCE);
-            assertThat(metaStorageRaftSrv3.stopAsync(), willCompleteSuccessfully());
+            assertThat(metaStorageRaftSrv3.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             metaStorageRaftGrpSvc3.shutdown();
         }
 
         if (metaStorageRaftSrv2 != null) {
             metaStorageRaftSrv2.stopRaftNodes(MetastorageGroupId.INSTANCE);
-            assertThat(metaStorageRaftSrv2.stopAsync(), willCompleteSuccessfully());
+            assertThat(metaStorageRaftSrv2.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             metaStorageRaftGrpSvc2.shutdown();
         }
 
         if (metaStorageRaftSrv1 != null) {
             metaStorageRaftSrv1.stopRaftNodes(MetastorageGroupId.INSTANCE);
-            assertThat(metaStorageRaftSrv1.stopAsync(), willCompleteSuccessfully());
+            assertThat(metaStorageRaftSrv1.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             metaStorageRaftGrpSvc1.shutdown();
         }
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         for (ClusterService node : cluster) {
-            assertThat(node.stopAsync(), willCompleteSuccessfully());
+            assertThat(node.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
     }
 
@@ -298,12 +298,12 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
                                 // stop leader
                                 oldLeaderServer.stopRaftNodes(MetastorageGroupId.INSTANCE);
-                                assertThat(oldLeaderServer.stopAsync(), willCompleteSuccessfully());
+                                assertThat(oldLeaderServer.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
                                 CompletableFuture<Void> stopFuture = cluster.stream()
                                         .filter(c -> localMemberName(c).equals(oldLeaderId))
                                         .findFirst()
                                         .orElseThrow()
-                                        .stopAsync();
+                                        .stopAsync(ForkJoinPool.commonPool());
                                 assertThat(stopFuture, willCompleteSuccessfully());
 
                                 raftGroupServiceOfLiveServer.refreshLeader().get();

@@ -127,7 +127,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(stopAsync(metaStorageManager, catalogManager, indexManager), willCompleteSuccessfully());
+        assertThat(stopAsync(ForkJoinPool.commonPool(), metaStorageManager, catalogManager, indexManager), willCompleteSuccessfully());
     }
 
     @Test

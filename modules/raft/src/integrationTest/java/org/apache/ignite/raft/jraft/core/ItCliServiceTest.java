@@ -150,7 +150,7 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                assertThat(clientSvc.stopAsync(), willCompleteSuccessfully());
+                assertThat(clientSvc.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             }
         };
 

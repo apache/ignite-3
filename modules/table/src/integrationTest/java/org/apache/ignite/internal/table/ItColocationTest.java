@@ -319,7 +319,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     @AfterAll
     static void afterAllTests() {
         if (txManager != null) {
-            assertThat(txManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(txManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
     }
 

@@ -214,7 +214,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                 igniteComponent.beforeNodeStop();
             }
 
-            assertThat(stopAsync(components), willCompleteSuccessfully());
+            assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully());
         }
 
         String name() {

@@ -353,7 +353,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public CompletableFuture<Void> stopAsync() {
+        public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
             // NO-OP
 
             return nullCompletedFuture();

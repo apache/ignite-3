@@ -63,9 +63,9 @@ public class ConfigurationManager implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         // TODO: IGNITE-15161 Implement component's stop.
-        return registry.stopAsync();
+        return registry.stopAsync(stopExecutor);
     }
 
     /**

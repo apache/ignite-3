@@ -302,12 +302,14 @@ public class TableManagerTest extends IgniteAbstractTest {
                     assertTrue(tblManagerFut.isDone());
 
                     tblManagerFut.join().beforeNodeStop();
-                    assertThat(tblManagerFut.join().stopAsync(), willCompleteSuccessfully());
+                    assertThat(tblManagerFut.join().stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
                 },
-                dsm == null ? null : () -> assertThat(dsm.stopAsync(), willCompleteSuccessfully()),
-                sm == null ? null : () -> assertThat(sm.stopAsync(), willCompleteSuccessfully()),
-                catalogManager == null ? null : () -> assertThat(catalogManager.stopAsync(), willCompleteSuccessfully()),
-                catalogMetastore == null ? null : () -> assertThat(catalogMetastore.stopAsync(), willCompleteSuccessfully()),
+                dsm == null ? null : () -> assertThat(dsm.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                sm == null ? null : () -> assertThat(sm.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                catalogManager == null ? null :
+                        () -> assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                catalogMetastore == null ? null :
+                        () -> assertThat(catalogMetastore.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
                 partitionOperationsExecutor == null ? null
                         : () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
         );
@@ -449,7 +451,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableManager tableManager = tblManagerFut.join();
 
         tableManager.beforeNodeStop();
-        assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(tableManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertThrowsWithCause(tableManager::tables, NodeStoppingException.class);
         assertThrowsWithCause(() -> tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME), NodeStoppingException.class);
@@ -469,7 +471,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableManager tableManager = tblManagerFut.join();
 
         tableManager.beforeNodeStop();
-        assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(tableManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         int fakeTblId = 1;
 
         assertThrowsWithCause(() -> tableManager.table(fakeTblId), NodeStoppingException.class);
@@ -564,7 +566,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         mockDoThrow.run();
 
         tableManager.beforeNodeStop();
-        assertThat(tableManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(tableManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         verify(rm, times(PARTITIONS)).stopRaftNodes(any());
         verify(replicaMgr, times(PARTITIONS)).stopReplica(any());

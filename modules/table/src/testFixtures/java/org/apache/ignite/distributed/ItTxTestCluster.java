@@ -878,10 +878,10 @@ public class ItTxTestCluster {
      *
      */
     public void shutdownCluster() {
-        assertThat(stopAsync(cluster), willCompleteSuccessfully());
+        assertThat(stopAsync(ForkJoinPool.commonPool(), cluster), willCompleteSuccessfully());
 
         if (client != null) {
-            assertThat(client.stopAsync(), willCompleteSuccessfully());
+            assertThat(client.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
 
         if (executor != null) {
@@ -918,29 +918,29 @@ public class ItTxTestCluster {
                     }
                 });
 
-                assertThat(replicaMgr.stopAsync(), willCompleteSuccessfully());
-                assertThat(rs.stopAsync(), willCompleteSuccessfully());
+                assertThat(replicaMgr.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+                assertThat(rs.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             }
         }
 
         if (resourceCleanupManagers != null) {
             for (ResourceVacuumManager resourceVacuumManager : resourceCleanupManagers.values()) {
-                assertThat(resourceVacuumManager.stopAsync(), willCompleteSuccessfully());
+                assertThat(resourceVacuumManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             }
         }
 
         if (clientResourceVacuumManager != null) {
-            assertThat(clientResourceVacuumManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(clientResourceVacuumManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
 
         if (txManagers != null) {
             for (TxManager txMgr : txManagers.values()) {
-                assertThat(txMgr.stopAsync(), willCompleteSuccessfully());
+                assertThat(txMgr.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             }
         }
 
         if (clientTxManager != null) {
-            assertThat(clientTxManager.stopAsync(), willCompleteSuccessfully());
+            assertThat(clientTxManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
 
         for (Map.Entry<String, List<RaftGroupService>> e : raftClients.entrySet()) {

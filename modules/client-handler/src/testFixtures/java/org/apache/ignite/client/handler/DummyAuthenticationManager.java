@@ -48,7 +48,7 @@ public class DummyAuthenticationManager implements AuthenticationManager {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         return nullCompletedFuture();
     }
 

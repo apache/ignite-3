@@ -104,7 +104,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(storage.stopAsync(), willCompleteSuccessfully());
+        assertThat(storage.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     /**

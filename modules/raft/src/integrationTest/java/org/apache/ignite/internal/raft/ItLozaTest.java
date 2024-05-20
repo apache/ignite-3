@@ -157,11 +157,11 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
             }
 
             if (loza != null) {
-                assertThat(loza.stopAsync(), willCompleteSuccessfully());
+                assertThat(loza.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             }
 
             if (service != null) {
-                assertThat(service.stopAsync(), willCompleteSuccessfully());
+                assertThat(service.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             }
         }
     }

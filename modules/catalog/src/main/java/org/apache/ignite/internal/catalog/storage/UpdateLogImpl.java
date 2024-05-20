@@ -127,7 +127,7 @@ public class UpdateLogImpl implements UpdateLog {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

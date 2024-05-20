@@ -59,7 +59,7 @@ public interface MetricManager extends IgniteComponent {
     void start(Iterable<MetricExporter<?>> exporters);
 
     @Override
-    CompletableFuture<Void> stopAsync();
+    CompletableFuture<Void> stopAsync(ExecutorService stopExecutor);
 
     /**
      * Register metric source. See {@link MetricRegistry#registerSource(MetricSource)}.

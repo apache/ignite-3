@@ -258,7 +258,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
             Stream<AutoCloseable> beforeNodeStop = Stream.of(raftManager, clusterService).map(c -> c::beforeNodeStop);
 
             Stream<AutoCloseable> nodeStop = Stream.of(
-                    () -> assertThat(stopAsync(raftManager, clusterService), willCompleteSuccessfully())
+                    () -> assertThat(stopAsync(ForkJoinPool.commonPool(), raftManager, clusterService), willCompleteSuccessfully())
             );
 
             IgniteUtils.closeAll(Stream.of(raftStop, beforeNodeStop, nodeStop).flatMap(Function.identity()));

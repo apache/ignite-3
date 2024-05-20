@@ -187,7 +187,7 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         NetworkView configurationView = networkConfiguration.value();
         long quietPeriod = configurationView.shutdownQuietPeriod();
         long shutdownTimeout = configurationView.shutdownTimeout();

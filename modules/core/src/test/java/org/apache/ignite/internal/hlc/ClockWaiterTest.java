@@ -46,7 +46,7 @@ class ClockWaiterTest {
     @AfterEach
     void cleanup() {
         if (waiter != null) {
-            assertThat(waiter.stopAsync(), willCompleteSuccessfully());
+            assertThat(waiter.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
     }
 
@@ -89,7 +89,7 @@ class ClockWaiterTest {
 
         CompletableFuture<Void> future = waiter.waitFor(oneYearAhead);
 
-        assertThat(waiter.stopAsync(), willCompleteSuccessfully());
+        assertThat(waiter.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertThat(future, willThrow(CancellationException.class));
     }

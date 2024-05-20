@@ -178,7 +178,7 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
 
         try {

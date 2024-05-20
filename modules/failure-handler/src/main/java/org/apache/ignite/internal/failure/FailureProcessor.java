@@ -88,7 +88,7 @@ public class FailureProcessor implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
         return nullCompletedFuture();
     }
 

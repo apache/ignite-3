@@ -135,7 +135,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                 servicesToClose.add(() -> {
                     service.beforeNodeStop();
 
-                    assertThat(service.stopAsync(), willCompleteSuccessfully());
+                    assertThat(service.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
                 });
             }
         }

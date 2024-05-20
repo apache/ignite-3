@@ -159,7 +159,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         }
 
         void stop() {
-            assertThat(stopAsync(raftManager, raftStorage, clusterService), willCompleteSuccessfully());
+            assertThat(stopAsync(ForkJoinPool.commonPool(), raftManager, raftStorage, clusterService), willCompleteSuccessfully());
         }
 
         ClusterNode localMember() {

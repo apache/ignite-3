@@ -152,9 +152,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CompletableFuture<Void> readyFuture = manager.catalogReadyFuture(futureVersion);
         assertFalse(readyFuture.isDone());
 
-        assertThat(manager.stopAsync(), willCompleteSuccessfully());
+        assertThat(manager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
-        verify(updateLog).stopAsync();
+        verify(updateLog).stopAsync(ForkJoinPool.commonPool());
 
         assertTrue(readyFuture.isDone());
 
@@ -283,7 +283,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void catalogServiceManagesUpdateLogLifecycle() {
         UpdateLog updateLogMock = mock(UpdateLog.class);
         when(updateLogMock.startAsync(ForkJoinPool.commonPool())).thenReturn(nullCompletedFuture());
-        when(updateLogMock.stopAsync()).thenReturn(nullCompletedFuture());
+        when(updateLogMock.stopAsync(ForkJoinPool.commonPool())).thenReturn(nullCompletedFuture());
         when(updateLogMock.append(any())).thenReturn(CompletableFuture.completedFuture(true));
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
@@ -292,9 +292,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         verify(updateLogMock).startAsync(ForkJoinPool.commonPool());
 
-        assertThat(manager.stopAsync(), willCompleteSuccessfully());
+        assertThat(manager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
-        verify(updateLogMock).stopAsync();
+        verify(updateLogMock).stopAsync(ForkJoinPool.commonPool());
     }
 
     @Test

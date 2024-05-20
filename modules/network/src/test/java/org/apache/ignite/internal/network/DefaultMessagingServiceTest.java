@@ -572,7 +572,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                     connectionManager::initiateStopping, connectionManager::stop,
                     messagingService::stop,
                     bootstrapFactory::beforeNodeStop,
-                    () -> assertThat(bootstrapFactory.stopAsync(), willCompleteSuccessfully())
+                    () -> assertThat(bootstrapFactory.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
             );
         }
     }

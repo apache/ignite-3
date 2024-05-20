@@ -3866,7 +3866,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
                 super.shutdown();
 
-                assertThat(clusterService.stopAsync(), willCompleteSuccessfully());
+                assertThat(clusterService.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             }
         };
 
