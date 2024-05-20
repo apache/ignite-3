@@ -446,10 +446,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             int i = 0;
 
             for (ReplicationGroupId grpId : replicationGroupIds) {
-                assert grpId instanceof TablePartitionId;
-                ZonePartitionId tableZonePartId =
-                        new ZonePartitionId(zonePartId.zoneId(), ((TablePartitionId) grpId).tableId(), ((TablePartitionId) grpId).partitionId());
-                CompletableFuture<Replica> replicaFut = replicas.computeIfAbsent(tableZonePartId, k -> new CompletableFuture<>());
+                assert grpId instanceof ZonePartitionId;
+                assert ((ZonePartitionId) grpId).tableId() != 0;
+                CompletableFuture<Replica> replicaFut = replicas.computeIfAbsent((ZonePartitionId) grpId, k -> new CompletableFuture<>());
                 futures[i++] = replicaFut.thenCompose(replica -> replica.processPlacementDriverMessage(msg));
             }
 
@@ -551,9 +550,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
-        assert replicaGrpId instanceof TablePartitionId;
-
-        ZonePartitionId zoneTablePartId = new ZonePartitionId(zonePartitionId.zoneId(), ((TablePartitionId) replicaGrpId).tableId(), ((TablePartitionId) replicaGrpId).partitionId());
+        assert replicaGrpId instanceof ZonePartitionId;
+        ZonePartitionId zoneTablePartId = (ZonePartitionId) replicaGrpId;
+        assert (zoneTablePartId).tableId() != 0;
 
         Replica newReplica = new Replica(
                 zoneTablePartId,
@@ -566,8 +565,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 placementDriver,
                 clockService
         );
-
-        assert replicaGrpId instanceof TablePartitionId;
 
         CompletableFuture<Replica> replicaFuture = replicas.compute(zoneTablePartId, (k, existingReplicaFuture) -> {
             zonePartIdToTablePartId.compute(zonePartitionId, (key, tablePartIds) -> {
@@ -634,6 +631,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         var eventParams = new LocalReplicaEventParameters(replicaGrpId);
 
+        assert replicaGrpId instanceof ZonePartitionId;
+
+        // TODO: it will fail for the listeners who expect TablePartitionId
         fireEvent(BEFORE_REPLICA_STOPPED, eventParams).whenComplete((v, e) -> {
             if (e != null) {
                 LOG.error("Error when notifying about BEFORE_REPLICA_STOPPED event.", e);
@@ -646,12 +646,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             }
 
             try {
-                assert replicaGrpId instanceof TablePartitionId;
-                ZonePartitionId zonePartitionId = zonePartIdToTablePartId.entrySet().stream().filter((entry) -> entry.getValue().contains(replicaGrpId)).findFirst().get().getKey();
-
-                ZonePartitionId zoneTablePartitionId = new ZonePartitionId(zonePartitionId.zoneId(), ((TablePartitionId) replicaGrpId).tableId(), ((TablePartitionId) replicaGrpId).partitionId());
-
-                replicas.compute(zoneTablePartitionId, (grpId, replicaFuture) -> {
+                replicas.compute((ZonePartitionId) replicaGrpId, (grpId, replicaFuture) -> {
                     if (replicaFuture == null) {
                         isRemovedFuture.complete(false);
                     } else if (!replicaFuture.isDone()) {
@@ -752,18 +747,18 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                     ArrayList<CompletableFuture<?>> requestToReplicas = new ArrayList<>();
 
                                     for (ReplicationGroupId partId : diff) {
-                                        TablePartitionId partId1 = (TablePartitionId) partId;
-                                        ZonePartitionId zoneTablePartId = new ZonePartitionId(repGrp.zoneId(), partId1.tableId(), partId1.partitionId());
+                                        assert partId instanceof ZonePartitionId;
+                                        assert ((ZonePartitionId) partId).tableId() != 0;
 
                                         WaitReplicaStateMessage req = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
                                                 .enlistmentConsistencyToken(meta.getStartTime().longValue())
-                                                .groupId(zoneTablePartId)
+                                                .groupId(partId)
                                                 // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
                                                 .timeout(10_000)
                                                 .build();
 
 
-                                        CompletableFuture<Replica> replicaFut = replicas.get(zoneTablePartId);
+                                        CompletableFuture<Replica> replicaFut = replicas.get(partId);
 
                                         if (replicaFut != null) {
                                             requestToReplicas.add(replicaFut.thenCompose(

@@ -690,9 +690,11 @@ public class ItTxTestCluster {
                                         schemaManager
                                 );
 
+                                ZonePartitionId zoneTablePartId = new ZonePartitionId(zoneId, tableId, partId);
+
                                 replicaManagers.get(assignment).startReplica(
-                                        new TablePartitionId(tableId, partId),
-                                        new ZonePartitionId(globalCatalogId.incrementAndGet(), partId),
+                                        zoneTablePartId,
+                                        ZonePartitionId.resetTableId(zoneTablePartId),
                                         listener,
                                         raftSvc,
                                         storageIndexTracker
@@ -747,7 +749,7 @@ public class ItTxTestCluster {
                 new InternalTableImpl(
                         tableName,
                         tableId,
-                        123,
+                        zoneId,
                         1,
                         nodeResolver,
                         clientTxManager,

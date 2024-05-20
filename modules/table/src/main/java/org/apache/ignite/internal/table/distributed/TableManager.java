@@ -1019,7 +1019,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     try {
                         startReplicaWithNewListener(
-                                replicaGrpId,
+                                new ZonePartitionId(zoneId, tableId, partId),
                                 zonePartitionId,
                                 table,
                                 safeTimeTracker,
@@ -1047,7 +1047,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private void startReplicaWithNewListener(
-            TablePartitionId replicaGrpId,
+            ZonePartitionId replicaGrpId,
             ZonePartitionId zonePartitionId,
             TableImpl table,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
@@ -2409,7 +2409,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Boolean> stopReplicaFuture;
 
         try {
-            stopReplicaFuture = replicaMgr.stopReplica(tablePartitionId);
+            stopReplicaFuture = replicaMgr.stopReplica(
+                    new ZonePartitionId(table.internalTable().zoneId(), tablePartitionId.tableId(), tablePartitionId.partitionId())
+            );
         } catch (NodeStoppingException e) {
             // No-op.
             stopReplicaFuture = falseCompletedFuture();

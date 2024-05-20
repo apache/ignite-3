@@ -565,15 +565,14 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      * @param expiredLease Expired lease.
      */
     private void fireEventPrimaryReplicaExpired(ReplicationGroupId groupId, long causalityToken, Lease expiredLease) {
-        TablePartitionId tablePartitionId = (TablePartitionId) groupId;
-
-        ZonePartitionId zonePartitionId = (ZonePartitionId) expiredLease.replicationGroupId();
+        assert groupId instanceof ZonePartitionId;
+        assert ((ZonePartitionId) groupId).tableId() != 0;
 
         CompletableFuture<Void> fut = fireEvent(
                 PRIMARY_REPLICA_EXPIRED,
                 new PrimaryReplicaEventParameters(
                         causalityToken,
-                        new ZonePartitionId(zonePartitionId.zoneId(), tablePartitionId.tableId(), zonePartitionId.partitionId()),
+                        groupId,
                         expiredLease.getLeaseholderId(),
                         expiredLease.getLeaseholder(),
                         expiredLease.getStartTime()
@@ -601,9 +600,8 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     private CompletableFuture<Void> fireEventReplicaBecomePrimary(ReplicationGroupId groupId, long causalityToken, Lease lease) {
         String leaseholderId = lease.getLeaseholderId();
 
-        ZonePartitionId zonePartitionId = (ZonePartitionId) lease.replicationGroupId();
-
-        TablePartitionId tablePartitionId = (TablePartitionId) groupId;
+        assert groupId instanceof ZonePartitionId;
+        assert ((ZonePartitionId) groupId).tableId() != 0;
 
         assert leaseholderId != null : lease;
 
@@ -611,7 +609,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                 PRIMARY_REPLICA_ELECTED,
                 new PrimaryReplicaEventParameters(
                         causalityToken,
-                        new ZonePartitionId(zonePartitionId.zoneId(), tablePartitionId.tableId(), zonePartitionId.partitionId()),
+                        groupId,
                         leaseholderId,
                         lease.getLeaseholder(),
                         lease.getStartTime()
