@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
@@ -27,21 +28,24 @@ import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 import org.apache.ignite.internal.streamer.StreamerSubscriber;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.Tuple;
 
 /**
  * Client data streamer.
  */
 class ClientDataStreamer {
     @SuppressWarnings("resource")
-    static <R> CompletableFuture<Void> streamData(
-            Publisher<DataStreamerItem<R>> publisher,
+    static <T, E, V, R> CompletableFuture<Void> streamData( // T = key, E = element, V = payload, R = result
+            Publisher<DataStreamerItem<E>> publisher,
+            Function<E, T> keyFunc,
+            Function<E, V> payloadFunc,
             DataStreamerOptions options,
-            StreamerBatchSender<R, Integer> batchSender,
-            StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider,
+            StreamerBatchSender<T, Integer> batchSender,
+            StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
             ClientTable tbl) {
         IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
         StreamerOptions streamerOpts = streamerOptions(options);
-        StreamerSubscriber<R, Integer> subscriber = new StreamerSubscriber<>(
+        StreamerSubscriber<T, Integer> subscriber = new StreamerSubscriber<>(
                 batchSender,
                 partitionAwarenessProvider,
                 streamerOpts,
