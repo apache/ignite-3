@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
@@ -76,17 +75,13 @@ import org.mockito.ArgumentCaptor;
  */
 public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
-    private static final String TEST_ZONE_NAME = "TEST_ZONE_NAME";
-    private static final String NEW_COLUMN_NAME = "NEWCOL";
-    private static final String NEW_COLUMN_NAME_2 = "NEWCOL2";
-    private static final int DFLT_TEST_PRECISION = 11;
 
     @Test
     public void testEmptyCatalog() {
-        CatalogSchemaDescriptor defaultSchema = manager.schema(SqlCommon.DEFAULT_SCHEMA_NAME, 1);
+        CatalogSchemaDescriptor defaultSchema = manager.schema(SCHEMA_NAME, 1);
 
         assertNotNull(defaultSchema);
-        assertSame(defaultSchema, manager.activeSchema(SqlCommon.DEFAULT_SCHEMA_NAME, clock.nowLong()));
+        assertSame(defaultSchema, manager.activeSchema(SCHEMA_NAME, clock.nowLong()));
         assertSame(defaultSchema, manager.schema(1));
         assertSame(defaultSchema, manager.schema(defaultSchema.id(), 1));
         assertSame(defaultSchema, manager.activeSchema(clock.nowLong()));
@@ -98,7 +93,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThrows(IllegalStateException.class, () -> manager.activeSchema(-1L));
 
         // Validate default schema.
-        assertEquals(SqlCommon.DEFAULT_SCHEMA_NAME, defaultSchema.name());
+        assertEquals(SCHEMA_NAME, defaultSchema.name());
         assertEquals(1, defaultSchema.id());
         assertEquals(0, defaultSchema.tables().length);
         assertEquals(0, defaultSchema.indexes().length);
