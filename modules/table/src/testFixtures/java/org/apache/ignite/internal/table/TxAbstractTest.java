@@ -52,6 +52,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Flow;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -263,7 +264,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             NodeFinder nodeFinder) {
         var network = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
-        assertThat(network.startAsync(), willCompleteSuccessfully());
+        assertThat(network.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         return network;
     }

@@ -41,6 +41,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.UUID;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -138,7 +139,7 @@ public class ReplicatorUtilsTest extends IgniteAbstractTest {
     private void withCatalogManager(Consumer<CatalogManager> consumer) throws Exception {
         CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test-node", clock);
 
-        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         try {
             consumer.accept(catalogManager);

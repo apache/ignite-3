@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.ClusterService;
@@ -89,7 +90,7 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
         );
 
         if (start) {
-            assertThat(network.startAsync(), willCompleteSuccessfully());
+            assertThat(network.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
 
         clusterServices.add(network);

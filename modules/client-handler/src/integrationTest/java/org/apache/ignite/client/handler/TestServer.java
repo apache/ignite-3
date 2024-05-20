@@ -23,6 +23,7 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
@@ -94,7 +95,7 @@ public class TestServer {
     }
 
     ClientHandlerModule start(TestInfo testInfo) {
-        assertThat(authenticationManager.startAsync(), willCompleteSuccessfully());
+        assertThat(authenticationManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         clientConnectorConfiguration.change(
                 local -> local
@@ -110,7 +111,7 @@ public class TestServer {
 
         bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, testInfo.getDisplayName());
 
-        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
@@ -135,7 +136,7 @@ public class TestServer {
                 new TestLowWatermark()
         );
 
-        module.startAsync().join();
+        module.startAsync(ForkJoinPool.commonPool()).join();
 
         return module;
     }

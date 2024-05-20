@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -191,7 +192,7 @@ public class ConfigurationListenerTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(registry.startAsync(), willCompleteSuccessfully());
+        assertThat(registry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         assertThat(registry.onDefaultsPersisted(), willCompleteSuccessfully());
 
         config = registry.getConfiguration(ParentConfiguration.KEY);

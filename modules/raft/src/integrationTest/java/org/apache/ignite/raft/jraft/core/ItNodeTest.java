@@ -62,6 +62,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -3857,7 +3858,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         nodeOptions.setCommandsMarshaller(TestCluster.commandsMarshaller(clusterService));
 
-        assertThat(clusterService.startAsync(), willCompleteSuccessfully());
+        assertThat(clusterService.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         var service = new RaftGroupService(groupId, peer.getPeerId(), nodeOptions, rpcServer, nodeManager) {
             @Override public synchronized void shutdown() {

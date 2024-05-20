@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationListenOnlyException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
@@ -112,7 +113,7 @@ public class DirectPropertiesTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(registry.startAsync(), willCompleteSuccessfully());
+        assertThat(registry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @AfterEach

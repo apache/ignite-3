@@ -26,6 +26,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -43,7 +44,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testMetaStorageKeysInitializedOnStartWhenTopVerEmpty() throws Exception {
-        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
+        assertThat(distributionZoneManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -56,7 +57,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
     void testMetaStorageKeysInitializedOnStartWhenTopVerEqualsToCmgTopVer() throws Exception {
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(2L), HybridTimestamp.MIN_VALUE);
 
-        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
+        assertThat(distributionZoneManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertLogicalTopologyVersion(2L, keyValueStorage);
 
@@ -67,7 +68,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
     void testMetaStorageKeysInitializedOnStartWhenTopVerGreaterThanCmgTopVer() throws Exception {
         keyValueStorage.put(zonesLogicalTopologyVersionKey().bytes(), ByteUtils.longToBytes(3L), HybridTimestamp.MIN_VALUE);
 
-        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
+        assertThat(distributionZoneManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertLogicalTopologyVersion(3L, keyValueStorage);
 
@@ -76,7 +77,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testNodeAddingUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
+        assertThat(distributionZoneManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -91,7 +92,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testNodeStaleAddingDoNotUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
+        assertThat(distributionZoneManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -113,7 +114,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testNodeRemovingUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
+        assertThat(distributionZoneManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -134,7 +135,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testNodeStaleRemovingDoNotUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
+        assertThat(distributionZoneManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -158,7 +159,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testTopologyLeapUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
+        assertThat(distributionZoneManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 
@@ -179,7 +180,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
     @Test
     void testStaleTopologyLeapDoNotUpdatesLogicalTopologyInMetaStorage() throws Exception {
-        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
+        assertThat(distributionZoneManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         topology.putNode(NODE_1);
 

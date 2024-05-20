@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
@@ -145,7 +146,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         );
 
         assertThat(
-                startAsync(clusterService, raftManager, metaStorageManager)
+                startAsync(ForkJoinPool.commonPool(), clusterService, raftManager, metaStorageManager)
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );

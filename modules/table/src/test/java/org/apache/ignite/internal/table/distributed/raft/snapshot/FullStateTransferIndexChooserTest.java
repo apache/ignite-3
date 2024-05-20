@@ -43,6 +43,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -89,7 +90,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
         indexChooser = new FullStateTransferIndexChooser(catalogManager, lowWatermark);
 
-        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         indexChooser.start();
 

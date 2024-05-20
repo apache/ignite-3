@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -400,7 +401,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
                 new StaticNodeFinder(List.of(otherPeer))
         );
 
-        assertThat(network.startAsync(), willCompleteSuccessfully());
+        assertThat(network.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         cluster.add(network);
 
@@ -428,7 +429,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
             }
         };
 
-        assertThat(server.startAsync(), willCompleteSuccessfully());
+        assertThat(server.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         Path listenerPersistencePath = workDir.resolve("db" + idx);
 

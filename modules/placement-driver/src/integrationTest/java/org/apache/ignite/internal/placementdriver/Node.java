@@ -24,6 +24,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -57,9 +58,9 @@ class Node implements AutoCloseable {
     }
 
     CompletableFuture<Void> startAsync() {
-        return IgniteUtils.startAsync(clusterService, loza, metastore)
+        return IgniteUtils.startAsync(ForkJoinPool.commonPool(), clusterService, loza, metastore)
                 .thenCompose(unused -> metastore.recoveryFinishedFuture())
-                .thenCompose(unused -> placementDriverManager.startAsync())
+                .thenCompose(unused -> placementDriverManager.startAsync(ForkJoinPool.commonPool()))
                 .thenCompose(unused -> metastore.notifyRevisionUpdateListenerOnStart())
                 .thenCompose(unused -> metastore.deployWatches());
     }

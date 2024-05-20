@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -57,7 +58,7 @@ public class UsageTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(registry.startAsync(), willCompleteSuccessfully());
+        assertThat(registry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         LocalConfiguration root = registry.getConfiguration(LocalConfiguration.KEY);
 
@@ -116,7 +117,7 @@ public class UsageTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(registry.startAsync(), willCompleteSuccessfully());
+        assertThat(registry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         registry.getConfiguration(LocalConfiguration.KEY).change(local ->
                 local.changeTestConfigurationSchema(schema ->

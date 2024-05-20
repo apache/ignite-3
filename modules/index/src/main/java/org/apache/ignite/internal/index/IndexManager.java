@@ -126,7 +126,7 @@ public class IndexManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         LOG.debug("Index manager is about to start");
 
         recoverDestructionQueue();

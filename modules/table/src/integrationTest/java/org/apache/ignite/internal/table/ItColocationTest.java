@@ -55,6 +55,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -205,7 +206,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             }
         };
 
-        assertThat(txManager.startAsync(), willCompleteSuccessfully());
+        assertThat(txManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -187,7 +188,7 @@ public class Loza implements RaftManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         RaftView raftConfig = raftConfiguration.value();
 
         var stripeSource = new RaftMetricSource(raftConfiguration.value().stripes(), raftConfiguration.value().logStripesCount());
@@ -202,7 +203,7 @@ public class Loza implements RaftManager {
 
         opts.getRaftOptions().setSync(raftConfig.fsync());
 
-        return raftServer.startAsync();
+        return raftServer.startAsync(startupExecutor);
     }
 
     /** {@inheritDoc} */

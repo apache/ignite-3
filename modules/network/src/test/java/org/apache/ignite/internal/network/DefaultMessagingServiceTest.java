@@ -46,6 +46,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
@@ -498,7 +499,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         String eventLoopGroupNamePrefix = node.name() + "-event-loop";
 
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, eventLoopGroupNamePrefix);
-        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         ConnectionManager connectionManager = new ConnectionManager(
                 networkConfig.value(),

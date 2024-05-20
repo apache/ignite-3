@@ -40,6 +40,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
@@ -110,14 +111,14 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(clusterService, raftManager), willCompleteSuccessfully());
+            assertThat(startAsync(ForkJoinPool.commonPool(), clusterService, raftManager), willCompleteSuccessfully());
         }
 
         void afterNodeStart() {
             try {
                 assertTrue(waitForCondition(() -> clusterService.topologyService().allMembers().size() == cluster.size(), 1000));
 
-                assertThat(raftStorage.startAsync(), willCompleteSuccessfully());
+                assertThat(raftStorage.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
                 PeersAndLearners configuration = clusterService.topologyService().allMembers().stream()
                         .map(ClusterNode::name)

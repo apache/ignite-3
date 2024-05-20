@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -215,7 +216,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         int clientPort = PORT_BASE + nodes + 1;
         ClusterService clientClusterService =
                 clusterService(testInfo, clientPort, new StaticNodeFinder(findLocalAddresses(PORT_BASE, PORT_BASE + nodes)));
-        assertThat(clientClusterService.startAsync(), willCompleteSuccessfully());
+        assertThat(clientClusterService.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         // Start the second topology aware client, that should not get the initial leader notification.
         TopologyAwareRaftGroupService raftClientNoInitialNotify = startTopologyAwareClient(
@@ -398,7 +399,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         for (NetworkAddress addr : addresses) {
             var cluster = clusterService(testInfo, addr.port(), nodeFinder);
 
-            assertThat(cluster.startAsync(), willCompleteSuccessfully());
+            assertThat(cluster.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
             clusterServices.put(addr, cluster);
         }
@@ -430,7 +431,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                         nodeOptions,
                         eventsClientListener
                 );
-                assertThat(raftServer.startAsync(), willCompleteSuccessfully());
+                assertThat(raftServer.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
                 raftServer.startRaftNode(
                         new RaftNodeId(GROUP_ID, localPeer),

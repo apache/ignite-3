@@ -96,7 +96,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         return inBusyLockAsync(busyLock, () -> {
             try {
                 // Delete existing data, relying on log playback.

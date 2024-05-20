@@ -47,6 +47,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.nio.file.Path;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestUpdateHandlerInterceptor;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
@@ -230,7 +231,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
 
     private void startComponentsAndDeployWatches() {
         assertThat(
-                startAsync(metaStorageManager, catalogManager)
+                startAsync(ForkJoinPool.commonPool(), metaStorageManager, catalogManager)
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );

@@ -89,7 +89,7 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         try {
             Files.createDirectories(spillOutPath);
         } catch (IOException e) {

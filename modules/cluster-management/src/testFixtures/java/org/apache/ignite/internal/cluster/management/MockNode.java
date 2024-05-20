@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
@@ -125,7 +126,7 @@ public class MockNode {
      * Start fake node.
      */
     public CompletableFuture<Void> startAsync() {
-        return IgniteUtils.startAsync(components);
+        return IgniteUtils.startAsync(ForkJoinPool.commonPool(), components);
     }
 
     /**

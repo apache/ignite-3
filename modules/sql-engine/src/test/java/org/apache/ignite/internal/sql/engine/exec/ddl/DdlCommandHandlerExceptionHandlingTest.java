@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
@@ -56,10 +57,10 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     void before() {
         HybridClock clock = new HybridClockImpl();
         catalogManager = createTestCatalogManager("test", clock);
-        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         clockWaiter = new ClockWaiter("test", clock);
-        assertThat(clockWaiter.startAsync(), willCompleteSuccessfully());
+        assertThat(clockWaiter.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         commandHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);
     }

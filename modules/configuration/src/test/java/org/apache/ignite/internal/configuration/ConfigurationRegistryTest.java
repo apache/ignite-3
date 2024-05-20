@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -53,7 +54,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ConfigurationRegistryTest {
     @Test
-    void testValidationInternalConfigurationExtensions() throws Exception {
+    void testValidationInternalConfigurationExtensions() {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new ConfigurationRegistry(
@@ -84,7 +85,7 @@ public class ConfigurationRegistryTest {
     }
 
     @Test
-    void testValidationPolymorphicConfigurationExtensions() throws Exception {
+    void testValidationPolymorphicConfigurationExtensions() {
         // There is a polymorphic extension that is missing from the schema.
         assertThrows(
                 IllegalArgumentException.class,
@@ -174,7 +175,7 @@ public class ConfigurationRegistryTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(registry.startAsync(), willCompleteSuccessfully());
+        assertThat(registry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         try {
             registry.getConfiguration(SixthRootConfiguration.KEY).change(c -> c
@@ -192,7 +193,7 @@ public class ConfigurationRegistryTest {
     }
 
     @Test
-    void testPolymorphicGet() throws Exception {
+    void testPolymorphicGet() {
         ConfigurationRegistry registry = new ConfigurationRegistry(
                 List.of(SixthRootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
@@ -205,7 +206,7 @@ public class ConfigurationRegistryTest {
                 ),
                 new TestConfigurationValidator()
         );
-        assertThat(registry.startAsync(), willCompleteSuccessfully());
+        assertThat(registry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         var configuration = registry.getConfiguration(SixthRootConfiguration.KEY).polyNamed();
         CompletableFuture<Void> future = configuration.change(c -> {
@@ -224,7 +225,7 @@ public class ConfigurationRegistryTest {
     }
 
     @Test
-    void testChangeSuperRoot() throws Exception {
+    void testChangeSuperRoot() {
         TestConfigurationStorage storage = new TestConfigurationStorage(LOCAL);
 
         var registry = new ConfigurationRegistry(
@@ -234,7 +235,7 @@ public class ConfigurationRegistryTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(registry.startAsync(), willCompleteSuccessfully());
+        assertThat(registry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         try {
             FirstRootConfiguration firstConfiguration = registry.getConfiguration(FirstRootConfiguration.KEY);

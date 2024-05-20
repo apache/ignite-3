@@ -32,6 +32,7 @@ import static org.mockito.Mockito.mock;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -56,7 +57,7 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
 
         ClusterService service = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
 
-        assertThat(service.startAsync(), willCompleteSuccessfully());
+        assertThat(service.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertThat(service.stopAsync(), willCompleteSuccessfully());
 
@@ -78,8 +79,8 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
         var addr2 = new NetworkAddress("localhost", 10001);
         ClusterService service1 = clusterService(testInfo, addr1.port(), new StaticNodeFinder(List.of(addr1, addr2)));
         ClusterService service2 = clusterService(testInfo, addr2.port(), new StaticNodeFinder(List.of(addr1, addr2)));
-        assertThat(service1.startAsync(), willCompleteSuccessfully());
-        assertThat(service2.startAsync(), willCompleteSuccessfully());
+        assertThat(service1.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(service2.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         assertTrue(waitForCondition(() -> service1.topologyService().allMembers().size() == 2, 1000));
         assertTrue(waitForCondition(() -> service2.topologyService().allMembers().size() == 2, 1000));
         try {

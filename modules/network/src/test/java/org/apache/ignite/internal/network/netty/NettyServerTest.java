@@ -46,6 +46,7 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import java.net.ConnectException;
 import java.net.Socket;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -220,7 +221,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
                 });
 
         bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
-        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         server = new NettyServer(
                 serverCfg.value(),
@@ -293,7 +294,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      */
     private NettyServer getServer(boolean shouldStart) {
         bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
-        assertThat(bootstrapFactory.startAsync(), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         MessageSerializationRegistry registry = mock(MessageSerializationRegistry.class);
 

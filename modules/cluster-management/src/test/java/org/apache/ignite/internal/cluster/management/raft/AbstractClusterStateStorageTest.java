@@ -35,6 +35,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -55,7 +56,7 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
     void setUp(TestInfo testInfo) {
         storage = createStorage(testNodeName(testInfo, 0));
 
-        assertThat(storage.startAsync(), willCompleteSuccessfully());
+        assertThat(storage.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @AfterEach
@@ -281,7 +282,7 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
 
         storage = createStorage(testNodeName(testInfo, 1));
 
-        assertThat(storage.startAsync(), willCompleteSuccessfully());
+        assertThat(storage.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertThat(storage.get(key1), is(nullValue()));
         assertThat(storage.get(key2), is(nullValue()));

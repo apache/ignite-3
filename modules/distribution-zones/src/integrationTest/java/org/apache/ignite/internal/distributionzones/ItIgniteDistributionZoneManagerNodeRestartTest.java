@@ -70,6 +70,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.function.Consumer;
@@ -224,7 +225,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         var cmgManager = mock(ClusterManagementGroupManager.class);
 
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(logicalTopology.getLogicalTopology()));
-        when(cmgManager.startAsync()).thenReturn(nullCompletedFuture());
+        when(cmgManager.startAsync(ForkJoinPool.commonPool())).thenReturn(nullCompletedFuture());
         when(cmgManager.stopAsync()).thenReturn(nullCompletedFuture());
 
         metastore = spy(StandaloneMetaStorageManager.create(
@@ -283,10 +284,10 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         // Start.
 
-        assertThat(vault.startAsync(), willCompleteSuccessfully());
+        assertThat(vault.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         vault.putName(name);
 
-        assertThat(nodeCfgMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(nodeCfgMgr.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
@@ -303,7 +304,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         for (IgniteComponent component : otherComponents) {
             // TODO: IGNITE-22119 required to be able to wait on this future.
-            component.startAsync();
+            component.startAsync(ForkJoinPool.commonPool());
 
             components.add(component);
         }

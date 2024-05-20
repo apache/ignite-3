@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -134,7 +135,7 @@ public class PlacementDriverManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         inBusyLock(busyLock, () -> {
             placementDriverNodesNamesProvider.get()
                     .thenCompose(placementDriverNodes -> {

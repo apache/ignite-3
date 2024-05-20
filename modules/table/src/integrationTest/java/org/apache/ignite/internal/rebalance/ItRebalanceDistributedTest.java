@@ -74,6 +74,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -1326,7 +1327,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             List<CompletableFuture<?>> componentFuts =
                     firstComponents.stream()
-                            .map(IgniteComponent::startAsync)
+                            .map(component -> component.startAsync(ForkJoinPool.commonPool()))
                             .collect(Collectors.toList());
 
             nodeComponents.addAll(firstComponents);
@@ -1347,7 +1348,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                         indexManager
                 );
 
-                componentFuts.addAll(secondComponents.stream().map(IgniteComponent::startAsync).collect(Collectors.toList()));
+                componentFuts.addAll(secondComponents.stream()
+                        .map(component -> component.startAsync(ForkJoinPool.commonPool()))
+                        .collect(Collectors.toList()));
 
                 nodeComponents.addAll(secondComponents);
 

@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -55,7 +56,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
     @BeforeEach
     void start() {
         metaStorage.start();
-        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     /**
@@ -95,7 +96,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
             return fromCursor(metaStorage.range(prefix.bytes(), metaStorage.nextKey(prefix.bytes())));
         });
 
-        when(mock.startAsync()).thenReturn(nullCompletedFuture());
+        when(mock.startAsync(ForkJoinPool.commonPool())).thenReturn(nullCompletedFuture());
         when(mock.stopAsync()).thenReturn(nullCompletedFuture());
 
         return mock;

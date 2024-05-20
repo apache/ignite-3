@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -76,7 +77,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         metastore = StandaloneMetaStorageManager.create(keyValueStorage);
 
         keyValueStorage.start();
-        assertThat(metastore.startAsync(), willCompleteSuccessfully());
+        assertThat(metastore.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @AfterEach
@@ -170,7 +171,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         UpdateLogImpl updateLogImpl = createUpdateLogImpl();
 
         updateLogImpl.registerUpdateHandler(onUpdateHandler);
-        assertThat(updateLogImpl.startAsync(), willCompleteSuccessfully());
+        assertThat(updateLogImpl.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         return updateLogImpl;
     }
@@ -192,7 +193,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         assertThat(metastore.stopAsync(), willCompleteSuccessfully());
 
         metastore = StandaloneMetaStorageManager.create(keyValueStorage);
-        assertThat(metastore.startAsync(), willCompleteSuccessfully());
+        assertThat(metastore.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertThat(metastore.recoveryFinishedFuture(), willBe(recoverRevision));
     }
@@ -203,7 +204,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         IgniteInternalException ex = assertThrows(
                 IgniteInternalException.class,
-                updateLog::startAsync
+                () -> updateLog.startAsync(ForkJoinPool.commonPool())
         );
 
         assertThat(
@@ -229,7 +230,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         long revisionBefore = metastore.appliedRevision();
 
-        assertThat(updateLog.startAsync(), willCompleteSuccessfully());
+        assertThat(updateLog.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 

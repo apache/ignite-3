@@ -26,6 +26,7 @@ import io.netty.util.concurrent.SingleThreadEventExecutor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -92,7 +93,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         List<NettyWorker> nettyWorkers = new ArrayList<>();
         for (EventLoopGroup group : bootstrapFactory.eventLoopGroups()) {
             registerWorkersFor(group, nettyWorkers);

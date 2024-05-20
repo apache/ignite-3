@@ -48,6 +48,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -202,7 +203,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             replicaManagers.put(nodeName, replicaManager);
 
-            assertThat(startAsync(clusterService, raftManager, replicaManager), willCompleteSuccessfully());
+            assertThat(startAsync(ForkJoinPool.commonPool(), clusterService, raftManager, replicaManager), willCompleteSuccessfully());
 
             servicesToClose.add(() -> {
                 try {

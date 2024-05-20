@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -259,7 +260,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         CompletableFuture<Void> start() throws Exception {
             clusterService = ClusterServiceTestUtils.clusterService(nodeName, port.getAndIncrement(), NODE_FINDER);
 
-            assertThat(clusterService.startAsync(), willCompleteSuccessfully());
+            assertThat(clusterService.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
             raftManager = new Loza(
                     clusterService,
@@ -270,7 +271,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     new RaftGroupEventsClientListener()
             );
 
-            assertThat(raftManager.startAsync(), willCompleteSuccessfully());
+            assertThat(raftManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
             TxManager txManagerMock = mock(TxManager.class);
 

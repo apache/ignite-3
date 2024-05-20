@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -118,7 +119,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
                 Executors.newSingleThreadExecutor()
         );
 
-        assertThat(fileTransferService.startAsync(), willCompleteSuccessfully());
+        assertThat(fileTransferService.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @AfterEach

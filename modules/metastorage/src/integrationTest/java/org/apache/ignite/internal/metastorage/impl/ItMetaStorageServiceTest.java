@@ -66,6 +66,7 @@ import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -206,7 +207,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         void start(PeersAndLearners configuration) {
             CompletableFuture<RaftGroupService> raftService =
-                    startAsync(clusterService, raftManager)
+                    startAsync(ForkJoinPool.commonPool(), clusterService, raftManager)
                             .thenCompose(unused -> startRaftService(configuration));
 
             assertThat(raftService, willCompleteSuccessfully());

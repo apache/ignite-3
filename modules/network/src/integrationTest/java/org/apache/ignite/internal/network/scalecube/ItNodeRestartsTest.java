@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -109,7 +110,7 @@ class ItNodeRestartsTest {
     private ClusterService startNetwork(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder) {
         ClusterService clusterService = ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder);
 
-        assertThat(clusterService.startAsync(), willCompleteSuccessfully());
+        assertThat(clusterService.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         return clusterService;
     }

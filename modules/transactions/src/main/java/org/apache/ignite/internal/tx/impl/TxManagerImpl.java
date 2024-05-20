@@ -757,7 +757,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         return inBusyLockAsync(busyLock, () -> {
             localNodeId = topologyService.localMember().id();
 

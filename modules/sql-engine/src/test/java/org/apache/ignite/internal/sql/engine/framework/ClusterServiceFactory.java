@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -115,7 +116,7 @@ public class ClusterServiceFactory {
 
             /** {@inheritDoc} */
             @Override
-            public CompletableFuture<Void> startAsync() {
+            public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
                 return nullCompletedFuture();
             }
         };

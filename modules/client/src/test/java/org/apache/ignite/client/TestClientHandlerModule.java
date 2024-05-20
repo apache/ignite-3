@@ -31,6 +31,7 @@ import io.netty.util.ReferenceCounted;
 import java.net.BindException;
 import java.net.SocketAddress;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -152,7 +153,7 @@ public class TestClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         if (channel != null) {
             throw new IgniteException("ClientHandlerModule is already started.");
         }

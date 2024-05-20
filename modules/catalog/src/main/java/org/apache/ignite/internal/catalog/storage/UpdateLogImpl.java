@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -97,7 +98,7 @@ public class UpdateLogImpl implements UpdateLog {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(Common.NODE_STOPPING_ERR, new NodeStoppingException());
         }

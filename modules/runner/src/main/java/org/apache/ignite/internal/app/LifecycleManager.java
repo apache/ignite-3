@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -69,9 +70,11 @@ class LifecycleManager implements StateProvider {
      * thrown.
      *
      * @param component Ignite component to start.
+     * @param lifecycleExecutor The executor that will execute {@link IgniteComponent#startAsync(ExecutorService)}.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    void startComponent(IgniteComponent component) throws NodeStoppingException {
+    void startComponent(IgniteComponent component, ExecutorService lifecycleExecutor)
+            throws NodeStoppingException {
         if (status.get() == State.STOPPING) {
             throw new NodeStoppingException("Node=[" + nodeName + "] was stopped");
         }
@@ -79,19 +82,20 @@ class LifecycleManager implements StateProvider {
         synchronized (this) {
             startedComponents.add(component);
 
-            allComponentsStartFuture.add(component.startAsync());
+            allComponentsStartFuture.add(component.startAsync(lifecycleExecutor));
         }
     }
 
     /**
      * Similar to {@link #startComponent} but allows to start multiple components at once.
      *
+     * @param lifecycleExecutor The executor that will execute {@link IgniteComponent#startAsync(ExecutorService)}.
      * @param components Ignite components to start.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    void startComponents(IgniteComponent... components) throws NodeStoppingException {
+    void startComponents(ExecutorService lifecycleExecutor, IgniteComponent... components) throws NodeStoppingException {
         for (IgniteComponent component : components) {
-            startComponent(component);
+            startComponent(component, lifecycleExecutor);
         }
     }
 

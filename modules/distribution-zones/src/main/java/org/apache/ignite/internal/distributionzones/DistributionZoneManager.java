@@ -79,6 +79,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -251,7 +252,7 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         return inBusyLockAsync(busyLock, () -> {
             registerCatalogEventListenersOnStartManagerBusy();
 
@@ -268,10 +269,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
             restoreGlobalStateFromLocalMetastorage(recoveryRevision);
 
-            return allOf(
-                    createOrRestoreZonesStates(recoveryRevision),
-                    restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision)
-            ).thenCompose((notUsed) -> rebalanceEngine.start());
+            // TODO: perhaps supplyAsync should be called in a more granular way, down in both these methods.
+            return CompletableFuture.supplyAsync(() ->
+                    allOf(
+                            createOrRestoreZonesStates(recoveryRevision),
+                            restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision)
+                    ),
+                    startupExecutor
+            ).thenComposeAsync((notUsed) -> rebalanceEngine.start(), startupExecutor);
         });
     }
 

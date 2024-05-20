@@ -36,6 +36,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -174,7 +175,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new TestLowWatermark()
             );
 
-            assertThat(txManager.startAsync(), willCompleteSuccessfully());
+            assertThat(txManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
             closeables.add(() -> assertThat(txManager.stopAsync(), willCompleteSuccessfully()));
 

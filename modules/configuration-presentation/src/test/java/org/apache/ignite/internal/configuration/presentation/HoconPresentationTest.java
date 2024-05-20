@@ -33,6 +33,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -90,7 +91,7 @@ public class HoconPresentationTest {
                 ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
-        assertThat(cfgRegistry.startAsync(), willCompleteSuccessfully());
+        assertThat(cfgRegistry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         cfgPresentation = new HoconPresentation(cfgRegistry);
 

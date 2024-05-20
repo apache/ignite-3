@@ -83,7 +83,7 @@ public class ThreadPoolsManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         // No-op.
         return nullCompletedFuture();
     }

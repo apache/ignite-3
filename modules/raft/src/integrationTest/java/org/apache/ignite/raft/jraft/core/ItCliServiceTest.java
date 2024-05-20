@@ -45,6 +45,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -143,7 +144,7 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
                 new StaticNodeFinder(addressList)
         );
 
-        assertThat(clientSvc.startAsync(), willCompleteSuccessfully());
+        assertThat(clientSvc.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         IgniteRpcClient rpcClient = new IgniteRpcClient(clientSvc) {
             @Override public void shutdown() {

@@ -38,6 +38,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -273,7 +274,7 @@ public class TestCluster {
 
             var rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
 
-            assertThat(clusterService.startAsync(), willCompleteSuccessfully());
+            assertThat(clusterService.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
             if (optsClo != null)
                 optsClo.accept(nodeOptions);

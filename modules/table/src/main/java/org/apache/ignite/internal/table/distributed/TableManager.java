@@ -588,7 +588,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         return inBusyLockAsync(busyLock, () -> {
             mvGc.start();
 

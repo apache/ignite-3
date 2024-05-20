@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
@@ -223,7 +224,7 @@ public class HoconConverterTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(registry.startAsync(), willCompleteSuccessfully());
+        assertThat(registry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         configuration = registry.getConfiguration(HoconRootConfiguration.KEY);
         injectedNameRootConfig = registry.getConfiguration(HoconInjectedNameRootConfiguration.KEY);

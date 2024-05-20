@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.Cursor;
@@ -47,7 +48,7 @@ public class VaultManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         vaultSvc.start();
 
         return nullCompletedFuture();

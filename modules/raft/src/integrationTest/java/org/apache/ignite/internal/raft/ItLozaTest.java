@@ -34,6 +34,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -101,7 +102,7 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
     private static ClusterService clusterService(TestInfo testInfo, int port, List<NetworkAddress> srvs) {
         var network = ClusterServiceTestUtils.clusterService(testInfo, port, new StaticNodeFinder(srvs));
 
-        assertThat(network.startAsync(), willCompleteSuccessfully());
+        assertThat(network.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         return network;
     }
@@ -128,7 +129,7 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
 
             loza = new Loza(service, new NoOpMetricManager(), raftConfiguration, dataPath, new HybridClockImpl());
 
-            assertThat(loza.startAsync(), willCompleteSuccessfully());
+            assertThat(loza.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
             for (int i = 0; i < grpSrvcs.length; i++) {
                 // return an error on first invocation

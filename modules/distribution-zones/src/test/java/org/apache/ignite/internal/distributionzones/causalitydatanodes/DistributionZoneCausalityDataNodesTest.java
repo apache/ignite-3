@@ -59,6 +59,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
@@ -187,7 +188,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         addCatalogZoneEventListeners();
 
-        assertThat(distributionZoneManager.startAsync(), willCompleteSuccessfully());
+        assertThat(distributionZoneManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }

@@ -46,6 +46,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -97,7 +98,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         assertThat(
-                startAsync(metaStorageManager, catalogManager)
+                startAsync(ForkJoinPool.commonPool(), metaStorageManager, catalogManager)
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );

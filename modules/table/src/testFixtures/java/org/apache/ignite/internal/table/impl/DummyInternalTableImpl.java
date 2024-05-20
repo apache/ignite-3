@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
@@ -487,7 +488,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestLowWatermark()
         );
 
-        assertThat(txManager.startAsync(), willCompleteSuccessfully());
+        assertThat(txManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         return txManager;
     }

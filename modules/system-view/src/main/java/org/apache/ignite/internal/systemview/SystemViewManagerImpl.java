@@ -29,6 +29,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -99,7 +100,7 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         inBusyLock(busyLock, () -> {
             if (!startGuard.compareAndSet(false, true)) {
                 throw new IllegalStateException("System view manager cannot be started twice");

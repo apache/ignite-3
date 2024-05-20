@@ -35,6 +35,7 @@ import static org.mockito.Mockito.spy;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -114,7 +115,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 partitionIdleSafeTimePropagationPeriod::get
         );
 
-        assertThat(startAsync(metastore, clockWaiter, manager), willCompleteSuccessfully());
+        assertThat(startAsync(ForkJoinPool.commonPool(), metastore, clockWaiter, manager), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 

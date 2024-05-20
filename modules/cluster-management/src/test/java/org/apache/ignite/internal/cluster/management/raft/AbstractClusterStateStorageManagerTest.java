@@ -31,6 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -58,7 +59,7 @@ public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstr
     void setUp(TestInfo testInfo) {
         storage = clusterStateStorage(testNodeName(testInfo, 0));
 
-        assertThat(storage.startAsync(), willCompleteSuccessfully());
+        assertThat(storage.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         storageManager = new RaftStorageManager(storage);
     }

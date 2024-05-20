@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -308,7 +309,7 @@ public class TestNode implements LifecycleAware {
 
         @Override
         public void start() {
-            assertThat(component.startAsync(), willCompleteSuccessfully());
+            assertThat(component.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         }
 
         @Override

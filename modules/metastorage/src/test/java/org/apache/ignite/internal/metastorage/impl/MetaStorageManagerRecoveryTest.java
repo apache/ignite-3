@@ -31,6 +31,8 @@ import static org.mockito.Mockito.when;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -138,13 +140,13 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public CompletableFuture<Void> startAsync() {
+            public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
                 return nullCompletedFuture();
             }
         };
     }
 
-    private ClusterManagementGroupManager clusterManagementManager() {
+    private static ClusterManagementGroupManager clusterManagementManager() {
         ClusterManagementGroupManager mock = mock(ClusterManagementGroupManager.class);
 
         when(mock.metaStorageNodes())
@@ -159,7 +161,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
 
         createMetaStorage(targetRevision);
 
-        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         CompletableFuture<Void> msDeployFut = metaStorageManager.deployWatches();
 
@@ -177,7 +179,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
     void testRecoverClean() throws Exception {
         createMetaStorage(0);
 
-        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         CompletableFuture<Void> msDeployFut = metaStorageManager.deployWatches();
 

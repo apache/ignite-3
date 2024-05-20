@@ -26,6 +26,7 @@ import static org.hamcrest.Matchers.hasSize;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
@@ -46,10 +47,10 @@ class CatalogTestUtilsTest extends BaseIgniteAbstractTest {
      * and returned instance follows the contract.
      */
     @Test
-    void testManagerWorksAsExpected() throws Exception {
+    void testManagerWorksAsExpected() {
         CatalogManager manager = createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
 
-        assertThat(manager.startAsync(), willCompleteSuccessfully());
+        assertThat(manager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         CreateTableCommandBuilder createTableTemplate = CreateTableCommand.builder()
                 .schemaName("PUBLIC")

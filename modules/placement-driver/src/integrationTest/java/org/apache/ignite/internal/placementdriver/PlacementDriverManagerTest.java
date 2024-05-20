@@ -48,6 +48,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -215,9 +216,9 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         );
 
         assertThat(
-                startAsync(clusterService, anotherClusterService, raftManager, metaStorageManager)
+                startAsync(ForkJoinPool.commonPool(), clusterService, anotherClusterService, raftManager, metaStorageManager)
                         .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
-                        .thenCompose(unused -> placementDriverManager.startAsync())
+                        .thenCompose(unused -> placementDriverManager.startAsync(ForkJoinPool.commonPool()))
                         .thenCompose(unused -> metaStorageManager.notifyRevisionUpdateListenerOnStart())
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
@@ -443,7 +444,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 leaseGrantMessageHandler(nodeName)
         );
 
-        assertThat(nodeClusterService.startAsync(), willCompleteSuccessfully());
+        assertThat(nodeClusterService.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertTrue(waitForCondition(
                 () -> clusterService.topologyService().allMembers().contains(nodeClusterService.topologyService().localMember()),

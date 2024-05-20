@@ -103,7 +103,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         executor = new ThreadPoolExecutor(
                 0, 4, 0L, MILLISECONDS,
                 new LinkedBlockingQueue<>(),

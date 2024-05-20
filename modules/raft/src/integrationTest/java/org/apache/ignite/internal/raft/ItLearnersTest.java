@@ -42,6 +42,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -122,7 +123,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(clusterService, loza), willCompleteSuccessfully());
+            assertThat(startAsync(ForkJoinPool.commonPool(), clusterService, loza), willCompleteSuccessfully());
         }
 
         @Override

@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.containsString;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -346,7 +347,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public CompletableFuture<Void> startAsync() {
+        public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
             // NO-OP
             return nullCompletedFuture();
         }

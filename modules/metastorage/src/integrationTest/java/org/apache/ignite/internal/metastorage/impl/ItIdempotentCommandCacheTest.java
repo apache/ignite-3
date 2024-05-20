@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
@@ -166,7 +167,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         void start(CompletableFuture<Set<String>> metaStorageNodesFut) {
             when(cmgManager.metaStorageNodes()).thenReturn(metaStorageNodesFut);
 
-            assertThat(startAsync(clusterService, raftManager, metaStorageManager), willCompleteSuccessfully());
+            assertThat(startAsync(ForkJoinPool.commonPool(), clusterService, raftManager, metaStorageManager), willCompleteSuccessfully());
         }
 
         void deployWatches() {

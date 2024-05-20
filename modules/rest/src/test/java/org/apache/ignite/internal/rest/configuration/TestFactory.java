@@ -27,6 +27,7 @@ import jakarta.inject.Singleton;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
@@ -66,7 +67,7 @@ public class TestFactory {
                 ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
-        assertThat(configurationRegistry.startAsync(), willCompleteSuccessfully());
+        assertThat(configurationRegistry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         return configurationRegistry;
     }

@@ -63,6 +63,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -664,10 +665,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         // Start.
 
-        assertThat(vault.startAsync(), willCompleteSuccessfully());
+        assertThat(vault.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         vault.putName(name);
 
-        assertThat(nodeCfgMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(nodeCfgMgr.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
@@ -699,7 +700,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         for (IgniteComponent component : otherComponents) {
             // TODO: IGNITE-22119 required to be able to wait on this future.
-            component.startAsync();
+            component.startAsync(ForkJoinPool.commonPool());
 
             components.add(component);
         }

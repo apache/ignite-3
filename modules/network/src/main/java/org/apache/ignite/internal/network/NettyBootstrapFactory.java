@@ -32,6 +32,7 @@ import io.netty.util.concurrent.EventExecutor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.configuration.InboundView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -151,7 +152,7 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         bossGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-accept");
         workerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-worker");
         clientWorkerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-client");

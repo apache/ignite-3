@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.metastore.ClusterEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.ClusterStatusWatchListener;
@@ -102,7 +103,7 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
         ClusterStatusWatchListener clusterListener = new ClusterStatusWatchListener(clusterEventCallback);
         metastore.registerClusterStatusListener(clusterListener);
 
-        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         toStop = () -> {
             nodeListener.stop();

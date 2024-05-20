@@ -57,6 +57,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -1260,7 +1261,7 @@ class ItScaleCubeNetworkMessagingTest {
          * @throws AssertionError       If the cluster was unable to start in 3 seconds.
          */
         void startAwait() throws InterruptedException {
-            assertThat(startAsync(members), willCompleteSuccessfully());
+            assertThat(startAsync(ForkJoinPool.commonPool(), members), willCompleteSuccessfully());
 
             if (!waitForCondition(this::allMembersSeeEachOther, SECONDS.toMillis(3))) {
                 throw new AssertionError();

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -63,11 +64,12 @@ public interface UpdateLog extends IgniteComponent {
      * <p>Log replay is a part of a component start up process, thus the handler must
      * be registered prior to start is invoked, otherwise exception will be thrown.
      *
+     * @param startupExecutor The executor that will execute the async part of start.
      * @return Completable future.
      * @throws IgniteInternalException If no handler has been registered.
      */
     @Override
-    CompletableFuture<Void> startAsync() throws IgniteInternalException;
+    CompletableFuture<Void> startAsync(ExecutorService startupExecutor) throws IgniteInternalException;
 
     /** An interface describing a handler that will receive notification when a new update is added to the log. */
     @FunctionalInterface

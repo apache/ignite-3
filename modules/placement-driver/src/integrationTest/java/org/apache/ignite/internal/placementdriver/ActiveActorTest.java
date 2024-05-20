@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -135,7 +136,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
                 new TestClockService(new HybridClockImpl())
         );
 
-        assertThat(placementDriverManager.startAsync(), willCompleteSuccessfully());
+        assertThat(placementDriverManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         placementDriverManagers.put(nodeName, placementDriverManager);
     }

@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -58,17 +59,16 @@ public class LozaTest extends IgniteAbstractTest {
      * Checks that the all API methods throw the exception ({@link NodeStoppingException})
      * when Loza is closed.
      *
-     * @throws Exception If fail.
      */
     @Test
-    public void testLozaStop() throws Exception {
+    public void testLozaStop() {
         Mockito.doReturn("test_node").when(clusterNetSvc).nodeName();
         Mockito.doReturn(mock(MessagingService.class)).when(clusterNetSvc).messagingService();
         Mockito.doReturn(mock(TopologyService.class)).when(clusterNetSvc).topologyService();
 
         Loza loza = new Loza(clusterNetSvc, new NoOpMetricManager(), raftConfiguration, workDir, new HybridClockImpl());
 
-        assertThat(loza.startAsync(), willCompleteSuccessfully());
+        assertThat(loza.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         loza.beforeNodeStop();
         assertThat(loza.stopAsync(), willCompleteSuccessfully());

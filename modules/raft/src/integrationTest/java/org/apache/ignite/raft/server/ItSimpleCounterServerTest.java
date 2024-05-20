@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -106,7 +107,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
             }
         };
 
-        assertThat(server.startAsync(), willCompleteSuccessfully());
+        assertThat(server.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         String serverNodeName = server.clusterService().topologyService().localMember().name();
 

@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -173,7 +174,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         JraftServerImpl server = jraftServer(servers, idx, service, opts);
 
-        assertThat(server.startAsync(), willCompleteSuccessfully());
+        assertThat(server.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         clo.accept(server);
 

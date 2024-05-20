@@ -230,7 +230,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         );
 
         assertThat(
-                startAsync(metaStorageManager, catalogManager, indexManager)
+                startAsync(ForkJoinPool.commonPool(), metaStorageManager, catalogManager, indexManager)
                         .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
                         .thenCompose(unused -> metaStorageManager.notifyRevisionUpdateListenerOnStart())
                         .thenCompose(unused -> metaStorageManager.deployWatches()),

@@ -41,6 +41,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.LongConsumer;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
@@ -86,7 +87,7 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        assertThat(storage.startAsync(), willCompleteSuccessfully());
+        assertThat(storage.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         listener = new CmgRaftGroupListener(storage, logicalTopology, onLogicalTopologyChanged);
     }

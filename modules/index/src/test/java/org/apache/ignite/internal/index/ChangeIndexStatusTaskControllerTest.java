@@ -39,6 +39,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
@@ -82,7 +83,7 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     void setUp() {
         catalogManager = createCatalogManagerWithTestUpdateLog(NODE_NAME, clock);
 
-        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
 

@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -135,7 +136,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
         JraftServerImpl server = jraftServer(servers, idx, service, opts);
 
-        assertThat(server.startAsync(), willCompleteSuccessfully());
+        assertThat(server.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         clo.accept(server);
 

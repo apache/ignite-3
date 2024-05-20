@@ -25,6 +25,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
@@ -128,7 +129,7 @@ public class AuthenticationManagerImpl
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         securityConfiguration.listen(securityConfigurationListener);
         securityConfiguration.enabled().listen(securityEnabledDisabledEventFactory);
         securityConfiguration.authentication().providers().listenElements(providerEventFactory);

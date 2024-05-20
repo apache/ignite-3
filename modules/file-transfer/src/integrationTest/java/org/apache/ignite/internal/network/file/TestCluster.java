@@ -31,6 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
@@ -179,7 +180,7 @@ public class TestCluster {
         }
 
         void start() {
-            assertThat(startAsync(components), willCompleteSuccessfully());
+            assertThat(startAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully());
         }
 
         void stop() throws Exception {

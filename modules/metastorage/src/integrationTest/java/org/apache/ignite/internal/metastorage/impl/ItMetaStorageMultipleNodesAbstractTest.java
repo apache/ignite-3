@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
@@ -211,7 +212,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     metaStorageManager
             );
 
-            assertThat(startAsync(components), willCompleteSuccessfully());
+            assertThat(startAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully());
         }
 
         /**

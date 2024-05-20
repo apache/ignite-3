@@ -51,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -360,9 +361,9 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         };
 
         assertThat(
-                metaStorageManager.startAsync()
+                metaStorageManager.startAsync(ForkJoinPool.commonPool())
                         .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
-                        .thenCompose(unused -> startAsync(catalogManager, sm, tableManager))
+                        .thenCompose(unused -> startAsync(ForkJoinPool.commonPool(), catalogManager, sm, tableManager))
                         .thenCompose(unused -> ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart())
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
@@ -410,7 +411,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 config
         );
 
-        assertThat(manager.startAsync(), willCompleteSuccessfully());
+        assertThat(manager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         return manager;
     }

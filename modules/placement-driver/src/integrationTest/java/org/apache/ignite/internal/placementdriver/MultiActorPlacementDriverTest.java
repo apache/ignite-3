@@ -36,6 +36,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -129,7 +130,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             if (!placementDriverNodeNames.contains(nodeName)) {
                 var service = clusterServices.get(nodeName);
 
-                assertThat(service.startAsync(), willCompleteSuccessfully());
+                assertThat(service.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
                 servicesToClose.add(() -> {
                     service.beforeNodeStop();

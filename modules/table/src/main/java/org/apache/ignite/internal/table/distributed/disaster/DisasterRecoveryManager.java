@@ -185,7 +185,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
 
         metaStorageManager.registerExactWatch(RECOVERY_TRIGGER_KEY, watchListener);

@@ -33,6 +33,7 @@ import io.micronaut.http.client.netty.DefaultHttpClient;
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
@@ -77,7 +78,7 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 generator,
                 new TestConfigurationValidator()
         );
-        assertThat(configurationManager.startAsync(), willCompleteSuccessfully());
+        assertThat(configurationManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         ConfigurationRegistry configurationRegistry = configurationManager.configurationRegistry();
         RestConfiguration restConfiguration = configurationRegistry.getConfiguration(RestConfiguration.KEY);
@@ -105,7 +106,7 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 restConfiguration
         );
 
-        assertThat(restComponent.startAsync(), willCompleteSuccessfully());
+        assertThat(restComponent.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         client = new DefaultHttpClient(URI.create("http://localhost:" + restConfiguration.port().value() + "/management/v1/"));
     }

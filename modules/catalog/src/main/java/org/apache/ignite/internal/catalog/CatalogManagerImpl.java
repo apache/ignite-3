@@ -44,6 +44,7 @@ import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
@@ -160,7 +161,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
         int objectIdGen = 0;
 
         Catalog emptyCatalog = new Catalog(0, 0L, objectIdGen, List.of(), List.of(), null);
@@ -169,8 +170,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 
-        return updateLog.startAsync()
-                .thenCompose(none -> {
+        return updateLog.startAsync(startupExecutor)
+                .thenComposeAsync(none -> {
                     if (latestCatalogVersion() == emptyCatalog.version()) {
                         int initializedCatalogVersion = emptyCatalog.version() + 1;
 
@@ -183,7 +184,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         catalogInitializationFuture.complete(null);
                         return nullCompletedFuture();
                     }
-                });
+                }, startupExecutor);
     }
 
     @Override

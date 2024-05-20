@@ -65,6 +65,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.ScheduledExecutorService;
@@ -261,7 +262,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         catalogMetastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, catalogMetastore);
 
-        assertThat(startAsync(catalogMetastore, catalogManager), willCompleteSuccessfully());
+        assertThat(startAsync(ForkJoinPool.commonPool(), catalogMetastore, catalogManager), willCompleteSuccessfully());
 
         revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> catalogMetastore.registerRevisionUpdateListener(function::apply);
 
@@ -847,7 +848,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             }
         };
 
-        assertThat(startAsync(sm, tableManager), willCompleteSuccessfully());
+        assertThat(startAsync(ForkJoinPool.commonPool(), sm, tableManager), willCompleteSuccessfully());
 
         tblManagerFut.complete(tableManager);
 
@@ -876,7 +877,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 storageConfiguration
         );
 
-        assertThat(manager.startAsync(), willCompleteSuccessfully());
+        assertThat(manager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         return manager;
     }

@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -236,11 +237,13 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
          */
         CompletableFuture<Void> start() {
             assertThat(
-                    startAsync(vaultManager, clusterService, raftManager, cmgManager, metaStorageManager),
+                    startAsync(ForkJoinPool.commonPool(), vaultManager, clusterService, raftManager, cmgManager, metaStorageManager),
                     willCompleteSuccessfully()
             );
 
-            return CompletableFuture.runAsync(() -> assertThat(distributedCfgManager.startAsync(), willCompleteSuccessfully()));
+            return CompletableFuture.runAsync(() ->
+                    assertThat(distributedCfgManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
+            );
         }
 
         /**

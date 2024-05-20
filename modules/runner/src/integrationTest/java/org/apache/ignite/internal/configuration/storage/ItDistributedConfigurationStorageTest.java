@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
@@ -187,7 +188,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
          */
         void start() {
             assertThat(
-                    startAsync(vaultManager, clusterService, raftManager, cmgManager, metaStorageManager),
+                    startAsync(ForkJoinPool.commonPool(), vaultManager, clusterService, raftManager, cmgManager, metaStorageManager),
                     willCompleteSuccessfully()
             );
 

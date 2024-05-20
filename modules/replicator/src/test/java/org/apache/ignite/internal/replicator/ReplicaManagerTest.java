@@ -36,6 +36,7 @@ import static org.mockito.Mockito.when;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -112,11 +113,11 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 new NoOpFailureProcessor()
         );
 
-        assertThat(replicaManager.startAsync(), willCompleteSuccessfully());
+        assertThat(replicaManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void stopReplicaManager() throws Exception {
+    void stopReplicaManager() {
         CompletableFuture<?>[] replicaStopFutures = replicaManager.startedGroups().stream()
             .map(id -> {
                 try {

@@ -26,6 +26,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -104,7 +105,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
 
         assertFalse(deployWatchesFut.isDone());
 
-        assertThat(metastore.startAsync(), willCompleteSuccessfully());
+        assertThat(metastore.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertThat(deployWatchesFut, willCompleteSuccessfully());
 

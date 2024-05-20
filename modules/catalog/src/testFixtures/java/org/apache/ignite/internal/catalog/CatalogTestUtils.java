@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
@@ -82,9 +83,12 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService) {
             @Override
-            public CompletableFuture<Void> startAsync() {
-                return allOf(metastore.startAsync(), clockWaiter.startAsync(), super.startAsync())
-                        .thenCompose(unused -> metastore.deployWatches());
+            public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+                return allOf(
+                        metastore.startAsync(startupExecutor),
+                        clockWaiter.startAsync(startupExecutor),
+                        super.startAsync(startupExecutor)
+                ).thenComposeAsync(unused -> metastore.deployWatches(), startupExecutor);
             }
 
             @Override
@@ -116,8 +120,9 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> startAsync() {
-                return allOf(metastore.startAsync(), super.startAsync()).thenCompose(unused -> metastore.deployWatches());
+            public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+                return allOf(metastore.startAsync(startupExecutor), super.startAsync(startupExecutor))
+                        .thenComposeAsync(unused -> metastore.deployWatches(), startupExecutor);
             }
 
             @Override
@@ -148,8 +153,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> startAsync() {
-                return allOf(clockWaiter.startAsync(), super.startAsync());
+            public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+                return allOf(clockWaiter.startAsync(startupExecutor), super.startAsync(startupExecutor));
             }
 
             @Override
@@ -194,8 +199,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(updateLog, new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> startAsync() {
-                return allOf(clockWaiter.startAsync(), super.startAsync());
+            public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+                return allOf(clockWaiter.startAsync(startupExecutor), super.startAsync(startupExecutor));
             }
 
             @Override
@@ -230,8 +235,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new TestUpdateLog(clock), new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> startAsync() {
-                return allOf(clockWaiter.startAsync(), super.startAsync());
+            public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+                return allOf(clockWaiter.startAsync(startupExecutor), super.startAsync(startupExecutor));
             }
 
             @Override
@@ -393,7 +398,7 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public CompletableFuture<Void> startAsync() throws IgniteInternalException {
+        public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) throws IgniteInternalException {
             if (onUpdateHandler == null) {
                 throw new IgniteInternalException(
                         Common.INTERNAL_ERR,

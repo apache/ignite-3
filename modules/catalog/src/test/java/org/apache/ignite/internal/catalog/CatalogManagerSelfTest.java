@@ -55,6 +55,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -170,11 +171,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         ArgumentCaptor<OnUpdateHandler> updateHandlerCapture = ArgumentCaptor.forClass(OnUpdateHandler.class);
 
         doNothing().when(updateLogMock).registerUpdateHandler(updateHandlerCapture.capture());
-        when(updateLogMock.startAsync()).thenReturn(nullCompletedFuture());
+        when(updateLogMock.startAsync(ForkJoinPool.commonPool())).thenReturn(nullCompletedFuture());
         when(updateLogMock.append(any())).thenReturn(CompletableFuture.completedFuture(true));
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
-        assertThat(manager.startAsync(), willCompleteSuccessfully());
+        assertThat(manager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         reset(updateLogMock);
 
@@ -281,15 +282,15 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     public void catalogServiceManagesUpdateLogLifecycle() {
         UpdateLog updateLogMock = mock(UpdateLog.class);
-        when(updateLogMock.startAsync()).thenReturn(nullCompletedFuture());
+        when(updateLogMock.startAsync(ForkJoinPool.commonPool())).thenReturn(nullCompletedFuture());
         when(updateLogMock.stopAsync()).thenReturn(nullCompletedFuture());
         when(updateLogMock.append(any())).thenReturn(CompletableFuture.completedFuture(true));
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
 
-        assertThat(manager.startAsync(), willCompleteSuccessfully());
+        assertThat(manager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
-        verify(updateLogMock).startAsync();
+        verify(updateLogMock).startAsync(ForkJoinPool.commonPool());
 
         assertThat(manager.stopAsync(), willCompleteSuccessfully());
 

@@ -41,6 +41,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -648,7 +649,7 @@ public class TestBuilders {
             var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
 
             Runnable initClosure = () -> {
-                assertThat(clockWaiter.startAsync(), willCompleteSuccessfully());
+                assertThat(clockWaiter.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
                 initAction(catalogManager);
             };

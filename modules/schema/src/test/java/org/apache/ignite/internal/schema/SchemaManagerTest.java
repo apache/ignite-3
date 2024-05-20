@@ -38,6 +38,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -96,7 +97,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         metaStorageManager = spy(StandaloneMetaStorageManager.create(metaStorageKvStorage));
-        assertThat(metaStorageManager.startAsync(), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         tableCreatedListener = ArgumentCaptor.forClass(EventListener.class);
         tableAlteredListener = ArgumentCaptor.forClass(EventListener.class);
@@ -106,7 +107,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_ALTER), tableAlteredListener.capture());
 
         schemaManager = new SchemaManager(registry, catalogService);
-        assertThat(schemaManager.startAsync(), willCompleteSuccessfully());
+        assertThat(schemaManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
@@ -276,7 +277,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
         doReturn(CompletableFuture.completedFuture(CAUSALITY_TOKEN_2)).when(metaStorageManager).recoveryFinishedFuture();
 
         schemaManager = new SchemaManager(registry, catalogService);
-        assertThat(schemaManager.startAsync(), willCompleteSuccessfully());
+        assertThat(schemaManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         completeCausalityToken(CAUSALITY_TOKEN_2);
 

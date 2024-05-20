@@ -60,6 +60,7 @@ import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
@@ -172,7 +173,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 computeConfiguration
         );
 
-        assertThat(computeComponent.startAsync(), willCompleteSuccessfully());
+        assertThat(computeComponent.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
         assertThat(computeMessageHandlerRef.get(), is(notNullValue()));
     }
 

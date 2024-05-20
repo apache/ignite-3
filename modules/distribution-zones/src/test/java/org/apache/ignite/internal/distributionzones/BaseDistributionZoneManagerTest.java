@@ -33,6 +33,7 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.function.Consumer;
@@ -125,7 +126,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
-        assertThat(startAsync(components), willCompleteSuccessfully());
+        assertThat(startAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully());
     }
 
     @AfterEach
@@ -144,7 +145,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     void startDistributionZoneManager() {
         assertThat(
-                distributionZoneManager.startAsync()
+                distributionZoneManager.startAsync(ForkJoinPool.commonPool())
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );

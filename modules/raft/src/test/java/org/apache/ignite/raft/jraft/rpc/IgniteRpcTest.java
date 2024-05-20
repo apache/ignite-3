@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -88,7 +89,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
             }
         };
 
-        assertThat(service.startAsync(), willCompleteSuccessfully());
+        assertThat(service.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         return server;
     }
@@ -111,7 +112,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
             }
         };
 
-        assertThat(service.startAsync(), willCompleteSuccessfully());
+        assertThat(service.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         waitForTopology(client, 1 + i, 5_000);
 

@@ -46,6 +46,7 @@ import static org.mockito.Mockito.mock;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -151,7 +152,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             return nullCompletedFuture();
         });
 
-        assertThat(metastore.startAsync(), willCompleteSuccessfully());
+        assertThat(metastore.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
 

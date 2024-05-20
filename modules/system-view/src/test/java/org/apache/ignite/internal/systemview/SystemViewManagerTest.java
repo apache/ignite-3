@@ -55,6 +55,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -111,7 +112,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void registerAfterStartFails() {
-        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertThrows(IllegalStateException.class, () -> viewMgr.register(() -> List.of(dummyView("test"))));
         verifyNoInteractions(catalog);
@@ -125,21 +126,21 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
         viewMgr.register(() -> List.of(dummyView("test")));
 
-        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         verify(catalog, times(1)).execute(anyList());
         reset(catalog);
 
-        assertThrows(IllegalStateException.class, viewMgr::startAsync);
+        assertThrows(IllegalStateException.class, () -> viewMgr.startAsync(ForkJoinPool.commonPool()));
 
-        assertThrows(IllegalStateException.class, viewMgr::startAsync);
+        assertThrows(IllegalStateException.class, () -> viewMgr.startAsync(ForkJoinPool.commonPool()));
 
         verifyNoMoreInteractions(catalog);
     }
 
     @Test
     public void registrationCompletesWithoutViews() {
-        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         verifyNoMoreInteractions(catalog);
 
@@ -156,7 +157,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         when(catalog.execute(anyList())).thenReturn(nullCompletedFuture());
 
         viewMgr.register(() -> List.of(dummyView("test", type)));
-        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         verify(catalog, times(1)).execute(anyList());
         assertTrue(viewMgr.completeRegistration().isDone());
@@ -172,7 +173,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
         viewMgr.register(() -> List.of(dummyView("test")));
 
-        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         verify(catalog, times(1)).execute(anyList());
 
@@ -192,7 +193,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(viewMgr.nodeAttributes(), aMapWithSize(0));
 
-        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         assertThat(viewMgr.nodeAttributes(), is(Map.of(NODE_ATTRIBUTES_KEY, String.join(NODE_ATTRIBUTES_LIST_SEPARATOR, name1.toUpperCase(
                 Locale.ROOT), name2.toUpperCase(Locale.ROOT)))));
@@ -210,7 +211,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
         assertThat(viewMgr.stopAsync(), willCompleteSuccessfully());
 
         //noinspection ThrowableNotThrown
-        assertThrowsWithCause(viewMgr::startAsync, NodeStoppingException.class);
+        assertThrowsWithCause(() -> viewMgr.startAsync(ForkJoinPool.commonPool()), NodeStoppingException.class);
     }
 
     @Test
@@ -292,7 +293,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
                         .build()
         ));
 
-        assertThat(viewMgr.startAsync(), willCompleteSuccessfully());
+        assertThat(viewMgr.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         {
             DrainAllSubscriber<InternalTuple> subs = new DrainAllSubscriber<>();

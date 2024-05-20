@@ -41,6 +41,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -170,7 +171,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
 
             var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, nodeName);
 
-            assertThat(nettyBootstrapFactory.startAsync(), willCompleteSuccessfully());
+            assertThat(nettyBootstrapFactory.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             cleanup.add(() -> assertThat(nettyBootstrapFactory.stopAsync(), willCompleteSuccessfully()));
 
             clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
@@ -182,12 +183,12 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     new NoOpCriticalWorkerRegistry(),
                     mock(FailureProcessor.class));
 
-            assertThat(clusterSvc.startAsync(), willCompleteSuccessfully());
+            assertThat(clusterSvc.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             cleanup.add(() -> assertThat(clusterSvc.stopAsync(), willCompleteSuccessfully()));
 
             raftMgr = new Loza(clusterSvc, new NoOpMetricManager(), raftConfiguration, nodeDir, hybridClock);
 
-            assertThat(raftMgr.startAsync(), willCompleteSuccessfully());
+            assertThat(raftMgr.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             cleanup.add(() -> assertThat(raftMgr.stopAsync(), willCompleteSuccessfully()));
 
             cleanup.add(this::stopService);

@@ -41,6 +41,7 @@ import static org.mockito.quality.Strictness.LENIENT;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -93,7 +94,7 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
         CatalogManager catalogManager = createCatalogManagerWithTestUpdateLog("test", clock);
 
         try {
-            assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
+            assertThat(catalogManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
             String indexName0 = INDEX_NAME + 0;
             String indexName1 = INDEX_NAME + 1;

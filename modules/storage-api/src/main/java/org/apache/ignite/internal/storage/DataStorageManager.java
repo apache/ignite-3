@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -57,7 +58,7 @@ public class DataStorageManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() throws StorageException {
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) throws StorageException {
         engines.values().forEach(StorageEngine::start);
 
         profilesToEngines = storageConfiguration.value().profiles().stream()

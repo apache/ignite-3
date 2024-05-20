@@ -45,6 +45,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
@@ -194,7 +195,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(components), willCompleteSuccessfully());
+            assertThat(startAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully());
         }
 
         String name() {

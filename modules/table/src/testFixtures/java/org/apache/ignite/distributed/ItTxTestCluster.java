@@ -55,6 +55,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -394,7 +395,7 @@ public class ItTxTestCluster {
                     clock
             );
 
-            assertThat(raftSrv.startAsync(), willCompleteSuccessfully());
+            assertThat(raftSrv.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
             raftServers.put(node.name(), raftSrv);
 
@@ -414,7 +415,7 @@ public class ItTxTestCluster {
                     new NoOpFailureProcessor()
             );
 
-            assertThat(replicaMgr.startAsync(), willCompleteSuccessfully());
+            assertThat(replicaMgr.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
             replicaManagers.put(node.name(), replicaMgr);
 
@@ -459,10 +460,10 @@ public class ItTxTestCluster {
                     txMgr
             );
 
-            assertThat(txMgr.startAsync(), willCompleteSuccessfully());
+            assertThat(txMgr.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             txManagers.put(node.name(), txMgr);
 
-            assertThat(resourceVacuumManager.startAsync(), willCompleteSuccessfully());
+            assertThat(resourceVacuumManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
             resourceCleanupManagers.put(node.name(), resourceVacuumManager);
 
             txStateStorages.put(node.name(), new TestTxStateStorage());
@@ -961,7 +962,7 @@ public class ItTxTestCluster {
             NodeFinder nodeFinder) {
         var network = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
-        assertThat(network.startAsync(), willCompleteSuccessfully());
+        assertThat(network.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
 
         return network;
     }
@@ -1035,7 +1036,7 @@ public class ItTxTestCluster {
         );
 
         clientTxStateResolver.start();
-        assertThat(startAsync(clientTxManager, clientResourceVacuumManager), willCompleteSuccessfully());
+        assertThat(startAsync(ForkJoinPool.commonPool(), clientTxManager, clientResourceVacuumManager), willCompleteSuccessfully());
     }
 
     public Map<String, Loza> raftServers() {

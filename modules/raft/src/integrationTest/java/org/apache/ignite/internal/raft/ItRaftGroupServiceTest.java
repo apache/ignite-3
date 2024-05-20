@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -230,7 +231,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(clusterService, loza), willCompleteSuccessfully());
+            assertThat(startAsync(ForkJoinPool.commonPool(), clusterService, loza), willCompleteSuccessfully());
         }
 
         CompletableFuture<RaftGroupService> startRaftGroup(PeersAndLearners configuration) {

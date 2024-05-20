@@ -1025,17 +1025,18 @@ public class IgniteImpl implements Ignite {
             metricManager.registerSource(new JvmMetricSource());
             metricManager.registerSource(new OsMetricSource());
 
-            lifecycleManager.startComponent(longJvmPauseDetector);
+            lifecycleManager.startComponent(longJvmPauseDetector, startupExecutor);
 
-            lifecycleManager.startComponent(vaultMgr);
+            lifecycleManager.startComponent(vaultMgr, startupExecutor);
 
             vaultMgr.putName(name);
 
             // Node configuration manager startup.
-            lifecycleManager.startComponent(nodeCfgMgr);
+            lifecycleManager.startComponent(nodeCfgMgr, startupExecutor);
 
             // Start the components that are required to join the cluster.
             lifecycleManager.startComponents(
+                    startupExecutor,
                     threadPoolsManager,
                     clockWaiter,
                     failureProcessor,
@@ -1063,7 +1064,7 @@ public class IgniteImpl implements Ignite {
                         LOG.info("Join complete, starting MetaStorage");
 
                         try {
-                            lifecycleManager.startComponent(metaStorageMgr);
+                            lifecycleManager.startComponent(metaStorageMgr, startupExecutor);
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
                         }
@@ -1077,6 +1078,7 @@ public class IgniteImpl implements Ignite {
                         // Start all other components after the join request has completed and the node has been validated.
                         try {
                             lifecycleManager.startComponents(
+                                    startupExecutor,
                                     catalogManager,
                                     clusterCfgMgr,
                                     authenticationManager,
@@ -1104,7 +1106,7 @@ public class IgniteImpl implements Ignite {
 
                             // The system view manager comes last because other components
                             // must register system views before it starts.
-                            lifecycleManager.startComponent(systemViewManager);
+                            lifecycleManager.startComponent(systemViewManager, startupExecutor);
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
                         }

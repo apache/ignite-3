@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.is;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,7 +40,7 @@ class ClockWaiterTest {
     void createWaiter() {
         waiter = new ClockWaiter("test", clock);
 
-        assertThat(waiter.startAsync(), willCompleteSuccessfully());
+        assertThat(waiter.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
     }
 
     @AfterEach

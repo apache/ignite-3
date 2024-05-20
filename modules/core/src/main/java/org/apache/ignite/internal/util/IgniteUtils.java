@@ -1175,10 +1175,10 @@ public class IgniteUtils {
         }
     }
 
-    private static CompletableFuture<Void> startAsync(Stream<? extends IgniteComponent> components) {
+    private static CompletableFuture<Void> startAsync(ExecutorService startupExecutor, Stream<? extends IgniteComponent> components) {
         return allOf(components
                 .filter(Objects::nonNull)
-                .map(IgniteComponent::startAsync)
+                .map(component -> component.startAsync(startupExecutor))
                 .toArray(CompletableFuture[]::new));
     }
 
@@ -1188,8 +1188,8 @@ public class IgniteUtils {
      * @param components Array of ignite components to start.
      * @return CompletableFuture that will be completed when all components are started.
      */
-    public static CompletableFuture<Void> startAsync(IgniteComponent... components) {
-        return startAsync(Stream.of(components));
+    public static CompletableFuture<Void> startAsync(ExecutorService startupExecutor, IgniteComponent... components) {
+        return startAsync(startupExecutor, Stream.of(components));
     }
 
     /**
@@ -1198,8 +1198,8 @@ public class IgniteUtils {
      * @param components Collection of ignite components to start.
      * @return CompletableFuture that will be completed when all components are started.
      */
-    public static CompletableFuture<Void> startAsync(Collection<? extends IgniteComponent> components) {
-        return startAsync(components.stream());
+    public static CompletableFuture<Void> startAsync(ExecutorService startupExecutor, Collection<? extends IgniteComponent> components) {
+        return startAsync(startupExecutor, components.stream());
     }
 
     private static CompletableFuture<Void> stopAsync(Stream<? extends IgniteComponent> components) {

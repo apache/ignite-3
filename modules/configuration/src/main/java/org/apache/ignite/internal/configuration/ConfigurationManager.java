@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
@@ -56,8 +57,8 @@ public class ConfigurationManager implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> startAsync() {
-        return registry.startAsync();
+    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+        return registry.startAsync(startupExecutor);
     }
 
     /** {@inheritDoc} */

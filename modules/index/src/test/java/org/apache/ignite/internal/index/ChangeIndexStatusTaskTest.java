@@ -58,6 +58,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -132,7 +133,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
 
         catalogManager = createTestCatalogManager(NODE_NAME, clockWaiter, clock);
 
-        assertThat(startAsync(clockWaiter, catalogManager), willCompleteSuccessfully());
+        assertThat(startAsync(ForkJoinPool.commonPool(), clockWaiter, catalogManager), willCompleteSuccessfully());
 
         awaitDefaultZoneCreation(catalogManager);
 

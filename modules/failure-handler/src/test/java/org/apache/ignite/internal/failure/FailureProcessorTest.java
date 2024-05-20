@@ -28,6 +28,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.failure.handlers.FailureHandler;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -44,7 +45,7 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
         FailureProcessor failureProcessor = new FailureProcessor("node_name", handler);
 
         try {
-            assertThat(failureProcessor.startAsync(), willSucceedFast());
+            assertThat(failureProcessor.startAsync(ForkJoinPool.commonPool()), willSucceedFast());
 
             failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null));
 
@@ -61,7 +62,7 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
         FailureProcessor failureProcessor = new FailureProcessor("node_name", handler);
 
         try {
-            assertThat(failureProcessor.startAsync(), willSucceedFast());
+            assertThat(failureProcessor.startAsync(ForkJoinPool.commonPool()), willSucceedFast());
 
             assertThat(failureProcessor.process(new FailureContext(SYSTEM_WORKER_BLOCKED, null)), is(false));
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.manager;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Common interface for ignite components that provides entry points for component lifecycle flow.
@@ -31,9 +32,10 @@ public interface IgniteComponent {
      * that can be executed synchronously in order for the component to be usable by other components during their startup,
      * and async actions, that are wrapped in a CompletableFuture and returned from the start method.
      *
+     * @param startupExecutor The executor that will execute the async part of start.
      * @return Future that will be completed when the asynchronous part of the start is processed.
      */
-    CompletableFuture<Void> startAsync();
+    CompletableFuture<Void> startAsync(ExecutorService startupExecutor);
 
     /**
      * Triggers running before node stop logic. It's guaranteed that during beforeNodeStop all components beneath given one are still

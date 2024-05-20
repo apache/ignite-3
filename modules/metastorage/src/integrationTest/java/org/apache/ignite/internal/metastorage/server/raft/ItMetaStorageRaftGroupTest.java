@@ -38,6 +38,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -165,7 +166,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         localAddresses.stream()
                 .map(addr -> ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder))
                 .forEach(clusterService -> {
-                    assertThat(clusterService.startAsync(), willCompleteSuccessfully());
+                    assertThat(clusterService.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
                     cluster.add(clusterService);
                 });
 
@@ -394,7 +395,10 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 new RaftGroupEventsClientListener()
         );
 
-        assertThat(startAsync(metaStorageRaftSrv1, metaStorageRaftSrv2, metaStorageRaftSrv3), willCompleteSuccessfully());
+        assertThat(
+                startAsync(ForkJoinPool.commonPool(), metaStorageRaftSrv1, metaStorageRaftSrv2, metaStorageRaftSrv3),
+                willCompleteSuccessfully()
+        );
 
         var raftNodeId1 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(0))));
 

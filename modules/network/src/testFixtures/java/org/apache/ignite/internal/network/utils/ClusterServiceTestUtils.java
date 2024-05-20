@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -160,8 +161,8 @@ public class ClusterServiceTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> startAsync() {
-                nodeConfigurationMgr.startAsync().join();
+            public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+                nodeConfigurationMgr.startAsync(startupExecutor).join();
 
                 NetworkConfiguration configuration = nodeConfigurationMgr.configurationRegistry()
                         .getConfiguration(NetworkConfiguration.KEY);
@@ -177,7 +178,7 @@ public class ClusterServiceTestUtils {
                                 )
                 ).join();
 
-                return IgniteUtils.startAsync(bootstrapFactory, clusterSvc);
+                return IgniteUtils.startAsync(startupExecutor, bootstrapFactory, clusterSvc);
             }
 
             @Override

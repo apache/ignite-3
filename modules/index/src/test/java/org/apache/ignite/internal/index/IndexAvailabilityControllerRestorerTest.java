@@ -49,6 +49,7 @@ import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -93,7 +94,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
-        assertThat(startAsync(metaStorageManager, catalogManager), willCompleteSuccessfully());
+        assertThat(startAsync(ForkJoinPool.commonPool(), metaStorageManager, catalogManager), willCompleteSuccessfully());
 
         deployWatches();
 
@@ -202,7 +203,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         catalogManager = spy(createTestCatalogManager(NODE_NAME, clock, metaStorageManager));
 
-        assertThat(startAsync(metaStorageManager, catalogManager), willCompleteSuccessfully());
+        assertThat(startAsync(ForkJoinPool.commonPool(), metaStorageManager, catalogManager), willCompleteSuccessfully());
     }
 
     private void deployWatches() throws Exception {
