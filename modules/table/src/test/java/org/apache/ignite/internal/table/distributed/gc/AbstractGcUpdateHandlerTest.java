@@ -239,7 +239,7 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
             gcUpdateHandler.vacuumBatch(HybridTimestamp.MAX_VALUE, Integer.MAX_VALUE, true);
         }
 
-        for (int i = 0 ; i < numPartitions; i++) {
+        for (int i = 0; i < numPartitions; i++) {
             TestPartitionDataStorage storage = partitionStorages.get(i);
 
             for (int j = 0; j < numRows; j++) {
