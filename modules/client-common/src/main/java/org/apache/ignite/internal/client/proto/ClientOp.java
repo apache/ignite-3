@@ -171,6 +171,9 @@ public class ClientOp {
     /** Execute SQL query with the parameters batch. */
     public static final int SQL_EXEC_BATCH = 63;
 
+    /** Execute MapReduce task. */
+    public static final int COMPUTE_EXECUTE_MAPREDUCE = 64;
+
     /** Send streamer batch with receiver. */
-    public static final int STREAMER_WITH_RECEIVER_BATCH_SEND = 64;
+    public static final int STREAMER_WITH_RECEIVER_BATCH_SEND = 65;
 }
