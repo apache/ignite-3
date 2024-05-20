@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -1063,6 +1067,33 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
         }
     }
 
+    @Test
+    public void testNaturalJoin2() {
+        sql("CREATE TABLE ints (i INTEGER PRIMARY KEY, int_val INTEGER)");
+        sql("INSERT INTO ints VALUES (1, 2)");
+
+        sql("CREATE TABLE bigints (i BIGINT PRIMARY KEY, bigint_val BIGINT)");
+        sql("INSERT INTO bigints VALUES (1, 3), (2, 4)");
+
+        sql("CREATE TABLE chars (i VARCHAR(10) PRIMARY KEY, bigint_val BIGINT)");
+        sql("INSERT INTO chars VALUES ('1', 3)");
+
+        sql("CREATE TABLE bools (bbb BOOLEAN PRIMARY KEY, bigint_val BIGINT)");
+        sql("INSERT INTO bools VALUES (true, 1)");
+
+        assertQuery("SELECT * FROM ints JOIN chars ON ints.i = chars.i ORDER BY i")
+                .returns(1, 2, "1", 3L)
+                .check();
+
+        assertQuery("SELECT * FROM ints NATURAL JOIN chars ORDER BY i")
+                .returns(1, 2, "1", 3L)
+                .check();
+
+        assertQuery("SELECT * FROM ints NATURAL JOIN bools")
+                .returnNothing()
+                .check();
+    }
+
     private static Stream<Arguments> joinTypes() {
         Stream<Arguments> types = Arrays.stream(JoinType.values())
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove filter below
@@ -1072,5 +1103,38 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
                 .flatMap(v -> Stream.of(Arguments.of(v, false), Arguments.of(v, true)));
 
         return types;
+    }
+
+    @Test
+    public void testNaturalJoinTypeMismatch() {
+        try {
+            sql("CREATE TABLE t2_ij (i INTEGER PRIMARY KEY, j INTEGER);");
+            sql("CREATE TABLE t2_ij (i INTEGER PRIMARY KEY, j BIGINT);");
+
+            var expectedMessage =
+                    "Column N#0 matched using NATURAL keyword or USING clause has incompatible types in this context: 'INTEGER' to 'VARCHAR(100)'";
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, expectedMessage, () -> sql("SELECT * FROM t1_ij NATURAL JOIN t2_ij"));
+        } finally {
+            sql("DROP TABLE t1_ij");
+            sql("DROP TABLE t2_ij");
+        }
+
+    }
+
+    @Test
+    public void testUsingJoinTypeMismatch() {
+        try {
+            sql("CREATE TABLE t1_ij (i INTEGER PRIMARY KEY, j INTEGER);");
+            sql("CREATE TABLE t2_ij (i INTEGER PRIMARY KEY, j BIGINT);");
+
+            var expectedMessage =
+                    "Column N#1 matched using NATURAL keyword or USING clause has incompatible types in this context: 'INTEGER' to 'BIGINT'";
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, expectedMessage, () -> sql("SELECT * FROM t1_ij JOIN t2_ij USING (i)"));
+        } finally {
+            sql("DROP TABLE t1_ij");
+            sql("DROP TABLE t2_ij");
+        }
     }
 }

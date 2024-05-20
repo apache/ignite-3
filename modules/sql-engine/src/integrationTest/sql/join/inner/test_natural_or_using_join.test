@@ -1,0 +1,64 @@
+statement ok
+CREATE TABLE t1_ij (i INTEGER, j INTEGER);
+
+statement ok
+CREATE TABLE t2_ijk (i INTEGER, j INTEGER, k BIGINT);
+
+statement ok
+INSERT INTO t1_ij VALUES (1, 1), (2, 2);
+
+statement ok
+INSERT INTO t2_ijk VALUES (3, 6, 100), (1, 1, 5), (2, 2, 7);
+
+query III rowsort
+SELECT * FROM t1_ij NATURAL JOIN t2_ijk
+----
+1	1	5
+2	2	7
+
+query II rowsort
+SELECT t1_ij.* FROM t1_ij JOIN t2_ijk USING (i, j)
+----
+1	1
+2	2
+
+# Check against a NOT NULL type
+
+statement ok
+CREATE TABLE t1_ij_not_null (i INTEGER NOT NULL, j INTEGER);
+
+statement ok
+INSERT INTO t1_ij_not_null VALUES (1, 1), (2, 2);
+
+statement ok
+INSERT INTO t1_ij VALUES (NULL, NULL);
+
+query II rowsort
+SELECT * FROM t1_ij JOIN t1_ij_not_null USING (i, j)
+----
+1	1
+2	2
+
+# Errors
+
+statement ok
+CREATE TABLE t1_ij_i_bigint (i BIGINT, j INTEGER);
+
+# Ignite validation
+
+statement error: Column N#0 matched using NATURAL keyword or USING clause has incompatible types in this context: 'INTEGER' to 'BIGINT'
+SELECT * FROM t1_ij NATURAL JOIN t1_ij_i_bigint
+
+statement error: Column N#0 matched using NATURAL keyword or USING clause has incompatible types in this context: 'INTEGER' to 'BIGINT'
+SELECT * FROM t1_ij JOIN t1_ij_i_bigint USING (i, j)
+
+# Calcite's validation
+
+statement ok
+CREATE TABLE t1_ij_i_date (i DATE, j INTEGER);
+
+statement error: Column 'I' matched using NATURAL keyword or USING clause has incompatible types in this context: 'INTEGER' to 'DATE'
+SELECT * FROM t1_ij NATURAL JOIN t1_ij_i_date
+
+statement error: Column 'I' matched using NATURAL keyword or USING clause has incompatible types in this context: 'INTEGER' to 'DATE'
+SELECT* FROM t1_ij NATURAL JOIN t1_ij_i_date USING (i)

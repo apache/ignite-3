@@ -81,6 +81,10 @@ public interface IgniteResource {
     @Resources.BaseMessage("CHAR datatype is not supported in table")
     Resources.ExInst<SqlValidatorException> charDataTypeIsNotSupportedInTable();
 
+    @Resources.BaseMessage("Column N#{0} matched using NATURAL keyword or USING clause "
+            + "has incompatible types in this context: ''{1}'' to ''{2}''")
+    Resources.ExInst<SqlValidatorException> naturalOrUsingColumnNotCompatible(int num, String type1, String type2);
+
     /** Constructs a signature string to use in error messages. */
     static String makeSignature(SqlCallBinding binding, RelDataType... operandTypes) {
         return makeSignature(binding, Arrays.asList(operandTypes));
