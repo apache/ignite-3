@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -414,7 +415,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()),
                 null);
 
-        return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
+        return ClientDataStreamer.streamData(publisher, identity(), identity(), opts, batchSender, provider, tbl);
     }
 
     /** {@inheritDoc} */
@@ -439,7 +440,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
         // Partition-aware (best effort) sender with retries.
         // The batch may go to a different node when a direct connection is not available.
-        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items, deleted) -> tbl.doSchemaOutOpAsync(
+        StreamerBatchSender<V, Integer> batchSender = (partitionId, items, deleted) -> tbl.doSchemaOutOpAsync(
                 ClientOp.STREAMER_BATCH_SEND,
                 (s, w) -> ser.writeStreamerTuples(partitionId, items, deleted, s, w),
                 r -> null,
@@ -447,6 +448,6 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()),
                 null);
 
-        return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
+        return ClientDataStreamer.streamData(publisher, keyFunc, payloadFunc, opts, batchSender, provider, tbl);
     }
 }
