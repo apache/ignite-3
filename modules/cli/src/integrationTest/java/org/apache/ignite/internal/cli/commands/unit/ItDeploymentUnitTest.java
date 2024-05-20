@@ -132,7 +132,6 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         );
 
         await().untilAsserted(() -> {
-            resetOutput();
             execute("cluster", "unit", "list", "--plain", id);
 
             assertDeployed(id);
@@ -169,25 +168,21 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         );
 
         await().untilAsserted(() -> {
-            resetOutput();
             execute("cluster", "unit", "list", "--plain", id);
 
             // Unit is deployed on all requested nodes
             assertDeployed(id);
 
-            resetOutput();
             execute("node", "unit", "list", "--plain", "--node-url", "http://localhost:10300", id);
 
             // Unit is deployed on the CMG node
             assertDeployed(id);
 
-            resetOutput();
             execute("node", "unit", "list", "--plain", "--node-url", "http://localhost:10301", id);
 
             // Unit is deployed on the requested node
             assertDeployed(id);
 
-            resetOutput();
             execute("node", "unit", "list", "--plain", "--node-url", "http://localhost:10302", id);
 
             // Unit is not deployed on the other node
@@ -214,15 +209,12 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         );
 
         await().untilAsserted(() -> {
-            resetOutput();
             execute("cluster", "unit", "list", "--plain", id);
 
             // Unit is deployed on all requested nodes
             assertDeployed(id);
 
             CLUSTER.runningNodes().forEach(ignite -> {
-                resetOutput();
-
                 String nodeUrl = "http://" + ignite.restHttpAddress().toString();
                 execute("node", "unit", "list", "--plain", "--node-url", nodeUrl, id);
 
@@ -246,7 +238,6 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         );
 
         // When deploy second unit with version
-        resetOutput();
         execute("cluster", "unit", "deploy", "test-unit2", "--version", "2.1", "--path", testFile2);
 
         // Then
@@ -257,13 +248,11 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         );
 
         await().untilAsserted(() -> {
-            resetOutput();
             execute("cluster", "unit", "list", "--plain", "test-unit");
 
             assertDeployed("test-unit");
         });
 
-        resetOutput();
         execute("node", "unit", "list", "--plain", "test-unit");
 
         assertDeployed("test-unit");
@@ -275,7 +264,6 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         execute("cluster", "unit", "deploy", "test-unit", "--version", "1.0.0", "--path", testFile);
 
         await().untilAsserted(() -> {
-            resetOutput();
             execute("cluster", "unit", "list", "--plain", "test-unit");
 
             assertDeployed("test-unit");
@@ -284,7 +272,6 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
         execute("cluster", "unit", "deploy", "test-unit", "--version", "2.0.0", "--path", testFile);
 
         await().untilAsserted(() -> {
-            resetOutput();
             execute("cluster", "unit", "list", "--plain", "test-unit");
 
             assertDeployed(List.of(new UnitIdVersion("test-unit", "1.0.0"), new UnitIdVersion("test-unit", "*2.0.0")));

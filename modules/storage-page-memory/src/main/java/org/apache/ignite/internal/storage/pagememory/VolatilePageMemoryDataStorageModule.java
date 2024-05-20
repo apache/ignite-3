@@ -25,7 +25,6 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
@@ -67,6 +66,6 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
         ioRegistry.loadFromServiceLoader();
 
         return new VolatilePageMemoryStorageEngine(igniteInstanceName, engineConfig,
-                configRegistry.getConfiguration(StorageConfiguration.KEY), ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
+                configRegistry.getConfiguration(StorageConfiguration.KEY), ioRegistry);
     }
 }

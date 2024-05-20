@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
+import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertionsAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
@@ -227,6 +228,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private static final String TABLE_NAME = "Table1";
 
     /** Assume that the table id will always be 8 for the test table. There is an assertion to check if this is true. */
+    // TODO: IGNITE-22251 Get rid of it
     private static final int TABLE_ID = 8;
 
     /** Test table name. */
@@ -386,12 +388,15 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 messagingServiceReturningToStorageOperationsPool,
                 hybridClock,
                 threadPoolsManager.partitionOperationsExecutor(),
-                replicationConfiguration
+                replicationConfiguration,
+                threadPoolsManager.commonScheduler()
         );
 
         var lockManager = new HeapLockManager();
 
         var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
+
+        var metricManager = new MetricManagerImpl();
 
         var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                 clusterSvc,
@@ -412,6 +417,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metaStorage,
                 hybridClock,
                 topologyAwareRaftGroupServiceFactory,
+                metricManager,
                 metaStorageConfiguration
         ) {
             @Override
@@ -627,8 +633,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 registry,
                 lowWatermark
         );
-
-        var metricManager = new MetricManagerImpl();
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,
@@ -1468,6 +1472,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             "false,true",
             "false,false"
     })
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22251")
     public void createTableCallOnMultipleNodesTest(boolean populateStableAssignmentsBeforeTableCreation, boolean restart)
             throws InterruptedException {
         int nodesCount = 3;
@@ -1591,6 +1596,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             "1,2",
             "2,1"
     })
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22251")
     public void tableRecoveryOnMultipleRestartingNodes(int nodeThatWrittenAssignments, int nodeThatPicksUpAssignments) throws Exception {
         var node0 = startNode(0);
 
@@ -1691,8 +1697,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @Test
     public void testSequentialAsyncTableCreationThenAlterZoneThenRestartOnMsSnapshot() throws InterruptedException {
-        var node0 = startNode(0);
-        var node1 = startNode(1);
+        IgniteImpl node0 = startNode(0);
+        IgniteImpl node1 = startNode(1);
 
         String tableName = "TEST";
         String zoneName = "ZONE_TEST";
@@ -1709,13 +1715,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         nodeInhibitor0.startInhibit();
         nodeInhibitor1.startInhibit();
 
-        var assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(TABLE_ID, 0));
-
-        var tableFut = createTableInCatalog(node0.catalogManager(), tableName, zoneName);
+        CompletableFuture<?> createTableInCatalogFuture = createTableInCatalog(node0.catalogManager(), tableName, zoneName);
 
         stopNode(1);
 
-        var alterZoneFut = alterZoneAsync(node0.catalogManager(), zoneName, 1);
+        CompletableFuture<?> alterZoneInCatalogFuture = alterZoneInCatalogAsync(node0.catalogManager(), zoneName, 1);
 
         // Wait for the next catalog version: table creation.
         // The next catalog update (alter zone) can't be processed until the table creation is completed.
@@ -1737,18 +1741,18 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         node1 = startNode(1);
 
+        ByteArray assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId(node1, tableName), 0));
+
         waitForValueInLocalMs(node1.metaStorageManager(), assignmentsKey);
 
         nodeInhibitor0.stopInhibit();
 
-        assertThat(tableFut, willCompleteSuccessfully());
-        assertThat(alterZoneFut, willCompleteSuccessfully());
-
-        assertEquals(TABLE_ID, tableId(node0, tableName));
+        assertThat(createTableInCatalogFuture, willCompleteSuccessfully());
+        assertThat(alterZoneInCatalogFuture, willCompleteSuccessfully());
 
         waitForValueInLocalMs(node0.metaStorageManager(), assignmentsKey);
 
-        var finalNode1 = node1;
+        IgniteImpl finalNode1 = node1;
 
         // Restart is followed by rebalance, because data nodes are recalculated after full table creation that is completed after restart.
         assertTrue(waitForCondition(() -> {
@@ -1756,7 +1760,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             Set<Assignment> assignments1 = getAssignmentsFromMetaStorage(finalNode1.metaStorageManager(), assignmentsKey.bytes());
 
             return assignments0.size() == 1 && assignments0.equals(assignments1);
-
         }, 10_000));
     }
 
@@ -1788,7 +1791,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         return catalogManager.execute(createTableCommand);
     }
 
-    private static CompletableFuture<?> alterZoneAsync(
+    private static CompletableFuture<?> alterZoneInCatalogAsync(
             CatalogManager catalogManager,
             String zoneName,
             @Nullable Integer replicas
@@ -1828,8 +1831,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 : Assignments.fromBytes(e.value()).nodes();
     }
 
-    private int tableId(Ignite node, String tableName) {
-        return (unwrapTableImpl(node.tables().table(tableName))).tableId();
+    private static int tableId(IgniteImpl node, String tableName) {
+        return getTableIdStrict(node.catalogManager(), tableName, node.clock().nowLong());
     }
 
     /**

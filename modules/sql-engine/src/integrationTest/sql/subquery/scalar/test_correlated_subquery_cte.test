@@ -1,5 +1,6 @@
 # name: test/sql/subquery/scalar/test_correlated_subquery_cte.test
 # description: Test correlated subqueries
+# feature: SQL T122(WITH (excluding RECURSIVE) in subquery)
 # group: [scalar]
 
 statement ok
@@ -19,6 +20,24 @@ SELECT i, (WITH i2 AS (SELECT 42+i1.i AS j) SELECT j FROM i2) AS j FROM integers
 2	44
 3	45
 NULL	NULL
+
+skipif ignite3
+#https://issues.apache.org/jira/browse/IGNITE-15995
+query I
+SELECT * FROM (SELECT 1) ORDER BY (WITH t AS (SELECT 1) SELECT * FROM t)
+----
+1
+
+# ORDER BY correlated subquery
+skipif ignite3
+#https://issues.apache.org/jira/browse/IGNITE-15995
+query I
+SELECT i FROM integers i1 ORDER BY (WITH i2 AS (SELECT 100-i1.i as j) SELECT j FROM i2);
+----
+3
+2
+1
+NULL
 
 # subquery returning multiple results
 statement error

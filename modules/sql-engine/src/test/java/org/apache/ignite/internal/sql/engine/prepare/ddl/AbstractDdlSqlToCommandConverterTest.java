@@ -32,9 +32,9 @@ import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -63,7 +63,7 @@ class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
     }
 
     static PlanningContext createContext() {
-        var schemaName = CatalogService.DEFAULT_SCHEMA_NAME;
+        var schemaName = SqlCommon.DEFAULT_SCHEMA_NAME;
         IgniteSchema publicSchema = new IgniteSchema(schemaName, 1, List.of());
         var schema = Frameworks.createRootSchema(false).add(schemaName, publicSchema);
 

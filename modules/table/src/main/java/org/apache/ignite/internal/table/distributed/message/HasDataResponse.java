@@ -26,6 +26,15 @@ import org.apache.ignite.internal.table.distributed.TableMessageGroup;
  */
 @Transferable(TableMessageGroup.HAS_DATA_RESPONSE)
 public interface HasDataResponse extends NetworkMessage {
-    /** {@code true} if a node has data for a partition of a table, {@code false} otherwise. */
-    boolean result();
+    /**
+     * Data presence indicator.
+     */
+    default DataPresence presence() {
+        return DataPresence.valueOf(presenceString());
+    }
+
+    /**
+     * String representation of {@link #presence()}.
+     */
+    String presenceString();
 }

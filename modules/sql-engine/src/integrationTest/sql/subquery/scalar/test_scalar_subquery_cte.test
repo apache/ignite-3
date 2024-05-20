@@ -1,5 +1,6 @@
 # name: test/sql/subquery/scalar/test_scalar_subquery_cte.test
 # description: Test subqueries with CTEs
+# feature: SQL T122(WITH (excluding RECURSIVE) in subquery)
 # group: [scalar]
 
 statement ok

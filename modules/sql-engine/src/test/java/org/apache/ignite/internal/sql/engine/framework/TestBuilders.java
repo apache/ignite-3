@@ -77,6 +77,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
@@ -962,7 +963,7 @@ public class TestBuilders {
 
         private final ClusterBuilderImpl parent;
 
-        private final String schemaName = CatalogManager.DEFAULT_SCHEMA_NAME;
+        private final String schemaName = SqlCommon.DEFAULT_SCHEMA_NAME;
 
         private String name;
 

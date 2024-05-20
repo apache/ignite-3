@@ -1873,7 +1873,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         IncompatibleSchemaException ex = assertWillThrowFast(future,
                 IncompatibleSchemaException.class);
         assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
-        assertThat(ex.getMessage(), containsString("Operation failed because schema 1 is not backward-compatible with 2"));
+        assertThat(ex.getMessage(), containsString(
+                "Operation failed because it tried to access a row with newer schema version than transaction's [table=1, "
+                        + "txSchemaVersion=1, rowSchemaVersion=2]"
+        ));
 
         // Tx should not be finished.
         assertThat(committed.get(), is(nullValue()));

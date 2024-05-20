@@ -33,6 +33,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
+import java.time.ZoneId;
 import java.util.BitSet;
 import java.util.Map;
 import java.util.UUID;
@@ -84,6 +85,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
                 .defaultSchema("SCHEMA2")
                 .queryTimeout(124, TimeUnit.SECONDS)
                 .pageSize(235)
+                .timeZoneId(ZoneId.of("Europe/London"))
                 .build();
 
         AsyncResultSet<SqlRow> resultSet = client.sql().executeAsync(null, statement).join();
@@ -94,6 +96,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals("SCHEMA2", props.get("schema"));
         assertEquals("124000", props.get("timeout"));
         assertEquals("235", props.get("pageSize"));
+        assertEquals("Europe/London", props.get("timeZoneId"));
     }
 
     @Test

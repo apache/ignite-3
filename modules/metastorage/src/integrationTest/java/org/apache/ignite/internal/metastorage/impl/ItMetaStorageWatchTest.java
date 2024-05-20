@@ -186,6 +186,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     new RocksDbKeyValueStorage(name(), basePath.resolve("storage"), new NoOpFailureProcessor(name())),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
+                    new NoOpMetricManager(),
                     metaStorageConfiguration
             );
 

@@ -310,8 +310,6 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // And prompt shows username and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
 
-        resetOutput();
-
         // Should ask user to reconnect with different user, answer "y"
         bindAnswers("y");
 
@@ -348,8 +346,6 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // And prompt shows username and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
 
-        resetOutput();
-
         // Should ask user to reconnect with different user, answer "y"
         bindAnswers("y");
 
@@ -385,8 +381,6 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
 
         // And prompt shows username from parameters and node name
         assertThat(getPrompt()).isEqualTo("[admin1:" + nodeName() + "]> ");
-
-        resetOutput();
 
         // Should ask user to reconnect with different user, answer "y"
         bindAnswers("y");

@@ -45,6 +45,7 @@ import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
 import org.apache.ignite.internal.cli.event.EventPublisher;
 import org.apache.ignite.internal.cli.event.Events;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import picocli.CommandLine;
 
@@ -90,6 +91,11 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
     @Inject
     private EventListeningActivationPoint eventListeningActivationPoint;
 
+    @BeforeAll
+    static void setDumbTerminal() {
+        System.setProperty("org.jline.terminal.dumb", "true");
+    }
+
     @BeforeEach
     void setUp() {
         configManagerProvider.setConfigFile(TestConfigManagerHelper.createIntegrationTestsConfig());
@@ -105,7 +111,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         eventPublisher.publish(Events.disconnect());
     }
 
-    protected void resetOutput() {
+    private void resetOutput() {
         sout = new StringWriter();
         serr = new StringWriter();
         cmd.setOut(new PrintWriter(sout));
@@ -117,6 +123,7 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
     }
 
     protected void execute(String... args) {
+        resetOutput();
         exitCode = cmd.execute(args);
     }
 
