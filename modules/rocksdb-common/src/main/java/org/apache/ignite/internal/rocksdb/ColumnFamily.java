@@ -227,7 +227,7 @@ public class ColumnFamily {
      * @return The ColumnFamilyOptions, if they are exclusive to this column family.
      */
     @Nullable
-    public ColumnFamilyOptions options() {
+    public ColumnFamilyOptions privateOptions() {
         return privateCfOptions;
     }
 

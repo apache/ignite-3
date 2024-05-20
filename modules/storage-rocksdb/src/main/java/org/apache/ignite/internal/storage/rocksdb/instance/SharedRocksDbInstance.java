@@ -211,9 +211,9 @@ public final class SharedRocksDbInstance {
             for (SortedIndexColumnFamily sortedIndexCf : sortedIndexCfsByName.values()) {
                 ColumnFamily cf = sortedIndexCf.columnFamily;
                 sortedIndexHandles.add(cf.handle());
-                @Nullable ColumnFamilyOptions options = cf.options();
+                @Nullable ColumnFamilyOptions options = cf.privateOptions();
                 if (options != null) {
-                    sortedIndexOptions.add(cf.options());
+                    sortedIndexOptions.add(cf.privateOptions());
                 }
             }
 
