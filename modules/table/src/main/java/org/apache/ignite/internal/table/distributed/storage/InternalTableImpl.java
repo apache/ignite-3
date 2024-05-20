@@ -74,7 +74,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -756,10 +755,10 @@ public class InternalTableImpl implements InternalTable {
 
         int partId = partitionId(row);
 
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, partId);
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(
-                new ZonePartitionId(zoneId, tableId, partId),
+                zonePartitionId,
                 tx.startTimestamp(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -769,7 +768,7 @@ public class InternalTableImpl implements InternalTable {
             try {
                 ClusterNode node = getClusterNode(primaryReplica.getLeaseholder());
 
-                return replicaSvc.invoke(node, op.apply(tablePartitionId, primaryReplica.getStartTime().longValue()));
+                return replicaSvc.invoke(node, op.apply(zonePartitionId, primaryReplica.getStartTime().longValue()));
             } catch (Throwable e) {
                 throw new TransactionException(
                         INTERNAL_ERR,
@@ -802,10 +801,10 @@ public class InternalTableImpl implements InternalTable {
 
         int partId = partitionId(rows.iterator().next());
 
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, partId);
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(
-                new ZonePartitionId(zoneId, tableId, partId),
+                zonePartitionId,
                 tx.startTimestamp(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -815,7 +814,7 @@ public class InternalTableImpl implements InternalTable {
             try {
                 ClusterNode node = getClusterNode(primaryReplica.getLeaseholder());
 
-                return replicaSvc.invoke(node, op.apply(tablePartitionId, primaryReplica.getStartTime().longValue()));
+                return replicaSvc.invoke(node, op.apply(zonePartitionId, primaryReplica.getStartTime().longValue()));
             } catch (Throwable e) {
                 throw new TransactionException(
                         INTERNAL_ERR,
@@ -1134,7 +1133,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable Long txStartTs
     ) {
         InternalTransaction tx = txManager.begin(observableTimestampTracker);
-        TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
+        ZonePartitionId partGroupId = new ZonePartitionId(zoneId, tableId, partition);
 
         assert rows.stream().allMatch(row -> partitionId(row) == partition) : "Invalid batch for partition " + partition;
 

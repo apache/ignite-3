@@ -145,7 +145,7 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
             WaitReplicaStateMessage awaitReplicaReq = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
                     .groupId(zonePartitionId)
                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
-                    .timeout(10)
+                    .timeout(10_000)
                     .build();
 
             return replicaService.invoke(leaseholderNode, awaitReplicaReq).thenApply((ignored) -> replicaMeta);
