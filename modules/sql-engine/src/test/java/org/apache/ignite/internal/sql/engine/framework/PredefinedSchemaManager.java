@@ -86,7 +86,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     }
 
     @Override
-    public IgniteTable table(int schemaVersion, int tableId) {
+    public IgniteTable table(int catalogVersion, int tableId) {
         IgniteTable table = tableById.get(tableId);
 
         if (table == null) {

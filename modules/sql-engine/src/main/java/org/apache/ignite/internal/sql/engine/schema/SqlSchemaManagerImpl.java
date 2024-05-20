@@ -78,9 +78,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(int schemaVersion) {
+    public SchemaPlus schema(int catalogVersion) {
         return schemaCache.get(
-                schemaVersion,
+                catalogVersion,
                 version -> createRootSchema(catalogManager.catalog(version))
         );
     }
@@ -106,9 +106,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     }
 
     @Override
-    public IgniteTable table(int schemaVersion, int tableId) {
-        return tableCache.get(tableCacheKey(schemaVersion, tableId), key -> {
-            SchemaPlus rootSchema = schemaCache.get(schemaVersion);
+    public IgniteTable table(int catalogVersion, int tableId) {
+        return tableCache.get(tableCacheKey(catalogVersion, tableId), key -> {
+            SchemaPlus rootSchema = schemaCache.get(catalogVersion);
 
             if (rootSchema != null) {
                 for (String name : rootSchema.getSubSchemaNames()) {
@@ -128,10 +128,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 }
             }
 
-            Catalog catalog = catalogManager.catalog(schemaVersion);
+            Catalog catalog = catalogManager.catalog(catalogVersion);
 
             if (catalog == null) {
-                throw new IgniteInternalException(Common.INTERNAL_ERR, "Catalog of given version not found: " + schemaVersion);
+                throw new IgniteInternalException(Common.INTERNAL_ERR, "Catalog of given version not found: " + catalogVersion);
             }
 
             CatalogTableDescriptor tableDescriptor = catalog.table(tableId);
@@ -144,8 +144,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         });
     }
 
-    private static long tableCacheKey(int schemaVersion, int tableId) {
-        long cacheKey = schemaVersion;
+    private static long tableCacheKey(int catalogVersion, int tableId) {
+        long cacheKey = catalogVersion;
         cacheKey <<= 32;
         return cacheKey | tableId;
     }

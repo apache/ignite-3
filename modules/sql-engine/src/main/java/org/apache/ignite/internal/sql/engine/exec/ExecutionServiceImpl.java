@@ -1243,11 +1243,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private static class FragmentCacheKey {
-        private final int schemaVersion;
+        private final int catalogVersion;
         private final String fragmentString;
 
-        FragmentCacheKey(int schemaVersion, String fragmentString) {
-            this.schemaVersion = schemaVersion;
+        FragmentCacheKey(int catalogVersion, String fragmentString) {
+            this.catalogVersion = catalogVersion;
             this.fragmentString = fragmentString;
         }
 
@@ -1263,13 +1263,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             FragmentCacheKey that = (FragmentCacheKey) o;
 
-            return schemaVersion == that.schemaVersion
+            return catalogVersion == that.catalogVersion
                     && fragmentString.equals(that.fragmentString);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(schemaVersion, fragmentString);
+            return Objects.hash(catalogVersion, fragmentString);
         }
     }
 }
