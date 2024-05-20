@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -31,6 +32,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.table.DataStreamerItem;
 import org.jetbrains.annotations.Nullable;
@@ -38,11 +40,18 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Data streamer subscriber.
  *
- * @param <T> Item type.
+ * @param <T> Key type.
+ * @param <E> Element type.
+ * @param <V> Value (payload) type.
+ * @param <R> Result type.
  * @param <P> Partition type.
  */
-public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>> {
-    private final StreamerBatchSender<T, P> batchSender;
+public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<DataStreamerItem<E>> {
+    private final StreamerBatchSender<V, P> batchSender;
+
+    private final Function<E, T> keyFunc;
+
+    private final Function<E, V> payloadFunc;
 
     private final StreamerPartitionAwarenessProvider<T, P> partitionAwarenessProvider;
 
@@ -56,7 +65,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
 
     // NOTE: This can accumulate empty buffers for stopped/failed nodes. Cleaning up is not trivial in concurrent scenario.
     // We don't expect thousands of node failures, so it should be fine.
-    private final ConcurrentHashMap<P, StreamerBuffer<T>> buffers = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<P, StreamerBuffer<V>> buffers = new ConcurrentHashMap<>();
 
     private final ConcurrentMap<P, CompletableFuture<Void>> pendingRequests = new ConcurrentHashMap<>();
 
@@ -79,19 +88,25 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
      * @param options Data streamer options.
      */
     public StreamerSubscriber(
-            StreamerBatchSender<T, P> batchSender,
+            StreamerBatchSender<V, P> batchSender,
+            Function<E, T> keyFunc,
+            Function<E, V> payloadFunc,
             StreamerPartitionAwarenessProvider<T, P> partitionAwarenessProvider,
             StreamerOptions options,
             ScheduledExecutorService flushExecutor,
             IgniteLogger log,
             @Nullable StreamerMetricSink metrics) {
         assert batchSender != null;
+        assert keyFunc != null;
+        assert payloadFunc != null;
         assert partitionAwarenessProvider != null;
         assert options != null;
         assert flushExecutor != null;
         assert log != null;
 
         this.batchSender = batchSender;
+        this.keyFunc = keyFunc;
+        this.payloadFunc = payloadFunc;
         this.partitionAwarenessProvider = partitionAwarenessProvider;
         this.options = options;
         this.flushExecutor = flushExecutor;
@@ -124,16 +139,22 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
 
     /** {@inheritDoc} */
     @Override
-    public void onNext(DataStreamerItem<T> item) {
+    public void onNext(DataStreamerItem<E> item) {
         pendingItemCount.decrementAndGet();
 
-        P partition = partitionAwarenessProvider.partition(item.get());
+        T key = keyFunc.apply(item.get());
+        P partition = partitionAwarenessProvider.partition(key);
 
-        StreamerBuffer<T> buf = buffers.computeIfAbsent(
+        StreamerBuffer<V> buf = buffers.computeIfAbsent(
                 partition,
                 p -> new StreamerBuffer<>(options.pageSize(), (items, deleted) -> enlistBatch(p, items, deleted)));
 
-        buf.add(item);
+        V payload = payloadFunc.apply(item.get());
+        DataStreamerItem<V> payloadItem = Objects.equals(payload, item.get())
+                ? (DataStreamerItem<V>) item
+                : DataStreamerItem.of(payload, item.operationType());
+
+        buf.add(payloadItem);
         this.metrics.streamerItemsQueuedAdd(1);
 
         requestMore();
@@ -160,7 +181,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
         return completionFut;
     }
 
-    private void enlistBatch(P partition, Collection<T> batch, BitSet deleted) {
+    private void enlistBatch(P partition, Collection<V> batch, BitSet deleted) {
         int batchSize = batch.size();
         assert batchSize > 0 : "Batch size must be positive.";
         assert partition != null : "Partition must not be null.";
@@ -175,7 +196,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
         );
     }
 
-    private CompletableFuture<Void> sendBatch(P partition, Collection<T> batch, BitSet deleted) {
+    private CompletableFuture<Void> sendBatch(P partition, Collection<V> batch, BitSet deleted) {
         // If a connection fails, the batch goes to default connection thanks to built-it retry mechanism.
         try {
             return batchSender.sendAsync(partition, batch, deleted).whenComplete((res, err) -> {
