@@ -26,7 +26,7 @@ import org.apache.ignite.rest.client.api.RecoveryApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.ResetPartitionsRequest;
 
-/** Call to get partition states. */
+/** Call to reset partitions. */
 @Singleton
 public class ResetPartitionsCall implements Call<ResetPartitionsCallInput, String> {
     private final ApiClientFactory clientFactory;

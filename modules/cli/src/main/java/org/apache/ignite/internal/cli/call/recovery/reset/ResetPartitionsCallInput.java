@@ -122,7 +122,7 @@ public class ResetPartitionsCallInput implements CallInput {
             return this;
         }
 
-        /** Set IDs of partitions to get states of. */
+        /** Build {@link ResetPartitionsCallInput}. */
         ResetPartitionsCallInput build() {
             return new ResetPartitionsCallInput(clusterUrl, zoneName, tableName, partitionIds);
         }
