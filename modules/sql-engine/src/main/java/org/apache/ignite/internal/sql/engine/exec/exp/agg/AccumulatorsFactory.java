@@ -27,6 +27,8 @@ import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.adapter.enumerable.JavaRowFormat;
@@ -263,6 +265,8 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
         private final RowHandler<RowT> handler;
 
+        private final boolean distinct;
+
         AccumulatorWrapperImpl(
                 Accumulator accumulator,
                 AggregateCall call,
@@ -272,6 +276,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             this.accumulator = accumulator;
             this.inAdapter = inAdapter;
             this.outAdapter = outAdapter;
+            distinct = call.isDistinct();
 
             literalAgg = call.getAggregation() == LITERAL_AGG;
             argList = call.getArgList();
@@ -291,9 +296,17 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             // need to be refactored after https://issues.apache.org/jira/browse/CALCITE-5969
             int params = literalAgg ? 1 : argList.size();
 
+            List<Integer> argList0 = argList;
+
+            if (distinct && argList.isEmpty()) {
+                int cnt = handler.columnCount(row);
+                argList0 = IntStream.range(0, cnt).boxed().collect(Collectors.toList());
+                params = argList0.size();
+            }
+
             Object[] args = new Object[params];
             for (int i = 0; i < params; i++) {
-                int argPos = literalAgg ? 0 : argList.get(i);
+                int argPos = literalAgg ? 0 : argList0.get(i);
                 args[i] = handler.get(argPos, row);
 
                 if (ignoreNulls && args[i] == null) {
