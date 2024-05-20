@@ -53,7 +53,7 @@ public class ResetPartitionsMixin {
         return tableName;
     }
 
-    /** Returns IDs of partitions to get states of. */
+    /** Returns IDs of partitions to reset. */
     public List<Integer> partitionIds() {
         return partitionIds;
     }

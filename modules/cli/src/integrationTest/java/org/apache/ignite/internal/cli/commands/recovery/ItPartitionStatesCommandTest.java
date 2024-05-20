@@ -25,7 +25,7 @@ public class ItPartitionStatesCommandTest extends ItPartitionStatesTest {
 
     @Override
     protected void execute(String... args) {
-        String[] fullArgs = ArrayUtils.concat(new String[] {"recovery", "partitions-states"}, args);
+        String[] fullArgs = ArrayUtils.concat(new String[] {"recovery", "partition-states"}, args);
 
         super.execute(fullArgs);
     }

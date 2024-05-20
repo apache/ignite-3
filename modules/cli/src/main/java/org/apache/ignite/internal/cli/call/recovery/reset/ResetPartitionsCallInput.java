@@ -47,7 +47,7 @@ public class ResetPartitionsCallInput implements CallInput {
         return tableName;
     }
 
-    /** IDs of partitions to get states of. */
+    /** IDs of partitions to reset. */
     public List<Integer> partitionIds() {
         return partitionIds;
     }
@@ -116,7 +116,7 @@ public class ResetPartitionsCallInput implements CallInput {
             return this;
         }
 
-        /** Names of zones to get partition states of. */
+        /** Names of zones to reset partitions of. */
         ResetPartitionsCallInputBuilder partitionIds(@Nullable List<Integer> partitionIds) {
             this.partitionIds = partitionIds;
             return this;
