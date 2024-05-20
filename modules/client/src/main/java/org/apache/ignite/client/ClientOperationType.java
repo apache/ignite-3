@@ -173,6 +173,11 @@ public enum ClientOperationType {
     STREAMER_BATCH_SEND,
 
     /**
+     * Send streamer batch with receiver ({@link DataStreamerTarget#streamData}).
+     */
+    STREAMER_WITH_RECEIVER_BATCH_SEND,
+
+    /**
      * SQL Execute batch ({@link IgniteSql#executeBatchAsync(Transaction, String, BatchedArguments)}).
      */
     SQL_EXECUTE_BATCH
