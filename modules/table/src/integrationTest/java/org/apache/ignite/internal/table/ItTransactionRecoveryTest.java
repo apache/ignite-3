@@ -61,7 +61,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ErrorTimestampAwareReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -141,9 +141,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testMultipleRecoveryRequestsIssued() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+        String leaseholder = waitAndGetLeaseholder(node(0), zoneReplicationGrp);
 
         IgniteImpl commitPartNode = findNodeByName(leaseholder);
 
@@ -196,9 +196,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testAbandonedTxIsAborted() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+        String leaseholder = waitAndGetLeaseholder(node(0), zoneReplicationGrp);
 
         IgniteImpl commitPartNode = findNodeByName(leaseholder);
 
@@ -239,9 +239,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testWriteIntentRecoverNoCoordinator() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+        String leaseholder = waitAndGetLeaseholder(node(0), zoneReplicationGrp);
 
         IgniteImpl commitPartNode = findNodeByName(leaseholder);
 
@@ -285,9 +285,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testWriteIntentNoRecovery() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+        String leaseholder = waitAndGetLeaseholder(node(0), zoneReplicationGrp);
 
         IgniteImpl commitPartNode = findNodeByName(leaseholder);
 
@@ -330,9 +330,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testWriteIntentRecoveryAndLockConflict() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+        String leaseholder = waitAndGetLeaseholder(node(0), zoneReplicationGrp);
 
         IgniteImpl commitPartNode = findNodeByName(leaseholder);
 
@@ -394,9 +394,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testSendCommitAndDie() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+        String leaseholder = waitAndGetLeaseholder(node(0), zoneReplicationGrp);
 
         IgniteImpl commitPartNode = findNodeByName(leaseholder);
 
@@ -463,9 +463,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testCommitAndDieRecoveryFirst() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+        String leaseholder = waitAndGetLeaseholder(node(0), zoneReplicationGrp);
 
         IgniteImpl commitPartNode = findNodeByName(leaseholder);
 
@@ -538,9 +538,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testRecoveryIsTriggeredOnce() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+        String leaseholder = waitAndGetLeaseholder(node(0), zoneReplicationGrp);
 
         IgniteImpl commitPartNode = findNodeByName(leaseholder);
 
@@ -615,9 +615,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testFinishAlreadyFinishedTx() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+        String leaseholder = waitAndGetLeaseholder(node(0), zoneReplicationGrp);
 
         IgniteImpl commitPartNode = findNodeByName(leaseholder);
 
@@ -652,9 +652,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testPrimaryFailureRightAfterCommitMsg() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+        String leaseholder = waitAndGetLeaseholder(node(0), zoneReplicationGrp);
 
         IgniteImpl commitPartNode = findNodeByName(leaseholder);
 
@@ -691,9 +691,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         assertThat(commitMsgSentFut, willCompleteSuccessfully());
 
-        cancelLease(commitPartNode, tblReplicationGrp);
+        cancelLease(commitPartNode, zoneReplicationGrp);
 
-        waitAndGetLeaseholder(txCrdNode, tblReplicationGrp);
+        waitAndGetLeaseholder(txCrdNode, zoneReplicationGrp);
 
         cancelLeaseFuture.complete(null);
 
@@ -712,9 +712,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testPrimaryFailureWhileInflightInProgress() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+        String leaseholder = waitAndGetLeaseholder(node(0), zoneReplicationGrp);
 
         IgniteImpl commitPartNode = findNodeByName(leaseholder);
 
@@ -750,9 +750,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testPrimaryFailureWhileInflightInProgressAfterFirstResponse() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+        String leaseholder = waitAndGetLeaseholder(node(0), zoneReplicationGrp);
 
         IgniteImpl commitPartNode = findNodeByName(leaseholder);
 
@@ -787,7 +787,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         assertThat(firstResponseSent, willCompleteSuccessfully());
 
-        cancelLease(commitPartNode, tblReplicationGrp);
+        cancelLease(commitPartNode, zoneReplicationGrp);
 
         assertThat(commitFut, willThrow(MismatchingTransactionOutcomeException.class, 30, SECONDS));
 
@@ -804,9 +804,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         preloadData(tbl, 10);
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+        String leaseholder = waitAndGetLeaseholder(node(0), zoneReplicationGrp);
 
         IgniteImpl commitPartNode = findNodeByName(leaseholder);
 
@@ -857,9 +857,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testCursorCleanup(boolean readOnly) throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+        String leaseholder = waitAndGetLeaseholder(node(0), zoneReplicationGrp);
 
         IgniteImpl targetNode = findNodeByName(leaseholder);
 
@@ -939,7 +939,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         Publisher<BinaryRow> publisher;
         if (tx.isReadOnly()) {
-            String primary = waitAndGetLeaseholder(node(0), new TablePartitionId(tbl.tableId(), PART_ID));
+            String primary = waitAndGetLeaseholder(node(0), new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID));
 
             ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.name().equals(primary)).findAny().get();
 
@@ -966,9 +966,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testCursorsClosedAfterTxClose() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetPrimaryReplica(node(0), tblReplicationGrp).getLeaseholder();
+        String leaseholder = waitAndGetPrimaryReplica(node(0), zoneReplicationGrp).getLeaseholder();
 
         IgniteImpl txExecNode = findNodeByName(leaseholder);
 
@@ -1149,8 +1149,8 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         return findNode(1, initialNodes(), n -> !leaseholder.equals(n.name()));
     }
 
-    private static String waitAndGetLeaseholder(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
-        return waitAndGetPrimaryReplica(node, tblReplicationGrp).getLeaseholder();
+    private static String waitAndGetLeaseholder(IgniteImpl node, ReplicationGroupId zoneReplicationGrp) {
+        return waitAndGetPrimaryReplica(node, zoneReplicationGrp).getLeaseholder();
     }
 
     private void cancelLease(IgniteImpl leaseholder, ReplicationGroupId groupId) {

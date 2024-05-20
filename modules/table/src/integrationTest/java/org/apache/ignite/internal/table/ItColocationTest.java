@@ -212,6 +212,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
 
         int tblId = 1;
+        int zoneId = 11;
 
         for (int i = 0; i < PARTS; ++i) {
             RaftGroupService r = mock(RaftGroupService.class);
@@ -244,7 +245,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             ReplicaRequest request = invocation.getArgument(1);
             var commitPartId = new ZonePartitionId(22, 2, 0);
 
-            RaftGroupService r = groupRafts.get(request.groupId());
+            ZonePartitionId zoneTableGrpId = (ZonePartitionId) request.groupId();
+            RaftGroupService r = groupRafts.get(new TablePartitionId(zoneTableGrpId.tableId(), zoneTableGrpId.partitionId()));
 
             if (request instanceof ReadWriteMultiRowReplicaRequest) {
                 ReadWriteMultiRowReplicaRequest multiRowReplicaRequest = (ReadWriteMultiRowReplicaRequest) request;
@@ -294,7 +296,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         intTable = new InternalTableImpl(
                 "PUBLIC.TEST",
                 tblId,
-                123,
+                zoneId,
                 PARTS,
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,

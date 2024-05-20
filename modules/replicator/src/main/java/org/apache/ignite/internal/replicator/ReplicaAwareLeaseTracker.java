@@ -99,13 +99,12 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
         assert zonePartitionId.tableId() != 0 : "Table id should be defined.";
 
         ZonePartitionId pureZonePartId = ZonePartitionId.resetTableId(zonePartitionId);
-        TablePartitionId tablePartitionId = new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId());
 
         return delegate.awaitPrimaryReplicaForTable(pureZonePartId, timestamp, timeout, unit)
                 .thenComposeAsync(replicaMeta -> {
                     ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
 
-                    if (replicaMeta.subgroups().contains(tablePartitionId)) {
+                    if (replicaMeta.subgroups().contains(zonePartitionId)) {
                         waitPrimaryState.remove(zonePartitionId);
 
                         return completedFuture(replicaMeta);
@@ -133,12 +132,10 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
 
         ZonePartitionId pureZonePartId = ZonePartitionId.resetTableId(zonePartitionId);
 
-        TablePartitionId tablePartitionId = new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId());
-
         return delegate.getPrimaryReplicaForTable(pureZonePartId, timestamp).thenCompose(replicaMeta -> {
             ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
 
-            if (replicaMeta.subgroups().contains(tablePartitionId)) {
+            if (replicaMeta.subgroups().contains(zonePartitionId)) {
                 return completedFuture(replicaMeta);
             }
 
