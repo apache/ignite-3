@@ -128,7 +128,13 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
             }
         }
 
+        long indexBeforeRemove = storage.lastAppliedIndex();
+        long termBeforeRemove = storage.lastAppliedTerm();
+
         removeOp.accept(storage, toRemove);
+
+        assertTrue(storage.lastAppliedIndex() > indexBeforeRemove);
+        assertTrue(storage.lastAppliedTerm() > termBeforeRemove);
 
         for (int i = 0; i < 100; i++) {
             if (i % 2 == 0) {
@@ -190,7 +196,16 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
             assertEquals(txMetaExpected, storage.get(txIds.get(i)));
         }
 
-        storage.removeAll(txIds, 3, 1);
+        long newIndex = 3;
+        long newTerm = 2;
+
+        assertTrue(storage.lastAppliedIndex() < newIndex);
+        assertTrue(storage.lastAppliedTerm() < newTerm);
+
+        storage.removeAll(txIds, newIndex, newTerm);
+
+        assertEquals(newIndex, storage.lastAppliedIndex());
+        assertEquals(newTerm, storage.lastAppliedTerm());
 
         for (int i = 0; i < 100; i++) {
             assertNull(storage.get(txIds.get(i)));
@@ -220,10 +235,19 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
 
         assertEquals(storage.get(txId), txMeta1);
 
-        assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 3, 2));
+        long newIndex = 4;
+        long newTerm = 3;
+
+        assertTrue(storage.lastAppliedIndex() < newIndex);
+        assertTrue(storage.lastAppliedTerm() < newTerm);
+
+        assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, newIndex, newTerm));
         // Checking idempotency.
-        assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 3, 2));
-        assertTrue(storage.compareAndSet(txId, TxState.ABORTED, txMeta2, 3, 2));
+        assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, newIndex, newTerm));
+        assertTrue(storage.compareAndSet(txId, TxState.ABORTED, txMeta2, newIndex, newTerm));
+
+        assertEquals(newIndex, storage.lastAppliedIndex());
+        assertEquals(newTerm, storage.lastAppliedTerm());
 
         TxMeta txMetaNullTimestamp2 = new TxMeta(txMeta2.txState(), txMeta2.enlistedPartitions(), null);
         assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaNullTimestamp2, 3, 2));
