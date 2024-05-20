@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.addColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryLength;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.applyNecessaryPrecision;
@@ -93,6 +92,7 @@ import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
@@ -104,7 +104,7 @@ import org.junit.jupiter.params.provider.EnumSource.Mode;
 /** Tests for table related commands. */
 public class CatalogTableTest extends BaseCatalogManagerTest {
 
-    private static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
+    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
     private static final String NEW_COLUMN_NAME = "NEWCOL";
     private static final String NEW_COLUMN_NAME_2 = "NEWCOL2";
     private static final int DFLT_TEST_PRECISION = 11;

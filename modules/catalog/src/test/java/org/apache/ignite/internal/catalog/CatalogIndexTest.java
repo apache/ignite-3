@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
@@ -79,6 +78,7 @@ import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -92,7 +92,7 @@ import org.mockito.ArgumentCaptor;
 /** Tests for index related commands. */
 public class CatalogIndexTest extends BaseCatalogManagerTest {
 
-    private static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
+    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
 
     @Test
     public void testCreateHashIndex() {
@@ -383,7 +383,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
     private void dropIndex(String indexName) {
         assertThat(
-                manager.execute(DropIndexCommand.builder().indexName(indexName).schemaName(DEFAULT_SCHEMA_NAME).build()),
+                manager.execute(DropIndexCommand.builder().indexName(indexName).schemaName(SqlCommon.DEFAULT_SCHEMA_NAME).build()),
                 willCompleteSuccessfully()
         );
     }

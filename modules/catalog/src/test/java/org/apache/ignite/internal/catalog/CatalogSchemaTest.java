@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.junit.jupiter.api.Test;
 
 /** Tests for schema related commands. */
@@ -39,7 +39,7 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
 
         assertNotNull(latestCatalog);
         assertNotNull(latestCatalog.schema(schemaName));
-        assertNotNull(latestCatalog.schema(DEFAULT_SCHEMA_NAME));
+        assertNotNull(latestCatalog.schema(SqlCommon.DEFAULT_SCHEMA_NAME));
 
         assertThat(
                 manager.execute(CreateSchemaCommand.builder().name(schemaName).build()),
