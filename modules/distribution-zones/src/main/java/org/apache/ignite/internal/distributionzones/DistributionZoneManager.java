@@ -269,13 +269,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
             restoreGlobalStateFromLocalMetastorage(recoveryRevision);
 
-            // TODO: perhaps supplyAsync should be called in a more granular way, down in both these methods.
-            return CompletableFuture.supplyAsync(() ->
-                    allOf(
-                            createOrRestoreZonesStates(recoveryRevision),
-                            restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision)
-                    ),
-                    startupExecutor
+            return allOf(
+                    createOrRestoreZonesStates(recoveryRevision),
+                    restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision)
             ).thenComposeAsync((notUsed) -> rebalanceEngine.start(), startupExecutor);
         });
     }
