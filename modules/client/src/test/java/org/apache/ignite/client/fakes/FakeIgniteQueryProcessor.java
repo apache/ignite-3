@@ -29,9 +29,9 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -51,7 +51,7 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     @Override
     public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
             SqlProperties properties,
-            IgniteTransactions transactions,
+            HybridTimestampTracker observableTimeTracker,
             @Nullable InternalTransaction transaction,
             String qry,
             Object... params

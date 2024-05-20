@@ -820,7 +820,6 @@ public class IgniteImpl implements Ignite {
         );
 
         qryEngine = new SqlQueryProcessor(
-                registry,
                 clusterSvc,
                 logicalTopologyService,
                 distributedTblMgr,
@@ -837,10 +836,11 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeConfigRegistry.getConfiguration(SqlLocalConfiguration.KEY),
-                transactionInflights
+                transactionInflights,
+                txManager
         );
 
-        sql = new IgniteSqlImpl(qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));
+        sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker);
 
         var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,
@@ -1317,6 +1317,10 @@ public class IgniteImpl implements Ignite {
      */
     public ConfigurationRegistry clusterConfiguration() {
         return clusterCfgMgr.configurationRegistry();
+    }
+
+    public HybridTimestampTracker observableTimeTracker() {
+        return observableTimestampTracker;
     }
 
     /**

@@ -59,6 +59,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
@@ -79,7 +80,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
     private final JdbcMetadataCatalog meta;
 
     /** Ignite transactions API. */
-    private final IgniteTransactions igniteTransactions;
+    private final IgniteTransactionsImpl igniteTransactions;
 
     /**
      * Constructor.
@@ -93,7 +94,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
             QueryProcessor processor,
             JdbcMetadataCatalog meta,
             ClientResourceRegistry resources,
-            IgniteTransactions igniteTransactions
+            IgniteTransactionsImpl igniteTransactions
     ) {
         super(resources);
 
@@ -145,7 +146,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
                 properties,
-                igniteTransactions,
+                igniteTransactions.observableTimestampTracker(),
                 tx,
                 req.sqlQuery(),
                 req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments()
@@ -258,7 +259,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
                 properties,
-                igniteTransactions,
+                igniteTransactions.observableTimestampTracker(),
                 tx,
                 sql,
                 arg == null ? OBJECT_EMPTY_ARRAY : arg
