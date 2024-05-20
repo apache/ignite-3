@@ -22,6 +22,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Cluster nodes request.
@@ -42,15 +44,31 @@ public class ClientClusterGetNodesRequest {
         out.packInt(nodes.size());
 
         for (ClusterNode node : nodes) {
-            out.packInt(4);
-
-            out.packString(node.id());
-            out.packString(node.name());
-            out.packString(node.address().host());
-            out.packInt(node.address().port());
+            packClusterNode(node, out);
         }
 
         // Null future indicates synchronous completion.
         return null;
+    }
+
+    /**
+     * Pack {@link ClusterNode} instance to client message.
+     *
+     * @param clusterNode Cluster node.
+     * @param out Client message packer.
+     */
+    public static void packClusterNode(@Nullable ClusterNode clusterNode, ClientMessagePacker out) {
+        if (clusterNode == null) {
+            out.packNil();
+        } else {
+            out.packInt(4);
+
+            out.packString(clusterNode.id());
+            out.packString(clusterNode.name());
+
+            NetworkAddress address = clusterNode.address();
+            out.packString(address.host());
+            out.packInt(address.port());
+        }
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.client.TcpIgniteClient.unpackClusterNode;
 import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getPartitionAwarenessProvider;
 
 import java.time.Instant;
@@ -27,13 +28,10 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import org.apache.ignite.internal.client.ClientClusterNode;
-import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.Partition;
@@ -83,7 +81,7 @@ public class ClientPartitionManager implements PartitionManager {
     @Override
     @SuppressWarnings("resource")
     public CompletableFuture<Map<Partition, ClusterNode>> primaryReplicasAsync() {
-        return tbl.channel().serviceAsync(ClientOp.PARTITIONS_PRIMARY_GET,
+        return tbl.channel().serviceAsync(ClientOp.PRIMARY_REPLICAS_GET,
                 w -> w.out().packInt(tbl.tableId()),
                 r -> {
                     ClientMessageUnpacker in = r.in();
@@ -136,17 +134,5 @@ public class ClientPartitionManager implements PartitionManager {
 
                     return new HashPartition(Math.abs(hash % partitions.size()));
                 }));
-    }
-
-    private static @Nullable ClusterNode unpackClusterNode(PayloadInputChannel r) {
-        ClientMessageUnpacker in = r.in();
-        if (in.tryUnpackNil()) {
-            return null;
-        }
-
-        return new ClientClusterNode(
-                in.unpackString(),
-                in.unpackString(),
-                new NetworkAddress(in.unpackString(), in.unpackInt()));
     }
 }

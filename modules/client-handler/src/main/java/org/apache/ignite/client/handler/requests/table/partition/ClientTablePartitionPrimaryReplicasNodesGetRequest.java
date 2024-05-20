@@ -17,24 +17,25 @@
 
 package org.apache.ignite.client.handler.requests.table.partition;
 
+import static org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest.packClusterNode;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.requests.table.ClientTablePartitionPrimaryReplicasGetRequest;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.table.partition.Partition;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Client all primary partitions get request.
+ * Client primary replicas with node info retrieval request.
+ * See also {@link ClientTablePartitionPrimaryReplicasGetRequest}.
  */
-public class ClientPrimaryPartitionsToNodesGetRequest {
+public class ClientTablePartitionPrimaryReplicasNodesGetRequest {
 
     /**
      * Process the request.
@@ -62,22 +63,11 @@ public class ClientPrimaryPartitionsToNodesGetRequest {
                                 HashPartition partition = (HashPartition) e.getKey();
 
                                 out.packInt(partition.partitionId());
+
                                 packClusterNode(e.getValue(), out);
                             }
                         });
             }
         });
-    }
-
-    private static void packClusterNode(@Nullable ClusterNode clusterNode, ClientMessagePacker out) {
-        if (clusterNode == null) {
-            out.packNil();
-        } else {
-            out.packString(clusterNode.id());
-            out.packString(clusterNode.name());
-            NetworkAddress address = clusterNode.address();
-            out.packString(address.host());
-            out.packInt(address.port());
-        }
     }
 }

@@ -30,6 +30,7 @@ import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.client.compute.ClientCompute;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.ClientTables;
@@ -195,13 +196,9 @@ public class TcpIgniteClient implements IgniteClient {
             List<ClusterNode> res = new ArrayList<>(cnt);
 
             for (int i = 0; i < cnt; i++) {
-                int fieldCnt = r.in().unpackInt();
-                assert fieldCnt == 4;
+                ClusterNode clusterNode = unpackClusterNode(r);
 
-                res.add(new ClientClusterNode(
-                        r.in().unpackString(),
-                        r.in().unpackString(),
-                        new NetworkAddress(r.in().unpackString(), r.in().unpackInt())));
+                res.add(clusterNode);
             }
 
             return res;
@@ -265,5 +262,26 @@ public class TcpIgniteClient implements IgniteClient {
      */
     public <T extends ClientMessage> CompletableFuture<T> sendRequestAsync(int opCode, PayloadWriter writer, PayloadReader<T> reader) {
         return ch.serviceAsync(opCode, writer, reader);
+    }
+
+    /**
+     * Tries to unpack {@link ClusterNode} instance from input channel.
+     *
+     * @param r Payload input channel.
+     * @return Cluster node or {@code null} if message doesn't contain cluster node.
+     */
+    public static @Nullable ClusterNode unpackClusterNode(PayloadInputChannel r) {
+        ClientMessageUnpacker in = r.in();
+        if (in.tryUnpackNil()) {
+            return null;
+        }
+
+        int fieldCnt = r.in().unpackInt();
+        assert fieldCnt == 4;
+
+        return new ClientClusterNode(
+                in.unpackString(),
+                in.unpackString(),
+                new NetworkAddress(in.unpackString(), in.unpackInt()));
     }
 }
