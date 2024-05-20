@@ -116,7 +116,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         when(raftClient.run(any())).thenAnswer(invocationOnMock -> completedFuture(null));
 
         return new Replica(
-                GRP_ID,
+                new ZonePartitionId(1, 0),
                 new ZonePartitionId(1, 0),
                 mock(ReplicaListener.class),
                 storageIndexTracker,

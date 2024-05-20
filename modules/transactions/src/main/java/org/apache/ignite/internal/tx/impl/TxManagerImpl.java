@@ -81,7 +81,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -350,7 +349,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private CompletableFuture<Boolean> primaryReplicaEventListener(
             PrimaryReplicaEventParameters eventParameters,
-            Consumer<TablePartitionId> action
+            Consumer<ZonePartitionId> action
     ) {
         return inBusyLock(busyLock, () -> {
             if (!(eventParameters.groupId() instanceof ZonePartitionId)) {
@@ -359,9 +358,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             ZonePartitionId zonePartitionId = (ZonePartitionId) eventParameters.groupId();
 
-            TablePartitionId groupId = new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId());
-
-            action.accept(groupId);
+            action.accept(zonePartitionId);
 
             return falseCompletedFuture();
         });

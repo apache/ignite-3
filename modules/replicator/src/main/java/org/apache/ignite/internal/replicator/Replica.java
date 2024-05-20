@@ -68,7 +68,7 @@ public class Replica {
     public static final ReplicaResult EMPTY_REPLICA_RESULT = new ReplicaResult(null, null);
 
     /** Replica group identity, this id is the same as the considered partition's id. */
-    private final ReplicationGroupId replicaGrpId;
+    private final ZonePartitionId replicaGrpId;
 
     /** Zone partition id. */
     private final ZonePartitionId zonePartitionId;
@@ -120,7 +120,7 @@ public class Replica {
      * @param clockService Clock service.
      */
     public Replica(
-            ReplicationGroupId replicaGrpId,
+            ZonePartitionId replicaGrpId,
             ZonePartitionId zonePartitionId,
             ReplicaListener listener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
@@ -181,7 +181,7 @@ public class Replica {
                     return placementDriver.addSubgroups(
                                     zonePartitionId,
                                     targetPrimaryReq.enlistmentConsistencyToken(),
-                                    Set.of(replicaGrpId)
+                                    Set.of(new TablePartitionId(replicaGrpId.tableId(), replicaGrpId.partitionId()))
                             )
                             // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
                             .thenComposeAsync(unused -> waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + 10_000), executor)
@@ -333,7 +333,7 @@ public class Replica {
         this.leaseExpirationTime = leaseExpirationTime;
 
         LeaseGrantedMessageResponse resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                .appliedGroups(Set.of(replicaGrpId))
+                .appliedGroups(Set.of(new TablePartitionId(replicaGrpId.tableId(), replicaGrpId.partitionId())))
                 .accepted(true)
                 .build();
 

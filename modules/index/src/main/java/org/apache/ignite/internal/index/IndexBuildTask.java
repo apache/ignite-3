@@ -33,7 +33,7 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -219,7 +219,7 @@ class IndexBuildTask {
         boolean finish = rowIds.size() < batchSize;
 
         return TABLE_MESSAGES_FACTORY.buildIndexReplicaRequest()
-                .groupId(new TablePartitionId(taskId.getTableId(), taskId.getPartitionId()))
+                .groupId(new ZonePartitionId(taskId.getZoneId(), taskId.getTableId(), taskId.getPartitionId()))
                 .indexId(taskId.getIndexId())
                 .rowIds(rowIds.stream().map(RowId::uuid).collect(toList()))
                 .finish(finish)

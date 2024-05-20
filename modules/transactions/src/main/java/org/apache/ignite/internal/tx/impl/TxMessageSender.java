@@ -29,7 +29,6 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.tx.TransactionMeta;
@@ -223,14 +222,14 @@ public class TxMessageSender {
      * Send TxCleanupRecoveryRequest.
      *
      * @param primaryConsistentId Node id to send the request to.
-     * @param tablePartitionId Table partition id.
+     * @param zonePartitionId Table partition id.
      * @return Completable future of ReplicaResponse.
      */
-    public CompletableFuture<ReplicaResponse> sendRecoveryCleanup(String primaryConsistentId, TablePartitionId tablePartitionId) {
+    public CompletableFuture<ReplicaResponse> sendRecoveryCleanup(String primaryConsistentId, ZonePartitionId zonePartitionId) {
         return replicaService.invoke(
                 primaryConsistentId,
                 FACTORY.txCleanupRecoveryRequest()
-                        .groupId(tablePartitionId)
+                        .groupId(zonePartitionId)
                         .build()
         );
     }

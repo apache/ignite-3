@@ -37,7 +37,6 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -135,7 +134,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         int batchNum = 0;
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
+            ZonePartitionId partGroupId = new ZonePartitionId(table.zoneId(), tableId, partToRows.getIntKey());
 
             NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partToRows.getIntKey());
 
@@ -240,7 +239,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             int partitionId = partitionRowBatch.getIntKey();
             RowBatch rowBatch = partitionRowBatch.getValue();
 
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
+            ZonePartitionId partGroupId = new ZonePartitionId(table.zoneId(), tableId, partitionId);
 
             NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partitionId);
 
@@ -309,7 +308,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         int batchNum = 0;
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
+            ZonePartitionId partGroupId = new ZonePartitionId(table.zoneId(), tableId, partToRows.getIntKey());
 
             NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partToRows.getIntKey());
 

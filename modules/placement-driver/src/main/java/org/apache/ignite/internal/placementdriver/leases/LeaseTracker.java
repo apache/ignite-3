@@ -280,6 +280,8 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     public Lease getLease(ReplicationGroupId grpId) {
         assert grpId instanceof ZonePartitionId : "Unexpected replication group type [grp=" + grpId + "].";
 
+        assert ((ZonePartitionId) grpId).tableId() == 0;
+
         Leases leases = this.leases;
 
         assert leases != null : "Leases not initialized, probably the local placement driver actor hasn't started lease tracking.";

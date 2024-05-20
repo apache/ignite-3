@@ -37,7 +37,6 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TransactionResult;
@@ -122,7 +121,7 @@ public class TransactionInflights {
         txCtxMap.keySet().removeAll(txIds);
     }
 
-    void cancelWaitingInflights(TablePartitionId groupId) {
+    void cancelWaitingInflights(ZonePartitionId groupId) {
         for (Map.Entry<UUID, TxContext> ctxEntry : txCtxMap.entrySet()) {
             if (ctxEntry.getValue() instanceof ReadWriteTxContext) {
                 ReadWriteTxContext txContext = (ReadWriteTxContext) ctxEntry.getValue();
@@ -307,7 +306,7 @@ public class TransactionInflights {
             return waitRepFut;
         }
 
-        void cancelWaitingInflights(TablePartitionId groupId, Long enlistmentConsistencyToken) {
+        void cancelWaitingInflights(ZonePartitionId groupId, Long enlistmentConsistencyToken) {
             waitRepFut.completeExceptionally(new PrimaryReplicaExpiredException(groupId, enlistmentConsistencyToken, null, null));
         }
 

@@ -905,10 +905,10 @@ public class InternalTableImpl implements InternalTable {
             ClusterNode recipientNode
     ) {
         int partId = partitionId(keyRow);
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, partId);
 
         return replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlySingleRowPkReplicaRequest()
-                .groupId(tablePartitionId)
+                .groupId(zonePartitionId)
                 .schemaVersion(keyRow.schemaVersion())
                 .primaryKey(keyRow.tupleSlice())
                 .requestType(RequestType.RO_GET)
@@ -986,10 +986,10 @@ public class InternalTableImpl implements InternalTable {
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
         for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
-            TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionRowBatch.getIntKey());
+            ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, partitionRowBatch.getIntKey());
 
             ReadOnlyMultiRowPkReplicaRequest request = tableMessagesFactory.readOnlyMultiRowPkReplicaRequest()
-                    .groupId(tablePartitionId)
+                    .groupId(zonePartitionId)
                     .schemaVersion(partitionRowBatch.getValue().requestedRows.get(0).schemaVersion())
                     .primaryKeys(serializeBinaryTuples(partitionRowBatch.getValue().requestedRows))
                     .requestType(RequestType.RO_GET_ALL)
@@ -1577,12 +1577,12 @@ public class InternalTableImpl implements InternalTable {
     ) {
         validatePartitionIndex(partId);
 
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, partId);
 
         return new PartitionScanPublisher(
                 (scanId, batchSize) -> {
                     ReadOnlyScanRetrieveBatchReplicaRequest request = tableMessagesFactory.readOnlyScanRetrieveBatchReplicaRequest()
-                            .groupId(tablePartitionId)
+                            .groupId(zonePartitionId)
                             .readTimestampLong(readTimestamp.longValue())
                             .transactionId(txId)
                             .scanId(scanId)
@@ -1600,7 +1600,7 @@ public class InternalTableImpl implements InternalTable {
                 },
                 (intentionallyClose, scanId, th) -> completeScan(
                         txId,
-                        tablePartitionId,
+                        zonePartitionId,
                         scanId,
                         th,
                         recipientNode,

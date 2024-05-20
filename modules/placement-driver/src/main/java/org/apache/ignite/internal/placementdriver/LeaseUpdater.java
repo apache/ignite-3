@@ -637,11 +637,11 @@ public class LeaseUpdater {
         private void processMessageInternal(String sender, PlacementDriverActorMessage msg) {
             ReplicationGroupId grpId = msg.groupId();
 
-            assert grpId instanceof TablePartitionId : "Unexpected replication group type [grp=" + grpId + "].";
+            assert grpId instanceof ZonePartitionId : "Unexpected replication group type [grp=" + grpId + "].";
 
-            var tblPartId = (TablePartitionId) grpId;
+            var zonePartId = (ZonePartitionId) grpId;
 
-            ReplicationGroupId grpId0 = groupIdProvider.apply(tblPartId);
+            ReplicationGroupId grpId0 = ZonePartitionId.resetTableId(zonePartId);
 
             Lease lease = leaseTracker.getLease(grpId0);
 

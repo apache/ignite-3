@@ -139,6 +139,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         createIndex(INDEX_NAME);
 
         verify(indexBuilder, never()).scheduleBuildIndex(
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -150,6 +151,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -172,6 +174,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         startBuildingIndex(indexId(INDEX_NAME));
 
         verify(indexBuilder).scheduleBuildIndex(
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -183,6 +186,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -217,6 +221,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
         verify(indexBuilder).scheduleBuildIndex(
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -228,6 +233,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder).scheduleBuildIndexAfterDisasterRecovery(
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(PK_INDEX_NAME)),
@@ -260,6 +266,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         createTable(catalogManager, tableName, COLUMN_NAME);
 
         verify(indexBuilder, never()).scheduleBuildIndex(
+                eq(zoneId()),
                 eq(tableId(tableName)),
                 eq(PARTITION_ID),
                 eq(indexId(pkIndexName(tableName))),
@@ -271,6 +278,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
+                eq(zoneId()),
                 eq(tableId(tableName)),
                 eq(PARTITION_ID),
                 eq(indexId(pkIndexName(tableName))),
@@ -314,6 +322,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
         verify(indexBuilder, never()).scheduleBuildIndex(
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 anyInt(),
@@ -325,6 +334,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder).scheduleBuildIndexAfterDisasterRecovery(
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId0),

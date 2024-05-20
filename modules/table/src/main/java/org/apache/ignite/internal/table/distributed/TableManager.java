@@ -1012,7 +1012,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             .updateInternalTableRaftGroupService(partId, updatedRaftGroupService);
 
                     boolean startedRaftNode = startGroupFut.join();
-                    if (localMemberAssignment == null || !startedRaftNode || replicaMgr.isReplicaStarted(replicaGrpId)) {
+                    ZonePartitionId zoneTablePartId = new ZonePartitionId(zoneId, tableId, partId);
+                    if (localMemberAssignment == null || !startedRaftNode || replicaMgr.isReplicaStarted(zoneTablePartId)) {
                         return;
                     }
 
