@@ -56,7 +56,6 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -992,9 +991,9 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         if (checkCpPrimaryOnly) {
             IgniteImpl node = anyNode();
 
-            TablePartitionId tablePartitionId = new TablePartitionId(tableId(node, tableName), partId);
+            ZonePartitionId zoneTablePartId = new ZonePartitionId(zoneIdForTable(node, tableName), tableId(node, tableName), partId);
 
-            CompletableFuture<ReplicaMeta> replicaFut = node.placementDriver().getPrimaryReplica(tablePartitionId, node.clock().now());
+            CompletableFuture<ReplicaMeta> replicaFut = node.placementDriver().getPrimaryReplicaForTable(zoneTablePartId, node.clock().now());
             assertThat(replicaFut, willCompleteSuccessfully());
 
             ReplicaMeta replicaMeta = replicaFut.join();

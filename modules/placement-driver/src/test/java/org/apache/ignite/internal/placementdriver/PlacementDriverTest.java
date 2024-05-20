@@ -84,11 +84,11 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private static final ByteArray FAKE_KEY = new ByteArray("foobar");
 
-    private static final TablePartitionId GROUP_1 = new TablePartitionId(1000, 0);
+    private static final ZonePartitionId GROUP_1 = new ZonePartitionId(2000,1000, 0);
 
     private static final ZonePartitionId ZONE_GROUP_1 = new ZonePartitionId(2000, 0);
 
-    private static final Map<TablePartitionId, ZonePartitionId> tableIdToZoneIdMapper = Map.of(GROUP_1, ZONE_GROUP_1);
+    private static final Map<ZonePartitionId, ZonePartitionId> tableIdToZoneIdMapper = Map.of(GROUP_1, ZONE_GROUP_1);
 
     private static final String LEASEHOLDER_1 = "leaseholder1";
 
@@ -196,7 +196,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testAwaitPrimaryReplicaInInterval() throws Exception {
         // Await primary replica for time 10.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
         assertFalse(primaryReplicaFuture.isDone());
 
@@ -237,7 +237,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testAwaitPrimaryReplicaBeforeInterval() throws Exception {
         // Await primary replica for time 10.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
         assertFalse(primaryReplicaFuture.isDone());
 
@@ -284,7 +284,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         ));
 
         // Await primary replica for time 10.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
 
         // Assert that primary waiter is completed.
@@ -339,7 +339,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         leaseholder = null;
 
         CompletableFuture<ReplicaMeta> primaryReplicaFuture =
-                placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_1_000, awaitPrimaryReplicaTimeoutMilliseconds, MILLISECONDS);
+                placementDriver.awaitPrimaryReplicaForTable(GROUP_1, AWAIT_TIME_1_000, awaitPrimaryReplicaTimeoutMilliseconds, MILLISECONDS);
 
         assertFalse(primaryReplicaFuture.isDone());
 
@@ -439,9 +439,9 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testTwoWaitersSameTime() throws Exception {
         // Await primary replica for time 10 twice.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture1 = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture1 = placementDriver.awaitPrimaryReplicaForTable(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture2 = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture2 = placementDriver.awaitPrimaryReplicaForTable(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
 
         assertFalse(primaryReplicaFuture1.isDone());
@@ -475,9 +475,9 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testTwoWaitersSameTimeFirstTimedOutSecondSucceed() throws Exception {
         // Await primary replica for time 10 twice.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture1 = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture1 = placementDriver.awaitPrimaryReplicaForTable(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture2 = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture2 = placementDriver.awaitPrimaryReplicaForTable(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
 
         assertFalse(primaryReplicaFuture1.isDone());
@@ -515,7 +515,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testGetPrimaryReplica() throws Exception {
         // Await primary replica for time 10.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
         assertFalse(primaryReplicaFuture.isDone());
 
@@ -526,17 +526,18 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         assertThat(primaryReplicaFuture, willSucceedFast());
 
         // Assert that retrieved primary replica for same awaiting timestamp as within await ones will be completed immediately.
-        CompletableFuture<ReplicaMeta> retrievedPrimaryReplicaSameTime = placementDriver.getPrimaryReplica(GROUP_1, AWAIT_TIME_10_000);
+        CompletableFuture<ReplicaMeta> retrievedPrimaryReplicaSameTime =
+                placementDriver.getPrimaryReplicaForTable(GROUP_1, AWAIT_TIME_10_000);
         assertTrue(retrievedPrimaryReplicaSameTime.isDone());
 
         // Assert that retrieved primary replica for awaiting timestamp lt lease expiration time will be completed immediately.
         CompletableFuture<ReplicaMeta> retrievedPrimaryReplicaTimeLtLeaseExpiration =
-                placementDriver.getPrimaryReplica(GROUP_1, new HybridTimestamp(14_000, 0));
+                placementDriver.getPrimaryReplicaForTable(GROUP_1, new HybridTimestamp(14_000, 0));
         assertTrue(retrievedPrimaryReplicaTimeLtLeaseExpiration.isDone());
 
         // Assert that retrieved primary replica for awaiting timestamp gt lease expiration time will be completed soon with null.
         CompletableFuture<ReplicaMeta> retrievedPrimaryReplicaTimeGtLeaseExpiration =
-                placementDriver.getPrimaryReplica(GROUP_1, new HybridTimestamp(16_000, 0));
+                placementDriver.getPrimaryReplicaForTable(GROUP_1, new HybridTimestamp(16_000, 0));
 
         assertThat(retrievedPrimaryReplicaTimeGtLeaseExpiration, willSucceedFast());
         assertNull(retrievedPrimaryReplicaTimeGtLeaseExpiration.get());
@@ -563,7 +564,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     @Test
     public void testGetPrimaryReplicaWithLessThanClockSkewDiff() {
         // Await primary replica for time 10.
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(GROUP_1, AWAIT_TIME_10_000,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(GROUP_1, AWAIT_TIME_10_000,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS);
         assertFalse(primaryReplicaFuture.isDone());
 
@@ -575,7 +576,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         // Assert that retrieved primary replica for timestamp less than primaryReplica.expirationTimestamp - CLOCK_SKEW will return null.
         assertThat(
-                placementDriver.getPrimaryReplica(
+                placementDriver.getPrimaryReplicaForTable(
                         GROUP_1,
                         LEASE_FROM_1_TO_15_000.getExpirationTime()
                                 .subtractPhysicalTime(clockService.maxClockSkewMillis())
@@ -650,7 +651,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 true,
                 null,
                 new ZonePartitionId(groupId.zoneId() + 1, groupId.partitionId() + 1),
-                Set.of(new TablePartitionId(groupId.zoneId() + 1, groupId.partitionId() + 1))
+                Set.of(new ZonePartitionId(groupId.zoneId() + 1, 1000, groupId.partitionId() + 1))
         );
 
         publishLeases(lease, neighborGroupLease);

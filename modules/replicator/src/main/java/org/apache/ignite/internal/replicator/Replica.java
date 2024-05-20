@@ -181,7 +181,7 @@ public class Replica {
                     return placementDriver.addSubgroups(
                                     zonePartitionId,
                                     targetPrimaryReq.enlistmentConsistencyToken(),
-                                    Set.of(new TablePartitionId(replicaGrpId.tableId(), replicaGrpId.partitionId()))
+                                    Set.of(new ZonePartitionId(replicaGrpId.zoneId(), replicaGrpId.tableId(), replicaGrpId.partitionId()))
                             )
                             // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
                             .thenComposeAsync(unused -> waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + 10_000), executor)

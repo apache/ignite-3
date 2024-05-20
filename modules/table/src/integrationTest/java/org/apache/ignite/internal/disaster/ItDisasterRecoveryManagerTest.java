@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_N
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
+import static org.apache.ignite.internal.table.TableTestUtils.getTableStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -77,7 +79,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         );
 
         assertThat(restartPartitionsFuture, willCompleteSuccessfully());
-        assertThat(awaitPrimaryReplicaForNow(node, new TablePartitionId(tableId(node), partitionId)), willCompleteSuccessfully());
+        assertThat(awaitPrimaryReplicaForNow(node, new ZonePartitionId(zoneId(node), tableId(node), partitionId)), willCompleteSuccessfully());
 
         insert(2, 2);
         insert(3, 3);
@@ -103,7 +105,11 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         return getTableIdStrict(node.catalogManager(), TABLE_NAME, node.clock().nowLong());
     }
 
-    private static CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForNow(IgniteImpl node, TablePartitionId tablePartitionId) {
-        return node.placementDriver().awaitPrimaryReplica(tablePartitionId, node.clock().now(), 60, SECONDS);
+    private static int zoneId(IgniteImpl node) {
+        return getTableStrict(node.catalogManager(), TABLE_NAME, node.clock().nowLong()).zoneId();
+    }
+
+    private static CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForNow(IgniteImpl node, ZonePartitionId zonePartitionId) {
+        return node.placementDriver().awaitPrimaryReplicaForTable(zonePartitionId, node.clock().now(), 60, SECONDS);
     }
 }

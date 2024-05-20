@@ -35,6 +35,7 @@ import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -70,9 +71,9 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
     public void testLockExceptionRetry() {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetPrimaryReplica(node(0), tblReplicationGrp).getLeaseholder();
+        String leaseholder = waitAndGetPrimaryReplica(node(0), zoneReplicationGrp).getLeaseholder();
 
         IgniteImpl leaseholderNode = findNodeByName(leaseholder);
         IgniteImpl otherNode = findNode(0, initialNodes(), ignite -> !leaseholderNode.equals(ignite.name()));
@@ -120,7 +121,7 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
     }
 
     private ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplicaForTable(
                 tblReplicationGrp,
                 node.clock().now(),
                 10,

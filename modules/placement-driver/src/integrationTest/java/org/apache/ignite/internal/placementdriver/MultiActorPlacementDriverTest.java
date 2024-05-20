@@ -89,7 +89,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
     private static final int BASE_PORT = 1234;
 
-    private static final TablePartitionId GROUP_ID = new TablePartitionId(1, 0);
+    private static final ZonePartitionId GROUP_ID = new ZonePartitionId(11, 1, 0);
 
     private static final ZonePartitionId ZONE_GROUP_ID = new ZonePartitionId(1, 0);
 
