@@ -40,13 +40,15 @@ class ClientDataStreamer {
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
             DataStreamerOptions options,
-            StreamerBatchSender<T, Integer> batchSender,
+            StreamerBatchSender<V, Integer> batchSender,
             StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
             ClientTable tbl) {
         IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
         StreamerOptions streamerOpts = streamerOptions(options);
-        StreamerSubscriber<T, Integer> subscriber = new StreamerSubscriber<>(
+        StreamerSubscriber<T, E, V, R, Integer> subscriber = new StreamerSubscriber<>(
                 batchSender,
+                keyFunc,
+                payloadFunc,
                 partitionAwarenessProvider,
                 streamerOpts,
                 tbl.channel().streamerFlushExecutor(),
