@@ -51,8 +51,9 @@ class ClientDataStreamer {
                 tbl);
     }
 
+    // T = key, E = element, V = payload, R = result.
     @SuppressWarnings("resource")
-    static <T, E, V, R> CompletableFuture<Void> streamData( // T = key, E = element, V = payload, R = result
+    static <T, E, V, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
