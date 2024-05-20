@@ -73,7 +73,7 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
                 RECOVERY_ZONE_NAME_OPTION, unknownZone,
                 RECOVERY_PARTITION_IDS_OPTION, "1,2");
 
-        assertErrOutputContains("Distribution zone is not found [zoneName=" + unknownZone + "]");
+        assertErrOutputContains("Distribution zone was not found [zoneName=" + unknownZone + "]");
         assertOutputIsEmpty();
     }
 
