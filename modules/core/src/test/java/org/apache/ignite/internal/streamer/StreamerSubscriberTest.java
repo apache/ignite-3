@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.streamer;
 
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.table.DataStreamerItem;
+import org.apache.ignite.table.DataStreamerOperationType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -174,8 +176,11 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
 
         var sendFuture = new CompletableFuture<Void>();
 
-        var subscriber = new StreamerSubscriber<>(
+        StreamerSubscriber<Long, DataStreamerItem<Long>, Long, Object, String> subscriber = new StreamerSubscriber<>(
                 (part, batch, deleted) -> sendFuture,
+                DataStreamerItem::get,
+                DataStreamerItem::get,
+                x -> x.operationType() == DataStreamerOperationType.REMOVE,
                 partitionProvider,
                 options,
                 flushExecutor,
@@ -183,7 +188,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
                 metrics
         );
 
-        var publisher = new LimitedPublisher<>(itemsCount, i -> i);
+        LimitedPublisher<Long> publisher = new LimitedPublisher<>(itemsCount, i -> i);
 
         publisher.subscribe(subscriber);
 
