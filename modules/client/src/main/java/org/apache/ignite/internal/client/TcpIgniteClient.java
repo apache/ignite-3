@@ -270,11 +270,8 @@ public class TcpIgniteClient implements IgniteClient {
      * @param r Payload input channel.
      * @return Cluster node or {@code null} if message doesn't contain cluster node.
      */
-    public static @Nullable ClusterNode unpackClusterNode(PayloadInputChannel r) {
+    public static ClusterNode unpackClusterNode(PayloadInputChannel r) {
         ClientMessageUnpacker in = r.in();
-        if (in.tryUnpackNil()) {
-            return null;
-        }
 
         int fieldCnt = r.in().unpackInt();
         assert fieldCnt == 4;

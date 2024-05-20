@@ -57,18 +57,14 @@ public class ClientClusterGetNodesRequest {
      * @param clusterNode Cluster node.
      * @param out Client message packer.
      */
-    public static void packClusterNode(@Nullable ClusterNode clusterNode, ClientMessagePacker out) {
-        if (clusterNode == null) {
-            out.packNil();
-        } else {
-            out.packInt(4);
+    public static void packClusterNode(ClusterNode clusterNode, ClientMessagePacker out) {
+        out.packInt(4);
 
-            out.packString(clusterNode.id());
-            out.packString(clusterNode.name());
+        out.packString(clusterNode.id());
+        out.packString(clusterNode.name());
 
-            NetworkAddress address = clusterNode.address();
-            out.packString(address.host());
-            out.packInt(address.port());
-        }
+        NetworkAddress address = clusterNode.address();
+        out.packString(address.host());
+        out.packInt(address.port());
     }
 }
