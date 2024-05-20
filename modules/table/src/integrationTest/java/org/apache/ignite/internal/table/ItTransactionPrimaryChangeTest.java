@@ -115,6 +115,8 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
 
         var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), partId);
 
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), partId);
+
         String leaseholder = waitAndGetPrimaryReplica(node(0), zoneReplicationGrp).getLeaseholder();
 
         IgniteImpl firstLeaseholderNode = findNodeByName(leaseholder);
@@ -140,7 +142,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             if (msg instanceof WriteActionRequest) {
                 WriteActionRequest writeActionRequest = (WriteActionRequest) msg;
 
-                if (zoneReplicationGrp.toString().equals(writeActionRequest.groupId())
+                if (tblReplicationGrp.toString().equals(writeActionRequest.groupId())
                         && writeActionRequest.deserializedCommand() instanceof UpdateCommand
                         && !fullTxReplicationAttemptFuture.isDone()) {
                     UpdateCommand updateCommand = (UpdateCommand) writeActionRequest.deserializedCommand();

@@ -91,7 +91,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
     private static final ZonePartitionId GROUP_ID = new ZonePartitionId(11, 1, 0);
 
-    private static final ZonePartitionId ZONE_GROUP_ID = new ZonePartitionId(1, 0);
+    private static final ZonePartitionId ZONE_GROUP_ID = new ZonePartitionId(11, 0);
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
