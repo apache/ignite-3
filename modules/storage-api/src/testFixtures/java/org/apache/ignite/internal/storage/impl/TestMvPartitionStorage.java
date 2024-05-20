@@ -382,7 +382,14 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 // We *only* have a write-intent, return it.
                 BinaryRow binaryRow = cur.row;
 
-                return ReadResult.createFromWriteIntent(cur.rowId, binaryRow, cur.txId, cur.commitZoneId, cur.commitTableId, cur.commitPartitionId, null);
+                return ReadResult.createFromWriteIntent(
+                        cur.rowId, binaryRow,
+                        cur.txId,
+                        cur.commitZoneId,
+                        cur.commitTableId,
+                        cur.commitPartitionId,
+                        null
+                );
             }
 
             // Move to first commit.

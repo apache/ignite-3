@@ -114,18 +114,21 @@ public interface VersionChainIo {
         int commitPartitionId = row.commitPartitionId();
 
         if (txId == null) {
+            assert commitZoneId == null;
             assert commitTableId == null;
             assert commitPartitionId == -1;
 
             putLong(pageAddr, off + TX_ID_MSB_OFFSET, NULL_UUID_COMPONENT);
             putLong(pageAddr, off + TX_ID_LSB_OFFSET, NULL_UUID_COMPONENT);
         } else {
+            assert commitZoneId != null;
             assert commitTableId != null;
             assert commitPartitionId >= 0;
 
             putLong(pageAddr, off + TX_ID_MSB_OFFSET, txId.getMostSignificantBits());
             putLong(pageAddr, off + TX_ID_LSB_OFFSET, txId.getLeastSignificantBits());
 
+            putInt(pageAddr, off + COMMIT_ZONE_ID, commitZoneId);
             putInt(pageAddr, off + COMMIT_TABLE_ID, commitTableId);
             putShort(pageAddr, off + COMMIT_PARTITION_ID_OFFSET, (short) commitPartitionId);
         }

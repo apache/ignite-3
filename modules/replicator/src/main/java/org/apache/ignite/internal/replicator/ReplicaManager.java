@@ -925,7 +925,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
             assert replica.groupId() instanceof ZonePartitionId;
 
-            ZonePartitionId groupId = (ZonePartitionId) replica.groupId();
             ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
                     .groupId(replica.groupId())
                     .build();

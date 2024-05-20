@@ -160,8 +160,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 pdLogicalTopologyService,
                 leaseTracker,
-                new TestClockService(new HybridClockImpl()),
-                grpId -> ZONE_PARTITION_ID
+                new TestClockService(new HybridClockImpl())
         );
     }
 

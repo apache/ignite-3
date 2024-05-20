@@ -610,7 +610,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
 
-        assertThrows(StorageDestroyedException.class, () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_ZONE_ID, COMMIT_TABLE_ID, partId));
+        assertThrows(StorageDestroyedException.class,
+                () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_ZONE_ID, COMMIT_TABLE_ID, partId)
+        );
         assertThrows(StorageDestroyedException.class, () -> storage.commitWrite(rowId, timestamp));
         assertThrows(StorageDestroyedException.class, () -> storage.abortWrite(rowId));
         assertThrows(StorageDestroyedException.class, () -> storage.addWriteCommitted(rowId, binaryRow, timestamp));

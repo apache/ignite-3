@@ -34,7 +34,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.table.RecordView;

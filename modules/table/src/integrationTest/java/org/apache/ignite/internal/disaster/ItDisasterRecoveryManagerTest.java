@@ -33,7 +33,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,7 +78,9 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         );
 
         assertThat(restartPartitionsFuture, willCompleteSuccessfully());
-        assertThat(awaitPrimaryReplicaForNow(node, new ZonePartitionId(zoneId(node), tableId(node), partitionId)), willCompleteSuccessfully());
+        assertThat(
+                awaitPrimaryReplicaForNow(node, new ZonePartitionId(zoneId(node), tableId(node), partitionId)), willCompleteSuccessfully()
+        );
 
         insert(2, 2);
         insert(3, 3);

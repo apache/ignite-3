@@ -993,7 +993,8 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
             ZonePartitionId zoneTablePartId = new ZonePartitionId(zoneIdForTable(node, tableName), tableId(node, tableName), partId);
 
-            CompletableFuture<ReplicaMeta> replicaFut = node.placementDriver().getPrimaryReplicaForTable(zoneTablePartId, node.clock().now());
+            CompletableFuture<ReplicaMeta> replicaFut =
+                    node.placementDriver().getPrimaryReplicaForTable(zoneTablePartId, node.clock().now());
             assertThat(replicaFut, willCompleteSuccessfully());
 
             ReplicaMeta replicaMeta = replicaFut.join();

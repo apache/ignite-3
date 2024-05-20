@@ -64,7 +64,6 @@ import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -84,7 +83,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private static final ByteArray FAKE_KEY = new ByteArray("foobar");
 
-    private static final ZonePartitionId GROUP_1 = new ZonePartitionId(2000,1000, 0);
+    private static final ZonePartitionId GROUP_1 = new ZonePartitionId(2000, 1000, 0);
 
     private static final ZonePartitionId ZONE_GROUP_1 = new ZonePartitionId(2000, 0);
 
@@ -338,8 +337,12 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         // Cluster node resolver will return null as if the current leaseholder would be offline.
         leaseholder = null;
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture =
-                placementDriver.awaitPrimaryReplicaForTable(GROUP_1, AWAIT_TIME_1_000, awaitPrimaryReplicaTimeoutMilliseconds, MILLISECONDS);
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(
+                GROUP_1,
+                AWAIT_TIME_1_000,
+                awaitPrimaryReplicaTimeoutMilliseconds,
+                MILLISECONDS
+        );
 
         assertFalse(primaryReplicaFuture.isDone());
 
