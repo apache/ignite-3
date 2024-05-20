@@ -79,7 +79,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
 
         assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
 
-        assertThat(e.getMessage(), containsString("Distribution zone is not found [zoneName=" + unknownZone + "]"));
+        assertThat(e.getMessage(), containsString("Distribution zone was not found [zoneName=" + unknownZone + "]"));
     }
 
     @Test
@@ -130,17 +130,19 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     }
 
     @Test
-    void testRestartPartitionsIsCaseSensitive() {
-        Set<String> nodeNames = nodeNames(initialNodes() - 1).stream().map(String::toUpperCase).collect(toSet());
+    void testRestartPartitionsNodesAreCaseSensitive() {
+        Set<String> uppercaseNodeNames = nodeNames(initialNodes() - 1).stream()
+                .map(String::toUpperCase)
+                .collect(toSet());
 
         MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST("/restart-partitions",
-                new RestartPartitionsRequest(nodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0)));
+                new RestartPartitionsRequest(uppercaseNodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
 
         assertThat(e.getStatus(), equalTo(HttpStatus.BAD_REQUEST));
-        nodeNames.forEach(nodeName -> assertThat(e.getMessage(), containsString(nodeName.toUpperCase())));
+        uppercaseNodeNames.forEach(nodeName -> assertThat(e.getMessage(), containsString(nodeName)));
     }
 
     @Test
@@ -156,7 +158,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     @Test
     public void testRestartSpecifiedPartitions() {
         MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST("/restart-partitions",
-                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0)));
+                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 1)));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 
@@ -164,11 +166,11 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     }
 
     @Test
-    public void testRestartSpecifiedNodesPartitions() {
+    public void testRestartPartitionsByNodes() {
         Set<String> nodeNames = nodeNames(initialNodes() - 1);
 
         MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST("/restart-partitions",
-                new RestartPartitionsRequest(nodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0)));
+                new RestartPartitionsRequest(nodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 
