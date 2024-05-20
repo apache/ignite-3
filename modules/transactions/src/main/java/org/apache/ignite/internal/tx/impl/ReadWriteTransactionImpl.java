@@ -44,10 +44,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, ZonePartitionId> ZONE_COMMIT_PART_UPDATER =
             AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, ZonePartitionId.class, "zoneCommitPart");
 
-    /** Commit partition updater. */
-    private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, TablePartitionId> COMMIT_PART_UPDATER =
-            AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, TablePartitionId.class, "commitPart");
-
     /** Enlisted partitions: partition id -> (primary replica node, enlistment consistency token). */
     private final Map<ZonePartitionId, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
 

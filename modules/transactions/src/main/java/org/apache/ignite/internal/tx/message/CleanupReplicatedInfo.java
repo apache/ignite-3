@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx.message;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.UUID;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**

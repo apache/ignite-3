@@ -73,7 +73,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -205,7 +204,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin(hybridTimestampTracker);
 
-        ZonePartitionId zonePartitionId = new ZonePartitionId(11,1, 0);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(11, 1, 0);
 
         ClusterNode node = mock(ClusterNode.class);
 
