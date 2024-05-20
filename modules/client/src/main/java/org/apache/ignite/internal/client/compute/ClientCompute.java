@@ -487,7 +487,7 @@ public class ClientCompute implements IgniteCompute {
         var size = ch.in().unpackInt();
         List<UUID> jobIds = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            jobIds.add(ch.in().unpackUuidNullable());
+            jobIds.add(ch.in().unpackUuid());
         }
 
         return new SubmitTaskResult(jobId, jobIds, ch.notificationFuture());

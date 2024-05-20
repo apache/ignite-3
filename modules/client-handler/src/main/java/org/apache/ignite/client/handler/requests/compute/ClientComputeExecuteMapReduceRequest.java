@@ -60,7 +60,7 @@ public class ClientComputeExecuteMapReduceRequest {
         sendTaskResult(execution, notificationSender);
 
         var idsAsync = execution.idsAsync()
-                .handleAsync((ids, ex) -> {
+                .handle((ids, ex) -> {
                     // empty ids in case of split exception to properly respond with task id and failed status
                     return ex == null ? ids : Collections.<UUID>emptyList();
                 });
