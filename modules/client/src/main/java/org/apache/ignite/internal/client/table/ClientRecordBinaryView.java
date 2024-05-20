@@ -35,7 +35,6 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.table.DataStreamerItem;
-import org.apache.ignite.table.DataStreamerOperationType;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -415,15 +414,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()),
                 null);
 
-        return ClientDataStreamer.streamData(
-                publisher,
-                DataStreamerItem::get,
-                DataStreamerItem::get,
-                x -> x.operationType() == DataStreamerOperationType.REMOVE,
-                opts,
-                batchSender,
-                provider,
-                tbl);
+        return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 
     /** {@inheritDoc} */

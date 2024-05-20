@@ -26,12 +26,31 @@ import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.streamer.StreamerOptions;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 import org.apache.ignite.internal.streamer.StreamerSubscriber;
+import org.apache.ignite.table.DataStreamerItem;
+import org.apache.ignite.table.DataStreamerOperationType;
 import org.apache.ignite.table.DataStreamerOptions;
 
 /**
  * Client data streamer.
  */
 class ClientDataStreamer {
+    static <R> CompletableFuture<Void> streamData(
+            Publisher<DataStreamerItem<R>> publisher,
+            DataStreamerOptions options,
+            StreamerBatchSender<R, Integer> batchSender,
+            StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider,
+            ClientTable tbl) {
+        return streamData(
+                publisher,
+                DataStreamerItem::get,
+                DataStreamerItem::get,
+                x -> x.operationType() == DataStreamerOperationType.REMOVE,
+                options,
+                batchSender,
+                partitionAwarenessProvider,
+                tbl);
+    }
+
     @SuppressWarnings("resource")
     static <T, E, V, R> CompletableFuture<Void> streamData( // T = key, E = element, V = payload, R = result
             Publisher<E> publisher,

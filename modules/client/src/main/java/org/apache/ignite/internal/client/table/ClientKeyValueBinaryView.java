@@ -481,6 +481,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()),
                 null);
 
+        // TODO: streamData overload with backwards compat.
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 
