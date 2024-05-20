@@ -245,6 +245,15 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         sql(sql);
 
+        // ---- all flds covered on NOT MATCHED but columns in different order
+        clearAndPopulateMergeTable2();
+
+        sql = "MERGE INTO test2 dst USING test1 src ON dst.a = src.a "
+                + "WHEN MATCHED THEN UPDATE SET b = src.b, a = src.a "
+                + "WHEN NOT MATCHED THEN INSERT (k1, k2, c, a, b) VALUES (src.k1, src.k2, src.c, src.a, src.b)";
+
+        sql(sql);
+
         assertQuery("SELECT * FROM test2 ORDER BY k1")
                 .returns(222, 222, 1, 300, "1")
                 .returns(333, 333, 0, 100, "")

@@ -265,14 +265,27 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
             // provided, in which case, the expression is the default value for
             // the column; or if the expressions directly map to the source
             // table
-            level1InsertExprs =
-                    ((LogicalProject) insertRel.getInput(0)).getProjects();
-            if (insertRel.getInput(0).getInput(0) instanceof LogicalProject) {
-                level2InsertExprs =
-                        ((LogicalProject) insertRel.getInput(0).getInput(0))
-                                .getProjects();
+            RelNode input = insertRel.getInput(0);
+
+            if (input instanceof LogicalProject) {
+                level1InsertExprs = ((LogicalProject) input).getProjects();
+            } else {
+                // TODO calcite issue
+                RelDataType rowType = input.getRowType();
+                RexNode sourceRef = rexBuilder.makeRangeReference(rowType, 0, false);
+                ArrayList<String> targetColumnNames = new ArrayList<>(rowType.getFieldCount());
+                ArrayList<RexNode> projects = new ArrayList<>(rowType.getFieldCount());
+
+                collectInsertTargets(insertCall, sourceRef, targetColumnNames, projects);
+
+                level1InsertExprs = projects;
             }
+
             numLevel1Exprs = level1InsertExprs.size();
+
+            if (!input.getInputs().isEmpty() && input.getInput(0) instanceof LogicalProject) {
+                level2InsertExprs = ((LogicalProject) input.getInput(0)).getProjects();
+            }
         }
 
         LogicalJoin join = (LogicalJoin) mergeSourceRel.getInput(0);
