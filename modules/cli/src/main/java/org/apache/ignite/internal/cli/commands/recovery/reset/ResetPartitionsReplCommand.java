@@ -44,6 +44,7 @@ public class ResetPartitionsReplCommand extends BaseCommand implements Runnable 
                 .map(url -> ResetPartitionsCallInput.of(options, url))
                 .then(Flows.fromCall(call))
                 .verbose(verbose)
+                .print()
                 .start();
     }
 }
