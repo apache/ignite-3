@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -36,6 +35,7 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.table.DataStreamerItem;
+import org.apache.ignite.table.DataStreamerOperationType;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -415,7 +415,15 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()),
                 null);
 
-        return ClientDataStreamer.streamData(publisher, DataStreamerItem::get, DataStreamerItem::get, opts, batchSender, provider, tbl);
+        return ClientDataStreamer.streamData(
+                publisher,
+                DataStreamerItem::get,
+                DataStreamerItem::get,
+                x -> x.operationType() == DataStreamerOperationType.REMOVE,
+                opts,
+                batchSender,
+                provider,
+                tbl);
     }
 
     /** {@inheritDoc} */
@@ -442,12 +450,23 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
         // The batch may go to a different node when a direct connection is not available.
         StreamerBatchSender<V, Integer> batchSender = (partitionId, items, deleted) -> tbl.doSchemaOutOpAsync(
                 ClientOp.STREAMER_BATCH_SEND,
-                (s, w) -> ser.writeStreamerTuples(partitionId, items, deleted, s, w),
+                (s, w) -> {
+                    // TODO: Serialize simple types.
+                    // Do we require all items to be of the same type?
+                },
                 r -> null,
                 PartitionAwarenessProvider.of(partitionId),
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()),
                 null);
 
-        return ClientDataStreamer.streamData(publisher, keyFunc, payloadFunc, opts, batchSender, provider, tbl);
+        return ClientDataStreamer.streamData(
+                publisher,
+                keyFunc,
+                payloadFunc,
+                x -> false,
+                opts,
+                batchSender,
+                provider,
+                tbl);
     }
 }
