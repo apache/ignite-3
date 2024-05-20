@@ -36,6 +36,7 @@ import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStatesRespons
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsRequest;
+import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
 import org.apache.ignite.internal.rest.exception.handler.IgniteInternalExceptionHandler;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
@@ -83,6 +84,16 @@ public class DisasterRecoveryController implements DisasterRecoveryApi {
     @Override
     public CompletableFuture<Void> resetPartitions(@Body ResetPartitionsRequest command) {
         return disasterRecoveryManager.resetPartitions(
+                command.zoneName(),
+                command.tableName(),
+                command.partitionIds()
+        );
+    }
+
+    @Override
+    public CompletableFuture<Void> restartPartitions(@Body RestartPartitionsRequest command) {
+        return disasterRecoveryManager.restartPartitions(
+                command.nodeNames(),
                 command.zoneName(),
                 command.tableName(),
                 command.partitionIds()
