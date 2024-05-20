@@ -1,0 +1,60 @@
+# name: test/sql/order/test_order_by_in_subquery.test
+# description: SQL F851(<order by clause> in subqueries)
+# feature: F851
+# group: [order]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE test (a BIGINT, b BIGINT);
+
+statement ok
+INSERT INTO test VALUES (11, 22), (12, 21), (13, 22);
+
+# ORDER BY in subquery
+query II
+SELECT t1.a, (SELECT b FROM test WHERE a > t1.a  ORDER BY b LIMIT 1) FROM test t1 ORDER BY t1.a
+----
+11	21
+12	22
+13	NULL
+
+# ORDER BY after union
+query I
+SELECT a-10 AS k FROM test UNION SELECT a-10 AS l FROM test ORDER BY k;
+----
+1
+2
+3
+
+# ORDER BY on alias in right-most query should fail due to SQL standard say that ORDER by will be apply to whole query in this case.
+statement error
+SELECT a-10 AS k FROM test UNION SELECT a-10 AS l FROM test ORDER BY l
+
+# ORDER BY on alias in right-most query but related just to the subquery.
+query I
+SELECT a-10 AS k FROM test UNION (SELECT a-10 AS l FROM test ORDER BY l)
+----
+1
+2
+3
+
+# computations with aliases are allowed
+query I
+SELECT a-10 AS k FROM test UNION SELECT a-10 AS l FROM test ORDER BY 1-k;
+----
+3
+2
+1
+
+# ORDER BY in left query should fail with parse error.
+statement error
+SELECT a-10 AS k FROM test ORDER by k UNION SELECT a-10 AS l FROM test;
+
+# ordering on computation elements with absent element in result query should fail
+statement error
+SELECT a-10 AS k FROM test UNION SELECT a-10 AS l FROM test ORDER BY a-10;
+
+statement error
+SELECT a-10 AS k FROM test UNION SELECT a-11 AS l FROM test ORDER BY a-11;

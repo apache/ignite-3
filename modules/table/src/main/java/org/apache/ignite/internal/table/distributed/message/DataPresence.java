@@ -17,24 +17,15 @@
 
 package org.apache.ignite.internal.table.distributed.message;
 
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-
 /**
- * A response to the {@link HasDataRequest}.
+ * Whether a node has data or not (or it's not known because it did not respond in time, or the corresopnding storage is
+ * already closed or still being rebalanced to).
  */
-@Transferable(TableMessageGroup.HAS_DATA_RESPONSE)
-public interface HasDataResponse extends NetworkMessage {
-    /**
-     * Data presence indicator.
-     */
-    default DataPresence presence() {
-        return DataPresence.valueOf(presenceString());
-    }
-
-    /**
-     * String representation of {@link #presence()}.
-     */
-    String presenceString();
+public enum DataPresence {
+    /** The storage is empty. */
+    EMPTY,
+    /** The storage has some data. */
+    HAS_DATA,
+    /** We don't know for some reason. */
+    UNKNOWN
 }
