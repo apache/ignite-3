@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -34,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.table.DataStreamerItem;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,12 +44,14 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Result type.
  * @param <P> Partition type.
  */
-public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<DataStreamerItem<E>> {
+public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
     private final StreamerBatchSender<V, P> batchSender;
 
     private final Function<E, T> keyFunc;
 
     private final Function<E, V> payloadFunc;
+
+    private final Function<E, Boolean> deleteFunc;
 
     private final StreamerPartitionAwarenessProvider<T, P> partitionAwarenessProvider;
 
@@ -91,6 +91,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<DataStreame
             StreamerBatchSender<V, P> batchSender,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
+            Function<E, Boolean> deleteFunc,
             StreamerPartitionAwarenessProvider<T, P> partitionAwarenessProvider,
             StreamerOptions options,
             ScheduledExecutorService flushExecutor,
@@ -107,6 +108,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<DataStreame
         this.batchSender = batchSender;
         this.keyFunc = keyFunc;
         this.payloadFunc = payloadFunc;
+        this.deleteFunc = deleteFunc;
         this.partitionAwarenessProvider = partitionAwarenessProvider;
         this.options = options;
         this.flushExecutor = flushExecutor;
@@ -139,22 +141,20 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<DataStreame
 
     /** {@inheritDoc} */
     @Override
-    public void onNext(DataStreamerItem<E> item) {
+    public void onNext(E item) {
         pendingItemCount.decrementAndGet();
 
-        T key = keyFunc.apply(item.get());
+        T key = keyFunc.apply(item);
         P partition = partitionAwarenessProvider.partition(key);
 
         StreamerBuffer<V> buf = buffers.computeIfAbsent(
                 partition,
                 p -> new StreamerBuffer<>(options.pageSize(), (items, deleted) -> enlistBatch(p, items, deleted)));
 
-        V payload = payloadFunc.apply(item.get());
-        DataStreamerItem<V> payloadItem = Objects.equals(payload, item.get())
-                ? (DataStreamerItem<V>) item
-                : DataStreamerItem.of(payload, item.operationType());
+        V payload = payloadFunc.apply(item);
+        boolean delete = deleteFunc.apply(item);
 
-        buf.add(payloadItem);
+        buf.add(payload, delete);
         this.metrics.streamerItemsQueuedAdd(1);
 
         requestMore();

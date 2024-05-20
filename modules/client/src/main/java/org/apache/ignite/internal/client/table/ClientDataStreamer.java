@@ -26,9 +26,7 @@ import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.streamer.StreamerOptions;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 import org.apache.ignite.internal.streamer.StreamerSubscriber;
-import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
-import org.apache.ignite.table.Tuple;
 
 /**
  * Client data streamer.
@@ -36,9 +34,10 @@ import org.apache.ignite.table.Tuple;
 class ClientDataStreamer {
     @SuppressWarnings("resource")
     static <T, E, V, R> CompletableFuture<Void> streamData( // T = key, E = element, V = payload, R = result
-            Publisher<DataStreamerItem<E>> publisher,
+            Publisher<E> publisher,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
+            Function<E, Boolean> deleteFunc,
             DataStreamerOptions options,
             StreamerBatchSender<V, Integer> batchSender,
             StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
@@ -49,6 +48,7 @@ class ClientDataStreamer {
                 batchSender,
                 keyFunc,
                 payloadFunc,
+                deleteFunc,
                 partitionAwarenessProvider,
                 streamerOpts,
                 tbl.channel().streamerFlushExecutor(),

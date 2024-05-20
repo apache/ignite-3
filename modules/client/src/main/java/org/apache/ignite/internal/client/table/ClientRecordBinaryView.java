@@ -415,7 +415,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()),
                 null);
 
-        return ClientDataStreamer.streamData(publisher, identity(), identity(), opts, batchSender, provider, tbl);
+        return ClientDataStreamer.streamData(publisher, DataStreamerItem::get, DataStreamerItem::get, opts, batchSender, provider, tbl);
     }
 
     /** {@inheritDoc} */
