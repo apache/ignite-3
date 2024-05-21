@@ -270,15 +270,17 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
             if (input instanceof LogicalProject) {
                 level1InsertExprs = ((LogicalProject) input).getProjects();
             } else {
-                // TODO calcite issue
+                // TODO https://issues.apache.org/jira/browse/IGNITE-22293
+                // convertInsert() may return LogicalTableModify without projection in the input.
+                // As a workaround for this case, we additionally build required column expressions.
                 RelDataType rowType = input.getRowType();
                 RexNode sourceRef = rexBuilder.makeRangeReference(rowType, 0, false);
                 ArrayList<String> targetColumnNames = new ArrayList<>(rowType.getFieldCount());
-                ArrayList<RexNode> projects = new ArrayList<>(rowType.getFieldCount());
+                ArrayList<RexNode> columnExprs = new ArrayList<>(rowType.getFieldCount());
 
-                collectInsertTargets(insertCall, sourceRef, targetColumnNames, projects);
+                collectInsertTargets(insertCall, sourceRef, targetColumnNames, columnExprs);
 
-                level1InsertExprs = projects;
+                level1InsertExprs = columnExprs;
             }
 
             numLevel1Exprs = level1InsertExprs.size();
