@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static java.util.Collections.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.TcpIgniteClient.unpackClusterNode;
 import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getPartitionAwarenessProvider;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -87,7 +90,7 @@ public class ClientPartitionManager implements PartitionManager {
                     ClientMessageUnpacker in = r.in();
 
                     if (in.tryUnpackNil()) {
-                        return null;
+                        return emptyMap();
                     }
 
                     int size = in.unpackInt();
@@ -105,11 +108,16 @@ public class ClientPartitionManager implements PartitionManager {
 
     @Override
     public <K> CompletableFuture<Partition> partitionAsync(K key, Mapper<K> mapper) {
+        Objects.requireNonNull(key, "Key is null.");
+        Objects.requireNonNull(mapper, "Mapper is null.");
+
         return getPartition(getPartitionAwarenessProvider(null, mapper, key));
     }
 
     @Override
     public CompletableFuture<Partition> partitionAsync(Tuple key) {
+        Objects.requireNonNull(key, "Key is null.");
+
         return getPartition(getPartitionAwarenessProvider(null, key));
     }
 
