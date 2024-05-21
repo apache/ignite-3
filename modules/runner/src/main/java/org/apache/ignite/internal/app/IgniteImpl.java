@@ -796,6 +796,8 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr
         );
 
+        systemViewManager.register(disasterRecoveryManager);
+
         indexManager = new IndexManager(
                 schemaManager,
                 distributedTblMgr,

@@ -33,4 +33,10 @@ public enum IgniteEventType {
         // and the EventTypeRegistry will not be able to validate the event types.
         Arrays.stream(values()).forEach(type -> EventTypeRegistry.register(type.name()));
     }
+
+    /**
+     * Registers all event types through the static initialization block once.
+     */
+    public static void initialize() {
+    }
 }

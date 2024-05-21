@@ -15,43 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.evict;
+package org.apache.ignite.internal.client.compute;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.PayloadInputChannel;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link PageEvictionTracker} implementation that does nothing.
+ * Result of the task submission.
+ * Contains unpacked job id, a collection of ids of the jobs which are executing under this task, and notification future.
  */
-public class PageEvictionTrackerNoOp implements PageEvictionTracker {
-    /** Instance. */
-    public static final PageEvictionTrackerNoOp INSTANCE = new PageEvictionTrackerNoOp();
+class SubmitTaskResult extends SubmitResult {
+    private final List<UUID> jobIds;
 
-    /**
-     * Private constructor.
-     */
-    private PageEvictionTrackerNoOp() {
-        // No-op.
+    SubmitTaskResult(UUID jobId, List<UUID> jobIds, CompletableFuture<PayloadInputChannel> notificationFuture) {
+        super(jobId, notificationFuture);
+        this.jobIds = jobIds;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void touchPage(long pageId) {
-        // No-op.
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void evictDataPage() {
-        // No-op.
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void forgetPage(long pageId) {
-        // No-op.
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean evictionRequired() {
-        return false;
+    List<@Nullable UUID> jobIds() {
+        return jobIds;
     }
 }
