@@ -93,7 +93,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -244,9 +243,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /** Zone replication group id. */
     private final ZonePartitionId zoneReplicationGroupId;
-
-    /** Replication group id. */
-    private final TablePartitionId replicationGroupId;
 
     /** Primary key index. */
     private final Lazy<TableSchemaAwareIndexStorage> pkIndexStorage;
@@ -400,7 +396,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.schemaRegistry = schemaRegistry;
 
         this.zoneReplicationGroupId = new ZonePartitionId(zoneId, tableId, partId);
-        this.replicationGroupId = new TablePartitionId(tableId, partId);
 
         schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
 
@@ -438,7 +433,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
             }
         } catch (IgniteInternalException e) {
-            LOG.warn("Failed to scan transaction state storage [commitPartition={}].", e, replicationGroupId);
+            LOG.warn("Failed to scan transaction state storage [commitPartition={}].", e, zoneReplicationGroupId);
         }
 
         LOG.debug("Persistent storage scan finished [committed={}, aborted={}].", committedCount, abortedCount);
@@ -1168,7 +1163,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private ReplicationException wrapCursorCloseException(IgniteException e) {
         return new ReplicationException(CURSOR_CLOSE_ERR,
-                format("Close cursor exception [replicaGrpId={}, msg={}]", replicationGroupId, e.getMessage()), e);
+                format("Close cursor exception [replicaGrpId={}, msg={}]", zoneReplicationGroupId, e.getMessage()), e);
     }
 
     /**
@@ -1826,7 +1821,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 });
                     } else {
                         return completedFuture(
-                                new ReplicaResult(new WriteIntentSwitchReplicatedInfo(request.txId(), replicationGroupId), null)
+                                new ReplicaResult(new WriteIntentSwitchReplicatedInfo(request.txId(), zoneReplicationGroupId), null)
                         );
                     }
                 });
@@ -1891,7 +1886,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return nullCompletedFuture();
                 })
-                .thenApply(res -> new WriteIntentSwitchReplicatedInfo(transactionId, replicationGroupId));
+                .thenApply(res -> new WriteIntentSwitchReplicatedInfo(transactionId, zoneReplicationGroupId));
     }
 
     /**
@@ -2620,11 +2615,11 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return resultFuture.exceptionally(throwable -> {
             if (throwable instanceof TimeoutException) {
-                throw new ReplicationTimeoutException(replicationGroupId);
+                throw new ReplicationTimeoutException(zoneReplicationGroupId);
             } else if (throwable instanceof RuntimeException) {
                 throw (RuntimeException) throwable;
             } else {
-                throw new ReplicationException(replicationGroupId, throwable);
+                throw new ReplicationException(zoneReplicationGroupId, throwable);
             }
         });
     }
@@ -2637,7 +2632,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         attemptsCounter++;
         if (attemptsCounter >= MAX_RETIES_ON_SAFE_TIME_REORDERING) {
             resultFuture.completeExceptionally(
-                    new ReplicationMaxRetriesExceededException(replicationGroupId, MAX_RETIES_ON_SAFE_TIME_REORDERING));
+                    new ReplicationMaxRetriesExceededException(zoneReplicationGroupId, MAX_RETIES_ON_SAFE_TIME_REORDERING));
         }
 
         raftClient.run(cmd).whenComplete((res, ex) -> {
@@ -2682,7 +2677,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Executes an Update command.
      *
-     * @param tablePartId {@link TablePartitionId} object.
+     * @param zonePartId {@link ZonePartitionId} object.
      * @param rowUuid Row UUID.
      * @param row Row.
      * @param lastCommitTimestamp The timestamp of the last committed entry for the row.
@@ -3904,11 +3899,11 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private int partId() {
-        return replicationGroupId.partitionId();
+        return zoneReplicationGroupId.partitionId();
     }
 
     private int tableId() {
-        return replicationGroupId.tableId();
+        return zoneReplicationGroupId.tableId();
     }
 
     private boolean isLocalPeer(String nodeId) {

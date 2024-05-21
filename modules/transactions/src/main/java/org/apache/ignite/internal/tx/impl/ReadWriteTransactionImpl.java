@@ -28,7 +28,6 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TransactionIds;
@@ -52,9 +51,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** A partition which stores the transaction state. */
     private volatile ZonePartitionId zoneCommitPart;
-
-    /** A partition which stores the transaction state. */
-    private volatile TablePartitionId commitPart;
 
     /** The lock protects the transaction topology from concurrent modification during finishing. */
     private final ReentrantReadWriteLock enlistPartitionLock = new ReentrantReadWriteLock();
@@ -91,12 +87,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public ZonePartitionId zoneCommitPartition() {
         return zoneCommitPart;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public TablePartitionId commitPartition() {
-        return commitPart;
     }
 
     /** {@inheritDoc} */

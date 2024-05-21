@@ -21,7 +21,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
@@ -67,13 +66,6 @@ public interface InternalTransaction extends Transaction {
      * @return Zone partition id.
      */
     ZonePartitionId zoneCommitPartition();
-
-    /**
-     * Gets a partition id that stores the transaction state.
-     *
-     * @return Partition id.
-     */
-    TablePartitionId commitPartition();
 
     /**
      * Enlists a partition group into a transaction.

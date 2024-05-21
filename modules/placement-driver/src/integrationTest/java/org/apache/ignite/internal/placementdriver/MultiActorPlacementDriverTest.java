@@ -448,7 +448,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
         service.messagingService().send(
                 clusterServices.get(activeActorRef.get()).topologyService().localMember(),
                 PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
-                        .groupId(GROUP_ID)
+                        .groupId(grpPart)
                         .redirectProposal(proposedLeaseholder)
                         .build()
         );

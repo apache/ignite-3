@@ -26,7 +26,6 @@ import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -104,11 +103,6 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     @Override
     public ZonePartitionId zoneCommitPartition() {
         return transaction.zoneCommitPartition();
-    }
-
-    @Override
-    public TablePartitionId commitPartition() {
-        return transaction.commitPartition();
     }
 
     @Override

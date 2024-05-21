@@ -23,7 +23,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
@@ -43,8 +42,6 @@ public final class NoOpTransaction implements InternalTransaction {
     private final IgniteBiTuple<ClusterNode, Long> tuple;
 
     private final ZonePartitionId zoneGroupId = new ZonePartitionId(11, 1, 0);
-
-    private final TablePartitionId groupId = new TablePartitionId(1, 0);
 
     private final boolean readOnly;
 
@@ -156,11 +153,6 @@ public final class NoOpTransaction implements InternalTransaction {
     @Override
     public ZonePartitionId zoneCommitPartition() {
         return zoneGroupId;
-    }
-
-    @Override
-    public TablePartitionId commitPartition() {
-        return groupId;
     }
 
     @Override
