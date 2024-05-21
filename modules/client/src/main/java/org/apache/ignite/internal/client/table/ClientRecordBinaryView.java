@@ -31,6 +31,8 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
@@ -454,9 +456,21 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                                     w.packInt(partitionId);
                                     w.packDeploymentUnits(deploymentUnits);
                                     w.packBoolean(resultSubscriber != null); // receiveResults
-                                    w.packString(receiverClassName);
-                                    w.packObjectArrayAsBinaryTuple(receiverArgs);
-                                    w.packCollectionAsBinaryTuple(items);
+
+                                    // className + args size + args + items size + item type + items.
+                                    int binaryTupleSize = 1 + 1 + receiverArgs.length * 3 + 1 + 1 + items.size();
+                                    var builder = new BinaryTupleBuilder(binaryTupleSize);
+                                    builder.appendString(receiverClassName);
+                                    builder.appendInt(receiverArgs.length);
+
+                                    for (var arg : receiverArgs) {
+                                        ClientBinaryTupleUtils.appendObject(builder, arg);
+                                    }
+
+                                    ClientBinaryTupleUtils.writeCollectionToBinaryTuple(builder, items);
+
+                                    w.packInt(binaryTupleSize);
+                                    w.packBinaryTuple(builder);
                                 },
                                 in -> {
                                     if (resultSubscriber != null) {

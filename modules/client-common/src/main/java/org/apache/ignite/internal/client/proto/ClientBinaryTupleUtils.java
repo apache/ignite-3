@@ -265,10 +265,10 @@ public class ClientBinaryTupleUtils {
     /**
      * Packs an array of objects in BinaryTuple format.
      *
-     * @param items Items.
      * @param builder Target builder.
+     * @param items Items.
      */
-    public static <T> void writeCollectionToBinaryTuple(Collection<T> items, BinaryTupleBuilder builder) {
+    public static <T> void writeCollectionToBinaryTuple(BinaryTupleBuilder builder, Collection<T> items) {
         assert items != null : "items can't be null";
         assert !items.isEmpty() : "items can't be empty";
         assert builder != null : "builder can't be null";
