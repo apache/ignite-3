@@ -403,6 +403,8 @@ public class IgniteImpl implements Ignite {
 
     private final Executor asyncContinuationExecutor = ForkJoinPool.commonPool();
 
+    private final ReplicaAwareLeaseTracker replicaAwarePlacementDriver;
+
     /**
      * The Constructor.
      *
@@ -730,7 +732,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.messagingService()
         );
 
-        ReplicaAwareLeaseTracker replicaAwarePlacementDriver = new ReplicaAwareLeaseTracker(placementDriverMgr.placementDriver(),
+        replicaAwarePlacementDriver = new ReplicaAwareLeaseTracker(placementDriverMgr.placementDriver(),
                 replicaSvc, clusterSvc.topologyService());
 
         var transactionInflights = new TransactionInflights(replicaAwarePlacementDriver, clockService);
@@ -1558,7 +1560,7 @@ public class IgniteImpl implements Ignite {
     /** Returns the node's placement driver service. */
     @TestOnly
     public PlacementDriver placementDriver() {
-        return placementDriverMgr.placementDriver();
+        return replicaAwarePlacementDriver;
     }
 
     /** Returns the node's catalog manager. */

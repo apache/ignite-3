@@ -58,7 +58,6 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
@@ -73,7 +72,7 @@ import org.junit.jupiter.api.Test;
 public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     private static final PlacementDriverMessagesFactory MSG_FACTORY = new PlacementDriverMessagesFactory();
 
-    private static final ZonePartitionId ZONE_PARTITION_ID = new ZonePartitionId(0, 0);
+    private static final ZonePartitionId ZONE_PARTITION_ID = new ZonePartitionId(11, 0);
 
     private static final String NODE_0_NAME = "node0";
     private static final LogicalNode CLUSTER_NODE_0 = new LogicalNode(randomUUID().toString(), NODE_0_NAME, mock(NetworkAddress.class));
@@ -166,7 +165,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
     private static LeaseGrantedMessageResponse createLeaseGrantedMessageResponse(boolean accept) {
         return MSG_FACTORY.leaseGrantedMessageResponse()
-                .appliedGroups(Set.of(new TablePartitionId(42, 0)))
+                .appliedGroups(Set.of(new ZonePartitionId(42, 1, 0)))
                 .accepted(accept)
                 .build();
     }
