@@ -13,7 +13,7 @@ SELECT * FROM (VALUES ('a', 1));
 a	1
 
 statement ok
-CREATE TABLE t(c char, i int);
+CREATE TABLE t(c varchar, i int);
 
 # table value constructor
 statement ok
