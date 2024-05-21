@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -43,6 +44,8 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiver;
+import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -325,8 +328,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
     @ValueSource(ints = {1, 2, 3})
     public void testWithReceiver(int batchSize) {
         RecordView<Tuple> view = defaultTable().recordView();
-
         CompletableFuture<Void> streamerFut;
+        int count = 3;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             var options = DataStreamerOptions.builder().pageSize(batchSize).build();
@@ -334,23 +337,22 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     publisher,
                     options,
                     t -> t,
-                    t -> t.stringValue("name"),
+                    t -> t.longValue("id"),
                     null,
                     new ArrayList<>(),
-                    "recv", "arg");
+                    TestReceiver.class.getName(),
+                    "arg");
 
-            publisher.submit(tuple(1L, "foo"));
-            publisher.submit(tuple(2L, "bar"));
+            for (long i = 0; i < count; i++) {
+                publisher.submit(tuple(i));
+            }
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
 
-        assertNotNull(view.get(null, tupleKey(1L)));
-        assertNotNull(view.get(null, tupleKey(2L)));
-        assertNull(view.get(null, tupleKey(3L)));
-
-        assertEquals("bar", view.get(null, tupleKey(2L)).stringValue("name"));
-
+        for (long i = 0; i < count; i++) {
+            assertEquals("recv_arg", view.get(null, tupleKey(i)).stringValue("name"));
+        }
     }
 
     private static RecordView<Tuple> defaultTableView(FakeIgnite server, IgniteClient client) {
@@ -364,5 +366,20 @@ public class DataStreamerTest extends AbstractClientTableTest {
         testServer2 = new TestServer(10_000, ignite2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null, null);
 
         return ignite2;
+    }
+
+    private static class TestReceiver implements DataStreamerReceiver<Long, String> {
+
+        @Override
+        public CompletableFuture<List<String>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object... args) {
+            // noinspection resource
+            RecordView<Tuple> view = ctx.ignite().tables().table(DEFAULT_TABLE).recordView();
+
+            for (Long id : page) {
+                view.upsert(null, tuple(id,"recv_" + args[0]));
+            }
+
+            return CompletableFuture.completedFuture(null);
+        }
     }
 }
