@@ -25,7 +25,9 @@ import io.netty.buffer.ByteBufUtil;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.BitSet;
+import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
 import org.jetbrains.annotations.Nullable;
@@ -704,6 +706,19 @@ public class ClientMessagePacker implements AutoCloseable {
         } else {
             packLong(instant.getEpochSecond());
             packInt(instant.getNano());
+        }
+    }
+
+    /**
+     * Packs deployment units.
+     *
+     * @param units Units.
+     */
+    public void packDeploymentUnits(List<DeploymentUnit> units) {
+        packInt(units.size());
+        for (DeploymentUnit unit : units) {
+            packString(unit.name());
+            packString(unit.version().render());
         }
     }
 
