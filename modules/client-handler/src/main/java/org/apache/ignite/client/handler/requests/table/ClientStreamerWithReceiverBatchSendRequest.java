@@ -55,6 +55,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             List<DeploymentUnit> deploymentUntis = in.unpackDeploymentUnits();
             String receiverClassName = in.unpackString();
             Object[] receiverArgs = in.unpackObjectArrayFromBinaryTuple();
+            boolean returnResults = in.unpackBoolean();
             List<Object> items = in.unpackCollectionFromBinaryTuple();
 
             if (items == null) {
@@ -72,7 +73,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
 
             return receiver.receive(items, context, receiverArgs)
                     .thenApply(res -> {
-                        out.packCollectionAsBinaryTuple(res);
+                        out.packCollectionAsBinaryTuple(returnResults ? res : null);
 
                         return null;
                     });
