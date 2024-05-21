@@ -133,6 +133,10 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
         ZonePartitionId pureZonePartId = ZonePartitionId.resetTableId(zonePartitionId);
 
         return delegate.getPrimaryReplicaForTable(pureZonePartId, timestamp).thenCompose(replicaMeta -> {
+            if (replicaMeta == null) {
+                return completedFuture(null);
+            }
+
             ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
 
             if (replicaMeta.subgroups().contains(zonePartitionId)) {
