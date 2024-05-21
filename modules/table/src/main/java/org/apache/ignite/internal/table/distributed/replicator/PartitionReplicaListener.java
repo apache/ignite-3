@@ -1012,7 +1012,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             } else {
                                 throw new IncompatibleSchemaException("Operation failed because schema "
                                         + validationResult.fromSchemaVersion() + " is not backward-compatible with "
-                                        + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
+                                        + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableName());
                             }
                         });
             }
@@ -1568,7 +1568,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         } else {
                             throw new IncompatibleSchemaException("Operation failed because schema "
                                     + validationResult.fromSchemaVersion() + " is not backward-compatible with "
-                                    + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
+                                    + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableName());
                         }
                     });
         });
@@ -1617,7 +1617,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             if (validationResult.isTableDropped()) {
                 // TODO: IGNITE-20966 - improve error message.
                 throw new MismatchingTransactionOutcomeException(
-                        format("Commit failed because a table was already dropped [tableId={}]", validationResult.failedTableId()),
+                        format("Commit failed because table {} was already dropped ", validationResult.failedTableName()),
                         txResult
                 );
             } else {
@@ -1625,7 +1625,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 throw new MismatchingTransactionOutcomeException(
                         "Commit failed because schema "
                                 + validationResult.fromSchemaVersion() + " is not forward-compatible with "
-                                + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId(),
+                                + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableName(),
                         txResult
                 );
             }

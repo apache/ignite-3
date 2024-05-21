@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.stream.Collectors.toSet;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -116,7 +117,7 @@ class SchemaCompatibilityValidator {
             CatalogTableDescriptor tableAtTxStart = catalogService.table(tableId, beginTimestamp.longValue());
             assert tableAtTxStart != null : "No table " + tableId + " at ts " + beginTimestamp;
 
-            return CompatValidationResult.tableDropped(tableId, tableAtTxStart.schemaId());
+            return CompatValidationResult.tableDropped(tableAtTxStart.name(), tableAtTxStart.schemaId());
         }
 
         return validateForwardSchemaCompatibility(beginTimestamp, commitTimestamp, tableId);
@@ -144,21 +145,30 @@ class SchemaCompatibilityValidator {
         for (int i = 0; i < tableSchemas.size() - 1; i++) {
             FullTableSchema oldSchema = tableSchemas.get(i);
             FullTableSchema newSchema = tableSchemas.get(i + 1);
-            if (!isForwardCompatible(oldSchema, newSchema)) {
-                return CompatValidationResult.incompatibleChange(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
+
+            List<ForwardCompatibilityValidator> failedValidators = validate(oldSchema, newSchema);
+
+            if (!failedValidators.isEmpty()) {
+                return CompatValidationResult.incompatibleChange(
+                        newSchema.tableName(),
+                        oldSchema.schemaVersion(),
+                        newSchema.schemaVersion(),
+                        failedValidators
+                );
             }
         }
 
         return CompatValidationResult.success();
     }
 
-    private boolean isForwardCompatible(FullTableSchema prevSchema, FullTableSchema nextSchema) {
+    private List<ForwardCompatibilityValidator> validate(FullTableSchema prevSchema, FullTableSchema nextSchema) {
         TableDefinitionDiff diff = diffCache.computeIfAbsent(
                 new TableDefinitionDiffKey(prevSchema.tableId(), prevSchema.schemaVersion(), nextSchema.schemaVersion()),
                 key -> nextSchema.diffFrom(prevSchema)
         );
 
         boolean accepted = false;
+        List<ForwardCompatibilityValidator> failed = new ArrayList<>();
 
         for (ForwardCompatibilityValidator validator : FORWARD_COMPATIBILITY_VALIDATORS) {
             switch (validator.compatible(diff)) {
@@ -166,7 +176,7 @@ class SchemaCompatibilityValidator {
                     accepted = true;
                     break;
                 case INCOMPATIBLE:
-                    return false;
+                    failed.add(validator);
                 default:
                     break;
             }
@@ -175,7 +185,7 @@ class SchemaCompatibilityValidator {
         assert accepted : "Table schema changed from " + prevSchema.schemaVersion() + " and " + nextSchema.schemaVersion()
                 + ", but no schema change validator voted for any change. Some schema validator is missing.";
 
-        return true;
+        return List.of();
     }
 
     /**
@@ -219,7 +229,12 @@ class SchemaCompatibilityValidator {
 
         FullTableSchema oldSchema = tableSchemas.get(0);
         FullTableSchema newSchema = tableSchemas.get(1);
-        return CompatValidationResult.incompatibleChange(tableId, oldSchema.schemaVersion(), newSchema.schemaVersion());
+        return CompatValidationResult.incompatibleChange(
+                newSchema.tableName(),
+                oldSchema.schemaVersion(),
+                newSchema.schemaVersion(),
+                ""
+        );
     }
 
     void failIfSchemaChangedAfterTxStart(UUID txId, HybridTimestamp operationTimestamp, int tableId) {
@@ -331,7 +346,7 @@ class SchemaCompatibilityValidator {
     }
 
     private static class ChangeColumnsValidator implements ForwardCompatibilityValidator {
-        private final List<ColumnChangeCompatibilityValidator> validators = List.of(
+        private static final List<ColumnChangeCompatibilityValidator> validators = List.of(
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-20948 - add validator that says that column rename is compatible.
                 new ChangeNullabilityValidator(),
                 new ChangeDefaultValueValidator(),

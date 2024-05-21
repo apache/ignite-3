@@ -148,7 +148,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         assertThat("Change is compatible", result.isSuccessful(), is(false));
         assertThat(result.isTableDropped(), is(false));
 
-        assertThat(result.failedTableId(), is(TABLE_ID));
+        assertThat(result.failedTableName(), is(TABLE_NAME));
         assertThat(result.fromSchemaVersion(), is(1));
         assertThat(result.toSchemaVersion(), is(2));
     }
@@ -366,7 +366,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         assertThat("Change is compatible", result.isSuccessful(), is(false));
         assertThat(result.isTableDropped(), is(false));
 
-        assertThat(result.failedTableId(), is(TABLE_ID));
+        assertThat(result.failedTableName(), is(TABLE_NAME));
         assertThat(result.fromSchemaVersion(), is(1));
         assertThat(result.toSchemaVersion(), is(2));
     }
