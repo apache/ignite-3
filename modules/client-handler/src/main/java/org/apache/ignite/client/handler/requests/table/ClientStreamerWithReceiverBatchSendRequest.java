@@ -23,7 +23,9 @@ import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeUtils;
@@ -77,5 +79,12 @@ public class ClientStreamerWithReceiverBatchSendRequest {
                         return null;
                     });
         });
+    }
+
+    private static class ReceiverRunnerJob implements ComputeJob<List<Object>> {
+        @Override
+        public List<Object> execute(JobExecutionContext context, Object... args) {
+            return List.of();
+        }
     }
 }
