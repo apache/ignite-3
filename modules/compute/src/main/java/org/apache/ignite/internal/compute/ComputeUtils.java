@@ -45,6 +45,7 @@ import org.apache.ignite.internal.compute.message.JobStatusResponse;
 import org.apache.ignite.internal.compute.message.JobStatusesResponse;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.DataStreamerReceiver;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -122,6 +123,35 @@ public class ComputeUtils {
             return constructor.newInstance();
         } catch (ReflectiveOperationException e) {
             throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot instantiate task", e);
+        }
+    }
+
+    /**
+     * Instantiate data streamer receiver.
+     *
+     * @param recvClass Receiver class.
+     * @param <T> Receiver item type.
+     * @param <R> Receiver return type.
+     * @return Compute job instance.
+     */
+    public static <T, R> DataStreamerReceiver<T, R> instantiateReceiver(Class<? extends DataStreamerReceiver<T, R>> recvClass) {
+        if (!(DataStreamerReceiver.class.isAssignableFrom(recvClass))) {
+            throw new ComputeException(
+                    CLASS_INITIALIZATION_ERR,
+                    "'" + recvClass.getName() + "' does not implement DataStreamerReceiver interface"
+            );
+        }
+
+        try {
+            Constructor<? extends DataStreamerReceiver<T, R>> constructor = recvClass.getDeclaredConstructor();
+
+            if (!constructor.canAccess(null)) {
+                constructor.setAccessible(true);
+            }
+
+            return constructor.newInstance();
+        } catch (ReflectiveOperationException e) {
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot instantiate streamer receiver", e);
         }
     }
 
