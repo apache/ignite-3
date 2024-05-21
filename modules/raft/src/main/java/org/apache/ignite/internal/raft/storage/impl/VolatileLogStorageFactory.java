@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
@@ -97,9 +100,14 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> startAsync() {
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<Void> stopAsync() {
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */
@@ -122,12 +130,6 @@ public class VolatileLogStorageFactory implements LogStorageFactory {
         }
 
         return factory.create(logStorageBudgetConfig);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void close() {
-        // No-op.
     }
 
     @Override

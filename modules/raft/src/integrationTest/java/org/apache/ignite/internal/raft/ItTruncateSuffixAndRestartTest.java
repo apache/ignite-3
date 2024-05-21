@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.d
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromConsistentIds;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.raft.TestWriteCommand.testWriteCommand;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -378,11 +379,13 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public void start() {
+        public CompletableFuture<Void> startAsync() {
+            return nullCompletedFuture();
         }
 
         @Override
-        public void close() {
+        public CompletableFuture<Void> stopAsync() {
+            return nullCompletedFuture();
         }
 
         @Override

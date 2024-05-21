@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
 import java.io.IOException;
@@ -25,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
@@ -105,9 +108,18 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         );
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> startAsync() {
+        // This is effectively a sync implementation.
+        try {
+            start();
+            return nullCompletedFuture();
+        } catch (RuntimeException ex) {
+            return failedFuture(ex);
+        }
+    }
+
+    private void start() {
         Path logPath = logPathSupplier.get();
 
         try {
@@ -149,12 +161,17 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void close() {
+    public CompletableFuture<Void> stopAsync() {
         ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
 
-        RocksUtils.closeAll(confHandle, dataHandle, db, dbOptions);
+        try {
+            RocksUtils.closeAll(confHandle, dataHandle, db, dbOptions);
+        } catch (RuntimeException ex) {
+            return failedFuture(ex);
+        }
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */

@@ -80,13 +80,12 @@ public class TestJraftServerFactory {
         return new JraftServerImpl(service, dataPath, opts, raftGroupEventsClientListener, defaultLogStorageFactory) {
             @Override
             public CompletableFuture<Void> startAsync() {
-                defaultLogStorageFactory.start();
-                return super.startAsync();
+                return defaultLogStorageFactory.startAsync().thenCompose(none -> super.startAsync());
             }
 
             @Override
             public CompletableFuture<Void> stopAsync() {
-                return super.stopAsync().thenRun(defaultLogStorageFactory::close);
+                return super.stopAsync().thenCompose(none -> defaultLogStorageFactory.stopAsync());
             }
         };
     }

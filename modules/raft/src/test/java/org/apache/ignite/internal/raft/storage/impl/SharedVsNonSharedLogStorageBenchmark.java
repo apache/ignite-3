@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.File;
 import java.io.IOException;
@@ -188,8 +190,7 @@ public class SharedVsNonSharedLogStorageBenchmark {
         System.out.println("Test log storage path: " + testPath);
 
         LogStorageFactory provider = new DefaultLogStorageFactory(benchmarkPath);
-
-        provider.start();
+        assertThat(provider.startAsync(), willCompleteSuccessfully());
 
         List<LogStorage> sharedStorages = grps.stream()
                 .map(grp -> {
@@ -207,7 +208,7 @@ public class SharedVsNonSharedLogStorageBenchmark {
         new SharedVsNonSharedLogStorageBenchmark(sharedStorages, logSize, totalLogs, batchSize).doTest();
 
         sharedStorages.forEach(Lifecycle::shutdown);
-        provider.close();
+        assertThat(provider.stopAsync(), willCompleteSuccessfully());
 
         deleteDirectory(benchmarkPath.toFile());
     }

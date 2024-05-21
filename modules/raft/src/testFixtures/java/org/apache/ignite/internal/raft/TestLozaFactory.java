@@ -80,13 +80,12 @@ public class TestLozaFactory {
                 logStorageFactory) {
             @Override
             public CompletableFuture<Void> startAsync() {
-                logStorageFactory.start();
-                return super.startAsync();
+                return logStorageFactory.startAsync().thenCompose(none -> super.startAsync());
             }
 
             @Override
             public CompletableFuture<Void> stopAsync() {
-                return super.stopAsync().thenRun(logStorageFactory::close);
+                return super.stopAsync().thenCompose(none -> logStorageFactory.stopAsync());
             }
         };
     }
