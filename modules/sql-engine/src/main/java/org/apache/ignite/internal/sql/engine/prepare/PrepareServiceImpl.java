@@ -126,6 +126,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param metricManager Metric manager.
      * @param clusterCfg  Cluster SQL configuration.
      * @param nodeCfg Node SQL configuration.
+     * @param schemaManager Schema manager to use on validation phase to bind identifiers in AST with particular schema objects.
      */
     public static PrepareServiceImpl create(
             String nodeName,
@@ -157,6 +158,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param ddlConverter A converter of the DDL-related AST to the actual command.
      * @param plannerTimeout Timeout in milliseconds to planning.
      * @param metricManager Metric manager.
+     * @param schemaManager Schema manager to use on validation phase to bind identifiers in AST with particular schema objects.
      */
     public PrepareServiceImpl(
             String nodeName,

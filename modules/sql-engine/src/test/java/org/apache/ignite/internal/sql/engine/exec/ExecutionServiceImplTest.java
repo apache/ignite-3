@@ -154,7 +154,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     /** Timeout in ms for stopping execution service.*/
     private static final long SHUTDOWN_TIMEOUT = 5_000;
 
-    private static final int SCHEMA_VERSION = -1;
+    private static final int CATALOG_VERSION = 1;
 
     private final List<String> nodeNames = List.of("node_1", "node_2", "node_3");
 
@@ -172,7 +172,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             .size(1_000_000)
             .build();
 
-    private final IgniteSchema schema = new IgniteSchema(SqlCommon.DEFAULT_SCHEMA_NAME, SCHEMA_VERSION, List.of(table));
+    private final IgniteSchema schema = new IgniteSchema(SqlCommon.DEFAULT_SCHEMA_NAME, CATALOG_VERSION, List.of(table));
 
     private final List<CapturingMailboxRegistry> mailboxes = new ArrayList<>();
 

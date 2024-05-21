@@ -69,7 +69,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(int version) {
+    public SchemaPlus schema(int catalogVersion) {
         return root;
     }
 
@@ -81,7 +81,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> schemaReadyFuture(int version) {
+    public CompletableFuture<Void> schemaReadyFuture(int catalogVersion) {
         return nullCompletedFuture();
     }
 

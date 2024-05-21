@@ -42,9 +42,9 @@ public class IgniteSchema extends AbstractSchema {
     private final Int2ObjectMap<IgniteDataSource> tableById;
 
     /** Constructor. */
-    public IgniteSchema(String name, int version, Collection<? extends IgniteDataSource> tables) {
+    public IgniteSchema(String name, int catalogVersion, Collection<? extends IgniteDataSource> tables) {
         this.name = name;
-        this.catalogVersion = version;
+        this.catalogVersion = catalogVersion;
         this.tableByName = tables.stream().collect(Collectors.toMap(IgniteDataSource::name, Function.identity()));
         this.tableById = tables.stream().collect(CollectionUtils.toIntMapCollector(IgniteDataSource::id, Function.identity()));
     }

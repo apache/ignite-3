@@ -27,7 +27,7 @@ public interface SqlSchemaManager {
     /**
      * Returns root schema derived from catalog of the given version.
      */
-    SchemaPlus schema(int version);
+    SchemaPlus schema(int catalogVersion);
 
     /**
      * Returns root schema derived from catalog of version which was considered active at the given timestamp.
@@ -44,9 +44,9 @@ public interface SqlSchemaManager {
     IgniteTable table(int catalogVersion, int tableId);
 
     /**
-     * Returns a future to wait for given SQL schema version readiness.
+     * Returns a future to wait for given catalog version readiness.
      *
-     * @param version SQL schema version to wait.
+     * @param catalogVersion version of the catalog to wait.
      */
-    CompletableFuture<Void> schemaReadyFuture(int version);
+    CompletableFuture<Void> schemaReadyFuture(int catalogVersion);
 }
