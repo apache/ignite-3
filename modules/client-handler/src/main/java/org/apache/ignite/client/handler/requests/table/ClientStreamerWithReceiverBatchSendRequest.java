@@ -18,12 +18,18 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.compute.ComputeUtils;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.DataStreamerReceiver;
+import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -41,7 +47,8 @@ public class ClientStreamerWithReceiverBatchSendRequest {
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteTables tables
+            IgniteTables tables,
+            Ignite ignite
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             int partition = in.unpackInt();
@@ -50,8 +57,24 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             Object[] receiverArgs = in.unpackObjectArrayFromBinaryTuple();
             List<Object> items = in.unpackCollectionFromBinaryTuple();
 
-            // TODO
-            return null;
+            if (items == null) {
+                throw new IgniteException(PROTOCOL_ERR, "Data streamer items are null.");
+            }
+
+            // TODO: Get class loader from units.
+            // TODO: Execute on specified partition.
+            Class<DataStreamerReceiver<Object, Object>> receiverClass = ComputeUtils.receiverClass(
+                    ClassLoader.getSystemClassLoader(), receiverClassName);
+
+            DataStreamerReceiver<Object, Object> receiver = ComputeUtils.instantiateReceiver(receiverClass);
+            DataStreamerReceiverContext context = () -> ignite;
+
+            return receiver.receive(items, context, receiverArgs)
+                    .thenApply(res -> {
+                        out.packCollectionAsBinaryTuple(res);
+
+                        return null;
+                    });
         });
     }
 }

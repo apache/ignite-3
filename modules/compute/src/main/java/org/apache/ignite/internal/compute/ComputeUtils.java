@@ -127,6 +127,22 @@ public class ComputeUtils {
     }
 
     /**
+     * Resolve map reduce task class name to map reduce task class reference.
+     *
+     * @param taskClassLoader Class loader.
+     * @param taskClassName Map reduce task class name.
+     * @param <R> Map reduce task return type.
+     * @return Map reduce task class.
+     */
+    public static <R> Class<MapReduceTask<R>> taskClass(ClassLoader taskClassLoader, String taskClassName) {
+        try {
+            return (Class<MapReduceTask<R>>) Class.forName(taskClassName, true, taskClassLoader);
+        } catch (ClassNotFoundException e) {
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load task class by name '" + taskClassName + "'", e);
+        }
+    }
+
+    /**
      * Instantiate data streamer receiver.
      *
      * @param recvClass Receiver class.
@@ -156,18 +172,18 @@ public class ComputeUtils {
     }
 
     /**
-     * Resolve map reduce task class name to map reduce task class reference.
+     * Resolve receiver class name.
      *
-     * @param taskClassLoader Class loader.
-     * @param taskClassName Map reduce task class name.
+     * @param classLoader Class loader.
+     * @param className Map reduce task class name.
      * @param <R> Map reduce task return type.
      * @return Map reduce task class.
      */
-    public static <R> Class<MapReduceTask<R>> taskClass(ClassLoader taskClassLoader, String taskClassName) {
+    public static <T, R> Class<DataStreamerReceiver<T, R>> receiverClass(ClassLoader classLoader, String className) {
         try {
-            return (Class<MapReduceTask<R>>) Class.forName(taskClassName, true, taskClassLoader);
+            return (Class<DataStreamerReceiver<T, R>>) Class.forName(className, true, classLoader);
         } catch (ClassNotFoundException e) {
-            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load task class by name '" + taskClassName + "'", e);
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load receiver class by name '" + className + "'", e);
         }
     }
 
