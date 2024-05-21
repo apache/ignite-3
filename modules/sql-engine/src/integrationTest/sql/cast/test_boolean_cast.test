@@ -1,5 +1,5 @@
 # name: test/sql/cast/test_boolean_cast.test
-# description: Test boolean casts
+# description: SQL feature T031(BOOLEAN data type). Cast operator.
 # group: [cast]
 # Ignored with https://issues.apache.org/jira/browse/IGNITE-19331
 

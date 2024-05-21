@@ -1,5 +1,5 @@
 # name: test/sql/types/null/test_boolean_null.test
-# description: Booleans and NULLs
+# description: SQL feature T031(BOOLEAN data type). Booleans and NULLs
 # group: [null]
 
 statement ok
@@ -31,6 +31,6 @@ true	false	false	true
 
 # Comparisions
 query TTTT
-SELECT NULL = NULL, NULL <> NULL, 42 = NULL, 42 <> NULL
+SELECT NULL = NULL, NULL <> NULL, 42 = NULL, 42 <> NULL, (NULL = 1) OR (1 = 1), (NULL = 1) AND (0 = 1)
 ----
-NULL	NULL	NULL	NULL
+NULL	NULL	NULL	NULL	TRUE	FALSE
