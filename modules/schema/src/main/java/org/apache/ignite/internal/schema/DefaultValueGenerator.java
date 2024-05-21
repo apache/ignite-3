@@ -28,7 +28,7 @@ import java.util.UUID;
  */
 public enum DefaultValueGenerator {
     /** Generator that generates random UUID. */
-    RAND_UUID("randUuid", String.class);
+    RAND_UUID("randUuid", UUID.class);
 
     private final MethodHandle methodHandle;
 
@@ -51,15 +51,9 @@ public enum DefaultValueGenerator {
         }
     }
 
-    /** Returns random UUID string. */
+    /** Returns random UUID. */
     @SuppressWarnings("unused") // actually method is called via reflection
-    public static String genRandomUuid() {
-        return UUID.randomUUID().toString();
-    }
-
-    /** Returns random UUID string. */
-    @SuppressWarnings("unused") // actually method is called via reflection
-    public static String randUuid() {
-        return UUID.randomUUID().toString();
+    public static UUID randUuid() {
+        return UUID.randomUUID();
     }
 }
