@@ -127,7 +127,6 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -404,7 +403,7 @@ public class IgniteImpl implements Ignite {
     private final Executor asyncContinuationExecutor = ForkJoinPool.commonPool();
 
     /** Default log storage factory for raft. */
-    private final IgniteComponent logStorageFactoryComponent;
+    private final LogStorageFactory logStorageFactory;
 
     /**
      * The Constructor.
@@ -498,8 +497,7 @@ public class IgniteImpl implements Ignite {
         // TODO https://issues.apache.org/jira/browse/IGNITE-19051
         RaftGroupEventsClientListener raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-        LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), workDir, raftConfiguration);
-        logStorageFactoryComponent = SharedLogStorageFactoryUtils.wrapWithComponent(logStorageFactory);
+        logStorageFactory = SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), workDir, raftConfiguration);
 
         raftMgr = new Loza(
                 clusterSvc,
@@ -1054,7 +1052,7 @@ public class IgniteImpl implements Ignite {
                     nettyWorkersRegistrar,
                     clusterSvc,
                     restComponent,
-                    logStorageFactoryComponent,
+                    logStorageFactory,
                     raftMgr,
                     clusterStateStorage,
                     cmgMgr,

@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.raft.storage;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 
 /** Log storage factory interface. */
-public interface LogStorageFactory extends ManuallyCloseable, LogSyncer {
+public interface LogStorageFactory extends ManuallyCloseable, LogSyncer, IgniteComponent {
     /**
      * Starts the log storage factory.
      */
@@ -43,4 +47,16 @@ public interface LogStorageFactory extends ManuallyCloseable, LogSyncer {
      */
     @Override
     void close();
+
+    @Override
+    default CompletableFuture<Void> startAsync() {
+        start();
+        return nullCompletedFuture();
+    }
+
+    @Override
+    default CompletableFuture<Void> stopAsync() {
+        close();
+        return nullCompletedFuture();
+    }
 }

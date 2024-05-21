@@ -986,7 +986,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final ScheduledExecutorService rebalanceScheduler;
 
-        private final IgniteComponent logStorageFactoryComponent;
+        private final LogStorageFactory logStorageFactory;
 
         /**
          * Constructor that simply creates a subset of components of this node.
@@ -1042,8 +1042,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-            LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), dir, raftConfiguration);
-            logStorageFactoryComponent = SharedLogStorageFactoryUtils.wrapWithComponent(logStorageFactory);
+            logStorageFactory = SharedLogStorageFactoryUtils.create(clusterService.nodeName(), dir, raftConfiguration);
 
             raftManager = spy(new Loza(
                     clusterService,
@@ -1328,7 +1327,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     nodeCfgMgr,
                     failureProcessor,
                     clusterService,
-                    logStorageFactoryComponent,
+                    logStorageFactory,
                     raftManager,
                     cmgManager
             );
