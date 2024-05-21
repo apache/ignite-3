@@ -725,7 +725,7 @@ public class ClientMessagePacker implements AutoCloseable {
         }
     }
 
-    public <T> void packObjectsOfSameTypeAsBinaryTuple(Collection<T> items) {
+    public <T> void packCollectionAsBinaryTuple(Collection<T> items) {
         assert !closed : "Packer is closed";
 
         if (items == null) {
