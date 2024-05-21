@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.nio.file.Path;
@@ -293,7 +295,9 @@ public class FragmentMappingTest extends AbstractPlannerTest {
     private IgniteRel parseQuery(IgniteSchema schema, String sqlStmt) {
         try {
             PlanningContext ctx = PlanningContext.builder()
-                    .parentContext(baseQueryContext(List.of(schema), null))
+                    .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
+                            .defaultSchema(createRootSchema(List.of(schema)).getSubSchema(schema.getName()))
+                            .build())
                     .query(sqlStmt)
                     .build();
 
