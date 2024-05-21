@@ -1223,7 +1223,7 @@ public class IgniteImpl implements Ignite {
         ExecutorService lifecycleExecutor = stopExecutor();
 
         return lifecycleManager.stopNode(lifecycleExecutor)
-                .whenCompleteAsync((unused, throwable) -> restAddressReporter.removeReport(), lifecycleExecutor)
+                .whenCompleteAsync((unused, throwable) -> restAddressReporter.removeReport())
                 // Moving to the common pool on purpose to close the stop pool and proceed user's code in the common pool.
                 .whenCompleteAsync((res, ex) -> lifecycleExecutor.shutdownNow());
     }
