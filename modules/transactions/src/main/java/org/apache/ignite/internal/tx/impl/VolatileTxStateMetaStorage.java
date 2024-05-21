@@ -214,14 +214,16 @@ public class VolatileTxStateMetaStorage {
                                     + "vacuumizedPersistentTxnStatesCount={}, "
                                     + "markedAsInitiallyDetectedTxnsCount={}, "
                                     + "alreadyMarkedTxnsCount={}, "
-                                    + "skippedForFurtherProcessingUnfinishedTxnsCount={}].",
+                                    + "skippedForFurtherProcessingUnfinishedTxnsCount={}, "
+                                    + "txIds={}].",
                             vacuumObservationTimestamp,
                             txnResourceTtl,
                             vacuumizedTxnsCount,
                             successful.size(),
                             markedAsInitiallyDetectedTxnsCount,
                             alreadyMarkedTxnsCount,
-                            skippedForFurtherProcessingUnfinishedTxnsCount
+                            skippedForFurtherProcessingUnfinishedTxnsCount,
+                            successful
                     );
                 });
     }
