@@ -109,7 +109,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
             Path raftDir = workDir.resolve(clusterService.nodeName());
 
-            loza = LozaUtils.create(clusterService, raftConfiguration, raftDir, new HybridClockImpl());
+            loza = TestLozaFactory.create(clusterService, raftConfiguration, raftDir, new HybridClockImpl());
         }
 
         String consistentId() {

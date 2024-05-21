@@ -50,10 +50,10 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.LozaUtils;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -261,7 +261,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
             assertThat(clusterService.startAsync(), willCompleteSuccessfully());
 
-            raftManager = LozaUtils.create(
+            raftManager = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
                     workDir.resolve(nodeName + "_loza"),

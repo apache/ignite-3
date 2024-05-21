@@ -28,8 +28,8 @@ import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 
 /** Utilities for creating {@link Loza} instances. */
-public class LozaUtils {
-    private LozaUtils() {
+public class TestLozaFactory {
+    private TestLozaFactory() {
         // Intentionally left blank.
     }
 

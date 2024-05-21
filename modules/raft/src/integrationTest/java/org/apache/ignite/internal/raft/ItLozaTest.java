@@ -125,7 +125,7 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
 
             CompletableFuture<NetworkMessage> exception = CompletableFuture.failedFuture(new IOException());
 
-            loza = LozaUtils.create(service, raftConfiguration, dataPath, new HybridClockImpl());
+            loza = TestLozaFactory.create(service, raftConfiguration, dataPath, new HybridClockImpl());
 
             assertThat(loza.startAsync(), willCompleteSuccessfully());
 

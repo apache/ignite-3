@@ -215,7 +215,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
         TestNode(TestInfo testInfo) {
             this.clusterService = ClusterServiceTestUtils.clusterService(testInfo, NODE_PORT_BASE + nodes.size(), NODE_FINDER);
-            this.loza = LozaUtils.create(
+            this.loza = TestLozaFactory.create(
                     clusterService,
                     raftConfiguration,
                     workDir.resolve("node" + nodes.size()),

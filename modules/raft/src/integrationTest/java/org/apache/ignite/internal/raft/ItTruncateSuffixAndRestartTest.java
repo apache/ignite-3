@@ -184,7 +184,7 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
             assertThat(clusterSvc.startAsync(), willCompleteSuccessfully());
             cleanup.add(() -> assertThat(clusterSvc.stopAsync(), willCompleteSuccessfully()));
 
-            raftMgr = LozaUtils.create(clusterSvc, raftConfiguration, nodeDir, hybridClock);
+            raftMgr = TestLozaFactory.create(clusterSvc, raftConfiguration, nodeDir, hybridClock);
 
             assertThat(raftMgr.startAsync(), willCompleteSuccessfully());
             cleanup.add(() -> assertThat(raftMgr.stopAsync(), willCompleteSuccessfully()));

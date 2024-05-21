@@ -68,9 +68,9 @@ import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.raft.LozaUtils;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -130,7 +130,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
             Path lozaDir = workDir.resolve("loza" + index);
 
-            raftManager = LozaUtils.create(clusterService, raftConfiguration, lozaDir, clock, raftGroupEventsClientListener);
+            raftManager = TestLozaFactory.create(clusterService, raftConfiguration, lozaDir, clock, raftGroupEventsClientListener);
 
             var logicalTopologyService = mock(LogicalTopologyService.class);
 
