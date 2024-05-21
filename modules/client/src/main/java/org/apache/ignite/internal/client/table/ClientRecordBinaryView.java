@@ -446,7 +446,8 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                         partitionAssignment -> tbl.channel().serviceAsync(
                                 ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND,
                                 out -> {
-                                    assert deleted == null : "Deletion is not supported with receiver.";
+                                    // TODO: Do not allocate bit set for receiver case (separate ticket).
+                                    assert deleted == null || deleted.isEmpty() : "Deletion is not supported with receiver.";
 
                                     ClientMessagePacker w = out.out();
                                     w.packInt(tbl.tableId());
