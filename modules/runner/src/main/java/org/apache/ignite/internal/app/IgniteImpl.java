@@ -1196,10 +1196,14 @@ public class IgniteImpl implements Ignite {
 
         IgniteException igniteException = new IgniteException(errMsg, e);
 
+        ExecutorService lifecycleExecutor = stopExecutor();
+
         try {
-            lifecycleManager.stopNode(stopExecutor()).get();
+            lifecycleManager.stopNode(lifecycleExecutor).get();
         } catch (Exception ex) {
             igniteException.addSuppressed(ex);
+        } finally {
+            lifecycleExecutor.shutdownNow();
         }
 
         return igniteException;
@@ -1216,8 +1220,12 @@ public class IgniteImpl implements Ignite {
      * Asynchronously stops ignite node.
      */
     public CompletableFuture<Void> stopAsync() {
-        return lifecycleManager.stopNode(stopExecutor())
-                .whenComplete((unused, throwable) -> restAddressReporter.removeReport());
+        ExecutorService lifecycleExecutor = stopExecutor();
+
+        return lifecycleManager.stopNode(lifecycleExecutor)
+                .whenCompleteAsync((unused, throwable) -> restAddressReporter.removeReport(), lifecycleExecutor)
+                // Moving to the common pool on purpose to close the stop pool and proceed user's code in the common pool.
+                .whenCompleteAsync((res, ex) -> lifecycleExecutor.shutdownNow());
     }
 
     private ExecutorService stopExecutor() {
