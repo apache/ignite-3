@@ -1,7 +1,6 @@
 # name: test/sql/subquery/scalar/test_grouped_correlated_subquery.test
 # description: Test correlated subquery with grouping columns
 # group: [scalar]
-# Ignore https://issues.apache.org/jira/browse/IGNITE-22260
 # Ignore https://issues.apache.org/jira/browse/IGNITE-16000
 
 statement ok
@@ -94,11 +93,12 @@ SELECT col5 = ALL (SELECT 1 FROM tbl_ProductSales HAVING MIN(col8) IS NULL) FROM
 1
 1
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-22260
 query I
 SELECT CASE WHEN 1 IN (SELECT MAX(col7) UNION ALL (SELECT MIN(ColID) FROM tbl_ProductSales INNER JOIN another_T t2 ON t2.col5 = t2.col1)) THEN 2 ELSE NULL END FROM another_T t1;
 ----
+NULL
+NULL
+NULL
 NULL
 
 skipif ignite3
@@ -116,11 +116,12 @@ SELECT CASE WHEN 1 IN (SELECT (SELECT MAX(col7)) UNION ALL (SELECT MIN(ColID) FR
 ----
 NULL
 
-skipif ignite3
-# https://issues.apache.org/jira/browse/IGNITE-22260
 query I
 SELECT CASE WHEN 1 IN (SELECT (SELECT MIN(ColID) FROM tbl_ProductSales INNER JOIN another_T t2 ON t2.col5 = t2.col1) UNION ALL (SELECT MAX(col7))) THEN 2 ELSE NULL END FROM another_T t1;
 ----
+NULL
+NULL
+NULL
 NULL
 
 # correlated column comparison with correlated subquery

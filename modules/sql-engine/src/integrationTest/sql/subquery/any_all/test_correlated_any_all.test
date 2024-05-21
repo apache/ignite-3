@@ -1,7 +1,6 @@
 # name: test/sql/subquery/any_all/test_correlated_any_all.test
 # description: Test correlated ANY/ALL subqueries
 # group: [any_all]
-# Ignore https://issues.apache.org/jira/browse/IGNITE-22260
 # Ignore https://issues.apache.org/jira/browse/IGNITE-19402
 
 statement ok
@@ -147,15 +146,13 @@ true
 true
 NULL
 
-# Ignore https://issues.apache.org/jira/browse/IGNITE-22260
-skipif ignite3
 query T
 SELECT i=ALL(SELECT i FROM integers WHERE i=i1.i OR i IS NULL) FROM integers i1 ORDER BY i;
 ----
-NULL
-NULL
-NULL
-NULL
+true
+true
+true
+true
 
 # Ignore https://issues.apache.org/jira/browse/IGNITE-19402
 skipif ignite3
