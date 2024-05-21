@@ -17,11 +17,9 @@
 
 package org.apache.ignite.raft.server;
 
-import static org.apache.ignite.internal.testframework.MockitoTestUtils.tryCallRealMethod;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.mockito.Mockito.doAnswer;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -35,8 +33,6 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.testframework.MockitoTestUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -99,18 +95,8 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
         return network;
     }
 
-    protected JraftServerImpl jraftServer(List<JraftServerImpl> servers, int idx, ClusterService service, NodeOptions opts) {
+    protected JraftServerImpl jraftServer(int idx, ClusterService service, NodeOptions opts) {
         Path dataPath = workDir.resolve("node" + idx);
-
-        JraftServerImpl server = MockitoTestUtils.spyStubOnly(
-                () -> TestJraftServerFactory.create(service, dataPath, raftConfiguration, opts)
-        );
-
-        doAnswer(ans -> {
-            servers.remove(this);
-            return IgniteUtils.stopAsync(() -> tryCallRealMethod(ans), service::stopAsync);
-        }).when(server).stopAsync();
-
-        return server;
+        return TestJraftServerFactory.create(service, dataPath, raftConfiguration, opts);
     }
 }

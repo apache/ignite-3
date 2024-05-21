@@ -23,13 +23,11 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.MockitoTestUtils.tryCallRealMethod;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.doAnswer;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -63,7 +61,6 @@ import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.testframework.MockitoTestUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
@@ -258,6 +255,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         toStop.stopRaftNode(nodeId);
         toStop.beforeNodeStop();
         assertThat(toStop.stopAsync(), willCompleteSuccessfully());
+        assertThat(cluster.get(stopIdx).stopAsync(), willCompleteSuccessfully());
 
         // Create a snapshot of the raft group
         service.snapshot(service.leader()).get();
@@ -425,8 +423,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         Path jraft = workDir.resolve("jraft" + idx);
 
-        JraftServerImpl server = MockitoTestUtils.spyStubOnly(() -> TestJraftServerFactory.create(service, jraft, raftConfiguration));
-        doAnswer(ans -> IgniteUtils.stopAsync(() -> tryCallRealMethod(ans), service::stopAsync)).when(server).stopAsync();
+        JraftServerImpl server = TestJraftServerFactory.create(service, jraft, raftConfiguration);
 
         assertThat(server.startAsync(), willCompleteSuccessfully());
 

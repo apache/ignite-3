@@ -785,6 +785,9 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         toStop.beforeNodeStop();
 
         assertThat(toStop.stopAsync(), willCompleteSuccessfully());
+        assertThat(serverServices.get(stopIdx).stopAsync(), willCompleteSuccessfully());
+        servers.remove(stopIdx);
+        serverServices.remove(stopIdx);
 
         applyIncrements(client1, 11, 20);
         applyIncrements(client2, 21, 30);
@@ -816,7 +819,11 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         svc2.beforeNodeStop();
 
+        int sv2Idx = servers.size() - 1;
         assertThat(svc2.stopAsync(), willCompleteSuccessfully());
+        assertThat(serverServices.get(sv2Idx).stopAsync(), willCompleteSuccessfully());
+        servers.remove(sv2Idx);
+        serverServices.remove(sv2Idx);
 
         var svc3 = startServer(stopIdx, r -> {
             String localNodeName = r.clusterService().topologyService().localMember().name();

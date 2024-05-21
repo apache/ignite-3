@@ -18,7 +18,6 @@
 package org.apache.ignite.raft.server;
 
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
-import static org.apache.ignite.internal.testframework.MockitoTestUtils.tryCallRealMethod;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
@@ -29,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.doAnswer;
 
 import java.util.List;
 import java.util.Set;
@@ -49,7 +47,6 @@ import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
-import org.apache.ignite.internal.testframework.MockitoTestUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
@@ -92,6 +89,9 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     /** Executor for raft group services. */
     private ScheduledExecutorService executor;
 
+    /** Cluster service. */
+    private ClusterService service;
+
     /**
      * Before each.
      */
@@ -99,10 +99,9 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     void before() throws Exception {
         var addr = new NetworkAddress("localhost", PORT);
 
-        ClusterService service = clusterService(PORT, List.of(addr), true);
+        service = clusterService(PORT, List.of(addr), true);
 
-        server = MockitoTestUtils.spyStubOnly(() -> TestJraftServerFactory.create(service, workDir, raftConfiguration));
-        doAnswer(ans -> IgniteUtils.stopAsync(() -> tryCallRealMethod(ans), service::stopAsync)).when(server).stopAsync();
+        server = TestJraftServerFactory.create(service, workDir, raftConfiguration);
 
         assertThat(server.startAsync(), willCompleteSuccessfully());
 
@@ -153,6 +152,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_0),
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_1),
                 () -> assertThat(server.stopAsync(), willCompleteSuccessfully()),
+                service::stopAsync,
                 client1::shutdown,
                 client2::shutdown,
                 () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)

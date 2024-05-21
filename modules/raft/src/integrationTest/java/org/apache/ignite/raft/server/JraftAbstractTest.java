@@ -83,6 +83,8 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
      */
     protected final List<JraftServerImpl> servers = new ArrayList<>();
 
+    protected final List<ClusterService> serverServices = new ArrayList<>();
+
     /**
      * Clients list.
      */
@@ -152,6 +154,9 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
         }
 
         servers.clear();
+
+        assertThat(IgniteUtils.stopAsync(serverServices), willCompleteSuccessfully());
+        serverServices.clear();
     }
 
     /**
@@ -171,13 +176,14 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         optionsUpdater.accept(opts);
 
-        JraftServerImpl server = jraftServer(servers, idx, service, opts);
+        JraftServerImpl server = jraftServer(idx, service, opts);
 
         assertThat(server.startAsync(), willCompleteSuccessfully());
 
         clo.accept(server);
 
         servers.add(server);
+        serverServices.add(service);
 
         assertTrue(waitForTopology(service, servers.size(), 15_000));
 
