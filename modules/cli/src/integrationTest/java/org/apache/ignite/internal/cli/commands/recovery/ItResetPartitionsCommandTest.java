@@ -17,17 +17,16 @@
 
 package org.apache.ignite.internal.cli.commands.recovery;
 
-import org.apache.ignite.internal.cli.commands.BaseCommand;
-import org.apache.ignite.internal.cli.commands.recovery.partitions.PartitionStatesReplCommand;
-import org.apache.ignite.internal.cli.commands.recovery.reset.ResetPartitionsReplCommand;
-import picocli.CommandLine.Command;
+import org.apache.ignite.internal.cli.commands.recovery.reset.ResetPartitionsCommand;
+import org.apache.ignite.internal.util.ArrayUtils;
 
-/** Disaster recovery command. */
-@Command(name = "recovery",
-        subcommands = {
-                PartitionStatesReplCommand.class,
-                ResetPartitionsReplCommand.class
-        },
-        description = "Managers disaster recovery of Ignite cluster")
-public class RecoveryReplCommand extends BaseCommand {
+/** Test class for {@link ResetPartitionsCommand}. */
+public class ItResetPartitionsCommandTest extends ItResetPartitionsTest {
+
+    @Override
+    protected void execute(String... args) {
+        String[] fullArgs = ArrayUtils.concat(new String[] {"recovery", "reset-partitions"}, args);
+
+        super.execute(fullArgs);
+    }
 }
