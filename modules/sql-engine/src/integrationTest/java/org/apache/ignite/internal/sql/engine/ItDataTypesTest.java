@@ -672,6 +672,12 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 () -> sql("SELECT '1'::CHAR(0)")
         );
 
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for type CHAR must be at least 1",
+                () -> sql("SELECT ''::CHAR(0)")
+        );
+
         // Varchar
 
         assertThrowsSqlException(
@@ -684,6 +690,12 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 STMT_VALIDATION_ERR,
                 "Length for type VARCHAR must be at least 1",
                 () -> sql("SELECT '1'::VARCHAR(0)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for type VARCHAR must be at least 1",
+                () -> sql("SELECT ''::VARCHAR(0)")
         );
 
         // Binary
