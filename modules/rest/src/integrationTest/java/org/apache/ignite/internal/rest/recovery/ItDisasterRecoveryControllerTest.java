@@ -374,7 +374,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
 
-        assertThat(e.getMessage(), containsString("Distribution zone is not found [zoneName=" + unknownZone + "]"));
+        assertThat(e.getMessage(), containsString("Distribution zone was not found [zoneName=" + unknownZone + "]"));
     }
 
     @Test

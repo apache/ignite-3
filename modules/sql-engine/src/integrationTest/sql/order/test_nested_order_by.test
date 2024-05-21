@@ -3,7 +3,7 @@
 # group: [order]
 
 statement ok
-CREATE TABLE t(c char, i int);
+CREATE TABLE t(c varchar, i int);
 
 statement ok
 INSERT INTO t SELECT x, 0 - x FROM table(system_range(0, 3));

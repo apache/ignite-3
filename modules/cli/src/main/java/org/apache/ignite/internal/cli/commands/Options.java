@@ -298,11 +298,21 @@ public enum Options {
         public static final String RECOVERY_ZONE_NAMES_OPTION = "--zones";
 
         public static final String RECOVERY_ZONE_NAMES_OPTION_DESC = "Names specifying zones to get partition states from. "
-                + "Case-sensitive, all zones if not set";
+                + "Case-sensitive, without quotes, all zones if not set";
+
+        public static final String RECOVERY_ZONE_NAME_OPTION = "--zone";
+
+        public static final String RECOVERY_ZONE_NAME_OPTION_DESC = "Name of the zone to reset partitions of. "
+                + "Case-sensitive, without quotes";
+
+        public static final String RECOVERY_TABLE_NAME_OPTION = "--table";
+
+        public static final String RECOVERY_TABLE_NAME_OPTION_DESC = "Fully-qualified name of the table to reset partitions of. "
+                + "Case-sensitive, without quotes";
 
         public static final String RECOVERY_NODE_NAMES_OPTION = "--nodes";
 
         public static final String RECOVERY_NODE_NAMES_OPTION_DESC = "Names specifying nodes to get partition states from. "
-                + "Case-sensitive, all nodes if not set";
+                + "Case-sensitive, without quotes, all nodes if not set";
     }
 }

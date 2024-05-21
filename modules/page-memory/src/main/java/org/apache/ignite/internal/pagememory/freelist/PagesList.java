@@ -1377,6 +1377,8 @@ public abstract class PagesList extends DataStructure {
         try {
             long pageAddr = pageMem.writeLock(grpId, pageId, page);
 
+            assert pageAddr != 0;
+
             try {
                 return initReusedPage(pageId, pageAddr, partitionId(pageId), flag, initIo);
             } finally {

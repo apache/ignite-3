@@ -21,7 +21,9 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZo
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.apache.ignite.sql.ColumnType.DECIMAL;
@@ -31,7 +33,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.spy;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
@@ -43,8 +48,10 @@ import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -72,7 +79,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     protected static final String INDEX_NAME = "myIndex";
     protected static final String INDEX_NAME_2 = "myIndex2";
 
-    final HybridClock clock = new HybridClockImpl();
+    protected final HybridClock clock = new HybridClockImpl();
 
     ClockWaiter clockWaiter;
 
@@ -117,6 +124,24 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     @AfterEach
     public void tearDown() {
         assertThat(stopAsync(manager, clockWaiter, metastore), willCompleteSuccessfully());
+    }
+
+    protected void createSomeTable(String tableName) {
+        assertThat(
+                manager.execute(createTableCommand(
+                        tableName,
+                        List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
+                        List.of("key1"),
+                        List.of("key1")
+                )),
+                willCompleteSuccessfully()
+        );
+    }
+
+    protected final Catalog latestActiveCatalog() {
+        Catalog catalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
+
+        return Objects.requireNonNull(catalog);
     }
 
     protected static CatalogCommand createHashIndexCommand(
@@ -226,6 +251,10 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         return createTableCommand(tableName, cols, List.of(cols.get(0).name()), List.of(cols.get(0).name()));
     }
 
+    protected static CatalogCommand simpleIndex() {
+        return createSortedIndexCommand(INDEX_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST));
+    }
+
     protected static CatalogCommand simpleIndex(String tableName, String indexName) {
         return createHashIndexCommand(tableName, indexName, false, List.of("VAL_NOT_NULL"));
     }
@@ -246,5 +275,22 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .indexName(indexName)
                 .build();
+    }
+
+    protected static <T extends CatalogEventParameters> EventListener<T> fromConsumer(
+            CompletableFuture<Void> fireEventFuture,
+            Consumer<T> consumer
+    ) {
+        return parameters -> {
+            try {
+                consumer.accept(parameters);
+
+                fireEventFuture.complete(null);
+            } catch (Throwable t) {
+                fireEventFuture.completeExceptionally(t);
+            }
+
+            return falseCompletedFuture();
+        };
     }
 }
