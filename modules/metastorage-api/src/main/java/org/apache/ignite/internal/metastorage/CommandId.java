@@ -19,7 +19,9 @@ package org.apache.ignite.internal.metastorage;
 
 import java.io.Serializable;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.metastorage.dsl.MetaStorageMessageGroup;
+import org.apache.ignite.internal.metastorage.dsl.MetaStorageMessagesFactory;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
@@ -29,6 +31,13 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  */
 @Transferable(MetaStorageMessageGroup.COMMAND_ID)
 public interface CommandId extends NetworkMessage, Serializable {
+    AtomicInteger counter = new AtomicInteger(-1);
+
+    CommandId EMPTY_UNIQUE = new MetaStorageMessagesFactory().commandId().
+            nodeId(new UUID(0, 0))
+            .counter(counter.decrementAndGet())
+            .build();
+
     UUID nodeId();
 
     long counter();

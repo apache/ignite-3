@@ -54,6 +54,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -2176,10 +2177,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     }
 
     private boolean invokeOnMs(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
-        return storage.invoke(condition, success, failure, HybridTimestamp.MIN_VALUE);
+        return storage.invoke(condition, success, failure, HybridTimestamp.MIN_VALUE, CommandId.EMPTY_UNIQUE);
     }
 
     private StatementResult invokeOnMs(If iif) {
-        return storage.invoke(iif, HybridTimestamp.MIN_VALUE);
+        return storage.invoke(iif, HybridTimestamp.MIN_VALUE, CommandId.EMPTY_UNIQUE);
     }
 }
