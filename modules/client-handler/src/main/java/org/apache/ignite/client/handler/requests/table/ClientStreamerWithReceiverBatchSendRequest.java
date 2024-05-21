@@ -63,8 +63,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             }
 
             // TODO: Get class loader from units.
-            // TODO: Execute on specified partition.
-            // TODO: Use compute executor.
+            // TODO: use Compute component to execute receiver on specific node with failover, proper executor, etc.
             Class<DataStreamerReceiver<Object, Object>> receiverClass = ComputeUtils.receiverClass(
                     ClassLoader.getSystemClassLoader(), receiverClassName);
 
