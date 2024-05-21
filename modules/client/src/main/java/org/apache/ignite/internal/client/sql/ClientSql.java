@@ -20,11 +20,13 @@ package org.apache.ignite.internal.client.sql;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.PayloadReader;
@@ -34,6 +36,8 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
+import org.apache.ignite.internal.sql.StatementBuilderImpl;
+import org.apache.ignite.internal.sql.StatementImpl;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.BatchedArguments;
@@ -75,13 +79,13 @@ public class ClientSql implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public Statement createStatement(String query) {
-        return new ClientStatement(query, null, null, null);
+        return new StatementImpl(query);
     }
 
     /** {@inheritDoc} */
     @Override
     public StatementBuilder statementBuilder() {
-        return new ClientStatementBuilder();
+        return new StatementBuilderImpl();
     }
 
     /** {@inheritDoc} */
@@ -177,7 +181,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
-        ClientStatement statement = new ClientStatement(query, null, null, null);
+        StatementImpl statement = new StatementImpl(query);
 
         return executeAsync(transaction, statement, arguments);
     }
@@ -200,7 +204,7 @@ public class ClientSql implements IgniteSql {
             @Nullable Object... arguments) {
         Objects.requireNonNull(query);
 
-        ClientStatement statement = new ClientStatement(query, null, null, null);
+        StatementImpl statement = new StatementImpl(query);
 
         return executeAsync(transaction, mapper, statement, arguments);
     }
@@ -214,24 +218,19 @@ public class ClientSql implements IgniteSql {
             @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
 
-        if (!(statement instanceof ClientStatement)) {
-            throw new IllegalArgumentException("Unsupported statement type: " + statement.getClass());
-        }
-
-        ClientStatement clientStatement = (ClientStatement) statement;
-
         PayloadWriter payloadWriter = w -> {
             writeTx(transaction, w);
 
-            w.out().packString(clientStatement.defaultSchema());
-            w.out().packIntNullable(clientStatement.pageSizeNullable());
-            w.out().packLongNullable(clientStatement.queryTimeoutNullable());
+            w.out().packString(statement.defaultSchema());
+            w.out().packInt(statement.pageSize());
+            w.out().packLong(statement.queryTimeout(TimeUnit.MILLISECONDS));
 
             w.out().packLongNullable(0L); // defaultSessionTimeout
+            w.out().packString(statement.timeZoneId().getId());
 
             packProperties(w, null);
 
-            w.out().packString(clientStatement.query());
+            w.out().packString(statement.query());
 
             w.out().packObjectArrayAsBinaryTuple(arguments);
 
@@ -286,6 +285,7 @@ public class ClientSql implements IgniteSql {
             w.out().packNil(); // pageSize
             w.out().packNil(); // queryTimeout
             w.out().packNil(); // sessionTimeout
+            w.out().packString(ZoneId.systemDefault().getId());
 
             packProperties(w, null);
 

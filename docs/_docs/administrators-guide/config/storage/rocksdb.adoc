@@ -45,7 +45,7 @@ The example below shows how to configure a data region with RocksDB storage:
 ----
 ignite config set --type cluster \
 "{
-    rocksDb.regions: [{
+    rocksdb.regions: [{
         name: lsm_region,
         size: 256000000,
         cache: lru

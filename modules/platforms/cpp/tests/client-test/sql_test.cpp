@@ -79,6 +79,13 @@ protected:
         // remove all
     }
 
+    primitive execute_statement_one_result(const sql_statement &statement) {
+        auto result_set0 = m_client.get_sql().execute(nullptr, statement, {});
+
+        EXPECT_TRUE(result_set0.has_rowset());
+        return result_set0.current_page().front().get(0);
+    }
+
     /** Ignite client. */
     ignite_client m_client;
 };
@@ -478,4 +485,17 @@ TEST_F(sql_test, execute_script_fail) {
     auto value = result_set.current_page().front().get(0);
     EXPECT_EQ(ignite_type::INT32, value.get_type());
     EXPECT_EQ(1, value.get<std::int32_t>());
+}
+
+TEST_F(sql_test, timezone_passed) {
+    sql_statement statement{"SELECT CURRENT_TIMESTAMP"};
+    statement.timezone_id("UTC+8");
+    auto ts0 = execute_statement_one_result(statement);
+    EXPECT_EQ(ignite_type::DATETIME, ts0.get_type());
+
+    statement.timezone_id("UTC-2");
+    auto ts1 = execute_statement_one_result(statement);
+    EXPECT_EQ(ignite_type::DATETIME, ts1.get_type());
+
+    EXPECT_NE(ts0.get<ignite_date_time>(), ts1.get<ignite_date_time>());
 }

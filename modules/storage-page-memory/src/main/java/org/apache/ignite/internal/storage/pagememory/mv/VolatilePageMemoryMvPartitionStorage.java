@@ -34,7 +34,6 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
@@ -73,7 +72,6 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      *
      * @param tableStorage Table storage instance.
      * @param partitionId Partition id.
-     * @param pageEvictionTracker Page eviction tracker.
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param destructionExecutor Executor used to destruct partitions.
@@ -82,7 +80,6 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     public VolatilePageMemoryMvPartitionStorage(
             VolatilePageMemoryTableStorage tableStorage,
             int partitionId,
-            PageEvictionTracker pageEvictionTracker,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue,
@@ -91,7 +88,6 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         super(
                 partitionId,
                 tableStorage,
-                pageEvictionTracker,
                 new RenewablePartitionStorageState(
                         tableStorage,
                         partitionId,

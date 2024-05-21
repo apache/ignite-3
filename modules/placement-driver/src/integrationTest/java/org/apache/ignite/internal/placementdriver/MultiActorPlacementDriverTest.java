@@ -261,6 +261,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     storage,
                     nodeClock,
                     topologyAwareRaftGroupServiceFactory,
+                    new NoOpMetricManager(),
                     metaStorageConfiguration
             );
 

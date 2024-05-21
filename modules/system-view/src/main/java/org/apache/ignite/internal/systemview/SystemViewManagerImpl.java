@@ -117,8 +117,7 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
                     .map(SystemViewUtils::toSystemViewCreateCommand)
                     .collect(Collectors.toList());
 
-            catalogManager.execute(commands).whenComplete(
-                    (r, t) -> {
+            catalogManager.catalogReadyFuture(1).thenCompose((x) -> catalogManager.execute(commands)).whenComplete((r, t) -> {
                         viewsRegistrationFuture.complete(null);
 
                         if (t != null) {

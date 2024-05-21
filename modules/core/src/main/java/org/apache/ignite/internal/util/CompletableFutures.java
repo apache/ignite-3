@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import org.jetbrains.annotations.Nullable;
 
 /** Helper class for working with {@link CompletableFuture}. */
@@ -131,5 +132,23 @@ public class CompletableFutures {
         } else {
             return completedFuture(result);
         }
+    }
+
+    /**
+     * Creates a consumer that, when passed to a {@link CompletableFuture#whenComplete} call, will copy the outcome (either successful or
+     * not) of the target future to the given future.
+     *
+     * @param future Future to copy the outcome to.
+     * @param <T> Future result type.
+     * @return Consumer for transferring a future outcome to another future.
+     */
+    public static <T> BiConsumer<T, Throwable> copyStateTo(CompletableFuture<? super T> future) {
+        return (v, e) -> {
+            if (e != null) {
+                future.completeExceptionally(e);
+            } else {
+                future.complete(v);
+            }
+        };
     }
 }

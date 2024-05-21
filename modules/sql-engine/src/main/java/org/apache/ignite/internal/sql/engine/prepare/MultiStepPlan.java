@@ -40,14 +40,18 @@ public class MultiStepPlan implements ExplainablePlan {
     private final IgniteRel root;
 
     private final ParameterMetadata parameterMetadata;
+    private final int catalogVersion;
 
     /** Constructor. */
-    public MultiStepPlan(PlanId id, SqlQueryType type, IgniteRel root, ResultSetMetadata meta, ParameterMetadata parameterMetadata) {
+    public MultiStepPlan(
+            PlanId id, SqlQueryType type, IgniteRel root, ResultSetMetadata meta, ParameterMetadata parameterMetadata, int catalogVersion
+    ) {
         this.id = id;
         this.type = type;
         this.root = root;
         this.meta = meta;
         this.parameterMetadata = parameterMetadata;
+        this.catalogVersion = catalogVersion;
     }
 
     /** {@inheritDoc} */
@@ -80,6 +84,10 @@ public class MultiStepPlan implements ExplainablePlan {
         IgniteRel clonedRoot = Cloner.clone(root, Commons.cluster());
 
         return RelOptUtil.toString(clonedRoot, SqlExplainLevel.ALL_ATTRIBUTES);
+    }
+
+    public int catalogVersion() {
+        return catalogVersion;
     }
 
     /** Returns root of the query tree. */

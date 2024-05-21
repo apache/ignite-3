@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,7 +56,7 @@ class ItIndexAvailabilityTest extends BaseSqlIntegrationTest {
         sql(String.format("CREATE INDEX %s ON %s (val)", INDEX_NAME, TABLE_NAME));
 
         assertQuery(format("SELECT * FROM {} WHERE val = 'test'", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .check();
     }
 }

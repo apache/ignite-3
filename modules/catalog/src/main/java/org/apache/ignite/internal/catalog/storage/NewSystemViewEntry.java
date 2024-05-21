@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -45,17 +46,13 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
 
     private final CatalogSystemViewDescriptor descriptor;
 
-    private final String schemaName;
-
     /**
      * Constructor.
      *
      * @param descriptor System view descriptor.
-     * @param schemaName A schema name.
      */
-    public NewSystemViewEntry(CatalogSystemViewDescriptor descriptor, String schemaName) {
+    public NewSystemViewEntry(CatalogSystemViewDescriptor descriptor) {
         this.descriptor = descriptor;
-        this.schemaName = schemaName;
     }
 
     @Override
@@ -78,7 +75,7 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
     /** {@inheritDoc} */
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor systemSchema = catalog.schema(schemaName);
+        CatalogSchemaDescriptor systemSchema = schemaOrThrow(catalog, descriptor.schemaId());
 
         descriptor.updateToken(causalityToken);
 
@@ -119,15 +116,13 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
         @Override
         public NewSystemViewEntry readFrom(IgniteDataInput input) throws IOException {
             CatalogSystemViewDescriptor descriptor = CatalogSystemViewDescriptor.SERIALIZER.readFrom(input);
-            String schema = input.readUTF();
 
-            return new NewSystemViewEntry(descriptor, schema);
+            return new NewSystemViewEntry(descriptor);
         }
 
         @Override
         public void writeTo(NewSystemViewEntry entry, IgniteDataOutput output) throws IOException {
             CatalogSystemViewDescriptor.SERIALIZER.writeTo(entry.descriptor, output);
-            output.writeUTF(entry.schemaName);
         }
     }
 }

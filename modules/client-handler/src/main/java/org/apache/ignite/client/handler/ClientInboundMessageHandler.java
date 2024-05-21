@@ -45,6 +45,7 @@ import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRe
 import org.apache.ignite.client.handler.requests.compute.ClientComputeCancelRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeChangePriorityRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteColocatedRequest;
+import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteMapReduceRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcCloseRequest;
@@ -735,6 +736,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                         clusterService,
                         notificationSender(requestId)
                 );
+
+            case ClientOp.COMPUTE_EXECUTE_MAPREDUCE:
+                return ClientComputeExecuteMapReduceRequest.process(in, out, compute, notificationSender(requestId));
 
             case ClientOp.COMPUTE_GET_STATUS:
                 return ClientComputeGetStatusRequest.process(in, out, compute);

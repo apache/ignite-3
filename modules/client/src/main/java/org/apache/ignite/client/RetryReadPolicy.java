@@ -39,6 +39,7 @@ public class RetryReadPolicy extends RetryLimitPolicy {
 
             case TUPLE_UPSERT:
             case COMPUTE_EXECUTE:
+            case COMPUTE_EXECUTE_MAPREDUCE:
             case COMPUTE_GET_STATUS:
             case COMPUTE_CANCEL:
             case COMPUTE_CHANGE_PRIORITY:

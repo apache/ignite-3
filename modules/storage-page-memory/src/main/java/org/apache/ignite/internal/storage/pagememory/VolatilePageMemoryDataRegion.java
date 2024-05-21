@@ -24,7 +24,6 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -49,8 +48,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
 
     private final int pageSize;
 
-    private final PageEvictionTracker pageEvictionTracker;
-
     private volatile VolatilePageMemory pageMemory;
 
     private volatile FreeListImpl freeList;
@@ -61,18 +58,15 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
      * @param cfg Data region configuration.
      * @param ioRegistry IO registry.
      * @param pageSize Page size in bytes.
-     * @param pageEvictionTracker Eviction tracker to use.
      */
     public VolatilePageMemoryDataRegion(
             VolatilePageMemoryProfileConfiguration cfg,
             PageIoRegistry ioRegistry,
             // TODO: IGNITE-17017 Move to common config
-            int pageSize,
-            PageEvictionTracker pageEvictionTracker) {
+            int pageSize) {
         this.cfg = cfg;
         this.ioRegistry = ioRegistry;
         this.pageSize = pageSize;
-        this.pageEvictionTracker = pageEvictionTracker;
     }
 
     /**
@@ -108,7 +102,6 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
                 true,
                 // Because in memory.
                 null,
-                pageEvictionTracker,
                 IoStatisticsHolderNoOp.INSTANCE
         );
     }

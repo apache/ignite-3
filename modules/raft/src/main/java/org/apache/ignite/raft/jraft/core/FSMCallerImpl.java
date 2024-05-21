@@ -188,7 +188,7 @@ public class FSMCallerImpl implements FSMCaller {
         }
         this.error = new RaftException(ErrorType.ERROR_TYPE_NONE);
         this.msgFactory = opts.getRaftMessagesFactory();
-        LOG.info("Starts FSMCaller successfully.");
+        LOG.info("Starts FSMCaller successfully [nodeId={}].", nodeId);
         return true;
     }
 

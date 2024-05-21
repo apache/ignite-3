@@ -20,12 +20,14 @@ package org.apache.ignite.internal.client.compute;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,6 +53,7 @@ import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -62,8 +65,6 @@ import org.apache.ignite.table.mapper.Mapper;
  * Client compute implementation.
  */
 public class ClientCompute implements IgniteCompute {
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
     /** Channel. */
     private final ReliableChannel ch;
 
@@ -252,13 +253,29 @@ public class ClientCompute implements IgniteCompute {
 
     @Override
     public <R> TaskExecution<R> submitMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-22124
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(units);
+        Objects.requireNonNull(taskClassName);
+
+        return new ClientTaskExecution<>(ch, doExecuteMapReduceAsync(units, taskClassName, args));
     }
 
     @Override
     public <R> R executeMapReduce(List<DeploymentUnit> units, String taskClassName, Object... args) {
         return sync(executeMapReduceAsync(units, taskClassName, args));
+    }
+
+    private CompletableFuture<SubmitTaskResult> doExecuteMapReduceAsync(
+            List<DeploymentUnit> units,
+            String taskClassName,
+            Object... args) {
+        return ch.serviceAsync(
+                ClientOp.COMPUTE_EXECUTE_MAPREDUCE,
+                w -> packTask(w.out(), units, taskClassName, args),
+                ClientCompute::unpackSubmitTaskResult,
+                null,
+                null,
+                true
+        );
     }
 
     private CompletableFuture<SubmitResult> executeOnNodesAsync(
@@ -369,7 +386,7 @@ public class ClientCompute implements IgniteCompute {
 
         return tables.tableAsync(tableName).thenApply(t -> {
             if (t == null) {
-                throw new TableNotFoundException(DEFAULT_SCHEMA_NAME, tableName);
+                throw new TableNotFoundException(SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
             }
 
             ClientTable clientTable = (ClientTable) t;
@@ -419,16 +436,29 @@ public class ClientCompute implements IgniteCompute {
             String jobClassName,
             JobExecutionOptions options,
             Object[] args) {
-        w.packInt(units.size());
-        for (DeploymentUnit unit : units) {
-            w.packString(unit.name());
-            w.packString(unit.version().render());
-        }
+        packDeploymentUnits(w, units);
 
         w.packString(jobClassName);
         w.packInt(options.priority());
         w.packInt(options.maxRetries());
         w.packObjectArrayAsBinaryTuple(args);
+    }
+
+    private static void packTask(ClientMessagePacker w,
+            List<DeploymentUnit> units,
+            String taskClassName,
+            Object[] args) {
+        packDeploymentUnits(w, units);
+        w.packString(taskClassName);
+        w.packObjectArrayAsBinaryTuple(args);
+    }
+
+    private static void packDeploymentUnits(ClientMessagePacker w, List<DeploymentUnit> units) {
+        w.packInt(units.size());
+        for (DeploymentUnit unit : units) {
+            w.packString(unit.name());
+            w.packString(unit.version().render());
+        }
     }
 
     /**
@@ -440,6 +470,26 @@ public class ClientCompute implements IgniteCompute {
      */
     private static SubmitResult unpackSubmitResult(PayloadInputChannel ch) {
         return new SubmitResult(ch.in().unpackUuid(), ch.notificationFuture());
+    }
+
+    /**
+     * Unpacks coordination job id and jobs ids which are executing under this task from channel and gets notification future.
+     * This is needed because we need to unpack message response in the payload
+     * reader because the unpacker will be closed after the response is processed.
+     *
+     * @param ch Payload channel.
+     * @return Result of the task submission.
+     */
+    private static SubmitTaskResult unpackSubmitTaskResult(PayloadInputChannel ch) {
+        var jobId = ch.in().unpackUuid();
+
+        var size = ch.in().unpackInt();
+        List<UUID> jobIds = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            jobIds.add(ch.in().unpackUuid());
+        }
+
+        return new SubmitTaskResult(jobId, jobIds, ch.notificationFuture());
     }
 
     private static <R> R sync(CompletableFuture<R> future) {

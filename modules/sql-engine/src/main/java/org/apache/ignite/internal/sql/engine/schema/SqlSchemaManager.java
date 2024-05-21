@@ -25,28 +25,28 @@ import org.apache.calcite.schema.SchemaPlus;
  */
 public interface SqlSchemaManager {
     /**
-     * Returns root schema of the given version.
+     * Returns root schema derived from catalog of the given version.
      */
-    SchemaPlus schema(int version);
+    SchemaPlus schema(int catalogVersion);
 
     /**
-     * Returns root schema by the given timestamp.
+     * Returns root schema derived from catalog of version which was considered active at the given timestamp.
      */
     SchemaPlus schema(long timestamp);
 
     /**
-     * Returns table by given id, which version correspond to the one from schema of given version.
+     * Returns table by given id, which version correspond to the one from catalog of given version.
      *
-     * @param schemaVersion Version of the schema.
+     * @param catalogVersion Version of the catalog.
      * @param tableId An identifier of a table of interest.
      * @return A table.
      */
-    IgniteTable table(int schemaVersion, int tableId);
+    IgniteTable table(int catalogVersion, int tableId);
 
     /**
-     * Returns a future to wait for given SQL schema version readiness.
+     * Returns a future to wait for given catalog version readiness.
      *
-     * @param version SQL schema version to wait.
+     * @param catalogVersion version of the catalog to wait.
      */
-    CompletableFuture<Void> schemaReadyFuture(int version);
+    CompletableFuture<Void> schemaReadyFuture(int catalogVersion);
 }

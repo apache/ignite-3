@@ -19,7 +19,6 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
@@ -50,6 +49,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -129,7 +129,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
 
         // Now let's check the data itself.
         assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returns(0, "0", 10.0)
                 .check();
     }
@@ -162,7 +162,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
 
         // Now let's check the data itself.
         assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returnRowCount(nextPersonId.get())
                 .check();
     }
@@ -202,7 +202,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
 
         // Now let's check the data itself.
         QueryChecker queryChecker = assertQuery(format("SELECT NAME FROM {} WHERE salary > 0.0 ORDER BY ID ASC", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .ordered();
 
         int updatedRowCount = updateIntoTableFuture.join();
@@ -248,7 +248,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
 
         // Now let's check the data itself.
         assertQuery(format("SELECT NAME FROM {} WHERE salary > 0.0", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returnRowCount(nextPersonId.get() - deleteFromTableFuture.join())
                 .check();
     }
@@ -274,12 +274,12 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         waitForReadTimestampThatObservesMostRecentCatalog();
 
         assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName0))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName0))
                 .returns(0, "0", 10.0, "foo")
                 .check();
 
         assertQuery(format("SELECT * FROM {} WHERE SURNAME = 'foo'", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName1))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName1))
                 .returns(0, "0", 10.0, "foo")
                 .check();
     }
@@ -309,7 +309,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         assertThat(createIndexFuture, willCompleteSuccessfully());
 
         assertQuery(format("SELECT * FROM {} WHERE SURNAME = 'foo'", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returns(0, "0", 10.0, "foo")
                 .check();
     }
@@ -333,7 +333,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
 
         // Now let's check the data itself.
         assertQuery(format("SELECT * FROM {} WHERE salary > 0.0", TABLE_NAME))
-                .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
+                .matches(containsIndexScan(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                 .returns(0, "0", 10.0)
                 .check();
     }

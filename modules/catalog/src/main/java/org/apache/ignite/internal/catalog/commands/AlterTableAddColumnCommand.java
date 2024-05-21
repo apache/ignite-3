@@ -89,7 +89,7 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
         }
 
         return List.of(
-                new NewColumnsEntry(table.id(), columnDescriptors, schemaName)
+                new NewColumnsEntry(table.id(), columnDescriptors)
         );
     }
 

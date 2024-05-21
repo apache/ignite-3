@@ -171,6 +171,11 @@ public class ClientOp {
     /** Execute SQL query with the parameters batch. */
     public static final int SQL_EXEC_BATCH = 63;
 
+    /**
+     * Execute MapReduce task.
+     */
+    public static final int COMPUTE_EXECUTE_MAPREDUCE = 64;
+
     /** Get all primary replicas mapping to cluster nodes. */
-    public static final int PRIMARY_REPLICAS_GET = 64;
+    public static final int PRIMARY_REPLICAS_GET = 65;
 }

@@ -99,7 +99,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
         hasMorePages = in.unpackBoolean();
         wasApplied = in.unpackBoolean();
         affectedRows = in.unpackLong();
-        metadata = hasRowSet ? new ClientResultSetMetadata(in) : null;
+        metadata = hasRowSet ? ClientResultSetMetadata.read(in) : null;
 
         this.mapper = mapper;
         marshaller = metadata != null && mapper != null && mapper.targetType() != SqlRow.class

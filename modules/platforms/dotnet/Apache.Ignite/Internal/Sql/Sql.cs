@@ -26,6 +26,7 @@ namespace Apache.Ignite.Internal.Sql
     using Ignite.Table;
     using Ignite.Transactions;
     using Linq;
+    using NodaTime;
     using Proto;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
@@ -238,6 +239,8 @@ namespace Apache.Ignite.Internal.Sql
             w.Write(statement.PageSize);
             w.Write((long)statement.Timeout.TotalMilliseconds);
             w.WriteNil(); // Session timeout (unused, session is closed by the server immediately).
+            w.Write(statement.TimeZoneId);
+
             WriteProperties(statement, ref w);
             w.Write(statement.Query);
             w.WriteObjectCollectionAsBinaryTuple(args);
