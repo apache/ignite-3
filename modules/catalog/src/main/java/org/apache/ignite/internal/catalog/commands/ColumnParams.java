@@ -30,6 +30,7 @@ public class ColumnParams {
     public static final String ERR_COL_PARAM_NOT_APPLICABLE = "{} is not applicable for column '{}' of type '{}'";
     public static final String ERR_COL_PARAM_VALIDATION = "{} for column '{}' of type '{}' must be non-negative";
     public static final String ERR_COL_PARAM_DEFINITION = "{} definition is necessary for column '{}' of type '{}'";
+    public static final String ERR_COL_POSITIVE_PARAM_VALIDATION = "{} for column '{}' of type '{}' must be at least 1";
 
     /** Creates parameters builder. */
     public static Builder builder() {
@@ -235,14 +236,15 @@ public class ColumnParams {
             boolean validatePrecision = params.type.precisionAllowed();
             boolean validateScale = params.type.scaleAllowed();
             boolean validateLength = params.type.lengthAllowed();
+            Integer length = params.length();
 
             if (validateLength) {
-                if (params.length() == null) {
+                if (length == null) {
                     throw new CatalogValidationException(format(ERR_COL_PARAM_DEFINITION, "Length", params.name(), params.type()));
                 }
 
-                if (params.length() <= 0) {
-                    throw new CatalogValidationException(format(ERR_COL_PARAM_VALIDATION, "Length", params.name(), params.type()));
+                if (length < 1) {
+                    throw new CatalogValidationException(format(ERR_COL_POSITIVE_PARAM_VALIDATION, "Length", params.name(), params.type()));
                 }
             } else {
                 if (params.length() != null) {

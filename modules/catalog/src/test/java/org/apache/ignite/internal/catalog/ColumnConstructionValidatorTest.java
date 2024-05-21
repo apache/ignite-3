@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColu
 import static org.apache.ignite.internal.catalog.commands.ColumnParams.ERR_COL_PARAM_DEFINITION;
 import static org.apache.ignite.internal.catalog.commands.ColumnParams.ERR_COL_PARAM_NOT_APPLICABLE;
 import static org.apache.ignite.internal.catalog.commands.ColumnParams.ERR_COL_PARAM_VALIDATION;
+import static org.apache.ignite.internal.catalog.commands.ColumnParams.ERR_COL_POSITIVE_PARAM_VALIDATION;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -119,7 +120,7 @@ public class ColumnConstructionValidatorTest extends BaseIgniteAbstractTest {
                     format(ERR_COL_PARAM_DEFINITION, "Length", "COL", type.name()));
 
             assertThrowsWithCause(invalidLength::build, CatalogValidationException.class,
-                    format(ERR_COL_PARAM_VALIDATION, "Length", "COL", type.name()));
+                    format(ERR_COL_POSITIVE_PARAM_VALIDATION, "Length", "COL", type.name()));
 
             ColumnParams col = correctLength.build();
             assertNotNull(col.length());
