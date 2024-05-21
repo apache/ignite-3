@@ -528,7 +528,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                         }
                     };
 
-                    return replicaManager.startRaftClientAndReplica(
+                    return replicaManager.startReplica(
                             false,
                             groupId,
                             newConfiguration,

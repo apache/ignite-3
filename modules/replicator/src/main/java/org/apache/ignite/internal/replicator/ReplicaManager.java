@@ -491,24 +491,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param replicationGroupId Table-Partition identifier.
      * @return replica if it was created or null otherwise.
      */
-    public CompletableFuture<Replica> getReplica(ReplicationGroupId replicationGroupId) {
+    public CompletableFuture<Replica> replica(ReplicationGroupId replicationGroupId) {
         return replicas.get(replicationGroupId);
-    }
-
-    /**
-     * TODO a small workaround to shrink checking boilerplate.
-     *
-     * @param replicaGrpId group id.
-     * @return raft-client.
-     */
-    @Nullable
-    public RaftGroupService raftClient(TablePartitionId replicaGrpId) {
-        CompletableFuture<Replica> replicaFut = getReplica(replicaGrpId);
-        if (replicaFut == null) {
-            return null;
-        }
-        // TODO: make it async
-        return replicaFut.join().raftClient();
     }
 
     /**
@@ -517,7 +501,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param raftNodeId RAFT-node's identifier.
      * @return true if it is started and false otherwise.
      */
-    public boolean isRaftClientStarted(RaftNodeId raftNodeId) {
+    public boolean isRaftStarted(RaftNodeId raftNodeId) {
         return ((Loza) raftManager).isStarted(raftNodeId);
     }
 
@@ -610,7 +594,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @throws NodeStoppingException If node is stopping.
      * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been started.
      */
-    public CompletableFuture<Void> startRaftClientAndReplica(
+    public CompletableFuture<Void> startReplica(
             boolean shouldSkipReplicaStarting,
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,

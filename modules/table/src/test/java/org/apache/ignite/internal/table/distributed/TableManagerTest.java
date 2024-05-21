@@ -276,7 +276,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
-        when(replicaMgr.startRaftClientAndReplica(anyBoolean(), any(), any(), any(), any(), any(), any()))
+        when(replicaMgr.startReplica(anyBoolean(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(nullCompletedFuture());
         when(replicaMgr.stopReplica(any())).thenReturn(trueCompletedFuture());
 
