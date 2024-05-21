@@ -31,6 +31,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
@@ -447,8 +448,10 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                                 out -> {
                                     // TODO: Serialize simple types.
                                     // Do we require all items to be of the same type?
-                                    out.out().packInt(tbl.tableId());
-                                    out.out().packInt(partitionId);
+                                    ClientMessagePacker w = out.out();
+                                    w.packInt(tbl.tableId());
+                                    w.packInt(partitionId);
+                                    w.packString(receiverClassName);
                                 },
                                 in -> {
                                     // TODO: read results
