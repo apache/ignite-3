@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.table;
 
-import static java.util.Collections.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.client.TcpIgniteClient.unpackClusterNode;
 import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getPartitionAwarenessProvider;
@@ -69,28 +68,26 @@ public class ClientPartitionManager implements PartitionManager {
             return completedFuture(clusterNode);
         }
 
-        return primaryReplicasAsync().thenApply(map -> {
-            lock.lock();
-            try {
-                cache.putAll(map);
-                aliveUntil = Instant.now().plus(1, ChronoUnit.MINUTES);
-                return map.get(partition);
-            } finally {
-                lock.unlock();
-            }
-        });
+        return primaryReplicasAsync()
+                .thenApply(map -> map.get(partition));
     }
 
     @Override
     @SuppressWarnings("resource")
     public CompletableFuture<Map<Partition, ClusterNode>> primaryReplicasAsync() {
+        Map<Partition, ClusterNode> cache = lookupCache();
+
+        if (cache != null) {
+            return completedFuture(cache);
+        }
+
         return tbl.channel().serviceAsync(ClientOp.PRIMARY_REPLICAS_GET,
                 w -> w.out().packInt(tbl.tableId()),
                 r -> {
                     ClientMessageUnpacker in = r.in();
 
                     if (in.tryUnpackNil()) {
-                        return emptyMap();
+                        return Collections.<Partition, ClusterNode>emptyMap();
                     }
 
                     int size = in.unpackInt();
@@ -103,7 +100,8 @@ public class ClientPartitionManager implements PartitionManager {
                     }
 
                     return res;
-                });
+                })
+                .thenApply(this::updateCache);
     }
 
     @Override
@@ -130,6 +128,31 @@ public class ClientPartitionManager implements PartitionManager {
                 return null;
             }
             return cache.get(partition);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private @Nullable Map<Partition, ClusterNode> lookupCache() {
+        lock.lock();
+        try {
+            if (aliveUntil == null || Instant.now().isAfter(aliveUntil)) {
+                cache.clear();
+                aliveUntil = null;
+                return null;
+            }
+            return Map.copyOf(cache);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private Map<Partition, ClusterNode> updateCache(Map<Partition, ClusterNode> map) {
+        lock.lock();
+        try {
+            cache.putAll(map);
+            aliveUntil = Instant.now().plus(1, ChronoUnit.MINUTES);
+            return map;
         } finally {
             lock.unlock();
         }
