@@ -453,9 +453,9 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                                     w.packInt(tbl.tableId());
                                     w.packInt(partitionId);
                                     w.packDeploymentUnits(deploymentUnits);
+                                    w.packBoolean(resultSubscriber != null); // receiveResults
                                     w.packString(receiverClassName);
                                     w.packObjectArrayAsBinaryTuple(receiverArgs);
-                                    w.packBoolean(resultSubscriber != null); // receiveResults
                                     w.packCollectionAsBinaryTuple(items);
                                 },
                                 in -> {

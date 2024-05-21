@@ -56,9 +56,10 @@ public class ClientStreamerWithReceiverBatchSendRequest {
         return readTableAsync(in, tables).thenCompose(table -> {
             int partition = in.unpackInt();
             List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
+            boolean returnResults = in.unpackBoolean();
+
             String receiverClassName = in.unpackString();
             Object[] receiverArgs = in.unpackObjectArrayFromBinaryTuple();
-            boolean returnResults = in.unpackBoolean();
             List<Object> items = in.unpackCollectionFromBinaryTuple();
 
             if (items == null) {
@@ -74,6 +75,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
 
             // TODO: Get class loader from units.
             // TODO: use Compute component to execute receiver on specific node with failover, proper executor, etc.
+            // use this.getClass().classLoader() to get the class loader which Compute has prepared for us.
             Class<DataStreamerReceiver<Object, Object>> receiverClass = ComputeUtils.receiverClass(
                     ClassLoader.getSystemClassLoader(), receiverClassName);
 
