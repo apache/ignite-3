@@ -25,11 +25,8 @@ import io.netty.buffer.ByteBufUtil;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.BitSet;
-import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
-import java.util.function.Consumer;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
@@ -723,42 +720,6 @@ public class ClientMessagePacker implements AutoCloseable {
             packString(unit.name());
             packString(unit.version().render());
         }
-    }
-
-    public <T> void packCollectionAsBinaryTuple(@Nullable Collection<T> items) {
-        assert !closed : "Packer is closed";
-
-        if (items == null) {
-            packNil();
-
-            return;
-        }
-
-        packInt(items.size());
-
-        if (items.isEmpty()) {
-            return;
-        }
-
-        // We expect all items to have the same type.
-        T firstItem = items.iterator().next();
-        Objects.requireNonNull(firstItem);
-        Class<?> type = firstItem.getClass();
-
-        var builder = new BinaryTupleBuilder(items.size());
-        Consumer<T> appender = ClientBinaryTupleUtils.writeTypeAndGetAppender(this, builder, firstItem);
-
-        for (T item : items) {
-            Objects.requireNonNull(item);
-            if (!type.equals(item.getClass())) {
-                throw new IllegalArgumentException(
-                        "All items must have the same type. First item: " + type + ", current item: " + item.getClass());
-            }
-
-            appender.accept(item);
-        }
-
-        packBinaryTuple(builder);
     }
 
     /**
