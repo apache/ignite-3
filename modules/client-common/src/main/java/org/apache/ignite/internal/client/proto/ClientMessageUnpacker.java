@@ -948,7 +948,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
      *
      * @return Collection.
      */
-    public <T> @Nullable List<T> unpackCollectionFromBinaryTuple() {
+    public @Nullable List<Object> unpackCollectionFromBinaryTuple() {
         if (tryUnpackNil()) {
             return null;
         }
@@ -961,9 +961,9 @@ public class ClientMessageUnpacker implements AutoCloseable {
         int typeId = unpackInt();
         ColumnType type = ColumnTypeConverter.fromIdOrThrow(typeId);
 
-        List<T> res = new ArrayList<>(size);
+        List<Object> res = new ArrayList<>(size);
         BinaryTupleReader binTuple = new BinaryTupleReader(size, readBinaryUnsafe());
-        Function<Integer, T> reader = ClientBinaryTupleUtils.readerForType(binTuple, type);
+        Function<Integer, Object> reader = ClientBinaryTupleUtils.readerForType(binTuple, type);
 
         for (int i = 0; i < size; i++) {
             res.add(reader.apply(i));

@@ -30,6 +30,7 @@ import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
@@ -117,6 +118,70 @@ public class ClientBinaryTupleUtils {
 
             default:
                 throw unsupportedTypeException(typeId);
+        }
+    }
+
+    public static Function<Integer, Object> readerForType(BinaryTupleReader binTuple, ColumnType type) {
+        switch (type) {
+            case INT8:
+                return binTuple::byteValue;
+
+            case INT16:
+                return binTuple::shortValue;
+
+            case INT32:
+                return binTuple::intValue;
+
+            case INT64:
+                return binTuple::longValue;
+
+            case FLOAT:
+                return binTuple::floatValue;
+
+            case DOUBLE:
+                return binTuple::doubleValue;
+
+            case DECIMAL:
+                return idx -> binTuple.decimalValue(idx, -1);
+
+            case UUID:
+                return binTuple::uuidValue;
+
+            case STRING:
+                return binTuple::stringValue;
+
+            case BYTE_ARRAY:
+                return binTuple::bytesValue;
+
+            case BITMASK:
+                return binTuple::bitmaskValue;
+
+            case DATE:
+                return binTuple::dateValue;
+
+            case TIME:
+                return binTuple::timeValue;
+
+            case DATETIME:
+                return binTuple::dateTimeValue;
+
+            case TIMESTAMP:
+                return binTuple::timestampValue;
+
+            case NUMBER:
+                return binTuple::numberValue;
+
+            case BOOLEAN:
+                return idx -> binTuple.byteValue(idx) != 0;
+
+            case DURATION:
+                return binTuple::durationValue;
+
+            case PERIOD:
+                return binTuple::periodValue;
+
+            default:
+                throw unsupportedTypeException(type.id());
         }
     }
 
