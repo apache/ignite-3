@@ -1328,7 +1328,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     nodeCfgMgr,
                     failureProcessor,
                     clusterService,
-                    logStorageFactoryComponent, // Check when to stop!!
+                    logStorageFactoryComponent,
                     raftManager,
                     cmgManager
             );
