@@ -63,6 +63,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
 
             // TODO: Get class loader from units.
             // TODO: Execute on specified partition.
+            // TODO: Use compute executor.
             Class<DataStreamerReceiver<Object, Object>> receiverClass = ComputeUtils.receiverClass(
                     ClassLoader.getSystemClassLoader(), receiverClassName);
 
