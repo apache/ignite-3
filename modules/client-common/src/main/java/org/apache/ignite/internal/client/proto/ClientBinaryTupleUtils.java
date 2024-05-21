@@ -29,6 +29,7 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.util.BitSet;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
@@ -188,6 +189,78 @@ public class ClientBinaryTupleUtils {
         } else if (obj instanceof Period) {
             appendTypeAndScale(builder, ColumnType.PERIOD);
             builder.appendPeriod((Period) obj);
+        } else {
+            throw unsupportedTypeException(obj.getClass());
+        }
+    }
+
+    /**
+     * Writes type id to the specified packer and returns a consumer that writes the value to the binary tuple.
+     *
+     * @param w Packer.
+     * @param builder Builder.
+     * @param obj Object.
+     */
+    public static <T> Consumer<T> writeTypeAndGetAppender(ClientMessagePacker w, BinaryTupleBuilder builder, Object obj) {
+        assert obj != null : "Object is null";
+
+        if (obj instanceof Boolean) {
+            w.packInt(ColumnType.BOOLEAN.id());
+            return (T v) -> builder.appendBoolean((Boolean) v);
+        } else if (obj instanceof Byte) {
+            w.packInt(ColumnType.INT8.id());
+            return (T v) -> builder.appendByte((Byte) v);
+        } else if (obj instanceof Short) {
+            w.packInt(ColumnType.INT16.id());
+            return (T v) -> builder.appendShort((Short) v);
+        } else if (obj instanceof Integer) {
+            w.packInt(ColumnType.INT32.id());
+            return (T v) -> builder.appendInt((Integer) v);
+        } else if (obj instanceof Long) {
+            w.packInt(ColumnType.INT64.id());
+            return (T v) -> builder.appendLong((Long) v);
+        } else if (obj instanceof Float) {
+            w.packInt(ColumnType.FLOAT.id());
+            return (T v) -> builder.appendFloat((Float) v);
+        } else if (obj instanceof Double) {
+            w.packInt(ColumnType.DOUBLE.id());
+            return (T v) -> builder.appendDouble((Double) v);
+        } else if (obj instanceof BigDecimal) {
+            w.packInt(ColumnType.DECIMAL.id());
+            return (T v) -> builder.appendDecimal((BigDecimal) v, ((BigDecimal) v).scale());
+        } else if (obj instanceof UUID) {
+            w.packInt(ColumnType.UUID.id());
+            return (T v) -> builder.appendUuid((UUID) v);
+        } else if (obj instanceof String) {
+            w.packInt(ColumnType.STRING.id());
+            return (T v) -> builder.appendString((String) v);
+        } else if (obj instanceof byte[]) {
+            w.packInt(ColumnType.BYTE_ARRAY.id());
+            return (T v) -> builder.appendBytes((byte[]) v);
+        } else if (obj instanceof BitSet) {
+            w.packInt(ColumnType.BITMASK.id());
+            return (T v) -> builder.appendBitmask((BitSet) v);
+        } else if (obj instanceof LocalDate) {
+            w.packInt(ColumnType.DATE.id());
+            return (T v) -> builder.appendDate((LocalDate) v);
+        } else if (obj instanceof LocalTime) {
+            w.packInt(ColumnType.TIME.id());
+            return (T v) -> builder.appendTime((LocalTime) v);
+        } else if (obj instanceof LocalDateTime) {
+            w.packInt(ColumnType.DATETIME.id());
+            return (T v) -> builder.appendDateTime((LocalDateTime) v);
+        } else if (obj instanceof Instant) {
+            w.packInt(ColumnType.TIMESTAMP.id());
+            return (T v) -> builder.appendTimestamp((Instant) v);
+        } else if (obj instanceof BigInteger) {
+            w.packInt(ColumnType.NUMBER.id());
+            return (T v) -> builder.appendNumber((BigInteger) v);
+        } else if (obj instanceof Duration) {
+            w.packInt(ColumnType.DURATION.id());
+            return (T v) -> builder.appendDuration((Duration) v);
+        } else if (obj instanceof Period) {
+            w.packInt(ColumnType.PERIOD.id());
+            return (T v) -> builder.appendPeriod((Period) v);
         } else {
             throw unsupportedTypeException(obj.getClass());
         }

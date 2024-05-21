@@ -446,12 +446,13 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                         partitionAssignment -> tbl.channel().serviceAsync(
                                 ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND,
                                 out -> {
-                                    // TODO: Serialize simple types.
-                                    // Do we require all items to be of the same type?
+                                    assert deleted == null : "Deletion is not supported with receiver.";
+
                                     ClientMessagePacker w = out.out();
                                     w.packInt(tbl.tableId());
                                     w.packInt(partitionId);
                                     w.packString(receiverClassName);
+                                    w.packObjectsOfSameTypeAsBinaryTuple(items);
                                 },
                                 in -> {
                                     // TODO: read results
