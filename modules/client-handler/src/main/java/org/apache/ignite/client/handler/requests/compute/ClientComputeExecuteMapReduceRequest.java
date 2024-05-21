@@ -18,7 +18,6 @@
 package org.apache.ignite.client.handler.requests.compute;
 
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackArgs;
-import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackDeploymentUnits;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStatusRequest.packJobStatus;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
 
@@ -52,7 +51,7 @@ public class ClientComputeExecuteMapReduceRequest {
             ClientMessagePacker out,
             IgniteComputeInternal compute,
             NotificationSender notificationSender) {
-        List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
+        List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
         String taskClassName = in.unpackString();
         Object[] args = unpackArgs(in);
 
