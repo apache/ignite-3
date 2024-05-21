@@ -92,6 +92,11 @@ public abstract class ItNotNullConstraintTest extends ClusterPerClassIntegration
                 "Column 'INT_COL' does not allow NULLs",
                 () -> runSql("INSERT INTO t1 SELECT 1, NULL"));
 
+        assertThrowsSqlException(
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                "Column 'INT_COL' does not allow NULLs",
+                () -> runSql("INSERT INTO t1 (id) VALUES(1)"));
+
         // UPDATE
         sql("INSERT INTO t1 VALUES(1, 42)");
 

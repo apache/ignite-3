@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LO
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.concurrent.CompletableFuture;
@@ -226,10 +227,13 @@ public class MvGc implements ManuallyCloseable {
                         .thenApplyAsync(unused -> gcUpdateHandler.vacuumBatch(lowWatermark, gcConfig.value().batchSize(), true), executor)
                         .whenComplete((isGarbageLeft, throwable) -> {
                             if (throwable != null) {
-                                if (throwable instanceof TrackerClosedException
-                                        || throwable.getCause() instanceof TrackerClosedException) {
+                                if (unwrapCause(throwable) instanceof TrackerClosedException) {
+                                    LOG.debug("TrackerClosedException caught", throwable);
+
                                     currentGcFuture.complete(null);
                                 } else {
+                                    LOG.error("Error when running GC", throwable);
+
                                     currentGcFuture.completeExceptionally(throwable);
                                 }
 
@@ -245,6 +249,8 @@ public class MvGc implements ManuallyCloseable {
                             }
                         });
             } catch (Throwable t) {
+                LOG.error("Error when running GC", t);
+
                 currentGcFuture.completeExceptionally(t);
             }
         });

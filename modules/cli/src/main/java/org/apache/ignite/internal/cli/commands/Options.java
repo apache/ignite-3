@@ -313,7 +313,7 @@ public enum Options {
         public static final String RECOVERY_NODE_NAMES_OPTION = "--nodes";
 
         public static final String RECOVERY_NODE_NAMES_OPTION_DESC = "Names specifying nodes to get partition states from. "
-                + "Case-sensitive, all nodes if not set";
+                + "Case-sensitive, without quotes, all nodes if not set";
 
         public static final String RECOVERY_PURGE_OPTION = "--purge";
 

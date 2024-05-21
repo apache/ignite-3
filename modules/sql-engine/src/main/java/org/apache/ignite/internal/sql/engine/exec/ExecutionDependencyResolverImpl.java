@@ -59,7 +59,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
      * {@inheritDoc}
      */
     @Override
-    public CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, int schemaVersion) {
+    public CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, int catalogVersion) {
         Map<Integer, CompletableFuture<ExecutableTable>> tableMap = new HashMap<>();
         Map<Integer, ScannableDataSource> dataSources = new HashMap<>();
 
@@ -86,7 +86,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
             public IgniteRel visit(IgniteTableModify rel) {
                 IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
 
-                resolveTable(schemaVersion, igniteTable.id());
+                resolveTable(catalogVersion, igniteTable.id());
 
                 return super.visit(rel);
             }
@@ -95,7 +95,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
             public IgniteRel visit(IgniteIndexScan rel) {
                 IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
 
-                resolveTable(schemaVersion, igniteTable.id());
+                resolveTable(catalogVersion, igniteTable.id());
 
                 return rel;
             }
@@ -104,7 +104,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
             public IgniteRel visit(IgniteTableScan rel) {
                 IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
 
-                resolveTable(schemaVersion, igniteTable.id());
+                resolveTable(catalogVersion, igniteTable.id());
 
                 return rel;
             }
@@ -126,12 +126,12 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
                 if (function.affinity()) {
                     int tableId = ((AffinityDistribution) function).tableId();
 
-                    resolveTable(schemaVersion, tableId);
+                    resolveTable(catalogVersion, tableId);
                 }
             }
 
-            private void resolveTable(int schemaVersion, int tableId) {
-                tableMap.computeIfAbsent(tableId, (id) -> registry.getTable(schemaVersion, tableId));
+            private void resolveTable(int catalogVersion, int tableId) {
+                tableMap.computeIfAbsent(tableId, (id) -> registry.getTable(catalogVersion, tableId));
             }
         };
 

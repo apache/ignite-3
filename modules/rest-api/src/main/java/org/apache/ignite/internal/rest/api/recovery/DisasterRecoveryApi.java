@@ -88,7 +88,8 @@ public interface DisasterRecoveryApi {
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "400", description = "Bad request.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.PROBLEM_JSON)
     CompletableFuture<Void> resetPartitions(@Body ResetPartitionsRequest command);
 
     @Post("restart-partitions")
