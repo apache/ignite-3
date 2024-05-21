@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
+import static java.util.Arrays.copyOfRange;
+
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,6 +29,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.command.IdempotentCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
@@ -55,6 +59,8 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -63,6 +69,8 @@ import org.jetbrains.annotations.Nullable;
 public class MetaStorageWriteHandler {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageWriteHandler.class);
+
+    public static final byte[] IDEMPOTENT_COMMAND_PREFIX_BYTES = "icp.".getBytes(StandardCharsets.UTF_8);
 
     private final KeyValueStorage storage;
     private final ClusterTimeImpl clusterTime;
@@ -173,11 +181,11 @@ public class MetaStorageWriteHandler {
         } else if (command instanceof InvokeCommand) {
             InvokeCommand cmd = (InvokeCommand) command;
 
-            clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime));
+            clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime, cmd.id()));
         } else if (command instanceof MultiInvokeCommand) {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
-            clo.result(storage.invoke(toIf(cmd.iif()), opTime));
+            clo.result(storage.invoke(toIf(cmd.iif()), opTime, cmd.id()));
         } else if (command instanceof SyncTimeCommand) {
             storage.advanceSafeTime(command.safeTime());
 
@@ -308,6 +316,28 @@ public class MetaStorageWriteHandler {
         }
 
         return false;
+    }
+
+    /**
+     * The callback that is called right after storage is updated with a snapshot.
+     */
+    void onSnapshotLoad() {
+        byte[] keyFrom = IDEMPOTENT_COMMAND_PREFIX_BYTES;
+        byte[] keyTo = storage.nextKey(IDEMPOTENT_COMMAND_PREFIX_BYTES);
+
+        Cursor<Entry> cursor = storage.range(keyFrom, keyTo);
+        // It's fine to loose original command start time - in that case we will store the entry a little bit longer that necessary.
+        HybridTimestamp now = clusterTime.now();
+
+        try (cursor) {
+            for (Entry entry : cursor) {
+                if (!entry.tombstone()) {
+                    byte[] commandIdBytes = copyOfRange(entry.key(), IDEMPOTENT_COMMAND_PREFIX_BYTES.length, entry.key().length);
+                    CommandId commandId = ByteUtils.fromBytes(commandIdBytes);
+                    idempotentCommandCache.put(commandId,new IdempotentCommandCachedResult(ByteUtils.byteToBoolean(entry.value()[0]), now));
+                }
+            }
+        }
     }
 
     private static class IdempotentCommandCachedResult {

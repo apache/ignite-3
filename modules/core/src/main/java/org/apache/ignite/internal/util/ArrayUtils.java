@@ -338,6 +338,25 @@ public final class ArrayUtils {
     }
 
     /**
+     * Concatenates an elements to an array.
+     *
+     * @param arr Array.
+     * @param bytes One or more elements.
+     * @return Concatenated array.
+     */
+    public static byte[] concat(@Nullable byte[] arr, byte... bytes) {
+        if (nullOrEmpty(arr)) {
+            return bytes;
+        }
+
+        byte[] newArr = Arrays.copyOf(arr, arr.length + bytes.length);
+
+        System.arraycopy(bytes, 0, newArr, arr.length, bytes.length);
+
+        return newArr;
+    }
+
+    /**
      * Removes an element from an array with decrementing the array itself.
      *
      * @param arr Array.

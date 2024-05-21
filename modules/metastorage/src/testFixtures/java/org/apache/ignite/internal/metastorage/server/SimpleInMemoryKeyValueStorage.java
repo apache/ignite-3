@@ -42,6 +42,7 @@ import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -231,7 +232,13 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure, HybridTimestamp opTs) {
+    public boolean invoke(
+            Condition condition,
+            Collection<Operation> success,
+            Collection<Operation> failure,
+            HybridTimestamp opTs,
+            CommandId commandId
+    ) {
         synchronized (mux) {
             Collection<Entry> e = getAll(Arrays.asList(condition.keys()));
 
@@ -274,7 +281,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public StatementResult invoke(If iif, HybridTimestamp opTs) {
+    public StatementResult invoke(If iif, HybridTimestamp opTs, CommandId commandId) {
         synchronized (mux) {
             If currIf = iif;
             while (true) {

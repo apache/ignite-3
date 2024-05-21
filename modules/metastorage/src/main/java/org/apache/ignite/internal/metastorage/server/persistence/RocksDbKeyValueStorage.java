@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.metastorage.server.persistence.StorageC
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.INDEX;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.REVISION_TO_TS;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.TS_TO_REVISION;
+import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX_BYTES;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
@@ -65,12 +66,15 @@ import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
@@ -89,6 +93,7 @@ import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -660,7 +665,13 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure, HybridTimestamp opTs) {
+    public boolean invoke(
+            Condition condition,
+            Collection<Operation> success,
+            Collection<Operation> failure,
+            HybridTimestamp opTs,
+            CommandId commandId
+    ) {
         rwLock.writeLock().lock();
 
         try {
@@ -668,7 +679,12 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
             boolean branch = condition.test(entries);
 
-            Collection<Operation> ops = branch ? success : failure;
+            Collection<Operation> ops = branch ? new ArrayList<>(success) : new ArrayList<>(failure);
+
+            ops.add(Operations.put(
+                    new ByteArray(ArrayUtils.concat(IDEMPOTENT_COMMAND_PREFIX_BYTES, ByteUtils.toBytes(commandId))),
+                    branch ? INVOKE_RESULT_TRUE_BYTES : INVOKE_RESULT_FALSE_BYTES)
+            );
 
             applyOperations(ops, opTs);
 
@@ -681,7 +697,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public StatementResult invoke(If iif, HybridTimestamp opTs) {
+    public StatementResult invoke(If iif, HybridTimestamp opTs, CommandId commandId) {
         rwLock.writeLock().lock();
 
         try {
@@ -703,7 +719,14 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 if (branch.isTerminal()) {
                     Update update = branch.update();
 
-                    applyOperations(update.operations(), opTs);
+                    Collection<Operation> ops = new ArrayList<>(update.operations());
+
+                    ops.add(Operations.put(
+                            new ByteArray(ArrayUtils.concat(IDEMPOTENT_COMMAND_PREFIX_BYTES, ByteUtils.toBytes(commandId))),
+                            update.result().result())
+                    );
+
+                    applyOperations(ops, opTs);
 
                     return update.result();
                 } else {
