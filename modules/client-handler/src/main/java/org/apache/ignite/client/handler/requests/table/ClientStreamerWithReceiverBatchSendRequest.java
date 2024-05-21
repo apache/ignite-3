@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler.requests.table;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
@@ -54,7 +55,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             int partition = in.unpackInt();
-            List<DeploymentUnit> deploymentUntis = in.unpackDeploymentUnits();
+            List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
             String receiverClassName = in.unpackString();
             Object[] receiverArgs = in.unpackObjectArrayFromBinaryTuple();
             boolean returnResults = in.unpackBoolean();
@@ -63,6 +64,13 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             if (items == null) {
                 throw new IgniteException(PROTOCOL_ERR, "Data streamer items are null.");
             }
+
+            // TODO: We need to pass the following further to the compute job.
+            // So we should put all of that stuff into a single object somehow. A single BinaryTuple.
+            List<Object> passThrough = new ArrayList<>();
+            passThrough.add(receiverClassName);
+            passThrough.add(receiverArgs);
+            passThrough.add(items);
 
             // TODO: Get class loader from units.
             // TODO: use Compute component to execute receiver on specific node with failover, proper executor, etc.
