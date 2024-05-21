@@ -24,7 +24,7 @@ public class ItRestartPartitionsCommandTest extends ItRestartPartitionsTest {
 
     @Override
     protected void execute(String... args) {
-        String[] fullArgs = ArrayUtils.concat(new String[] {"recovery", "restart-partitions"}, args);
+        String[] fullArgs = ArrayUtils.concat(new String[]{"recovery", "restart-partitions"}, args);
 
         super.execute(fullArgs);
     }

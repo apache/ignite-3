@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 public class RestartPartitionsRequest {
     @Schema(description = "Names specifying nodes to restart partitions. Case-sensitive, empty set means all nodes.")
     private final Set<String> nodeNames;
-    
+
     @Schema(description = "Name of the zone to restart partitions of. Without quotes, case-sensitive.")
     private final String zoneName;
 
@@ -42,19 +42,24 @@ public class RestartPartitionsRequest {
     @Schema(description = "Fully-qualified name of the table to restart partitions of. Without quotes, case-sensitive.")
     private final String tableName;
 
+    @Schema(description = "If partitions should be cleaned.")
+    private final boolean purge;
+
     /** Constructor. */
     @JsonCreator
     public RestartPartitionsRequest(
             @JsonProperty("nodeNames") @Nullable Set<String> nodeNames,
             @JsonProperty("zoneName") String zoneName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("partitionIds") @Nullable Collection<Integer> partitionIds
+            @JsonProperty("partitionIds") @Nullable Collection<Integer> partitionIds,
+            @JsonProperty("purge") boolean purge
     ) {
         Objects.requireNonNull(zoneName);
         Objects.requireNonNull(tableName);
 
         this.zoneName = zoneName;
         this.tableName = tableName;
+        this.purge = purge;
         this.partitionIds = partitionIds == null ? Set.of() : Set.copyOf(partitionIds);
         this.nodeNames = nodeNames == null ? Set.of() : Set.copyOf(nodeNames);
     }
@@ -81,6 +86,12 @@ public class RestartPartitionsRequest {
     @JsonGetter("tableName")
     public String tableName() {
         return tableName;
+    }
+
+    /** If partitions should be cleaned. */
+    @JsonGetter("purge")
+    public boolean purge() {
+        return purge;
     }
 
     @Override

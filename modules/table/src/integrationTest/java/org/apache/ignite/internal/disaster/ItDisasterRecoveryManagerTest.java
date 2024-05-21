@@ -73,7 +73,8 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
                 Set.of(node.name()),
                 ZONE_NAME,
                 SqlCommon.DEFAULT_SCHEMA_NAME + "." + TABLE_NAME,
-                Set.of(partitionId)
+                Set.of(partitionId),
+                false
         );
 
         assertThat(restartPartitionsFuture, willCompleteSuccessfully());

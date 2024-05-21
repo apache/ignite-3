@@ -45,11 +45,14 @@ public class RestartPartitionsCall implements Call<RestartPartitionsCallInput, S
         command.setNodeNames(input.nodeNames());
         command.setTableName(input.tableName().trim());
         command.setZoneName(input.zoneName().trim());
+        command.setPurge(input.purge());
 
         try {
             client.restartPartitions(command);
 
-            return DefaultCallOutput.success("Successfully started restarting partitions.");
+            return DefaultCallOutput.success(
+                    "Restarting partitions with" + (input.purge() ? ""  : "out") + " cleanup."
+            );
         } catch (ApiException e) {
             return DefaultCallOutput.failure(new IgniteCliApiException(e, input.clusterUrl()));
         }

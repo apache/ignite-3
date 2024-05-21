@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_NODE_NAMES_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PURGE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
 
@@ -54,7 +55,19 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         );
 
         assertErrOutputIsEmpty();
-        assertOutputContains("Successfully started restarting partitions.");
+        assertOutputContains("Restarting partitions without cleanup.");
+    }
+
+    @Test
+    public void testRestartAllPartitionsPurge() {
+        execute(CLUSTER_URL_OPTION, NODE_URL,
+                RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
+                RECOVERY_ZONE_NAME_OPTION, ZONE,
+                RECOVERY_PURGE_OPTION
+        );
+
+        assertErrOutputIsEmpty();
+        assertOutputContains("Restarting partitions with cleanup.");
     }
 
     @Test
@@ -66,7 +79,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         );
 
         assertErrOutputIsEmpty();
-        assertOutputContains("Successfully started restarting partitions.");
+        assertOutputContains("Restarting partitions without cleanup.");
     }
 
     @Test
@@ -84,7 +97,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         );
 
         assertErrOutputIsEmpty();
-        assertOutputContains("Successfully started restarting partitions.");
+        assertOutputContains("Restarting partitions without cleanup.");
     }
 
     @Test

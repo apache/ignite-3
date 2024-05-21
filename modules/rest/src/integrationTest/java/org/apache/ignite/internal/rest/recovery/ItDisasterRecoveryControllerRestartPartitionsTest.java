@@ -72,7 +72,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
         String unknownZone = "unknown_zone";
 
         MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST("/restart-partitions",
-                new RestartPartitionsRequest(Set.of(), unknownZone, QUALIFIED_TABLE_NAME, Set.of()));
+                new RestartPartitionsRequest(Set.of(), unknownZone, QUALIFIED_TABLE_NAME, Set.of(), false));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -87,7 +87,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
         String tableName = "unknown_table";
 
         MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST("/restart-partitions",
-                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, tableName, Set.of()));
+                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, tableName, Set.of(), false));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -100,7 +100,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     @Test
     void testRestartPartitionsIllegalPartitionNegative() {
         MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST("/restart-partitions",
-                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 5, -1, -10)));
+                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 5, -1, -10), false));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -113,7 +113,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     @Test
     void testRestartPartitionsPartitionsOutOfRange() {
         MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST("/restart-partitions",
-                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(DEFAULT_PARTITION_COUNT)));
+                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(DEFAULT_PARTITION_COUNT), false));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -136,7 +136,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
                 .collect(toSet());
 
         MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST("/restart-partitions",
-                new RestartPartitionsRequest(uppercaseNodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
+                new RestartPartitionsRequest(uppercaseNodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(), false));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -148,7 +148,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     @Test
     public void testRestartAllPartitions() {
         MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST("/restart-partitions",
-                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
+                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(), false));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 
@@ -158,7 +158,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     @Test
     public void testRestartSpecifiedPartitions() {
         MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST("/restart-partitions",
-                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 1)));
+                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 1), false));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 
@@ -170,7 +170,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
         Set<String> nodeNames = nodeNames(initialNodes() - 1);
 
         MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST("/restart-partitions",
-                new RestartPartitionsRequest(nodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
+                new RestartPartitionsRequest(nodeNames, FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(), false));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 
