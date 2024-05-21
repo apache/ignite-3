@@ -236,6 +236,7 @@ public class TestServer implements AutoCloseable {
                 placementDriver,
                 clientConnectorConfiguration)
                 : new ClientHandlerModule(
+                        ignite,
                         ((FakeIgnite) ignite).queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
                         (IgniteTransactionsImpl) ignite.transactions(),

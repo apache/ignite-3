@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -318,6 +319,38 @@ public class DataStreamerTest extends AbstractClientTableTest {
         assertNull(view.get(null, tupleKey(3L)));
 
         assertEquals("bar2", view.get(null, tupleKey(2L)).stringValue("name"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3})
+    public void testWithReceiver(int batchSize) {
+        RecordView<Tuple> view = defaultTable().recordView();
+
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().pageSize(batchSize).build();
+            streamerFut = view.streamData(
+                    publisher,
+                    options,
+                    t -> t,
+                    t -> t.stringValue("name"),
+                    null,
+                    new ArrayList<>(),
+                    "recv", "arg");
+
+            publisher.submit(tuple(1L, "foo"));
+            publisher.submit(tuple(2L, "bar"));
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        assertNotNull(view.get(null, tupleKey(1L)));
+        assertNotNull(view.get(null, tupleKey(2L)));
+        assertNull(view.get(null, tupleKey(3L)));
+
+        assertEquals("bar", view.get(null, tupleKey(2L)).stringValue("name"));
+
     }
 
     private static RecordView<Tuple> defaultTableView(FakeIgnite server, IgniteClient client) {
