@@ -62,8 +62,8 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.JraftServerUtils;
 import org.apache.ignite.internal.raft.server.RaftServer;
+import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -370,7 +370,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
         opt3.setCommandsMarshaller(commandsMarshaller);
 
-        metaStorageRaftSrv1 = JraftServerUtils.create(
+        metaStorageRaftSrv1 = TestJraftServerFactory.create(
                 cluster.get(0),
                 workDir.resolve("node1"),
                 raftConfiguration,
@@ -378,7 +378,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 new RaftGroupEventsClientListener()
         );
 
-        metaStorageRaftSrv2 = JraftServerUtils.create(
+        metaStorageRaftSrv2 = TestJraftServerFactory.create(
                 cluster.get(1),
                 workDir.resolve("node2"),
                 raftConfiguration,
@@ -386,7 +386,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 new RaftGroupEventsClientListener()
         );
 
-        metaStorageRaftSrv3 = JraftServerUtils.create(
+        metaStorageRaftSrv3 = TestJraftServerFactory.create(
                 cluster.get(2),
                 workDir.resolve("node3"),
                 raftConfiguration,

@@ -32,7 +32,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.JraftServerUtils;
+import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.MockitoTestUtils;
@@ -103,7 +103,7 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
         Path dataPath = workDir.resolve("node" + idx);
 
         JraftServerImpl server = MockitoTestUtils.spyStubOnly(
-                () -> JraftServerUtils.create(service, dataPath, raftConfiguration, opts)
+                () -> TestJraftServerFactory.create(service, dataPath, raftConfiguration, opts)
         );
 
         doAnswer(ans -> {

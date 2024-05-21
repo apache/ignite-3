@@ -28,7 +28,7 @@ import java.nio.file.Path;
 import java.util.List;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.JraftServerUtils;
+import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
@@ -100,7 +100,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
 
         ClusterService service = clusterService(PORT, List.of(addr), true);
 
-        JraftServerImpl server = JraftServerUtils.create(
+        JraftServerImpl server = TestJraftServerFactory.create(
                 service,
                 dataPath,
                 raftConfiguration,

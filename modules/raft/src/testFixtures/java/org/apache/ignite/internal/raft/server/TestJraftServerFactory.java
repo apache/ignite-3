@@ -28,8 +28,8 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 
 /** Utilities for creating JRaftServer instances. */
-public class JraftServerUtils {
-    private JraftServerUtils() {
+public class TestJraftServerFactory {
+    private TestJraftServerFactory() {
         // Intentionally left blank.
     }
 

@@ -43,9 +43,9 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.server.JraftServerUtils;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
+import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
@@ -101,7 +101,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         ClusterService service = clusterService(PORT, List.of(addr), true);
 
-        server = MockitoTestUtils.spyStubOnly(() -> JraftServerUtils.create(service, workDir, raftConfiguration));
+        server = MockitoTestUtils.spyStubOnly(() -> TestJraftServerFactory.create(service, workDir, raftConfiguration));
         doAnswer(ans -> IgniteUtils.stopAsync(() -> tryCallRealMethod(ans), service::stopAsync)).when(server).stopAsync();
 
         assertThat(server.startAsync(), willCompleteSuccessfully());

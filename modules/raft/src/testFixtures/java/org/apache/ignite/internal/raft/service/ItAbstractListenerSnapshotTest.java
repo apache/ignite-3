@@ -58,8 +58,8 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.JraftServerUtils;
 import org.apache.ignite.internal.raft.server.RaftServer;
+import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -425,7 +425,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         Path jraft = workDir.resolve("jraft" + idx);
 
-        JraftServerImpl server = MockitoTestUtils.spyStubOnly(() -> JraftServerUtils.create(service, jraft, raftConfiguration));
+        JraftServerImpl server = MockitoTestUtils.spyStubOnly(() -> TestJraftServerFactory.create(service, jraft, raftConfiguration));
         doAnswer(ans -> IgniteUtils.stopAsync(() -> tryCallRealMethod(ans), service::stopAsync)).when(server).stopAsync();
 
         assertThat(server.startAsync(), willCompleteSuccessfully());
