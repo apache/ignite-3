@@ -17,21 +17,14 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readSchema;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 
-import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.table.RecordBinaryViewImpl;
-import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.manager.IgniteTables;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Client streamer batch request.
@@ -52,6 +45,10 @@ public class ClientStreamerWithReceiverBatchSendRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             int partition = in.unpackInt();
+            List<DeploymentUnit> deploymentUntis = in.unpackDeploymentUnits();
+            String receiverClassName = in.unpackString();
+            Object[] receiverArgs = in.unpackObjectArrayFromBinaryTuple();
+            List<Object> items = in.unpackCollectionFromBinaryTuple();
 
             // TODO
             return null;
