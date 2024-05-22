@@ -1092,7 +1092,6 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
             sql("DROP TABLE t1_ij");
             sql("DROP TABLE t2_ij");
         }
-
     }
 
     @Test
