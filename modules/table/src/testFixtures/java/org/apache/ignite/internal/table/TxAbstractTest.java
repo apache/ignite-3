@@ -114,6 +114,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -435,7 +436,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(200., accounts.recordView().get(null, makeKey(2)).doubleValue("balance"));
     }
 
-    @Test
+    @RepeatedTest(50)
     public void testDeleteUpsertAllRollback() throws TransactionException {
         deleteUpsertAll().rollback();
 

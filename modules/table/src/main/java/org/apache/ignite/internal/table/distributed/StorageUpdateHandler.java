@@ -27,6 +27,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
@@ -35,6 +37,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
+import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PendingRows;
 import org.apache.ignite.internal.table.distributed.replicator.TimedBinaryRow;
 import org.apache.ignite.internal.util.Cursor;
@@ -42,6 +45,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Handler for storage updates that can be performed on processing of primary replica requests and partition replication requests. */
 public class StorageUpdateHandler {
+    private static final IgniteLogger LOG = Loggers.forClass(StorageUpdateHandler.class);
     /** Partition id. */
     private final int partitionId;
 
@@ -195,6 +199,8 @@ public class StorageUpdateHandler {
             @Nullable HybridTimestamp commitTs,
             @Nullable List<Integer> indexIds
     ) {
+        LOG.info("handleUpdateAll [txId={}, partitionId={}, rowsToUpdate={}]", txId, commitPartitionId, rowsToUpdate);
+
         if (nullOrEmpty(rowsToUpdate)) {
             return;
         }
@@ -234,6 +240,8 @@ public class StorageUpdateHandler {
             @Nullable List<Integer> indexIds
     ) {
         return storage.runConsistently(locker -> {
+            LOG.info("processEntriesUntilBatchLimit [txId={}]", txId);
+
             List<RowId> processedRowIds = new ArrayList<>();
             int batchLength = 0;
             Entry<UUID, TimedBinaryRow> entryToProcess = lastUnprocessedEntry;
@@ -244,7 +252,8 @@ public class StorageUpdateHandler {
                 if (row != null) {
                     batchLength += row.tupleSliceLength();
                 }
-
+                LOG.info("processEntriesUntilBatchLimit [txId={}, rowId={}, break={}]", txId, rowId,
+                        !processedRowIds.isEmpty() && batchLength > maxBatchLength);
                 if (!processedRowIds.isEmpty() && batchLength > maxBatchLength) {
                     break;
                 }
@@ -272,6 +281,7 @@ public class StorageUpdateHandler {
 
             if (trackWriteIntent) {
                 pendingRows.addPendingRowIds(txId, processedRowIds);
+                LOG.info("processEntriesUntilBatchLimit addPendingRowIds [txId={}, processed={}]", txId, processedRowIds);
             }
 
             if (entryToProcess == null && onApplication != null) {
@@ -403,6 +413,8 @@ public class StorageUpdateHandler {
             @Nullable List<Integer> indexIds
     ) {
         Set<RowId> pendingRowIds = pendingRows.removePendingRowIds(txId);
+
+        LOG.info("switchWriteIntents [txId={} pendingRowIds={} commit={}]", txId, pendingRowIds, commit);
 
         // `pendingRowIds` might be empty when we have already cleaned up the storage for this transaction,
         // for example, when primary (PartitionReplicaListener) is collocated with the raft node (PartitionListener)
