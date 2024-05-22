@@ -1591,10 +1591,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             assert ts != null;
 
             UpdatedEntries transferredValue = new UpdatedEntries(new ArrayList<>(updatedEntries), ts);
-            transferredValue.updatedEntries.removeIf(entry ->
-                    entry.key().length > IDEMPOTENT_COMMAND_PREFIX_BYTES.length &&
-                            ByteBuffer.wrap(entry.key(), 0, IDEMPOTENT_COMMAND_PREFIX_BYTES.length)
-                                    .equals(ByteBuffer.wrap(IDEMPOTENT_COMMAND_PREFIX_BYTES)));
 
             clear();
 

@@ -21,10 +21,12 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
+import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX_BYTES;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -166,17 +168,23 @@ public class WatchProcessor implements ManuallyCloseable {
     public CompletableFuture<Void> notifyWatches(List<Entry> updatedEntries, HybridTimestamp time) {
         assert time != null;
 
-        if (updatedEntries.isEmpty()) {
-            return nullCompletedFuture();
-        }
-
         CompletableFuture<Void> newFuture = notificationFuture
                 .thenComposeAsync(v -> {
                     // Revision must be the same for all entries.
                     long newRevision = updatedEntries.get(0).revision();
 
+                    List<Entry> filteredUpdatedEntries = updatedEntries.stream()
+                            .filter(entry ->
+                                    entry.key().length <= IDEMPOTENT_COMMAND_PREFIX_BYTES.length
+                                            ||
+                                            entry.key().length > IDEMPOTENT_COMMAND_PREFIX_BYTES.length &&
+                                                    !ByteBuffer.wrap(entry.key(), 0, IDEMPOTENT_COMMAND_PREFIX_BYTES.length)
+                                                            .equals(ByteBuffer.wrap(IDEMPOTENT_COMMAND_PREFIX_BYTES)))
+                            .collect(Collectors.toList());
+
                     // Collect all the events for each watch.
-                    CompletableFuture<List<WatchAndEvents>> watchesAndEventsFuture = collectWatchesAndEvents(updatedEntries, newRevision);
+                    CompletableFuture<List<WatchAndEvents>> watchesAndEventsFuture =
+                            collectWatchesAndEvents(filteredUpdatedEntries, newRevision);
 
                     return watchesAndEventsFuture
                             .thenComposeAsync(watchAndEvents -> {
@@ -198,7 +206,7 @@ public class WatchProcessor implements ManuallyCloseable {
                                         );
 
                                 notificationFuture.whenComplete((unused, e) -> {
-                                    maybeLogLongProcessing(updatedEntries, startTimeNanos);
+                                    maybeLogLongProcessing(filteredUpdatedEntries, startTimeNanos);
 
                                     if (e != null) {
                                         failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
