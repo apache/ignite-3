@@ -756,14 +756,14 @@ public class TypeUtils {
     }
 
     /**
-     * Checks whether or not the given simple types can be compared w/o additional casts.
+     * Checks whether or not the given types represent the same column types.
      *
      * @param lhs Left type.
      * @param rhs Right type.
-     * @return {@code true} if types can be compared w/o casts. Otherwise {@code false}.
+     * @return {@code true} if types represent the same {@link ColumnType} after conversion.
      */
     // TODO this method can be removed after https://issues.apache.org/jira/browse/IGNITE-22295
-    public static boolean canCompareSimpleTypesWithoutCasts(RelDataType lhs, RelDataType rhs) {
+    public static boolean typesRepresentTheSameColumnTypes(RelDataType lhs, RelDataType rhs) {
         // IgniteCustomType: check for custom data type, otherwise this expression can fail when type is converted into column type.
         if (isCustomType(lhs) && isCustomType(rhs) || SqlTypeUtil.isAtomic(lhs) && SqlTypeUtil.isAtomic(rhs)) {
             ColumnType col1 = columnType(lhs);
