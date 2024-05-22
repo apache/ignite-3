@@ -161,6 +161,7 @@ public class VolatileTxStateMetaStorage {
                                 cleanupCompletionTimestamp, txnResourceTtl, vacuumObservationTimestamp);
 
                         if (shouldBeVacuumized) {
+                            LOG.info("qqq shouldBeVacuumized txId={}, meta={}", txId, meta0);
                             if (meta0.commitPartitionId() == null) {
                                 vacuumizedTxnsCount.incrementAndGet();
 
