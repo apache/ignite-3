@@ -19,6 +19,7 @@ package org.apache.ignite.internal.streamer;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -360,9 +361,27 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     @Test
     public void testReceiver() {
-        // Check class loader
-        // Check partition awareness - not here?
-        // Check exceptions.
+        // TODO Check class loader
+        // TODO Check partition awareness - not here?
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    DataStreamerOptions.builder().retryLimit(0).build(),
+                    t -> t,
+                    t -> t.stringValue(1),
+                    null,
+                    List.of(),
+                    TestReceiver.class.getName(),
+                    "arg1",
+                    123);
+
+            publisher.submit(tuple(1, "val1"));
+            publisher.submit(tuple(2, "val2"));
+        }
+
+        assertThat(streamerFut, willSucceedFast());
     }
 
     @Test
