@@ -170,14 +170,14 @@ public enum Options {
         /** Cluster management node name option description. */
         public static final String CMG_NODE_NAME_OPTION_DESC = "Name of the node (repeat like '--cmg-node node1 --cmg-node node2' "
                 + "to specify more than one node) that will host the Cluster Management Group."
-                + "If omitted, then --ms-node values will also supply the nodes for the Cluster Management Group.";
+                + "If omitted, then --meta-store-node values will also supply the nodes for the Cluster Management Group.";
 
         /** Meta storage management node name option long name. */
         public static final String META_STORAGE_NODE_NAME_OPTION = "--meta-storage-node";
 
         /** Meta storage node name option description. */
-        public static final String META_STORAGE_NODE_NAME_OPTION_DESC = "Name of the node (repeat like '--ms-node node1 "
-                + "--ms-node node2' to specify more than one node) that will host the Meta Storage."
+        public static final String META_STORAGE_NODE_NAME_OPTION_DESC = "Name of the node (repeat like '--meta-store-node node1 "
+                + "--meta-store-node node2' to specify more than one node) that will host the Meta Storage."
                 + "If the --cmg-node parameter is omitted, the same nodes will also host the Cluster Management Group.";
 
         /** Cluster name option long name. */
