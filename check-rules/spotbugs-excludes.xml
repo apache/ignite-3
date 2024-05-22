@@ -216,6 +216,13 @@
       <Field name="INDEX_ROW_ID_PREFIX"/>
       <Field name="LEASE_PREFIX"/>
     </Or>
+    <Class name="org.apache.ignite.internal.metastorage.server.KeyValueStorage"/>
+    <Or>
+      <Field name="INVOKE_RESULT_FALSE_BYTES"/>
+      <Field name="INVOKE_RESULT_TRUE_BYTES"/>
+    </Or>
+    <Class name="org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler"/>
+    <Field name="IDEMPOTENT_COMMAND_PREFIX_BYTES"/>
   </Match>
   <Match>
     <Bug pattern="IT_NO_SUCH_ELEMENT"/>
