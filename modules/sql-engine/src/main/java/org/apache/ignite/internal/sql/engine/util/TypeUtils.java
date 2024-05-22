@@ -762,10 +762,10 @@ public class TypeUtils {
      * @param rhs Right type.
      * @return {@code true} if types can be compared w/o casts. Otherwise {@code false}.
      */
+    // TODO this method can be removed after https://issues.apache.org/jira/browse/IGNITE-22295
     public static boolean canBeComparedWithoutCasts(RelDataType lhs, RelDataType rhs) {
-        // TODO this method can be removed after https://issues.apache.org/jira/browse/IGNITE-22295
-        if (lhs.getSqlTypeName() == SqlTypeName.ANY && rhs.getSqlTypeName() == SqlTypeName.ANY
-                || SqlTypeUtil.isAtomic(lhs) && SqlTypeUtil.isAtomic(rhs)) {
+        // IgniteCustomType: check for custom data type, otherwise this expression can fail when type is converted into column type.
+        if (isCustomType(lhs) && isCustomType(rhs) || SqlTypeUtil.isAtomic(lhs) && SqlTypeUtil.isAtomic(rhs)) {
             ColumnType col1 = columnType(lhs);
             ColumnType col2 = columnType(rhs);
 
@@ -773,5 +773,9 @@ public class TypeUtils {
         } else {
             return false;
         }
+    }
+    
+    private static boolean isCustomType(RelDataType type) {
+        return type instanceof IgniteCustomType;
     }
 }
