@@ -35,6 +35,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.table.DataStreamerItem;
@@ -457,20 +458,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                                     w.packDeploymentUnits(deploymentUnits);
                                     w.packBoolean(resultSubscriber != null); // receiveResults
 
-                                    // className + args size + args + items size + item type + items.
-                                    int binaryTupleSize = 1 + 1 + receiverArgs.length * 3 + 1 + 1 + items.size();
-                                    var builder = new BinaryTupleBuilder(binaryTupleSize);
-                                    builder.appendString(receiverClassName);
-                                    builder.appendInt(receiverArgs.length);
-
-                                    for (var arg : receiverArgs) {
-                                        ClientBinaryTupleUtils.appendObject(builder, arg);
-                                    }
-
-                                    ClientBinaryTupleUtils.writeCollectionToBinaryTuple(builder, items);
-
-                                    w.packInt(binaryTupleSize);
-                                    w.packBinaryTuple(builder);
+                                    StreamerReceiverSerializer.serialize(w, receiverClassName, receiverArgs, items);
                                 },
                                 in -> {
                                     if (resultSubscriber != null) {
