@@ -47,6 +47,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -2177,10 +2179,20 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     }
 
     private boolean invokeOnMs(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
-        return storage.invoke(condition, success, failure, HybridTimestamp.MIN_VALUE, CommandId.EMPTY_UNIQUE);
+        return storage.invoke(
+                condition,
+                success,
+                failure,
+                HybridTimestamp.MIN_VALUE,
+                new CommandIdGenerator(() -> UUID.randomUUID().toString()).newId()
+        );
     }
 
     private StatementResult invokeOnMs(If iif) {
-        return storage.invoke(iif, HybridTimestamp.MIN_VALUE, CommandId.EMPTY_UNIQUE);
+        return storage.invoke(
+                iif,
+                HybridTimestamp.MIN_VALUE,
+                new CommandIdGenerator(() -> UUID.randomUUID().toString()).newId()
+        );
     }
 }
