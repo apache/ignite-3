@@ -57,6 +57,7 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlTypeNameSpec",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSetDefault",
       "org.apache.ignite.internal.sql.engine.type.UuidType",
+      "org.apache.ignite.internal.sql.engine.util.IgniteResource",
     ]
 
     # List of new keywords. Example: "DATABASES", "TABLES". If the keyword is
