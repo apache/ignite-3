@@ -84,7 +84,9 @@ public class StreamerReceiverSerializer {
         w.packBinaryTuple(builder);
     }
 
-    public static List<Object> deserializeResults(byte[] bytes, int numElements) {
+    public static List<Object> deserializeResults(ClientMessageUnpacker r) {
+        int numElements = r.unpackInt();
+        byte[] bytes = r.readBinary();
         var reader = new BinaryTupleReader(numElements, bytes);
 
         return ClientBinaryTupleUtils.readCollectionFromBinaryTuple(reader, 0);

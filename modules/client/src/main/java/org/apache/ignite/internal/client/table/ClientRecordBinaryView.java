@@ -462,10 +462,10 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                                 },
                                 in -> {
                                     if (resultSubscriber != null) {
-                                        var results = in.in().unpackCollectionFromBinaryTuple();
+                                        var results = StreamerReceiverSerializer.deserializeResults(in.in());
 
                                         // TODO: Invoke result subscriber.
-                                        assert results == null;
+                                        assert results != null;
                                     }
 
                                     return null;
