@@ -178,28 +178,27 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
     @MethodSource("nativeTypesMatrix")
     public void testNaturalOrUsingJoinWithDifferentTypes(boolean natural, TypeArg type1, TypeArg type2) throws Exception {
 
+        NativeType left = type1.nativeType;
+        NativeType right = type2.nativeType;
+        
         IgniteSchema publicSchema = createSchema("PUBLIC",
                 TestBuilders.table().name("T1")
-                        .addColumn("A", type1.nativeType)
+                        .addColumn("A", left)
                         .addColumn("B", NativeTypes.INT32)
                         .distribution(IgniteDistributions.random())
                         .build(),
                 TestBuilders.table().name("T2")
                         .addColumn("C", NativeTypes.STRING)
-                        .addColumn("A", type2.nativeType)
+                        .addColumn("A", right)
                         .distribution(IgniteDistributions.random())
                         .build()
         );
 
-        String query;
+        String query = natural 
+                ? "SELECT * FROM T1 NATURAL JOIN T2" 
+                : "SELECT * FROM T1 JOIN T2 USING (A)";
 
-        if (natural) {
-            query = "SELECT * FROM T1 NATURAL JOIN T2";
-        } else {
-            query = "SELECT * FROM T1 JOIN T2 USING (a)";
-        }
-
-        if (type1.nativeType.mismatch(type2.nativeType)) {
+        if (left.mismatch(right)) {
             assertThrows(CalciteContextException.class,
                     () -> physicalPlan(query, publicSchema),
                     "NATURAL keyword or USING clause has incompatible types"
@@ -209,7 +208,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
             assertEquals(List.of("A", "B", "C"), rowType.getFieldNames());
 
             SqlTypeName joinColType = rowType.getFieldList().get(0).getType().getSqlTypeName();
-            SqlTypeName expectedNativeType = TypeUtils.native2relationalType(Commons.typeFactory(), type1.nativeType).getSqlTypeName();
+            SqlTypeName expectedNativeType = TypeUtils.native2relationalType(Commons.typeFactory(), left).getSqlTypeName();
 
             assertEquals(joinColType, expectedNativeType);
         }
