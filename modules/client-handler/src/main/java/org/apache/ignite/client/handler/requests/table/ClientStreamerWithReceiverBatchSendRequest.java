@@ -34,6 +34,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -106,8 +107,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
 
             var receiverInfo = StreamerReceiverSerializer.deserialize(payload, payloadElementCount);
 
-            // Compute handles the class loading for us, so we can use the class loader of the current class to get the receiver.
-            ClassLoader classLoader = this.getClass().getClassLoader();
+            ClassLoader classLoader = ((JobExecutionContextImpl)context).classLoader();
             Class<DataStreamerReceiver<Object, Object>> receiverClass = ComputeUtils.receiverClass(classLoader, receiverInfo.className());
             DataStreamerReceiver<Object, Object> receiver = ComputeUtils.instantiateReceiver(receiverClass);
             DataStreamerReceiverContext receiverContext = context::ignite;
