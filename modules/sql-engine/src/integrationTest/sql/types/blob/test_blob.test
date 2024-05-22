@@ -1,5 +1,6 @@
 # name: test/sql/types/blob/test_blob.test
 # description: BLOB tests
+# feature: T021(BINARY and VARBINARY data types)
 # group: [blob]
 
 statement ok
@@ -87,3 +88,55 @@ SELECT CAST(x'0101' AS BINARY(0))
 statement error: Length for type VARBINARY must be at least 1
 SELECT CAST(x'0101' AS VARBINARY(0))
 
+statement ok
+CREATE TABLE all_blobs (c1 binary, c2 binary(10), c3 varbinary, c4 varbinary(10), c5 binary varying, c6 binary varying(10));
+
+statement ok
+INSERT INTO all_blobs VALUES (x'cc', x'ccaaffee', x'ccaaffee', x'ccaaffee', x'ccaaffee', x'ccaaffee');
+
+query TTTTTT
+SELECT * FROM all_blobs;
+----
+cc	ccaaffee	ccaaffee	ccaaffee	ccaaffee	ccaaffee
+
+statement ok
+DELETE FROM all_blobs
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22316
+# check standard section: <binary value expression> ::= <binary concatenation> | <binary factor>
+query T
+SELECT x'12' || '10';
+----
+42
+
+query T
+select X'' || X'12'
+----
+12
+
+query T
+select X'11' || X'22';
+----
+1122
+
+query T
+select CAST(x'Aa' AS BINARY VARYING(1000));
+----
+aa
+
+#sql standard, 6.30 <numeric value function> If <binary position expression> is specified
+query T
+SELECT POSITION(x'03' IN x'0B03');
+----
+2
+
+query T
+SELECT POSITION(x'b0' IN x'0B03B0');
+----
+3
+
+query T
+SELECT POSITION(x'b0' IN x'0B03B0B0');
+----
+3
