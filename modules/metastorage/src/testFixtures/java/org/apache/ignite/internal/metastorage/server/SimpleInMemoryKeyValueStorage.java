@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWrit
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -309,8 +308,8 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
                     Collection<Operation> ops = new ArrayList<>(branch.update().operations());
 
-                    // In case of in-memory storage, there's no sense in "persisting" invoke result, however same persistent source operations
-                    // were added in order to have matching revisions count through all storages.
+                    // In case of in-memory storage, there's no sense in "persisting" invoke result, however same persistent source
+                    // operations were added in order to have matching revisions count through all storages.
                     ops.add(Operations.put(
                             new ByteArray(ArrayUtils.concat(IDEMPOTENT_COMMAND_PREFIX_BYTES, ByteUtils.toBytes(commandId))),
                             branch.update().result().result())

@@ -177,8 +177,8 @@ public class WatchProcessor implements ManuallyCloseable {
                             .filter(entry ->
                                     entry.key().length <= IDEMPOTENT_COMMAND_PREFIX_BYTES.length
                                             ||
-                                            entry.key().length > IDEMPOTENT_COMMAND_PREFIX_BYTES.length &&
-                                                    !ByteBuffer.wrap(entry.key(), 0, IDEMPOTENT_COMMAND_PREFIX_BYTES.length)
+                                            entry.key().length > IDEMPOTENT_COMMAND_PREFIX_BYTES.length
+                                                    && !ByteBuffer.wrap(entry.key(), 0, IDEMPOTENT_COMMAND_PREFIX_BYTES.length)
                                                             .equals(ByteBuffer.wrap(IDEMPOTENT_COMMAND_PREFIX_BYTES)))
                             .collect(Collectors.toList());
 

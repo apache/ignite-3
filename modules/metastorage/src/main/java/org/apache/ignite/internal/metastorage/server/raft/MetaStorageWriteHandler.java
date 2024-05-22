@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.server.raft;
 
 import static java.util.Arrays.copyOfRange;
+import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
 
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
@@ -334,7 +335,7 @@ public class MetaStorageWriteHandler {
                 if (!entry.tombstone()) {
                     byte[] commandIdBytes = copyOfRange(entry.key(), IDEMPOTENT_COMMAND_PREFIX_BYTES.length, entry.key().length);
                     CommandId commandId = ByteUtils.fromBytes(commandIdBytes);
-                    idempotentCommandCache.put(commandId,new IdempotentCommandCachedResult(ByteUtils.byteToBoolean(entry.value()[0]), now));
+                    idempotentCommandCache.put(commandId, new IdempotentCommandCachedResult(byteToBoolean(entry.value()[0]), now));
                 }
             }
         }
