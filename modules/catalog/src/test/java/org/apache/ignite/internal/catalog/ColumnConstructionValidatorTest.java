@@ -117,11 +117,11 @@ public class ColumnConstructionValidatorTest extends BaseIgniteAbstractTest {
         noLength.length(null);
         negativeLength.length(-1);
         zeroLength.length(0);
-        
+
         if (type.lengthAllowed()) {
             assertThrowsWithCause(noLength::build, CatalogValidationException.class,
                     format(ERR_COL_PARAM_DEFINITION, "Length", "COL", type.name()));
-            
+
             assertThrowsWithCause(negativeLength::build, CatalogValidationException.class,
                     format(ERR_COL_POSITIVE_PARAM_VALIDATION, "Length", "COL", type.name()));
 
