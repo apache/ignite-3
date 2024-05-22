@@ -478,15 +478,19 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode(nodeKey3, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 3L)));
     }
 
-    @Test
-    public void testDataStreamerRecordView() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testDataStreamerRecordView(boolean withReceiver) {
         RecordView<PersonPojo> pojoView = defaultTable().recordView(Mapper.of(PersonPojo.class));
 
         Consumer<PersonPojo> stream = t -> {
             CompletableFuture<Void> fut;
 
             try (SimplePublisher<PersonPojo> publisher = new SimplePublisher<>()) {
-                fut = pojoView.streamData(publisher, null);
+                fut = withReceiver
+                        ? pojoView.streamData(publisher, null, DataStreamerItem::get, x -> 0, null, List.of(), "recv")
+                        : pojoView.streamData(publisher, null);
+
                 publisher.submit(t);
             }
 
