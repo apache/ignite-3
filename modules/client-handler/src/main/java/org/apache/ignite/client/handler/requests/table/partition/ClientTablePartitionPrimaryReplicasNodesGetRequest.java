@@ -19,7 +19,6 @@ package org.apache.ignite.client.handler.requests.table.partition;
 
 import static org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest.packClusterNode;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
