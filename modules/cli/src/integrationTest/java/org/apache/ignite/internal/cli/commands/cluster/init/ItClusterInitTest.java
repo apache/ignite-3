@@ -53,8 +53,8 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
                 "cluster", "init",
                 "--meta-storage-node", testNodeName(TEST_INFO, 1),
                 "--cmg-node", testNodeName(TEST_INFO, 2),
-                "--cluster-name", "cluster",
-                "--cluster-config-file", clusterConfigurationFile.getAbsolutePath()
+                "--name", "cluster",
+                "--config-file", clusterConfigurationFile.getAbsolutePath()
         );
 
         assertAll(

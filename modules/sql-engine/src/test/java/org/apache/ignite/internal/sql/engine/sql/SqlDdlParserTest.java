@@ -86,7 +86,7 @@ public class SqlDdlParserTest extends AbstractParserTest {
      */
     @Test
     public void createTableAutogenFuncDefault() {
-        String query = "create table my_table(id varchar default gen_random_uuid primary key, val varchar)";
+        String query = "create table my_table(id uuid default rand_uuid primary key, val varchar)";
 
         SqlNode node = parse(query);
 
@@ -100,7 +100,7 @@ public class SqlDdlParserTest extends AbstractParserTest {
                 SqlColumnDeclaration.class,
                 col -> "ID".equals(col.name.getSimple())
                         && col.expression instanceof SqlIdentifier
-                        && "GEN_RANDOM_UUID".equals(((SqlIdentifier) col.expression).getSimple())
+                        && "RAND_UUID".equals(((SqlIdentifier) col.expression).getSimple())
         )));
         assertThat(createTable.columnList(), hasItem(ofTypeMatching(
                 "PK constraint with name \"ID\"", IgniteSqlPrimaryKeyConstraint.class,
@@ -112,7 +112,7 @@ public class SqlDdlParserTest extends AbstractParserTest {
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
                 + "PRIMARY KEY (\"ID\"), "
-                + "\"ID\" VARCHAR DEFAULT (\"GEN_RANDOM_UUID\"), "
+                + "\"ID\" UUID DEFAULT (\"RAND_UUID\"), "
                 + "\"VAL\" VARCHAR)"
         );
     }

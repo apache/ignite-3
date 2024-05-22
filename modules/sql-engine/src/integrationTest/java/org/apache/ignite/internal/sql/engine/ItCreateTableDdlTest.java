@@ -136,7 +136,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void pkWithFunctionalDefault() {
-        sql("create table t (id varchar default gen_random_uuid primary key, val int)");
+        sql("create table t (id uuid default rand_uuid primary key, val int)");
         sql("insert into t (val) values (1), (2)");
 
         var result = sql("select * from t");
@@ -372,15 +372,15 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Functional defaults are not supported for non-primary key columns",
-                () -> sql("CREATE TABLE t (id VARCHAR PRIMARY KEY, val VARCHAR DEFAULT gen_random_uuid)")
+                () -> sql("CREATE TABLE t (id VARCHAR PRIMARY KEY, val UUID DEFAULT rand_uuid)")
         );
 
         sql("CREATE TABLE t (id VARCHAR PRIMARY KEY, val VARCHAR)");
 
         assertThrowsSqlException(
                 STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"gen_random_uuid\"",
-                () -> sql("ALTER TABLE t ADD COLUMN val2 VARCHAR DEFAULT gen_random_uuid")
+                "Failed to parse query: Encountered \"rand_uuid\"",
+                () -> sql("ALTER TABLE t ADD COLUMN val2 VARCHAR DEFAULT rand_uuid")
         );
     }
 

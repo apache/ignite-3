@@ -275,7 +275,7 @@ the docker image using `cli` parameter and connect to nodes using their names fr
 docker compose -f packaging/docker/docker-compose.yml up -d
 docker run -it --rm --net ignite3_default apacheignite/ignite3 cli
 > connect http://node1:10300
-> cluster init --cluster-name cluster --meta-storage-node node1 --meta-storage-node node2 --meta-storage-node node3
+> cluster init --name cluster --meta-storage-node node1 --meta-storage-node node2 --meta-storage-node node3
 ```
 
 ### How to launch multiple nodes on the same machine
@@ -388,7 +388,7 @@ To initialize a cluster run the following command inside Ignite CLI:
 
 ```shell
 cluster init 
-  --cluster-name myClusterOfThreeNodes 
+  --name myClusterOfThreeNodes 
   --cmg-node node1 --cmg-node node2 --cmg-node node3 
   --meta-storage-node node1 --meta-storage-node node2 --meta-storage-node node3
 ```
