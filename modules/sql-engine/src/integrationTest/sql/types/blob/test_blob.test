@@ -76,10 +76,10 @@ SELECT NULL::VARBINARY
 NULL
 
 statement error: Length for column 'C1' of type 'BYTE_ARRAY' must be at least 1
-CREATE TABLE t_negative(c1 BINARY(0));
+CREATE TABLE t_invalid_length(c1 BINARY(0));
 
 statement error: Length for column 'C1' of type 'BYTE_ARRAY' must be at least 1
-CREATE TABLE t_negative(c1 VARBINARY(0));
+CREATE TABLE t_invalid_length(c1 VARBINARY(0));
 
 statement error: Length for type BINARY must be at least 1
 SELECT CAST(x'0101' AS BINARY(0))

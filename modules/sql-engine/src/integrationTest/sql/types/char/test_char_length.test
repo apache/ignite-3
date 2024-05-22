@@ -4,7 +4,7 @@
 
 # length shouldn't be negative;
 statement error: CHAR datatype is not supported in table
-CREATE TABLE t_negative(c1 CHAR(0));
+CREATE TABLE t_invalid_length(c1 CHAR(0));
 
 # length shouldn't be negative;
 statement error: Failed to parse query
