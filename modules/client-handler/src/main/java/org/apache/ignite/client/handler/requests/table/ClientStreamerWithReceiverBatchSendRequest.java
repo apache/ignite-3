@@ -37,6 +37,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnType;
@@ -67,25 +68,26 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
             boolean returnResults = in.unpackBoolean();
 
-            // receiverClassName, receiverArgs, items
+            // Payload = binary tuple with (receiverClassName, receiverArgs, items). We pass it to the job as byte array.
             int payloadElementCount = in.unpackInt();
             byte[] payload = in.readBinary();
-            Set<ClusterNode> candidateNodes = Set.of(); // TODO
 
-            var jobExecution = compute.executeAsyncWithFailover(
-                    candidateNodes,
-                    deploymentUnits,
-                    ReceiverRunnerJob.class.getName(),
-                    JobExecutionOptions.DEFAULT,
-                    payloadElementCount,
-                    payload);
+            return table.partitionManager().primaryReplicaAsync(new HashPartition(partition)).thenCompose(primaryReplica -> {
+                var jobExecution = compute.executeAsyncWithFailover(
+                        Set.of(primaryReplica),
+                        deploymentUnits,
+                        ReceiverRunnerJob.class.getName(),
+                        JobExecutionOptions.DEFAULT,
+                        payloadElementCount,
+                        payload);
 
-            return jobExecution.resultAsync().thenApply(res -> {
-                // TODO:
-                // out.packCollectionAsBinaryTuple(returnResults ? res : null);
-                out.packNil();
+                return jobExecution.resultAsync().thenApply(res -> {
+                    // TODO:
+                    // out.packCollectionAsBinaryTuple(returnResults ? res : null);
+                    out.packNil();
 
-                return null;
+                    return null;
+                });
             });
         });
     }
