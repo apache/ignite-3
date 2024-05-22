@@ -315,6 +315,14 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendDecimalNotNull(BigDecimal value, int scale) {
+        if (value.scale() > 16) {
+            throw new IllegalStateException("value scale is to bug " + value.scale());
+        }
+
+        if (scale > 16) {
+            throw new IllegalStateException("scale is to bug " + scale);
+        }
+
         if (value.scale() > scale) {
             value = value.setScale(scale, RoundingMode.HALF_UP);
         }
