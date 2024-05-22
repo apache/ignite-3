@@ -623,46 +623,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
-     * Internal method for starting raft-client and pass it to a replica creation if the replica should be started too.
-     *
-     * @param replicaGrpId Replication group id.
-     * @param newConfiguration Peers and Learners of the Raft group.
-     * @param createListener A clojure that returns done {@link ReplicaListener} by given raft-client {@link RaftGroupService}.
-     * @param storageIndexTracker Storage index tracker.
-     */
-    private CompletableFuture<Void> startRaftClientAndReplicaInternal(
-            boolean shouldSkipReplicaStarting,
-            ReplicationGroupId replicaGrpId,
-            PeersAndLearners newConfiguration,
-            Supplier<RaftGroupService> raftClientCache,
-            Consumer<RaftGroupService> updateTableRaftService,
-            Function<RaftGroupService, ReplicaListener> createListener,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker
-    ) throws NodeStoppingException {
-        LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
-
-        var raftClient = raftClientCache.get();
-        CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut;
-        if (raftClient == null) {
-            newRaftClientFut = createRaftClientAsync(replicaGrpId, newConfiguration);
-        } else {
-            newRaftClientFut = CompletableFuture.completedFuture((TopologyAwareRaftGroupService) raftClient);
-        }
-
-        CompletableFuture<Void> resultFuture = newRaftClientFut.thenAccept(updateTableRaftService);
-
-        if (shouldSkipReplicaStarting) {
-            return resultFuture;
-        }
-
-        CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
-
-        startReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
-
-        return resultFuture;
-    }
-
-    /**
      * Creates new replica.
      *
      * @param replicaGrpId Replication group id.
@@ -713,6 +673,46 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     return null;
                 })
                 .thenCompose(v -> replicaFuture);
+    }
+
+    /**
+     * Internal method for starting raft-client and pass it to a replica creation if the replica should be started too.
+     *
+     * @param replicaGrpId Replication group id.
+     * @param newConfiguration Peers and Learners of the Raft group.
+     * @param createListener A clojure that returns done {@link ReplicaListener} by given raft-client {@link RaftGroupService}.
+     * @param storageIndexTracker Storage index tracker.
+     */
+    private CompletableFuture<Void> startRaftClientAndReplicaInternal(
+            boolean shouldSkipReplicaStarting,
+            ReplicationGroupId replicaGrpId,
+            PeersAndLearners newConfiguration,
+            Supplier<RaftGroupService> raftClientCache,
+            Consumer<RaftGroupService> updateTableRaftService,
+            Function<RaftGroupService, ReplicaListener> createListener,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker
+    ) throws NodeStoppingException {
+        LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
+
+        var raftClient = raftClientCache.get();
+        CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut;
+        if (raftClient == null) {
+            newRaftClientFut = createRaftClientAsync(replicaGrpId, newConfiguration);
+        } else {
+            newRaftClientFut = CompletableFuture.completedFuture((TopologyAwareRaftGroupService) raftClient);
+        }
+
+        CompletableFuture<Void> resultFuture = newRaftClientFut.thenAccept(updateTableRaftService);
+
+        if (shouldSkipReplicaStarting) {
+            return resultFuture;
+        }
+
+        CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
+
+        startReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
+
+        return resultFuture;
     }
 
     private CompletableFuture<TopologyAwareRaftGroupService> createRaftClientAsync(
