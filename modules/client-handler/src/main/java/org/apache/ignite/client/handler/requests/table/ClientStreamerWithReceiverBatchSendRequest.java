@@ -37,6 +37,7 @@ import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.manager.IgniteTables;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client streamer batch request.
@@ -86,7 +87,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
 
     private static class ReceiverRunnerJob implements ComputeJob<List<Object>> {
         @Override
-        public List<Object> execute(JobExecutionContext context, Object... args) {
+        public @Nullable List<Object> execute(JobExecutionContext context, Object... args) {
             int payloadElementCount = (int) args[0];
             byte[] payload = (byte[]) args[1];
 
@@ -99,7 +100,15 @@ public class ClientStreamerWithReceiverBatchSendRequest {
 
             CompletableFuture<List<Object>> receiveFut = receiver.receive(receiverInfo.items(), receiverContext, receiverInfo.args());
 
-            return receiveFut.join();
+            List<Object> result = receiveFut.join();
+
+            if (result != null && result.size() != receiverInfo.items().size()) {
+                throw new IllegalStateException(
+                        "Receiver returned wrong number of results, expected: " + receiverInfo.items().size() +
+                                ", actual: " + result.size());
+            }
+
+            return result;
         }
     }
 }
