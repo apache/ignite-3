@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 
 import java.util.ArrayList;
@@ -38,6 +39,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.TableDefinitionDiff;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.tx.TransactionIds;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Validates schema compatibility.
@@ -148,12 +150,14 @@ class SchemaCompatibilityValidator {
 
             List<ForwardCompatibilityValidator> failedValidators = validate(oldSchema, newSchema);
 
+            String message = failedValidators.stream().map(it -> it.failedMessage()).collect(joining(","));
+
             if (!failedValidators.isEmpty()) {
                 return CompatValidationResult.incompatibleChange(
                         newSchema.tableName(),
                         oldSchema.schemaVersion(),
                         newSchema.schemaVersion(),
-                        failedValidators
+                        message
                 );
             }
         }
@@ -233,7 +237,7 @@ class SchemaCompatibilityValidator {
                 newSchema.tableName(),
                 oldSchema.schemaVersion(),
                 newSchema.schemaVersion(),
-                ""
+                "Schema is not backwards compatible"
         );
     }
 
@@ -245,28 +249,24 @@ class SchemaCompatibilityValidator {
         assert tableAtBeginTs != null;
 
         if (tableAtOpTs == null) {
-            throw tableWasDroppedException(tableId);
+            throw IncompatibleSchemaException.tableDropped(tableAtBeginTs.name());
         }
 
         if (tableAtOpTs.tableVersion() != tableAtBeginTs.tableVersion()) {
-            throw new IncompatibleSchemaException(
-                    String.format(
-                            "Table schema was updated after the transaction was started [table=%d, startSchema=%d, operationSchema=%d]",
-                            tableId, tableAtBeginTs.tableVersion(), tableAtOpTs.tableVersion()
-                    )
+            throw IncompatibleSchemaException.schemaChanged(
+                    tableAtBeginTs.name(),
+                    tableAtBeginTs.tableVersion(),
+                    tableAtOpTs.tableVersion()
             );
         }
     }
 
-    private static IncompatibleSchemaException tableWasDroppedException(int tableId) {
-        return new IncompatibleSchemaException(String.format("Table was dropped [table=%d]", tableId));
-    }
-
-    void failIfTableDoesNotExistAt(HybridTimestamp operationTimestamp, int tableId) {
+    void failIfTableDoesNotExistAt(HybridTimestamp operationTimestamp, @Nullable HybridTimestamp transactionTimestamp, int tableId) {
         CatalogTableDescriptor tableAtOpTs = catalogService.table(tableId, operationTimestamp.longValue());
 
         if (tableAtOpTs == null) {
-            throw tableWasDroppedException(tableId);
+            CatalogTableDescriptor tableAtTransactionTimestamp = catalogService.table(tableId, transactionTimestamp.longValue());
+            throw IncompatibleSchemaException.tableDropped(tableAtTransactionTimestamp.name());
         }
     }
 

@@ -26,7 +26,30 @@ import org.apache.ignite.tx.TransactionException;
  * because an incompatible schema change has happened.
  */
 public class IncompatibleSchemaException extends TransactionException implements ExpectedReplicationException {
+    private static final String SCHEMA_CHANGED_MESSAGE = "Table schema was updated after the transaction was started "
+            + "[table=%s, startSchema=%d, operationSchema=%d]";
+
+    private static final String BACKWARDS_INCOMPATIBLE = "Schema is not backward-compatible for table "
+            + "[table=%s, startSchema=%d, operationSchema=%d]";
+
+    private static final String TABLE_DROPPED_MESSAGE = "Table was dropped [table=%s]";
+
     public IncompatibleSchemaException(String message) {
-        super(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR, message);
+        super(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR, "Operation failed: " + message);
+    }
+
+    public static IncompatibleSchemaException backwardsIncompatible(int fromSchemaVersion, int toSchemaVersion, String failedTableName) {
+        return new IncompatibleSchemaException(String.format(BACKWARDS_INCOMPATIBLE, failedTableName, fromSchemaVersion, toSchemaVersion));
+    }
+
+    public static IncompatibleSchemaException schemaChanged(String tableName, int startSchemaVersion, int operationSchemaVersion) {
+        return new IncompatibleSchemaException(String.format(
+                SCHEMA_CHANGED_MESSAGE,
+                tableName, startSchemaVersion, operationSchemaVersion
+        ));
+    }
+
+    public static IncompatibleSchemaException tableDropped(String tableName) {
+        return new IncompatibleSchemaException(String.format(TABLE_DROPPED_MESSAGE, tableName));
     }
 }

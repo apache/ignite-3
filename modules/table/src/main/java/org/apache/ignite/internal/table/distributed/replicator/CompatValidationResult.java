@@ -23,7 +23,7 @@ import org.jetbrains.annotations.Nullable;
  * Result of a schema compatibility validation.
  */
 public class CompatValidationResult {
-    private static final CompatValidationResult SUCCESSFUL_RESULT = new CompatValidationResult(ValidationStatus.SUCCESS, "", -1, -1);
+    private static final CompatValidationResult SUCCESSFUL_RESULT = new CompatValidationResult(ValidationStatus.SUCCESS, "", -1, -1, null);
 
     private enum ValidationStatus {
         SUCCESS, INCOMPATIBLE_CHANGE, TABLE_DROPPED
@@ -33,6 +33,7 @@ public class CompatValidationResult {
     private final String failedTableName;
     private final int fromSchemaVersion;
     private final @Nullable Integer toSchemaVersion;
+    private final @Nullable String details;
 
     /**
      * Returns a successful validation result.
@@ -55,9 +56,9 @@ public class CompatValidationResult {
             String failedTableName,
             int fromSchemaVersion,
             int toSchemaVersion,
-            String message
+            String details
     ) {
-        return new CompatValidationResult(ValidationStatus.INCOMPATIBLE_CHANGE, failedTableName, fromSchemaVersion, toSchemaVersion);
+        return new CompatValidationResult(ValidationStatus.INCOMPATIBLE_CHANGE, failedTableName, fromSchemaVersion, toSchemaVersion, details);
     }
 
     /**
@@ -68,19 +69,21 @@ public class CompatValidationResult {
      * @return A validation result for a failure.
      */
     public static CompatValidationResult tableDropped(String failedTableName, int fromSchemaVersion) {
-        return new CompatValidationResult(ValidationStatus.TABLE_DROPPED, failedTableName, fromSchemaVersion, null);
+        return new CompatValidationResult(ValidationStatus.TABLE_DROPPED, failedTableName, fromSchemaVersion, null, null);
     }
 
     private CompatValidationResult(
             ValidationStatus status,
             String failedTableName,
             int fromSchemaVersion,
-            @Nullable Integer toSchemaVersion
+            @Nullable Integer toSchemaVersion,
+            @Nullable String details
     ) {
         this.status = status;
         this.failedTableName = failedTableName;
         this.fromSchemaVersion = fromSchemaVersion;
         this.toSchemaVersion = toSchemaVersion;
+        this.details = details;
     }
 
     /**
@@ -132,5 +135,16 @@ public class CompatValidationResult {
         assert toSchemaVersion != null : "Should not be called when there is no toSchemaVersion";
 
         return toSchemaVersion;
+    }
+
+    /**
+     * Returns version number of the schema to which an incompatible transition tried to be made.
+     *
+     * @return Version number of the schema to which an incompatible transition tried to be made.
+     */
+    public @Nullable String details() {
+        assert !isSuccessful() : "Should not be called on a successful result";
+
+        return details;
     }
 }

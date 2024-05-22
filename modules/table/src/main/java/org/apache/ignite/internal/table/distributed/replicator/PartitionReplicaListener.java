@@ -581,7 +581,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return schemaSyncService.waitForMetadataCompleteness(opStartTs)
-                .thenRun(() -> schemaCompatValidator.failIfTableDoesNotExistAt(opStartTs, tableId()));
+                .thenRun(() -> schemaCompatValidator.failIfTableDoesNotExistAt(opStartTs, getTxStartTimestamp(request), tableId()));
     }
 
     /**
@@ -1010,9 +1010,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                             if (validationResult.isSuccessful()) {
                                 return completedFuture(row);
                             } else {
-                                throw new IncompatibleSchemaException("Operation failed because schema "
-                                        + validationResult.fromSchemaVersion() + " is not backward-compatible with "
-                                        + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableName());
+                                throw IncompatibleSchemaException.backwardsIncompatible(
+                                        validationResult.fromSchemaVersion(),
+                                        validationResult.toSchemaVersion(),
+                                        validationResult.failedTableName()
+                                );
                             }
                         });
             }
@@ -1566,9 +1568,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                         if (validationResult.isSuccessful()) {
                             return row;
                         } else {
-                            throw new IncompatibleSchemaException("Operation failed because schema "
-                                    + validationResult.fromSchemaVersion() + " is not backward-compatible with "
-                                    + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableName());
+                            throw IncompatibleSchemaException.backwardsIncompatible(
+                                    validationResult.fromSchemaVersion(),
+                                    validationResult.toSchemaVersion(),
+                                    validationResult.failedTableName()
+                            );
                         }
                     });
         });
