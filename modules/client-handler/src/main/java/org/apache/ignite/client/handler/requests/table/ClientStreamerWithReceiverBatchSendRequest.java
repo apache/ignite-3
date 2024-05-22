@@ -24,8 +24,10 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
@@ -59,12 +61,12 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
             boolean returnResults = in.unpackBoolean();
 
-            // Payload = binary tuple with (receiverClassName, receiverArgs, items). We pass it to the job as byte array.
+            // Payload = binary tuple of (receiverClassName, receiverArgs, items). We pass it to the job without deserialization.
             int payloadElementCount = in.unpackInt();
             byte[] payload = in.readBinary();
 
             return table.partitionManager().primaryReplicaAsync(new HashPartition(partition)).thenCompose(primaryReplica -> {
-                var jobExecution = compute.executeAsyncWithFailover(
+                JobExecution<List<Object>> jobExecution = compute.executeAsyncWithFailover(
                         Set.of(primaryReplica),
                         deploymentUnits,
                         ReceiverRunnerJob.class.getName(),
@@ -73,9 +75,8 @@ public class ClientStreamerWithReceiverBatchSendRequest {
                         payload);
 
                 return jobExecution.resultAsync().thenApply(res -> {
-                    // TODO:
-                    // out.packCollectionAsBinaryTuple(returnResults ? res : null);
-                    out.packNil();
+                    // TODO: Avoid array conversion.
+                    out.packObjectArrayAsBinaryTuple(returnResults ? res.toArray() : null);
 
                     return null;
                 });

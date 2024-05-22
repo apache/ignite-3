@@ -597,7 +597,7 @@ public class ClientMessagePacker implements AutoCloseable {
      *
      * @param vals Object array.
      */
-    public void packObjectArrayAsBinaryTuple(Object[] vals) {
+    public void packObjectArrayAsBinaryTuple(Object @Nullable [] vals) {
         assert !closed : "Packer is closed";
 
         if (vals == null) {
