@@ -912,54 +912,53 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     return false;
                 }
 
-                // (2) if raft node already started => check force reset and jump to replica starting
                 if (replicaMgr.isRaftStarted(raftNodeId)) {
+                    // (2) if raft node already started => check force reset and jump to replica starting
                     if (nonStableNodeAssignments != null && nonStableNodeAssignments.force()) {
                         replicaMgr.resetPeers(raftNodeId, configurationFromAssignments(nonStableNodeAssignments.nodes()));
                     }
+                } else {
+                    // (3) Otherwise let's start raft node manually
+                    try {
+                        InternalTable internalTable = table.internalTable();
 
-                    return true;
+                        RaftGroupListener raftGrpLsnr = new PartitionListener(
+                                txManager,
+                                partitionDataStorage,
+                                partitionUpdateHandlers.storageUpdateHandler,
+                                partitionStorages.getTxStateStorage(),
+                                safeTimeTracker,
+                                storageIndexTracker,
+                                catalogService,
+                                table.schemaView(),
+                                clockService
+                        );
+
+                        SnapshotStorageFactory snapshotStorageFactory = createSnapshotStorageFactory(replicaGrpId,
+                                partitionUpdateHandlers, internalTable);
+
+                        // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                        replicaMgr.startPartitionRaftGroupNode(
+                                replicaGrpId,
+                                zoneId,
+                                raftNodeId,
+                                newConfiguration,
+                                raftGrpLsnr,
+                                metaStorageMgr,
+                                internalTable.storage(),
+                                snapshotStorageFactory,
+                                new PartitionMover(busyLock, () -> table
+                                        .internalTable()
+                                        .tableRaftService()
+                                        .partitionRaftGroupService(replicaGrpId.partitionId()))
+                        );
+                        return true;
+                    } catch (NodeStoppingException ex) {
+                        // Q: why not returning false there?
+                        throw new CompletionException(ex);
+                    }
                 }
-
-                // (3) Otherwise let's start raft node manually
-                try {
-                    InternalTable internalTable = table.internalTable();
-
-                    RaftGroupListener raftGrpLsnr = new PartitionListener(
-                            txManager,
-                            partitionDataStorage,
-                            partitionUpdateHandlers.storageUpdateHandler,
-                            partitionStorages.getTxStateStorage(),
-                            safeTimeTracker,
-                            storageIndexTracker,
-                            catalogService,
-                            table.schemaView(),
-                            clockService
-                    );
-
-                    SnapshotStorageFactory snapshotStorageFactory = createSnapshotStorageFactory(replicaGrpId,
-                            partitionUpdateHandlers, internalTable);
-
-                    // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                    replicaMgr.startPartitionRaftGroupNode(
-                            replicaGrpId,
-                            zoneId,
-                            raftNodeId,
-                            newConfiguration,
-                            raftGrpLsnr,
-                            metaStorageMgr,
-                            internalTable.storage(),
-                            snapshotStorageFactory,
-                            new PartitionMover(busyLock, () -> table
-                                    .internalTable()
-                                    .tableRaftService()
-                                    .partitionRaftGroupService(replicaGrpId.partitionId()))
-                    );
-
-                    return true;
-                } catch (NodeStoppingException ex) {
-                    throw new CompletionException(ex);
-                }
+                return true;
             }), ioExecutor);
         } else {
             // (4) in case if localMemberAssignment == null
