@@ -50,24 +50,17 @@ public class ClientTablePartitionPrimaryReplicasNodesGetRequest {
             ClientMessagePacker out,
             IgniteTables tables
     ) {
-        return readTableAsync(in, tables).thenCompose(table -> {
-            if (table == null) {
-                out.packNil();
-                return nullCompletedFuture();
-            } else {
-                return table.partitionManager()
-                        .primaryReplicasAsync()
-                        .thenAccept(partitions -> {
-                            out.packInt(partitions.size());
-                            for (Entry<Partition, ClusterNode> e : partitions.entrySet()) {
-                                HashPartition partition = (HashPartition) e.getKey();
+        return readTableAsync(in, tables).thenCompose(table -> table.partitionManager()
+                .primaryReplicasAsync()
+                .thenAccept(partitions -> {
+                    out.packInt(partitions.size());
+                    for (Entry<Partition, ClusterNode> e : partitions.entrySet()) {
+                        HashPartition partition = (HashPartition) e.getKey();
 
-                                out.packInt(partition.partitionId());
+                        out.packInt(partition.partitionId());
 
-                                packClusterNode(e.getValue(), out);
-                            }
-                        });
-            }
-        });
+                        packClusterNode(e.getValue(), out);
+                    }
+                }));
     }
 }
