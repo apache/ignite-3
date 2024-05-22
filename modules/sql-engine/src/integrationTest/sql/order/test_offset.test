@@ -7,19 +7,19 @@ statement ok
 PRAGMA enable_verification
 
 statement ok
-CREATE TABLE test (b INTEGER);
+CREATE TABLE test (b INTEGER)
 
 statement ok
-INSERT INTO test VALUES (22), (2), (7);
+INSERT INTO test VALUES (22), (2), (7)
 
 query I
-SELECT b FROM test ORDER BY b DESC OFFSET 1;
+SELECT b FROM test ORDER BY b DESC OFFSET 1
 ----
 7
 2
 
 query I
-SELECT b FROM test ORDER BY b OFFSET 2;
+SELECT b FROM test ORDER BY b OFFSET 2
 ----
 22
 
@@ -34,3 +34,17 @@ SELECT * FROM (SELECT b FROM test UNION ALL SELECT b FROM (VALUES (4), (5), (6))
 6
 7
 22
+
+# ROW, ROWS
+
+query I
+SELECT b FROM test ORDER BY b DESC OFFSET 1 ROW
+----
+7
+2
+
+query I
+SELECT b FROM test ORDER BY b DESC OFFSET 1 ROWS
+----
+7
+2
