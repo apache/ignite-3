@@ -534,12 +534,6 @@ public class IgniteSqlFunctions {
         return leastOrGreatest(false, arg0, arg1);
     }
 
-    /** Generates a random UUID and converts it to string. **/
-    @NonDeterministic
-    public static String genRandomUuid() {
-        return UUID.randomUUID().toString();
-    }
-
     /** Generates a random UUID. **/
     @NonDeterministic
     public static UUID randUuid() {

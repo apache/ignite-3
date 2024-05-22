@@ -596,7 +596,7 @@ public class CatalogUtils {
     /**
      * Check if provided default value is a constant or a functional default of supported function, or fail otherwise.
      */
-    static void ensureSupportedDefault(String columnName, @Nullable DefaultValue defaultValue, ColumnType columnType) {
+    static void ensureSupportedDefault(String columnName, ColumnType columnType, @Nullable DefaultValue defaultValue) {
         if (defaultValue == null || defaultValue.type == Type.CONSTANT) {
             return;
         }

@@ -152,7 +152,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
         if (deferredDefault != null) {
             DefaultValue defaultValue = deferredDefault.derive(origin.type());
 
-            CatalogUtils.ensureSupportedDefault(columnName, defaultValue, origin.type());
+            CatalogUtils.ensureSupportedDefault(columnName, origin.type(), defaultValue);
         }
     }
 
