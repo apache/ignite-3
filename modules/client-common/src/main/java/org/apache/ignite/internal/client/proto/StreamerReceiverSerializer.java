@@ -19,14 +19,11 @@ package org.apache.ignite.internal.client.proto;
 
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.ColumnType;
 
 /**
  * Streamer receiver serializer.
@@ -43,7 +40,7 @@ public class StreamerReceiverSerializer {
             ClientBinaryTupleUtils.appendObject(builder, arg);
         }
 
-        ClientBinaryTupleUtils.writeCollectionToBinaryTuple(builder, items);
+        ClientBinaryTupleUtils.appendCollectionToBinaryTuple(builder, items);
 
         w.packInt(binaryTupleSize);
         w.packBinaryTuple(builder);
@@ -67,17 +64,29 @@ public class StreamerReceiverSerializer {
             readerIndex += 3;
         }
 
-        int typeId = reader.intValue(readerIndex++);
-        ColumnType type = ColumnTypeConverter.fromIdOrThrow(typeId);
-        Function<Integer, Object> itemReader = ClientBinaryTupleUtils.readerForType(reader, type);
-        int itemsCount = reader.intValue(readerIndex++);
-
-        List<Object> items = new ArrayList<>(itemsCount);
-        for (int i = 0; i < itemsCount; i++) {
-            items.add(itemReader.apply(readerIndex++));
-        }
+        List<Object> items = ClientBinaryTupleUtils.readCollectionFromBinaryTuple(reader, readerIndex);
 
         return new SteamerReceiverInfo(receiverClassName, receiverArgs, items);
+    }
+
+    public static void serializeResults(ClientMessagePacker w, List<Object> receiverResults) {
+        if (receiverResults == null) {
+            w.packNil();
+            return;
+        }
+
+        int numElements = 2 + receiverResults.size();
+        var builder = new BinaryTupleBuilder(numElements);
+        ClientBinaryTupleUtils.appendCollectionToBinaryTuple(builder, receiverResults);
+
+        w.packInt(numElements);
+        w.packBinaryTuple(builder);
+    }
+
+    public static List<Object> deserializeResults(byte[] bytes, int numElements) {
+        var reader = new BinaryTupleReader(numElements, bytes);
+
+        return ClientBinaryTupleUtils.readCollectionFromBinaryTuple(reader, 0);
     }
 
     public static class SteamerReceiverInfo {

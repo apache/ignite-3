@@ -27,8 +27,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -43,7 +45,6 @@ import org.jetbrains.annotations.Nullable;
  * Client binary tuple utils.
  */
 public class ClientBinaryTupleUtils {
-
     /**
      * Reads an object from binary tuple at the specified index.
      *
@@ -51,7 +52,7 @@ public class ClientBinaryTupleUtils {
      * @param index  Starting index in the binary tuple.
      * @return Object.
      */
-    public static Object readObject(BinaryTupleReader reader, int index) {
+    static @Nullable Object readObject(BinaryTupleReader reader, int index) {
         if (reader.hasNullValue(index)) {
             return null;
         }
@@ -123,7 +124,7 @@ public class ClientBinaryTupleUtils {
         }
     }
 
-    public static Function<Integer, Object> readerForType(BinaryTupleReader binTuple, ColumnType type) {
+    static Function<Integer, Object> readerForType(BinaryTupleReader binTuple, ColumnType type) {
         switch (type) {
             case INT8:
                 return binTuple::byteValue;
@@ -261,14 +262,13 @@ public class ClientBinaryTupleUtils {
         }
     }
 
-
     /**
      * Packs an array of objects in BinaryTuple format.
      *
      * @param builder Target builder.
      * @param items Items.
      */
-    public static <T> void writeCollectionToBinaryTuple(BinaryTupleBuilder builder, Collection<T> items) {
+    static <T> void appendCollectionToBinaryTuple(BinaryTupleBuilder builder, Collection<T> items) {
         assert items != null : "items can't be null";
         assert !items.isEmpty() : "items can't be empty";
         assert builder != null : "builder can't be null";
@@ -291,13 +291,27 @@ public class ClientBinaryTupleUtils {
         }
     }
 
+    static List<Object> readCollectionFromBinaryTuple(BinaryTupleReader reader, int readerIndex) {
+        int typeId = reader.intValue(readerIndex++);
+        ColumnType type = ColumnTypeConverter.fromIdOrThrow(typeId);
+        Function<Integer, Object> itemReader = ClientBinaryTupleUtils.readerForType(reader, type);
+        int itemsCount = reader.intValue(readerIndex++);
+
+        List<Object> items = new ArrayList<>(itemsCount);
+        for (int i = 0; i < itemsCount; i++) {
+            items.add(itemReader.apply(readerIndex++));
+        }
+
+        return items;
+    }
+
     /**
      * Writes type id to the specified packer and returns a consumer that writes the value to the binary tuple.
      *
      * @param builder Builder.
      * @param obj Object.
      */
-    public static <T> Consumer<T> appendTypeAndGetAppender(BinaryTupleBuilder builder, Object obj) {
+    private static <T> Consumer<T> appendTypeAndGetAppender(BinaryTupleBuilder builder, Object obj) {
         assert obj != null : "Object is null";
 
         if (obj instanceof Boolean) {

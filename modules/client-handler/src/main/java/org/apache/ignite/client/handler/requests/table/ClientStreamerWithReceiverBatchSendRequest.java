@@ -93,6 +93,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
 
             var receiverInfo = StreamerReceiverSerializer.deserialize(payload, payloadElementCount);
 
+            // Compute handles the class loading for us, so we can use the class loader of the current class to get the receiver.
             ClassLoader classLoader = this.getClass().getClassLoader();
             Class<DataStreamerReceiver<Object, Object>> receiverClass = ComputeUtils.receiverClass(classLoader, receiverInfo.className());
             DataStreamerReceiver<Object, Object> receiver = ComputeUtils.instantiateReceiver(receiverClass);
