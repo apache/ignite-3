@@ -30,6 +30,14 @@ import org.jetbrains.annotations.Nullable;
  * Streamer receiver serializer.
  */
 public class StreamerReceiverSerializer {
+    /**
+     * Serializes streamer receiver info.
+     *
+     * @param w Writer.
+     * @param receiverClassName Receiver class name.
+     * @param receiverArgs Receiver arguments.
+     * @param items Items.
+     */
     public static void serialize(ClientMessagePacker w, String receiverClassName, Object[] receiverArgs, Collection<?> items) {
         // className + args size + args + items size + item type + items.
         int binaryTupleSize = 1 + 1 + receiverArgs.length * 3 + 1 + 1 + items.size();
@@ -47,6 +55,13 @@ public class StreamerReceiverSerializer {
         w.packBinaryTuple(builder);
     }
 
+    /**
+     * Deserializes streamer receiver info.
+     *
+     * @param bytes Bytes.
+     * @param elementCount Number of elements in the binary tuple.
+     * @return Streamer receiver info.
+     */
     public static SteamerReceiverInfo deserialize(byte[] bytes, int elementCount) {
         var reader = new BinaryTupleReader(elementCount, bytes);
 
@@ -70,6 +85,12 @@ public class StreamerReceiverSerializer {
         return new SteamerReceiverInfo(receiverClassName, receiverArgs, items);
     }
 
+    /**
+     * Serializes receiver results.
+     *
+     * @param w Writer.
+     * @param receiverResults Receiver results.
+     */
     public static void serializeResults(ClientMessagePacker w, @Nullable List<Object> receiverResults) {
         if (receiverResults == null) {
             w.packNil();
@@ -84,6 +105,12 @@ public class StreamerReceiverSerializer {
         w.packBinaryTuple(builder);
     }
 
+    /**
+     * Deserializes receiver results.
+     *
+     * @param r Reader.
+     * @return Receiver results.
+     */
     public static @Nullable List<Object> deserializeResults(ClientMessageUnpacker r) {
         if (r.tryUnpackNil()) {
             return null;
@@ -96,6 +123,9 @@ public class StreamerReceiverSerializer {
         return ClientBinaryTupleUtils.readCollectionFromBinaryTuple(reader, 0);
     }
 
+    /**
+     * Streamer receiver info.
+     */
     public static class SteamerReceiverInfo {
         private final String className;
         private final Object[] args;
@@ -107,14 +137,17 @@ public class StreamerReceiverSerializer {
             this.items = items;
         }
 
+        /** @return Receiver class name. */
         public String className() {
             return className;
         }
 
+        /** @return Receiver args. */
         public Object[] args() {
             return args;
         }
 
+        /** @return Items. */
         public List<Object> items() {
             return items;
         }

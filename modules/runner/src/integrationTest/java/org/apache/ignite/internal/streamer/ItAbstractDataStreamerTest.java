@@ -486,11 +486,13 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             assertEquals("val2", page.get(1));
             assertEquals("val3", page.get(2));
 
-            assertNotNull(ctx.ignite().tables().table(DEFAULT_TABLE_NAME));
+            assertNotNull(ctx.ignite().tables().table(TABLE_NAME));
 
             assertEquals(2, args.length);
             assertEquals("arg1", args[0]);
             assertEquals(123, args[1]);
+
+            assertEquals("x", this.getClass().getClassLoader().getName());
 
             return CompletableFuture.completedFuture(null);
         }
