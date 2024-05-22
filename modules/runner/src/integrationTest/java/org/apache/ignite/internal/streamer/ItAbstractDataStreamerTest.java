@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.streamer;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -36,6 +37,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.DataStreamerItem;
@@ -370,7 +372,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
-                    DataStreamerOptions.DEFAULT,
+                    DataStreamerOptions.builder().retryLimit(0).pageSize(1).build(),
                     t -> t,
                     t -> 0,
                     null,
@@ -381,7 +383,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(tupleKey(1));
         }
 
-        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
+        assertEquals("Job execution failed: java.lang.ArithmeticException: test", ex.getCause().getMessage());
     }
 
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
@@ -452,7 +455,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     private static class TestReceiver implements DataStreamerReceiver<String, Void> {
         @Override
         public CompletableFuture<List<Void>> receive(List<String> page, DataStreamerReceiverContext ctx, Object... args) {
-            if (args[0] == "throw") {
+            if ("throw".equals(args[0])) {
                 throw new ArithmeticException("test");
             }
 
