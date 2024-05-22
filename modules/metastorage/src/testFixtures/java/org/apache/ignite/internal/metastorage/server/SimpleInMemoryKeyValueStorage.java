@@ -476,8 +476,10 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         HybridTimestamp ts = revToTsMap.get(updatedEntries.get(0).revision());
         assert ts != null;
 
-        updatedEntries.removeIf(entry -> ByteBuffer.wrap(entry.key(), 0, IDEMPOTENT_COMMAND_PREFIX_BYTES.length)
-                .equals(ByteBuffer.wrap(IDEMPOTENT_COMMAND_PREFIX_BYTES)));
+        updatedEntries.removeIf(entry ->
+                entry.key().length > IDEMPOTENT_COMMAND_PREFIX_BYTES.length &&
+                        ByteBuffer.wrap(entry.key(), 0, IDEMPOTENT_COMMAND_PREFIX_BYTES.length)
+                                .equals(ByteBuffer.wrap(IDEMPOTENT_COMMAND_PREFIX_BYTES)));
 
         watchProcessor.notifyWatches(List.copyOf(updatedEntries), ts);
 
