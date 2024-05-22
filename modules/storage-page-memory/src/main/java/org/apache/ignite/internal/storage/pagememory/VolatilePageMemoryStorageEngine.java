@@ -32,7 +32,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileView;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
@@ -67,8 +66,6 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
 
     private final PageIoRegistry ioRegistry;
 
-    private final PageEvictionTracker pageEvictionTracker;
-
     private final Map<String, VolatilePageMemoryDataRegion> regions = new ConcurrentHashMap<>();
 
     private volatile ExecutorService destructionExecutor;
@@ -78,19 +75,16 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
      *
      * @param engineConfig PageMemory storage engine configuration.
      * @param ioRegistry IO registry.
-     * @param pageEvictionTracker Eviction tracker to use.
      */
     public VolatilePageMemoryStorageEngine(
             String igniteInstanceName,
             VolatilePageMemoryStorageEngineConfiguration engineConfig,
             StorageConfiguration storageConfiguration,
-            PageIoRegistry ioRegistry,
-            PageEvictionTracker pageEvictionTracker) {
+            PageIoRegistry ioRegistry) {
         this.igniteInstanceName = igniteInstanceName;
         this.engineConfig = engineConfig;
         this.storageConfiguration = storageConfiguration;
         this.ioRegistry = ioRegistry;
-        this.pageEvictionTracker = pageEvictionTracker;
     }
 
     @Override
@@ -154,8 +148,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
                 tableDescriptor,
                 indexDescriptorSupplier,
                 dataRegion,
-                destructionExecutor,
-                pageEvictionTracker
+                destructionExecutor
         );
     }
 
@@ -178,8 +171,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
         VolatilePageMemoryDataRegion dataRegion = new VolatilePageMemoryDataRegion(
                 storageProfileConfiguration,
                 ioRegistry,
-                pageSize,
-                pageEvictionTracker
+                pageSize
         );
 
         dataRegion.start();

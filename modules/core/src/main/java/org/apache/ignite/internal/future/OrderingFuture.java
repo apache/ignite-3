@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.future;
 
-import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
+import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;

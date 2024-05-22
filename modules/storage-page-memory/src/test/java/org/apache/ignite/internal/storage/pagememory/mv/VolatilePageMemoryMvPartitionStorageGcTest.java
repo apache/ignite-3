@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageGcTest;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -50,8 +49,7 @@ class VolatilePageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionStor
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfiguration,
-                ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
+        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfiguration, ioRegistry);
 
         engine.start();
 

@@ -287,7 +287,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /**
      * Versioned value for tracking RAFT groups initialization and starting completion.
      *
-     * <p>Only explicitly updated in {@link #startLocalPartitionsAndClients(CompletableFuture, TableImpl, int)}.
+     * <p>Only explicitly updated in {@link #startLocalPartitionsAndClients(CompletableFuture, TableImpl, int, boolean)}.
      *
      * <p>Completed strictly after {@link #localPartitionsVv}.
      */
@@ -385,7 +385,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Versioned value used only at manager startup to correctly fire table creation events. */
     private final IncrementalVersionedValue<Void> startVv;
 
-    /** Ends at the {@link #stop()} with an {@link NodeStoppingException}. */
+    /** Ends at the {@link #stopAsync()} with an {@link NodeStoppingException}. */
     private final CompletableFuture<Void> stopManagerFuture = new CompletableFuture<>();
 
     /** Configuration for {@link StorageUpdateHandler}. */
@@ -570,6 +570,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 metaStorageMgr,
                 messagingService,
                 topologyService,
+                partitionOperationsExecutor,
                 tableId -> tablesById().get(tableId)
         );
 
@@ -830,12 +831,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param assignmentsFuture Table assignments.
      * @param table Initialized table entity.
      * @param zoneId Zone id.
+     * @param isRecovery {@code true} if the node is being started up.
      * @return future, which will be completed when the partitions creations done.
      */
     private CompletableFuture<Void> startLocalPartitionsAndClients(
             CompletableFuture<List<Assignments>> assignmentsFuture,
             TableImpl table,
-            int zoneId
+            int zoneId,
+            boolean isRecovery
     ) {
         int tableId = table.tableId();
 
@@ -858,7 +861,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 assignments.get(partId),
                                 null,
                                 zoneId,
-                                false
+                                isRecovery
                         )
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
@@ -934,7 +937,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         if (localMemberAssignment != null) {
             CompletableFuture<Boolean> shouldStartGroupFut = isRecovery
-                    ? partitionReplicatorNodeRecovery.shouldStartGroup(
+                    ? partitionReplicatorNodeRecovery.initiateGroupReentryIfNeeded(
                             replicaGrpId,
                             internalTbl,
                             newConfiguration,
@@ -1392,7 +1395,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                             registerIndexesToTable(table, catalogService, partitionSet, schemaRegistry, lwm);
                         }
-                        return startLocalPartitionsAndClients(assignmentsFuture, table, zoneDescriptor.id());
+                        return startLocalPartitionsAndClients(assignmentsFuture, table, zoneDescriptor.id(), onNodeRecovery);
                     }
             ), ioExecutor);
         });
@@ -1607,14 +1610,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return Future.
      */
     public CompletableFuture<TableViewInternal> tableAsync(long causalityToken, int id) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return tablesById(causalityToken).thenApply(tablesById -> tablesById.get(id));
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return inBusyLockAsync(busyLock, () -> tablesById(causalityToken).thenApply(tablesById -> tablesById.get(id)));
     }
 
     @Override
@@ -2528,7 +2524,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /**
      * Returns the future that will complete when, either the future from the argument or {@link #stopManagerFuture} will complete,
-     * successfully or exceptionally. Allows to protect from getting stuck at {@link #stop()} when someone is blocked (by using
+     * successfully or exceptionally. Allows to protect from getting stuck at {@link #stopAsync()} when someone is blocked (by using
      * {@link #busyLock}) for a long time.
      *
      * @param future Future.

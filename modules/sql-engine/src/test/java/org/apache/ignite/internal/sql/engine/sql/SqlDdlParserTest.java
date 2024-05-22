@@ -26,6 +26,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
@@ -48,10 +49,13 @@ import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Test suite to verify parsing of the DDL command.
  */
+@SuppressWarnings("ThrowableNotThrown")
 public class SqlDdlParserTest extends AbstractParserTest {
     /**
      * Very simple case where only table name and a few columns are presented.
@@ -82,7 +86,7 @@ public class SqlDdlParserTest extends AbstractParserTest {
      */
     @Test
     public void createTableAutogenFuncDefault() {
-        String query = "create table my_table(id varchar default gen_random_uuid primary key, val varchar)";
+        String query = "create table my_table(id uuid default rand_uuid primary key, val varchar)";
 
         SqlNode node = parse(query);
 
@@ -96,7 +100,7 @@ public class SqlDdlParserTest extends AbstractParserTest {
                 SqlColumnDeclaration.class,
                 col -> "ID".equals(col.name.getSimple())
                         && col.expression instanceof SqlIdentifier
-                        && "GEN_RANDOM_UUID".equals(((SqlIdentifier) col.expression).getSimple())
+                        && "RAND_UUID".equals(((SqlIdentifier) col.expression).getSimple())
         )));
         assertThat(createTable.columnList(), hasItem(ofTypeMatching(
                 "PK constraint with name \"ID\"", IgniteSqlPrimaryKeyConstraint.class,
@@ -108,7 +112,7 @@ public class SqlDdlParserTest extends AbstractParserTest {
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
                 + "PRIMARY KEY (\"ID\"), "
-                + "\"ID\" VARCHAR DEFAULT (\"GEN_RANDOM_UUID\"), "
+                + "\"ID\" UUID DEFAULT (\"RAND_UUID\"), "
                 + "\"VAL\" VARCHAR)"
         );
     }
@@ -868,6 +872,52 @@ public class SqlDdlParserTest extends AbstractParserTest {
         assertThat(column.expression, is(nullValue()));
 
         expectUnparsed(addColumn, "ALTER TABLE \"T\" ADD COLUMN \"C\" INTEGER NOT NULL");
+    }
+
+    /**
+     * CHAR datatype has certain storage assignment rules, namely it requires value to be padded with `space` character up to declared
+     * length. This currently not supported in storage, thus let's forbid usage of CHAR datatype for table's columns.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "CREATE TABLE t (c CHAR)",
+            "CREATE TABLE t (c CHAR(5))",
+            "CREATE TABLE t (c CHARACTER)",
+            "CREATE TABLE t (c CHARACTER(5))",
+            "ALTER TABLE t ADD COLUMN c CHAR",
+            "ALTER TABLE t ADD COLUMN c CHAR(5)",
+            "ALTER TABLE t ADD COLUMN c CHARACTER",
+            "ALTER TABLE t ADD COLUMN c CHARACTER(5)",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE CHAR",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE CHAR(5)",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE CHARACTER",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE CHARACTER(5)"
+    })
+    void charTypeIsNotAllowedInTable(String statement) {
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "CHAR datatype is not supported in table",
+                () -> parse(statement)
+        );
+    }
+
+    /**
+     * Test makes sure exception is not thrown for CHARACTER VARYING type and in CAST operation where CHARACTER
+     * is allowed.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "CREATE TABLE t (c VARCHAR)",
+            "CREATE TABLE t (c CHARACTER VARYING)",
+            "SELECT CAST(1 AS CHAR)",
+            "SELECT CAST(1 AS CHARACTER)",
+            "SELECT 1::CHAR",
+            "SELECT 1::CHARACTER",
+    })
+    void restrictionOfCharTypeIsNotAppliedToVarcharAndCast(String statement) {
+        SqlNode node = parse(statement);
+
+        assertNotNull(node);
     }
 
     /**

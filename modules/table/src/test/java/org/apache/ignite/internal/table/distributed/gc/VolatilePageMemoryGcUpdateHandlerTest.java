@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -53,7 +52,7 @@ class VolatilePageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest 
         ioRegistry.loadFromServiceLoader();
 
         engine = new VolatilePageMemoryStorageEngine(testNodeName(testInfo, 0), engineConfig,
-                storageConfig, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
+                storageConfig, ioRegistry);
 
         engine.start();
 

@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.util.GridUnsafe.pageSize;
 import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
 import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
@@ -98,11 +97,6 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
     }
 
     static class UpdateNextLinkHandler implements PageHandler<Long, Object> {
-        private final PageEvictionTracker evictionTracker;
-
-        UpdateNextLinkHandler(PageEvictionTracker evictionTracker) {
-            this.evictionTracker = evictionTracker;
-        }
 
         @Override
         public Object run(
@@ -120,8 +114,6 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
             int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize(), 0);
 
             writePartitionless(pageAddr + payloadOffset + RowVersion.NEXT_LINK_OFFSET, nextLink);
-
-            evictionTracker.touchPage(pageId);
 
             return true;
         }

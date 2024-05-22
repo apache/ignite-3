@@ -26,6 +26,7 @@ import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.DataStreamerTarget;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
 
 /**
@@ -133,6 +134,11 @@ public enum ClientOperationType {
     COMPUTE_EXECUTE,
 
     /**
+     * Compute Execute MapReduce ({@link org.apache.ignite.compute.IgniteCompute#submitMapReduce(List, String, Object...)}).
+     */
+    COMPUTE_EXECUTE_MAPREDUCE,
+
+    /**
      * Get compute job status ({@link org.apache.ignite.compute.JobExecution#statusAsync()}).
      */
     COMPUTE_GET_STATUS,
@@ -170,5 +176,10 @@ public enum ClientOperationType {
     /**
      * SQL Execute batch ({@link IgniteSql#executeBatchAsync(Transaction, String, BatchedArguments)}).
      */
-    SQL_EXECUTE_BATCH
+    SQL_EXECUTE_BATCH,
+
+    /**
+     * Get all primary replicas mapping to cluster nodes ({@link PartitionManager#primaryReplicasAsync()}).
+     */
+    PRIMARY_REPLICAS_GET
 }

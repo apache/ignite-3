@@ -106,7 +106,6 @@ class ItConnectCommandTest extends ItConnectToClusterTestBase {
         assertThat(getPrompt()).isEqualTo("[" + nodeName() + "]> ");
 
         // When connect again
-        resetOutput();
         execute("connect");
 
         // Then

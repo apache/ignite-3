@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.nio.file.Path;
@@ -30,9 +32,9 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingTestRunner.TestSetup;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
@@ -293,7 +295,9 @@ public class FragmentMappingTest extends AbstractPlannerTest {
     private IgniteRel parseQuery(IgniteSchema schema, String sqlStmt) {
         try {
             PlanningContext ctx = PlanningContext.builder()
-                    .parentContext(baseQueryContext(List.of(schema), null))
+                    .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
+                            .defaultSchema(createRootSchema(List.of(schema)).getSubSchema(schema.getName()))
+                            .build())
                     .query(sqlStmt)
                     .build();
 
@@ -367,7 +371,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
             objectId += 1;
         }
 
-        IgniteSchema schema = new IgniteSchema(CatalogManager.DEFAULT_SCHEMA_NAME, 1, dataSources);
+        IgniteSchema schema = new IgniteSchema(SqlCommon.DEFAULT_SCHEMA_NAME, 1, dataSources);
         ExecutionTargetProvider executionTargetProvider = TestBuilders.executionTargetProviderBuilder()
                 .useTablePartitions(true)
                 .addTables(table2NodeNames)

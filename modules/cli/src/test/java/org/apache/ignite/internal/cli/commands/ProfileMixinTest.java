@@ -44,7 +44,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Test for --profile override for --node-url and --cluster-endpoint-url options.
+ * Test for --profile override for --url options.
  */
 public class ProfileMixinTest extends CliCommandTestBase {
     /**
@@ -99,7 +99,7 @@ public class ProfileMixinTest extends CliCommandTestBase {
             Class<IT> callInputClass,
             Function<IT, String> urlSupplier) {
         T call = registerMockCall(callClass);
-        execute(command + " --node-url " + URL_FROM_CMD);
+        execute(command + " --url " + URL_FROM_CMD);
         IT callInput = verifyCallInput(call, callInputClass);
         assertEquals(URL_FROM_CMD, urlSupplier.apply(callInput));
     }
@@ -113,7 +113,7 @@ public class ProfileMixinTest extends CliCommandTestBase {
             Class<IT> callInputClass,
             Function<IT, String> urlSupplier) {
         T call = registerMockCall(callClass);
-        execute(command + " --cluster-endpoint-url " + URL_FROM_CMD);
+        execute(command + " --url " + URL_FROM_CMD);
         IT callInput = verifyCallInput(call, callInputClass);
         assertEquals(URL_FROM_CMD, urlSupplier.apply(callInput));
     }
@@ -127,7 +127,7 @@ public class ProfileMixinTest extends CliCommandTestBase {
             Class<IT> callInputClass,
             Function<IT, String> urlSupplier) {
         T call = registerMockCall(callClass);
-        execute(command + " --profile test --node-url " + URL_FROM_CMD);
+        execute(command + " --profile test --url " + URL_FROM_CMD);
         IT callInput = verifyCallInput(call, callInputClass);
         assertEquals(URL_FROM_CMD, urlSupplier.apply(callInput));
     }
@@ -141,7 +141,7 @@ public class ProfileMixinTest extends CliCommandTestBase {
             Class<IT> callInputClass,
             Function<IT, String> urlSupplier) {
         T call = registerMockCall(callClass);
-        execute(command + " --profile test --cluster-endpoint-url " + URL_FROM_CMD);
+        execute(command + " --profile test --url " + URL_FROM_CMD);
         IT callInput = verifyCallInput(call, callInputClass);
         assertEquals(URL_FROM_CMD, urlSupplier.apply(callInput));
     }
@@ -184,7 +184,7 @@ public class ProfileMixinTest extends CliCommandTestBase {
                         (Function<ClusterConfigUpdateCallInput, String>) ClusterConfigUpdateCallInput::getClusterUrl
                 ),
                 arguments(
-                        "cluster init --cluster-name cluster --meta-storage-node node",
+                        "cluster init --name cluster --meta-storage-node node",
                         ClusterInitCall.class,
                         ClusterInitCallInput.class,
                         (Function<ClusterInitCallInput, String>) ClusterInitCallInput::getClusterUrl

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.streamer;
 
-import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
+import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 
 import java.util.BitSet;
 import java.util.Collection;

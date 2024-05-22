@@ -39,6 +39,7 @@ public class RetryReadPolicy extends RetryLimitPolicy {
 
             case TUPLE_UPSERT:
             case COMPUTE_EXECUTE:
+            case COMPUTE_EXECUTE_MAPREDUCE:
             case COMPUTE_GET_STATUS:
             case COMPUTE_CANCEL:
             case COMPUTE_CHANGE_PRIORITY:
@@ -59,6 +60,7 @@ public class RetryReadPolicy extends RetryLimitPolicy {
             case SQL_CURSOR_NEXT_PAGE:
             case SQL_EXECUTE_SCRIPT:
             case STREAMER_BATCH_SEND:
+            case PRIMARY_REPLICAS_GET:
                 return false;
 
             default:

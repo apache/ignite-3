@@ -20,10 +20,11 @@ package org.apache.ignite.internal.sql.metrics;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.Collections;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -34,7 +35,6 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -50,7 +50,19 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
         MetricManager metricManager = new MetricManagerImpl();
         // Run clean up tasks in the current thread, so no eviction event is delayed.
         CacheFactory cacheFactory = CaffeineCacheFactory.create(Runnable::run);
-        PrepareService prepareService = new PrepareServiceImpl("test", 2, cacheFactory, null, 15_000L, 2, metricManager);
+
+        IgniteTable table = TestBuilders.table()
+                .name("T")
+                .addColumn("A", NativeTypes.INT32, false)
+                .addColumn("B", NativeTypes.INT32, false)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteSchema schema = createSchema(table);
+
+        PrepareService prepareService = new PrepareServiceImpl(
+                "test", 2, cacheFactory, null, 15_000L, 2, metricManager, new PredefinedSchemaManager(schema)
+        );
 
         prepareService.start();
 
@@ -77,15 +89,7 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
     }
 
     private void checkCachePlanStatistics(String qry, PrepareService prepareService, MetricSet metricSet, int hits, int misses) {
-        IgniteTable table = TestBuilders.table()
-                .name("T")
-                .addColumn("A", NativeTypes.INT32, false)
-                .addColumn("B", NativeTypes.INT32, false)
-                .distribution(IgniteDistributions.single())
-                .build();
-
-        IgniteSchema schema = createSchema(table);
-        BaseQueryContext ctx = baseQueryContext(Collections.singletonList(schema), null);
+        SqlOperationContext ctx = operationContext();
 
         ParserService parserService = new ParserServiceImpl();
         ParsedResult parsedResult = parserService.parse(qry);

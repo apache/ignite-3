@@ -38,6 +38,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -73,23 +74,23 @@ public class RebalanceUtilEx {
                     byte[] prevValue = retrievedAssignmentsSwitchReduce.value();
 
                     if (prevValue != null) {
-                        Set<Assignment> prev = ByteUtils.fromBytes(prevValue);
+                        Assignments prev = Assignments.fromBytes(prevValue);
 
                         prev.add(peerAssignment);
 
                         return metaStorageMgr.invoke(
                                 revision(key).eq(retrievedAssignmentsSwitchReduce.revision()),
-                                put(key, ByteUtils.toBytes(prev)),
+                                put(key, prev.toBytes()),
                                 Operations.noop()
                         );
                     } else {
-                        var newValue = new HashSet<>();
+                        var newValue = Assignments.of(new HashSet<>());
 
                         newValue.add(peerAssignment);
 
                         return metaStorageMgr.invoke(
                                 notExists(key),
-                                put(key, ByteUtils.toBytes(newValue)),
+                                put(key, newValue.toBytes()),
                                 Operations.noop()
                         );
                     }
@@ -118,7 +119,9 @@ public class RebalanceUtilEx {
         Entry entry = event.entryEvent().newEntry();
         byte[] eventData = entry.value();
 
-        Set<Assignment> switchReduce = ByteUtils.fromBytes(eventData);
+        assert eventData != null : "Null event data for " + partId;
+
+        Assignments switchReduce = Assignments.fromBytes(eventData);
 
         if (switchReduce.isEmpty()) {
             return nullCompletedFuture();
@@ -128,10 +131,10 @@ public class RebalanceUtilEx {
 
         ByteArray pendingKey = pendingPartAssignmentsKey(partId);
 
-        Set<Assignment> pendingAssignments = difference(assignments, switchReduce);
+        Set<Assignment> pendingAssignments = difference(assignments, switchReduce.nodes());
 
-        byte[] pendingByteArray = ByteUtils.toBytes(pendingAssignments);
-        byte[] assignmentsByteArray = ByteUtils.toBytes(assignments);
+        byte[] pendingByteArray = Assignments.toBytes(pendingAssignments);
+        byte[] assignmentsByteArray = Assignments.toBytes(assignments);
 
         ByteArray changeTriggerKey = pendingChangeTriggerKey(partId);
         byte[] rev = ByteUtils.longToBytes(entry.revision());

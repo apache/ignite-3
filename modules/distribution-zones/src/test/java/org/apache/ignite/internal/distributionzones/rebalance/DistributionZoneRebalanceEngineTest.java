@@ -22,7 +22,6 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
@@ -103,6 +102,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -551,7 +551,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     private void createTable(String zoneName, String tableName) {
         TableTestUtils.createTable(
                 catalogManager,
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 zoneName,
                 tableName,
                 List.of(ColumnParams.builder().name("k1").type(STRING).length(100).build()),

@@ -474,7 +474,6 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 new DefaultValueArg("DOUBLE", "10.01", 10.01d),
                 new DefaultValueArg("FLOAT", "10.01", 10.01f),
                 new DefaultValueArg("DECIMAL(4, 2)", "10.01", new BigDecimal("10.01")),
-                new DefaultValueArg("CHAR(2)", "'10'", "10"),
                 new DefaultValueArg("VARCHAR", "'10'", "10"),
                 new DefaultValueArg("VARCHAR NOT NULL", "'10'", "10"),
                 new DefaultValueArg("VARCHAR(2)", "'10'", "10"),

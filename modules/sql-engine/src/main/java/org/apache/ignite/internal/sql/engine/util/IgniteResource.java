@@ -78,6 +78,9 @@ public interface IgniteResource {
     @Resources.BaseMessage("Expression is not supported: {0}")
     Resources.ExInst<SqlValidatorException> unsupportedExpression(String exprType);
 
+    @Resources.BaseMessage("CHAR datatype is not supported in table")
+    Resources.ExInst<SqlValidatorException> charDataTypeIsNotSupportedInTable();
+
     /** Constructs a signature string to use in error messages. */
     static String makeSignature(SqlCallBinding binding, RelDataType... operandTypes) {
         return makeSignature(binding, Arrays.asList(operandTypes));

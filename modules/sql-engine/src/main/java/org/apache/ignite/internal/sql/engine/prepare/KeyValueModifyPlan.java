@@ -49,20 +49,20 @@ import org.jetbrains.annotations.Nullable;
  */
 public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
     private final PlanId id;
-    private final int schemaVersion;
+    private final int catalogVersion;
     private final IgniteKeyValueModify modifyNode;
     private final ResultSetMetadata meta;
     private final ParameterMetadata parameterMetadata;
 
     KeyValueModifyPlan(
             PlanId id,
-            int schemaVersion,
+            int catalogVersion,
             IgniteKeyValueModify modifyNode,
             ResultSetMetadata meta,
             ParameterMetadata parameterMetadata
     ) {
         this.id = id;
-        this.schemaVersion = schemaVersion;
+        this.catalogVersion = catalogVersion;
         this.modifyNode = modifyNode;
         this.meta = meta;
         this.parameterMetadata = parameterMetadata;
@@ -121,7 +121,7 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
     ) {
         IgniteTable sqlTable = table();
 
-        CompletableFuture<Iterator<InternalSqlRow>> result = tableRegistry.getTable(schemaVersion, sqlTable.id())
+        CompletableFuture<Iterator<InternalSqlRow>> result = tableRegistry.getTable(catalogVersion, sqlTable.id())
                 .thenCompose(execTable -> {
                     List<RexNode> expressions = modifyNode.expressions();
 
