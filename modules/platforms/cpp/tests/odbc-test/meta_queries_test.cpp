@@ -220,10 +220,10 @@ public:
                                    "   dec1 decimal(3,0),"
                                    "   dec2 decimal(42,12),"
                                    "   dec3 decimal,"
-                                   "   char1 char(3),"
-                                   "   char2 char(42),"
-                                   "   char3 char not null,"
-                                   "   vchar varchar"
+                                   "   vchar1 varchar(3),"
+                                   "   vchar2 varchar(42),"
+                                   "   vchar3 varchar not null,"
+                                   "   vchar4 varchar"
                                    ")");
 
         ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
@@ -233,7 +233,7 @@ public:
 
         ret = exec_query(
             "insert into "
-            "test_scale_precision(id, dec1, dec2, dec3, char1, char2, char3, vchar) "
+            "test_scale_precision(id, dec1, dec2, dec3, vchar1, vchar2, vchar3, vchar4) "
             "values (1, 12, 160.23, -1234.56789, 'TST', 'Lorem Ipsum', 'C', 'Some test varchar')");
 
         ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
@@ -241,7 +241,7 @@ public:
         ret = SQLFreeStmt(m_statement, SQL_CLOSE);
         ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-        ret = (this->*exec)("select id, dec1, dec2, dec3, char1, char2, char3, vchar from PUBLIC.test_scale_precision");
+        ret = (this->*exec)("select id, dec1, dec2, dec3, vchar1, vchar2, vchar3, vchar4 from PUBLIC.test_scale_precision");
         ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
         SQLSMALLINT columnCount = 0;
@@ -255,10 +255,10 @@ public:
         check(m_statement, 2, "DEC1", SQL_DECIMAL, 3, 0, SQL_NULLABLE);
         check(m_statement, 3, "DEC2", SQL_DECIMAL, 42, 12, SQL_NULLABLE);
         check(m_statement, 4, "DEC3", SQL_DECIMAL, 32767, 0, SQL_NULLABLE);
-        check(m_statement, 5, "CHAR1", SQL_VARCHAR, 3, 0, SQL_NULLABLE);
-        check(m_statement, 6, "CHAR2", SQL_VARCHAR, 42, 0, SQL_NULLABLE);
-        check(m_statement, 7, "CHAR3", SQL_VARCHAR, 1, 0, SQL_NO_NULLS);
-        check(m_statement, 8, "VCHAR", SQL_VARCHAR, 65536, 0, SQL_NULLABLE);
+        check(m_statement, 5, "VCHAR1", SQL_VARCHAR, 3, 0, SQL_NULLABLE);
+        check(m_statement, 6, "VCHAR2", SQL_VARCHAR, 42, 0, SQL_NULLABLE);
+        check(m_statement, 7, "VCHAR3", SQL_VARCHAR, 65536, 0, SQL_NO_NULLS);
+        check(m_statement, 8, "VCHAR4", SQL_VARCHAR, 65536, 0, SQL_NULLABLE);
     }
 
     void insert_test_string() {

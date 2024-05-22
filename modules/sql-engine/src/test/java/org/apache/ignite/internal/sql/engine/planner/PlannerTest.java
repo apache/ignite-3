@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static org.apache.calcite.tools.Frameworks.createRootSchema;
 import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
 import static org.apache.ignite.internal.sql.engine.planner.CorrelatedSubqueryPlannerTest.createTestTable;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
@@ -30,7 +29,6 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
@@ -58,7 +56,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeAll;
@@ -123,20 +120,16 @@ public class PlannerTest extends AbstractPlannerTest {
                 departmentTable(IgniteDistributions.broadcast())
         );
 
-        SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
+        SchemaPlus schema = createRootSchema(List.of(publicSchema));
 
         String sql = "select d.deptno, e.deptno "
                 + "from dept d, emp e "
                 + "where d.deptno + e.deptno = 2";
 
         PlanningContext ctx = PlanningContext.builder()
-                .parentContext(BaseQueryContext.builder()
-                        .queryId(UUID.randomUUID())
-                        .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(schema)
-                                .costFactory(new IgniteCostFactory(1, 100, 1, 1))
-                                .build())
+                .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
+                        .defaultSchema(schema)
+                        .costFactory(new IgniteCostFactory(1, 100, 1, 1))
                         .build())
                 .query(sql)
                 .build();

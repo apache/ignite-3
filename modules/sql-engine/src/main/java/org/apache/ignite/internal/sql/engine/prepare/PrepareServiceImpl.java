@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
+import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUT_ERR;
 
@@ -38,10 +39,12 @@ import java.util.function.Function;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -50,13 +53,14 @@ import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
+import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -68,6 +72,7 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -100,8 +105,6 @@ public class PrepareServiceImpl implements PrepareService {
 
     private final String nodeName;
 
-    private volatile ThreadPoolExecutor planningPool;
-
     private final long plannerTimeout;
 
     private final int plannerThreadCount;
@@ -109,6 +112,10 @@ public class PrepareServiceImpl implements PrepareService {
     private final MetricManager metricManager;
 
     private final SqlPlanCacheMetricSource sqlPlanCacheMetricSource;
+
+    private final SqlSchemaManager schemaManager;
+
+    private volatile ThreadPoolExecutor planningPool;
 
     /**
      * Factory method.
@@ -119,6 +126,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param metricManager Metric manager.
      * @param clusterCfg  Cluster SQL configuration.
      * @param nodeCfg Node SQL configuration.
+     * @param schemaManager Schema manager to use on validation phase to bind identifiers in AST with particular schema objects.
      */
     public static PrepareServiceImpl create(
             String nodeName,
@@ -126,7 +134,8 @@ public class PrepareServiceImpl implements PrepareService {
             DataStorageManager dataStorageManager,
             MetricManager metricManager,
             SqlDistributedConfiguration clusterCfg,
-            SqlLocalConfiguration nodeCfg
+            SqlLocalConfiguration nodeCfg,
+            SqlSchemaManager schemaManager
     ) {
         return new PrepareServiceImpl(
                 nodeName,
@@ -135,7 +144,8 @@ public class PrepareServiceImpl implements PrepareService {
                 new DdlSqlToCommandConverter(),
                 clusterCfg.planner().maxPlanningTime().value(),
                 nodeCfg.planner().threadCount().value(),
-                metricManager
+                metricManager,
+                schemaManager
         );
     }
 
@@ -148,6 +158,7 @@ public class PrepareServiceImpl implements PrepareService {
      * @param ddlConverter A converter of the DDL-related AST to the actual command.
      * @param plannerTimeout Timeout in milliseconds to planning.
      * @param metricManager Metric manager.
+     * @param schemaManager Schema manager to use on validation phase to bind identifiers in AST with particular schema objects.
      */
     public PrepareServiceImpl(
             String nodeName,
@@ -156,17 +167,18 @@ public class PrepareServiceImpl implements PrepareService {
             DdlSqlToCommandConverter ddlConverter,
             long plannerTimeout,
             int plannerThreadCount,
-            MetricManager metricManager
+            MetricManager metricManager,
+            SqlSchemaManager schemaManager
     ) {
         this.nodeName = nodeName;
         this.ddlConverter = ddlConverter;
         this.plannerTimeout = plannerTimeout;
         this.metricManager = metricManager;
         this.plannerThreadCount = plannerThreadCount;
+        this.schemaManager = schemaManager;
 
         sqlPlanCacheMetricSource = new SqlPlanCacheMetricSource();
         cache = cacheFactory.create(cacheSize, sqlPlanCacheMetricSource);
-
     }
 
     /** {@inheritDoc} */
@@ -197,14 +209,27 @@ public class PrepareServiceImpl implements PrepareService {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, BaseQueryContext ctx) {
+    public CompletableFuture<QueryPlan> prepareAsync(
+            ParsedResult parsedResult, SqlOperationContext operationContext
+    ) {
         CompletableFuture<QueryPlan> result;
 
+        String schemaName = operationContext.defaultSchemaName();
+
+        assert schemaName != null;
+
+        SchemaPlus schema = schemaManager.schema(operationContext.operationTime().longValue())
+                .getSubSchema(schemaName);
+
+        if (schema == null) {
+            return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
+        }
+
         PlanningContext planningContext = PlanningContext.builder()
-                .parentContext(ctx)
+                .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
                 .query(parsedResult.originalQuery())
                 .plannerTimeout(plannerTimeout)
-                .parameters(Commons.arrayToMap(ctx.parameters()))
+                .parameters(Commons.arrayToMap(operationContext.parameters()))
                 .build();
 
         result = prepareAsync0(parsedResult, planningContext);
@@ -339,15 +364,17 @@ public class PrepareServiceImpl implements PrepareService {
 
                 ResultSetMetadata resultSetMetadata = resultSetMetadata(validated.dataType(), validated.origins(), validated.aliases());
 
-                if (clonedTree instanceof IgniteKeyValueGet) {
-                    int schemaVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
+                int catalogVersion = ctx.catalogVersion();
 
+                if (clonedTree instanceof IgniteKeyValueGet) {
                     return new KeyValueGetPlan(
-                            nextPlanId(), schemaVersion, (IgniteKeyValueGet) clonedTree, resultSetMetadata, parameterMetadata
+                            nextPlanId(), catalogVersion, (IgniteKeyValueGet) clonedTree, resultSetMetadata, parameterMetadata
                     );
                 }
 
-                var plan = new MultiStepPlan(nextPlanId(), SqlQueryType.QUERY, clonedTree, resultSetMetadata, parameterMetadata);
+                var plan = new MultiStepPlan(
+                        nextPlanId(), SqlQueryType.QUERY, clonedTree, resultSetMetadata, parameterMetadata, catalogVersion
+                );
 
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Plan prepared: \n{}\n\n{}", parsedResult.originalQuery(), plan.explain());
@@ -408,15 +435,17 @@ public class PrepareServiceImpl implements PrepareService {
                 // before storing tree in plan cache
                 IgniteRel clonedTree = Cloner.clone(igniteRel, Commons.emptyCluster());
 
-                if (clonedTree instanceof IgniteKeyValueModify) {
-                    int schemaVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
+                int catalogVersion = ctx.catalogVersion();
 
+                if (clonedTree instanceof IgniteKeyValueModify) {
                     return new KeyValueModifyPlan(
-                            nextPlanId(), schemaVersion, (IgniteKeyValueModify) clonedTree, DML_METADATA, parameterMetadata
+                            nextPlanId(), catalogVersion, (IgniteKeyValueModify) clonedTree, DML_METADATA, parameterMetadata
                     );
                 }
 
-                return new MultiStepPlan(nextPlanId(), SqlQueryType.DML, clonedTree, DML_METADATA, parameterMetadata);
+                return new MultiStepPlan(
+                        nextPlanId(), SqlQueryType.DML, clonedTree, DML_METADATA, parameterMetadata, catalogVersion
+                );
             }, planningPool));
 
             return planFut.thenApply(Function.identity());
@@ -474,7 +503,7 @@ public class PrepareServiceImpl implements PrepareService {
         // See IgniteSqlValidator::validateInferredDynamicParameters
 
         boolean distributed = distributionPresent(ctx.config().getTraitDefs());
-        int catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
+        int catalogVersion = ctx.catalogVersion();
         ColumnType[] paramTypes;
 
         if (parameters.isEmpty()) {
@@ -503,7 +532,7 @@ public class PrepareServiceImpl implements PrepareService {
             ParameterMetadata parameterMetadata) {
 
         boolean distributed = distributionPresent(ctx.config().getTraitDefs());
-        int catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
+        int catalogVersion = ctx.catalogVersion();
         ColumnType[] paramTypes;
 
         List<ParameterType> parameterTypes = parameterMetadata.parameterTypes();

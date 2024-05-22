@@ -15,25 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
+package org.apache.ignite.internal.cli.commands.recovery;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.SqlOperationContext;
-import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
-import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
+import org.apache.ignite.internal.cli.commands.recovery.reset.ResetPartitionsCommand;
+import org.apache.ignite.internal.util.ArrayUtils;
 
-/**
- * Preparation service that accepts an AST of the query and returns a prepared query plan.
- */
-public interface PrepareService extends LifecycleAware {
+/** Test class for {@link ResetPartitionsCommand}. */
+public class ItResetPartitionsCommandTest extends ItResetPartitionsTest {
 
-    /**
-     * Prepare query plan.
-     *
-     * @param parsedResult Represent of parsed query as AST, which need to be planned.
-     * @param ctx Query context.
-     *
-     * @return Future that contains prepared query plan when completes.
-     */
-    CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, SqlOperationContext ctx);
+    @Override
+    protected void execute(String... args) {
+        String[] fullArgs = ArrayUtils.concat(new String[] {"recovery", "reset-partitions"}, args);
+
+        super.execute(fullArgs);
+    }
 }

@@ -498,10 +498,6 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
 
-        fillTestCase("CHAR", "1", testItems, true, ctx, "1");
-        fillTestCase("CHAR", "'1'", testItems, true, ctx, "1");
-        fillTestCase("CHAR(2)", "12", testItems, true, ctx, "12");
-        fillTestCase("CHAR", "12", testItems, false, ctx);
         fillTestCase("VARCHAR", "12", testItems, true, ctx, "12");
         fillTestCase("VARCHAR", "'12'", testItems, true, ctx, "12");
         fillTestCase("VARCHAR(2)", "123", testItems, false, ctx);

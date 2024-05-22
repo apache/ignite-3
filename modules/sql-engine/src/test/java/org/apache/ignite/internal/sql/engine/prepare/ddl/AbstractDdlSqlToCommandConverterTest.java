@@ -25,7 +25,6 @@ import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
-import java.util.UUID;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImp
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.hamcrest.Matchers;
 
@@ -68,11 +66,8 @@ class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
         var schema = Frameworks.createRootSchema(false).add(schemaName, publicSchema);
 
         return PlanningContext.builder()
-                .parentContext(BaseQueryContext.builder()
-                        .queryId(UUID.randomUUID())
-                        .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(schema)
-                                .build())
+                .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
+                        .defaultSchema(schema)
                         .build())
                 .query("")
                 .build();
