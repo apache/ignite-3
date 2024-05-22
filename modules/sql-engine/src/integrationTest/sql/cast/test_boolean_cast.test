@@ -41,19 +41,12 @@ SELECT CAST(NULL AS BOOLEAN)
 null
 
 query T
-SELECT CAST(NULL AS BOOLEAN)
-----
-null
-
-query T
 SELECT CAST((1 = NULL) AS BOOLEAN)
 ----
 null
 
-query T
-SELECT CAST((1 = NULL) AS BOOLEAN)
-----
-null
+statement error: Invalid character for cast: 0
+SELECT CAST('0' AS BOOLEAN)
 
 statement error: Invalid character for cast: 1
 SELECT CAST('1' AS BOOLEAN)
