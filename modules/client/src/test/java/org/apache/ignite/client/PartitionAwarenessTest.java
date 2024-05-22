@@ -479,10 +479,11 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 0L)));
-        assertOpOnNode(nodeKey1, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 1L)));
-        assertOpOnNode(nodeKey2, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 2L)));
-        assertOpOnNode(nodeKey3, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 3L)));
+        String expectedOp = withReceiver ? "upsert" : "updateAll";
+        assertOpOnNode(nodeKey0, expectedOp, tx -> stream.accept(Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, expectedOp, tx -> stream.accept(Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, expectedOp, tx -> stream.accept(Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey3, expectedOp, tx -> stream.accept(Tuple.create().set("ID", 3L)));
     }
 
     @ParameterizedTest
@@ -676,6 +677,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public static class TestReceiver<T, R> implements DataStreamerReceiver<T, R> {
         @Override
         public CompletableFuture<List<R>> receive(List<T> page, DataStreamerReceiverContext ctx, Object... args) {
+            ctx.ignite().tables().table(DEFAULT_TABLE).recordView().upsert(null, Tuple.create().set("ID", 0L));
             return CompletableFuture.completedFuture(null);
         }
     }
