@@ -173,17 +173,17 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
             // Unit is deployed on all requested nodes
             assertDeployed(id);
 
-            execute("node", "unit", "list", "--plain", "--node-url", "http://localhost:10300", id);
+            execute("node", "unit", "list", "--plain", "--url", "http://localhost:10300", id);
 
             // Unit is deployed on the CMG node
             assertDeployed(id);
 
-            execute("node", "unit", "list", "--plain", "--node-url", "http://localhost:10301", id);
+            execute("node", "unit", "list", "--plain", "--url", "http://localhost:10301", id);
 
             // Unit is deployed on the requested node
             assertDeployed(id);
 
-            execute("node", "unit", "list", "--plain", "--node-url", "http://localhost:10302", id);
+            execute("node", "unit", "list", "--plain", "--url", "http://localhost:10302", id);
 
             // Unit is not deployed on the other node
             assertAll(
@@ -216,7 +216,7 @@ public class ItDeploymentUnitTest extends CliIntegrationTest {
 
             CLUSTER.runningNodes().forEach(ignite -> {
                 String nodeUrl = "http://" + ignite.restHttpAddress().toString();
-                execute("node", "unit", "list", "--plain", "--node-url", nodeUrl, id);
+                execute("node", "unit", "list", "--plain", "--url", nodeUrl, id);
 
                 // Unit is deployed on the node
                 assertDeployed(id);

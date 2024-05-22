@@ -70,7 +70,7 @@ To run any other example, do the following:
 ```
 4. (optional) If the cluster is not initialized then initialize the cluster:
    ```
-   ignite3 cluster init --cluster-name=ignite-cluster --cluster-endpoint-url=http://localhost:10300 --meta-storage-node=defauldNode
+   ignite3 cluster init --name=ignite-cluster --url=http://localhost:10300 --meta-storage-node=defauldNode
    ```
 5. Run the preferred example in the IDE.
 

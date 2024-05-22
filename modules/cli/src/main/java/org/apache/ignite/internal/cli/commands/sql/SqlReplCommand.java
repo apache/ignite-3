@@ -20,11 +20,10 @@ package org.apache.ignite.internal.cli.commands.sql;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_KEY;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.JDBC_URL_OPTION_SHORT;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PLAIN_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_SHORT;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.SCRIPT_FILE_OPTION_DESC;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 
@@ -77,8 +76,7 @@ import picocli.CommandLine.Parameters;
  */
 @Command(name = "sql", description = "Executes SQL query")
 public class SqlReplCommand extends BaseCommand implements Runnable {
-    @Option(names = {JDBC_URL_OPTION, JDBC_URL_OPTION_SHORT}, required = true,
-            descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
+    @Option(names = JDBC_URL_OPTION, required = true, descriptionKey = JDBC_URL_KEY, description = JDBC_URL_OPTION_DESC)
     private String jdbc;
 
     @Option(names = PLAIN_OPTION, description = PLAIN_OPTION_DESC)
@@ -91,8 +89,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
         @Parameters(index = "0", description = "SQL query to execute", defaultValue = Option.NULL_VALUE)
         private String command;
 
-        @Option(names = {SCRIPT_FILE_OPTION, SCRIPT_FILE_OPTION_SHORT}, description = SCRIPT_FILE_OPTION_SHORT,
-                defaultValue = Option.NULL_VALUE)
+        @Option(names = SCRIPT_FILE_OPTION, description = SCRIPT_FILE_OPTION_DESC, defaultValue = Option.NULL_VALUE)
         private File file;
     }
 

@@ -32,7 +32,7 @@ class ItTopologyCommandInitializedClusterTest extends CliIntegrationTest {
     @DisplayName("Should print physical topology when valid cluster url is provided")
     void printPhysicalTopology() {
         // When
-        execute("cluster", "topology", "physical", "--cluster-endpoint-url", NODE_URL);
+        execute("cluster", "topology", "physical", "--url", NODE_URL);
 
         // Then
         assertAll(
@@ -46,7 +46,7 @@ class ItTopologyCommandInitializedClusterTest extends CliIntegrationTest {
     @DisplayName("Should print logical topology when valid cluster url is provided but cluster")
     void printLogicalTopology() {
         // When
-        execute("cluster", "topology", "logical", "--cluster-endpoint-url", NODE_URL);
+        execute("cluster", "topology", "logical", "--url", NODE_URL);
 
         // Then
         assertAll(

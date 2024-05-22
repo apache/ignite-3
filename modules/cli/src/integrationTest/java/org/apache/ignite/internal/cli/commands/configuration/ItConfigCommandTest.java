@@ -34,7 +34,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Should read config when valid cluster-endpoint-url is given")
     void readDefaultConfig() {
         // When read cluster config with valid url
-        execute("cluster", "config", "show", "--cluster-endpoint-url", NODE_URL);
+        execute("cluster", "config", "show", "--url", NODE_URL);
 
         // Then
         assertAll(
@@ -48,7 +48,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Should update config with hocon format when valid cluster-endpoint-url is given")
     void addConfigKeyValue() {
         // When update default data storage to rocksdb
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL, "{metaStorage: {idleSyncTimeInterval: 1000}}");
+        execute("cluster", "config", "update", "--url", NODE_URL, "{metaStorage: {idleSyncTimeInterval: 1000}}");
 
         // Then
         assertAll(
@@ -58,7 +58,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         );
 
         // When read the updated cluster configuration
-        execute("cluster", "config", "show", "--cluster-endpoint-url", NODE_URL);
+        execute("cluster", "config", "show", "--url", NODE_URL);
 
         // Then
         assertAll(
@@ -72,7 +72,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Should update config with hocon format when valid cluster-endpoint-url is given")
     void addNodeConfigKeyValue() {
         // When update default data storage to rocksdb
-        execute("node", "config", "update", "--node-url", NODE_URL,
+        execute("node", "config", "update", "--url", NODE_URL,
                 "network.nodeFinder.netClusterNodes : [ \"localhost:3344\", \"localhost:3345\" ]");
 
         // Then
@@ -84,7 +84,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         );
 
         // When read the updated cluster configuration
-        execute("node", "config", "show", "--node-url", NODE_URL);
+        execute("node", "config", "show", "--url", NODE_URL);
 
         // Then
         assertAll(
@@ -98,7 +98,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Should update config with key-value format when valid cluster-endpoint-url is given")
     void updateConfigWithSpecifiedPath() {
         // When update default data storage to rocksdb
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL, "metaStorage.idleSyncTimeInterval=2000");
+        execute("cluster", "config", "update", "--url", NODE_URL, "metaStorage.idleSyncTimeInterval=2000");
 
         // Then
         assertAll(
@@ -108,7 +108,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         );
 
         // When read the updated cluster configuration
-        execute("cluster", "config", "show", "--cluster-endpoint-url", NODE_URL);
+        execute("cluster", "config", "show", "--url", NODE_URL);
 
         // Then
         assertAll(
@@ -121,7 +121,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @Test
     @DisplayName("Should update config with key-value format when valid cluster-endpoint-url is given")
     void updateClusterConfigWithoutQuoting() {
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
+        execute("cluster", "config", "update", "--url", NODE_URL,
                 "security.authentication.providers.default={type=basic,users=[{username=asd,password=pass1}]}");
 
         assertAll(
@@ -132,7 +132,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
 
 
         // Emulate config with spaces
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
+        execute("cluster", "config", "update", "--url", NODE_URL,
                 "security.authentication.providers.default", "=", "{", "type=basic,", "users=[{", "username=asd,", "password=pass2}]}");
 
         assertAll(
@@ -146,7 +146,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Test different types of quoted parameters")
     void updateClusterWithQuotedArgs() {
         // Emulate quoting config
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
+        execute("cluster", "config", "update", "--url", NODE_URL,
                 "\"security.authentication.providers.default={type=basic,users=[{username=asd,password=pass3}]}\"");
 
         assertAll(
@@ -156,7 +156,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         );
 
         // Emulate quoting config
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
+        execute("cluster", "config", "update", "--url", NODE_URL,
                 "\"security.authentication.providers.default\"", "\"={type=basic,users=[{username=asd,password=pass4}]}\"");
 
         assertAll(
@@ -166,7 +166,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         );
 
         // Emulate quoting config
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
+        execute("cluster", "config", "update", "--url", NODE_URL,
                 "security.authentication.providers.default", "\"={type=basic,users=[{username=asd,password=pass5}]}\"");
 
         assertAll(
@@ -179,7 +179,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @Test
     @DisplayName("Test using arguments in parameters")
     void useOptionsInArguments() {
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
+        execute("cluster", "config", "update", "--url", NODE_URL,
                 "security.authentication.providers.default={type=basic,users=[{username:", "--verbose,", "password=--verbose}]}");
 
         assertAll(
@@ -188,7 +188,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
                 this::assertOutputIsEmpty
         );
 
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL,
+        execute("cluster", "config", "update", "--url", NODE_URL,
                 "\"security.authentication.providers.default={type=basic,users=[{username: --verbose, password=--verbose}]}\"");
 
         assertAll(
@@ -200,7 +200,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
 
     @Test
     void updateWithWrongData() {
-        execute("node", "config", "update", "--node-url", NODE_URL, "network.foo=\"bar\"");
+        execute("node", "config", "update", "--url", NODE_URL, "network.foo=\"bar\"");
 
         assertAll(
                 () -> assertExitCodeIs(1),
@@ -208,7 +208,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
                 this::assertOutputIsEmpty
         );
 
-        execute("node", "config", "update", "--node-url", NODE_URL, "network.shutdownQuietPeriod=asd");
+        execute("node", "config", "update", "--url", NODE_URL, "network.shutdownQuietPeriod=asd");
 
         assertAll(
                 () -> assertExitCodeIs(1),
@@ -219,7 +219,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
 
     @Test
     public void partialGet() {
-        execute("node", "config", "show", "--node-url", NODE_URL, "network");
+        execute("node", "config", "show", "--url", NODE_URL, "network");
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
