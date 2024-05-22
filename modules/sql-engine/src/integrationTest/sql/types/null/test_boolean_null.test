@@ -30,7 +30,7 @@ SELECT NULL IS NULL, NULL IS NOT NULL, 42 IS NULL, 42 IS NOT NULL
 true	false	false	true
 
 # Comparisions
-query TTTT
+query TTTTTT
 SELECT NULL = NULL, NULL <> NULL, 42 = NULL, 42 <> NULL, (NULL = 1) OR (1 = 1), (NULL = 1) AND (0 = 1)
 ----
 NULL	NULL	NULL	NULL	TRUE	FALSE
