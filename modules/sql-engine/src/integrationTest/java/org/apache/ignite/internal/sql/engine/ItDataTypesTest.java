@@ -636,7 +636,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 "Length for type VARCHAR must be at least 1",
                 () -> sql("SELECT CAST(1 AS VARCHAR(0))")
         );
-        
+
         // Binary
 
         assertThrowsSqlException(
