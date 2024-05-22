@@ -184,7 +184,7 @@ public class ProfileMixinTest extends CliCommandTestBase {
                         (Function<ClusterConfigUpdateCallInput, String>) ClusterConfigUpdateCallInput::getClusterUrl
                 ),
                 arguments(
-                        "cluster init --name cluster --ms-node node",
+                        "cluster init --name cluster --meta-storage-node node",
                         ClusterInitCall.class,
                         ClusterInitCallInput.class,
                         (Function<ClusterInitCallInput, String>) ClusterInitCallInput::getClusterUrl
