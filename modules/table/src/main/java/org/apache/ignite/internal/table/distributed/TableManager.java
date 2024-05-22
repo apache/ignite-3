@@ -952,7 +952,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                         .tableRaftService()
                                         .partitionRaftGroupService(replicaGrpId.partitionId()))
                         );
-                        return true;
                     } catch (NodeStoppingException ex) {
                         // Q: why not returning false there?
                         throw new CompletionException(ex);
