@@ -354,6 +354,13 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertEquals("bar", view.get(null, tupleKey(2)).stringValue("name"));
     }
 
+    @Test
+    public void testReceiver() {
+        // Check class loader
+        // Check partition awareness - not here?
+        // Check exceptions.
+    }
+
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             @SuppressWarnings("resource")
