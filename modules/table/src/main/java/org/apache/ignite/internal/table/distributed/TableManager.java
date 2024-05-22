@@ -907,10 +907,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     : trueCompletedFuture();
 
             startGroupFut = shouldStartGroupFut.thenApplyAsync(startGroup -> inBusyLock(busyLock, () -> {
+                // (1) if partitionReplicatorNodeRecovery#shouldStartGroup fails -> do start nothing
                 if (!startGroup) {
                     return false;
                 }
 
+                // (2) if raft node already started => check force reset and jump to replica starting
                 if (replicaMgr.isRaftStarted(raftNodeId)) {
                     if (nonStableNodeAssignments != null && nonStableNodeAssignments.force()) {
                         replicaMgr.resetPeers(raftNodeId, configurationFromAssignments(nonStableNodeAssignments.nodes()));
@@ -919,6 +921,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     return true;
                 }
 
+                // (3) Otherwise let's start raft node manually
                 try {
                     InternalTable internalTable = table.internalTable();
 
@@ -959,13 +962,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 }
             }), ioExecutor);
         } else {
+            // (4) in case if localMemberAssignment == null
             startGroupFut = falseCompletedFuture();
         }
 
         startGroupFut
                 .thenComposeAsync(isStartedRaftNode -> inBusyLock(busyLock, () -> {
-                    boolean shouldSkipReplicaStarting = localMemberAssignment == null
-                            || !isStartedRaftNode
+                    // - localMemberAssignment == null looks like excessive condition because  in this case startGroupFut returns false (4)
+                    // and then !isStartedRaftNode is true.
+                    boolean shouldSkipReplicaStarting = !isStartedRaftNode
                             || replicaMgr.isReplicaStarted(replicaGrpId);
 
                     try {
