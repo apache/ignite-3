@@ -27,7 +27,6 @@ import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutionOptions;
-import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
@@ -76,8 +75,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
                         payload);
 
                 return jobExecution.resultAsync().thenApply(res -> {
-                    // TODO: Avoid array conversion.
-                    out.packObjectArrayAsBinaryTuple(returnResults ? res.toArray() : null);
+                    StreamerReceiverSerializer.serializeResults(out, returnResults ? res : null);
 
                     return null;
                 });

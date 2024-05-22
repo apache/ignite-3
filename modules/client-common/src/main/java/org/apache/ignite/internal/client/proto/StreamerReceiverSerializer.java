@@ -24,6 +24,7 @@ import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Streamer receiver serializer.
@@ -69,7 +70,7 @@ public class StreamerReceiverSerializer {
         return new SteamerReceiverInfo(receiverClassName, receiverArgs, items);
     }
 
-    public static void serializeResults(ClientMessagePacker w, List<Object> receiverResults) {
+    public static void serializeResults(ClientMessagePacker w, @Nullable List<Object> receiverResults) {
         if (receiverResults == null) {
             w.packNil();
             return;
