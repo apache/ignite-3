@@ -32,7 +32,9 @@ public class IncompatibleSchemaException extends TransactionException implements
     private static final String BACKWARDS_INCOMPATIBLE = "Schema is not backward-compatible for table "
             + "[table=%s, startSchema=%d, operationSchema=%d]";
 
-    private static final String TABLE_DROPPED_MESSAGE = "Table was dropped [table=%s]";
+    private static final String TABLE_DROPPED_NAME_MESSAGE = "Table was dropped [table=%s]";
+
+    private static final String TABLE_DROPPED_ID_MESSAGE = "Table was dropped [tableId=%d]";
 
     public IncompatibleSchemaException(String message) {
         super(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR, "Operation failed: " + message);
@@ -50,6 +52,10 @@ public class IncompatibleSchemaException extends TransactionException implements
     }
 
     public static IncompatibleSchemaException tableDropped(String tableName) {
-        return new IncompatibleSchemaException(String.format(TABLE_DROPPED_MESSAGE, tableName));
+        return new IncompatibleSchemaException(String.format(TABLE_DROPPED_NAME_MESSAGE, tableName));
+    }
+
+    public static IncompatibleSchemaException tableDropped(int tableId) {
+        return new IncompatibleSchemaException(String.format(TABLE_DROPPED_ID_MESSAGE, tableId));
     }
 }

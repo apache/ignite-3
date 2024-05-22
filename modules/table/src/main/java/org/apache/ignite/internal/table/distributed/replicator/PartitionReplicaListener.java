@@ -581,7 +581,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return schemaSyncService.waitForMetadataCompleteness(opStartTs)
-                .thenRun(() -> schemaCompatValidator.failIfTableDoesNotExistAt(opStartTs, getTxStartTimestamp(request), tableId()));
+                .thenRun(() -> schemaCompatValidator.failIfTableDoesNotExistAt(opStartTs, tableId()));
     }
 
     /**
@@ -1629,7 +1629,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 throw new MismatchingTransactionOutcomeException(
                         "Commit failed because schema "
                                 + validationResult.fromSchemaVersion() + " is not forward-compatible with "
-                                + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableName(),
+                                + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableName() + ": "
+                                + validationResult.details(),
                         txResult
                 );
             }

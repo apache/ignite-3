@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 
 import java.util.ArrayList;
@@ -39,7 +38,6 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.TableDefinitionDiff;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.tx.TransactionIds;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Validates schema compatibility.
@@ -148,16 +146,14 @@ class SchemaCompatibilityValidator {
             FullTableSchema oldSchema = tableSchemas.get(i);
             FullTableSchema newSchema = tableSchemas.get(i + 1);
 
-            List<ForwardCompatibilityValidator> failedValidators = validate(oldSchema, newSchema);
+            List<String> failedMessages = getFailedValidations(oldSchema, newSchema);
 
-            String message = failedValidators.stream().map(it -> it.failedMessage()).collect(joining(","));
-
-            if (!failedValidators.isEmpty()) {
+            if (!failedMessages.isEmpty()) {
                 return CompatValidationResult.incompatibleChange(
                         newSchema.tableName(),
                         oldSchema.schemaVersion(),
                         newSchema.schemaVersion(),
-                        message
+                        String.join(",", failedMessages)
                 );
             }
         }
@@ -165,14 +161,14 @@ class SchemaCompatibilityValidator {
         return CompatValidationResult.success();
     }
 
-    private List<ForwardCompatibilityValidator> validate(FullTableSchema prevSchema, FullTableSchema nextSchema) {
+    private List<String> getFailedValidations(FullTableSchema prevSchema, FullTableSchema nextSchema) {
         TableDefinitionDiff diff = diffCache.computeIfAbsent(
                 new TableDefinitionDiffKey(prevSchema.tableId(), prevSchema.schemaVersion(), nextSchema.schemaVersion()),
                 key -> nextSchema.diffFrom(prevSchema)
         );
 
         boolean accepted = false;
-        List<ForwardCompatibilityValidator> failed = new ArrayList<>();
+        List<String> failedMessages = new ArrayList<>();
 
         for (ForwardCompatibilityValidator validator : FORWARD_COMPATIBILITY_VALIDATORS) {
             switch (validator.compatible(diff)) {
@@ -180,7 +176,8 @@ class SchemaCompatibilityValidator {
                     accepted = true;
                     break;
                 case INCOMPATIBLE:
-                    failed.add(validator);
+                    failedMessages.add(validator.failedMessage());
+                    break;
                 default:
                     break;
             }
@@ -237,7 +234,7 @@ class SchemaCompatibilityValidator {
                 newSchema.tableName(),
                 oldSchema.schemaVersion(),
                 newSchema.schemaVersion(),
-                "Schema is not backwards compatible"
+                null
         );
     }
 
@@ -261,12 +258,11 @@ class SchemaCompatibilityValidator {
         }
     }
 
-    void failIfTableDoesNotExistAt(HybridTimestamp operationTimestamp, @Nullable HybridTimestamp transactionTimestamp, int tableId) {
+    void failIfTableDoesNotExistAt(HybridTimestamp operationTimestamp, int tableId) {
         CatalogTableDescriptor tableAtOpTs = catalogService.table(tableId, operationTimestamp.longValue());
 
         if (tableAtOpTs == null) {
-            CatalogTableDescriptor tableAtTransactionTimestamp = catalogService.table(tableId, transactionTimestamp.longValue());
-            throw IncompatibleSchemaException.tableDropped(tableAtTransactionTimestamp.name());
+            throw IncompatibleSchemaException.tableDropped(tableId);
         }
     }
 
@@ -304,19 +300,28 @@ class SchemaCompatibilityValidator {
         DONT_CARE
     }
 
-    @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
     private interface ForwardCompatibilityValidator {
         ValidatorVerdict compatible(TableDefinitionDiff diff);
+        String failedMessage();
     }
 
     private static class RenameTableValidator implements ForwardCompatibilityValidator {
+        private static final String failedMessage = "Name of the table has been changed";
+        
         @Override
         public ValidatorVerdict compatible(TableDefinitionDiff diff) {
             return diff.nameDiffers() ? ValidatorVerdict.INCOMPATIBLE : ValidatorVerdict.DONT_CARE;
         }
+
+        @Override
+        public String failedMessage() {
+            return failedMessage;
+        }
     }
 
     private static class AddColumnsValidator implements ForwardCompatibilityValidator {
+        private static final String failedMessage = "Added nonnull columns without default value";
+
         @Override
         public ValidatorVerdict compatible(TableDefinitionDiff diff) {
             if (diff.addedColumns().isEmpty()) {
@@ -331,12 +336,24 @@ class SchemaCompatibilityValidator {
 
             return ValidatorVerdict.COMPATIBLE;
         }
+
+        @Override
+        public String failedMessage() {
+            return failedMessage;
+        }
     }
 
     private static class DropColumnsValidator implements ForwardCompatibilityValidator {
+        private static final String failedMessage = "Columns were dropped";
+
         @Override
         public ValidatorVerdict compatible(TableDefinitionDiff diff) {
             return diff.removedColumns().isEmpty() ? ValidatorVerdict.DONT_CARE : ValidatorVerdict.INCOMPATIBLE;
+        }
+
+        @Override
+        public String failedMessage() {
+            return failedMessage;
         }
     }
 

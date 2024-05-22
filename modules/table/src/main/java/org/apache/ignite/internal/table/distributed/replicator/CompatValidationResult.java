@@ -56,9 +56,15 @@ public class CompatValidationResult {
             String failedTableName,
             int fromSchemaVersion,
             int toSchemaVersion,
-            String details
+            @Nullable String details
     ) {
-        return new CompatValidationResult(ValidationStatus.INCOMPATIBLE_CHANGE, failedTableName, fromSchemaVersion, toSchemaVersion, details);
+        return new CompatValidationResult(
+                ValidationStatus.INCOMPATIBLE_CHANGE,
+                failedTableName,
+                fromSchemaVersion,
+                toSchemaVersion,
+                details
+        );
     }
 
     /**
@@ -99,7 +105,7 @@ public class CompatValidationResult {
      * Returns whether the validation has failed due to table was already dropped at the commit timestamp.
      */
     public boolean isTableDropped() {
-        return status == ValidationStatus.TABLE_DROPPED;
+        return status == TABLE_DROPPED;
     }
 
     /**
@@ -138,9 +144,9 @@ public class CompatValidationResult {
     }
 
     /**
-     * Returns version number of the schema to which an incompatible transition tried to be made.
+     * For failed validation returns details why the transition failed.
      *
-     * @return Version number of the schema to which an incompatible transition tried to be made.
+     * @return Details why the transition failed.
      */
     public @Nullable String details() {
         assert !isSuccessful() : "Should not be called on a successful result";
