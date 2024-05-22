@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_R
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
@@ -64,7 +65,6 @@ import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.thread.PublicApiThreading.ApiEntryRole;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -145,7 +145,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     static void stopNode(TestInfo testInfo) throws Exception {
         NODE = null;
 
-        IgniteUtils.closeAll(() -> IgnitionManager.stop(testNodeName(testInfo, 0)));
+        closeAll(() -> IgnitionManager.stop(testNodeName(testInfo, 0)));
     }
 
     @BeforeEach

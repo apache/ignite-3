@@ -170,4 +170,9 @@ public class ClientOp {
 
     /** Execute SQL query with the parameters batch. */
     public static final int SQL_EXEC_BATCH = 63;
+
+    /**
+     * Execute MapReduce task.
+     */
+    public static final int COMPUTE_EXECUTE_MAPREDUCE = 64;
 }

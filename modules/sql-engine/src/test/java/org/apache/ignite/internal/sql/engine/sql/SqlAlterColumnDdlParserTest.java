@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test suite to verify parsing of the {@code ALTER TABLE ... ALTER COLUMN} DDL commands.
  */
-public class SqlAlterColumnDdlParserTest extends AbstractDdlParserTest {
+public class SqlAlterColumnDdlParserTest extends AbstractParserTest {
 
     /**
      * Verifies parsing of {@code ALTER TABLE ... ALTER COLUMN ... SET/DROP NOT NULL} statement.

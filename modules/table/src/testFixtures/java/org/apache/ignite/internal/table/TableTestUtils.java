@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.INT32;
@@ -41,6 +40,7 @@ import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -112,7 +112,7 @@ public class TableTestUtils {
      * @param tableName Table name.
      */
     public static void dropSimpleTable(CatalogManager catalogManager, String tableName) {
-        dropTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName);
+        dropTable(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
     }
 
     /**
@@ -292,7 +292,7 @@ public class TableTestUtils {
     }
 
     /**
-     * Creates a simple table in {@link CatalogService#DEFAULT_SCHEMA_NAME} and single
+     * Creates a simple table in {@link SqlCommon#DEFAULT_SCHEMA_NAME} and single
      * {@link #COLUMN_NAME column} of type {@link ColumnType#INT32} in default distribution zone.
      *
      * @param catalogManager Catalog name.
@@ -301,7 +301,7 @@ public class TableTestUtils {
     public static void createSimpleTable(CatalogManager catalogManager, String tableName) {
         createTable(
                 catalogManager,
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 null,
                 tableName,
                 List.of(ColumnParams.builder().name(COLUMN_NAME).type(INT32).build()),
@@ -317,7 +317,7 @@ public class TableTestUtils {
      * @param indexName Index name.
      */
     public static void createSimpleHashIndex(CatalogManager catalogManager, String tableName, String indexName) {
-        createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(COLUMN_NAME), false);
+        createHashIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(COLUMN_NAME), false);
     }
 
     /**
@@ -374,6 +374,6 @@ public class TableTestUtils {
      * @param columnType Column type.
      */
     public static void addColumnToSimpleTable(CatalogManager catalogManager, String tableName, String columnName, ColumnType columnType) {
-        addColumnToTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName, columnName, columnType);
+        addColumnToTable(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName, columnName, columnType);
     }
 }

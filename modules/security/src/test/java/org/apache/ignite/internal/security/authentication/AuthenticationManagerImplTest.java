@@ -82,14 +82,14 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
         Arrays.stream(AuthenticationEvent.values()).forEach(event -> manager.listen(event, listener));
 
-        manager.start();
+        assertThat(manager.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         Arrays.stream(AuthenticationEvent.values()).forEach(event -> manager.removeListener(event, listener));
 
-        manager.stop();
+        assertThat(manager.stopAsync(), willCompleteSuccessfully());
     }
 
     @Test

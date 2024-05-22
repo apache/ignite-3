@@ -37,6 +37,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -84,6 +85,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
                         new SimpleInMemoryKeyValueStorage(mcNodeName),
                         clock,
                         mock(TopologyAwareRaftGroupServiceFactory.class),
+                        new NoOpMetricManager(),
                         metaStorageConfiguration
                 ),
                 StandaloneMetaStorageManager.create()
@@ -97,17 +99,17 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
      */
     @ParameterizedTest
     @MethodSource("metaStorageProvider")
-    public void testCheckCorrectness(MetaStorageManager metastore) throws Exception {
+    public void testCheckCorrectness(MetaStorageManager metastore) {
         var deployWatchesFut = metastore.deployWatches();
 
         assertFalse(deployWatchesFut.isDone());
 
-        metastore.start();
+        assertThat(metastore.startAsync(), willCompleteSuccessfully());
 
         assertThat(deployWatchesFut, willCompleteSuccessfully());
 
         metastore.beforeNodeStop();
 
-        metastore.stop();
+        assertThat(metastore.stopAsync(), willCompleteSuccessfully());
     }
 }

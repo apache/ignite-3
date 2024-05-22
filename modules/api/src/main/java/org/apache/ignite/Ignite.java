@@ -33,9 +33,9 @@ import org.apache.ignite.tx.IgniteTransactions;
  */
 public interface Ignite extends AutoCloseable {
     /**
-     * Returns the Ignite node name.
+     * Returns the unique name (consistent ID) of the Ignite node in the cluster.
      *
-     * @return Ignite node name.
+     * @return Unique Ignite node name in the cluster.
      */
     String name();
 

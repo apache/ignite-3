@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
 import static org.apache.ignite.internal.schema.mapping.ColumnMapping.createMapper;
-import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
@@ -30,7 +29,6 @@ import static org.apache.ignite.internal.type.NativeTypes.BYTES;
 import static org.apache.ignite.internal.type.NativeTypes.INT64;
 import static org.apache.ignite.internal.type.NativeTypes.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -45,7 +43,6 @@ import java.util.function.Function;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
-import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -206,109 +203,6 @@ public class SchemaRegistryImplTest {
     }
 
     /**
-     * Check schema cleanup.
-     */
-    @Test
-    public void testSchemaCleanup() {
-        final SchemaDescriptor schemaV3 = new SchemaDescriptor(3,
-                new Column[]{new Column("keyLongCol", INT64, false)},
-                new Column[]{
-                        new Column("valStringCol", STRING, true)
-                });
-
-        final SchemaDescriptor schemaV4 = new SchemaDescriptor(4,
-                new Column[]{new Column("keyLongCol", INT64, false)},
-                new Column[]{
-                        new Column("valBytesCol", BYTES, true),
-                        new Column("valStringCol", STRING, true)
-                });
-
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null, schemaV1);
-
-        assertEquals(INITIAL_TABLE_VERSION, reg.lastKnownSchemaVersion());
-
-        // Fail to cleanup initial schema
-        assertThrows(SchemaRegistryException.class, () -> reg.onSchemaDropped(INITIAL_TABLE_VERSION));
-        assertThrows(SchemaRegistryException.class, () -> reg.onSchemaDropped(0));
-
-        // Register schema with very first version.
-        assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV1));
-
-        assertEquals(1, reg.lastKnownSchemaVersion());
-        assertNotNull(reg.lastKnownSchema());
-        assertNotNull(reg.schema(1));
-
-        // Try to remove latest schema.
-        assertThrows(SchemaRegistryException.class, () -> reg.onSchemaDropped(1));
-
-        assertEquals(1, reg.lastKnownSchemaVersion());
-        assertNotNull(reg.lastKnownSchema());
-        assertNotNull(reg.schema(1));
-
-        // Register new schema with next version.
-        reg.onSchemaRegistered(schemaV2);
-        reg.onSchemaRegistered(schemaV3);
-
-        assertEquals(3, reg.lastKnownSchemaVersion());
-        assertNotNull(reg.schema(1));
-        assertNotNull(reg.schema(2));
-        assertNotNull(reg.schema(3));
-
-        // Remove outdated schema 1.
-        reg.onSchemaDropped(1);
-
-        assertEquals(3, reg.lastKnownSchemaVersion());
-        assertThrows(SchemaRegistryException.class, () -> reg.schema(1));
-        assertNotNull(reg.schema(2));
-        assertNotNull(reg.schema(3));
-
-        // Remove non-existed schemas.
-        reg.onSchemaDropped(1);
-
-        assertEquals(3, reg.lastKnownSchemaVersion());
-        assertThrows(SchemaRegistryException.class, () -> reg.schema(1));
-        assertNotNull(reg.schema(2));
-        assertNotNull(reg.schema(3));
-
-        // Register new schema with next version.
-        reg.onSchemaRegistered(schemaV4);
-
-        assertEquals(4, reg.lastKnownSchemaVersion());
-        assertNotNull(reg.schema(2));
-        assertNotNull(reg.schema(3));
-        assertNotNull(reg.schema(4));
-
-        // Remove non-existed schemas.
-        reg.onSchemaDropped(1);
-
-        assertEquals(4, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV4, reg.lastKnownSchema());
-        assertSameSchema(schemaV2, reg.schema(2));
-        assertSameSchema(schemaV3, reg.schema(3));
-        assertSameSchema(schemaV4, reg.schema(4));
-
-        // Out of order remove.
-        assertThrows(SchemaRegistryException.class, () -> reg.onSchemaDropped(3));
-
-        // Correct removal order.
-        reg.onSchemaDropped(2);
-        reg.onSchemaDropped(3);
-
-        assertEquals(4, reg.lastKnownSchemaVersion());
-        assertThrows(SchemaRegistryException.class, () -> reg.schema(1));
-        assertThrows(SchemaRegistryException.class, () -> reg.schema(2));
-        assertThrows(SchemaRegistryException.class, () -> reg.schema(3));
-        assertSameSchema(schemaV4, reg.lastKnownSchema());
-        assertSameSchema(schemaV4, reg.schema(4));
-
-        // Try to remove latest schema.
-        assertThrows(SchemaRegistryException.class, () -> reg.onSchemaDropped(4));
-
-        assertEquals(4, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV4, reg.schema(4));
-    }
-
-    /**
      * Check schema registration with full history.
      */
     @Test
@@ -420,105 +314,6 @@ public class SchemaRegistryImplTest {
         assertSameSchema(schemaV4, reg.schema(4));
     }
 
-    /**
-     * Check schema cleanup.
-     */
-    @Test
-    public void testSchemaWithHistoryCleanup() {
-        final SchemaDescriptor schemaV3 = new SchemaDescriptor(3,
-                new Column[]{new Column("keyLongCol", INT64, false)},
-                new Column[]{
-                        new Column("valStringCol", STRING, true)
-                });
-
-        final SchemaDescriptor schemaV4 = new SchemaDescriptor(4,
-                new Column[]{new Column("keyLongCol", INT64, false)},
-                new Column[]{
-                        new Column("valBytesCol", BYTES, true),
-                        new Column("valStringCol", STRING, true)
-                });
-
-        Map<Integer, SchemaDescriptor> history = schemaHistory(schemaV2, schemaV3, schemaV4);
-
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, schemaV4);
-
-        assertEquals(4, reg.lastKnownSchemaVersion());
-        assertSameSchema(schemaV4, reg.lastKnownSchema());
-        assertThrows(SchemaRegistryException.class, () -> reg.schema(1));
-        assertSameSchema(schemaV2, reg.schema(2));
-        assertSameSchema(schemaV3, reg.schema(3));
-        assertSameSchema(schemaV4, reg.schema(4));
-
-        history.remove(1);
-        reg.onSchemaDropped(1);
-
-        assertEquals(4, reg.lastKnownSchemaVersion());
-        assertNotNull(reg.schema(2));
-        assertNotNull(reg.schema(3));
-        assertNotNull(reg.schema(4));
-
-        history.remove(2);
-        history.remove(3);
-        reg.onSchemaDropped(2);
-        reg.onSchemaDropped(3);
-
-        assertEquals(4, reg.lastKnownSchemaVersion());
-        assertThrows(SchemaRegistryException.class, () -> reg.schema(2));
-        assertThrows(SchemaRegistryException.class, () -> reg.schema(3));
-        assertNotNull(reg.schema(4));
-    }
-
-    /**
-     * Check schema cache cleanup.
-     */
-    @Test
-    public void testSchemaCacheCleanup() {
-        final SchemaDescriptor schemaV3 = new SchemaDescriptor(3,
-                new Column[]{new Column("keyLongCol", INT64, false)},
-                new Column[]{
-                        new Column("valStringCol", STRING, true)
-                });
-
-        schemaV3.columnMapping(createMapper(schemaV3).add(
-                schemaV3.column("valStringCol").positionInRow(),
-                schemaV2.column("valStringCol").positionInRow())
-        );
-
-        final SchemaDescriptor schemaV4 = new SchemaDescriptor(4,
-                new Column[]{new Column("keyLongCol", INT64, false)},
-                new Column[]{
-                        new Column("valBytesCol", BYTES, true),
-                        new Column("valStringCol", STRING, true)
-                });
-
-        schemaV4.columnMapping(createMapper(schemaV4).add(schemaV4.column("valBytesCol")));
-
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null, schemaV1);
-
-        final Map<Long, ColumnMapper> cache = reg.mappingCache();
-
-        assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV1));
-        reg.onSchemaRegistered(schemaV2);
-        reg.onSchemaRegistered(schemaV3);
-        reg.onSchemaRegistered(schemaV4);
-
-        assertEquals(0, cache.size());
-
-        reg.resolveMapping(schemaV4, schemaV1);
-        reg.resolveMapping(schemaV3, schemaV1);
-        reg.resolveMapping(schemaV4, schemaV2);
-
-        assertEquals(3, cache.size());
-
-        reg.onSchemaDropped(schemaV1.version());
-
-        assertEquals(1, cache.size());
-
-        reg.onSchemaDropped(schemaV2.version());
-
-        assertEquals(0, cache.size());
-    }
-
     @Test
     void schemaAsyncReturnsExpectedResults() {
         Map<Integer, SchemaDescriptor> history = schemaHistory(schemaV1);
@@ -534,19 +329,6 @@ public class SchemaRegistryImplTest {
         reg.onSchemaRegistered(schemaV2);
 
         assertThat(schema2Future, willBe(schemaV2));
-    }
-
-    @Test
-    void schemaAsyncReturnsExceptionForCompactedAwayVersion() {
-        Map<Integer, SchemaDescriptor> history = schemaHistory(schemaV1, schemaV2);
-
-        SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, schemaV2);
-
-        history.remove(1);
-        reg.onSchemaDropped(1);
-
-        SchemaRegistryException ex = assertWillThrowFast(reg.schemaAsync(1), SchemaRegistryException.class);
-        assertThat(ex.getMessage(), is("Failed to find schema (was it compacted away?) [version=1]"));
     }
 
     /**

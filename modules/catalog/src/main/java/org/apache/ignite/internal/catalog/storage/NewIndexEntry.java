@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
+
 import java.io.IOException;
-import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
@@ -42,17 +46,13 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
 
     private final CatalogIndexDescriptor descriptor;
 
-    private final String schemaName;
-
     /**
      * Constructs the object.
      *
      * @param descriptor A descriptor of an index to add.
-     * @param schemaName Schema name.
      */
-    public NewIndexEntry(CatalogIndexDescriptor descriptor, String schemaName) {
+    public NewIndexEntry(CatalogIndexDescriptor descriptor) {
         this.descriptor = descriptor;
-        this.schemaName = schemaName;
     }
 
     /** Gets descriptor of an index to add. */
@@ -77,7 +77,8 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
+        CatalogTableDescriptor table = tableOrThrow(catalog, descriptor.tableId());
+        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
         descriptor.updateToken(causalityToken);
 
@@ -94,7 +95,7 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
                         schema.systemViews(),
                         causalityToken
                 ), catalog.schemas()),
-                catalog.defaultZone().id()
+                defaultZoneIdOpt(catalog)
         );
     }
 
@@ -109,15 +110,13 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
     private static class NewIndexEntrySerializer implements CatalogObjectSerializer<NewIndexEntry> {
         @Override
         public NewIndexEntry readFrom(IgniteDataInput input) throws IOException {
-            String schemaName = input.readUTF();
             CatalogIndexDescriptor descriptor = CatalogSerializationUtils.IDX_SERIALIZER.readFrom(input);
 
-            return new NewIndexEntry(descriptor, schemaName);
+            return new NewIndexEntry(descriptor);
         }
 
         @Override
         public void writeTo(NewIndexEntry entry, IgniteDataOutput output) throws IOException {
-            output.writeUTF(entry.schemaName);
             CatalogSerializationUtils.IDX_SERIALIZER.writeTo(entry.descriptor(), output);
         }
     }

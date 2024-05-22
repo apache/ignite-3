@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.DFLT_WRITE_OPTS;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.storage.rocksdb.index.AbstractRocksDbIndexStor
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.FlushOptions;
@@ -168,7 +168,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                     }
 
                     try {
-                        IgniteUtils.closeAll(resources);
+                        closeAll(resources);
                     } catch (Exception e) {
                         throw new StorageException("Failed to stop RocksDB table storage: " + getTableId(), e);
                     }

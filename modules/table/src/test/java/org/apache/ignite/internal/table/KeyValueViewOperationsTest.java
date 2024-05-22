@@ -72,7 +72,6 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -190,28 +189,10 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
     @Test
     public void getNullable() {
         final TestKeyObject key = TestKeyObject.randomObject(rnd);
-        final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes val2 = TestObjectWithAllTypes.randomObject(rnd);
 
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
-        assertNull(tbl.getNullable(null, key));
-
-        // Put KV pair.
-        tbl.put(null, key, val);
-
-        assertEquals(val, tbl.getNullable(null, key).get());
-
-        // Remove KV pair.
-        tbl.remove(null, key);
-
-        assertNull(tbl.get(null, key));
-        assertNull(tbl.getNullable(null, key));
-
-        // Put KV pair.
-        tbl.put(null, key, val2);
-        assertEquals(val2, tbl.get(null, key));
-        assertEquals(val2, tbl.getNullable(null, key).get());
+        assertThrows(UnsupportedOperationException.class, () -> tbl.getNullable(null, key));
     }
 
     @Test
@@ -276,26 +257,10 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
     public void getNullableAndPut() {
         final TestKeyObject key = TestKeyObject.randomObject(rnd);
         final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
 
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
-        assertNull(tbl.get(null, key));
-
-        // Insert new KV pair.
-        assertNull(tbl.getNullableAndPut(null, key, obj));
-        assertEquals(obj, tbl.get(null, key));
-
-        // Update KV pair.
-        assertEquals(obj, tbl.getNullableAndPut(null, key, obj2).get());
-        assertEquals(obj2, tbl.getNullableAndPut(null, key, obj3).get());
-
-        assertEquals(obj3, tbl.get(null, key));
-
-        // Check null value.
-        assertThrows(MarshallerException.class, () -> tbl.getNullableAndPut(null, key, null));
-        assertEquals(obj3, tbl.get(null, key));
+        assertThrows(UnsupportedOperationException.class, () -> tbl.getNullableAndPut(null, key, obj));
     }
 
     @Test
@@ -395,33 +360,9 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
     @Test
     public void getNullableAndRemove() {
         final TestKeyObject key = TestKeyObject.randomObject(rnd);
-        final TestKeyObject key2 = TestKeyObject.randomObject(rnd);
-        final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
-
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
-        // Put KV pair.
-        tbl.put(null, key, obj);
-
-        // Delete existed key.
-        assertEquals(obj, tbl.getNullableAndRemove(null, key).get());
-        assertFalse(tbl.contains(null, key));
-
-        // Delete already deleted key.
-        assertNull(tbl.getNullableAndRemove(null, key));
-        assertFalse(tbl.contains(null, key));
-
-        // Put KV pair.
-        tbl.put(null, key, obj2);
-        assertTrue(tbl.contains(null, key));
-
-        // Delete existed key.
-        assertEquals(obj2, tbl.getNullableAndRemove(null, key).get());
-        assertFalse(tbl.contains(null, key));
-
-        // Delete not existed key.
-        assertNull(tbl.getNullableAndRemove(null, key2));
+        assertThrows(UnsupportedOperationException.class, () -> tbl.getNullableAndRemove(null, key));
     }
 
     @Test
@@ -458,7 +399,7 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
         assertEquals(obj2, tbl.get(null, key));
 
         // Check null value.
-        assertThrows(MarshallerException.class, () -> tbl.remove(null, key, null));
+        assertThrows(NullPointerException.class, () -> tbl.remove(null, key, null));
         assertEquals(obj2, tbl.get(null, key));
 
         // Delete KV pair with expected value.
@@ -498,7 +439,7 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
         assertEquals(obj3, tbl.get(null, key));
 
         // Check null value.
-        assertThrows(MarshallerException.class, () -> tbl.replace(null, key, null));
+        assertThrows(NullPointerException.class, () -> tbl.replace(null, key, null));
         assertEquals(obj3, tbl.get(null, key));
     }
 
@@ -539,33 +480,10 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
     public void getNullableAndReplace() {
         final TestKeyObject key = TestKeyObject.randomObject(rnd);
         final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
 
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
-        // Ignore replace operation for non-existed KV pair.
-        assertNull(tbl.getNullableAndReplace(null, key, obj));
-        assertFalse(tbl.contains(null, key));
-
-        tbl.put(null, key, obj);
-
-        // Replace existed KV pair.
-        assertEquals(obj, tbl.getNullableAndReplace(null, key, obj2).get());
-        assertEquals(obj2, tbl.get(null, key));
-
-        tbl.remove(null, key);
-
-        // Ignore replace operation for non-existed KV pair.
-        assertNull(tbl.getNullableAndReplace(null, key, obj3));
-        assertNull(tbl.get(null, key));
-
-        tbl.put(null, key, obj3);
-        assertEquals(obj3, tbl.get(null, key));
-
-        // Check null value.
-        assertThrows(MarshallerException.class, () -> tbl.getNullableAndReplace(null, key, null));
-        assertEquals(obj3, tbl.get(null, key));
+        assertThrows(UnsupportedOperationException.class, () -> tbl.getNullableAndReplace(null, key, obj));
     }
 
     @Test
@@ -578,7 +496,7 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
         KeyValueView<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
         // Insert KV pair.
-        assertThrows(MarshallerException.class, () -> tbl.replace(null, key, null, obj));
+        assertThrows(NullPointerException.class, () -> tbl.replace(null, key, null, obj));
         tbl.put(null, key, obj);
         assertEquals(obj, tbl.get(null, key));
         assertNull(tbl.get(null, key2));
@@ -592,7 +510,7 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
         assertEquals(obj2, tbl.get(null, key));
 
         // Check null value pair.
-        assertThrows(MarshallerException.class, () -> tbl.replace(null, key, obj2, null));
+        assertThrows(NullPointerException.class, () -> tbl.replace(null, key, obj2, null));
         assertEquals(obj2, tbl.get(null, key));
     }
 
@@ -667,18 +585,18 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
 
         assertThrows(NullPointerException.class, () -> tbl.getAndPut(null, key, null));
         assertThrows(NullPointerException.class, () -> tbl.getAndReplace(null, key, null));
-        assertThrows(MarshallerException.class, () -> tbl.getNullableAndPut(null, key, null));
-        assertThrows(MarshallerException.class, () -> tbl.getNullableAndReplace(null, key, null));
+        assertThrows(UnsupportedOperationException.class, () -> tbl.getNullableAndPut(null, key, null));
+        assertThrows(UnsupportedOperationException.class, () -> tbl.getNullableAndReplace(null, key, null));
         assertNull(tbl.getOrDefault(null, key, null));
 
-        assertThrows(MarshallerException.class, () -> tbl.put(null, key, null));
-        assertThrows(MarshallerException.class, () -> tbl.putIfAbsent(null, key, null));
-        assertThrows(MarshallerException.class, () -> tbl.remove(null, key, null));
-        assertThrows(MarshallerException.class, () -> tbl.replace(null, key, null));
-        assertThrows(MarshallerException.class, () -> tbl.replace(null, key, null, val));
-        assertThrows(MarshallerException.class, () -> tbl.replace(null, key, val, null));
+        assertThrows(NullPointerException.class, () -> tbl.put(null, key, null));
+        assertThrows(NullPointerException.class, () -> tbl.putIfAbsent(null, key, null));
+        assertThrows(NullPointerException.class, () -> tbl.remove(null, key, null));
+        assertThrows(NullPointerException.class, () -> tbl.replace(null, key, null));
+        assertThrows(NullPointerException.class, () -> tbl.replace(null, key, null, val));
+        assertThrows(NullPointerException.class, () -> tbl.replace(null, key, val, null));
 
-        assertThrows(MarshallerException.class, () -> tbl.putAll(null, Collections.singletonMap(key, null)));
+        assertThrows(NullPointerException.class, () -> tbl.putAll(null, Collections.singletonMap(key, null)));
     }
 
     @Test

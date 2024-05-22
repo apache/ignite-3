@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -191,7 +192,7 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertEquals(33L, tbl.getNullable(null, 1L).get()); // Previous operation applied.
 
         // Check null value
-        assertThrows(NullPointerException.class, () -> tbl.getAndPut(null, 1L, null));
+        assertNotNull(tbl.getAndPut(null, 1L, null));
     }
 
     @Test
@@ -428,7 +429,8 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
         assertEquals(33L, tbl.get(null, 1L));
 
         // Check null value.
-        assertThrows(NullPointerException.class, () -> tbl.getAndReplace(null, 1L, null));
+        assertEquals(33, tbl.getAndReplace(null, 1L, null));
+        assertNull(tbl.getNullable(null, 1L).get());
     }
 
     @Test
@@ -650,8 +652,8 @@ public class KeyValueViewOperationsSimpleSchemaTest extends TableKvOperationsTes
     public void nonNullableValueColumn() {
         KeyValueView<Long, Long> tbl = kvViewForValueType(NativeTypes.INT64, Long.class, false);
 
-        assertThrows(NullPointerException.class, () -> tbl.getAndPut(null, 1L, null));
-        assertThrows(NullPointerException.class, () -> tbl.getAndReplace(null, 1L, null));
+        assertThrows(MarshallerException.class, () -> tbl.getAndPut(null, 1L, null));
+        assertThrows(MarshallerException.class, () -> tbl.getAndReplace(null, 1L, null));
         assertThrows(MarshallerException.class, () -> tbl.getNullableAndReplace(null, 1L, null));
         assertThrows(MarshallerException.class, () -> tbl.getNullableAndPut(null, 1L, null));
 

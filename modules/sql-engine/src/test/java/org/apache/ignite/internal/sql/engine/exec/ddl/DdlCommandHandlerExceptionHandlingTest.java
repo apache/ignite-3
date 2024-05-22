@@ -20,20 +20,23 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
+import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
+import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,18 +56,17 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     void before() {
         HybridClock clock = new HybridClockImpl();
         catalogManager = createTestCatalogManager("test", clock);
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
 
         clockWaiter = new ClockWaiter("test", clock);
-        assertThat(clockWaiter.start(), willCompleteSuccessfully());
+        assertThat(clockWaiter.startAsync(), willCompleteSuccessfully());
 
         commandHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);
     }
 
     @AfterEach
-    public void after() throws Exception {
-        clockWaiter.stop();
-        catalogManager.stop();
+    public void after() {
+        assertThat(stopAsync(clockWaiter, catalogManager), willCompleteSuccessfully());
     }
 
     @Test
@@ -79,17 +81,19 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     @Test
     public void testZoneNotFoundOnDrop1() {
-        DropZoneCommand cmd = new DropZoneCommand();
-        cmd.zoneName(ZONE_NAME);
+        CatalogCommand cmd = DropZoneCommand.builder()
+                .zoneName(ZONE_NAME)
+                .build();
 
         assertThat(commandHandler.handle(cmd), willThrow(DistributionZoneNotFoundValidationException.class));
     }
 
     @Test
     public void testZoneNotFoundOnDrop2() {
-        DropZoneCommand cmd = new DropZoneCommand();
-        cmd.zoneName(ZONE_NAME);
-        cmd.ifExists(true);
+        CatalogCommand cmd = DropZoneCommand.builder()
+                .zoneName(ZONE_NAME)
+                .ifExists(true)
+                .build();
 
         assertThat(commandHandler.handle(cmd), willCompleteSuccessfully());
     }
@@ -97,10 +101,11 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     private CompletableFuture<Boolean> handleCreateZoneCommand(boolean ifNotExists) {
         createZone(catalogManager, ZONE_NAME, null, null, null);
 
-        CreateZoneCommand cmd = new CreateZoneCommand();
-        cmd.zoneName(ZONE_NAME);
-        cmd.storageProfiles(DEFAULT_STORAGE_PROFILE);
-        cmd.ifNotExists(ifNotExists);
+        CatalogCommand cmd = CreateZoneCommand.builder()
+                .zoneName(ZONE_NAME)
+                .storageProfilesParams(parseStorageProfiles(DEFAULT_STORAGE_PROFILE))
+                .ifNotExists(ifNotExists)
+                .build();
 
         return commandHandler.handle(cmd);
     }

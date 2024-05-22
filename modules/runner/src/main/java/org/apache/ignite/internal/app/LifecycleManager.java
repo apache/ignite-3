@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.app;
 
+import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +31,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.rest.api.node.State;
 import org.apache.ignite.internal.rest.node.StateProvider;
-import org.apache.ignite.internal.util.ReverseIterator;
 
 /**
  * Class for managing the lifecycle of Ignite components.
@@ -51,6 +52,8 @@ class LifecycleManager implements StateProvider {
     private final List<IgniteComponent> startedComponents = new ArrayList<>();
 
     private final List<CompletableFuture<Void>> allComponentsStartFuture = new ArrayList<>();
+
+    private final CompletableFuture<Void> stopFuture = new CompletableFuture<>();
 
     LifecycleManager(String nodeName) {
         this.nodeName = nodeName;
@@ -76,7 +79,7 @@ class LifecycleManager implements StateProvider {
         synchronized (this) {
             startedComponents.add(component);
 
-            allComponentsStartFuture.add(component.start());
+            allComponentsStartFuture.add(component.startAsync());
         }
     }
 
@@ -128,32 +131,33 @@ class LifecycleManager implements StateProvider {
     /**
      * Stops all started components and transfers the node into the {@link State#STOPPING} state.
      */
-    void stopNode() {
+    CompletableFuture<Void> stopNode() {
         State currentStatus = status.getAndSet(State.STOPPING);
 
         if (currentStatus != State.STOPPING) {
             stopAllComponents();
         }
+
+        return stopFuture;
     }
 
     /**
-     * Calls {@link IgniteComponent#beforeNodeStop()} and then {@link IgniteComponent#stop()} for all components in start-reverse-order.
+     * Calls {@link IgniteComponent#beforeNodeStop()} and then {@link IgniteComponent#stopAsync()} for all components in
+     * start-reverse-order.
      */
     private synchronized void stopAllComponents() {
-        new ReverseIterator<>(startedComponents).forEachRemaining(component -> {
+        List<IgniteComponent> components = new ArrayList<>(startedComponents);
+        reverse(components);
+
+        for (IgniteComponent component : components) {
             try {
                 component.beforeNodeStop();
             } catch (Exception e) {
                 LOG.warn("Unable to execute before node stop [component={}, nodeName={}]", e, component, nodeName);
             }
-        });
+        }
 
-        new ReverseIterator<>(startedComponents).forEachRemaining(component -> {
-            try {
-                component.stop();
-            } catch (Exception e) {
-                LOG.warn("Unable to stop component [component={}, nodeName={}]", e, component, nodeName);
-            }
-        });
+        stopAsync(components)
+                .whenComplete((v, e) -> stopFuture.complete(null));
     }
 }

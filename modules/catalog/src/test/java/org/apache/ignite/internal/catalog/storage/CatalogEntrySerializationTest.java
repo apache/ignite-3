@@ -21,13 +21,27 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_F
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-import java.io.Serializable;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.BitSet;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.ConstantValue;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
@@ -45,19 +59,35 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.apache.ignite.sql.ColumnType;
 import org.assertj.core.api.BDDAssertions;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests to verify catalog storage entries serialization.
  */
 public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
+    private static final long SEED = System.nanoTime();
+
+    private static final Random RND = new Random(SEED);
+
     private final UpdateLogMarshallerImpl marshaller = new UpdateLogMarshallerImpl();
+
+    @BeforeEach
+    public void setup() {
+        log.info("Seed: {}", SEED);
+    }
 
     @ParameterizedTest
     @EnumSource(value = MarshallableEntryType.class, names = "VERSIONED_UPDATE", mode = Mode.EXCLUDE)
@@ -76,15 +106,15 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 break;
 
             case DROP_COLUMN:
-                checkSerialization(new DropColumnsEntry(1, Set.of("C1", "C2"), "PUBLIC"));
+                checkSerialization(new DropColumnsEntry(1, Set.of("C1", "C2")));
                 break;
 
             case DROP_INDEX:
-                checkSerialization(new DropIndexEntry(231, 23), new DropIndexEntry(231, 1));
+                checkSerialization(new DropIndexEntry(231), new DropIndexEntry(231));
                 break;
 
             case DROP_TABLE:
-                checkSerialization(new DropTableEntry(23, "PUBLIC"), new DropTableEntry(3, "SYSTEM"));
+                checkSerialization(new DropTableEntry(23), new DropTableEntry(3));
                 break;
 
             case DROP_ZONE:
@@ -139,8 +169,92 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 checkSerialization(new SetDefaultZoneEntry(1), new SetDefaultZoneEntry(Integer.MAX_VALUE));
                 break;
 
+            case NEW_SCHEMA:
+                checkSerialization(new NewSchemaEntry(new CatalogSchemaDescriptor(
+                        0, "S", new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0], 0)));
+                break;
+
             default:
                 throw new UnsupportedOperationException("Test not implemented " + type);
+        }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("values")
+    public void testConstantDefaultAllTypes(ColumnType columnType, Object value) throws IOException {
+        ConstantValue val = (ConstantValue) DefaultValue.constant(value);
+
+        log.info("{}: {}", columnType, value);
+
+        try (IgniteUnsafeDataOutput os = new IgniteUnsafeDataOutput(128)) {
+            DefaultValue.writeTo(val, os);
+
+            try (IgniteUnsafeDataInput in = new IgniteUnsafeDataInput(os.internalArray())) {
+                DefaultValue actual = DefaultValue.readFrom(in);
+                assertEquals(val, actual);
+            }
+        }
+    }
+
+    private static Stream<Arguments> values() {
+        List<Object> list = new ArrayList<>();
+
+        list.add(null);
+        list.add(RND.nextBoolean());
+
+        list.add((byte) RND.nextInt());
+        list.add((short) RND.nextInt());
+        list.add(RND.nextInt());
+        list.add(RND.nextLong());
+        list.add((float) RND.nextDouble());
+        list.add(RND.nextDouble());
+
+        list.add(BigDecimal.valueOf(RND.nextLong()));
+        list.add(BigDecimal.valueOf(RND.nextLong(), RND.nextInt(100)));
+
+        list.add(BigInteger.valueOf(RND.nextLong()));
+
+        list.add(LocalTime.of(RND.nextInt(24), RND.nextInt(60), RND.nextInt(60), RND.nextInt(100_000)));
+        list.add(LocalDate.of(RND.nextInt(4000) - 1000, RND.nextInt(12) + 1, RND.nextInt(27) + 1));
+        list.add(LocalDateTime.of(
+                LocalDate.of(RND.nextInt(4000) - 1000, RND.nextInt(12) + 1, RND.nextInt(27) + 1),
+                LocalTime.of(RND.nextInt(24), RND.nextInt(60), RND.nextInt(60), RND.nextInt(100_000))
+        ));
+
+        byte[] bytes = new byte[RND.nextInt(1000)];
+        RND.nextBytes(bytes);
+        list.add(Base64.getEncoder().encodeToString(bytes));
+
+        list.add(UUID.randomUUID());
+
+        // TODO Include ignored values to test after https://issues.apache.org/jira/browse/IGNITE-15200
+        //  list.add(Duration.of(11, ChronoUnit.HOURS));
+        //  list.add(Period.of(5, 4, 3));
+
+        BitSet bitSet = new BitSet();
+        for (int i = 0; i < RND.nextInt(100); i++) {
+            int b = RND.nextInt(1024);
+            bitSet.set(b);
+        }
+        list.add(bitSet);
+
+        return list.stream().map(val -> {
+            NativeType nativeType = NativeTypes.fromObject(val);
+            return Arguments.of(nativeType == null ? ColumnType.NULL : nativeType.spec().asColumnType(), val);
+        });
+    }
+
+    @Test
+    public void testFunctionCallDefault() throws IOException {
+        FunctionCall val = (FunctionCall) DefaultValue.functionCall("func");
+
+        try (IgniteUnsafeDataOutput os = new IgniteUnsafeDataOutput(128)) {
+            DefaultValue.writeTo(val, os);
+
+            try (IgniteUnsafeDataInput in = new IgniteUnsafeDataInput(os.internalArray())) {
+                DefaultValue actual = DefaultValue.readFrom(in);
+                assertEquals(val, actual);
+            }
         }
     }
 
@@ -168,15 +282,15 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
     private void checkAlterColumnEntry() {
         CatalogTableColumnDescriptor desc1 = newCatalogTableColumnDescriptor("c0", null);
         CatalogTableColumnDescriptor desc2 =
-                newCatalogTableColumnDescriptor("c1", DefaultValue.constant(new CustomDefaultValue(Integer.MAX_VALUE)));
+                newCatalogTableColumnDescriptor("c1", DefaultValue.constant(UUID.randomUUID()));
         CatalogTableColumnDescriptor desc3 =
                 newCatalogTableColumnDescriptor("c2", DefaultValue.functionCall("function"));
         CatalogTableColumnDescriptor desc4 = newCatalogTableColumnDescriptor("c3", DefaultValue.constant(null));
 
-        UpdateEntry entry1 = new AlterColumnEntry(1, desc1, "public");
-        UpdateEntry entry2 = new AlterColumnEntry(1, desc2, "public");
-        UpdateEntry entry3 = new AlterColumnEntry(1, desc3, "public");
-        UpdateEntry entry4 = new AlterColumnEntry(1, desc4, "public");
+        UpdateEntry entry1 = new AlterColumnEntry(1, desc1);
+        UpdateEntry entry2 = new AlterColumnEntry(1, desc2);
+        UpdateEntry entry3 = new AlterColumnEntry(1, desc3);
+        UpdateEntry entry4 = new AlterColumnEntry(1, desc4);
 
         VersionedUpdate update = newVersionedUpdate(entry1, entry2, entry3, entry4);
 
@@ -187,7 +301,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         CatalogTableColumnDescriptor columnDescriptor1 = newCatalogTableColumnDescriptor("c1", DefaultValue.constant(null));
         CatalogTableColumnDescriptor columnDescriptor2 = newCatalogTableColumnDescriptor("c2", DefaultValue.functionCall("func"));
 
-        NewColumnsEntry entry = new NewColumnsEntry(11, List.of(columnDescriptor1, columnDescriptor2), "PUBLIC");
+        NewColumnsEntry entry = new NewColumnsEntry(11, List.of(columnDescriptor1, columnDescriptor2));
 
         VersionedUpdate update = newVersionedUpdate(entry);
 
@@ -198,8 +312,8 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         CatalogSortedIndexDescriptor sortedIndexDescriptor = newSortedIndexDescriptor("idx1");
         CatalogHashIndexDescriptor hashIndexDescriptor = newHashIndexDescriptor("idx2");
 
-        NewIndexEntry sortedIdxEntry = new NewIndexEntry(sortedIndexDescriptor, "PUBLIC");
-        NewIndexEntry hashIdxEntry = new NewIndexEntry(hashIndexDescriptor, "PUBLIC");
+        NewIndexEntry sortedIdxEntry = new NewIndexEntry(sortedIndexDescriptor);
+        NewIndexEntry hashIdxEntry = new NewIndexEntry(hashIndexDescriptor);
 
         VersionedUpdate update = newVersionedUpdate(sortedIdxEntry, hashIdxEntry);
 
@@ -214,10 +328,10 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
         List<CatalogTableColumnDescriptor> columns = List.of(col1, col2, col3, col4);
 
-        NewTableEntry entry1 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), null), "PUBLIC");
-        NewTableEntry entry2 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of()), "PUBLIC");
-        NewTableEntry entry3 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c2")), "PUBLIC");
-        NewTableEntry entry4 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c1")), "PUBLIC");
+        NewTableEntry entry1 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), null));
+        NewTableEntry entry2 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of()));
+        NewTableEntry entry3 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c2")));
+        NewTableEntry entry4 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c1")));
 
         VersionedUpdate update = newVersionedUpdate(entry1, entry2, entry3, entry4);
         VersionedUpdate deserialized = serialize(update);
@@ -233,12 +347,12 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c2", null);
 
         CatalogSystemViewDescriptor nodeDesc =
-                new CatalogSystemViewDescriptor(1, "view1", List.of(col1, col2), SystemViewType.NODE);
+                new CatalogSystemViewDescriptor(1, 2, "view1", List.of(col1, col2), SystemViewType.NODE);
         CatalogSystemViewDescriptor clusterDesc =
-                new CatalogSystemViewDescriptor(1, "view1", List.of(col1, col2), SystemViewType.CLUSTER);
+                new CatalogSystemViewDescriptor(1, 2, "view1", List.of(col1, col2), SystemViewType.CLUSTER);
 
-        NewSystemViewEntry nodeEntry = new NewSystemViewEntry(nodeDesc, "PUBLIC");
-        NewSystemViewEntry clusterEntry = new NewSystemViewEntry(clusterDesc, "PUBLIC");
+        NewSystemViewEntry nodeEntry = new NewSystemViewEntry(nodeDesc);
+        NewSystemViewEntry clusterEntry = new NewSystemViewEntry(clusterDesc);
 
         VersionedUpdate update = newVersionedUpdate(nodeEntry, clusterEntry);
 
@@ -262,8 +376,8 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         };
 
         CatalogSystemViewDescriptor[] views = {
-                new CatalogSystemViewDescriptor(1, "view1", columns, SystemViewType.NODE),
-                new CatalogSystemViewDescriptor(1, "view2", columns, SystemViewType.CLUSTER)
+                new CatalogSystemViewDescriptor(1, 2, "view1", columns, SystemViewType.NODE),
+                new CatalogSystemViewDescriptor(1, 2, "view2", columns, SystemViewType.CLUSTER)
         };
 
         CatalogStorageProfilesDescriptor profiles =
@@ -372,20 +486,5 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 colCols,
                 "default"
         );
-    }
-
-    private static class CustomDefaultValue implements Serializable {
-        private static final long serialVersionUID = 0L;
-
-        private final int field;
-
-        CustomDefaultValue(int field) {
-            this.field = field;
-        }
-
-        @Override
-        public String toString() {
-            return S.toString(this);
-        }
     }
 }

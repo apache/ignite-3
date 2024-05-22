@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.apache.calcite.rel.hint.HintPredicates.AGGREGATE;
 import static org.apache.calcite.rel.hint.HintPredicates.JOIN;
 import static org.apache.ignite.internal.sql.engine.QueryProperty.ALLOWED_QUERY_TYPES;
-import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
+import static org.apache.ignite.internal.sql.engine.prepare.PlanningContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_PRECISION;
@@ -57,7 +57,6 @@ import org.apache.calcite.DataContexts;
 import org.apache.calcite.config.CalciteSystemProperty;
 import org.apache.calcite.config.NullCollation;
 import org.apache.calcite.linq4j.Ord;
-import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
@@ -154,6 +153,10 @@ public final class Commons {
             .executor(new RexExecutorImpl(DataContexts.EMPTY))
             .sqlToRelConverterConfig(SqlToRelConverter.config()
                     .withTrimUnusedFields(true)
+                    // Disable `RemoveSortInSubQuery` hint that causes incorrect plan transformation
+                    // because calcite does not distinguish between VIEWs and nested subqueries.
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-22204
+                    .withRemoveSortInSubQuery(false)
                     // currently SqlToRelConverter creates not optimal plan for both optimization and execution
                     // so it's better to disable such rewriting right now
                     // TODO: remove this after IGNITE-14277
@@ -263,22 +266,15 @@ public final class Commons {
     /**
      * Extracts query context.
      */
-    public static BaseQueryContext context(RelNode rel) {
+    public static PlanningContext context(RelNode rel) {
         return context(rel.getCluster());
     }
 
     /**
      * Extracts query context.
      */
-    public static BaseQueryContext context(RelOptCluster cluster) {
-        return Objects.requireNonNull(cluster.getPlanner().getContext().unwrap(BaseQueryContext.class));
-    }
-
-    /**
-     * Extracts planner context.
-     */
-    public static PlanningContext context(Context ctx) {
-        return Objects.requireNonNull(ctx.unwrap(PlanningContext.class));
+    public static PlanningContext context(RelOptCluster cluster) {
+        return Objects.requireNonNull(cluster.getPlanner().getContext().unwrap(PlanningContext.class));
     }
 
     /**

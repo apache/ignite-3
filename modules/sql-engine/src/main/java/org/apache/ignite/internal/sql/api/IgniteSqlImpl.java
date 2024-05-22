@@ -44,6 +44,8 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.sql.StatementBuilderImpl;
+import org.apache.ignite.internal.sql.StatementImpl;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -78,8 +80,6 @@ import org.jetbrains.annotations.TestOnly;
  */
 @SuppressWarnings("rawtypes")
 public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
-    public static final int DEFAULT_PAGE_SIZE = 1024;
-
     private static final IgniteLogger LOG = Loggers.forClass(IgniteSqlImpl.class);
 
     private static final int AWAIT_CURSOR_CLOSE_ON_STOP_IN_SECONDS = 10;
@@ -123,14 +123,14 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return nullCompletedFuture();
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!closed.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -169,6 +169,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 // this future has timeout of AWAIT_CURSOR_CLOSE_ON_STOP_IN_SECONDS,
                 // so we won't be waiting forever on this join() call
                 .join();
+
+        return nullCompletedFuture();
     }
 
     private static @Nullable Throwable gatherExceptions(CompletableFuture<?>... futures) {

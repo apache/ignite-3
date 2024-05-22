@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.STRING;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -115,7 +116,7 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
     void exceptionIsThrownIfSchemaNotExists() {
         AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = fillProperties(builder).schemaName(SCHEMA_NAME + "_UNK").build();
 
@@ -130,7 +131,7 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
     void exceptionIsThrownIfTableNotExists() {
         AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
@@ -162,6 +163,32 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
                 () -> builder.build().get(catalog),
                 CatalogValidationException.class,
                 "Column with name 'TEST' already exists"
+        );
+    }
+
+    @Test
+    void cannotAddColumnWithFunctionalDefault() {
+        String tableName = "TEST";
+        String columnName = "TEST";
+        Catalog catalog = catalogWithTable(builder -> builder
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(ColumnParams.builder().name("ID").type(INT32).build()))
+                .primaryKey(primaryKey("ID"))
+        );
+
+        ColumnParams columnParams = ColumnParams.builder().name(columnName).type(STRING).length(10)
+                .defaultValue(DefaultValue.functionCall("rand_uuid")).build();
+
+        AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(columnParams));
+
+        assertThrowsWithCause(
+                () -> builder.build().get(catalog),
+                CatalogValidationException.class,
+                "Functional defaults are not supported for non-primary key columns"
         );
     }
 

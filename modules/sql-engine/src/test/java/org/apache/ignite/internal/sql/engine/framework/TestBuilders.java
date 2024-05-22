@@ -21,7 +21,9 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
@@ -74,7 +76,8 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
@@ -620,9 +623,10 @@ public class TestBuilders {
             CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, clock);
 
             var parserService = new ParserServiceImpl();
+            var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
                     new DdlSqlToCommandConverter(), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
-                    mock(MetricManager.class));
+                    mock(MetricManagerImpl.class), schemaManager);
 
             Map<String, List<String>> owningNodesByTableName = new HashMap<>();
             for (Entry<String, Map<String, ScannableTable>> entry : nodeName2tableName2table.entrySet()) {
@@ -642,10 +646,9 @@ public class TestBuilders {
 
             ClockWaiter clockWaiter = new ClockWaiter("test", clock);
             var ddlHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);
-            var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
 
             Runnable initClosure = () -> {
-                clockWaiter.start();
+                assertThat(clockWaiter.startAsync(), willCompleteSuccessfully());
 
                 initAction(catalogManager);
             };
@@ -960,7 +963,7 @@ public class TestBuilders {
 
         private final ClusterBuilderImpl parent;
 
-        private final String schemaName = CatalogManager.DEFAULT_SCHEMA_NAME;
+        private final String schemaName = SqlCommon.DEFAULT_SCHEMA_NAME;
 
         private String name;
 
@@ -1353,8 +1356,8 @@ public class TestBuilders {
         }
 
         @Override
-        public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId) {
-            IgniteTable table = schemaManager.table(schemaVersion, tableId);
+        public CompletableFuture<ExecutableTable> getTable(int catalogVersion, int tableId) {
+            IgniteTable table = schemaManager.table(catalogVersion, tableId);
 
             assert table != null;
 

@@ -106,6 +106,13 @@ SELECT b, a FROM test WHERE a < 13 ORDER BY b DESC;
 22	11
 21	12
 
+# order by expression
+query IR
+SELECT b % 2 AS f, SUM(a) FROM test GROUP BY f ORDER BY b % 2;
+----
+0	24
+1	12
+
 # order by expression that is not in SELECT
 query II
 SELECT b % 2 AS f, a FROM test ORDER BY b % 4, a;
@@ -114,10 +121,15 @@ SELECT b % 2 AS f, a FROM test ORDER BY b % 4, a;
 0	11
 0	13
 
-# ORDER BY after union
-query I
-SELECT a-10 AS k FROM test UNION SELECT a-10 AS l FROM test ORDER BY k;
+# ORDER BY alias
+query IR
+SELECT b % 2 AS f, SUM(a) FROM test GROUP BY f ORDER BY f;
 ----
-1
-2
-3
+0	24
+1	12
+
+query IR
+SELECT b % 2 AS f, SUM(a) FROM test GROUP BY f ORDER BY 1;
+----
+0	24
+1	12

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -95,7 +96,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
     void exceptionIsThrownIfSchemaNotExists() {
         AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = builder
                 .schemaName(SCHEMA_NAME + "_UNK")
@@ -115,7 +116,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
     void exceptionIsThrownIfTableWithGivenNameNotFound() {
         AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
 
-        Catalog catalog = emptyCatalog();
+        Catalog catalog = catalogWithDefaultZone();
 
         CatalogCommand command = builder
                 .schemaName(SCHEMA_NAME)
@@ -529,6 +530,130 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 CatalogValidationException.class,
                 "Adding NOT NULL constraint is not allowed"
         );
+    }
+
+    @Test
+    void functionalDefaultCannotBeAppliedToValueColumn() {
+        String tableName = "TEST";
+        String columnName = "VAL";
+        String columnName2 = "VAL2";
+        Catalog catalog = catalogWithTable(builder -> builder
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(
+                        ColumnParams.builder()
+                                .name("ID")
+                                .type(ColumnType.INT64)
+                                .build(),
+                        ColumnParams.builder()
+                                .name(columnName)
+                                .type(ColumnType.UUID)
+                                .build(),
+                        ColumnParams.builder()
+                                .name(columnName2)
+                                .type(ColumnType.UUID)
+                                .defaultValue(DefaultValue.constant(UUID.randomUUID()))
+                                .build())
+                )
+                .primaryKey(primaryKey("ID"))
+        );
+
+        AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
+
+        // Set functional default for a column without any default.
+        {
+            CatalogCommand command = builder
+                    .schemaName(SCHEMA_NAME)
+                    .tableName(tableName)
+                    .columnName(columnName)
+                    .deferredDefaultValue(type -> DefaultValue.functionCall("rand_uuid"))
+                    .build();
+
+            assertThrowsWithCause(
+                    () -> command.get(catalog),
+                    CatalogValidationException.class,
+                    "Functional defaults are not supported for non-primary key columns"
+            );
+        }
+
+        // Change column default to a functional default.
+        {
+            CatalogCommand command = builder
+                    .schemaName(SCHEMA_NAME)
+                    .tableName(tableName)
+                    .columnName(columnName2)
+                    .deferredDefaultValue(type -> DefaultValue.functionCall("rand_uuid"))
+                    .build();
+
+            assertThrowsWithCause(
+                    () -> command.get(catalog),
+                    CatalogValidationException.class,
+                    "Functional defaults are not supported for non-primary key columns"
+            );
+        }
+    }
+
+    @Test
+    void invalidFunctionalDefaultCannotBeAppliedToPkColumn() {
+        String tableName = "TEST";
+        String columnName = "ID";
+        String columnName2 = "ID2";
+        Catalog catalog = catalogWithTable(builder -> builder
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(
+                        ColumnParams.builder()
+                                .name(columnName)
+                                .type(ColumnType.STRING)
+                                .length(10)
+                                .build(),
+                        ColumnParams.builder()
+                                .name(columnName2)
+                                .type(ColumnType.STRING)
+                                .defaultValue(DefaultValue.constant(1))
+                                .length(10)
+                                .build(),
+                        ColumnParams.builder()
+                                .name("VAL")
+                                .type(ColumnType.INT64)
+                                .build())
+                )
+                .primaryKey(primaryKey("ID", "ID2"))
+        );
+
+        AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
+
+        // Set functional default for a column without any default.
+        {
+            CatalogCommand command = builder
+                    .schemaName(SCHEMA_NAME)
+                    .tableName(tableName)
+                    .columnName(columnName)
+                    .deferredDefaultValue(type -> DefaultValue.functionCall("invalid_func"))
+                    .build();
+
+            assertThrowsWithCause(
+                    () -> command.get(catalog),
+                    CatalogValidationException.class,
+                    "Functional default contains unsupported function: [col=ID, functionName=invalid_func]"
+            );
+        }
+
+        // Change column default to a functional default.
+        {
+            CatalogCommand command = builder
+                    .schemaName(SCHEMA_NAME)
+                    .tableName(tableName)
+                    .columnName(columnName2)
+                    .deferredDefaultValue(type -> DefaultValue.functionCall("invalid_func"))
+                    .build();
+
+            assertThrowsWithCause(
+                    () -> command.get(catalog),
+                    CatalogValidationException.class,
+                    "Functional default contains unsupported function: [col=ID2, functionName=invalid_func]"
+            );
+        }
     }
 
     @ParameterizedTest

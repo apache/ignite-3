@@ -17,32 +17,33 @@
 
 package org.apache.ignite.internal.lowwatermark;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_BEFORE_CHANGE;
+import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
+import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
+import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEventParameters;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Low watermark dummy implementation, which requires explicit {@link #updateAndNotify(HybridTimestamp)} method call to notify listeners.
  * This implementation has no persistent state and notifies listeners instantly in same thread.
  */
-public class TestLowWatermark implements LowWatermark {
+public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, LowWatermarkEventParameters> implements LowWatermark {
     private static final IgniteLogger LOG = Loggers.forClass(TestLowWatermark.class);
-
-    private final List<LowWatermarkChangedListener> listeners = new CopyOnWriteArrayList<>();
 
     private volatile @Nullable HybridTimestamp ts;
 
@@ -51,16 +52,6 @@ public class TestLowWatermark implements LowWatermark {
     @Override
     public @Nullable HybridTimestamp getLowWatermark() {
         return ts;
-    }
-
-    @Override
-    public void addUpdateListener(LowWatermarkChangedListener listener) {
-        listeners.add(listener);
-    }
-
-    @Override
-    public void removeUpdateListener(LowWatermarkChangedListener listener) {
-        listeners.remove(listener);
     }
 
     @Override
@@ -77,9 +68,7 @@ public class TestLowWatermark implements LowWatermark {
     @Override
     public void updateLowWatermark(HybridTimestamp newLowWatermark) {
         if (ts == null || newLowWatermark.compareTo(ts) > 0) {
-            setLowWatermark(newLowWatermark);
-
-            supplyAsync(() -> notifyListeners(newLowWatermark))
+            supplyAsync(() -> updateAndNotifyInternal(newLowWatermark))
                     .thenCompose(Function.identity())
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
@@ -101,9 +90,7 @@ public class TestLowWatermark implements LowWatermark {
 
             assertTrue(ts == null || ts.longValue() < newTs.longValue(), "ts=" + ts + ", newTs=" + newTs);
 
-            setLowWatermark(newTs);
-
-            return notifyListeners(newTs);
+            return updateAndNotifyInternal(newTs);
         } catch (Throwable t) {
             return failedFuture(t);
         }
@@ -124,7 +111,14 @@ public class TestLowWatermark implements LowWatermark {
         }
     }
 
-    private CompletableFuture<Void> notifyListeners(HybridTimestamp newTs) {
-        return allOf(listeners.stream().map(l -> l.onLwmChanged(newTs)).toArray(CompletableFuture[]::new));
+    private CompletableFuture<Void> updateAndNotifyInternal(HybridTimestamp newLowWatermark) {
+        var parameters = new ChangeLowWatermarkEventParameters(newLowWatermark);
+
+        return fireEvent(LOW_WATERMARK_BEFORE_CHANGE, parameters)
+                .thenCompose(unused -> {
+                    setLowWatermark(newLowWatermark);
+
+                    return fireEvent(LOW_WATERMARK_CHANGED, parameters);
+                });
     }
 }

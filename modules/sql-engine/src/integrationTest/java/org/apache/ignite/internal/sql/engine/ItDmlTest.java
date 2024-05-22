@@ -474,7 +474,6 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 new DefaultValueArg("DOUBLE", "10.01", 10.01d),
                 new DefaultValueArg("FLOAT", "10.01", 10.01f),
                 new DefaultValueArg("DECIMAL(4, 2)", "10.01", new BigDecimal("10.01")),
-                new DefaultValueArg("CHAR(2)", "'10'", "10"),
                 new DefaultValueArg("VARCHAR", "'10'", "10"),
                 new DefaultValueArg("VARCHAR NOT NULL", "'10'", "10"),
                 new DefaultValueArg("VARCHAR(2)", "'10'", "10"),
@@ -492,10 +491,8 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 // new DefaultValueArg("TIMESTAMP WITH LOCAL TIME ZONE", "TIMESTAMP '2021-01-01 01:01:01'"
                 //         , LocalDateTime.parse("2021-01-01T01:01:01")),
 
-                new DefaultValueArg("BINARY(3)", "x'010203'", new byte[]{1, 2, 3})
-
-                // TODO: IGNITE-17374
-                // new DefaultValueArg("VARBINARY", "x'010203'", new byte[]{1, 2, 3})
+                new DefaultValueArg("BINARY(3)", "x'010203'", new byte[]{1, 2, 3}),
+                new DefaultValueArg("VARBINARY", "x'010203'", new byte[]{1, 2, 3})
         );
     }
 

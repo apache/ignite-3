@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metrics.exporters;
 
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfiguration;
@@ -64,7 +65,7 @@ public interface MetricExporter<CfgT extends ExporterView> {
     void reconfigure(CfgT newValue);
 
     /**
-     * {@link org.apache.ignite.internal.metrics.MetricManager} invokes this method,
+     * {@link MetricManagerImpl} invokes this method,
      * when new metric source was enabled.
      *
      * @param metricSet Named metric set.
@@ -72,7 +73,7 @@ public interface MetricExporter<CfgT extends ExporterView> {
     void addMetricSet(MetricSet metricSet);
 
     /**
-     * {@link org.apache.ignite.internal.metrics.MetricManager} invokes this method,
+     * {@link MetricManagerImpl} invokes this method,
      * when the metric source was disabled.
      *
      * @param metricSetName Name of metric set to remove.

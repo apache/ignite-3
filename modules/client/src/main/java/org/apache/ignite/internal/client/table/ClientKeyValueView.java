@@ -19,6 +19,9 @@ package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.marshaller.ValidationUtils.validateNullableOperation;
+import static org.apache.ignite.internal.marshaller.ValidationUtils.validateNullableValue;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyMapCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -94,40 +97,58 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     public V get(@Nullable Transaction tx, K key) {
-        return sync(getAsync(tx, key));
+        Objects.requireNonNull(key, "key");
+
+        return sync(doGet(tx, key, "getNullable"));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<V> getAsync(@Nullable Transaction tx, K key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
+        return doGet(tx, key, "getNullableAsync");
+    }
+
+    private CompletableFuture<V> doGet(@Nullable Transaction tx, K key, String altMethod) {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
+                (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL), altMethod),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
     @Override
     public NullableValue<V> getNullable(@Nullable Transaction tx, K key) {
-        return sync(getNullableAsync(tx, key));
+        Objects.requireNonNull(key, "key");
+
+        validateNullableOperation(valSer.mapper().targetType(), "getNullable");
+
+        return sync(doGetNullable(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAsync(@Nullable Transaction tx, K key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
+        validateNullableOperation(valSer.mapper().targetType(), "getNullableAsync");
+
+        return doGetNullable(tx, key);
+    }
+
+    private CompletableFuture<NullableValue<V>> doGetNullable(@Nullable Transaction tx, K key) {
         // Null means row does not exist, NullableValue.NULL means row exists, but mapped value column is null.
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 (s, r) -> NullableValue.of(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -139,14 +160,15 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, K key, V defaultValue) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 (s, r) -> valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL),
                 defaultValue,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -158,7 +180,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<K, V>> getAllAsync(@Nullable Transaction tx, Collection<K> keys) {
-        Objects.requireNonNull(keys);
+        Objects.requireNonNull(keys, "keys");
 
         if (keys.isEmpty()) {
             return emptyMapCompletedFuture();
@@ -169,7 +191,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 (s, w) -> keySer.writeRecs(tx, keys, s, w, TuplePart.KEY),
                 this::readGetAllResponse,
                 Collections.emptyMap(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), keys.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), keys.iterator().next()),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -181,13 +204,14 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, K key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_KEY,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -199,13 +223,16 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> putAsync(@Nullable Transaction tx, K key, V val) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
+
+        validateNullableValue(val, valSer.mapper().targetType());
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 r -> null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -217,10 +244,15 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, Map<K, V> pairs) {
-        Objects.requireNonNull(pairs);
+        Objects.requireNonNull(pairs, "pairs");
 
         if (pairs.isEmpty()) {
             return nullCompletedFuture();
+        }
+
+        for (Entry<K, V> e : pairs.entrySet()) {
+            Objects.requireNonNull(e.getKey(), "key");
+            validateNullableValue(e.getValue(), valSer.mapper().targetType());
         }
 
         return tbl.doSchemaOutOpAsync(
@@ -234,45 +266,70 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                     }
                 },
                 r -> null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), pairs.keySet().iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), pairs.keySet().iterator().next()),
+                tx);
     }
 
     /** {@inheritDoc} */
     @Override
-    public V getAndPut(@Nullable Transaction tx, K key, V val) {
-        return sync(getAndPutAsync(tx, key, val));
+    public V getAndPut(@Nullable Transaction tx, K key, @Nullable V val) {
+        Objects.requireNonNull(key, "key");
+
+        validateNullableValue(val, valSer.mapper().targetType());
+
+        return sync(doGetAndPut(tx, key, val, "getNullableAndPut"));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
+        validateNullableValue(val, valSer.mapper().targetType());
+
+        return doGetAndPut(tx, key, val, "getNullableAndPutAsync");
+    }
+
+    private CompletableFuture<V> doGetAndPut(@Nullable Transaction tx, K key, @Nullable V val, String altMethod) {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
+                (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL), altMethod),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
     @Override
-    public NullableValue<V> getNullableAndPut(@Nullable Transaction tx, K key, V val) {
-        return sync(getNullableAndPutAsync(tx, key, val));
+    public NullableValue<V> getNullableAndPut(@Nullable Transaction tx, K key, @Nullable V val) {
+        Objects.requireNonNull(key, "key");
+
+        validateNullableOperation(valSer.mapper().targetType(), "getNullableAndPutAsync");
+        validateNullableValue(val, valSer.mapper().targetType());
+
+        return sync(doGetNullableAndPut(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, K key, V val) {
-        Objects.requireNonNull(key);
+    public CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, K key, @Nullable V val) {
+        Objects.requireNonNull(key, "key");
 
+        validateNullableOperation(valSer.mapper().targetType(), "getNullableAndPutAsync");
+        validateNullableValue(val, valSer.mapper().targetType());
+
+        return doGetNullableAndPut(tx, key, val);
+    }
+
+    private CompletableFuture<NullableValue<V>> doGetNullableAndPut(@Nullable Transaction tx, K key, @Nullable V val) {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_UPSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 (s, r) -> NullableValue.of(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -284,13 +341,16 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, K key, V val) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
+
+        validateNullableValue(val, valSer.mapper().targetType());
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_INSERT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -308,25 +368,27 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -338,7 +400,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys) {
-        Objects.requireNonNull(keys);
+        Objects.requireNonNull(keys, "keys");
 
         if (keys.isEmpty()) {
             return emptyCollectionCompletedFuture();
@@ -349,45 +411,64 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 (s, w) -> keySer.writeRecs(tx, keys, s, w, TuplePart.KEY),
                 (s, r) -> keySer.readRecs(s, r.in(), false, TuplePart.KEY),
                 Collections.emptyList(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), keys.iterator().next()));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), keys.iterator().next()),
+                tx);
     }
 
     /** {@inheritDoc} */
     @Override
     public V getAndRemove(@Nullable Transaction tx, K key) {
-        return sync(getAndRemoveAsync(tx, key));
+        Objects.requireNonNull(key, "key");
+
+        return sync(doGetAndRemove(tx, key, "getNullableAndRemove"));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, K key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
+        return doGetAndRemove(tx, key, "getNullableAndRemoveAsync");
+    }
+
+    private CompletableFuture<V> doGetAndRemove(@Nullable Transaction tx, K key, String altMethod) {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
-                (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
+                (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL), altMethod),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
     @Override
     public NullableValue<V> getNullableAndRemove(@Nullable Transaction tx, K key) {
-        return sync(getNullableAndRemoveAsync(tx, key));
+        Objects.requireNonNull(key, "key");
+
+        validateNullableOperation(valSer.mapper().targetType(), "getNullableAndRemoveAsync");
+
+        return sync(doGetNullableAndRemove(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndRemoveAsync(@Nullable Transaction tx, K key) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
+        validateNullableOperation(valSer.mapper().targetType(), "getNullableAndRemoveAsync");
+
+        return doGetNullableAndRemove(tx, key);
+    }
+
+    private CompletableFuture<NullableValue<V>> doGetNullableAndRemove(@Nullable Transaction tx, K key) {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
                 (s, w) -> keySer.writeRec(tx, key, s, w, TuplePart.KEY),
                 (s, r) -> NullableValue.of(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
@@ -399,7 +480,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     public boolean replace(@Nullable Transaction tx, K key, V oldVal, V newVal) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
 
         return sync(replaceAsync(tx, key, oldVal, newVal));
     }
@@ -407,19 +488,25 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, V val) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
+
+        validateNullableValue(val, valSer.mapper().targetType());
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, V oldVal, V newVal) {
-        Objects.requireNonNull(key);
+        Objects.requireNonNull(key, "key");
+
+        validateNullableValue(oldVal, valSer.mapper().targetType());
+        validateNullableValue(newVal, valSer.mapper().targetType());
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_REPLACE_EXACT,
@@ -429,47 +516,70 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                     writeKeyValueRaw(s, w, key, newVal);
                 },
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
     @Override
     public V getAndReplace(@Nullable Transaction tx, K key, V val) {
-        return sync(getAndReplaceAsync(tx, key, val));
+        Objects.requireNonNull(key, "key");
+
+        validateNullableValue(val, valSer.mapper().targetType());
+
+        return sync(doGetAndReplace(tx, key, val, "getNullableAndReplace"));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, K key, V val) {
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
+        Objects.requireNonNull(key, "key");
 
+        validateNullableValue(val, valSer.mapper().targetType());
+
+        return doGetAndReplace(tx, key, val, "getNullableAndReplaceAsync");
+    }
+
+    private CompletableFuture<V> doGetAndReplace(@Nullable Transaction tx, K key, V val, String altMethod) {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
-                (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
+                (s, r) -> throwIfNull(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL), altMethod),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     /** {@inheritDoc} */
     @Override
     public NullableValue<V> getNullableAndReplace(@Nullable Transaction tx, K key, V val) {
+        Objects.requireNonNull(key, "key");
+
+        validateNullableOperation(valSer.mapper().targetType(), "getNullableAndReplace");
+        validateNullableValue(val, valSer.mapper().targetType());
+
         return sync(getNullableAndReplaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, K key, V val) {
-        Objects.requireNonNull(key);
-        Objects.requireNonNull(val);
+        Objects.requireNonNull(key, "key");
 
+        validateNullableOperation(valSer.mapper().targetType(), "getNullableAndReplaceAsync");
+        validateNullableValue(val, valSer.mapper().targetType());
+
+        return doGetNullableAndReplace(tx, key, val);
+    }
+
+    private CompletableFuture<NullableValue<V>> doGetNullableAndReplace(@Nullable Transaction tx, K key, V val) {
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_REPLACE,
                 (s, w) -> writeKeyValue(s, w, tx, key, val),
                 (s, r) -> NullableValue.of(valSer.readRec(s, r.in(), TuplePart.VAL, TuplePart.KEY_AND_VAL)),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keySer.mapper(), key),
+                tx);
     }
 
     private void writeKeyValue(ClientSchema s, PayloadOutputChannel w, @Nullable Transaction tx, K key, @Nullable V val) {
@@ -534,7 +644,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<Entry<K, V>>> publisher, @Nullable DataStreamerOptions options) {
-        Objects.requireNonNull(publisher);
+        Objects.requireNonNull(publisher, "publisher");
 
         var provider = new KeyValuePojoStreamerPartitionAwarenessProvider<K, V>(tbl, keySer.mapper());
         var opts = options == null ? DataStreamerOptions.DEFAULT : options;
@@ -579,7 +689,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 },
                 r -> null,
                 PartitionAwarenessProvider.of(partition),
-                new RetryLimitPolicy().retryLimit(opts.retryLimit()));
+                new RetryLimitPolicy().retryLimit(opts.retryLimit()),
+                null);
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
@@ -605,9 +716,9 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         };
     }
 
-    private static <T> T throwIfNull(T obj) {
+    private static <T> T throwIfNull(T obj, String altMethod) {
         if (obj == null) {
-            throw new UnexpectedNullValueException("Got unexpected null value: use `getNullable` sibling method instead.");
+            throw new UnexpectedNullValueException(format("Got unexpected null value: use `{}` sibling method instead.", altMethod));
         }
 
         return obj;

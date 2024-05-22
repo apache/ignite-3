@@ -18,8 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.createCatalogManagerWithTestUpdateLog;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.index;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.collectIndexes;
@@ -55,6 +54,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -72,16 +72,18 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
-    private final CatalogManager catalogManager = createTestCatalogManager("test", clock);
+    private CatalogManager catalogManager;
 
     @BeforeEach
     void setUp() {
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        catalogManager = createCatalogManagerWithTestUpdateLog("test", clock);
+
+        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        catalogManager.stop();
+    void tearDown() {
+        assertThat(catalogManager.stopAsync(), willCompleteSuccessfully());
     }
 
     @Test
@@ -304,7 +306,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         createTable("foo");
         createTable("bar");
 
-        CatalogSchemaDescriptor schema = catalogManager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong());
+        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SqlCommon.DEFAULT_SCHEMA_NAME, clock.nowLong());
 
         assertThat(schema, is(notNullValue()));
 
@@ -329,7 +331,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testReplaceTableMissingTable() {
-        CatalogSchemaDescriptor schema = catalogManager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong());
+        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SqlCommon.DEFAULT_SCHEMA_NAME, clock.nowLong());
 
         assertThat(schema, is(notNullValue()));
 
@@ -350,7 +352,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         createIndex(tableName, "foo");
         createIndex(tableName, "bar");
 
-        CatalogSchemaDescriptor schema = catalogManager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong());
+        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SqlCommon.DEFAULT_SCHEMA_NAME, clock.nowLong());
 
         assertThat(schema, is(notNullValue()));
 
@@ -377,7 +379,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testReplaceIndexMissingIndex() {
-        CatalogSchemaDescriptor schema = catalogManager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong());
+        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SqlCommon.DEFAULT_SCHEMA_NAME, clock.nowLong());
 
         assertThat(schema, is(notNullValue()));
 
@@ -387,7 +389,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         Exception e = assertThrows(CatalogValidationException.class, () -> replaceIndex(schema, index));
 
-        assertThat(e.getMessage(), is(String.format("Index with ID %d has not been found in schema with ID %d", index.id(), 0)));
+        assertThat(e.getMessage(), is(String.format("Index with ID %d has not been found in schema with ID %d", index.id(), 1)));
     }
 
     @Test
@@ -405,7 +407,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     private void createTable(String tableName) {
         CatalogCommand catalogCommand = CreateTableCommand.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .tableName(tableName)
                 .columns(List.of(ColumnParams.builder().name(COLUMN_NAME).type(INT32).build()))
                 // Any type of a primary key index can be used.
@@ -421,7 +423,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     private int createIndex(String tableName, String indexName) {
         CatalogCommand catalogCommand = CreateHashIndexCommand.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .tableName(tableName)
                 .indexName(indexName)
                 .columns(List.of(COLUMN_NAME))
@@ -447,7 +449,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     private void dropIndex(String indexName) {
         CatalogCommand catalogCommand = DropIndexCommand.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
+                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .indexName(indexName)
                 .build();
 

@@ -105,11 +105,9 @@ class ItConnectToClusterTest extends ItConnectToClusterTestBase {
         bindAnswers("y");
 
         // And disconnect
-        resetOutput();
         execute("disconnect");
 
         // When connect to different URL
-        resetOutput();
         execute("connect", "http://localhost:10301");
 
         // Then

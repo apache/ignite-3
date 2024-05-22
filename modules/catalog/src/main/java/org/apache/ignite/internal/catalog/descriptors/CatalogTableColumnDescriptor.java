@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.sql.ColumnType;
@@ -147,8 +145,6 @@ public class CatalogTableColumnDescriptor {
     private static class TableColumnDescriptorSerializer implements CatalogObjectSerializer<CatalogTableColumnDescriptor> {
         @Override
         public CatalogTableColumnDescriptor readFrom(IgniteDataInput input) throws IOException {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-21435 Should not depend on Serializable.
-            DefaultValue defaultValue = readSerializableObject(input);
             String name = input.readUTF();
             int typeId = input.readInt();
             ColumnType type = ColumnType.getById(typeId);
@@ -160,41 +156,21 @@ public class CatalogTableColumnDescriptor {
             int scale = input.readInt();
             int length = input.readInt();
 
+            DefaultValue defaultValue = DefaultValue.readFrom(input);
+
             return new CatalogTableColumnDescriptor(name, type, nullable, precision, scale, length, defaultValue);
         }
 
         @Override
         public void writeTo(CatalogTableColumnDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-21435 Should not depend on Serializable.
-            writeSerializableObject(descriptor.defaultValue(), output);
-
             output.writeUTF(descriptor.name());
             output.writeInt(descriptor.type().id());
             output.writeBoolean(descriptor.nullable());
             output.writeInt(descriptor.precision());
             output.writeInt(descriptor.scale());
             output.writeInt(descriptor.length());
-        }
 
-        /** Reads {@link Serializable} object. */
-        private static <T extends Serializable> @Nullable T readSerializableObject(IgniteDataInput input) throws IOException {
-            int blockSize = input.readInt();
-
-            return blockSize == -1 ? null : ByteUtils.fromBytes(input.readByteArray(blockSize));
-        }
-
-        /** Writes {@link Serializable} object. */
-        private static void writeSerializableObject(@Nullable Serializable object, IgniteDataOutput output) throws IOException {
-            if (object == null) {
-                output.writeInt(-1);
-
-                return;
-            }
-
-            byte[] bytes = ByteUtils.toBytes(object);
-
-            output.writeInt(bytes.length);
-            output.writeByteArray(bytes);
+            DefaultValue.writeTo(descriptor.defaultValue(), output);
         }
     }
 }

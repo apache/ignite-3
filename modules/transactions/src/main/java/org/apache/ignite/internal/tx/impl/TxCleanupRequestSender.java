@@ -32,12 +32,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl.TransactionFailureHandler;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
+import org.apache.ignite.internal.tx.message.TxCleanupMessageErrorResponse;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageResponse;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -47,6 +50,9 @@ import org.jetbrains.annotations.Nullable;
  * Sends TX Cleanup request.
  */
 public class TxCleanupRequestSender {
+    /** Logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(TxCleanupRequestSender.class);
+
     /** Placement driver helper. */
     private final PlacementDriverHelper placementDriverHelper;
 
@@ -85,6 +91,12 @@ public class TxCleanupRequestSender {
 
                 if (result != null) {
                     onCleanupReplicated(result);
+                }
+
+                if (msg instanceof TxCleanupMessageErrorResponse) {
+                    TxCleanupMessageErrorResponse response = (TxCleanupMessageErrorResponse) msg;
+
+                    LOG.warn("Exception happened during transaction cleanup [txId={}].", response.throwable(), response.txId());
                 }
             }
         });
@@ -168,6 +180,9 @@ public class TxCleanupRequestSender {
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
+        // Start tracking the partitions we want to learn the replication confirmation from.
+        writeIntentsReplicated.put(txId, new CleanupContext(new HashSet<>(partitionIds), commit ? TxState.COMMITTED : TxState.ABORTED));
+
         return placementDriverHelper.findPrimaryReplicas(partitionIds)
                 .thenCompose(partitionData -> {
                     cleanupPartitionsWithoutPrimary(commit, commitTimestamp, txId, partitionData.partitionsWithoutPrimary);
@@ -257,7 +272,7 @@ public class TxCleanupRequestSender {
          */
         private final TxState txState;
 
-        public CleanupContext(Set<TablePartitionId> partitions, TxState txState) {
+        private CleanupContext(Set<TablePartitionId> partitions, TxState txState) {
             this.partitions = partitions;
 
             this.txState = txState;

@@ -1,0 +1,31 @@
+# name: test/sql/types/char/test_char_length.test
+# description: E021-01 Character string types. CHARACTER data type. Check length of the CHAR datatype.
+# group: [char]
+
+# length shouldn't be negative;
+statement error
+SELECT 'c'::CHAR(-1);
+
+# length shouldn't be zero;
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22120
+statement error
+SELECT 'c'::CHAR(0);
+
+# If <length> is omitted, then a <length> of 1 (one) is implicit.
+query T rowsort
+SELECT 123::CHAR;
+----
+1
+
+# check keep spaces as prefix and trailing symbols
+query TTT rowsort
+SELECT '1'::CHAR(5), ' 2 '::CHAR(5), '  3  '::CHAR(5);
+----
+1    	 2   	  3  
+
+# check correct length of data
+query III rowsort
+SELECT LENGTH('1'::CHAR(3)), LENGTH(' 2  '::CHAR(4)), LENGTH('    3       '::CHAR(5));
+----
+3	4	5

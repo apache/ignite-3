@@ -39,6 +39,7 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -132,8 +133,10 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
+import org.apache.ignite.internal.metrics.sources.OsMetricSource;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
@@ -417,7 +420,7 @@ public class IgniteImpl implements Ignite {
 
         vaultMgr = createVault(workDir);
 
-        metricManager = new MetricManager();
+        metricManager = new MetricManagerImpl();
 
         ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
@@ -491,6 +494,7 @@ public class IgniteImpl implements Ignite {
 
         raftMgr = new Loza(
                 clusterSvc,
+                metricManager,
                 raftConfiguration,
                 workDir,
                 clock,
@@ -565,7 +569,8 @@ public class IgniteImpl implements Ignite {
                 raftMgr,
                 new RocksDbKeyValueStorage(name, workDir.resolve(METASTORAGE_DB_PATH), failureProcessor),
                 clock,
-                topologyAwareRaftGroupServiceFactory
+                topologyAwareRaftGroupServiceFactory,
+                metricManager
         );
 
         this.cfgStorage = new DistributedConfigurationStorage(name, metaStorageMgr);
@@ -607,7 +612,8 @@ public class IgniteImpl implements Ignite {
                 messagingServiceReturningToStorageOperationsPool,
                 clock,
                 threadPoolsManager.partitionOperationsExecutor(),
-                replicationConfig
+                replicationConfig,
+                threadPoolsManager.commonScheduler()
         );
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
@@ -785,8 +791,12 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 catalogManager,
                 distributionZoneManager,
-                raftMgr
+                raftMgr,
+                clusterSvc.topologyService(),
+                distributedTblMgr
         );
+
+        systemViewManager.register(disasterRecoveryManager);
 
         indexManager = new IndexManager(
                 schemaManager,
@@ -1013,6 +1023,7 @@ public class IgniteImpl implements Ignite {
 
         try {
             metricManager.registerSource(new JvmMetricSource());
+            metricManager.registerSource(new OsMetricSource());
 
             lifecycleManager.startComponent(longJvmPauseDetector);
 
@@ -1111,6 +1122,7 @@ public class IgniteImpl implements Ignite {
                         return cmgMgr.onJoinReady();
                     }, startupExecutor)
                     .thenComposeAsync(ignored -> awaitSelfInLocalLogicalTopology(), startupExecutor)
+                    .thenCompose(ignored -> catalogManager.catalogInitializationFuture())
                     .thenRunAsync(() -> {
                         try {
                             // Enable watermark events.
@@ -1180,17 +1192,30 @@ public class IgniteImpl implements Ignite {
 
         LOG.debug(errMsg, e);
 
-        lifecycleManager.stopNode();
+        IgniteException igniteException = new IgniteException(errMsg, e);
 
-        return new IgniteException(errMsg, e);
+        try {
+            lifecycleManager.stopNode().get();
+        } catch (Exception ex) {
+            igniteException.addSuppressed(ex);
+        }
+
+        return igniteException;
     }
 
     /**
-     * Stops ignite node.
+     * Synchronously stops ignite node.
      */
-    public void stop() {
-        lifecycleManager.stopNode();
-        restAddressReporter.removeReport();
+    public void stop() throws ExecutionException, InterruptedException {
+        stopAsync().get();
+    }
+
+    /**
+     * Asynchronously stops ignite node.
+     */
+    public CompletableFuture<Void> stopAsync() {
+        return lifecycleManager.stopNode()
+                .whenComplete((unused, throwable) -> restAddressReporter.removeReport());
     }
 
     /** {@inheritDoc} */
@@ -1221,6 +1246,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public FailureProcessor failureProcessor() {
         return failureProcessor;
+    }
+
+    @TestOnly
+    public MetricManager metricManager() {
+        return metricManager;
     }
 
     /** {@inheritDoc} */

@@ -27,6 +27,9 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -69,6 +72,7 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -84,7 +88,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -178,6 +181,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         raftManager = new Loza(
                 clusterService,
+                new NoOpMetricManager(),
                 raftConfiguration,
                 workDir.resolve("loza"),
                 nodeClock,
@@ -194,6 +198,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 storage,
                 nodeClock,
                 topologyAwareRaftGroupServiceFactory,
+                new NoOpMetricManager(),
                 metaStorageConfiguration
         );
 
@@ -209,18 +214,14 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 new TestClockService(nodeClock)
         );
 
-        clusterService.start();
-        anotherClusterService.start();
-        raftManager.start();
-        metaStorageManager.start();
-
-        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
-
-        placementDriverManager.start();
-
-        assertThat(metaStorageManager.notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
-
-        assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
+        assertThat(
+                startAsync(clusterService, anotherClusterService, raftManager, metaStorageManager)
+                        .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
+                        .thenCompose(unused -> placementDriverManager.startAsync())
+                        .thenCompose(unused -> metaStorageManager.notifyRevisionUpdateListenerOnStart())
+                        .thenCompose(unused -> metaStorageManager.deployWatches()),
+                willCompleteSuccessfully()
+        );
     }
 
     /**
@@ -266,9 +267,9 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 anotherClusterService
         );
 
-        IgniteUtils.closeAll(Stream.concat(
+        closeAll(Stream.concat(
                 igniteComponents.stream().filter(Objects::nonNull).map(component -> component::beforeNodeStop),
-                Stream.of(() -> IgniteUtils.stopAll(igniteComponents.stream())))
+                Stream.of(() -> assertThat(stopAsync(igniteComponents), willCompleteSuccessfully())))
         );
     }
 
@@ -412,7 +413,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
      */
     private void stopAnotherNode(ClusterService nodeClusterService) throws Exception {
         nodeClusterService.beforeNodeStop();
-        nodeClusterService.stop();
+        assertThat(nodeClusterService.stopAsync(), willCompleteSuccessfully());
 
         assertTrue(waitForCondition(
                 () -> !clusterService.topologyService().allMembers().contains(nodeClusterService.topologyService().localMember()),
@@ -442,7 +443,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 leaseGrantMessageHandler(nodeName)
         );
 
-        nodeClusterService.start();
+        assertThat(nodeClusterService.startAsync(), willCompleteSuccessfully());
 
         assertTrue(waitForCondition(
                 () -> clusterService.topologyService().allMembers().contains(nodeClusterService.topologyService().localMember()),

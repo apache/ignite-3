@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.junit.jupiter.api.AfterEach;
@@ -33,15 +36,15 @@ public class LocalConfigurationStorageTest extends ConfigurationStorageTest {
      */
     @BeforeEach
     void startVault() {
-        vaultManager.start();
+        assertThat(vaultManager.startAsync(), willCompleteSuccessfully());
     }
 
     /**
      * After each.
      */
     @AfterEach
-    void stopVault() throws Exception {
-        vaultManager.stop();
+    void stopVault() {
+        assertThat(vaultManager.stopAsync(), willCompleteSuccessfully());
     }
 
     /** {@inheritDoc} */

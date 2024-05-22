@@ -37,6 +37,7 @@ import org.apache.ignite.internal.client.tx.ClientTransactions;
 import org.apache.ignite.internal.jdbc.proto.ClientMessage;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.network.ClusterNode;
@@ -119,7 +120,7 @@ public class TcpIgniteClient implements IgniteClient {
             return null;
         }
 
-        var metricManager = new MetricManager(ClientUtils.logger(cfg, MetricManager.class));
+        var metricManager = new MetricManagerImpl(ClientUtils.logger(cfg, MetricManagerImpl.class));
         metricManager.start(List.of(new JmxExporter(ClientUtils.logger(cfg, JmxExporter.class))));
 
         metricManager.registerSource(metrics);
@@ -218,7 +219,7 @@ public class TcpIgniteClient implements IgniteClient {
         ch.close();
 
         if (metricManager != null) {
-            metricManager.stop();
+            metricManager.stopAsync().join();
         }
     }
 

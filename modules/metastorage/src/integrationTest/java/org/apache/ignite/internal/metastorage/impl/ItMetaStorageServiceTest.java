@@ -35,6 +35,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CursorUtils.emptyCursor;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -93,6 +95,7 @@ import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -190,6 +193,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             this.raftManager = new Loza(
                     clusterService,
+                    new NoOpMetricManager(),
                     raftConfiguration,
                     dataPath.resolve(name()),
                     clock
@@ -201,10 +205,9 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         }
 
         void start(PeersAndLearners configuration) {
-            clusterService.start();
-            raftManager.start();
-
-            CompletableFuture<RaftGroupService> raftService = startRaftService(configuration);
+            CompletableFuture<RaftGroupService> raftService =
+                    startAsync(clusterService, raftManager)
+                            .thenCompose(unused -> startRaftService(configuration));
 
             assertThat(raftService, willCompleteSuccessfully());
 
@@ -214,7 +217,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                     clusterService.nodeName(),
                     metaStorageRaftService,
                     new IgniteSpinBusyLock(),
-                    clusterTime
+                    clusterTime,
+                    () -> clusterService.topologyService().localMember().id()
             );
         }
 
@@ -252,7 +256,9 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             Stream<AutoCloseable> beforeNodeStop = Stream.of(raftManager, clusterService).map(c -> c::beforeNodeStop);
 
-            Stream<AutoCloseable> nodeStop = Stream.of(raftManager, clusterService).map(c -> c::stop);
+            Stream<AutoCloseable> nodeStop = Stream.of(
+                    () -> assertThat(stopAsync(raftManager, clusterService), willCompleteSuccessfully())
+            );
 
             IgniteUtils.closeAll(Stream.of(raftStop, beforeNodeStop, nodeStop).flatMap(Function.identity()));
         }
@@ -383,25 +389,6 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Tests {@link MetaStorageService#getAndPut(ByteArray, byte[])}.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testGetAndPut() throws Exception {
-        Node node = startNodes(1).get(0);
-
-        byte[] expVal = {2};
-
-        when(node.mockStorage.getAndPut(eq(EXPECTED_RESULT_ENTRY.key()), eq(expVal), any())).thenReturn(EXPECTED_RESULT_ENTRY);
-
-        assertEquals(
-                EXPECTED_RESULT_ENTRY,
-                node.metaStorageService.getAndPut(new ByteArray(EXPECTED_RESULT_ENTRY.key()), expVal).get()
-        );
-    }
-
-    /**
      * Tests {@link MetaStorageService#putAll(Map)}.
      *
      * @throws Exception If failed.
@@ -445,53 +432,6 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Tests {@link MetaStorageService#getAndPutAll(Map)}.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testGetAndPutAll() throws Exception {
-        Node node = startNodes(1).get(0);
-
-        when(node.mockStorage.getAndPutAll(anyList(), anyList(), any())).thenReturn(EXPECTED_SRV_RESULT_COLL);
-
-        Map<ByteArray, Entry> gotRes = node.metaStorageService.getAndPutAll(
-                EXPECTED_RESULT_MAP.entrySet().stream()
-                        .collect(Collectors.toMap(
-                                Map.Entry::getKey,
-                                e -> e.getValue().value())
-                        )
-        ).get();
-
-        assertEquals(EXPECTED_RESULT_MAP, gotRes);
-
-        ArgumentCaptor<List<byte[]>> keysCaptor = ArgumentCaptor.forClass(List.class);
-        ArgumentCaptor<List<byte[]>> valuesCaptor = ArgumentCaptor.forClass(List.class);
-
-        verify(node.mockStorage).getAndPutAll(keysCaptor.capture(), valuesCaptor.capture(), any());
-
-        // Assert keys equality.
-        assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
-
-        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream()
-                .map(ByteArray::bytes).collect(toList());
-
-        for (int i = 0; i < expKeys.size(); i++) {
-            assertArrayEquals(expKeys.get(i), keysCaptor.getValue().get(i));
-        }
-
-        // Assert values equality.
-        assertEquals(EXPECTED_RESULT_MAP.values().size(), valuesCaptor.getValue().size());
-
-        List<byte[]> expVals = EXPECTED_RESULT_MAP.values().stream()
-                .map(Entry::value).collect(toList());
-
-        for (int i = 0; i < expKeys.size(); i++) {
-            assertArrayEquals(expVals.get(i), valuesCaptor.getValue().get(i));
-        }
-    }
-
-    /**
      * Tests {@link MetaStorageService#remove(ByteArray)}.
      *
      * @throws Exception If failed.
@@ -505,27 +445,6 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         doNothing().when(node.mockStorage).remove(eq(expKey.bytes()), any());
 
         node.metaStorageService.remove(expKey).get();
-    }
-
-    /**
-     * Tests {@link MetaStorageService#getAndRemove(ByteArray)}.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testGetAndRemove() throws Exception {
-        Node node = startNodes(1).get(0);
-
-        Entry expRes = new EntryImpl(
-                new byte[]{1},
-                new byte[]{3},
-                10,
-                2
-        );
-
-        when(node.mockStorage.getAndRemove(eq(expRes.key()), any())).thenReturn(expRes);
-
-        assertEquals(expRes, node.metaStorageService.getAndRemove(new ByteArray(expRes.key())).get());
     }
 
     /**
@@ -547,36 +466,6 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         verify(node.mockStorage).removeAll(keysCaptor.capture(), any());
 
         assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
-
-        for (int i = 0; i < expKeys.size(); i++) {
-            assertArrayEquals(expKeys.get(i), keysCaptor.getValue().get(i));
-        }
-    }
-
-    /**
-     * Tests {@link MetaStorageService#getAndRemoveAll(Set)}.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testGetAndRemoveAll() throws Exception {
-        Node node = startNodes(1).get(0);
-
-        when(node.mockStorage.getAndRemoveAll(anyList(), any())).thenReturn(EXPECTED_SRV_RESULT_COLL);
-
-        Map<ByteArray, Entry> gotRes = node.metaStorageService.getAndRemoveAll(EXPECTED_RESULT_MAP.keySet()).get();
-
-        assertEquals(EXPECTED_RESULT_MAP, gotRes);
-
-        ArgumentCaptor<List<byte[]>> keysCaptor = ArgumentCaptor.forClass(List.class);
-
-        verify(node.mockStorage).getAndRemoveAll(keysCaptor.capture(), any());
-
-        // Assert keys equality.
-        assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
-
-        List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream()
-                .map(ByteArray::bytes).collect(toList());
 
         for (int i = 0; i < expKeys.size(); i++) {
             assertArrayEquals(expKeys.get(i), keysCaptor.getValue().get(i));

@@ -172,6 +172,9 @@ public class ErrorGroups {
 
         /** Schema version mismatch. */
         public static final int SCHEMA_VERSION_MISMATCH_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 7);
+
+        /** Unsupported partition type. */
+        public static final int UNSUPPORTED_PARTITION_TYPE_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 8);
     }
 
     /** Client error group. */
@@ -420,9 +423,6 @@ public class ErrorGroups {
 
         /** Error reading from an index that has not yet been built. */
         public static final int INDEX_NOT_BUILT_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 6);
-
-        /** Error when detecting an inconsistent index state. */
-        public static final int INCONSISTENT_INDEX_STATE_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 7);
     }
 
     /** Distribution zones error group. */
@@ -431,7 +431,7 @@ public class ErrorGroups {
         /** Distribution zones group. */
         public static final ErrorGroup DISTRIBUTION_ZONES_ERR_GROUP = registerGroup("DISTRZONES", (short) 10);
 
-        /** Distribution zone is not found. */
+        /** Distribution zone was not found. */
         public static final int ZONE_NOT_FOUND_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 1);
     }
 
@@ -607,5 +607,21 @@ public class ErrorGroups {
 
         /** System-critical operation timed out. */
         public static final int SYSTEM_CRITICAL_OPERATION_TIMEOUT_ERR = CRITICAL_WORKERS_ERR_GROUP.registerErrorCode((short) 2);
+    }
+
+    /** Disaster recovery error group. */
+    @ErrorCodeGroup
+    public static class DisasterRecovery {
+        /** Disaster recovery group. */
+        public static final ErrorGroup RECOVERY_ERR_GROUP = registerGroup("RECOVERY", (short) 20);
+
+        /** Partition ID is not in valid range. */
+        public static final int ILLEGAL_PARTITION_ID_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 1);
+
+        /** Nodes were not found. */
+        public static final int NODES_NOT_FOUND_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Error while returning partition states. */
+        public static final int PARTITION_STATE_ERR = RECOVERY_ERR_GROUP.registerErrorCode((short) 3);
     }
 }
