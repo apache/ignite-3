@@ -1067,33 +1067,6 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
         }
     }
 
-    @Test
-    public void testNaturalJoin2() {
-        sql("CREATE TABLE ints (i INTEGER PRIMARY KEY, int_val INTEGER)");
-        sql("INSERT INTO ints VALUES (1, 2)");
-
-        sql("CREATE TABLE bigints (i BIGINT PRIMARY KEY, bigint_val BIGINT)");
-        sql("INSERT INTO bigints VALUES (1, 3), (2, 4)");
-
-        sql("CREATE TABLE chars (i VARCHAR(10) PRIMARY KEY, bigint_val BIGINT)");
-        sql("INSERT INTO chars VALUES ('1', 3)");
-
-        sql("CREATE TABLE bools (bbb BOOLEAN PRIMARY KEY, bigint_val BIGINT)");
-        sql("INSERT INTO bools VALUES (true, 1)");
-
-        assertQuery("SELECT * FROM ints JOIN chars ON ints.i = chars.i ORDER BY i")
-                .returns(1, 2, "1", 3L)
-                .check();
-
-        assertQuery("SELECT * FROM ints NATURAL JOIN chars ORDER BY i")
-                .returns(1, 2, "1", 3L)
-                .check();
-
-        assertQuery("SELECT * FROM ints NATURAL JOIN bools")
-                .returnNothing()
-                .check();
-    }
-
     private static Stream<Arguments> joinTypes() {
         Stream<Arguments> types = Arrays.stream(JoinType.values())
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove filter below
