@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.calcite.sql.type.SqlTypeName.ANY;
 import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
@@ -765,7 +764,8 @@ public class TypeUtils {
      */
     public static boolean canBeComparedWithoutCasts(RelDataType lhs, RelDataType rhs) {
         // TODO this method can be removed after https://issues.apache.org/jira/browse/IGNITE-22295
-        if (lhs.getSqlTypeName() == ANY && rhs.getSqlTypeName() == ANY || SqlTypeUtil.isAtomic(lhs) && SqlTypeUtil.isAtomic(rhs)) {
+        if (lhs.getSqlTypeName() == SqlTypeName.ANY && rhs.getSqlTypeName() == SqlTypeName.ANY
+                || SqlTypeUtil.isAtomic(lhs) && SqlTypeUtil.isAtomic(rhs)) {
             ColumnType col1 = columnType(lhs);
             ColumnType col2 = columnType(rhs);
 
