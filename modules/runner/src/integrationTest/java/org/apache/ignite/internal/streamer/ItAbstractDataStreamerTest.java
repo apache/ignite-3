@@ -40,6 +40,8 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiver;
+import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -361,6 +363,27 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         // Check exceptions.
     }
 
+    @Test
+    public void testReceiverException() {
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    DataStreamerOptions.DEFAULT,
+                    t -> t,
+                    t -> 0,
+                    null,
+                    List.of(),
+                    TestReceiver.class.getName(),
+                    "throw");
+
+            publisher.submit(tupleKey(1));
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+    }
+
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             @SuppressWarnings("resource")
@@ -423,6 +446,17 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         PersonValPojo(String name) {
             this.name = name;
+        }
+    }
+
+    private static class TestReceiver implements DataStreamerReceiver<String, Void> {
+        @Override
+        public CompletableFuture<List<Void>> receive(List<String> page, DataStreamerReceiverContext ctx, Object... args) {
+            if (args[0] == "throw") {
+                throw new ArithmeticException("test");
+            }
+
+            return CompletableFuture.completedFuture(null);
         }
     }
 }
