@@ -34,3 +34,22 @@ SELECT char_length(null)
 ----
 NULL
 
+
+statement error: Length for column 'C1' of type 'STRING' must be at least 1
+CREATE TABLE t_negative(c1 VARCHAR(0));
+
+# length shouldn't be zero;
+statement error: Failed to parse query
+CREATE TABLE t_negative(c1 VARCHAR(-1));
+
+statement error: Length for type VARCHAR must be at least 1
+SELECT '1'::VARCHAR(0);
+
+statement error: Failed to parse query
+SELECT 'c'::VARCHAR(-1);
+
+statement error: Length for type VARCHAR must be at least 1
+SELECT 'c'::VARCHAR(0);
+
+statement error: Length for type VARCHAR must be at least 1
+SELECT ''::VARCHAR(0);

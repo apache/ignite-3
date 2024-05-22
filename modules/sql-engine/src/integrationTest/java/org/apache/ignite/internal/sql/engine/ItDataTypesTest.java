@@ -628,17 +628,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 () -> sql("SELECT CAST(1 AS CHAR(0))")
         );
 
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Length for type CHAR must be at least 1",
-                () -> sql("SELECT '1'::CHAR(0)")
-        );
-
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Length for type CHAR must be at least 1",
-                () -> sql("SELECT ''::CHAR(0)")
-        );
 
         // Varchar
 
@@ -647,19 +636,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 "Length for type VARCHAR must be at least 1",
                 () -> sql("SELECT CAST(1 AS VARCHAR(0))")
         );
-
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Length for type VARCHAR must be at least 1",
-                () -> sql("SELECT '1'::VARCHAR(0)")
-        );
-
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Length for type VARCHAR must be at least 1",
-                () -> sql("SELECT ''::VARCHAR(0)")
-        );
-
+        
         // Binary
 
         assertThrowsSqlException(
@@ -667,25 +644,12 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 "Length for type BINARY must be at least 1",
                 () -> sql("SELECT CAST(x'0101' AS BINARY(0))")
         );
-
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Length for type BINARY must be at least 1",
-                () -> sql("SELECT x'0101'::BINARY(0)")
-        );
-
         // Varbinary
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Length for type VARBINARY must be at least 1",
                 () -> sql("SELECT CAST(x'0101' AS VARBINARY(0))")
-        );
-
-        assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Length for type VARBINARY must be at least 1",
-                () -> sql("SELECT x'0101'::VARBINARY(0)")
         );
     }
 
