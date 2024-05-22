@@ -252,12 +252,14 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         assertThat(updateLog.append(singleEntryUpdateOfVersion(startVersion + 2)), willBe(true));
 
         List<Integer> expectedVersions = List.of(startVersion, startVersion + 1, startVersion + 2);
-        List<Long> expectedTokens = List.of(revisionBefore + 1, revisionBefore + 2, revisionBefore + 3);
+        List<Long> expectedTokens = List.of(revisionBefore + 1, revisionBefore + 5, revisionBefore + 6);
 
+        // No-op operation also increases the revision.
+        int revisionsUpdateCount = 6;
         // wait till necessary revision is applied
         assertTrue(
                 waitForCondition(
-                        () -> metastore.appliedRevision() - expectedVersions.size() == revisionBefore,
+                        () -> metastore.appliedRevision() - revisionsUpdateCount == revisionBefore,
                         TimeUnit.SECONDS.toMillis(5)
                 )
         );

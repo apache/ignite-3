@@ -43,6 +43,7 @@ import static org.apache.ignite.lang.ErrorGroups.MetaStorage.STARTING_STORAGE_ER
 import static org.rocksdb.util.SizeUnit.MB;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -1438,7 +1439,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         UpdatedEntries copy = updatedEntries.transfer();
 
         assert copy.ts != null;
-
         watchProcessor.notifyWatches(copy.updatedEntries, copy.ts);
     }
 
@@ -1591,6 +1591,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             assert ts != null;
 
             UpdatedEntries transferredValue = new UpdatedEntries(new ArrayList<>(updatedEntries), ts);
+            transferredValue.updatedEntries.removeIf(entry -> ByteBuffer.wrap(entry.key(), 0, IDEMPOTENT_COMMAND_PREFIX_BYTES.length)
+                    .equals(ByteBuffer.wrap(IDEMPOTENT_COMMAND_PREFIX_BYTES)));
 
             clear();
 

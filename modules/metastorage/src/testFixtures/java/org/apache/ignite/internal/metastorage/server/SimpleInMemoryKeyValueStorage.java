@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWrit
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -474,6 +475,9 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
         HybridTimestamp ts = revToTsMap.get(updatedEntries.get(0).revision());
         assert ts != null;
+
+        updatedEntries.removeIf(entry -> ByteBuffer.wrap(entry.key(), 0, IDEMPOTENT_COMMAND_PREFIX_BYTES.length)
+                .equals(ByteBuffer.wrap(IDEMPOTENT_COMMAND_PREFIX_BYTES)));
 
         watchProcessor.notifyWatches(List.copyOf(updatedEntries), ts);
 
