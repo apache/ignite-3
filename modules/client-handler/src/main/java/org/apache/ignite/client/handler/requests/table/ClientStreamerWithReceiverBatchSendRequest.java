@@ -63,31 +63,31 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             IgniteComputeInternal compute
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-                    int partition = in.unpackInt();
-                    List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
-                    boolean returnResults = in.unpackBoolean();
+            int partition = in.unpackInt();
+            List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
+            boolean returnResults = in.unpackBoolean();
 
-                    // receiverClassName, receiverArgs, items
-                    int payloadElementCount = in.unpackInt();
-                    byte[] payload = in.readBinary();
-                    Set<ClusterNode> candidateNodes = Set.of(); // TODO
+            // receiverClassName, receiverArgs, items
+            int payloadElementCount = in.unpackInt();
+            byte[] payload = in.readBinary();
+            Set<ClusterNode> candidateNodes = Set.of(); // TODO
 
-                    var jobExecution = compute.executeAsyncWithFailover(
-                            candidateNodes,
-                            deploymentUnits,
-                            ReceiverRunnerJob.class.getName(),
-                            JobExecutionOptions.DEFAULT,
-                            payloadElementCount,
-                            payload);
+            var jobExecution = compute.executeAsyncWithFailover(
+                    candidateNodes,
+                    deploymentUnits,
+                    ReceiverRunnerJob.class.getName(),
+                    JobExecutionOptions.DEFAULT,
+                    payloadElementCount,
+                    payload);
 
-                    return jobExecution.resultAsync().thenApply(res -> {
-                        // TODO:
-                        // out.packCollectionAsBinaryTuple(returnResults ? res : null);
-                        out.packNil();
+            return jobExecution.resultAsync().thenApply(res -> {
+                // TODO:
+                // out.packCollectionAsBinaryTuple(returnResults ? res : null);
+                out.packNil();
 
-                        return null;
-                    });
-                });
+                return null;
+            });
+        });
     }
 
     private static class ReceiverRunnerJob implements ComputeJob<List<Object>> {
