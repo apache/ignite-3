@@ -149,7 +149,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
     /** Ignite API. */
-    private final Ignite ignite;
+    private final Ignite ignite; // TODO: Remove
 
     /** Ignite tables API. */
     private final IgniteTablesInternal igniteTables;
@@ -788,7 +788,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientStreamerBatchSendRequest.process(in, out, igniteTables);
 
             case ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND:
-                return ClientStreamerWithReceiverBatchSendRequest.process(in, out, igniteTables, ignite);
+                return ClientStreamerWithReceiverBatchSendRequest.process(in, out, igniteTables, compute);
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);

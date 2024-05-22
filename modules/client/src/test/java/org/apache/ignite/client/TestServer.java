@@ -177,7 +177,10 @@ public class TestServer implements AutoCloseable {
         assertThat(cfg.startAsync(), willCompleteSuccessfully());
 
         cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
-                local -> local.changePort(port != null ? port : getFreePort()).changeIdleTimeout(idleTimeout)
+                local -> local
+                        .changePort(port != null ? port : getFreePort())
+                        .changeIdleTimeout(idleTimeout)
+                        .changeSendServerExceptionStackTraceToClient(true)
         ).join();
 
         bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkConfiguration.KEY), "TestServer-");
