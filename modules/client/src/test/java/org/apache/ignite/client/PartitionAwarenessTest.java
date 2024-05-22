@@ -48,6 +48,8 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiver;
+import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -457,15 +459,20 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertThat(compute().executeColocatedAsync(table.name(), 2L, mapper, List.of(), "job"), willBe(nodeKey2));
     }
 
-    @Test
-    public void testDataStreamerRecordBinaryView() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testDataStreamerRecordBinaryView(boolean withReceiver) {
         RecordView<Tuple> recordView = defaultTable().recordView();
 
         Consumer<Tuple> stream = t -> {
             CompletableFuture<Void> fut;
 
             try (SimplePublisher<Tuple> publisher = new SimplePublisher<>()) {
-                fut = recordView.streamData(publisher, null);
+                fut = withReceiver
+                        ? recordView.streamData(
+                                publisher, null, DataStreamerItem::get, x -> 0, null, List.of(), TestReceiver.class.getName())
+                        : recordView.streamData(publisher, null);
+
                 publisher.submit(t);
             }
 
@@ -664,5 +671,12 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
     private static List<String> reversedReplicas() {
         return List.of(testServer2.nodeName(), testServer.nodeName(), testServer2.nodeName(), testServer.nodeName());
+    }
+
+    public static class TestReceiver<T, R> implements DataStreamerReceiver<T, R> {
+        @Override
+        public CompletableFuture<List<R>> receive(List<T> page, DataStreamerReceiverContext ctx, Object... args) {
+            return CompletableFuture.completedFuture(null);
+        }
     }
 }

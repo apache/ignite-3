@@ -30,9 +30,9 @@ public class JobExecutionContextImpl implements JobExecutionContext {
 
     private final AtomicBoolean isInterrupted;
 
-    private final JobClassLoader classLoader;
+    private final ClassLoader classLoader;
 
-    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted, JobClassLoader classLoader) {
+    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted, ClassLoader classLoader) {
         this.ignite = ignite;
         this.isInterrupted = isInterrupted;
         this.classLoader = classLoader;
@@ -54,7 +54,7 @@ public class JobExecutionContextImpl implements JobExecutionContext {
      *
      * @return Job class loader.
      */
-    public JobClassLoader classLoader() {
+    public ClassLoader classLoader() {
         return classLoader;
     }
 }
