@@ -67,7 +67,7 @@ class ItEventLogTest extends ClusterPerClassIntegrationTest {
 
         String eventLog = "eventlog {\n"
                 + " sinks.logSink.channel: testChannel,\n"
-                + " channels.testChannel.events: [USER_AUTHENTICATED],\n"
+                + " channels.testChannel.events: [USER_AUTHENTICATION_SUCCESS],\n"
                 + "}\n";
 
         builder.clusterConfiguration(securityConfiguration + eventLog);
@@ -89,7 +89,7 @@ class ItEventLogTest extends ClusterPerClassIntegrationTest {
 
         // And event is written in JSON format.
         String expectedEventJsonPattern = "\\{"
-                + "\"type\":\"USER_AUTHENTICATED\","
+                + "\"type\":\"USER_AUTHENTICATION_SUCCESS\","
                 + "\"timestamp\":\\d*,"
                 + "\"productVersion\":\"" + IgniteProductVersion.VERSION_PATTERN.pattern() + "\","
                 + "\"user\":\\{\"username\":\"" + USERNAME + "\",\"authenticationProvider\":\"" + PROVIDER_NAME + "\"},"

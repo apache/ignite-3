@@ -35,14 +35,14 @@ class IgniteEventsTest {
     private static final String PROVIDER = "test_provider";
 
     private static Stream<Arguments> events() {
-        Event connectionClosedEvent = IgniteEvents.CONNECTION_CLOSED.create(EventUser.of(USER, PROVIDER));
-        Event connectionEstablishedEvent = IgniteEvents.USER_AUTHENTICATED.create(EventUser.of(USER, PROVIDER));
+        Event connectionClosedEvent = IgniteEvents.CLIENT_CONNECTION_CLOSED.create(EventUser.of(USER, PROVIDER));
+        Event connectionEstablishedEvent = IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of(USER, PROVIDER));
 
         return Stream.of(
                 Arguments.of(
                         connectionClosedEvent,
                         Event.builder()
-                                .type("CONNECTION_CLOSED")
+                                .type("CLIENT_CONNECTION_CLOSED")
                                 .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
                                 .timestamp(connectionClosedEvent.getTimestamp())
                                 .user(EventUser.of(USER, PROVIDER))
@@ -51,7 +51,7 @@ class IgniteEventsTest {
                 Arguments.of(
                         connectionEstablishedEvent,
                         Event.builder()
-                                .type("USER_AUTHENTICATED")
+                                .type("USER_AUTHENTICATION_SUCCESS")
                                 .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
                                 .timestamp(connectionEstablishedEvent.getTimestamp())
                                 .user(EventUser.of(USER, PROVIDER))
