@@ -293,7 +293,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             String query,
             @Nullable Object... arguments
     ) {
-        return executeAsyncInternal(transaction, new StatementImpl(query), arguments);
+        return executeAsyncInternal(transaction, createStatement(query), arguments);
     }
 
     /** {@inheritDoc} */
@@ -386,7 +386,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
-        return executeBatchAsync(transaction, new StatementImpl(query), batch);
+        return executeBatchAsync(transaction, createStatement(query), batch);
     }
 
     /** {@inheritDoc} */
