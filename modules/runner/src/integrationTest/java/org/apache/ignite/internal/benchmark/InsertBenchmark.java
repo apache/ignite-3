@@ -60,7 +60,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"1", "2", "3"})
     private int clusterSize;
@@ -73,6 +73,14 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void sqlInsert(SqlState state) {
+        state.executeQuery();
+    }
+
+    /**
+     * Benchmark for SQL multiple rows insert via embedded client.
+     */
+    @Benchmark
+    public void sqlInsertMulti(SqlStateMultiValues state) {
         state.executeQuery();
     }
 
@@ -166,6 +174,36 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
 
         void executeScript() {
             sql.executeScript(statement.query(), id++);
+        }
+    }
+
+    /**
+     * Benchmark state for {@link #sqlInsert(SqlState)} and {@link #sqlInsertScript(SqlState)}.
+     *
+     * <p>Holds {@link Statement}.
+     */
+    @State(Scope.Benchmark)
+    public static class SqlStateMultiValues {
+        private Statement statement;
+        private IgniteSql sql;
+
+        /**
+         * Initializes session and statement.
+         */
+        @Setup
+        public void setUp() {
+            String queryStr = createMultiInsertStatement();
+
+            sql = clusterNode.sql();
+            statement = sql.createStatement(queryStr);
+        }
+
+        private int id = 0;
+
+        void executeQuery() {
+            try (ResultSet<?> rs = sql.execute(null, statement, id + 1, id + 2);) {
+                id += 2;
+            }
         }
     }
 
@@ -327,6 +365,15 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL + "'").collect(joining(","));
 
         return format(insertQueryTemplate, TABLE_NAME, "ycsb_key", fieldsQ, valQ);
+    }
+
+    private static String createMultiInsertStatement() {
+        String insertQueryTemplate = "insert into {}({}, {}) values(?, {}), (?, {})";
+
+        String fieldsQ = IntStream.range(1, 11).mapToObj(i -> "field" + i).collect(joining(","));
+        String valQ = IntStream.range(1, 11).mapToObj(i -> "'" + FIELD_VAL_WITH_SPACES + "'").collect(joining(","));
+
+        return format(insertQueryTemplate, TABLE_NAME, "ycsb_key", fieldsQ, valQ, valQ);
     }
 
     @Override

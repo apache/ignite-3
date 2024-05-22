@@ -1,6 +1,7 @@
 # name: test/sql/aggregate/aggregates/test_stddev.test
 # description: STDDEV aggregations
 # group: [aggregates]
+# feature: SQL T621(Enhanced numeric functions)
 # Ignored: https://issues.apache.org/jira/browse/IGNITE-14642
 
 statement ok
