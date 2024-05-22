@@ -844,7 +844,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             RelDataType leftType = leftField.getType();
             RelDataType rightType = rightField.getType();
 
-            if (!TypeUtils.canBeComparedWithoutCasts(leftType, rightType)) {
+            if (!TypeUtils.canCompareSimpleTypesWithoutCasts(leftType, rightType)) {
                 throw newValidationError(join, IgniteResource.INSTANCE.naturalOrUsingColumnNotCompatible(
                         i, leftType.toString(), rightType.toString())
                 );
