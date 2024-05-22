@@ -957,7 +957,52 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         throw new CompletionException(ex);
                     }
                 }
-                return true;
+
+                // creating replica branch
+                // - localMemberAssignment == null looks like excessive condition because  in this case startGroupFut returns false (4)
+                // and then !isStartedRaftNode is true.
+                // - in this case isStartedRaftNode should be only true, then it's excessive too.
+                boolean shouldSkipReplicaStarting = replicaMgr.isReplicaStarted(replicaGrpId);
+
+                try {
+
+                    Supplier<RaftGroupService> getCachedRaftClient = () -> {
+                        try {
+                            // Return existing service if it's already started.
+                            return ((InternalTableImpl) internalTbl)
+                                    .tableRaftService()
+                                    .partitionRaftGroupService(replicaGrpId.partitionId());
+                        } catch (IgniteInternalException e) {
+                            // We use "IgniteInternalException" in accordance with the javadoc of "partitionRaftGroupService" method.
+                            return null;
+                        }
+                    };
+
+                    Consumer<RaftGroupService> updateTableRaftService = (raftClient) -> ((InternalTableImpl) internalTbl)
+                            .tableRaftService()
+                            .updateInternalTableRaftGroupService(partId, raftClient);
+
+                    Function<RaftGroupService, ReplicaListener> createListener = (raftClient) -> createReplicaListener(
+                            replicaGrpId,
+                            table,
+                            safeTimeTracker,
+                            partitionStorages.getMvPartitionStorage(),
+                            partitionStorages.getTxStateStorage(),
+                            partitionUpdateHandlers,
+                            raftClient);
+
+                    replicaMgr.startReplica(
+                            shouldSkipReplicaStarting,
+                            replicaGrpId,
+                            newConfiguration,
+                            getCachedRaftClient,
+                            updateTableRaftService,
+                            createListener,
+                            storageIndexTracker);
+                    return true;
+                } catch (NodeStoppingException ex) {
+                    throw new AssertionError("Loza was stopped before Table manager", ex);
+                }
             }), ioExecutor);
         } else {
             // (4) in case if localMemberAssignment == null
@@ -965,51 +1010,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         startGroupFut
-                .thenComposeAsync(isStartedRaftNode -> inBusyLock(busyLock, () -> {
-                    // - localMemberAssignment == null looks like excessive condition because  in this case startGroupFut returns false (4)
-                    // and then !isStartedRaftNode is true.
-                    boolean shouldSkipReplicaStarting = !isStartedRaftNode
-                            || replicaMgr.isReplicaStarted(replicaGrpId);
-
-                    try {
-
-                        Supplier<RaftGroupService> getCachedRaftClient = () -> {
-                            try {
-                                // Return existing service if it's already started.
-                                return ((InternalTableImpl) internalTbl)
-                                        .tableRaftService()
-                                        .partitionRaftGroupService(replicaGrpId.partitionId());
-                            } catch (IgniteInternalException e) {
-                                // We use "IgniteInternalException" in accordance with the javadoc of "partitionRaftGroupService" method.
-                                return null;
-                            }
-                        };
-
-                        Consumer<RaftGroupService> updateTableRaftService = (raftClient) -> ((InternalTableImpl) internalTbl)
-                                .tableRaftService()
-                                .updateInternalTableRaftGroupService(partId, raftClient);
-
-                        Function<RaftGroupService, ReplicaListener> createListener = (raftClient) -> createReplicaListener(
-                                    replicaGrpId,
-                                    table,
-                                    safeTimeTracker,
-                                    partitionStorages.getMvPartitionStorage(),
-                                    partitionStorages.getTxStateStorage(),
-                                    partitionUpdateHandlers,
-                                    raftClient);
-
-                        return replicaMgr.startReplica(
-                                        shouldSkipReplicaStarting,
-                                        replicaGrpId,
-                                        newConfiguration,
-                                        getCachedRaftClient,
-                                        updateTableRaftService,
-                                        createListener,
-                                        storageIndexTracker);
-                    } catch (NodeStoppingException ex) {
-                        throw new AssertionError("Loza was stopped before Table manager", ex);
-                    }
-                }), ioExecutor)
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
                         LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
