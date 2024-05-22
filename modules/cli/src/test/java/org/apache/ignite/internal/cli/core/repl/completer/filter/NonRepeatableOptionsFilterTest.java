@@ -49,9 +49,9 @@ class NonRepeatableOptionsFilterTest {
     void filterNonRepeatableOptions() {
         NonRepeatableOptionsFilter filter = new NonRepeatableOptionsFilter(cmd.getCommandSpec());
         String[] words = {"cluster", "init", "--name", "name", "--cmg-node", "node"};
-        String[] candidates = {"--name", "--cmg-node", "--url", "--ms-node"};
+        String[] candidates = {"--name", "--cmg-node", "--url", "--meta-storage-node"};
         List<String> filteredCandidates = Arrays.asList(filter.filter(words, candidates));
         assertThat(filteredCandidates, hasSize(3));
-        assertThat(filteredCandidates, containsInAnyOrder("--cmg-node", "--url", "--ms-node"));
+        assertThat(filteredCandidates, containsInAnyOrder("--cmg-node", "--url", "--meta-storage-node"));
     }
 }

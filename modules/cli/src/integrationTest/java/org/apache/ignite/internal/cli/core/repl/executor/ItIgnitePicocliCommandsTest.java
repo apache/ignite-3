@@ -335,7 +335,7 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                 words("cluster", "status", "--node", ""),
                 words("cluster", "init", "--node", ""),
                 words("cluster", "init", "--cmg-node", ""),
-                words("cluster", "init", "--ms-node", ""),
+                words("cluster", "init", "--meta-storage-node", ""),
                 words("node", "config", "show", "--node", ""),
                 words("node", "config", "show", "--verbose", "--node", ""),
                 words("node", "config", "update", "--node", ""),

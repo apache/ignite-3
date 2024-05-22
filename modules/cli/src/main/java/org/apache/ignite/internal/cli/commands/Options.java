@@ -173,7 +173,7 @@ public enum Options {
                 + "If omitted, then --ms-node values will also supply the nodes for the Cluster Management Group.";
 
         /** Meta storage management node name option long name. */
-        public static final String META_STORAGE_NODE_NAME_OPTION = "--ms-node";
+        public static final String META_STORAGE_NODE_NAME_OPTION = "--meta-storage-node";
 
         /** Meta storage node name option description. */
         public static final String META_STORAGE_NODE_NAME_OPTION_DESC = "Name of the node (repeat like '--ms-node node1 "
