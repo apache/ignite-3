@@ -81,25 +81,25 @@ public class StreamerReceiverSerializer {
     }
 
     public static class SteamerReceiverInfo {
-        private final String receiverClassName;
-        private final Object[] receiverArgs;
-        private final Collection<?> items;
+        private final String className;
+        private final Object[] args;
+        private final List<Object> items;
 
-        public SteamerReceiverInfo(String receiverClassName, Object[] receiverArgs, Collection<?> items) {
-            this.receiverClassName = receiverClassName;
-            this.receiverArgs = receiverArgs;
+        private SteamerReceiverInfo(String className, Object[] args, List<Object> items) {
+            this.className = className;
+            this.args = args;
             this.items = items;
         }
 
-        public String getReceiverClassName() {
-            return receiverClassName;
+        public String className() {
+            return className;
         }
 
-        public Object[] getReceiverArgs() {
-            return receiverArgs;
+        public Object[] args() {
+            return args;
         }
 
-        public Collection<?> getItems() {
+        public List<Object> items() {
             return items;
         }
     }
