@@ -201,7 +201,7 @@ public class TestServer implements AutoCloseable {
         Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
                 i -> getClusterNode(i.getArgument(0, String.class)));
 
-        IgniteComputeInternal compute = new FakeCompute(nodeName);
+        IgniteComputeInternal compute = new FakeCompute(nodeName, ignite);
 
         metrics = new ClientHandlerMetricSource();
         metrics.enable();

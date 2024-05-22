@@ -34,8 +34,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
@@ -43,7 +46,9 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.TaskExecution;
+import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -68,8 +73,11 @@ public class FakeCompute implements IgniteComputeInternal {
 
     private final String nodeName;
 
-    public FakeCompute(String nodeName) {
+    private final Ignite ignite;
+
+    public FakeCompute(String nodeName, Ignite ignite) {
         this.nodeName = nodeName;
+        this.ignite = ignite;
     }
 
     @Override
@@ -102,6 +110,14 @@ public class FakeCompute implements IgniteComputeInternal {
 
         if (err != null) {
             throw err;
+        }
+
+        if (jobClassName.startsWith("org.apache.ignite")) {
+            Class<ComputeJob<Object>> jobClass = ComputeUtils.jobClass(this.getClass().getClassLoader(), jobClassName);
+            ComputeJob<Object> job = ComputeUtils.instantiateJob(jobClass);
+            Object jobRes = job.execute(new JobExecutionContextImpl(ignite, new AtomicBoolean()), args);
+
+            return jobExecution(completedFuture((R) jobRes));
         }
 
         return jobExecution(future != null ? future : completedFuture((R) nodeName));
