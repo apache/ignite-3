@@ -1081,10 +1081,10 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
     @Test
     public void testNaturalJoinTypeMismatch() {
         try {
-            sql("CREATE TABLE t2_ij (i INTEGER PRIMARY KEY, j INTEGER);");
+            sql("CREATE TABLE t1_ij (i INTEGER PRIMARY KEY, j INTEGER);");
             sql("CREATE TABLE t2_ij (i INTEGER PRIMARY KEY, j BIGINT);");
 
-            var expectedMessage = "Column N#0 matched using NATURAL keyword or USING clause "
+            var expectedMessage = "Column N#1 matched using NATURAL keyword or USING clause "
                     + "has incompatible types in this context: 'INTEGER' to 'VARCHAR(100)'";
 
             assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, expectedMessage, () -> sql("SELECT * FROM t1_ij NATURAL JOIN t2_ij"));
