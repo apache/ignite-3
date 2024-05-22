@@ -548,7 +548,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param raftGrpLsnr Raft group listener.
      * @throws NodeStoppingException in case of stopping node before completion
      */
-    public void startPartitionRaftGroupNode(
+    private void startPartitionRaftGroupNode(
             TablePartitionId replicaGrpId,
             int zoneId,
             RaftNodeId raftNodeId,
@@ -581,6 +581,88 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 raftGrpEvtsLsnr,
                 groupOptions
         );
+    }
+
+    /**
+     * TODO.
+     *
+     * @param metaStorageMgr TODO.
+     * @param raftGroupListener TODO.
+     * @param mvStorage TODO.
+     * @param snapshotStorageFactory TODO.
+     * @param partitionMover TODO.
+     * @param getCachedRaftClient TODO.
+     * @param updateTableRaftService TODO.
+     * @param createListener TODO.
+     * @param forcedAssignments TODO.
+     * @param zoneId TODO.
+     * @param raftNodeId TODO.
+     * @param storageIndexTracker TODO.
+     * @param replicaGrpId TODO.
+     * @param newConfiguration TODO.
+     * @return TODO.
+     */
+    public CompletableFuture<Void> startReplica(
+            MetaStorageManager metaStorageMgr,
+            RaftGroupListener raftGroupListener,
+            MvTableStorage mvStorage,
+            SnapshotStorageFactory snapshotStorageFactory,
+            PartitionMover partitionMover,
+            Supplier<RaftGroupService> getCachedRaftClient,
+            Consumer<RaftGroupService> updateTableRaftService,
+            Function<RaftGroupService, ReplicaListener> createListener,
+            @Nullable PeersAndLearners forcedAssignments,
+            int zoneId,
+            RaftNodeId raftNodeId,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
+            TablePartitionId replicaGrpId,
+            PeersAndLearners newConfiguration) {
+        if (isRaftStarted(raftNodeId)) {
+            // (2) if raft node already started => check force reset and jump to replica starting
+            if (forcedAssignments != null) {
+                resetPeers(raftNodeId, forcedAssignments);
+            }
+        } else {
+            // (3) Otherwise let's start raft node manually
+            try {
+
+
+                // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+                startPartitionRaftGroupNode(
+                        replicaGrpId,
+                        zoneId,
+                        raftNodeId,
+                        newConfiguration,
+                        raftGroupListener,
+                        metaStorageMgr,
+                        mvStorage,
+                        snapshotStorageFactory,
+                        partitionMover
+                );
+            } catch (NodeStoppingException ex) {
+                // Q: why not returning false there?
+                throw new CompletionException(ex);
+            }
+        }
+
+        // creating replica branch
+        // - localMemberAssignment == null looks like excessive condition because  in this case startGroupFut returns false (4)
+        // and then !isStartedRaftNode is true.
+        // - in this case isStartedRaftNode should be only true, then it's excessive too.
+        boolean shouldSkipReplicaStarting = isReplicaStarted(replicaGrpId);
+
+        try {
+            return startReplica(
+                    shouldSkipReplicaStarting,
+                    replicaGrpId,
+                    newConfiguration,
+                    getCachedRaftClient,
+                    updateTableRaftService,
+                    createListener,
+                    storageIndexTracker);
+        } catch (NodeStoppingException ex) {
+            throw new AssertionError("Loza was stopped before Table manager", ex);
+        }
     }
 
     /**
