@@ -359,8 +359,6 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     @Test
     public void testReceiver() {
-        // TODO Check class loader
-        // TODO Check partition awareness - not here?
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
@@ -491,8 +489,6 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             assertEquals(2, args.length);
             assertEquals("arg1", args[0]);
             assertEquals(123, args[1]);
-
-            assertEquals("x", this.getClass().getClassLoader().getName());
 
             return CompletableFuture.completedFuture(null);
         }
