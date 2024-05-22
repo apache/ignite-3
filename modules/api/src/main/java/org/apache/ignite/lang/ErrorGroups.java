@@ -431,7 +431,7 @@ public class ErrorGroups {
         /** Distribution zones group. */
         public static final ErrorGroup DISTRIBUTION_ZONES_ERR_GROUP = registerGroup("DISTRZONES", (short) 10);
 
-        /** Distribution zone is not found. */
+        /** Distribution zone was not found. */
         public static final int ZONE_NOT_FOUND_ERR = DISTRIBUTION_ZONES_ERR_GROUP.registerErrorCode((short) 1);
     }
 

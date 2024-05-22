@@ -19,7 +19,6 @@ package org.apache.ignite.internal.cli.commands;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_OPTION_SHORT;
 
 import picocli.CommandLine.Option;
 
@@ -27,7 +26,7 @@ import picocli.CommandLine.Option;
  * Mixin for profile option.
  */
 public class ProfileMixin {
-    @Option(names = {PROFILE_OPTION_SHORT, PROFILE_OPTION}, description = PROFILE_OPTION_DESC)
+    @Option(names = PROFILE_OPTION, description = PROFILE_OPTION_DESC)
     private String profileName;
 
     /**

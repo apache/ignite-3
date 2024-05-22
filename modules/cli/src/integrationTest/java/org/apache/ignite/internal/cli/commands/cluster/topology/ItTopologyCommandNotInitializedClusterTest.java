@@ -32,7 +32,7 @@ class ItTopologyCommandNotInitializedClusterTest extends CliCommandTestNotInitia
     @DisplayName("Should print physical topology when valid cluster url is provided")
     void printPhysicalTopology() {
         // When
-        execute("cluster", "topology", "physical", "--cluster-endpoint-url", NODE_URL);
+        execute("cluster", "topology", "physical", "--url", NODE_URL);
 
         // Then
         assertAll(
@@ -46,7 +46,7 @@ class ItTopologyCommandNotInitializedClusterTest extends CliCommandTestNotInitia
     @DisplayName("Should not print logical topology when valid cluster url is provided but cluster is not initialized")
     void printLogicalTopology() {
         // When
-        execute("cluster", "topology", "logical", "--cluster-endpoint-url", NODE_URL);
+        execute("cluster", "topology", "logical", "--url", NODE_URL);
 
         // Then prints nothing
         assertAll(

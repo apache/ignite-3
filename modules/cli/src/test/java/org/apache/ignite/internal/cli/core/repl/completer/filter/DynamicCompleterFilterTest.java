@@ -34,7 +34,7 @@ class DynamicCompleterFilterTest {
         // Given
         String[] words = {"cluster", "config", "show", ""};
         // And completion candidates
-        String[] candidates = {"--cluster-endpoint-url", "--help", "-h"};
+        String[] candidates = {"--url", "--help", "-h"};
         // And user is not connected to the cluster
         Session session = notConnected();
 
@@ -42,7 +42,7 @@ class DynamicCompleterFilterTest {
         String[] filtered = new DynamicCompleterFilter(session).filter(words, candidates);
 
         // Then help is filtered out
-        assertThat(asList(filtered), containsInAnyOrder("--cluster-endpoint-url"));
+        assertThat(asList(filtered), containsInAnyOrder("--url"));
     }
 
     private static Session notConnected() {
@@ -62,7 +62,7 @@ class DynamicCompleterFilterTest {
         // Given typed words that end with "-"
         String[] words = {"cluster", "config", "show", "-"};
         // And completion candidates
-        String[] candidates = {"--cluster-endpoint-url", "--help", "-h"};
+        String[] candidates = {"--url", "--help", "-h"};
         // And user is not connected to the cluster
         Session session = notConnected();
 
@@ -70,7 +70,7 @@ class DynamicCompleterFilterTest {
         String[] filtered = new DynamicCompleterFilter(session).filter(words, candidates);
 
         // Then help is NOT filtered out
-        assertThat(asList(filtered), containsInAnyOrder("--cluster-endpoint-url", "--help", "-h"));
+        assertThat(asList(filtered), containsInAnyOrder("--url", "--help", "-h"));
     }
 
     @Test
@@ -78,7 +78,7 @@ class DynamicCompleterFilterTest {
         // Given typed words that end with "-"
         String[] words = {"cluster", "config", "show", ""};
         // And completion candidates
-        String[] candidates = {"--cluster-endpoint-url", "--help", "-h"};
+        String[] candidates = {"--url", "--help", "-h"};
         // And
         Session session = connected();
 
@@ -94,7 +94,7 @@ class DynamicCompleterFilterTest {
         // Given typed words that end with "-"
         String[] words = {"cluster", "config", "show", "-"};
         // And completion candidates
-        String[] candidates = {"--cluster-endpoint-url", "--help", "-h"};
+        String[] candidates = {"--url", "--help", "-h"};
         // And
         Session session = connected();
 
@@ -102,7 +102,7 @@ class DynamicCompleterFilterTest {
         String[] filtered = new DynamicCompleterFilter(session).filter(words, candidates);
 
         // Then help is NOT filtered out
-        assertThat(asList(filtered), containsInAnyOrder("--cluster-endpoint-url", "--help", "-h"));
+        assertThat(asList(filtered), containsInAnyOrder("--url", "--help", "-h"));
     }
 
     @Test
