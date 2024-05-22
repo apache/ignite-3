@@ -239,7 +239,6 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
                 ));
     }
 
-
     static class TypeArg {
 
         final NativeType nativeType;
