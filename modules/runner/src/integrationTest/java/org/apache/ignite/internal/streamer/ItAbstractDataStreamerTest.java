@@ -384,7 +384,9 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
 
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
-        assertEquals("Job execution failed: java.lang.ArithmeticException: test", ex.getCause().getMessage());
+        assertEquals(
+                "Streamer receiver failed: Job execution failed: java.lang.ArithmeticException: test",
+                ex.getCause().getMessage());
     }
 
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {

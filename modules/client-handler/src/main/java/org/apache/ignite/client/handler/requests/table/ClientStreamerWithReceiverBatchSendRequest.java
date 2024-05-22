@@ -18,10 +18,12 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
+import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
@@ -33,6 +35,8 @@ import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.table.partition.HashPartition;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -74,11 +78,22 @@ public class ClientStreamerWithReceiverBatchSendRequest {
                         payloadElementCount,
                         payload);
 
-                return jobExecution.resultAsync().thenApply(res -> {
-                    StreamerReceiverSerializer.serializeResults(out, returnResults ? res : null);
+                return jobExecution.resultAsync()
+                        .handle((res, err) -> {
+                            if (err != null) {
+                                if (err.getCause() instanceof ComputeException) {
+                                    ComputeException computeErr = (ComputeException) err.getCause();
+                                    throw new IgniteException(
+                                            COMPUTE_JOB_FAILED_ERR,
+                                            "Streamer receiver failed: " + computeErr.getMessage(), computeErr);
+                                }
 
-                    return null;
-                });
+                                ExceptionUtils.sneakyThrow(err);
+                            }
+
+                            StreamerReceiverSerializer.serializeResults(out, returnResults ? res : null);
+                            return null;
+                        });
             });
         });
     }
