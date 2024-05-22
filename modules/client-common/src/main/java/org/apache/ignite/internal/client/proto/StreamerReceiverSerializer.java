@@ -137,17 +137,29 @@ public class StreamerReceiverSerializer {
             this.items = items;
         }
 
-        /** @return Receiver class name. */
+        /**
+         * Gets receiver class name.
+         *
+         * @return Receiver class name.
+         */
         public String className() {
             return className;
         }
 
-        /** @return Receiver args. */
+        /**
+         * Get receiver args.
+         *
+         * @return Receiver args.
+         */
         public Object[] args() {
             return args;
         }
 
-        /** @return Items. */
+        /**
+         * Gets items.
+         *
+         * @return Items.
+         */
         public List<Object> items() {
             return items;
         }

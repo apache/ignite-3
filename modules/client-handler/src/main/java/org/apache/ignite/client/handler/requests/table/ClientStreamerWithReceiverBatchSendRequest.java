@@ -118,8 +118,8 @@ public class ClientStreamerWithReceiverBatchSendRequest {
 
             if (result != null && result.size() != receiverInfo.items().size()) {
                 throw new IllegalStateException(
-                        "Receiver returned wrong number of results, expected: " + receiverInfo.items().size() +
-                                ", actual: " + result.size());
+                        "Receiver returned wrong number of results, expected: " + receiverInfo.items().size()
+                                + ", actual: " + result.size());
             }
 
             return result;
