@@ -58,7 +58,6 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -1022,12 +1021,11 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(readOnly));
 
         InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();
-        TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
         ZonePartitionId zonePartId = new ZonePartitionId(table.zoneId(), table.tableId(), partId);
 
         PlacementDriver placementDriver = ignite.placementDriver();
         ReplicaMeta primaryReplica = IgniteTestUtils.await(
-                placementDriver.awaitPrimaryReplica(tblPartId, ignite.clock().now(), 30, TimeUnit.SECONDS));
+                placementDriver.awaitPrimaryReplicaForTable(zonePartId, ignite.clock().now(), 30, TimeUnit.SECONDS));
 
         tx.enlist(
                 zonePartId,

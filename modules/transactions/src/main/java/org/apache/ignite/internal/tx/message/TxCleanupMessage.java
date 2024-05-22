@@ -48,7 +48,6 @@ public interface TxCleanupMessage extends TimestampAware {
      */
     @Marshallable
     @Nullable
-    // TODO: check that ZonePartitionId
     Collection<ReplicationGroupId> groups();
 
     /**
