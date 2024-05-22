@@ -425,6 +425,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                 null
         );
     }
+
     private static CatalogTableColumnDescriptor nullableIntColumn(String columnName) {
         return new CatalogTableColumnDescriptor(columnName, INT32, true, DEFAULT_PRECISION, DEFAULT_SCALE, DEFAULT_LENGTH, null);
     }
@@ -451,6 +452,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
 
     private interface SchemaChangeSource {
         List<FullTableSchema> schemaVersions();
+
         String expectedDetails();
     }
 

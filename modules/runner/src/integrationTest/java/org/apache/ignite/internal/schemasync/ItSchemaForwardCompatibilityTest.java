@@ -107,8 +107,8 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
         assertThat(
                 ex.getMessage(),
                 containsString(String.format(
-                        "Commit failed because schema 1 is not forward-compatible with 2 for table %d",
-                        tableId
+                        "Commit failed because schema 1 is not forward-compatible with 2 for table %s",
+                        table.name()
                 ))
         );
 

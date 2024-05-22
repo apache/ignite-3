@@ -44,6 +44,14 @@ public class IncompatibleSchemaException extends TransactionException implements
         return new IncompatibleSchemaException(String.format(BACKWARDS_INCOMPATIBLE, failedTableName, fromSchemaVersion, toSchemaVersion));
     }
 
+    /**
+     * Returns new IncompatibleSchemaException for a case when schema was updated after the beginning of the transaction
+     *
+     * @param tableName Name of the table.
+     * @param startSchemaVersion Schema version at the beginning of the transaction.
+     * @param operationSchemaVersion Schema version at the moment of the operation.
+     * @return Exception with formatted message.
+     */
     public static IncompatibleSchemaException schemaChanged(String tableName, int startSchemaVersion, int operationSchemaVersion) {
         return new IncompatibleSchemaException(String.format(
                 SCHEMA_CHANGED_MESSAGE,
@@ -51,10 +59,22 @@ public class IncompatibleSchemaException extends TransactionException implements
         ));
     }
 
+    /**
+     * Returns new IncompatibleSchemaException for a case when was dropped at the moment of operation.
+     *
+     * @param tableName Name of the table.
+     * @return Exception with formatted message.
+     */
     public static IncompatibleSchemaException tableDropped(String tableName) {
         return new IncompatibleSchemaException(String.format(TABLE_DROPPED_NAME_MESSAGE, tableName));
     }
 
+    /**
+     * Returns new IncompatibleSchemaException for a case when table was dropped at the moment of operation.
+     *
+     * @param tableId ID of the table.
+     * @return Exception with formatted message.
+     */
     public static IncompatibleSchemaException tableDropped(int tableId) {
         return new IncompatibleSchemaException(String.format(TABLE_DROPPED_ID_MESSAGE, tableId));
     }

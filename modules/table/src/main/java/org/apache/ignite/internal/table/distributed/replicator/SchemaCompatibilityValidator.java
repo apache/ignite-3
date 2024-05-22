@@ -341,7 +341,7 @@ class SchemaCompatibilityValidator {
                 ValidatorVerdict.INCOMPATIBLE,
                 "Name of the table has been changed"
         );
-        
+
         @Override
         public ValidatorResult compatible(TableDefinitionDiff diff) {
             return diff.nameDiffers() ? INCOMPATIBLE : ValidatorResult.DONT_CARE;
