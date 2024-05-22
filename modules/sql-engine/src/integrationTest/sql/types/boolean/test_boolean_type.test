@@ -30,7 +30,7 @@ true	false
 false	true
 
 skipif ignite3
-# Ignored: lack of supporting UNKNOWN keyword
+# Ignored: lack of supporting UNKNOWN keyword https://issues.apache.org/jira/browse/IGNITE-22297
 query TT
 SELECT b IS UNKNOWN, b IS NOT UNKNOWN FROM test ORDER BY a;
 ----
@@ -59,7 +59,7 @@ SELECT a FROM test WHERE b IS NULL ORDER BY a;
 3
 
 skipif ignite3
-# Ignored: lack of supporting UNKNOWN keyword
+# Ignored: lack of supporting UNKNOWN keyword https://issues.apache.org/jira/browse/IGNITE-22297
 query T
 SELECT a FROM test WHERE b IS UNKNOWN ORDER BY a;
 ----
@@ -85,7 +85,7 @@ SELECT a FROM test WHERE b NOT IN (NULL, FALSE) ORDER BY a;
 
 # AND
 skipif ignite3
-# Ignored: lack of supporting UNKNOWN keyword
+# Ignored: lack of supporting UNKNOWN keyword https://issues.apache.org/jira/browse/IGNITE-22297
 query TTT
 SELECT b AND TRUE, b AND FALSE, b AND UNKNOWN FROM test ORDER BY a;
 ----
@@ -104,7 +104,7 @@ null	false	null
 
 # OR
 skipif ignite3
-# Ignored: lack of supporting UNKNOWN keyword
+# Ignored: lack of supporting UNKNOWN keyword https://issues.apache.org/jira/browse/IGNITE-22297
 query TTT
 SELECT b OR TRUE, b OR FALSE, b OR UNKNOWN FROM test ORDER BY a;
 ----
