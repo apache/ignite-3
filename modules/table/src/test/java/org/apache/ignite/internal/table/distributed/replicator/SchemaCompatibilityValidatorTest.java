@@ -151,6 +151,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         assertThat(result.failedTableName(), is(TABLE_NAME));
         assertThat(result.fromSchemaVersion(), is(1));
         assertThat(result.toSchemaVersion(), is(2));
+        assertThat(result.details(), is(changeSource.expectedDetails()));
     }
 
     @ParameterizedTest
@@ -300,11 +301,21 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
 
     @Test
     void combinationOfForwardCompatibleChangesIsCompatible() {
-        assertForwardCompatibleChangeAllowsCommitting(() -> List.of(
-                tableSchema(1, List.of(column(INT32, false))),
-                // Type is widened, NOT NULL dropped.
-                tableSchema(2, List.of(column(INT64, true)))
-        ));
+        assertForwardCompatibleChangeAllowsCommitting(new SchemaChangeSource() {
+            @Override
+            public List<FullTableSchema> schemaVersions() {
+                return List.of(
+                        tableSchema(1, List.of(column(INT32, false))),
+                        // Type is widened, NOT NULL dropped.
+                        tableSchema(2, List.of(column(INT64, true)))
+                );
+            }
+
+            @Override
+            public String expectedDetails() {
+                throw new UnsupportedOperationException();
+            }
+        });
     }
 
     private static CatalogTableColumnDescriptor column(ColumnType type, boolean nullable) {
@@ -321,11 +332,21 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
 
     @Test
     void oneForwardIncompatibleChangeMakesCombinationIncompatible() {
-        assertForwardIncompatibleChangeDisallowsCommitting(() -> List.of(
-                tableSchema(1, List.of(column(INT32, true))),
-                // Type is widened (compatible), but NOT NULL added (incompatible).
-                tableSchema(2, List.of(column(INT64, false)))
-        ));
+        assertForwardIncompatibleChangeDisallowsCommitting(new SchemaChangeSource() {
+            @Override
+            public List<FullTableSchema> schemaVersions() {
+                return List.of(
+                        tableSchema(1, List.of(column(INT32, true))),
+                        // Type is widened (compatible), but NOT NULL added (incompatible).
+                        tableSchema(2, List.of(column(INT64, false)))
+                );
+            }
+
+            @Override
+            public String expectedDetails() {
+                return "Columns change validation failed: [col: Not null added]";
+            }
+        });
     }
 
     @Test
@@ -340,15 +361,25 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
 
     @Test
     void changeOppositeToForwardCompatibleChangeIsNotBackwardCompatible() {
-        assertChangeIsNotBackwardCompatible(() -> List.of(
-                tableSchema(1, List.of(
-                        intColumn("col1"),
-                        intColumnWithDefault("col2", 42)
-                )),
-                tableSchema(2, List.of(
-                        intColumn("col1")
-                ))
-        ));
+        assertChangeIsNotBackwardCompatible(new SchemaChangeSource() {
+            @Override
+            public List<FullTableSchema> schemaVersions() {
+                return List.of(
+                        tableSchema(1, List.of(
+                                intColumn("col1"),
+                                intColumnWithDefault("col2", 42)
+                        )),
+                        tableSchema(2, List.of(
+                                intColumn("col1")
+                        ))
+                );
+            }
+
+            @Override
+            public String expectedDetails() {
+                return null;
+            }
+        });
     }
 
     private void assertChangeIsNotBackwardCompatible(SchemaChangeSource changeSource) {
@@ -383,6 +414,17 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         );
     }
 
+    private static CatalogTableColumnDescriptor int64Column(String columnName) {
+        return new CatalogTableColumnDescriptor(
+                columnName,
+                INT64,
+                false,
+                DEFAULT_PRECISION,
+                DEFAULT_SCALE,
+                DEFAULT_LENGTH,
+                null
+        );
+    }
     private static CatalogTableColumnDescriptor nullableIntColumn(String columnName) {
         return new CatalogTableColumnDescriptor(columnName, INT32, true, DEFAULT_PRECISION, DEFAULT_SCALE, DEFAULT_LENGTH, null);
     }
@@ -407,9 +449,9 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         return new FullTableSchema(schemaVersion, TABLE_ID, name, columns);
     }
 
-    @FunctionalInterface
     private interface SchemaChangeSource {
         List<FullTableSchema> schemaVersions();
+        String expectedDetails();
     }
 
     private enum ForwardCompatibleChange implements SchemaChangeSource {
@@ -459,60 +501,111 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         public List<FullTableSchema> schemaVersions() {
             return schemaVersions;
         }
+
+        @Override
+        public String expectedDetails() {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private enum ForwardIncompatibleChange implements SchemaChangeSource {
-        RENAME_TABLE(List.of(
-                tableSchema(1, TABLE_NAME, List.of(
-                        intColumn("col1")
-                )),
-                tableSchema(2, ANOTHER_NAME, List.of(
-                        intColumn("col1")
-                ))
-        )),
-        DROP_COLUMN(List.of(
-                tableSchema(1, List.of(
-                        intColumn("col1"),
-                        intColumn("col2")
-                )),
-                tableSchema(2, List.of(
-                        intColumn("col1")
-                ))
-        )),
-        ADD_DEFAULT(List.of(
-                tableSchema(1, List.of(
-                        intColumn("col1")
-                )),
-                tableSchema(2, List.of(
-                        intColumnWithDefault("col1", 42)
-                ))
-        )),
-        CHANGE_DEFAULT(List.of(
-                tableSchema(1, List.of(
-                        intColumnWithDefault("col1", 1)
-                )),
-                tableSchema(2, List.of(
-                        intColumnWithDefault("col1", 2)
-                ))
-        )),
-        DROP_DEFAULT(List.of(
-                tableSchema(1, List.of(
-                        intColumnWithDefault("col1", 42)
-                )),
-                tableSchema(2, List.of(
-                        intColumn("col1")
-                ))
-        ));
+        RENAME_TABLE(
+                List.of(
+                        tableSchema(1, TABLE_NAME, List.of(
+                                intColumn("col1")
+                        )),
+                        tableSchema(2, ANOTHER_NAME, List.of(
+                                intColumn("col1")
+                        ))
+                ),
+                "Name of the table has been changed"
+        ),
+        DROP_COLUMN(
+                List.of(
+                        tableSchema(1, List.of(
+                                intColumn("col1"),
+                                intColumn("col2")
+                        )),
+                        tableSchema(2, List.of(
+                                intColumn("col1")
+                        ))
+                ),
+                "Columns were dropped"
+        ),
+        ADD_DEFAULT(
+                List.of(
+                        tableSchema(1, List.of(
+                                intColumn("col1")
+                        )),
+                        tableSchema(2, List.of(
+                                intColumnWithDefault("col1", 42)
+                        ))
+                ),
+                "Columns change validation failed: [col1: Default value changed]"
+        ),
+        CHANGE_DEFAULT(
+                List.of(
+                        tableSchema(1, List.of(
+                                intColumnWithDefault("col1", 1)
+                        )),
+                        tableSchema(2, List.of(
+                                intColumnWithDefault("col1", 2)
+                        ))
+                ),
+                "Columns change validation failed: [col1: Default value changed]"
+        ),
+        DROP_DEFAULT(
+                List.of(
+                        tableSchema(1, List.of(
+                                intColumnWithDefault("col1", 42)
+                        )),
+                        tableSchema(2, List.of(
+                                intColumn("col1")
+                        ))
+                ),
+                "Columns change validation failed: [col1: Default value changed]"
+        ),
+        MULTIPLE(
+                List.of(
+                        tableSchema(1, TABLE_NAME, List.of(
+                                intColumn("ADD_DEFAULT"),
+                                intColumnWithDefault("CHANGE_DEFAULT", 42),
+                                intColumnWithDefault("DROP_DEFAULT", 42),
+                                intColumn("DROP_COLUMN"),
+                                intColumn("NULLABLE_ADDED"),
+                                int64Column("TYPE_CHANGED")
+                        )),
+                        tableSchema(2, ANOTHER_NAME, List.of(
+                                intColumnWithDefault("ADD_DEFAULT", 42),
+                                intColumnWithDefault("CHANGE_DEFAULT", 24),
+                                intColumn("DROP_DEFAULT"),
+                                nullableIntColumn("NOT_NULL_ADDED"),
+                                intColumn("TYPE_CHANGED"),
+                                intColumn("NON_NULL_WITHOUT_DEFAULT")
+                        ))
+                ),
+                "Name of the table has been changed; Added nonnull columns without default value: [NON_NULL_WITHOUT_DEFAULT]; "
+                        + "Columns were dropped; Columns change validation failed: [TYPE_CHANGED: Type changed; "
+                        + "ADD_DEFAULT: Default value changed; CHANGE_DEFAULT: Default value changed; DROP_DEFAULT: Default value changed]"
+        );
 
         private final List<FullTableSchema> schemaVersions;
+        private final String expectedDetails;
 
-        ForwardIncompatibleChange(List<FullTableSchema> schemaVersions) {
+        ForwardIncompatibleChange(List<FullTableSchema> schemaVersions, String expectedDetails) {
             this.schemaVersions = schemaVersions;
+            this.expectedDetails = expectedDetails;
         }
 
         @Override
         public List<FullTableSchema> schemaVersions() {
             return schemaVersions;
+        }
+
+
+        @Override
+        public String expectedDetails() {
+            return expectedDetails;
         }
     }
 
@@ -572,6 +665,11 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                     tableSchema(1, List.of(columnFromType(typeBefore))),
                     tableSchema(2, List.of(columnFromType(typeAfter)))
             );
+        }
+
+        @Override
+        public String expectedDetails() {
+            return "Columns change validation failed: [col: Type changed]";
         }
 
         private static CatalogTableColumnDescriptor columnFromType(Type type) {

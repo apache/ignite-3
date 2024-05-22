@@ -1621,7 +1621,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             if (validationResult.isTableDropped()) {
                 // TODO: IGNITE-20966 - improve error message.
                 throw new MismatchingTransactionOutcomeException(
-                        format("Commit failed because table {} was already dropped ", validationResult.failedTableName()),
+                        format("Commit failed because a table was already dropped [table={}]", validationResult.failedTableName()),
                         txResult
                 );
             } else {

@@ -105,7 +105,7 @@ public class CompatValidationResult {
      * Returns whether the validation has failed due to table was already dropped at the commit timestamp.
      */
     public boolean isTableDropped() {
-        return status == TABLE_DROPPED;
+        return status == ValidationStatus.TABLE_DROPPED;
     }
 
     /**

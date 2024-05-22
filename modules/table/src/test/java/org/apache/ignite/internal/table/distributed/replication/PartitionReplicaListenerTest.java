@@ -260,6 +260,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static final int ANOTHER_TABLE_ID = 2;
 
     private static final long ANY_ENLISTMENT_CONSISTENCY_TOKEN = 1L;
+    private static final String TABLE_NAME = "test";
+    private static final String TABLE_NAME_2 = "second_test";
 
     private final Map<UUID, Set<RowId>> pendingRows = new ConcurrentHashMap<>();
 
@@ -382,7 +384,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private KvMarshaller<TestKey, TestValue> kvMarshallerVersion2;
 
     private final CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
-            TABLE_ID, 1, 2, "table", 1,
+            TABLE_ID, 1, 2, TABLE_NAME, 1,
             List.of(
                     new CatalogTableColumnDescriptor("intKey", ColumnType.INT32, false, 0, 0, 0, null),
                     new CatalogTableColumnDescriptor("strKey", ColumnType.STRING, false, 0, 0, 0, null),
@@ -1712,7 +1714,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static FullTableSchema tableSchema(int schemaVersion, List<CatalogTableColumnDescriptor> columns) {
-        return new FullTableSchema(schemaVersion, TABLE_ID, "test", columns);
+        return new FullTableSchema(schemaVersion, TABLE_ID, TABLE_NAME, columns);
     }
 
     private AtomicReference<Boolean> interceptFinishTxCommand() {
@@ -1873,7 +1875,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         IncompatibleSchemaException ex = assertWillThrowFast(future,
                 IncompatibleSchemaException.class);
         assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
-        assertThat(ex.getMessage(), containsString("Operation failed because schema 1 is not backward-compatible with 2"));
+        assertThat(
+                ex.getMessage(), containsString(
+                        "Schema is not backward-compatible for table [table=test, startSchema=1, operationSchema=2"
+                )
+        );
 
         // Tx should not be finished.
         assertThat(committed.get(), is(nullValue()));
@@ -2205,7 +2211,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
             assertThat(
                     ex.getMessage(),
-                    is("Table schema was updated after the transaction was started [table=1, startSchema=1, operationSchema=2]")
+                    is("Table schema was updated after the transaction was started [table=test, startSchema=1, operationSchema=2]")
             );
         } else {
             assertThat(future, willCompleteSuccessfully());
@@ -2215,6 +2221,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private void makeSchemaChangeAfter(HybridTimestamp txBeginTs) {
         CatalogTableDescriptor tableVersion1 = mock(CatalogTableDescriptor.class);
         CatalogTableDescriptor tableVersion2 = mock(CatalogTableDescriptor.class);
+
+        when(tableVersion1.name()).thenReturn(TABLE_NAME);
+        when(tableVersion2.name()).thenReturn(TABLE_NAME_2);
         when(tableVersion1.tableVersion()).thenReturn(CURRENT_SCHEMA_VERSION);
         when(tableVersion2.tableVersion()).thenReturn(NEXT_SCHEMA_VERSION);
 
@@ -2320,7 +2329,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         IncompatibleSchemaException ex = assertWillThrowFast(future, IncompatibleSchemaException.class);
         assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
-        assertThat(ex.getMessage(), is("Table was dropped [table=1]"));
+        assertThat(ex.getMessage(), is("Table was dropped [tableId=1]"));
     }
 
     private void makeTableBeDroppedAfter(HybridTimestamp txBeginTs) {
@@ -2330,6 +2339,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private void makeTableBeDroppedAfter(HybridTimestamp txBeginTs, int tableId) {
         CatalogTableDescriptor tableVersion1 = mock(CatalogTableDescriptor.class);
         when(tableVersion1.tableVersion()).thenReturn(CURRENT_SCHEMA_VERSION);
+        when(tableVersion1.name()).thenReturn(TABLE_NAME);
 
         when(catalogService.table(tableId, txBeginTs.longValue())).thenReturn(tableVersion1);
         when(catalogService.table(eq(tableId), gt(txBeginTs.longValue()))).thenReturn(null);
@@ -2417,7 +2427,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         IncompatibleSchemaException ex = assertWillThrowFast(future, IncompatibleSchemaException.class);
         assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
-        assertThat(ex.getMessage(), is("Table was dropped [table=1]"));
+        assertThat(ex.getMessage(), is("Table was dropped [tableId=1]"));
     }
 
     @CartesianTest
@@ -2470,6 +2480,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         UUID txId = newTxId();
         HybridTimestamp txBeginTs = beginTimestamp(txId);
 
+        String tableNameToBeDropped = catalogService.table(tableToBeDroppedId, txBeginTs.longValue()).name();
+
         makeTableBeDroppedAfter(txBeginTs, tableToBeDroppedId);
 
         CompletableFuture<?> future = partitionReplicaListener.invoke(
@@ -2486,7 +2498,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         MismatchingTransactionOutcomeException ex = assertWillThrowFast(future, MismatchingTransactionOutcomeException.class);
 
-        assertThat(ex.getMessage(), is("Commit failed because a table was already dropped [tableId=" + tableToBeDroppedId + "]"));
+        assertThat(ex.getMessage(), is("Commit failed because a table was already dropped [table=" + tableNameToBeDropped + "]"));
 
         assertThat("The transaction must have been aborted", committed.get(), is(false));
     }
@@ -2526,6 +2538,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private void makeSchemaBeNextVersion() {
         CatalogTableDescriptor tableVersion2 = mock(CatalogTableDescriptor.class);
         when(tableVersion2.tableVersion()).thenReturn(NEXT_SCHEMA_VERSION);
+        when(tableVersion2.name()).thenReturn(TABLE_NAME_2);
 
         when(catalogService.table(eq(TABLE_ID), anyLong())).thenReturn(tableVersion2);
     }

@@ -37,7 +37,7 @@ public class IncompatibleSchemaException extends TransactionException implements
     private static final String TABLE_DROPPED_ID_MESSAGE = "Table was dropped [tableId=%d]";
 
     public IncompatibleSchemaException(String message) {
-        super(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR, "Operation failed: " + message);
+        super(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR, message);
     }
 
     public static IncompatibleSchemaException backwardsIncompatible(int fromSchemaVersion, int toSchemaVersion, String failedTableName) {
