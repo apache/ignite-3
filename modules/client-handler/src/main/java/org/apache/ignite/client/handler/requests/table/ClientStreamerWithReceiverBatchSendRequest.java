@@ -71,6 +71,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             byte[] payload = in.readBinary();
 
             return table.partitionManager().primaryReplicaAsync(new HashPartition(partition)).thenCompose(primaryReplica -> {
+                // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
                 JobExecution<List<Object>> jobExecution = compute.executeAsyncWithFailover(
                         Set.of(primaryReplica),
                         deploymentUnits,
