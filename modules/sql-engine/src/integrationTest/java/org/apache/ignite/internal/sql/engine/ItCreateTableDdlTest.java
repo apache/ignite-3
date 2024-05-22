@@ -530,26 +530,26 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     public void testStringZeroLength() {
         assertThrowsSqlException(
-                STMT_VALIDATION_ERR,
-                "Length for column 'ID' of type 'STRING' must be non-negative",
+                STMT_PARSE_ERR,
+                "CHAR datatype is not supported in table",
                 () -> sql("CREATE TABLE TEST(ID CHAR(0) PRIMARY KEY, VAL0 INT)")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for column 'ID' of type 'STRING' must be non-negative",
+                "Length for column 'ID' of type 'STRING' must be at least 1",
                 () -> sql("CREATE TABLE TEST(ID VARCHAR(0) PRIMARY KEY, VAL0 INT)")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for column 'ID' of type 'BYTE_ARRAY' must be non-negative",
+                "Length for column 'ID' of type 'BYTE_ARRAY' must be at least 1",
                 () -> sql("CREATE TABLE TEST(ID BINARY(0) PRIMARY KEY, VAL0 INT)")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for column 'ID' of type 'BYTE_ARRAY' must be non-negative",
+                "Length for column 'ID' of type 'BYTE_ARRAY' must be at least 1",
                 () -> sql("CREATE TABLE TEST(ID VARBINARY(0) PRIMARY KEY, VAL0 INT)")
         );
     }
