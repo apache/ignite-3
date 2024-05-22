@@ -17,8 +17,16 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
+
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
+import java.util.function.Function;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Streamer receiver serializer.
@@ -39,5 +47,60 @@ public class StreamerReceiverSerializer {
 
         w.packInt(binaryTupleSize);
         w.packBinaryTuple(builder);
+    }
+
+    public static SteamerReceiverInfo deserialize(byte[] bytes, int elementCount) {
+        var reader = new BinaryTupleReader(elementCount, bytes);
+
+        int readerIndex = 0;
+        String receiverClassName = reader.stringValue(readerIndex++);
+
+        if (receiverClassName == null) {
+            throw new IgniteException(PROTOCOL_ERR, "Receiver class name is null");
+        }
+
+        int receiverArgsCount = reader.intValue(readerIndex++);
+
+        Object[] receiverArgs = new Object[receiverArgsCount];
+        for (int i = 0; i < receiverArgsCount; i++) {
+            receiverArgs[i] = ClientBinaryTupleUtils.readObject(reader, readerIndex);
+            readerIndex += 3;
+        }
+
+        int typeId = reader.intValue(readerIndex++);
+        ColumnType type = ColumnTypeConverter.fromIdOrThrow(typeId);
+        Function<Integer, Object> itemReader = ClientBinaryTupleUtils.readerForType(reader, type);
+        int itemsCount = reader.intValue(readerIndex++);
+
+        List<Object> items = new ArrayList<>(itemsCount);
+        for (int i = 0; i < itemsCount; i++) {
+            items.add(itemReader.apply(readerIndex++));
+        }
+
+        return new SteamerReceiverInfo(receiverClassName, receiverArgs, items);
+    }
+
+    public static class SteamerReceiverInfo {
+        private final String receiverClassName;
+        private final Object[] receiverArgs;
+        private final Collection<?> items;
+
+        public SteamerReceiverInfo(String receiverClassName, Object[] receiverArgs, Collection<?> items) {
+            this.receiverClassName = receiverClassName;
+            this.receiverArgs = receiverArgs;
+            this.items = items;
+        }
+
+        public String getReceiverClassName() {
+            return receiverClassName;
+        }
+
+        public Object[] getReceiverArgs() {
+            return receiverArgs;
+        }
+
+        public Collection<?> getItems() {
+            return items;
+        }
     }
 }
