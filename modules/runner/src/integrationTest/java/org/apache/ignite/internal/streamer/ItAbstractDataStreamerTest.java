@@ -38,7 +38,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.DataStreamerItem;
@@ -377,11 +376,13 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                     "arg1",
                     123);
 
+            // Same ID goes to the same partition.
             publisher.submit(tuple(1, "val1"));
-            publisher.submit(tuple(2, "val2"));
+            publisher.submit(tuple(1, "val2"));
+            publisher.submit(tuple(1, "val3"));
         }
 
-        assertThat(streamerFut, willSucceedFast());
+        assertThat(streamerFut, willCompleteSuccessfully());
     }
 
     @Test
@@ -473,12 +474,24 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
     }
 
+    @SuppressWarnings("resource")
     private static class TestReceiver implements DataStreamerReceiver<String, Void> {
         @Override
         public CompletableFuture<List<Void>> receive(List<String> page, DataStreamerReceiverContext ctx, Object... args) {
             if ("throw".equals(args[0])) {
                 throw new ArithmeticException("test");
             }
+
+            assertEquals(3, page.size());
+            assertEquals("val1", page.get(0));
+            assertEquals("val2", page.get(1));
+            assertEquals("val3", page.get(2));
+
+            assertNotNull(ctx.ignite().tables().table(DEFAULT_TABLE_NAME));
+
+            assertEquals(2, args.length);
+            assertEquals("arg1", args[0]);
+            assertEquals(123, args[1]);
 
             return CompletableFuture.completedFuture(null);
         }
