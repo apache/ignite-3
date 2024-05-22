@@ -105,21 +105,27 @@ public class ColumnConstructionValidatorTest extends BaseIgniteAbstractTest {
     @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
     public void testColumnSetLength(ColumnType type) {
         Builder noLength = columnParamsBuilder("COL", type, DEFAULT_NULLABLE);
-        Builder invalidLength = columnParamsBuilder("COL", type, DEFAULT_NULLABLE);
+        Builder negativeLength = columnParamsBuilder("COL", type, DEFAULT_NULLABLE);
         Builder correctLength = columnParamsBuilder("COL", type, DEFAULT_NULLABLE);
+        Builder zeroLength = columnParamsBuilder("COL", type, DEFAULT_NULLABLE);
 
         initializeColumnWithDefaults(type, noLength);
-        initializeColumnWithDefaults(type, invalidLength);
+        initializeColumnWithDefaults(type, negativeLength);
         initializeColumnWithDefaults(type, correctLength);
+        initializeColumnWithDefaults(type, zeroLength);
 
         noLength.length(null);
-        invalidLength.length(-1);
-
+        negativeLength.length(-1);
+        zeroLength.length(0);
+        
         if (type.lengthAllowed()) {
             assertThrowsWithCause(noLength::build, CatalogValidationException.class,
                     format(ERR_COL_PARAM_DEFINITION, "Length", "COL", type.name()));
+            
+            assertThrowsWithCause(negativeLength::build, CatalogValidationException.class,
+                    format(ERR_COL_POSITIVE_PARAM_VALIDATION, "Length", "COL", type.name()));
 
-            assertThrowsWithCause(invalidLength::build, CatalogValidationException.class,
+            assertThrowsWithCause(zeroLength::build, CatalogValidationException.class,
                     format(ERR_COL_POSITIVE_PARAM_VALIDATION, "Length", "COL", type.name()));
 
             ColumnParams col = correctLength.build();
