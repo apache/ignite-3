@@ -74,11 +74,11 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.table.distributed.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
-import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.distributed.replication.request.RequestType;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -110,7 +110,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
     @InjectConfiguration("mock.rpcTimeout= 3000")
     private ReplicationConfiguration replicationConfiguration;
 
-    private final TableMessagesFactory tableMessagesFactory = new TableMessagesFactory();
+    private final PartitionReplicationMessagesFactory tableMessagesFactory = new PartitionReplicationMessagesFactory();
 
     private final ReplicaMessagesFactory replicaMessageFactory = new ReplicaMessagesFactory();
 
@@ -156,7 +156,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 clusterService,
                 cmgManager,
                 new TestClockService(clock),
-                Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                 new TestPlacementDriver(clusterService.topologyService().localMember()),
                 requestsExecutor,
                 new NoOpFailureProcessor()

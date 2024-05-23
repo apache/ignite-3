@@ -40,12 +40,12 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotRequestMessage;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
+import org.apache.ignite.internal.table.distributed.raft.message.SnapshotMetaRequest;
+import org.apache.ignite.internal.table.distributed.raft.message.SnapshotMvDataRequest;
+import org.apache.ignite.internal.table.distributed.raft.message.SnapshotRequestMessage;
+import org.apache.ignite.internal.table.distributed.raft.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -111,7 +111,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
                 IgniteThreadFactory.create(nodeName, "outgoing-snapshots", LOG, STORAGE_READ)
         );
 
-        messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
+        messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, this::handleMessage);
 
         return nullCompletedFuture();
     }
@@ -194,13 +194,13 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
 
     private static @Nullable NetworkMessage handleSnapshotRequestMessage(NetworkMessage networkMessage, OutgoingSnapshot outgoingSnapshot) {
         switch (networkMessage.messageType()) {
-            case TableMessageGroup.SNAPSHOT_META_REQUEST:
+            case PartitionReplicationMessageGroup.SNAPSHOT_META_REQUEST:
                 return outgoingSnapshot.handleSnapshotMetaRequest((SnapshotMetaRequest) networkMessage);
 
-            case TableMessageGroup.SNAPSHOT_MV_DATA_REQUEST:
+            case PartitionReplicationMessageGroup.SNAPSHOT_MV_DATA_REQUEST:
                 return outgoingSnapshot.handleSnapshotMvDataRequest((SnapshotMvDataRequest) networkMessage);
 
-            case TableMessageGroup.SNAPSHOT_TX_DATA_REQUEST:
+            case PartitionReplicationMessageGroup.SNAPSHOT_TX_DATA_REQUEST:
                 return outgoingSnapshot.handleSnapshotTxDataRequest((SnapshotTxDataRequest) networkMessage);
 
             default:

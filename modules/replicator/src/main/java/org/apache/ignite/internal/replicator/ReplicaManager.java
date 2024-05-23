@@ -46,7 +46,9 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.ZoneBasedReplica;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
@@ -153,6 +155,46 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private final ExecutorService executor;
 
     private String localNodeId;
+
+    private Function<ReplicationGroupId, ReplicationGroupId> groupIdConverter = Function.identity();
+
+    /**
+     *
+     * @param nodeName
+     * @param clusterNetSvc
+     * @param cmgMgr
+     * @param clockService
+     * @param messageGroupsToHandle
+     * @param placementDriver
+     * @param requestsExecutor
+     * @param failureProcessor
+     * @param groupIdConverter
+     */
+    @TestOnly
+    public ReplicaManager(
+            String nodeName,
+            ClusterService clusterNetSvc,
+            ClusterManagementGroupManager cmgMgr,
+            ClockService clockService,
+            Set<Class<?>> messageGroupsToHandle,
+            PlacementDriver placementDriver,
+            Executor requestsExecutor,
+            FailureProcessor failureProcessor,
+            Function<ReplicationGroupId, ReplicationGroupId> groupIdConverter
+    ) {
+        this(
+                nodeName,
+                clusterNetSvc,
+                cmgMgr,
+                clockService,
+                messageGroupsToHandle,
+                placementDriver,
+                requestsExecutor,
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                failureProcessor);
+
+        this.groupIdConverter = groupIdConverter;
+    }
 
     /**
      * Constructor for a replica service.
@@ -287,12 +329,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return;
         }
 
+        ReplicationGroupId groupId = groupIdConverter.apply(request.groupId());
+
         String senderConsistentId = sender.name();
 
         try {
             // Notify the sender that the Replica is created and ready to process requests.
             if (request instanceof AwaitReplicaRequest) {
-                replicas.compute(request.groupId(), (replicationGroupId, replicaFut) -> {
+                replicas.compute(groupId, (replicationGroupId, replicaFut) -> {
                     if (replicaFut == null) {
                         replicaFut = new CompletableFuture<>();
                     }
@@ -320,12 +364,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 return;
             }
 
-            CompletableFuture<Replica> replicaFut = replicas.get(request.groupId());
+            CompletableFuture<Replica> replicaFut = replicas.get(groupId);
 
             HybridTimestamp requestTimestamp = extractTimestamp(request);
 
             if (replicaFut == null || !replicaFut.isDone()) {
-                sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, request.groupId(), requestTimestamp);
+                sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, groupId, requestTimestamp);
 
                 return;
             }
@@ -361,7 +405,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
 
                 if (request instanceof PrimaryReplicaRequest && isConnectivityRelatedException(ex)) {
-                    stopLeaseProlongation(request.groupId(), null);
+                    stopLeaseProlongation(groupId, null);
                 }
 
                 if (ex == null && res.replicationFuture() != null) {
@@ -521,6 +565,44 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 executor,
                 placementDriver,
                 clockService
+        );
+
+        CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
+            if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
+                assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
+                LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
+
+                return completedFuture(newReplica);
+            } else {
+                existingReplicaFuture.complete(newReplica);
+                LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
+
+                return existingReplicaFuture;
+            }
+        });
+
+        var eventParams = new LocalReplicaEventParameters(replicaGrpId);
+
+        return fireEvent(AFTER_REPLICA_STARTED, eventParams)
+                .exceptionally(e -> {
+                    LOG.error("Error when notifying about AFTER_REPLICA_STARTED event.", e);
+
+                    return null;
+                })
+                .thenCompose(v -> replicaFuture);
+    }
+
+    public CompletableFuture<Replica> startReplica(
+            ReplicationGroupId replicaGrpId,
+            ReplicaListener listener,
+            TopologyAwareRaftGroupService raftClient
+    ) {
+        LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
+
+        Replica newReplica = new ZoneBasedReplica(
+                replicaGrpId,
+                listener,
+                raftClient
         );
 
         CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
@@ -821,6 +903,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     @TestOnly
     public boolean isReplicaTouched(ReplicationGroupId replicaGrpId) {
         return replicas.containsKey(replicaGrpId);
+    }
+
+    @TestOnly
+    public CompletableFuture<Replica> getReplica(ReplicationGroupId replicationGroupId) {
+        return replicas.get(replicationGroupId);
     }
 
     /**

@@ -51,16 +51,16 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
+import org.apache.ignite.internal.table.distributed.raft.message.SnapshotMetaRequest;
+import org.apache.ignite.internal.table.distributed.raft.message.SnapshotMetaResponse;
+import org.apache.ignite.internal.table.distributed.raft.message.SnapshotMvDataResponse;
+import org.apache.ignite.internal.table.distributed.raft.message.SnapshotMvDataResponse.ResponseEntry;
+import org.apache.ignite.internal.table.distributed.raft.message.SnapshotTxDataResponse;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -77,7 +77,7 @@ import org.jetbrains.annotations.Nullable;
 public class IncomingSnapshotCopier extends SnapshotCopier {
     private static final IgniteLogger LOG = Loggers.forClass(IncomingSnapshotCopier.class);
 
-    private static final TableMessagesFactory TABLE_MSG_FACTORY = new TableMessagesFactory();
+    private static final PartitionReplicationMessagesFactory TABLE_MSG_FACTORY = new PartitionReplicationMessagesFactory();
 
     private static final LowWatermarkMessagesFactory LWM_MSG_FACTORY = new LowWatermarkMessagesFactory();
 

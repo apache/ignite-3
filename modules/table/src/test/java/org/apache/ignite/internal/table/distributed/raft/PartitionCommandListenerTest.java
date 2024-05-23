@@ -98,8 +98,8 @@ import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor.StorageHashIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
+import org.apache.ignite.internal.table.distributed.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
@@ -184,7 +184,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path workDir;
 
-    private final TableMessagesFactory msgFactory = new TableMessagesFactory();
+    private final PartitionReplicationMessagesFactory msgFactory = new PartitionReplicationMessagesFactory();
 
     private final HybridClock hybridClock = new HybridClockImpl();
 

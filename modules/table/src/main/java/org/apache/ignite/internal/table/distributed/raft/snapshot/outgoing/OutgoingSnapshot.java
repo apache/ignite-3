@@ -36,17 +36,17 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataRequest;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
+import org.apache.ignite.internal.table.distributed.raft.message.SnapshotMetaRequest;
+import org.apache.ignite.internal.table.distributed.raft.message.SnapshotMetaResponse;
+import org.apache.ignite.internal.table.distributed.raft.message.SnapshotMvDataRequest;
+import org.apache.ignite.internal.table.distributed.raft.message.SnapshotMvDataResponse;
+import org.apache.ignite.internal.table.distributed.raft.message.SnapshotMvDataResponse.ResponseEntry;
+import org.apache.ignite.internal.table.distributed.raft.message.SnapshotTxDataRequest;
+import org.apache.ignite.internal.table.distributed.raft.message.SnapshotTxDataResponse;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.util.Cursor;
@@ -62,7 +62,7 @@ import org.jetbrains.annotations.Nullable;
 public class OutgoingSnapshot {
     private static final IgniteLogger LOG = Loggers.forClass(OutgoingSnapshot.class);
 
-    private static final TableMessagesFactory MESSAGES_FACTORY = new TableMessagesFactory();
+    private static final PartitionReplicationMessagesFactory MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
 
     private final UUID id;
 

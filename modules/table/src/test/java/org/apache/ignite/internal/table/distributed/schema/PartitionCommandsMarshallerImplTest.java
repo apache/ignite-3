@@ -34,14 +34,14 @@ import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandSerializationFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.table.distributed.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommandSerializationFactory;
 import org.junit.jupiter.api.Test;
 
 class PartitionCommandsMarshallerImplTest {
-    private final TableMessagesFactory tableMessagesFactory = new TableMessagesFactory();
+    private final PartitionReplicationMessagesFactory tableMessagesFactory = new PartitionReplicationMessagesFactory();
     private final ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
 
     private final MessageSerializationRegistry registry = new MessageSerializationRegistryImpl();
@@ -49,8 +49,8 @@ class PartitionCommandsMarshallerImplTest {
     {
         // For a command that has required catalog version property.
         registry.registerFactory(
-                TableMessageGroup.GROUP_TYPE,
-                TableMessageGroup.Commands.FINISH_TX,
+                PartitionReplicationMessageGroup.GROUP_TYPE,
+                PartitionReplicationMessageGroup.Commands.FINISH_TX,
                 new FinishTxCommandSerializationFactory(tableMessagesFactory)
         );
 

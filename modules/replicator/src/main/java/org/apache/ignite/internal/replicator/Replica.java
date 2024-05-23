@@ -61,16 +61,16 @@ public class Replica {
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     /** Replica group identity, this id is the same as the considered partition's id. */
-    private final ReplicationGroupId replicaGrpId;
+    protected ReplicationGroupId replicaGrpId;
 
     /** Replica listener. */
-    private final ReplicaListener listener;
+    protected ReplicaListener listener;
 
     /** Storage index tracker. */
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
     /** Topology aware Raft client. */
-    private final TopologyAwareRaftGroupService raftClient;
+    protected TopologyAwareRaftGroupService raftClient;
 
     /** Instance of the local node. */
     private final ClusterNode localNode;

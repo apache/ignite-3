@@ -22,9 +22,56 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 dependencies {
+    annotationProcessor project(':ignite-network-annotation-processor')
+
     implementation libs.jetbrains.annotations
 
     implementation project(':ignite-core')
+    implementation project(':ignite-catalog')
+    implementation project(':ignite-raft-api')
+    implementation project(':ignite-raft')
+    implementation project(':ignite-replicator')
+    implementation project(':ignite-metastorage-api')
+    implementation project(':ignite-placement-driver-api')
+    implementation project(':ignite-affinity')
+    implementation project(':ignite-distribution-zones')
+    implementation project(':ignite-network')
+    implementation project(':ignite-schema')
+    implementation project(':ignite-transactions')
+    implementation project(':ignite-storage-api')
+
+    integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
+    integrationTestImplementation testFixtures(project(':ignite-network'))
+    integrationTestImplementation testFixtures(project(':ignite-metrics'))
+    integrationTestImplementation testFixtures(project(':ignite-cluster-management'))
+    integrationTestImplementation testFixtures(project(':ignite-metastorage'))
+    integrationTestImplementation testFixtures(project(':ignite-transactions'))
+    integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
+    integrationTestImplementation testFixtures(project(':ignite-distribution-zones'))
+    integrationTestImplementation testFixtures(project(':ignite-table'))
+    integrationTestImplementation project(':ignite-raft')
+    integrationTestImplementation project(':ignite-raft-api')
+    integrationTestImplementation project(':ignite-replicator')
+    integrationTestImplementation project(':ignite-metastorage-api')
+    integrationTestImplementation project(':ignite-metastorage')
+    integrationTestImplementation project(':ignite-vault')
+    integrationTestImplementation project(':ignite-transactions')
+    integrationTestImplementation project(':ignite-storage-api')
+    integrationTestImplementation project(':ignite-table')
+    integrationTestImplementation project(':ignite-distribution-zones')
+    integrationTestImplementation project(':ignite-cluster-management')
+    integrationTestImplementation project(':ignite-schema')
+    integrationTestImplementation project(':ignite-catalog')
+    integrationTestImplementation project(':ignite-configuration')
+    integrationTestImplementation project(':ignite-low-watermark')
+    integrationTestImplementation project(':ignite-index')
+    integrationTestImplementation project(':ignite-failure-handler')
+    integrationTestImplementation project(':ignite-network')
+    integrationTestImplementation project(':ignite-storage-page-memory')
+    integrationTestImplementation project(':ignite-page-memory')
+    integrationTestImplementation project(':ignite-placement-driver')
 }
 
 description = 'ignite-replica-lifecycle'

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStateEnum;
+
 /**
  * Local partition state.
  */

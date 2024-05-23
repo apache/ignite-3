@@ -38,8 +38,8 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.PartitionReplicationMessageGroup;
+import org.apache.ignite.internal.table.distributed.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -60,7 +60,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     private static KvMarshaller<TestKey, TestValue> kvMarshaller;
 
     /** Message factory to create messages - RAFT commands. */
-    private final TableMessagesFactory msgFactory = new TableMessagesFactory();
+    private final PartitionReplicationMessagesFactory msgFactory = new PartitionReplicationMessagesFactory();
 
     @BeforeAll
     static void beforeAll() {
@@ -236,7 +236,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
     }
 
     private <T extends Command> T copyCommand(T cmd) {
-        assertEquals(TableMessageGroup.GROUP_TYPE, cmd.groupType());
+        assertEquals(PartitionReplicationMessageGroup.GROUP_TYPE, cmd.groupType());
 
         if (cmd instanceof FinishTxCommand) {
             FinishTxCommand finishTxCommand = (FinishTxCommand) cmd;

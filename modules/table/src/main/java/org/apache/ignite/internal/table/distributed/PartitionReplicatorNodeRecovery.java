@@ -68,7 +68,7 @@ class PartitionReplicatorNodeRecovery {
 
     private static final long PEERS_IN_TOPOLOGY_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(3);
 
-    private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
+    private static final PartitionReplicationMessagesFactory TABLE_MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
 
     private final MetaStorageManager metaStorageManager;
 
@@ -103,7 +103,7 @@ class PartitionReplicatorNodeRecovery {
     }
 
     private void addMessageHandler() {
-        messagingService.addMessageHandler(TableMessageGroup.class, (message, sender, correlationId) -> {
+        messagingService.addMessageHandler(PartitionReplicationMessageGroup.class, (message, sender, correlationId) -> {
             if (message instanceof HasDataRequest) {
                 // This message queries if a node has any data for a specific partition of a table
                 assert correlationId != null;
