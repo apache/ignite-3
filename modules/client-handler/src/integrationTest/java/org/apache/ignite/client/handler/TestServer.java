@@ -23,7 +23,6 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
@@ -118,7 +117,6 @@ public class TestServer {
         Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
 
         var module = new ClientHandlerModule(
-                mock(Ignite.class),
                 mock(QueryProcessor.class),
                 mock(IgniteTablesInternal.class),
                 mock(IgniteTransactionsImpl.class),

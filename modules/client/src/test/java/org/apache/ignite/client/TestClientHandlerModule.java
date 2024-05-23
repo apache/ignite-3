@@ -217,7 +217,6 @@ public class TestClientHandlerModule implements IgniteComponent {
                                 new ConnectionDropHandler(requestCounter, shouldDropConnection),
                                 new ResponseDelayHandler(responseDelay),
                                 new ClientInboundMessageHandler(
-                                        ignite,
                                         (IgniteTablesInternal) ignite.tables(),
                                         (IgniteTransactionsImpl) ignite.transactions(),
                                         new FakeIgniteQueryProcessor(),

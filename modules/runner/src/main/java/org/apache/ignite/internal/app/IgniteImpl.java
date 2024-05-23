@@ -68,7 +68,6 @@ import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
@@ -878,9 +877,7 @@ public class IgniteImpl implements Ignite {
 
         ClientConnectorConfiguration clientConnectorConfiguration = nodeConfigRegistry.getConfiguration(ClientConnectorConfiguration.KEY);
 
-        // noinspection ThisEscapedInObjectConstruction
         clientHandlerModule = new ClientHandlerModule(
-                this,
                 qryEngine,
                 distributedTblMgr,
                 // TODO: IGNITE-20232 The observable timestamp should be different for each client.
@@ -888,7 +885,7 @@ public class IgniteImpl implements Ignite {
                 compute,
                 clusterSvc,
                 nettyBootstrapFactory,
-                () -> cmgMgr.clusterState().thenApply(ClusterState::clusterTag),
+                () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag()),
                 metricManager,
                 new ClientHandlerMetricSource(),
                 authenticationManager,
