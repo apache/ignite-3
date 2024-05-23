@@ -136,7 +136,6 @@ import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
-
 /**
  *  Main implementation of {@link QueryProcessor}.
  */
@@ -499,15 +498,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         try {
             SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
+            QueryTransactionContext txContext = new QueryTransactionContextImpl(txManager, observableTimeTracker, transaction); 
 
             if (Commons.isMultiStatementQueryAllowed(properties0)) {
-                return queryScript(
-                        properties0, new QueryTransactionContextImpl(txManager, observableTimeTracker, transaction), qry, params
-                );
+                return queryScript(properties0, txContext, qry, params);
             } else {
-                return querySingle(
-                        properties0, new QueryTransactionContextImpl(txManager, observableTimeTracker, transaction), qry, params
-                );
+                return querySingle(properties0, txContext, qry, params);
             }
         } finally {
             busyLock.leaveBusy();
