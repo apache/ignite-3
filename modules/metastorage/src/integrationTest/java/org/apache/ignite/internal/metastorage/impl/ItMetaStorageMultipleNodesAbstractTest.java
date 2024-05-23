@@ -325,7 +325,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
         var expectedEntryEvent = new EntryEvent(
                 new EntryImpl(key.bytes(), value, 1, 1),
-                new EntryImpl(key.bytes(), newValue, 2, 2)
+                new EntryImpl(key.bytes(), newValue, 2, 3)
         );
 
         assertThat(awaitFuture, willBe(expectedEntryEvent));
