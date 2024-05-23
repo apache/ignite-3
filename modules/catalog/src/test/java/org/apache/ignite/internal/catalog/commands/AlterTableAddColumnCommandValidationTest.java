@@ -178,7 +178,7 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
         );
 
         ColumnParams columnParams = ColumnParams.builder().name(columnName).type(STRING).length(10)
-                .defaultValue(DefaultValue.functionCall("gen_random_uuid")).build();
+                .defaultValue(DefaultValue.functionCall("rand_uuid")).build();
 
         AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder()
                 .schemaName(SCHEMA_NAME)

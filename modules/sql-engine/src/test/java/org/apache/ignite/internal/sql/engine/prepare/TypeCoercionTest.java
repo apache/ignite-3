@@ -319,11 +319,9 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         List<Arguments> arguments = new ArrayList<>();
         arguments.add(Arguments.of("INSERT INTO t VALUES (123)", SqlTypeName.CHAR, true));
         arguments.add(Arguments.of("INSERT INTO t VALUES (123 || '1')", SqlTypeName.CHAR, true));
-        arguments.add(Arguments.of("INSERT INTO t VALUES (gen_random_uuid())", SqlTypeName.CHAR, true));
         arguments.add(Arguments.of("INSERT INTO t VALUES ('123')", SqlTypeName.CHAR, false));
         arguments.add(Arguments.of("INSERT INTO t VALUES (123)", SqlTypeName.VARCHAR, true));
         arguments.add(Arguments.of("INSERT INTO t VALUES (123 || '1')", SqlTypeName.VARCHAR, true));
-        arguments.add(Arguments.of("INSERT INTO t VALUES (gen_random_uuid())", SqlTypeName.VARCHAR, true));
         arguments.add(Arguments.of("INSERT INTO t VALUES ('123')", SqlTypeName.VARCHAR, false));
         return arguments.stream();
     }

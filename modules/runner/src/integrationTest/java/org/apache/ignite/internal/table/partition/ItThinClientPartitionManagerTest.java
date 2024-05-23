@@ -15,24 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.cluster;
+package org.apache.ignite.internal.table.partition;
 
-import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION_DESC;
-
-import java.net.URL;
-import org.apache.ignite.internal.cli.core.converters.UrlConverter;
-import picocli.CommandLine.Option;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.table.partition.PartitionManager;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
- * Mixin class for cluster URL option.
+ * Thin client implementation of partition management test suite.
  */
-public class ClusterUrlMixin {
-    /** Cluster endpoint URL option. */
-    @Option(names = CLUSTER_URL_OPTION, description = CLUSTER_URL_OPTION_DESC, converter = UrlConverter.class)
-    private URL clusterUrl;
+public class ItThinClientPartitionManagerTest extends ItAbstractPartitionManagerTest {
+    private IgniteClient client;
 
-    public String getClusterUrl() {
-        return clusterUrl != null ? clusterUrl.toString() : null;
+    @BeforeEach
+    public void startClient() {
+        client = IgniteClient.builder()
+                .addresses("localhost")
+                .reconnectThrottlingPeriod(0)
+                .build();
+    }
+
+    @Override
+    protected PartitionManager partitionManager() {
+        return client.tables().table(TABLE_NAME).partitionManager();
     }
 }

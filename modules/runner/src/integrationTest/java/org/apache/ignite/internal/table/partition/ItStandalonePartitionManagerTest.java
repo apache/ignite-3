@@ -15,24 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.cluster;
+package org.apache.ignite.internal.table.partition;
 
-import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION_DESC;
-
-import java.net.URL;
-import org.apache.ignite.internal.cli.core.converters.UrlConverter;
-import picocli.CommandLine.Option;
+import org.apache.ignite.table.partition.PartitionManager;
 
 /**
- * Mixin class for cluster URL option.
+ * Embedded mode implementation of partition management test suite.
  */
-public class ClusterUrlMixin {
-    /** Cluster endpoint URL option. */
-    @Option(names = CLUSTER_URL_OPTION, description = CLUSTER_URL_OPTION_DESC, converter = UrlConverter.class)
-    private URL clusterUrl;
-
-    public String getClusterUrl() {
-        return clusterUrl != null ? clusterUrl.toString() : null;
+public class ItStandalonePartitionManagerTest extends ItAbstractPartitionManagerTest {
+    @Override
+    protected PartitionManager partitionManager() {
+        return cluster.aliveNode().tables().table(TABLE_NAME).partitionManager();
     }
 }
