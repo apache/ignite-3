@@ -20,7 +20,6 @@ package org.apache.ignite.internal.failure.handlers.configuration;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
