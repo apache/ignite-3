@@ -49,6 +49,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.TransactionOptions;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -383,7 +384,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     @Test
-    public void testReceiverException() {
+    public void testReceivedIsExecutedOnTargetNode() {
+        // TODO: For client, use single connection. Server will re-route the task to the right node.
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
@@ -395,7 +397,30 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                     null,
                     List.of(),
                     TestReceiver.class.getName(),
-                    "throw");
+                    "arg1",
+                    123);
+
+            publisher.submit(tuple(1, "val1"));
+        }
+
+        assertThat(streamerFut, willCompleteSuccessfully());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testReceiverException(boolean async) {
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    DataStreamerOptions.builder().retryLimit(0).pageSize(1).build(),
+                    t -> t,
+                    t -> 0,
+                    null,
+                    List.of(),
+                    TestReceiver.class.getName(),
+                    async ? "throw-async" : "throw");
 
             publisher.submit(tupleKey(1));
         }
@@ -479,6 +504,10 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                 throw new ArithmeticException("test");
             }
 
+            if ("throw-async".equals(args[0])) {
+                return CompletableFuture.failedFuture(new ArithmeticException("test"));
+            }
+
             assertEquals(3, page.size());
             assertEquals("val1", page.get(0));
             assertEquals("val2", page.get(1));
@@ -491,6 +520,13 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             assertEquals(123, args[1]);
 
             return CompletableFuture.completedFuture(null);
+        }
+    }
+
+    private static class NodeNameReceiver implements DataStreamerReceiver<Long, Void> {
+        @Override
+        public @Nullable CompletableFuture<List<Void>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object... args) {
+            return null;
         }
     }
 }

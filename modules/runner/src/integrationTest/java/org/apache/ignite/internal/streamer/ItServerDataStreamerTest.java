@@ -41,7 +41,7 @@ public class ItServerDataStreamerTest extends ItAbstractDataStreamerTest {
     @Test
     @Override
     @Disabled("IGNITE-22302 Add resultSubscriber support")
-    public void testReceiverException() {
-        super.testReceiverException();
+    public void testReceiverException(boolean async) {
+        super.testReceiverException(async);
     }
 }
