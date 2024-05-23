@@ -1079,7 +1079,7 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    // TODO this method can be removed after https://issues.apache.org/jira/browse/IGNITE-22295
+    // TODO this test case can be removed after https://issues.apache.org/jira/browse/IGNITE-22295
     public void testNaturalJoinTypeMismatch() {
         try {
             sql("CREATE TABLE t1_ij (i INTEGER PRIMARY KEY, j INTEGER);");
@@ -1096,7 +1096,7 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    // TODO test can be removed after https://issues.apache.org/jira/browse/IGNITE-22295
+    // TODO this test case can be removed after https://issues.apache.org/jira/browse/IGNITE-22295
     public void testUsingJoinTypeMismatch() {
         try {
             sql("CREATE TABLE t1_ij (i INTEGER PRIMARY KEY, j INTEGER);");
