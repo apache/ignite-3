@@ -208,11 +208,10 @@ public class AuthenticationManagerImpl
     }
 
     private static String tryGetUsernameOrUnknown(AuthenticationRequest<?, ?> authenticationRequest) {
-        String username = "UNKNOWN_AUTHENTICATION_TYPE";
         if (authenticationRequest instanceof UsernamePasswordRequest) {
-            username = ((UsernamePasswordRequest) authenticationRequest).getIdentity();
+            return ((UsernamePasswordRequest) authenticationRequest).getIdentity();
         }
-        return username;
+        return "UNKNOWN_AUTHENTICATION_TYPE";
     }
 
     private void logUserAuthenticated(UserDetails userDetails) {
