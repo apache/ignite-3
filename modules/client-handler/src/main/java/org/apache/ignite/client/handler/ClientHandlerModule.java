@@ -40,7 +40,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -78,9 +77,6 @@ public class ClientHandlerModule implements IgniteComponent {
     /** Connection id generator.
      * The resulting connection id is local to the current node and is intended for logging, diagnostics, and management purposes. */
     private static final AtomicLong CONNECTION_ID_GEN = new AtomicLong();
-
-    /** Ignite. */
-    private final Ignite ignite;
 
     /** Ignite tables API. */
     private final IgniteTablesInternal igniteTables;
@@ -150,7 +146,6 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param lowWatermark Low watermark.
      */
     public ClientHandlerModule(
-            Ignite ignite,
             QueryProcessor queryProcessor,
             IgniteTablesInternal igniteTables,
             IgniteTransactionsImpl igniteTransactions,
@@ -168,7 +163,6 @@ public class ClientHandlerModule implements IgniteComponent {
             ClientConnectorConfiguration clientConnectorConfiguration,
             LowWatermark lowWatermark
     ) {
-        assert ignite != null;
         assert igniteTables != null;
         assert queryProcessor != null;
         assert igniteCompute != null;
@@ -185,7 +179,6 @@ public class ClientHandlerModule implements IgniteComponent {
         assert clientConnectorConfiguration != null;
         assert lowWatermark != null;
 
-        this.ignite = ignite;
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
@@ -372,7 +365,6 @@ public class ClientHandlerModule implements IgniteComponent {
             CompletableFuture<ClusterTag> clusterTag,
             long connectionId) {
         return new ClientInboundMessageHandler(
-                ignite,
                 igniteTables,
                 igniteTransactions,
                 queryProcessor,
