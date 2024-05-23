@@ -50,6 +50,7 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -199,8 +200,9 @@ public class DataStreamerTest extends AbstractClientTableTest {
         }
     }
 
-    @Test
-    public void testManyItemsWithDisconnectAndRetry() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testManyItemsWithDisconnectAndRetry(boolean withReceiver) throws Exception {
         // Drop connection on every 5th request.
         Function<Integer, Boolean> shouldDropConnection = idx -> idx % 5 == 4;
         var ignite2 = startTestServer2(shouldDropConnection, idx -> 0);
@@ -222,7 +224,16 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     .perPartitionParallelOperations(4)
                     .build();
 
-            streamFut = view.streamData(publisher, options);
+            streamFut = withReceiver
+                    ? view.streamData(
+                        publisher,
+                        options,
+                        DataStreamerItem::get,
+                        t -> t.get().longValue("id"),
+                        null,
+                        List.of(),
+                        TestUpsertReceiver.class.getName())
+                    : view.streamData(publisher, options);
 
             for (long i = 0; i < 1000; i++) {
                 publisher.submit(tuple(i, "foo_" + i));
@@ -493,6 +504,21 @@ public class DataStreamerTest extends AbstractClientTableTest {
             }
 
             return CompletableFuture.completedFuture(null);
+        }
+    }
+
+    private static class TestUpsertReceiver implements DataStreamerReceiver<Long, Void> {
+        @Override
+        @Nullable
+        public CompletableFuture<List<Void>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object... args) {
+            // noinspection resource
+            RecordView<Tuple> view = ctx.ignite().tables().table(DEFAULT_TABLE).recordView();
+
+            for (Long id : page) {
+                view.upsert(null, tuple(id, "foo_" + id));
+            }
+
+            return null;
         }
     }
 }
