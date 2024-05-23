@@ -15,43 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.evict;
+package org.apache.ignite.internal.table.partition;
+
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.table.partition.PartitionManager;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
- * {@link PageEvictionTracker} implementation that does nothing.
+ * Thin client implementation of partition management test suite.
  */
-public class PageEvictionTrackerNoOp implements PageEvictionTracker {
-    /** Instance. */
-    public static final PageEvictionTrackerNoOp INSTANCE = new PageEvictionTrackerNoOp();
+public class ItThinClientPartitionManagerTest extends ItAbstractPartitionManagerTest {
+    private IgniteClient client;
 
-    /**
-     * Private constructor.
-     */
-    private PageEvictionTrackerNoOp() {
-        // No-op.
+    @BeforeEach
+    public void startClient() {
+        client = IgniteClient.builder()
+                .addresses("localhost")
+                .reconnectThrottlingPeriod(0)
+                .build();
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void touchPage(long pageId) {
-        // No-op.
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void evictDataPage() {
-        // No-op.
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void forgetPage(long pageId) {
-        // No-op.
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean evictionRequired() {
-        return false;
+    protected PartitionManager partitionManager() {
+        return client.tables().table(TABLE_NAME).partitionManager();
     }
 }

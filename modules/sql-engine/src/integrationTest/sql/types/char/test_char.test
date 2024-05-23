@@ -2,55 +2,30 @@
 # description: E021-01 Character string types. CHARACTER data type base tests.
 # group: [char]
 
-statement ok
-CREATE TABLE t1(c1 CHAR(5));
-
-statement ok
-INSERT INTO t1 VALUES(NULL);
-
-# possibility to keep null value
-query T rowsort
-SELECT * from t1;
-----
-NULL
-
-statement ok
-INSERT INTO t1 VALUES('1 '), (' 2'), ('');
-
 # Check concatenation with function ||
 query T rowsort
-SELECT ' prefix' || c1 || 'trailing ' FROM t1;
+SELECT ' prefix' || c1 || 'trailing ' FROM (VALUES('1 '::CHAR(5)), (' 2'::CHAR(5)), (''::CHAR(5)), (null)) t(c1);
 ----
- prefix 2trailing 
- prefix1 trailing 
- prefixtrailing 
+ prefix 2   trailing 
+ prefix1    trailing 
+ prefix     trailing 
 NULL
 
-statement ok
-CREATE TABLE t2(c1 CHAR(3));
-
-statement ok
-INSERT INTO t2 VALUES ('123'),('2'),('1');
-
-# for the purposes of the comparison, the shorter value is effectively extended to the length
-#     of the longer by concatenation of <space>s on the right
-
-skipif ignite3
-# JIRA https://issues.apache.org/jira/browse/IGNITE-22106
 query T
+WITH t1 (c1) AS (SELECT * FROM (VALUES('1 '), (' 2'), (''), (null))),
+     t2 (c1) AS (SELECT * FROM (VALUES ('123'),('2'),('1')))
 SELECT t1.c1 || t2.c1 FROM t1, t2 where t1.c1=t2.c1;
 ----
-11
+1 1  
 
-skipif ignite3
-# JIRA https://issues.apache.org/jira/browse/IGNITE-22106
 query T
+WITH t1 (c1) AS (SELECT * FROM (VALUES('1 '), (' 2'), (''), (null))),
+     t2 (c1) AS (SELECT * FROM (VALUES ('123'),('2'),('1')))
 SELECT t1.c1 || t2.c1 FROM t1 join t2  ON (t1.c1=t2.c1);
 ----
-11
+1 1  
 
 query TTTT
 SELECT 'a' = 'a' AS t1, 'a' = 'b' AS t2, 'a' = 'a   ' AS t3, 'a' = '   a' AS t4;
 ----
 true	false	true	false
-

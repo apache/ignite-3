@@ -27,9 +27,9 @@ public interface ExecutableTableRegistry {
     /**
      * Returns an table that can be used for both read and write operations.
      *
-     * @param schemaVersion Version of the schema.
+     * @param catalogVersion Version of the catalog.
      * @param tableId Table Id.
      * @return An operation that returns executable table.
      */
-    CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId);
+    CompletableFuture<ExecutableTable> getTable(int catalogVersion, int tableId);
 }

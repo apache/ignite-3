@@ -45,9 +45,6 @@ import org.jetbrains.annotations.Nullable;
  * <p>TBD: events
  */
 public interface CatalogService extends EventProducer<CatalogEvent, CatalogEventParameters> {
-    /** Default schema name. */
-    String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
     /** System schema name. */
     String SYSTEM_SCHEMA_NAME = "SYSTEM";
 

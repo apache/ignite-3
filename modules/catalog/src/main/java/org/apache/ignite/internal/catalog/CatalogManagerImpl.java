@@ -63,6 +63,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -180,7 +181,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public @Nullable CatalogTableDescriptor table(String tableName, long timestamp) {
-        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME);
+        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(SqlCommon.DEFAULT_SCHEMA_NAME);
         if (schema == null) {
             return null;
         }
@@ -204,7 +205,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public @Nullable CatalogIndexDescriptor aliveIndex(String indexName, long timestamp) {
-        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME);
+        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(SqlCommon.DEFAULT_SCHEMA_NAME);
         if (schema == null) {
             return null;
         }
@@ -233,7 +234,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public @Nullable CatalogSchemaDescriptor schema(int catalogVersion) {
-        return schema(DEFAULT_SCHEMA_NAME, catalogVersion);
+        return schema(SqlCommon.DEFAULT_SCHEMA_NAME, catalogVersion);
     }
 
     @Override
@@ -244,7 +245,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             return null;
         }
 
-        return catalog.schema(schemaName == null ? DEFAULT_SCHEMA_NAME : schemaName);
+        return catalog.schema(schemaName == null ? SqlCommon.DEFAULT_SCHEMA_NAME : schemaName);
     }
 
     @Override
@@ -276,12 +277,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public @Nullable CatalogSchemaDescriptor activeSchema(long timestamp) {
-        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME);
+        return catalogAt(timestamp).schema(SqlCommon.DEFAULT_SCHEMA_NAME);
     }
 
     @Override
     public @Nullable CatalogSchemaDescriptor activeSchema(String schemaName, long timestamp) {
-        return catalogAt(timestamp).schema(schemaName == null ? DEFAULT_SCHEMA_NAME : schemaName);
+        return catalogAt(timestamp).schema(schemaName == null ? SqlCommon.DEFAULT_SCHEMA_NAME : schemaName);
     }
 
     @Override
@@ -369,7 +370,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         .zoneName(DEFAULT_ZONE_NAME)
                         .build(),
                 // Add schemas
-                CreateSchemaCommand.builder().name(DEFAULT_SCHEMA_NAME).build(),
+                CreateSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).build(),
                 CreateSchemaCommand.builder().name(SYSTEM_SCHEMA_NAME).build()
         );
 
