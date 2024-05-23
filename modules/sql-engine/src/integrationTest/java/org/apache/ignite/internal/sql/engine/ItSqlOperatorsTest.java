@@ -340,7 +340,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     public void testNullIf() {
         assertExpression("NULLIF(1, 2)").returns(1).check();
         assertExpression("NULLIF(1, 1)").returns(null).check();
-        assertThrowsSqlException(SqlException.class, Sql.RUNTIME_ERR, "Character b is neither a decimal digit number, "
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Character b is neither a decimal digit number, "
                         + "decimal point, nor \"e\" notation exponential mark", () -> sql("SELECT NULLIF(12.2, 'b')"));
     }
 
