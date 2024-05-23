@@ -1,0 +1,120 @@
+# name: test/sql/cast/test_boolean_type.test
+# description: SQL feature T031(BOOLEAN data type)
+# group: [cast]
+
+statement ok
+CREATE TABLE test (a INTEGER, b BOOLEAN);
+
+# Specification does not make a distinction between the null value of the boolean data type and the truth value Unknown.
+# They may be used interchangeably to mean exactly the same thing.
+# <truth value> ::=
+#      TRUE
+#    | FALSE
+#    | UNKNOWN
+statement ok
+INSERT INTO test VALUES (1, TRUE), (2, FALSE), (3, NULL);
+
+# IS [NOT] (TRUE|FALSE|UNKNOWN)
+query TT
+SELECT b IS TRUE, b IS NOT TRUE FROM test ORDER BY a;
+----
+true	false
+false	true
+false	true
+
+query TT
+SELECT b IS FALSE, b IS NOT FALSE FROM test ORDER BY a;
+----
+false	true
+true	false
+false	true
+
+skipif ignite3
+# Ignored: lack of supporting UNKNOWN keyword https://issues.apache.org/jira/browse/IGNITE-22297
+query TT
+SELECT b IS UNKNOWN, b IS NOT UNKNOWN FROM test ORDER BY a;
+----
+false	true
+false	true
+true	false
+
+# IS [NOT] NULL
+query TT
+SELECT b IS NULL, b IS NOT NULL FROM test ORDER BY a;
+----
+false	true
+false	true
+true	false
+
+
+# Comparison to null is always unknown
+query T
+SELECT a FROM test WHERE b = NULL ORDER BY a;
+----
+
+# The correct way to search NULLs
+query T
+SELECT a FROM test WHERE b IS NULL ORDER BY a;
+----
+3
+
+skipif ignite3
+# Ignored: lack of supporting UNKNOWN keyword https://issues.apache.org/jira/browse/IGNITE-22297
+query T
+SELECT a FROM test WHERE b IS UNKNOWN ORDER BY a;
+----
+3
+
+# P or not P is not always true.
+# The result of the comparison col = null is UNKNOWN in both cases;
+# NOT(UNKNOWN) is also UNKNOWN;
+# OR only evaluates as true if one operand is true.
+query T
+SELECT a FROM test WHERE (b = NULL) OR NOT (b = NULL) ORDER BY a;
+----
+
+# NOT IN (NULL, …) is never true
+query T
+SELECT a FROM test WHERE b NOT IN (NULL, TRUE) ORDER BY a;
+----
+
+query T
+SELECT a FROM test WHERE b NOT IN (NULL, FALSE) ORDER BY a;
+----
+
+
+# AND
+skipif ignite3
+# Ignored: lack of supporting UNKNOWN keyword https://issues.apache.org/jira/browse/IGNITE-22297
+query TTT
+SELECT b AND TRUE, b AND FALSE, b AND UNKNOWN FROM test ORDER BY a;
+----
+true  false null
+false false false
+true false null
+
+
+query TTT
+SELECT b AND TRUE, b AND FALSE, b AND (1 = NULL) FROM test ORDER BY a;
+----
+true	false	null
+false	false	false
+null	false	null
+
+
+# OR
+skipif ignite3
+# Ignored: lack of supporting UNKNOWN keyword https://issues.apache.org/jira/browse/IGNITE-22297
+query TTT
+SELECT b OR TRUE, b OR FALSE, b OR UNKNOWN FROM test ORDER BY a;
+----
+true	true	true
+true	false	null
+true	null	null
+
+query TTT
+SELECT b OR TRUE, b OR FALSE, b OR NULL FROM test ORDER BY a;
+----
+true	true	true
+true	false	null
+true	null	null

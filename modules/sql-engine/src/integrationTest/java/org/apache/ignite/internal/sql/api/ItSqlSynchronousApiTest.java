@@ -39,10 +39,14 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
-    protected long[] executeBatch(IgniteSql sql, String query, BatchedArguments args) {
-        return sql.executeBatch(null, query, args);
+    protected long[] executeBatch(String query, BatchedArguments args) {
+        return igniteSql().executeBatch(null, query, args);
     }
 
+    @Override
+    protected long[] executeBatch(Statement statement, BatchedArguments args) {
+        return igniteSql().executeBatch(null, statement, args);
+    }
 
     @Override
     protected ResultProcessor execute(Integer expectedPages, Transaction tx, IgniteSql sql, Statement statement, Object... args) {
