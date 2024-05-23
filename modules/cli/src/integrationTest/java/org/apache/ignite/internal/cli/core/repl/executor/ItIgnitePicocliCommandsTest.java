@@ -151,8 +151,8 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                 words("node", "config", ""),
                 words("node", "config", "show"),
                 words("node", "config", "show", ""),
-                words("node", "config", "show", "--node-name", "name"),
-                words("node", "config", "show", "--node-name", "name", "")
+                words("node", "config", "show", "--node", "name"),
+                words("node", "config", "show", "--node", "name", "")
         ).map(this::named).map(Arguments::of);
     }
 
@@ -177,7 +177,7 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
                 words("node", "config", "show", "--"),
                 words("node", "status", "-"),
                 words("node", "status", "--"),
-                words("node", "config", "show", "--node-name", "name", "-")
+                words("node", "config", "show", "--node", "name", "-")
         ).map(this::named).map(Arguments::of);
     }
 
@@ -224,7 +224,7 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     private Stream<Arguments> nodeConfigShowSuggestedSource() {
         return Stream.of(
                 words("node", "config", "show", ""),
-                words("node", "config", "show", " --node-name", "nodeName", ""),
+                words("node", "config", "show", " --node", "nodeName", ""),
                 words("node", "config", "show", " --verbose", ""),
                 words("node", "config", "show", " -v", "")
         ).map(this::named).map(Arguments::of);
@@ -251,7 +251,7 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     private Stream<Arguments> nodeConfigUpdateSuggestedSource() {
         return Stream.of(
                 words("node", "config", "update", ""),
-                words("node", "config", "update", " --node-name", "nodeName", ""),
+                words("node", "config", "update", " --node", "nodeName", ""),
                 words("node", "config", "update", " --verbose", ""),
                 words("node", "config", "update", " -v", "")
         ).map(this::named).map(Arguments::of);
@@ -284,7 +284,7 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     private Stream<Arguments> clusterConfigShowSuggestedSource() {
         return Stream.of(
                 words("cluster", "config", "show", ""),
-                words("cluster", "config", "show", " --node-name", "nodeName", ""),
+                words("cluster", "config", "show", " --node", "nodeName", ""),
                 words("cluster", "config", "show", " --verbose", ""),
                 words("cluster", "config", "show", " -v", "")
         ).map(this::named).map(Arguments::of);
@@ -307,7 +307,7 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     private Stream<Arguments> clusterConfigUpdateSuggestedSource() {
         return Stream.of(
                 words("cluster", "config", "update", ""),
-                words("cluster", "config", "update", " --node-name", "nodeName", ""),
+                words("cluster", "config", "update", " --node", "nodeName", ""),
                 words("cluster", "config", "update", " --verbose", ""),
                 words("cluster", "config", "update", " -v", "")
         ).map(this::named).map(Arguments::of);
@@ -330,24 +330,24 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
 
     private Stream<Arguments> nodeNamesSource() {
         return Stream.of(
-                words("cluster", "config", "show", "--node-name", ""),
-                words("cluster", "config", "update", "--node-name", ""),
-                words("cluster", "status", "--node-name", ""),
-                words("cluster", "init", "--node-name", ""),
+                words("cluster", "config", "show", "--node", ""),
+                words("cluster", "config", "update", "--node", ""),
+                words("cluster", "status", "--node", ""),
+                words("cluster", "init", "--node", ""),
                 words("cluster", "init", "--cmg-node", ""),
                 words("cluster", "init", "--meta-storage-node", ""),
-                words("node", "config", "show", "--node-name", ""),
-                words("node", "config", "show", "--verbose", "--node-name", ""),
-                words("node", "config", "update", "--node-name", ""),
-                words("node", "status", "--node-name", ""),
-                words("node", "version", "--node-name", ""),
-                words("node", "metric", "list", "--node-name", "")
+                words("node", "config", "show", "--node", ""),
+                words("node", "config", "show", "--verbose", "--node", ""),
+                words("node", "config", "update", "--node", ""),
+                words("node", "status", "--node", ""),
+                words("node", "version", "--node", ""),
+                words("node", "metric", "list", "--node", "")
         ).map(this::named).map(Arguments::of);
     }
 
     @ParameterizedTest
     @MethodSource("nodeNamesSource")
-    @DisplayName("node names suggested after --node-name option")
+    @DisplayName("node names suggested after --node option")
     void nodeNameSuggested(ParsedLine givenParsedLine) {
         // Given
         connected();
@@ -363,13 +363,13 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
     }
 
     @Test
-    @DisplayName("start/stop node affects --node-name suggestions")
+    @DisplayName("start/stop node affects --node suggestions")
     void startStopNodeWhenCompleteNodeName() {
         // Given
         int nodeIndex = 1;
         var igniteNodeName = allNodeNames().get(nodeIndex);
         // And
-        var givenParsedLine = words("node", "status", "--node-name", "");
+        var givenParsedLine = words("node", "status", "--node", "");
         // And
         assertThat(nodeNameRegistry.names(), empty());
 
@@ -417,16 +417,16 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
 
     private Stream<Arguments> clusterUrlSource() {
         return Stream.of(
-                words("cluster", "config", "show", "--cluster-endpoint-url", ""),
-                words("cluster", "config", "update", "--cluster-endpoint-url", ""),
-                words("cluster", "status", "--cluster-endpoint-url", ""),
-                words("cluster", "init", "--cluster-endpoint-url", "")
+                words("cluster", "config", "show", "--url", ""),
+                words("cluster", "config", "update", "--url", ""),
+                words("cluster", "status", "--url", ""),
+                words("cluster", "init", "--url", "")
         ).map(this::named).map(Arguments::of);
     }
 
     @ParameterizedTest
     @MethodSource("clusterUrlSource")
-    @DisplayName("cluster url suggested after --cluster-endpoint-url option")
+    @DisplayName("cluster url suggested after --url option")
     void suggestedClusterUrl(ParsedLine parsedLine) {
         // Given
         connected();
@@ -462,17 +462,17 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
         String someFile = scriptsFolder.getPath() + File.separator + "someFile.sql";
         Files.newFile(someFile).deleteOnExit();
 
-        // When complete --script-file with folder typed
-        List<String> completions1 = complete(words("sql", "--script-file", rootFolder.getPath()));
+        // When complete --file with folder typed
+        List<String> completions1 = complete(words("sql", "--file", rootFolder.getPath()));
         // Then completions contain emptyFolder and scriptsFolder
         assertThat(completions1, containsInAnyOrder(emptyFolder.getPath(), scriptsFolder.getPath()));
 
-        List<String> completions2 = complete(words("sql", "--script-file", scriptsFolder.getPath()));
+        List<String> completions2 = complete(words("sql", "--file", scriptsFolder.getPath()));
         // Then completions contain all given files
         assertThat(completions2, containsInAnyOrder(script1, script2, someFile));
 
-        // When complete --script-file with partial path to script
-        List<String> completions3 = complete(words("sql", "--script-file", scriptsFolder.getPath() + File.separator + "script"));
+        // When complete --file with partial path to script
+        List<String> completions3 = complete(words("sql", "--file", scriptsFolder.getPath() + File.separator + "script"));
         // Then completions contain script1 and script2 files
         assertThat(completions3, containsInAnyOrder(script1, script2));
     }

@@ -46,7 +46,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     private final Int2ObjectMap<IgniteTable> tableById;
 
     /** Constructs schema manager from a single schema. */
-    PredefinedSchemaManager(IgniteSchema schema) {
+    public PredefinedSchemaManager(IgniteSchema schema) {
         this(List.of(schema));
     }
 
@@ -69,7 +69,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(int version) {
+    public SchemaPlus schema(int catalogVersion) {
         return root;
     }
 
@@ -81,12 +81,12 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> schemaReadyFuture(int version) {
+    public CompletableFuture<Void> schemaReadyFuture(int catalogVersion) {
         return nullCompletedFuture();
     }
 
     @Override
-    public IgniteTable table(int schemaVersion, int tableId) {
+    public IgniteTable table(int catalogVersion, int tableId) {
         IgniteTable table = tableById.get(tableId);
 
         if (table == null) {

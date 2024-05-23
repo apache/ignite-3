@@ -59,7 +59,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
@@ -1255,23 +1254,5 @@ public class IgniteUtils {
      */
     public static CompletableFuture<Void> stopAsync(Collection<? extends IgniteComponent> components) {
         return stopAsync(components.stream());
-    }
-
-    /**
-     * Creates a consumer that, when passed to a {@link CompletableFuture#whenComplete} call, will copy the outcome (either successful or
-     * not) of the target future to the given future.
-     *
-     * @param future Future to copy the outcome to.
-     * @param <T> Future result type.
-     * @return Consumer for transferring a future outcome to another future.
-     */
-    public static <T> BiConsumer<T, Throwable> copyStateTo(CompletableFuture<? super T> future) {
-        return (v, e) -> {
-            if (e != null) {
-                future.completeExceptionally(e);
-            } else {
-                future.complete(v);
-            }
-        };
     }
 }

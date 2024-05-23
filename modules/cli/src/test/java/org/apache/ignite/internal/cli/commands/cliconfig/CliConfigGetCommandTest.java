@@ -47,11 +47,7 @@ class CliConfigGetCommandTest extends CliConfigCommandTestBase {
         // When executed with single key
         execute("server");
 
-        assertAll(
-                this::assertExitCodeIsZero,
-                () -> assertOutputIs("127.0.0.1" + System.lineSeparator()),
-                this::assertErrOutputIsEmpty
-        );
+        assertSuccessfulOutputIs("127.0.0.1" + System.lineSeparator());
     }
 
     @Test

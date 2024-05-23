@@ -21,7 +21,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.Objects;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -105,8 +104,8 @@ public final class IgniteCustomTypeSpec {
      * {@link TypeUtils TypeUtils} in type conversions.
      *
      * @see ExpressionFactoryImpl
-     * @see TypeUtils#toInternal(ExecutionContext, Object, Type)
-     * @see TypeUtils#fromInternal(ExecutionContext, Object, Type)
+     * @see TypeUtils#toInternal(Object, Type)
+     * @see TypeUtils#fromInternal(Object, Type)
      */
     public Class<?> storageType() {
         return storageType;

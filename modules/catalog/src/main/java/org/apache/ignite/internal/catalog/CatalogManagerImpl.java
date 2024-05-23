@@ -46,7 +46,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.LongSupplier;
-import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCatalogCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
+import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -74,6 +75,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.systemview.api.SystemViews;
@@ -119,6 +121,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     /** Versioned catalog descriptors sorted in chronological order. */
     private final NavigableMap<Long, Catalog> catalogByTs = new ConcurrentSkipListMap<>();
 
+    /** A future that completes when an empty catalog is initialised. If catalog is not empty this future when this completes starts. */
+    private final CompletableFuture<Void> catalogInitializationFuture = new CompletableFuture<>();
+
     private final UpdateLog updateLog;
 
     private final PendingComparableValuesTracker<Integer, Void> versionTracker = new PendingComparableValuesTracker<>(0);
@@ -158,27 +163,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public CompletableFuture<Void> startAsync() {
         int objectIdGen = 0;
 
-        // TODO: IGNITE-19082 Move default schema objects initialization to cluster init procedure.
-        CatalogSchemaDescriptor publicSchema = new CatalogSchemaDescriptor(
-                objectIdGen++,
-                DEFAULT_SCHEMA_NAME,
-                new CatalogTableDescriptor[0],
-                new CatalogIndexDescriptor[0],
-                new CatalogSystemViewDescriptor[0],
-                INITIAL_CAUSALITY_TOKEN
-        );
-
-        // TODO: IGNITE-19082 Move system schema objects initialization to cluster init procedure.
-        CatalogSchemaDescriptor systemSchema = new CatalogSchemaDescriptor(
-                objectIdGen++,
-                SYSTEM_SCHEMA_NAME,
-                new CatalogTableDescriptor[0],
-                new CatalogIndexDescriptor[0],
-                new CatalogSystemViewDescriptor[0],
-                INITIAL_CAUSALITY_TOKEN
-        );
-
-        Catalog emptyCatalog = new Catalog(0, 0L, objectIdGen, List.of(), List.of(publicSchema, systemSchema), null);
+        Catalog emptyCatalog = new Catalog(0, 0L, objectIdGen, List.of(), List.of(), null);
 
         registerCatalog(emptyCatalog);
 
@@ -187,12 +172,17 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return updateLog.startAsync()
                 .thenCompose(none -> {
                     if (latestCatalogVersion() == emptyCatalog.version()) {
-                        // node has not seen any updates yet, let's try to initialise
-                        // catalog with default zone
-                        return createDefaultZone(emptyCatalog);
-                    }
+                        int initializedCatalogVersion = emptyCatalog.version() + 1;
 
-                    return nullCompletedFuture();
+                        this.catalogReadyFuture(initializedCatalogVersion)
+                                .thenCompose(ignored -> awaitVersionActivation(initializedCatalogVersion))
+                                .handle((r, e) -> catalogInitializationFuture.complete(null));
+
+                        return initCatalog(emptyCatalog);
+                    } else {
+                        catalogInitializationFuture.complete(null);
+                        return nullCompletedFuture();
+                    }
                 });
     }
 
@@ -205,7 +195,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public @Nullable CatalogTableDescriptor table(String tableName, long timestamp) {
-        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).table(tableName);
+        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(SqlCommon.DEFAULT_SCHEMA_NAME);
+        if (schema == null) {
+            return null;
+        }
+        return schema.table(tableName);
     }
 
     @Override
@@ -225,7 +219,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public @Nullable CatalogIndexDescriptor aliveIndex(String indexName, long timestamp) {
-        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).aliveIndex(indexName);
+        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(SqlCommon.DEFAULT_SCHEMA_NAME);
+        if (schema == null) {
+            return null;
+        }
+        return schema.aliveIndex(indexName);
     }
 
     @Override
@@ -250,7 +248,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public @Nullable CatalogSchemaDescriptor schema(int catalogVersion) {
-        return schema(DEFAULT_SCHEMA_NAME, catalogVersion);
+        return schema(SqlCommon.DEFAULT_SCHEMA_NAME, catalogVersion);
     }
 
     @Override
@@ -261,7 +259,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             return null;
         }
 
-        return catalog.schema(schemaName == null ? DEFAULT_SCHEMA_NAME : schemaName);
+        return catalog.schema(schemaName == null ? SqlCommon.DEFAULT_SCHEMA_NAME : schemaName);
     }
 
     @Override
@@ -293,12 +291,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public @Nullable CatalogSchemaDescriptor activeSchema(long timestamp) {
-        return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME);
+        return catalogAt(timestamp).schema(SqlCommon.DEFAULT_SCHEMA_NAME);
     }
 
     @Override
     public @Nullable CatalogSchemaDescriptor activeSchema(String schemaName, long timestamp) {
-        return catalogAt(timestamp).schema(schemaName == null ? DEFAULT_SCHEMA_NAME : schemaName);
+        return catalogAt(timestamp).schema(schemaName == null ? SqlCommon.DEFAULT_SCHEMA_NAME : schemaName);
     }
 
     @Override
@@ -319,6 +317,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public CompletableFuture<Void> catalogReadyFuture(int version) {
         return versionTracker.waitFor(version);
+    }
+
+    @Override
+    public CompletableFuture<Void> catalogInitializationFuture() {
+        return catalogInitializationFuture;
     }
 
     @Override
@@ -363,8 +366,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return updateLog.saveSnapshot(new SnapshotEntry(catalog));
     }
 
-    private CompletableFuture<Void> createDefaultZone(Catalog emptyCatalog) {
-        List<UpdateEntry> createZoneEntries = new BulkUpdateProducer(List.of(
+    private CompletableFuture<Void> initCatalog(Catalog emptyCatalog) {
+        List<CatalogCommand> initCommands = List.of(
+                // Init default zone
                 CreateZoneCommand.builder()
                         .zoneName(DEFAULT_ZONE_NAME)
                         .partitions(DEFAULT_PARTITION_COUNT)
@@ -376,12 +380,17 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                                 List.of(StorageProfileParams.builder().storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE).build())
                         )
                         .build(),
-                AlterZoneSetDefaultCatalogCommand.builder()
+                AlterZoneSetDefaultCommand.builder()
                         .zoneName(DEFAULT_ZONE_NAME)
-                        .build()
-        )).get(emptyCatalog);
+                        .build(),
+                // Add schemas
+                CreateSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).build(),
+                CreateSchemaCommand.builder().name(SYSTEM_SCHEMA_NAME).build()
+        );
 
-        return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, createZoneEntries))
+        List<UpdateEntry> entries = new BulkUpdateProducer(initCommands).get(emptyCatalog);
+
+        return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, entries))
                 .handle((result, error) -> {
                     if (error != null) {
                         LOG.warn("Unable to create default zone.", error);
@@ -407,13 +416,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         CompletableFuture<Integer> resultFuture = new CompletableFuture<>();
 
         saveUpdate(updateProducer, 0)
-                .thenCompose(newVersion -> {
-                    Catalog catalog = catalogByVer.get(newVersion);
-
-                    HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
-
-                    return clockService.waitFor(tsSafeForRoReadingInPastOptimization).thenApply(unused -> newVersion);
-                })
+                .thenCompose(this::awaitVersionActivation)
                 .whenComplete((newVersion, err) -> {
                     if (err != null) {
                         Throwable errUnwrapped = ExceptionUtils.unwrapCause(err);
@@ -446,6 +449,14 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 });
 
         return resultFuture;
+    }
+
+    private CompletableFuture<Integer> awaitVersionActivation(int version) {
+        Catalog catalog = catalogByVer.get(version);
+
+        HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
+
+        return clockService.waitFor(tsSafeForRoReadingInPastOptimization).thenApply(unused -> version);
     }
 
     private HybridTimestamp calcClusterWideEnsureActivationTime(Catalog catalog) {

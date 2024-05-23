@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.storage.state;
 
+import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -39,9 +40,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -83,6 +87,21 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
 
     @Test
     public void testPutGetRemove() {
+        testPutGetRemove0((storage, txIds) -> {
+            int index = 0;
+
+            for (UUID txId : txIds) {
+                storage.remove(txId, index++, 1);
+            }
+        });
+    }
+
+    @Test
+    public void testPutGetRemoveAll() {
+        testPutGetRemove0((storage, txIds) -> storage.removeAll(txIds, 1, 1));
+    }
+
+    private void testPutGetRemove0(BiConsumer<TxStateStorage, Set<UUID>> removeOp) {
         TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
         List<UUID> txIds = new ArrayList<>();
@@ -92,7 +111,7 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
 
             txIds.add(txId);
 
-            storage.put(txId, new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(i), generateTimestamp(txId)));
+            storage.putForRebalance(txId, new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(i), generateTimestamp(txId)));
         }
 
         for (int i = 0; i < 100; i++) {
@@ -101,11 +120,21 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
             assertEquals(txMetaExpected, txMeta);
         }
 
+        Set<UUID> toRemove = new HashSet<>();
+
         for (int i = 0; i < 100; i++) {
             if (i % 2 == 0) {
-                storage.remove(txIds.get(i), i, 1);
+                toRemove.add(txIds.get(i));
             }
         }
+
+        long indexBeforeRemove = storage.lastAppliedIndex();
+        long termBeforeRemove = storage.lastAppliedTerm();
+
+        removeOp.accept(storage, toRemove);
+
+        assertTrue(storage.lastAppliedIndex() > indexBeforeRemove);
+        assertTrue(storage.lastAppliedTerm() > termBeforeRemove);
 
         for (int i = 0; i < 100; i++) {
             if (i % 2 == 0) {
@@ -136,6 +165,54 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
     }
 
     @Test
+    public void testRemoveAll() {
+        TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
+
+        List<UUID> txIds = new ArrayList<>();
+
+        for (int i = 0; i < 100; i++) {
+            UUID txId = UUID.randomUUID();
+
+            txIds.add(txId);
+
+            storage.putForRebalance(txId, new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(i), generateTimestamp(txId)));
+        }
+
+        assertThrows(NullPointerException.class, () -> storage.removeAll(null, 0, 0),
+                "Collection of the transaction IDs intended for removal cannot be null.");
+
+        storage.removeAll(emptyList(), 1, 1);
+
+        UUID uuid0 = txIds.get(0);
+        UUID uuid1 = txIds.get(1);
+
+        storage.removeAll(List.of(uuid0, uuid0, uuid1, uuid1, UUID.randomUUID()), 2, 1);
+
+        assertNull(storage.get(uuid0));
+        assertNull(storage.get(uuid1));
+
+        for (int i = 2; i < 100; i++) {
+            TxMeta txMetaExpected = new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(i), generateTimestamp(txIds.get(i)));
+            assertEquals(txMetaExpected, storage.get(txIds.get(i)));
+        }
+
+        long newIndex = 3;
+        long newTerm = 2;
+
+        assertTrue(storage.lastAppliedIndex() < newIndex);
+        assertTrue(storage.lastAppliedTerm() < newTerm);
+
+        storage.removeAll(txIds, newIndex, newTerm);
+
+        assertEquals(newIndex, storage.lastAppliedIndex());
+        assertEquals(newTerm, storage.lastAppliedTerm());
+
+        for (int i = 0; i < 100; i++) {
+            assertNull(storage.get(txIds.get(i)));
+        }
+    }
+
+    @Test
     public void testCas() {
         TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
@@ -158,10 +235,19 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
 
         assertEquals(storage.get(txId), txMeta1);
 
-        assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 3, 2));
+        long newIndex = 4;
+        long newTerm = 3;
+
+        assertTrue(storage.lastAppliedIndex() < newIndex);
+        assertTrue(storage.lastAppliedTerm() < newTerm);
+
+        assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, newIndex, newTerm));
         // Checking idempotency.
-        assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, 3, 2));
-        assertTrue(storage.compareAndSet(txId, TxState.ABORTED, txMeta2, 3, 2));
+        assertTrue(storage.compareAndSet(txId, txMeta1.txState(), txMeta2, newIndex, newTerm));
+        assertTrue(storage.compareAndSet(txId, TxState.ABORTED, txMeta2, newIndex, newTerm));
+
+        assertEquals(newIndex, storage.lastAppliedIndex());
+        assertEquals(newTerm, storage.lastAppliedTerm());
 
         TxMeta txMetaNullTimestamp2 = new TxMeta(txMeta2.txState(), txMeta2.enlistedPartitions(), null);
         assertFalse(storage.compareAndSet(txId, TxState.ABORTED, txMetaNullTimestamp2, 3, 2));
@@ -208,10 +294,10 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
         TxStateStorage storage1 = tableStorage.getOrCreateTxStateStorage(1);
 
         UUID txId0 = UUID.randomUUID();
-        storage0.put(txId0, new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(1), generateTimestamp(txId0)));
+        storage0.putForRebalance(txId0, new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(1), generateTimestamp(txId0)));
 
         UUID txId1 = UUID.randomUUID();
-        storage1.put(txId1, new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(1), generateTimestamp(txId1)));
+        storage1.putForRebalance(txId1, new TxMeta(TxState.COMMITTED, generateEnlistedPartitions(1), generateTimestamp(txId1)));
 
         storage0.destroy();
 
@@ -244,13 +330,13 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
         TxStateStorage partitionStorage = tableStorage.getOrCreateTxStateStorage(0);
 
         UUID existingBeforeScan = new UUID(2, 0);
-        partitionStorage.put(existingBeforeScan, randomTxMeta(1, existingBeforeScan));
+        partitionStorage.putForRebalance(existingBeforeScan, randomTxMeta(1, existingBeforeScan));
 
         try (Cursor<IgniteBiTuple<UUID, TxMeta>> cursor = partitionStorage.scan()) {
             UUID prependedDuringScan = new UUID(1, 0);
-            partitionStorage.put(prependedDuringScan, randomTxMeta(1, prependedDuringScan));
+            partitionStorage.putForRebalance(prependedDuringScan, randomTxMeta(1, prependedDuringScan));
             UUID appendedDuringScan = new UUID(3, 0);
-            partitionStorage.put(appendedDuringScan, randomTxMeta(1, appendedDuringScan));
+            partitionStorage.putForRebalance(appendedDuringScan, randomTxMeta(1, appendedDuringScan));
 
             List<UUID> txIdsReturnedByScan = cursor.stream()
                     .map(IgniteBiTuple::getKey)
@@ -446,7 +532,7 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
 
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.lastApplied(100, 500));
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.get(UUID.randomUUID()));
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.remove(UUID.randomUUID(), 1, 1));
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.remove(UUID.randomUUID(), 100, 500));
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, storage::scan);
     }
 
@@ -496,7 +582,7 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
             if ((i % 2) == 0) {
                 assertTrue(storage.compareAndSet(row.get1(), null, row.get2(), i * 10L, i * 10L));
             } else {
-                storage.put(row.get1(), row.get2());
+                storage.putForRebalance(row.get1(), row.get2());
             }
         }
     }

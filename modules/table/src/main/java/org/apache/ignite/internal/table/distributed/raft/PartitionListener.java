@@ -658,9 +658,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return;
         }
 
-        for (UUID txId : cmd.txIds()) {
-            txStateStorage.remove(txId, commandIndex, commandTerm);
-        }
+        txStateStorage.removeAll(cmd.txIds(), commandIndex, commandTerm);
     }
 
     private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {
@@ -726,7 +724,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 commit ? COMMITTED : ABORTED,
                 old == null ? null : old.txCoordinatorId(),
                 old == null ? partId : old.commitPartitionId(),
-                commit ? commitTimestamp : null
+                commit ? commitTimestamp : null,
+                old == null ? null : old.initialVacuumObservationTimestamp(),
+                old == null ? null : old.cleanupCompletionTimestamp()
         ));
     }
 

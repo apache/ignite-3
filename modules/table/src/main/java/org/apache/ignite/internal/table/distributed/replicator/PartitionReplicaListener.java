@@ -1013,20 +1013,25 @@ public class PartitionReplicaListener implements ReplicaListener {
             for (int i = 0; i < rows.size(); i++) {
                 BinaryRow row = rows.get(i);
 
-                futs[i] = schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
-                        .thenCompose(validationResult -> {
-                            if (validationResult.isSuccessful()) {
-                                return completedFuture(row);
-                            } else {
-                                throw new IncompatibleSchemaException("Operation failed because schema "
-                                        + validationResult.fromSchemaVersion() + " is not backward-compatible with "
-                                        + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
-                            }
-                        });
+                futs[i] = validateBackwardCompatibility(row, txId)
+                        .thenApply(unused -> row);
             }
 
             return allOf(futs).thenApply((unused) -> rows);
         });
+    }
+
+    private CompletableFuture<Void> validateBackwardCompatibility(BinaryRow row, UUID txId) {
+        return schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
+                .thenAccept(validationResult -> {
+                    if (!validationResult.isSuccessful()) {
+                        throw new IncompatibleSchemaException(String.format(
+                                "Operation failed because it tried to access a row with newer schema version than transaction's [table=%d, "
+                                        + "txSchemaVersion=%d, rowSchemaVersion=%d]",
+                                validationResult.failedTableId(), validationResult.fromSchemaVersion(), validationResult.toSchemaVersion()
+                        ));
+                    }
+                });
     }
 
     /**
@@ -1569,16 +1574,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 return nullCompletedFuture();
             }
 
-            return schemaCompatValidator.validateBackwards(row.binaryRow().schemaVersion(), tableId(), txId)
-                    .thenApply(validationResult -> {
-                        if (validationResult.isSuccessful()) {
-                            return row;
-                        } else {
-                            throw new IncompatibleSchemaException("Operation failed because schema "
-                                    + validationResult.fromSchemaVersion() + " is not backward-compatible with "
-                                    + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
-                        }
-                    });
+            return validateBackwardCompatibility(row.binaryRow(), txId)
+                    .thenApply(unused -> row);
         });
     }
 
@@ -1805,7 +1802,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return awaitCleanupReadyFutures(request.txId(), request.commit())
                 .thenCompose(res -> {
-                    if (res.hadUpdateFutures()) {
+                    if (res.hadUpdateFutures() || res.forceCleanup()) {
                         HybridTimestamp commandTimestamp = clockService.now();
 
                         return reliableCatalogVersionFor(commandTimestamp)
@@ -1833,10 +1830,21 @@ public class PartitionReplicaListener implements ReplicaListener {
         List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
         List<CompletableFuture<?>> txReadFutures = new ArrayList<>();
 
+        AtomicBoolean forceCleanup = new AtomicBoolean(true);
+
         txCleanupReadyFutures.compute(txId, (id, txOps) -> {
             if (txOps == null) {
                 return null;
             }
+
+            // Cleanup futures (both read and update) are empty in two cases:
+            // - there were no actions in the transaction
+            // - write intent switch is being executed on the new primary (the primary has changed after write intent appeared)
+            // Both cases are expected to happen extremely rarely so we are fine to force the write intent switch.
+
+            // The reason for the forced switch is that otherwise write intents would not be switched (if there is no volatile state and
+            // FuturesCleanupResult.hadUpdateFutures() returns false).
+            forceCleanup.set(txOps.futures.isEmpty());
 
             txOps.futures.forEach((opType, futures) -> {
                 if (opType.isRwRead()) {
@@ -1853,7 +1861,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return allOfFuturesExceptionIgnored(txUpdateFutures, commit, txId)
                 .thenCompose(v -> allOfFuturesExceptionIgnored(txReadFutures, commit, txId))
-                .thenApply(v -> new FuturesCleanupResult(!txReadFutures.isEmpty(), !txUpdateFutures.isEmpty()));
+                .thenApply(v -> new FuturesCleanupResult(!txReadFutures.isEmpty(), !txUpdateFutures.isEmpty(), forceCleanup.get()));
     }
 
     private CompletableFuture<WriteIntentSwitchReplicatedInfo> applyWriteIntentSwitchCommand(
@@ -3922,7 +3930,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                 txState,
                 old == null ? null : old.txCoordinatorId(),
                 old == null ? null : old.commitPartitionId(),
-                txState == COMMITTED ? commitTimestamp : null
+                txState == COMMITTED ? commitTimestamp : null,
+                old == null ? null : old.initialVacuumObservationTimestamp(),
+                old == null ? null : old.cleanupCompletionTimestamp()
         ));
     }
 
@@ -3952,10 +3962,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     private static class FuturesCleanupResult {
         private final boolean hadReadFutures;
         private final boolean hadUpdateFutures;
+        private final boolean forceCleanup;
 
-        public FuturesCleanupResult(boolean hadReadFutures, boolean hadUpdateFutures) {
+        public FuturesCleanupResult(boolean hadReadFutures, boolean hadUpdateFutures, boolean forceCleanup) {
             this.hadReadFutures = hadReadFutures;
             this.hadUpdateFutures = hadUpdateFutures;
+            this.forceCleanup = forceCleanup;
         }
 
         public boolean hadReadFutures() {
@@ -3964,6 +3976,10 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         public boolean hadUpdateFutures() {
             return hadUpdateFutures;
+        }
+
+        public boolean forceCleanup() {
+            return forceCleanup;
         }
     }
 

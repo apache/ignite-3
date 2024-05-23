@@ -75,4 +75,13 @@ public class NodeMetadata implements Serializable {
     public int hashCode() {
         return Objects.hash(restHost, httpPort, httpsPort);
     }
+
+    @Override
+    public String toString() {
+        return "NodeMetadata{"
+                + "restHost='" + restHost + '\''
+                + ", httpPort=" + httpPort
+                + ", httpsPort=" + httpsPort
+                + '}';
+    }
 }

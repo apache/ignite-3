@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.util.GridUnsafe.pageSize;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
 import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
@@ -93,11 +92,6 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
     }
 
     static class UpdateTimestampHandler implements PageHandler<HybridTimestamp, Object> {
-        private final PageEvictionTracker evictionTracker;
-
-        UpdateTimestampHandler(PageEvictionTracker evictionTracker) {
-            this.evictionTracker = evictionTracker;
-        }
 
         @Override
         public Object run(
@@ -115,8 +109,6 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
             int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize(), 0);
 
             HybridTimestamps.writeTimestampToMemory(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, arg);
-
-            evictionTracker.touchPage(pageId);
 
             return true;
         }

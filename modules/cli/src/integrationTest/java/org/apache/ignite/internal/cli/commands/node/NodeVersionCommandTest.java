@@ -29,7 +29,7 @@ public class NodeVersionCommandTest extends CliCommandTestNotInitializedIntegrat
     @DisplayName("Should display node version with provided cluster url")
     void nodeVersion() {
         // When
-        execute("node", "version", "--node-url", NODE_URL);
+        execute("node", "version", "--url", NODE_URL);
 
         // Then
         assertAll(

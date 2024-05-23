@@ -65,6 +65,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
     private AlterTableAlterColumnCommand(
             String tableName,
             String schemaName,
+            boolean ifTableExists,
             String columnName,
             @Nullable ColumnType type,
             @Nullable Integer precision,
@@ -73,7 +74,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
             @Nullable Boolean nullable,
             @Nullable DeferredDefaultValue deferredDefault
     ) {
-        super(schemaName, tableName);
+        super(schemaName, tableName, ifTableExists);
 
         this.columnName = columnName;
         this.type = type;
@@ -101,6 +102,8 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
 
         if (table.isPrimaryKeyColumn(origin.name())) {
             validatePkColumnChange(origin);
+        } else {
+            validateValueColumnChange(origin);
         }
 
         validateColumnChange(origin);
@@ -113,7 +116,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
         }
 
         return List.of(
-                new AlterColumnEntry(table.id(), target, schemaName)
+                new AlterColumnEntry(table.id(), target)
         );
     }
 
@@ -146,6 +149,19 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
         if (nullable != null && nullable) {
             throw new CatalogValidationException("Dropping NOT NULL constraint on key column is not allowed");
         }
+        if (deferredDefault != null) {
+            DefaultValue defaultValue = deferredDefault.derive(origin.type());
+
+            CatalogUtils.ensureSupportedDefault(columnName, origin.type(), defaultValue);
+        }
+    }
+
+    private void validateValueColumnChange(CatalogTableColumnDescriptor origin) {
+        if (deferredDefault != null) {
+            DefaultValue defaultValue = deferredDefault.derive(origin.type());
+
+            CatalogUtils.ensureNonFunctionalDefault(columnName, defaultValue);
+        }
     }
 
     private void validateColumnChange(CatalogTableColumnDescriptor origin) {
@@ -159,6 +175,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
     private static class Builder implements AlterTableAlterColumnCommandBuilder {
         private String tableName;
         private String schemaName;
+        private boolean ifTableExists;
         private String columnName;
         private @Nullable ColumnType type;
         private @Nullable Integer precision;
@@ -177,6 +194,13 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
         @Override
         public Builder schemaName(String schemaName) {
             this.schemaName = schemaName;
+
+            return this;
+        }
+
+        @Override
+        public AlterTableAlterColumnCommandBuilder ifTableExists(boolean ifTableExists) {
+            this.ifTableExists = ifTableExists;
 
             return this;
         }
@@ -234,6 +258,7 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
             return new AlterTableAlterColumnCommand(
                     tableName,
                     schemaName,
+                    ifTableExists,
                     columnName,
                     type,
                     precision,

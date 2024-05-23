@@ -521,6 +521,19 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Writes a UUID.
+     *
+     * @param val UUID value.
+     */
+    public void packUuidNullable(@Nullable UUID val) {
+        if (val == null) {
+            packNil();
+        } else {
+            packUuid(val);
+        }
+    }
+
+    /**
      * Writes a bit set.
      *
      * @param val Bit set value.

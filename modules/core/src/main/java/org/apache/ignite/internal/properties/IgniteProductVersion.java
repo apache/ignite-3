@@ -52,7 +52,7 @@ public class IgniteProductVersion implements Serializable {
      *     <li>3.1.3-SNAPSHOT</li>
      * </ul>
      */
-    private static final Pattern VERSION_PATTERN = Pattern.compile(
+    public static final Pattern VERSION_PATTERN = Pattern.compile(
             "(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)(?:\\.(?<patch>\\d+))?(?:-(?<preRelease>[0-9A-Za-z]+))?"
     );
 

@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.findTupleToBeHostedOnNode;
@@ -75,7 +74,6 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -220,7 +218,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         view.upsert(parallelTx2, tupleForParallelTx);
 
         CompletableFuture<Void> finishStartedFuture = new CompletableFuture<>();
-        CompletableFuture<Void> finishAllowedFuture = new CompletableFuture<>();
 
         node.dropMessages((n, msg) -> {
             if (msg instanceof TxFinishReplicaRequest) {
@@ -229,7 +226,9 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                 if (finishRequest.txId().equals(txId)) {
                     finishStartedFuture.complete(null);
 
-                    finishAllowedFuture.join();
+                    log.info("Test: dropping finish on [node= {}].", n);
+
+                    return true;
                 }
             }
 
@@ -250,7 +249,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         // Check that the volatile state of the transaction is preserved.
         assertTrue(checkVolatileTxStateOnNodes(nodes, txId));
 
-        finishAllowedFuture.complete(null);
+        node.stopDroppingMessages();
 
         assertThat(commitFut, willCompleteSuccessfully());
 
@@ -382,7 +381,8 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Set<String> commitPartNodes = partitionAssignment(node, new TablePartitionId(tableId(node, TABLE_NAME), commitPartId));
 
-        log.info("Test: Commit partition [leaseholder={}, hostingNodes={}].", commitPartitionLeaseholder.name(), commitPartNodes);
+        log.info("Test: Commit partition [part={}, leaseholder={}, hostingNodes={}].", commitPartGrpId, commitPartitionLeaseholder.name(),
+                commitPartNodes);
 
         // Some node that does not host the commit partition, will be the primary node for upserting another tuple.
         IgniteImpl leaseholderForAnotherTuple = findNode(n -> !commitPartNodes.contains(n.name()));
@@ -396,16 +396,17 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         view.upsert(tx, tuple1);
 
         CompletableFuture<Void> cleanupStarted = new CompletableFuture<>();
-        CompletableFuture<Void> cleanupAllowed = new CompletableFuture<>();
 
         commitPartitionLeaseholder.dropMessages((n, msg) -> {
             if (msg instanceof TxCleanupMessage) {
-                cleanupStarted.complete(null);
-
-                log.info("Test: cleanup started.");
+                log.info("Test: cleanup started on [node= {}].", n);
 
                 if (commitPartNodes.contains(n)) {
-                    cleanupAllowed.join();
+                    cleanupStarted.complete(null);
+
+                    log.info("Test: dropping cleanup on [node= {}].", n);
+
+                    return true;
                 }
             }
 
@@ -425,13 +426,13 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         assertTxStateVacuumized(Set.of(leaseholderForAnotherTuple.name()), txId, commitPartId, false);
 
         // Unblocking cleanup.
-        cleanupAllowed.complete(null);
+        commitPartitionLeaseholder.stopDroppingMessages();
 
         assertThat(commitFut, willCompleteSuccessfully());
 
         Transaction roTxAfter = beginReadOnlyTx(anyNode());
 
-        waitForCondition(() -> volatileTxState(commitPartitionLeaseholder, txId) != null, 10_000);
+        waitForCleanupCompletion(commitPartNodes, txId);
 
         triggerVacuum();
         assertTxStateVacuumized(txId, commitPartId, true);
@@ -491,14 +492,19 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         view.upsert(tx, tuple);
 
         CompletableFuture<Void> cleanupStarted = new CompletableFuture<>();
-        CompletableFuture<Void> cleanupAllowedFut = new CompletableFuture<>();
         boolean[] cleanupAllowed = new boolean[1];
 
         commitPartitionLeaseholder.dropMessages((n, msg) -> {
-            if (msg instanceof TxCleanupMessage && !cleanupAllowed[0]) {
+            if (msg instanceof TxCleanupMessage) {
+                log.info("Test: perform cleanup on [node= {}, msg={}].", n, msg);
+
                 cleanupStarted.complete(null);
 
-                cleanupAllowedFut.join();
+                if (!cleanupAllowed[0]) {
+                    log.info("Test: dropping cleanup on [node= {}].", n);
+
+                    return true;
+                }
             }
 
             return false;
@@ -512,8 +518,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         transferPrimary(cluster.runningNodes().collect(toSet()), commitPartGrpId, commitPartNodes::contains);
 
-        cleanupAllowedFut.complete(null);
-
         cleanupAllowed[0] = true;
 
         assertThat(commitFut, willCompleteSuccessfully());
@@ -522,9 +526,9 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         waitForTxStateVacuum(txId, commitPartId, true, 10_000);
 
-        Transaction roTxAfter = beginReadOnlyTx(anyNode());
-
         log.info("Test: checking values.");
+
+        Transaction roTxAfter = beginReadOnlyTx(anyNode());
 
         // Trying to read the value.
         Tuple key = Tuple.create().set("key", tuple.longValue("key"));
@@ -570,31 +574,38 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Set<String> commitPartNodes = partitionAssignment(node, new TablePartitionId(tableId(node, TABLE_NAME), commitPartId));
 
-        log.info("Test: Commit partition [leaseholder={}, hostingNodes={}].", commitPartitionLeaseholder.name(), commitPartNodes);
+        log.info("Test: Commit partition [part={}, leaseholder={}, hostingNodes={}].", commitPartGrpId, commitPartitionLeaseholder.name(),
+                commitPartNodes);
 
         view.upsert(tx, tuple);
 
         CompletableFuture<Void> cleanupStarted = new CompletableFuture<>();
-        CompletableFuture<Void> cleanupAllowedFut = new CompletableFuture<>();
         boolean[] cleanupAllowed = new boolean[1];
 
-        commitPartitionLeaseholder.dropMessages((n, msg) -> {
-            if (msg instanceof TxCleanupMessage && !cleanupAllowed[0]) {
+        // Cleanup may be triggered by the primary replica reelection as well.
+        runningNodes().filter(n -> commitPartNodes.contains(n.name())).forEach(nd -> nd.dropMessages((n, msg) -> {
+            if (msg instanceof TxCleanupMessage) {
+                log.info("Test: perform cleanup on [node= {}, msg={}].", n, msg);
+
                 cleanupStarted.complete(null);
 
-                cleanupAllowedFut.join();
+                if (!cleanupAllowed[0]) {
+                    log.info("Test: dropping cleanup on [node= {}].", n);
 
-                return true;
+                    return true;
+                }
             }
 
             return false;
-        });
+        }));
 
         Transaction roTxBefore = beginReadOnlyTx(anyNode());
 
         CompletableFuture<Void> commitFut = tx.commitAsync();
 
         waitForTxStateReplication(commitPartNodes, txId, commitPartId, 10_000);
+
+        log.info("Test: state replicated.");
 
         assertThat(cleanupStarted, willCompleteSuccessfully());
 
@@ -604,8 +615,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         log.info("Test: volatile state vacuumized");
 
-        cleanupAllowedFut.complete(null);
-
         cleanupAllowed[0] = true;
 
         assertThat(commitFut, willCompleteSuccessfully());
@@ -614,11 +623,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         Transaction roTxAfter = beginReadOnlyTx(anyNode());
 
-        waitForCondition(() -> {
-            TxStateMeta txStateMeta = (TxStateMeta) volatileTxState(commitPartitionLeaseholder, txId);
-
-            return txStateMeta != null && txStateMeta.cleanupCompletionTimestamp() != null;
-        }, 10_000);
+        waitForCleanupCompletion(commitPartNodes, txId);
 
         log.info("Test: cleanup completed.");
 
@@ -645,7 +650,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      * </ul>
      */
     @Test
-    @Disabled("IGNITE-22147")
     public void testRecoveryAfterPersistentStateVacuumized() throws InterruptedException {
         // This node isn't going to be stopped, so let it be node 0.
         IgniteImpl commitPartitionLeaseholder = cluster.node(0);
@@ -689,13 +693,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         tx0.commitAsync();
 
-        // Check that the final tx state COMMITTED is saved to the persistent tx storage.
-        assertTrue(waitForCondition(() -> cluster.runningNodes().filter(n -> commitPartitionNodes.contains(n.name())).allMatch(n -> {
-            TransactionMeta meta = persistentTxState(n, txId0, commitPartId);
-
-            return meta != null && meta.txState() == COMMITTED;
-        }), 10_000));
-
+        // Cleanup starts not earlier than the finish command is applied to commit partition group.
         assertThat(cleanupStarted, willCompleteSuccessfully());
 
         // Stop the first transaction coordinator.
@@ -737,8 +735,6 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     public void testRoReadTheCorrectDataInBetween() {
-        setTxResourceTtl(0);
-
         IgniteImpl node = anyNode();
 
         String tableName = TABLE_NAME + "_1";
@@ -882,6 +878,28 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         }
 
         assertTrue(r);
+    }
+
+    /**
+     * Wait for cleanup completion timestamp on any node of commit partition group.
+     *
+     * @param commitPartitionNodeNames Node names of nodes in commit partition group.
+     * @param txId Transaction id.
+     */
+    private void waitForCleanupCompletion(Set<String> commitPartitionNodeNames, UUID txId) throws InterruptedException {
+        Set<IgniteImpl> commitPartitionNodes = runningNodes().filter(n -> commitPartitionNodeNames.contains(n.name())).collect(toSet());
+
+        assertTrue(waitForCondition(() -> {
+            boolean res = false;
+
+            for (IgniteImpl node : commitPartitionNodes) {
+                TxStateMeta txStateMeta = (TxStateMeta) volatileTxState(node, txId);
+
+                res = res || txStateMeta != null && txStateMeta.cleanupCompletionTimestamp() != null;
+            }
+
+            return res;
+        }, 10_000));
     }
 
     /**
@@ -1051,4 +1069,5 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                 .findFirst()
                 .get();
     }
+
 }

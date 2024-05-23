@@ -275,6 +275,13 @@ sql_result data_query::make_request_execute() {
             writer.write(std::int64_t(m_connection.get_timeout()) * 1000);
             writer.write_nil(); // Session timeout (unused, session is closed by the server immediately).
 
+            auto timezone = m_connection.get_configuration().get_timezone();
+            if (timezone.is_set()) {
+                writer.write(timezone.get_value());
+            } else {
+                writer.write_nil();
+            }
+
             // Properties are not used for now.
             writer.write(0);
             binary_tuple_builder prop_builder{0};

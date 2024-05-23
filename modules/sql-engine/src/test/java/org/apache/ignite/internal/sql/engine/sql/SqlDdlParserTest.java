@@ -26,6 +26,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
@@ -34,21 +35,28 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlBinaryStringLiteral;
+import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNumericLiteral;
+import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Test suite to verify parsing of the DDL command.
  */
-public class SqlDdlParserTest extends AbstractDdlParserTest {
+@SuppressWarnings("ThrowableNotThrown")
+public class SqlDdlParserTest extends AbstractParserTest {
     /**
      * Very simple case where only table name and a few columns are presented.
      */
@@ -78,7 +86,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
      */
     @Test
     public void createTableAutogenFuncDefault() {
-        String query = "create table my_table(id varchar default gen_random_uuid primary key, val varchar)";
+        String query = "create table my_table(id uuid default rand_uuid primary key, val varchar)";
 
         SqlNode node = parse(query);
 
@@ -92,7 +100,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 SqlColumnDeclaration.class,
                 col -> "ID".equals(col.name.getSimple())
                         && col.expression instanceof SqlIdentifier
-                        && "GEN_RANDOM_UUID".equals(((SqlIdentifier) col.expression).getSimple())
+                        && "RAND_UUID".equals(((SqlIdentifier) col.expression).getSimple())
         )));
         assertThat(createTable.columnList(), hasItem(ofTypeMatching(
                 "PK constraint with name \"ID\"", IgniteSqlPrimaryKeyConstraint.class,
@@ -104,9 +112,72 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
                 + "PRIMARY KEY (\"ID\"), "
-                + "\"ID\" VARCHAR DEFAULT (\"GEN_RANDOM_UUID\"), "
+                + "\"ID\" UUID DEFAULT (\"RAND_UUID\"), "
                 + "\"VAL\" VARCHAR)"
         );
+    }
+
+    /**
+     * Parsing of CREATE TABLE with a literal as a default expression.
+     */
+    @Test
+    public void createTableWithDefaultLiteral() {
+        String query = "CREATE TABLE my_table("
+                + "id BIGINT DEFAULT 1, "
+                + "valdate DATE DEFAULT DATE '2001-12-21',"
+                + "valdate2 DATE DEFAULT '2001-12-21',"
+                + "valtime TIME DEFAULT TIME '11:22:33.444',"
+                + "valtime2 TIME DEFAULT '11:22:33.444',"
+                + "valts TIMESTAMP DEFAULT TIMESTAMP '2001-12-21 11:22:33.444',"
+                + "valts2 TIMESTAMP DEFAULT '2001-12-21 11:22:33.444',"
+                + "valbin VARBINARY DEFAULT x'ff',"
+                + "valstr VARCHAR DEFAULT 'string'"
+                + ")";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
+        assertThat(createTable.columnList(), hasColumnWithDefault("ID", SqlNumericLiteral.class, "1"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALSTR", SqlCharStringLiteral.class, "string"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALBIN", SqlBinaryStringLiteral.class, "11111111"));
+
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALDATE", SqlUnknownLiteral.class, "2001-12-21"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALTIME", SqlUnknownLiteral.class, "11:22:33.444"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALTS", SqlUnknownLiteral.class, "2001-12-21 11:22:33.444"));
+
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALDATE2", SqlCharStringLiteral.class, "2001-12-21"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALTIME2", SqlCharStringLiteral.class, "11:22:33.444"));
+        assertThat(createTable.columnList(), hasColumnWithDefault("VALTS2", SqlCharStringLiteral.class, "2001-12-21 11:22:33.444"));
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" "
+                + "(\"ID\" BIGINT DEFAULT (1), "
+                + "\"VALDATE\" DATE DEFAULT (DATE '2001-12-21'), "
+                + "\"VALDATE2\" DATE DEFAULT ('2001-12-21'), "
+                + "\"VALTIME\" TIME DEFAULT (TIME '11:22:33.444'), "
+                + "\"VALTIME2\" TIME DEFAULT ('11:22:33.444'), "
+                + "\"VALTS\" TIMESTAMP DEFAULT (TIMESTAMP '2001-12-21 11:22:33.444'), "
+                + "\"VALTS2\" TIMESTAMP DEFAULT ('2001-12-21 11:22:33.444'), "
+                + "\"VALBIN\" VARBINARY DEFAULT (X'FF'), "
+                + "\"VALSTR\" VARCHAR DEFAULT ('string'))"
+        );
+    }
+
+    private Matcher<Iterable<? super SqlColumnDeclaration>> hasColumnWithDefault(
+            String columnName,
+            Class<? extends SqlLiteral> literalType,
+            String literalValue
+    ) {
+        return hasItem(ofTypeMatching(
+                "Column with literal as default: columnName=" + columnName,
+                SqlColumnDeclaration.class,
+                col -> columnName.equals(col.name.getSimple())
+                        && literalType.isInstance(col.expression)
+                        && literalValue.equals(((SqlLiteral) col.expression).toValue())
+        ));
     }
 
     /**
@@ -801,6 +872,52 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(column.expression, is(nullValue()));
 
         expectUnparsed(addColumn, "ALTER TABLE \"T\" ADD COLUMN \"C\" INTEGER NOT NULL");
+    }
+
+    /**
+     * CHAR datatype has certain storage assignment rules, namely it requires value to be padded with `space` character up to declared
+     * length. This currently not supported in storage, thus let's forbid usage of CHAR datatype for table's columns.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "CREATE TABLE t (c CHAR)",
+            "CREATE TABLE t (c CHAR(5))",
+            "CREATE TABLE t (c CHARACTER)",
+            "CREATE TABLE t (c CHARACTER(5))",
+            "ALTER TABLE t ADD COLUMN c CHAR",
+            "ALTER TABLE t ADD COLUMN c CHAR(5)",
+            "ALTER TABLE t ADD COLUMN c CHARACTER",
+            "ALTER TABLE t ADD COLUMN c CHARACTER(5)",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE CHAR",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE CHAR(5)",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE CHARACTER",
+            "ALTER TABLE t ALTER COLUMN c SET DATA TYPE CHARACTER(5)"
+    })
+    void charTypeIsNotAllowedInTable(String statement) {
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "CHAR datatype is not supported in table",
+                () -> parse(statement)
+        );
+    }
+
+    /**
+     * Test makes sure exception is not thrown for CHARACTER VARYING type and in CAST operation where CHARACTER
+     * is allowed.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "CREATE TABLE t (c VARCHAR)",
+            "CREATE TABLE t (c CHARACTER VARYING)",
+            "SELECT CAST(1 AS CHAR)",
+            "SELECT CAST(1 AS CHARACTER)",
+            "SELECT 1::CHAR",
+            "SELECT 1::CHARACTER",
+    })
+    void restrictionOfCharTypeIsNotAppliedToVarcharAndCast(String statement) {
+        SqlNode node = parse(statement);
+
+        assertNotNull(node);
     }
 
     /**

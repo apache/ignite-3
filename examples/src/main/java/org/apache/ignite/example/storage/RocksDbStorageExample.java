@@ -33,11 +33,11 @@ package org.apache.ignite.example.storage;
  *     </li>
  *     <li>
  *         Cluster initialization using the CLI tool (if not done yet):<br>
- *         {@code ignite cluster init --cluster-name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=my-first-node}
+ *         {@code ignite cluster init --name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=my-first-node}
  *     </li>
  *     <li>
  *         Add configuration for a data region of the RocksDB storage engine using the CLI tool (if not done yet):<br>
- *         {@code ignite cluster config update "rocksDb.regions.rocksdb-example{}"}
+ *         {@code ignite cluster config update "rocksdb.regions.rocksdb-example{}"}
  *     </li>
  *     <li>Run the example in the IDE.</li>
  *     <li>

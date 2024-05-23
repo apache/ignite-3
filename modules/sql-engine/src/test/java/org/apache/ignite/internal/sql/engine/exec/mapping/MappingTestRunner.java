@@ -38,7 +38,7 @@ import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
@@ -169,7 +169,7 @@ final class MappingTestRunner {
             ResultSetMetadataImpl resultSetMetadata = new ResultSetMetadataImpl(Collections.emptyList());
             ParameterMetadata parameterMetadata = new ParameterMetadata(Collections.emptyList());
             MultiStepPlan multiStepPlan = new MultiStepPlan(new PlanId(UUID.randomUUID(), 1), sqlQueryType, rel,
-                    resultSetMetadata, parameterMetadata);
+                    resultSetMetadata, parameterMetadata, schema.catalogVersion());
 
             String actualText = produceMapping(testDef.nodeName, targetProvider, snapshot, multiStepPlan);
 

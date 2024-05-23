@@ -201,6 +201,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     new SimpleInMemoryKeyValueStorage(name()),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
+                    new NoOpMetricManager(),
                     metaStorageConfiguration
             );
 

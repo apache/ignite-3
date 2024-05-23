@@ -45,7 +45,6 @@ public final class IgniteEvents implements EventFactory {
                 .type(type)
                 .user(user)
                 .timestamp(System.currentTimeMillis())
-                .productVersion("3.0.0")
                 .build();
     }
 

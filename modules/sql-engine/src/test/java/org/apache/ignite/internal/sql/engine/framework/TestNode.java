@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -28,7 +26,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -37,8 +34,10 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
+import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -55,6 +54,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
@@ -63,7 +63,6 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
@@ -80,7 +79,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TestNode implements LifecycleAware {
     private final String nodeName;
-    private final SqlSchemaManager schemaManager;
     private final PrepareService prepareService;
     private final ExecutionService executionService;
     private final ParserService parserService;
@@ -113,7 +111,6 @@ public class TestNode implements LifecycleAware {
         this.nodeName = nodeName;
         this.parserService = parserService;
         this.prepareService = prepareService;
-        this.schemaManager = schemaManager;
 
         TopologyService topologyService = clusterService.topologyService();
         MessagingService messagingService = clusterService.messagingService();
@@ -138,6 +135,8 @@ public class TestNode implements LifecycleAware {
                 tableRegistry, view -> () -> systemViewManager.scanView(view.name())
         );
 
+        TableFunctionRegistryImpl tableFunctionRegistry = new TableFunctionRegistryImpl();
+
         executionService = registerService(ExecutionServiceImpl.create(
                 topologyService,
                 messageService,
@@ -150,6 +149,7 @@ public class TestNode implements LifecycleAware {
                 mappingService,
                 tableRegistry,
                 dependencyResolver,
+                tableFunctionRegistry,
                 clockService,
                 5_000
         ));
@@ -229,7 +229,7 @@ public class TestNode implements LifecycleAware {
      */
     public QueryPlan prepare(String query) {
         ParsedResult parsedResult = parserService.parse(query);
-        BaseQueryContext ctx = createContext();
+        SqlOperationContext ctx = createContext();
 
         return await(prepareService.prepareAsync(parsedResult, ctx));
     }
@@ -261,7 +261,7 @@ public class TestNode implements LifecycleAware {
             }
 
             ParsedResult parsedResult = parserService.parse(statement);
-            BaseQueryContext ctx = createContext();
+            SqlOperationContext ctx = createContext();
 
             QueryPlan plan = await(prepareService.prepareAsync(parsedResult, ctx));
 
@@ -275,15 +275,12 @@ public class TestNode implements LifecycleAware {
         }
     }
 
-    private BaseQueryContext createContext() {
-        return BaseQueryContext.builder()
+    private SqlOperationContext createContext() {
+        return SqlOperationContext.builder()
                 .queryId(UUID.randomUUID())
                 .cancel(new QueryCancel())
-                .frameworkConfig(
-                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(schemaManager.schema(Long.MAX_VALUE).getSubSchema(DEFAULT_SCHEMA_NAME))
-                                .build()
-                )
+                .operationTime(clock.now())
+                .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
                 .build();
     }
