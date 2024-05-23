@@ -548,7 +548,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param raftGrpLsnr Raft group listener.
      * @throws NodeStoppingException in case of stopping node before completion
      */
-    private void startPartitionRaftGroupNode(
+    public void startPartitionRaftGroupNode(
             TablePartitionId replicaGrpId,
             int zoneId,
             RaftNodeId raftNodeId,
