@@ -28,12 +28,10 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.Function;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.BatchedArguments;
-import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.msgpack.core.ExtensionTypeHeader;
 import org.msgpack.core.MessageFormat;
@@ -938,35 +936,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
 
         for (int i = 0; i < size; i++) {
             res.add(new DeploymentUnit(unpackString(), unpackString()));
-        }
-
-        return res;
-    }
-
-    /**
-     * Unpacks a collection from binary tuple.
-     *
-     * @return Collection.
-     */
-    public @Nullable List<Object> unpackCollectionFromBinaryTuple() {
-        if (tryUnpackNil()) {
-            return null;
-        }
-
-        int size = unpackInt();
-        if (size == 0) {
-            return new ArrayList<>();
-        }
-
-        int typeId = unpackInt();
-        ColumnType type = ColumnTypeConverter.fromIdOrThrow(typeId);
-
-        List<Object> res = new ArrayList<>(size);
-        BinaryTupleReader binTuple = new BinaryTupleReader(size, readBinaryUnsafe());
-        Function<Integer, Object> reader = ClientBinaryTupleUtils.readerForType(binTuple, type);
-
-        for (int i = 0; i < size; i++) {
-            res.add(reader.apply(i));
         }
 
         return res;
