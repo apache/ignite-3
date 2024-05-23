@@ -1,7 +1,6 @@
 # name: test/sql/cast/test_boolean_cast.test
 # description: SQL feature T031(BOOLEAN data type). Cast operator.
 # group: [cast]
-# Ignored with https://issues.apache.org/jira/browse/IGNITE-19331
 
 statement ok
 PRAGMA enable_verification
@@ -36,60 +35,81 @@ SELECT CAST('FALSE' AS BOOLEAN)
 ----
 false
 
-statement error
-SELECT CAST('12345' AS BOOLEAN)
+query T
+SELECT CAST(NULL AS BOOLEAN)
+----
+null
 
-statement error
-SELECT CAST(CAST('12345' AS INTEGER) AS BOOLEAN)
+query T
+SELECT CAST((1 = NULL) AS BOOLEAN)
+----
+null
 
-statement error
-SELECT CAST(CAST('0' AS INTEGER) AS BOOLEAN)
+statement error: Invalid character for cast: 0
+SELECT CAST('0' AS BOOLEAN)
 
-statement error
+statement error: Invalid character for cast: 1
+SELECT CAST('1' AS BOOLEAN)
+
+statement error: Cast function cannot convert value of type TINYINT to type BOOLEAN
 SELECT CAST(CAST('1' AS tinyint) AS BOOLEAN)
 
-statement error
+statement error: Cast function cannot convert value of type TINYINT to type BOOLEAN
 SELECT CAST(CAST('0' AS tinyint) AS BOOLEAN)
 
-statement error
+statement error: Cast function cannot convert value of type SMALLINT to type BOOLEAN
 SELECT CAST(CAST('1' AS smallint) AS BOOLEAN)
 
-statement error
+statement error: Cast function cannot convert value of type SMALLINT to type BOOLEAN
 SELECT CAST(CAST('0' AS smallint) AS BOOLEAN)
 
-statement error
+statement error: Cast function cannot convert value of type INTEGER to type BOOLEAN
 SELECT CAST(CAST('1' AS integer) AS BOOLEAN)
 
-statement error
+statement error: Cast function cannot convert value of type INTEGER to type BOOLEAN
 SELECT CAST(CAST('0' AS integer) AS BOOLEAN)
 
-statement error
+statement error: Cast function cannot convert value of type BIGINT to type BOOLEAN
 SELECT CAST(CAST('1' AS bigint) AS BOOLEAN)
 
-statement error
+statement error: Cast function cannot convert value of type BIGINT to type BOOLEAN
 SELECT CAST(CAST('0' AS bigint) AS BOOLEAN)
 
-statement error
+statement error: Cast function cannot convert value of type DECIMAL(32767, 0) to type BOOLEAN
 SELECT CAST(CAST('1' AS decimal) AS BOOLEAN)
 
-statement error
+statement error: Cast function cannot convert value of type DECIMAL(32767, 0) to type BOOLEAN
 SELECT CAST(CAST('0' AS decimal) AS BOOLEAN)
 
-statement error
+statement error: Cast function cannot convert value of type DECIMAL(1, 0) to type BOOLEAN
 SELECT CAST(CAST('1' AS decimal(1,0)) AS BOOLEAN)
 
-statement error
+statement error: Cast function cannot convert value of type DECIMAL(1, 0) to type BOOLEAN
 SELECT CAST(CAST('0' AS decimal(1,0)) AS BOOLEAN)
 
-statement error
-SELECT CAST(CAST('1' AS decimal(9,0)) AS BOOLEAN)
+statement error: Cast function cannot convert value of type FLOAT to type BOOLEAN
+SELECT CAST(CAST('1' AS float) AS BOOLEAN)
 
-statement error
-SELECT CAST(CAST('0' AS decimal(9,0)) AS BOOLEAN)
+statement error: Cast function cannot convert value of type FLOAT to type BOOLEAN
+SELECT CAST(CAST('0' AS float) AS BOOLEAN)
 
-statement error
-SELECT CAST(CAST('1' AS decimal(38,0)) AS BOOLEAN)
+statement error: Cast function cannot convert value of type DOUBLE to type BOOLEAN
+SELECT CAST(CAST('1' AS double) AS BOOLEAN)
 
-statement error
-SELECT CAST(CAST('0' AS decimal(38,0)) AS BOOLEAN)
+statement error: Cast function cannot convert value of type DOUBLE to type BOOLEAN
+SELECT CAST(CAST('0' AS double) AS BOOLEAN)
 
+statement error: Cast function cannot convert value of type DATE to type BOOLEAN
+SELECT CAST(CAST('1970-1-1' AS date) AS BOOLEAN)
+
+statement error: Cast function cannot convert value of type TIME(0) to type BOOLEAN
+SELECT CAST(CAST('00:00:00' AS time) AS BOOLEAN)
+
+statement error: Cast function cannot convert value of type TIME(9) to type BOOLEAN
+SELECT CAST(CAST('00:00:00.000000000' AS time(9)) AS BOOLEAN)
+
+statement error: Cast function cannot convert value of type TIMESTAMP(6) to type BOOLEAN
+SELECT CAST(CAST('1970-1-1 00:00:00' AS timestamp) AS BOOLEAN)
+
+statement error: Cast function cannot convert value of type TIMESTAMP(9) to type BOOLEAN
+SELECT CAST(CAST('1970-1-1 00:00:00.000000000' AS timestamp(9)) AS BOOLEAN)
