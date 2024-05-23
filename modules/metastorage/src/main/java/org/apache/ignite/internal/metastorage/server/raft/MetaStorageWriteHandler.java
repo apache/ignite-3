@@ -43,6 +43,7 @@ import org.apache.ignite.internal.metastorage.command.SyncTimeCommand;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.ConditionType;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.dsl.MetaStorageMessagesFactory;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Statement.IfStatement;
 import org.apache.ignite.internal.metastorage.dsl.Statement.UpdateStatement;
@@ -72,6 +73,8 @@ public class MetaStorageWriteHandler {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageWriteHandler.class);
 
     public static final byte[] IDEMPOTENT_COMMAND_PREFIX_BYTES = "icp.".getBytes(StandardCharsets.UTF_8);
+
+    private static final MetaStorageMessagesFactory MSG_FACTORY = new MetaStorageMessagesFactory();
 
     private final KeyValueStorage storage;
     private final ClusterTimeImpl clusterTime;
@@ -335,7 +338,15 @@ public class MetaStorageWriteHandler {
                 if (!entry.tombstone()) {
                     byte[] commandIdBytes = copyOfRange(entry.key(), IDEMPOTENT_COMMAND_PREFIX_BYTES.length, entry.key().length);
                     CommandId commandId = ByteUtils.fromBytes(commandIdBytes);
-                    idempotentCommandCache.put(commandId, new IdempotentCommandCachedResult(byteToBoolean(entry.value()[0]), now));
+
+                    Serializable result;
+                    if (entry.value().length == 1) {
+                        result = byteToBoolean(entry.value()[0]);
+                    } else {
+                       result = MSG_FACTORY.statementResult().result(entry.value()).build();
+                    }
+
+                    idempotentCommandCache.put(commandId, new IdempotentCommandCachedResult(result, now));
                 }
             }
         }

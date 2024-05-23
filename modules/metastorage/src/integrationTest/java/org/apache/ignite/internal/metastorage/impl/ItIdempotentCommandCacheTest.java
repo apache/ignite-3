@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -107,6 +108,9 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     private static final ByteArray TEST_KEY_2 = new ByteArray("key2".getBytes(StandardCharsets.UTF_8));
     private static final byte[] TEST_VALUE_2 = "value2".getBytes(StandardCharsets.UTF_8);
     private static final byte[] ANOTHER_VALUE_2 = "another2".getBytes(StandardCharsets.UTF_8);
+
+    private static final int YIELD_RESULT = 10;
+    private static final int ANOTHER_YIELD_RESULT = 20;
 
     @InjectConfiguration("mock.responseTimeout = 100")
     private RaftConfiguration raftConfiguration;
@@ -333,15 +337,19 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     @MethodSource("idempotentCommandProvider")
     public void testIdempotentCacheRestoreFromSnapshot(IdempotentCommand idempotentCommand, TestInfo testInfo) throws Exception {
         RaftGroupService raftClient = raftClient();
+        Node leader = leader(raftClient());
 
         // Initial idempotent command run.
         CompletableFuture<Object> commandProcessingResultFuture = raftClient.run(idempotentCommand);
         assertThat(commandProcessingResultFuture, willCompleteSuccessfully());
         Object commandProcessingResult = commandProcessingResultFuture.get();
-        if (commandProcessingResult instanceof Boolean) {
+        if (idempotentCommand instanceof InvokeCommand) {
             assertTrue((Boolean) commandProcessingResult);
+            assertTrue(leader.checkValueInStorage(TEST_KEY.bytes(), TEST_VALUE));
         } else {
-            assertTrue(((StatementResult) commandProcessingResult).getAsBoolean());
+            assertEquals(YIELD_RESULT, ((StatementResult) commandProcessingResult).getAsInt());
+            assertTrue(leader.checkValueInStorage(TEST_KEY_2.bytes(), TEST_VALUE_2));
+
         }
 
         // Do the snapshot.
@@ -355,14 +363,18 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         // Restart cluster.
         startCluster(testInfo);
 
+        leader = leader(raftClient());
+
         // Run same idempotent command one more time and check that condition wasn't re-evaluated, but was retrieved from the cache instead.
         CompletableFuture<Object> commandProcessingResultFuture2 = raftClient().run(idempotentCommand);
         assertThat(commandProcessingResultFuture2, willCompleteSuccessfully());
         Object commandProcessingResult2 = commandProcessingResultFuture2.get();
-        if (commandProcessingResult2 instanceof Boolean) {
+        if (idempotentCommand instanceof InvokeCommand) {
             assertTrue((Boolean) commandProcessingResult2);
+            assertTrue(leader.checkValueInStorage(TEST_KEY.bytes(), TEST_VALUE));
         } else {
-            assertTrue(((StatementResult) commandProcessingResult2).getAsBoolean());
+            assertEquals(YIELD_RESULT, ((StatementResult) commandProcessingResult).getAsInt());
+            assertTrue(leader.checkValueInStorage(TEST_KEY_2.bytes(), TEST_VALUE_2));
         }
     }
 
@@ -397,7 +409,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     static List<IdempotentCommand> idempotentCommandProvider() {
         return List.of(
                 buildKeyNotExistsInvokeCommand(TEST_KEY, TEST_VALUE, ANOTHER_VALUE),
-                buildKeyNotExistsMultiInvokeCommand(TEST_KEY_2, TEST_VALUE_2, ANOTHER_VALUE_2)
+                buildKeyNotExistsMultiInvokeCommand(TEST_KEY_2, TEST_VALUE_2, ANOTHER_VALUE_2, YIELD_RESULT, ANOTHER_YIELD_RESULT)
         );
     }
 
@@ -421,15 +433,17 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     private static IdempotentCommand buildKeyNotExistsMultiInvokeCommand(
             ByteArray testKey,
             byte[] testValue,
-            byte[] anotherValue
+            byte[] anotherValue,
+            int testYieldResult,
+            int anotherYieldResult
     ) {
         HybridClock clock = new HybridClockImpl();
         CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> UUID.randomUUID().toString());
 
         Iif iif = iif(
                 notExists(testKey),
-                ops(put(testKey, testValue)).yield(true),
-                ops(put(testKey, anotherValue)).yield(false)
+                ops(put(testKey, testValue)).yield(testYieldResult),
+                ops(put(testKey, anotherValue)).yield(anotherYieldResult)
         );
 
         return CMD_FACTORY.multiInvokeCommand()
