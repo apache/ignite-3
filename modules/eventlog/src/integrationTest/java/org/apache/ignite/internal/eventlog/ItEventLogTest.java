@@ -109,7 +109,7 @@ class ItEventLogTest extends ClusterPerClassIntegrationTest {
         );
 
         // Then at least one more event is written to file (Can have more than one attempt to connect).
-        await().until( () -> readEventLog().size() > 1);
+        await().until(() -> readEventLog().size() > 1);
 
         // And event is written in JSON format.
         String expectedEventJsonPatternAfterInvalidAuth = "\\{"
