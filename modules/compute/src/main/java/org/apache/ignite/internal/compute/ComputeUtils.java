@@ -148,7 +148,7 @@ public class ComputeUtils {
      * @param recvClass Receiver class.
      * @param <T> Receiver item type.
      * @param <R> Receiver return type.
-     * @return Compute job instance.
+     * @return Receiver instance.
      */
     public static <T, R> DataStreamerReceiver<T, R> instantiateReceiver(Class<? extends DataStreamerReceiver<T, R>> recvClass) {
         if (!(DataStreamerReceiver.class.isAssignableFrom(recvClass))) {
@@ -175,9 +175,9 @@ public class ComputeUtils {
      * Resolve receiver class name.
      *
      * @param classLoader Class loader.
-     * @param className Map reduce task class name.
-     * @param <R> Map reduce task return type.
-     * @return Map reduce task class.
+     * @param className Class name.
+     * @param <R> Return type.
+     * @return Receiver class.
      */
     public static <T, R> Class<DataStreamerReceiver<T, R>> receiverClass(ClassLoader classLoader, String className) {
         try {
