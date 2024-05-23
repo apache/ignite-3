@@ -39,6 +39,7 @@ import org.apache.ignite.raft.jraft.closure.SaveSnapshotClosure;
 import org.apache.ignite.raft.jraft.closure.TaskClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
+import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType;
 import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -100,6 +101,8 @@ public class FSMCallerImpl implements FSMCaller {
     public static class ApplyTask implements NodeIdAware {
         /** Raft node id. */
         NodeId nodeId;
+        EventHandler<NodeIdAware> handler;
+        DisruptorEventType evtType;
 
         public TaskType type;
         // union fields
@@ -115,6 +118,32 @@ public class FSMCallerImpl implements FSMCaller {
             return nodeId;
         }
 
+        @Override
+        public void nodeId(NodeId nodeId) {
+            this.nodeId = nodeId;
+
+        }
+
+        @Override
+        public void handler(EventHandler<NodeIdAware> handler) {
+            this.handler = handler;
+        }
+
+        @Override
+        public EventHandler<NodeIdAware> handler() {
+            return handler;
+        }
+
+        @Override
+        public void type(DisruptorEventType type) {
+            this.evtType = type;
+        }
+
+        @Override
+        public DisruptorEventType type() {
+            return evtType;
+        }
+
         public void reset() {
             this.type = null;
             this.committedIndex = 0;
@@ -124,6 +153,8 @@ public class FSMCallerImpl implements FSMCaller {
             this.done = null;
             this.shutdownLatch = null;
             this.nodeId = null;
+            this.handler = null;
+            this.evtType = null;
         }
     }
 
@@ -206,6 +237,8 @@ public class FSMCallerImpl implements FSMCaller {
             Utils.runInThread(this.node.getOptions().getCommonExecutor(), () -> this.taskQueue.publishEvent((task, sequence) -> {
                 task.reset();
                 task.nodeId = this.nodeId;
+                task.handler = null;
+                task.evtType = DisruptorEventType.REGULAR;
                 task.type = TaskType.SHUTDOWN;
                 task.shutdownLatch = latch;
             }));
@@ -237,6 +270,8 @@ public class FSMCallerImpl implements FSMCaller {
     public boolean onCommitted(final long committedIndex) {
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.COMMITTED;
             task.committedIndex = committedIndex;
         });
@@ -250,6 +285,8 @@ public class FSMCallerImpl implements FSMCaller {
         final CountDownLatch latch = new CountDownLatch(1);
         enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.FLUSH;
             task.shutdownLatch = latch;
         });
@@ -260,6 +297,8 @@ public class FSMCallerImpl implements FSMCaller {
     public boolean onSnapshotLoad(final LoadSnapshotClosure done) {
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.SNAPSHOT_LOAD;
             task.done = done;
         });
@@ -269,6 +308,8 @@ public class FSMCallerImpl implements FSMCaller {
     public boolean onSnapshotSave(final SaveSnapshotClosure done) {
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.SNAPSHOT_SAVE;
             task.done = done;
         });
@@ -278,6 +319,8 @@ public class FSMCallerImpl implements FSMCaller {
     public boolean onLeaderStop(final Status status) {
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.LEADER_STOP;
             task.status = new Status(status);
         });
@@ -287,6 +330,8 @@ public class FSMCallerImpl implements FSMCaller {
     public boolean onLeaderStart(final long term) {
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.LEADER_START;
             task.term = term;
         });
@@ -296,6 +341,8 @@ public class FSMCallerImpl implements FSMCaller {
     public boolean onStartFollowing(final LeaderChangeContext ctx) {
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.START_FOLLOWING;
             task.leaderChangeCtx = new LeaderChangeContext(ctx.getLeaderId(), ctx.getTerm(), ctx.getStatus());
         });
@@ -305,6 +352,8 @@ public class FSMCallerImpl implements FSMCaller {
     public boolean onStopFollowing(final LeaderChangeContext ctx) {
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.STOP_FOLLOWING;
             task.leaderChangeCtx = new LeaderChangeContext(ctx.getLeaderId(), ctx.getTerm(), ctx.getStatus());
         });
@@ -343,6 +392,8 @@ public class FSMCallerImpl implements FSMCaller {
         final OnErrorClosure c = new OnErrorClosure(error);
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.ERROR;
             task.done = c;
         });

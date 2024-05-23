@@ -36,6 +36,7 @@ import org.apache.ignite.raft.jraft.FSMCaller.LastAppliedLogIndexListener;
 import org.apache.ignite.raft.jraft.ReadOnlyService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
+import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType;
 import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.NodeId;
@@ -89,6 +90,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
     public static class ReadIndexEvent implements NodeIdAware {
         /** Raft node id. */
         NodeId nodeId;
+        EventHandler<NodeIdAware> handler;
+        DisruptorEventType evtType;
 
         Bytes requestContext;
         ReadIndexClosure done;
@@ -97,6 +100,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
 
         private void reset() {
             this.nodeId = null;
+            this.handler = null;
+            this.evtType = null;
             this.requestContext = null;
             this.done = null;
             this.shutdownLatch = null;
@@ -106,6 +111,32 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         @Override
         public NodeId nodeId() {
             return nodeId;
+        }
+
+        @Override
+        public void nodeId(NodeId nodeId) {
+            this.nodeId = nodeId;
+
+        }
+
+        @Override
+        public void handler(EventHandler<NodeIdAware> handler) {
+            this.handler = handler;
+        }
+
+        @Override
+        public EventHandler<NodeIdAware> handler() {
+            return handler;
+        }
+
+        @Override
+        public void type(DisruptorEventType type) {
+            this.evtType = type;
+        }
+
+        @Override
+        public DisruptorEventType type() {
+            return evtType;
         }
     }
 
@@ -309,6 +340,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         Utils.runInThread(this.node.getOptions().getCommonExecutor(),
             () -> this.readIndexQueue.publishEvent((event, sequence) -> {
                 event.nodeId = this.node.getNodeId();
+                event.handler = null;
+                event.evtType = DisruptorEventType.REGULAR;
                 event.shutdownLatch = this.shutdownLatch;
             }));
     }
@@ -332,6 +365,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         try {
             EventTranslator<ReadIndexEvent> translator = (event, sequence) -> {
                 event.nodeId = this.node.getNodeId();
+                event.handler = null;
+                event.evtType = DisruptorEventType.REGULAR;
                 event.done = closure;
                 event.requestContext = new Bytes(reqCtx);
                 event.startTime = Utils.monotonicMs();
@@ -417,6 +452,8 @@ public class ReadOnlyServiceImpl implements ReadOnlyService, LastAppliedLogIndex
         final CountDownLatch latch = new CountDownLatch(1);
         this.readIndexQueue.publishEvent((task, sequence) -> {
             task.nodeId = this.node.getNodeId();
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.shutdownLatch = latch;
         });
         latch.await();

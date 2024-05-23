@@ -65,7 +65,8 @@ import org.apache.ignite.raft.jraft.closure.SynchronizedClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
-import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
+import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType
+;import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.Ballot;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -262,6 +263,8 @@ public class NodeImpl implements Node, RaftServerService {
     public static class LogEntryAndClosure implements NodeIdAware {
         /** Raft node id. */
         NodeId nodeId;
+        EventHandler<NodeIdAware> handler;
+        DisruptorEventType evtType;
 
         LogEntry entry;
         Closure done;
@@ -273,8 +276,36 @@ public class NodeImpl implements Node, RaftServerService {
             return nodeId;
         }
 
+        @Override
+        public void nodeId(NodeId nodeId) {
+            this.nodeId = nodeId;
+
+        }
+
+        @Override
+        public void handler(EventHandler<NodeIdAware> handler) {
+            this.handler = handler;
+        }
+
+        @Override
+        public EventHandler<NodeIdAware> handler() {
+            return handler;
+        }
+
+        @Override
+        public void type(DisruptorEventType type) {
+            this.evtType = type;
+        }
+
+        @Override
+        public DisruptorEventType type() {
+            return evtType;
+        }
+
         public void reset() {
             this.nodeId = null;
+            this.handler = null;
+            this.evtType = null;
             this.entry = null;
             this.done = null;
             this.expectedTerm = 0;
@@ -1850,6 +1881,8 @@ public class NodeImpl implements Node, RaftServerService {
         final EventTranslator<LogEntryAndClosure> translator = (event, sequence) -> {
             event.reset();
             event.nodeId = getNodeId();
+            event.handler = null;
+            event.evtType = DisruptorEventType.REGULAR;
             event.done = task.getDone();
             event.entry = entry;
             event.expectedTerm = task.getExpectedTerm();
@@ -3128,6 +3161,8 @@ public class NodeImpl implements Node, RaftServerService {
                     Utils.runInThread(this.getOptions().getCommonExecutor(),
                         () -> this.applyQueue.publishEvent((event, sequence) -> {
                             event.nodeId = getNodeId();
+                            event.handler = null;
+                            event.evtType = DisruptorEventType.REGULAR;
                             event.shutdownLatch = latch;
                         }));
                 }
