@@ -385,25 +385,29 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     @Test
     public void testReceivedIsExecutedOnTargetNode() {
-        // TODO: For client, use single connection. Server will re-route the task to the right node.
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
-                    DataStreamerOptions.builder().retryLimit(0).pageSize(1).build(),
+                    null,
                     t -> t,
-                    t -> 0,
+                    t -> t.longValue(0),
                     null,
                     List.of(),
-                    TestReceiver.class.getName(),
-                    "arg1",
-                    123);
+                    NodeNameReceiver.class.getName());
 
-            publisher.submit(tuple(1, "val1"));
+            publisher.submit(tupleKey(1));
+            publisher.submit(tupleKey(2));
+            publisher.submit(tupleKey(3));
         }
 
         assertThat(streamerFut, willCompleteSuccessfully());
+
+        RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
+        assertEquals("s-1", view.get(null, new PersonPojo(1)).name);
+        assertEquals("s-1", view.get(null, new PersonPojo(2)).name);
+        assertEquals("s-1", view.get(null, new PersonPojo(3)).name);
     }
 
     @ParameterizedTest
@@ -523,9 +527,17 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
     }
 
+    @SuppressWarnings("resource")
     private static class NodeNameReceiver implements DataStreamerReceiver<Long, Void> {
         @Override
         public @Nullable CompletableFuture<List<Void>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object... args) {
+            var nodeName = ctx.ignite().name();
+            RecordView<Tuple> view = ctx.ignite().tables().table(TABLE_NAME).recordView();
+
+            for (Long id : page) {
+                view.upsert(null, tuple(id.intValue(), nodeName));
+            }
+
             return null;
         }
     }
