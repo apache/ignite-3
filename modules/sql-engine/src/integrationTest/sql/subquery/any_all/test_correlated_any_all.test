@@ -146,13 +146,25 @@ true
 true
 NULL
 
+#Ignore https://issues.apache.org/jira/browse/IGNITE-22314
+skipif ignite3
+query T
+SELECT i=ALL(SELECT i FROM (values(null), (1)) integers(i) WHERE i=i1.i OR i IS NULL) FROM integers i1 ORDER BY i;
+----
+NULL
+NULL
+NULL
+NULL
+
+#Ignore https://issues.apache.org/jira/browse/IGNITE-22314
+skipif ignite3
 query T
 SELECT i=ALL(SELECT i FROM integers WHERE i=i1.i OR i IS NULL) FROM integers i1 ORDER BY i;
 ----
-true
-true
-true
-true
+NULL
+NULL
+NULL
+NULL
 
 # Ignore https://issues.apache.org/jira/browse/IGNITE-19402
 skipif ignite3
