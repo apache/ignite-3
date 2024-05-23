@@ -498,8 +498,24 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
             Object... receiverArgs) {
-        // TODO
-        return null;
+        Objects.requireNonNull(publisher);
+        Objects.requireNonNull(keyFunc);
+        Objects.requireNonNull(payloadFunc);
+        Objects.requireNonNull(deploymentUnits);
+        Objects.requireNonNull(receiverClassName);
+
+        return ClientDataStreamer.streamData(
+                publisher,
+                keyFunc,
+                payloadFunc,
+                x -> false,
+                options == null ? DataStreamerOptions.DEFAULT : options,
+                new KeyValueTupleStreamerPartitionAwarenessProvider(tbl),
+                tbl,
+                resultSubscriber,
+                deploymentUnits,
+                receiverClassName,
+                receiverArgs);
     }
 
     /** {@inheritDoc} */
