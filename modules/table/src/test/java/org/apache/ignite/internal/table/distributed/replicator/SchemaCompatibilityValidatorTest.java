@@ -40,6 +40,7 @@ import static org.apache.ignite.sql.ColumnType.NUMBER;
 import static org.apache.ignite.sql.ColumnType.PERIOD;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -151,7 +152,14 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         assertThat(result.failedTableName(), is(TABLE_NAME));
         assertThat(result.fromSchemaVersion(), is(1));
         assertThat(result.toSchemaVersion(), is(2));
-        assertThat(result.details(), is(changeSource.expectedDetails()));
+
+        if (changeSource.expectedDetails().size() == 1) {
+            assertThat(result.details(), is(changeSource.expectedDetails().get(0)));
+        } else {
+            for (String expectedDetail : changeSource.expectedDetails()) {
+                assertThat(result.details(), containsString(expectedDetail));
+            }
+        }
     }
 
     @ParameterizedTest
@@ -313,7 +321,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
 
             @Override
             // Not valid for compatible changes.
-            public String expectedDetails() {
+            public List<String> expectedDetails() {
                 throw new UnsupportedOperationException();
             }
         });
@@ -344,8 +352,8 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public String expectedDetails() {
-                return "Columns change validation failed: [col: Not null added]";
+            public List<String> expectedDetails() {
+                return List.of("Columns change validation failed: [col: Not null added]");
             }
         });
     }
@@ -377,8 +385,9 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public String expectedDetails() {
-                return null;
+            public List<String> expectedDetails() {
+                // Not valid for compatible source.
+                throw new UnsupportedOperationException();
             }
         });
     }
@@ -454,7 +463,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
     private interface SchemaChangeSource {
         List<FullTableSchema> schemaVersions();
 
-        String expectedDetails();
+        List<String> expectedDetails();
     }
 
     private enum ForwardCompatibleChange implements SchemaChangeSource {
@@ -506,7 +515,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public String expectedDetails() {
+        public List<String> expectedDetails() {
             // Not valid for compatible changes.
             throw new UnsupportedOperationException();
         }
@@ -522,7 +531,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                                 intColumn("col1")
                         ))
                 ),
-                "Name of the table has been changed"
+                List.of("Name of the table has been changed")
         ),
         DROP_COLUMN(
                 List.of(
@@ -534,7 +543,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                                 intColumn("col1")
                         ))
                 ),
-                "Columns were dropped"
+                List.of("Columns were dropped")
         ),
         ADD_DEFAULT(
                 List.of(
@@ -545,7 +554,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                                 intColumnWithDefault("col1", 42)
                         ))
                 ),
-                "Columns change validation failed: [col1: Default value changed]"
+                List.of("Columns change validation failed: [col1: Default value changed]")
         ),
         CHANGE_DEFAULT(
                 List.of(
@@ -556,7 +565,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                                 intColumnWithDefault("col1", 2)
                         ))
                 ),
-                "Columns change validation failed: [col1: Default value changed]"
+                List.of("Columns change validation failed: [col1: Default value changed]")
         ),
         DROP_DEFAULT(
                 List.of(
@@ -567,36 +576,64 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                                 intColumn("col1")
                         ))
                 ),
-                "Columns change validation failed: [col1: Default value changed]"
+                List.of("Columns change validation failed: [col1: Default value changed]")
+        ),
+        NON_NULL_WITHOUT_DEFAULT(
+                List.of(
+                        tableSchema(1, List.of(
+                        )),
+                        tableSchema(2, List.of(
+                                intColumn("NON_NULL_WITHOUT_DEFAULT_COL")
+                        ))
+                ),
+                List.of("Added nonnull columns without default value: [NON_NULL_WITHOUT_DEFAULT_COL]")
+        ),
+        TYPE_CHANGED(
+                List.of(
+                        tableSchema(1, List.of(
+                                int64Column("TYPE_CHANGED_COL")
+                        )),
+                        tableSchema(2, List.of(
+                                intColumn("TYPE_CHANGED_COL")
+                        ))
+                ),
+                List.of("Columns change validation failed: [TYPE_CHANGED_COL: Type changed]")
         ),
         MULTIPLE(
                 List.of(
                         tableSchema(1, TABLE_NAME, List.of(
-                                intColumn("ADD_DEFAULT"),
-                                intColumnWithDefault("CHANGE_DEFAULT", 42),
-                                intColumnWithDefault("DROP_DEFAULT", 42),
-                                intColumn("DROP_COLUMN"),
-                                intColumn("NULLABLE_ADDED"),
-                                int64Column("TYPE_CHANGED")
+                                intColumn("ADD_DEFAULT_COL"),
+                                intColumnWithDefault("CHANGE_DEFAULT_COL", 42),
+                                intColumnWithDefault("DROP_DEFAULT_COL", 42),
+                                intColumn("DROP_COLUMN_COL"),
+                                int64Column("TYPE_CHANGED_COL")
                         )),
                         tableSchema(2, ANOTHER_NAME, List.of(
-                                intColumnWithDefault("ADD_DEFAULT", 42),
-                                intColumnWithDefault("CHANGE_DEFAULT", 24),
-                                intColumn("DROP_DEFAULT"),
-                                nullableIntColumn("NOT_NULL_ADDED"),
-                                intColumn("TYPE_CHANGED"),
-                                intColumn("NON_NULL_WITHOUT_DEFAULT")
+                                intColumnWithDefault("ADD_DEFAULT_COL", 42),
+                                intColumnWithDefault("CHANGE_DEFAULT_COL", 24),
+                                intColumn("DROP_DEFAULT_COL"),
+                                nullableIntColumn("NOT_NULL_ADDED_COL"),
+                                nullableIntColumn("NULLABLE_ADDED_COL"),
+                                intColumn("TYPE_CHANGED_COL"),
+                                intColumn("NON_NULL_WITHOUT_DEFAULT_COL")
                         ))
                 ),
-                "Name of the table has been changed; Added nonnull columns without default value: [NON_NULL_WITHOUT_DEFAULT]; "
-                        + "Columns were dropped; Columns change validation failed: [TYPE_CHANGED: Type changed; "
-                        + "ADD_DEFAULT: Default value changed; CHANGE_DEFAULT: Default value changed; DROP_DEFAULT: Default value changed]"
+                List.of(
+                        "Name of the table has been changed",
+                        "Added nonnull columns without default value: [NON_NULL_WITHOUT_DEFAULT_COL]",
+                        "Columns were dropped",
+                        "Columns change validation failed: [",
+                        "TYPE_CHANGED_COL: Type changed",
+                        "ADD_DEFAULT_COL: Default value changed",
+                        "CHANGE_DEFAULT_COL: Default value changed",
+                        "DROP_DEFAULT_COL: Default value changed"
+                )
         );
 
         private final List<FullTableSchema> schemaVersions;
-        private final String expectedDetails;
+        private final List<String> expectedDetails;
 
-        ForwardIncompatibleChange(List<FullTableSchema> schemaVersions, String expectedDetails) {
+        ForwardIncompatibleChange(List<FullTableSchema> schemaVersions, List<String> expectedDetails) {
             this.schemaVersions = schemaVersions;
             this.expectedDetails = expectedDetails;
         }
@@ -607,7 +644,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public String expectedDetails() {
+        public List<String> expectedDetails() {
             return expectedDetails;
         }
     }
@@ -671,8 +708,8 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public String expectedDetails() {
-            return "Columns change validation failed: [col: Type changed]";
+        public List<String> expectedDetails() {
+            return List.of("Columns change validation failed: [col: Type changed]");
         }
 
         private static CatalogTableColumnDescriptor columnFromType(Type type) {
