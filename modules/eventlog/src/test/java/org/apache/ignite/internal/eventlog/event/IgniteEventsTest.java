@@ -35,34 +35,46 @@ class IgniteEventsTest {
     private static final String PROVIDER = "test_provider";
 
     private static Stream<Arguments> events() {
-        Event connectionClosedEvent = IgniteEvents.CLIENT_CONNECTION_CLOSED.create(EventUser.of(USER, PROVIDER));
-        Event connectionEstablishedEvent = IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of(USER, PROVIDER));
-
         return Stream.of(
                 Arguments.of(
-                        connectionClosedEvent,
+                        IgniteEvents.CLIENT_CONNECTION_CLOSED.create(EventUser.of(USER, PROVIDER)),
                         Event.builder()
                                 .type("CLIENT_CONNECTION_CLOSED")
                                 .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
-                                .timestamp(connectionClosedEvent.getTimestamp())
                                 .user(EventUser.of(USER, PROVIDER))
-                                .build()
                 ),
                 Arguments.of(
-                        connectionEstablishedEvent,
+                        IgniteEvents.CLIENT_CONNECTION_ESTABLISHED.create(EventUser.of(USER, PROVIDER)),
+                        Event.builder()
+                                .type("CLIENT_CONNECTION_ESTABLISHED")
+                                .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
+                                .user(EventUser.of(USER, PROVIDER))
+                ),
+                Arguments.of(
+                        IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of(USER, PROVIDER)),
                         Event.builder()
                                 .type("USER_AUTHENTICATION_SUCCESS")
                                 .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
-                                .timestamp(connectionEstablishedEvent.getTimestamp())
                                 .user(EventUser.of(USER, PROVIDER))
-                                .build()
+
+                ),
+                Arguments.of(
+                        IgniteEvents.USER_AUTHENTICATION_FAILURE.create(EventUser.of(USER, PROVIDER)),
+                        Event.builder()
+                                .type("USER_AUTHENTICATION_FAILURE")
+                                .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
+                                .user(EventUser.of(USER, PROVIDER))
+
                 )
         );
     }
 
     @ParameterizedTest
     @MethodSource("events")
-    void createEvents(Event givenEvent, Event expectedEvent) {
+    void createEvents(Event givenEvent, EventBuilder expectedEventBuilder) {
+        // Timestamp should be equal, so we take it from expected event.
+        var expectedEvent = expectedEventBuilder.timestamp(givenEvent.getTimestamp()).build();
+
         assertThat(givenEvent, equalTo(expectedEvent));
     }
 }

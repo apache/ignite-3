@@ -47,6 +47,32 @@ class JacksonBasedJsonSerializerTest {
                                 + "}"
                 ),
                 Arguments.of(
+                        IgniteEvents.CLIENT_CONNECTION_ESTABLISHED.builder()
+                                .productVersion("3.0.0")
+                                .timestamp(1234567890)
+                                .user(EventUser.of("test_user", "test_provider"))
+                                .build(),
+                        "{\"type\":\"CLIENT_CONNECTION_ESTABLISHED\","
+                                + "\"timestamp\":1234567890,"
+                                + "\"productVersion\":\"3.0.0\","
+                                + "\"user\":{\"username\":\"test_user\",\"authenticationProvider\":\"test_provider\"},"
+                                + "\"fields\":{}"
+                                + "}"
+                ),
+                Arguments.of(
+                        IgniteEvents.USER_AUTHENTICATION_FAILURE.builder()
+                                .productVersion("3.0.0")
+                                .timestamp(1234567890)
+                                .user(EventUser.of("test_user", "test_provider"))
+                                .build(),
+                        "{\"type\":\"USER_AUTHENTICATION_FAILURE\","
+                                + "\"timestamp\":1234567890,"
+                                + "\"productVersion\":\"3.0.0\","
+                                + "\"user\":{\"username\":\"test_user\",\"authenticationProvider\":\"test_provider\"},"
+                                + "\"fields\":{}"
+                                + "}"
+                ),
+                Arguments.of(
                         IgniteEvents.USER_AUTHENTICATION_SUCCESS.builder()
                                 .productVersion("3.0.0")
                                 .timestamp(1234567890)
