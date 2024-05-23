@@ -175,4 +175,7 @@ public class ClientOp {
      * Execute MapReduce task.
      */
     public static final int COMPUTE_EXECUTE_MAPREDUCE = 64;
+
+    /** Get all primary replicas mapping to cluster nodes. */
+    public static final int PRIMARY_REPLICAS_GET = 65;
 }

@@ -19,10 +19,8 @@ package org.apache.ignite.internal.cli.commands.cliconfig.profile;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_ACTIVATE_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_ACTIVATE_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_ACTIVATE_OPTION_SHORT;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_COPY_FROM_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_COPY_FROM_OPTION_DESC;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.PROFILE_COPY_FROM_OPTION_SHORT;
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
@@ -42,10 +40,10 @@ public class CliConfigProfileCreateCommand extends BaseCommand implements Callab
     @Parameters(arity = "1", description = "Name of new profile")
     private String profileName;
 
-    @Option(names = {PROFILE_COPY_FROM_OPTION, PROFILE_COPY_FROM_OPTION_SHORT}, description = PROFILE_COPY_FROM_OPTION_DESC)
+    @Option(names = PROFILE_COPY_FROM_OPTION, description = PROFILE_COPY_FROM_OPTION_DESC)
     private String copyFrom;
 
-    @Option(names = {PROFILE_ACTIVATE_OPTION, PROFILE_ACTIVATE_OPTION_SHORT}, description = PROFILE_ACTIVATE_OPTION_DESC)
+    @Option(names = PROFILE_ACTIVATE_OPTION, description = PROFILE_ACTIVATE_OPTION_DESC)
     private boolean activate;
 
     @Inject

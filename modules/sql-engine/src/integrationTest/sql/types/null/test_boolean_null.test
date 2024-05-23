@@ -1,5 +1,5 @@
 # name: test/sql/types/null/test_boolean_null.test
-# description: Booleans and NULLs
+# description: SQL feature T031(BOOLEAN data type). Booleans and NULLs
 # group: [null]
 
 statement ok

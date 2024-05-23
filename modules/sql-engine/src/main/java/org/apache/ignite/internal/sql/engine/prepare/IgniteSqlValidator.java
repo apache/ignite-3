@@ -673,6 +673,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             }
 
             if (castOp) {
+                if (SqlTypeUtil.isString(returnType) && returnType.getPrecision() == 0) {
+                    String typeName = returnType.getSqlTypeName().getSpaceName();
+                    throw newValidationError(expr, IgniteResource.INSTANCE.invalidStringLength(typeName));
+                }
+
                 literalCanFitType(expr, returnType);
             }
         }

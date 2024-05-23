@@ -32,7 +32,7 @@ By default, a quota for SQL queries is set to 60% of the heap memory available t
 
 [source, bash]
 ----
-node config update --node-url http://localhost:10300 {sql.nodeMemoryQuota:"1000M"}
+node config update --url http://localhost:10300 {sql.nodeMemoryQuota:"1000M"}
 ----
 
 If the node memory quota is exceeded, the query is interrupted and the `SQL query ran out of memory: Node quota was exceeded` error is returned.
@@ -43,7 +43,7 @@ By default, each individual query can use the entire memory quota. This may be u
 
 [source, bash]
 ----
-cluster config update --cluster-endpoint-url http://localhost:10300 {sql.statementMemoryQuota:"10M"}
+cluster config update --url http://localhost:10300 {sql.statementMemoryQuota:"10M"}
 ----
 
 If the statement memory quota is exceeded, the query is interrupted and the `SQL query ran out of memory: Statement quota was exceeded` error is returned.
