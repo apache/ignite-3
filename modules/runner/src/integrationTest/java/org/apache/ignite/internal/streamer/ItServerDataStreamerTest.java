@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.streamer;
 
 import org.apache.ignite.Ignite;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /**
  * Integration test for server-side data streamer API.
@@ -27,5 +29,19 @@ public class ItServerDataStreamerTest extends ItAbstractDataStreamerTest {
     @Override
     Ignite ignite() {
         return CLUSTER.aliveNode();
+    }
+
+    @Test
+    @Override
+    @Disabled("IGNITE-22302 Add resultSubscriber support")
+    public void testWithReceiver() {
+        super.testWithReceiver();
+    }
+
+    @Test
+    @Override
+    @Disabled("IGNITE-22302 Add resultSubscriber support")
+    public void testReceiverException() {
+        super.testReceiverException();
     }
 }

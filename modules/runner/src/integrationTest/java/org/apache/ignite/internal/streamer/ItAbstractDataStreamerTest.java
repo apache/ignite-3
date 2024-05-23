@@ -358,7 +358,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     @Test
-    public void testReceiver() {
+    public void testWithReceiver() {
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
