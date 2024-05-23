@@ -20,7 +20,6 @@ package org.apache.ignite.internal.compute;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.internal.compute.loader.JobClassLoader;
 
 /**
  * Implementation of {@link JobExecutionContext}.
@@ -32,6 +31,13 @@ public class JobExecutionContextImpl implements JobExecutionContext {
 
     private final ClassLoader classLoader;
 
+    /**
+     * Constructor.
+     *
+     * @param ignite Ignite instance.
+     * @param isInterrupted Interrupted flag.
+     * @param classLoader Job class loader.
+     */
     public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted, ClassLoader classLoader) {
         this.ignite = ignite;
         this.isInterrupted = isInterrupted;
