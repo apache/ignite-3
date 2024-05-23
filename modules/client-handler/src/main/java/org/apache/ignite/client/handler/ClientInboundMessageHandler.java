@@ -40,7 +40,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import javax.net.ssl.SSLException;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeCancelRequest;
@@ -149,9 +148,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
-    /** Ignite API. */
-    private final Ignite ignite; // TODO: Remove
-
     /** Ignite tables API. */
     private final IgniteTablesInternal igniteTables;
 
@@ -211,7 +207,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /**
      * Constructor.
      *
-     * @param ignite Ignite API.
      * @param igniteTables Ignite tables API entry point.
      * @param igniteTransactions Ignite transactions API.
      * @param processor Sql query processor.
@@ -224,7 +219,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @param clockService Clock service.
      */
     public ClientInboundMessageHandler(
-            Ignite ignite,
             IgniteTablesInternal igniteTables,
             IgniteTransactionsImpl igniteTransactions,
             QueryProcessor processor,
@@ -240,7 +234,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             long connectionId,
             ClientPrimaryReplicaTracker primaryReplicaTracker
     ) {
-        assert ignite != null;
         assert igniteTables != null;
         assert igniteTransactions != null;
         assert processor != null;
@@ -255,7 +248,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         assert catalogService != null;
         assert primaryReplicaTracker != null;
 
-        this.ignite = ignite;
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
         this.configuration = configuration;
