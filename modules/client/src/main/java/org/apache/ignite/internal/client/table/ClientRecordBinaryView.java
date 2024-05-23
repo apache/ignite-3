@@ -436,47 +436,17 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
         Objects.requireNonNull(deploymentUnits);
         Objects.requireNonNull(receiverClassName);
 
-        var provider = new TupleStreamerPartitionAwarenessProvider(tbl);
-        var opts = options == null ? DataStreamerOptions.DEFAULT : options;
-
-        // Partition-aware (best effort) sender with retries.
-        // The batch may go to a different node when a direct connection is not available.
-        // noinspection resource
-        StreamerBatchSender<V, Integer> batchSender = (partitionId, items, deleted) ->
-                tbl.getPartitionAssignment().thenCompose(
-                        partitionAssignment -> tbl.channel().serviceAsync(
-                                ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND,
-                                out -> {
-                                    assert deleted == null || deleted.isEmpty() : "Deletion is not supported with receiver.";
-
-                                    ClientMessagePacker w = out.out();
-                                    w.packInt(tbl.tableId());
-                                    w.packInt(partitionId);
-                                    w.packDeploymentUnits(deploymentUnits);
-                                    w.packBoolean(resultSubscriber != null); // receiveResults
-
-                                    StreamerReceiverSerializer.serialize(w, receiverClassName, receiverArgs, items);
-                                },
-                                in -> {
-                                    if (resultSubscriber != null) {
-                                        // TODO: IGNITE-22302 Add resultSubscriber support.
-                                        StreamerReceiverSerializer.deserializeResults(in.in());
-                                    }
-
-                                    return null;
-                                },
-                                partitionAssignment.get(partitionId),
-                                new RetryLimitPolicy().retryLimit(opts.retryLimit()),
-                                false));
-
         return ClientDataStreamer.streamData(
                 publisher,
                 keyFunc,
                 payloadFunc,
                 x -> false,
-                opts,
-                batchSender,
-                provider,
-                tbl);
+                options == null ? DataStreamerOptions.DEFAULT : options,
+                new TupleStreamerPartitionAwarenessProvider(tbl),
+                tbl,
+                resultSubscriber,
+                deploymentUnits,
+                receiverClassName,
+                receiverArgs);
     }
 }
