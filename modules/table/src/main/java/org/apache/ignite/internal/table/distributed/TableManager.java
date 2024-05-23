@@ -987,6 +987,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         startGroupFut
+                // TODO: the stage will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
                 .thenComposeAsync(isReplicaStarted -> inBusyLock(busyLock, () -> {
                     if (isReplicaStarted) {
                         return nullCompletedFuture();

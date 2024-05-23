@@ -803,6 +803,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @return TODO.
      * @throws NodeStoppingException TODO.
      */
+    // TODO: will be private after https://issues.apache.org/jira/browse/IGNITE-22315
     public CompletableFuture<TopologyAwareRaftGroupService> startRaftClient(
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
