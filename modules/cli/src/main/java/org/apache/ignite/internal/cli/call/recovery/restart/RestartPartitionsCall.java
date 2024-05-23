@@ -43,8 +43,8 @@ public class RestartPartitionsCall implements Call<RestartPartitionsCallInput, S
 
         command.setPartitionIds(input.partitionIds());
         command.setNodeNames(input.nodeNames());
-        command.setTableName(input.tableName().trim());
-        command.setZoneName(input.zoneName().trim());
+        command.setTableName(input.tableName());
+        command.setZoneName(input.zoneName());
         command.setPurge(input.purge());
 
         try {

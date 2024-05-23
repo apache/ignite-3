@@ -317,6 +317,6 @@ public enum Options {
 
         public static final String RECOVERY_PURGE_OPTION = "--purge";
 
-        public static final String RECOVERY_PURGE_OPTION_DESC = "If partitions should be cleaned";
+        public static final String RECOVERY_PURGE_OPTION_DESC = "If partitions data should be destroyed";
     }
 }

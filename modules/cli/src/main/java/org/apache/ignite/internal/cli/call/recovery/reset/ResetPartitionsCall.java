@@ -42,8 +42,8 @@ public class ResetPartitionsCall implements Call<ResetPartitionsCallInput, Strin
         ResetPartitionsRequest command = new ResetPartitionsRequest();
 
         command.setPartitionIds(input.partitionIds());
-        command.setTableName(input.tableName().trim());
-        command.setZoneName(input.zoneName().trim());
+        command.setTableName(input.tableName());
+        command.setZoneName(input.zoneName());
 
         try {
             client.resetPartitions(command);

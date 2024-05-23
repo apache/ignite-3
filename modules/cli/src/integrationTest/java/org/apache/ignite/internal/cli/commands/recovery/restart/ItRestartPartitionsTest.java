@@ -31,7 +31,7 @@ import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** Base test class for Recovery restart partitions commands. */
+/** Base test class for Cluster Recovery restart partitions commands. */
 public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
     private static final String ZONE = "first_ZONE";
 
@@ -146,7 +146,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_TABLE_NAME_OPTION, QUALIFIED_TABLE_NAME,
                 RECOVERY_ZONE_NAME_OPTION, ZONE,
-                RECOVERY_PARTITION_IDS_OPTION, "0,5,-1,-10"
+                RECOVERY_PARTITION_IDS_OPTION, "0,5,-10"
         );
 
         assertOutputIsEmpty();

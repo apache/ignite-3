@@ -30,19 +30,20 @@ import org.jetbrains.annotations.Nullable;
 /** Disaster recovery request to restart partitions. */
 @Schema(description = "restart partitions configuration.")
 public class RestartPartitionsRequest {
-    @Schema(description = "Names specifying nodes to restart partitions. Case-sensitive, empty set means all nodes.")
+    @Schema(description = "Names specifying nodes to restart partitions. Case-sensitive. "
+            + "If empty/omitted, partitions on all nodes are restarted.")
     private final Set<String> nodeNames;
 
     @Schema(description = "Name of the zone to restart partitions of. Without quotes, case-sensitive.")
     private final String zoneName;
 
-    @Schema(description = "IDs of partitions to restart. All if empty.")
+    @Schema(description = "IDs of partitions to restart. If empty/omitted, all partitions will be restarted.")
     private final Set<Integer> partitionIds;
 
     @Schema(description = "Fully-qualified name of the table to restart partitions of. Without quotes, case-sensitive.")
     private final String tableName;
 
-    @Schema(description = "If partitions should be cleaned.")
+    @Schema(description = "If partitions data should be destroyed.")
     private final boolean purge;
 
     /** Constructor. */
@@ -64,13 +65,13 @@ public class RestartPartitionsRequest {
         this.nodeNames = nodeNames == null ? Set.of() : Set.copyOf(nodeNames);
     }
 
-    /** Returns ids of partitions to restart. */
+    /** Returns ids of partitions to restart. Empty set means "all partitions". */
     @JsonGetter("partitionIds")
     public Set<Integer> partitionIds() {
         return partitionIds;
     }
 
-    /** Returns names of nodes to restart. */
+    /** Returns names specifying nodes to restart partitions. Empty set means "all nodes". */
     @JsonGetter("nodeNames")
     public Set<String> nodeNames() {
         return nodeNames;
@@ -88,7 +89,7 @@ public class RestartPartitionsRequest {
         return tableName;
     }
 
-    /** If partitions should be cleaned. */
+    /** If partitions data should be destroyed. */
     @JsonGetter("purge")
     public boolean purge() {
         return purge;

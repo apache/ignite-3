@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION_DESC;
 
 import java.util.List;
+import javax.annotation.Nullable;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
@@ -63,17 +64,19 @@ public class RestartPartitionsMixin {
         return tableName;
     }
 
-    /** Returns IDs of partitions to restart partitions of. */
+    /** Returns IDs of partitions to restart partitions of. Empty/null means "all partitions". */
+    @Nullable
     public List<Integer> partitionIds() {
         return partitionIds;
     }
 
-    /** Returns names of nodes to restart partitions of. */
+    /** Returns names specifying nodes to restart partitions. Empty/null means "all nodes". */
+    @Nullable
     public List<String> nodeNames() {
         return nodeNames;
     }
 
-    /** If partitions should be cleaned. */
+    /** If partitions data should be destroyed. */
     public boolean purge() {
         return purge;
     }

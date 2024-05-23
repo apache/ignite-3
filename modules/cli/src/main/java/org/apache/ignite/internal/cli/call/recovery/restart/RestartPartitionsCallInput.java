@@ -51,17 +51,17 @@ public class RestartPartitionsCallInput implements CallInput {
         return tableName;
     }
 
-    /** IDs of partitions to restart. */
+    /** IDs of partitions to restart. Empty means "all partitions". */
     public List<Integer> partitionIds() {
         return partitionIds;
     }
 
-    /** Returns names of nodes to restart partitions of. */
+    /** Names specifying nodes to restart partitions. Empty means "all nodes". */
     public List<String> nodeNames() {
         return nodeNames;
     }
 
-    /** If partitions should be cleaned. */
+    /** If partitions data should be destroyed. */
     public boolean purge() {
         return purge;
     }
@@ -141,19 +141,19 @@ public class RestartPartitionsCallInput implements CallInput {
             return this;
         }
 
-        /** Names of zones to restart partitions of. */
+        /** Names of zones to restart partitions of. Empty / null means "all partitions". */
         RestartPartitionsCallInputBuilder partitionIds(@Nullable List<Integer> partitionIds) {
             this.partitionIds = partitionIds;
             return this;
         }
 
-        /** Names of nodes to restart partitions of. */
+        /** Names specifying nodes to restart partitions. Case-sensitive, empty / null means "all nodes". */
         RestartPartitionsCallInputBuilder nodeNames(@Nullable List<String> nodeNames) {
             this.nodeNames = nodeNames;
             return this;
         }
 
-        /** If partitions should be cleaned. */
+        /** If partitions data should be destroyed. */
         RestartPartitionsCallInputBuilder purge(boolean purge) {
             this.purge = purge;
             return this;

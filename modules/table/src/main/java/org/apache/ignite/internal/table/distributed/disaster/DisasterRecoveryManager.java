@@ -246,7 +246,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
      * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
      * @param partitionIds IDs of partitions to restart. If empty, restart all zone's partitions.
-     * @param purge If partitions should be cleaned.
+     * @param purge If partitions data should be destroyed.
      * @return Operation future.
      */
     public CompletableFuture<Void> restartPartitions(
