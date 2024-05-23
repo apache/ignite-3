@@ -438,7 +438,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     /**
      * Repeat to find errrs.
-     * @throws TransactionException
+     *
+     * @throws TransactionException Transaction Exception.
      */
     @RepeatedTest(100)
     public void testDeleteUpsertAllRollback() throws TransactionException {
