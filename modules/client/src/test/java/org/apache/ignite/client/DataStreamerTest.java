@@ -326,7 +326,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3})
-    public void testWithReceiver(int batchSize) {
+    public void testBasicStreamingWithReceiverRecordBinaryView(int batchSize) {
         RecordView<Tuple> view = defaultTable().recordView();
         CompletableFuture<Void> streamerFut;
         int count = 3;
@@ -352,6 +352,35 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         for (long i = 0; i < count; i++) {
             assertEquals("recv_arg", view.get(null, tupleKey(i)).stringValue("name"));
+        }
+    }
+
+    @Test
+    public void testBasicStreamingWithReceiverRecordPojoView() {
+        RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
+        CompletableFuture<Void> streamerFut;
+        int count = 3;
+
+        try (var publisher = new SubmissionPublisher<PersonPojo>()) {
+            streamerFut = view.streamData(
+                    publisher,
+                    null,
+                    t -> t,
+                    t -> t.id,
+                    null,
+                    new ArrayList<>(),
+                    TestReceiver.class.getName(),
+                    "arg");
+
+            for (long i = 0; i < count; i++) {
+                publisher.submit(new PersonPojo(i));
+            }
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        for (long i = 0; i < count; i++) {
+            assertEquals("recv_arg", view.get(null, new PersonPojo(i)).name);
         }
     }
 
