@@ -180,7 +180,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
 
         NativeType left = type1.nativeType;
         NativeType right = type2.nativeType;
-        
+
         IgniteSchema publicSchema = createSchema("PUBLIC",
                 TestBuilders.table().name("T1")
                         .addColumn("A", left)
