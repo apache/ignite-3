@@ -384,6 +384,35 @@ public class DataStreamerTest extends AbstractClientTableTest {
         }
     }
 
+    @Test
+    public void testBasicStreamingWithReceiverKvBinaryView() {
+        KeyValueView<Tuple, Tuple> view = defaultTable().keyValueView();
+        CompletableFuture<Void> streamerFut;
+        int count = 3;
+
+        try (var publisher = new SubmissionPublisher<Entry<Tuple, Tuple>>()) {
+            streamerFut = view.streamData(
+                    publisher,
+                    null,
+                    t -> t,
+                    t -> t.getKey().longValue(0),
+                    null,
+                    new ArrayList<>(),
+                    TestReceiver.class.getName(),
+                    "arg");
+
+            for (long i = 0; i < count; i++) {
+                publisher.submit(Map.entry(tupleKey(i), tupleVal("foo")));
+            }
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        for (long i = 0; i < count; i++) {
+            assertEquals("recv_arg", view.get(null, tupleKey(i)).stringValue(0));
+        }
+    }
+
     private static RecordView<Tuple> defaultTableView(FakeIgnite server, IgniteClient client) {
         ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
 
