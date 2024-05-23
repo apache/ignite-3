@@ -812,7 +812,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut;
         if (raftClient == null) {
             // TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
-            newRaftClientFut = raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
+            newRaftClientFut = raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory,
+                    raftCommandsMarshaller);
         } else {
             newRaftClientFut = CompletableFuture.completedFuture((TopologyAwareRaftGroupService) raftClient);
         }
