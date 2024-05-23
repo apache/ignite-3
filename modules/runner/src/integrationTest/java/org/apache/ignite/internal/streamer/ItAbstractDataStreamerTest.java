@@ -384,7 +384,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     @Test
-    public void testReceivedIsExecutedOnTargetNode() {
+    public void testReceivedIsExecutedOnTargetNode() throws Exception {
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
@@ -392,7 +392,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                     publisher,
                     null,
                     t -> t,
-                    t -> t.longValue(0),
+                    t -> t.intValue(0),
                     null,
                     List.of(),
                     NodeNameReceiver.class.getName());
@@ -405,9 +405,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertThat(streamerFut, willCompleteSuccessfully());
 
         RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
-        assertEquals("s-1", view.get(null, new PersonPojo(1)).name);
-        assertEquals("s-1", view.get(null, new PersonPojo(2)).name);
-        assertEquals("s-1", view.get(null, new PersonPojo(3)).name);
+        Thread.sleep(2000); // TODO: Wait for assignment settled somehow.
+
+        assertEquals("icdst_n_2", view.get(null, new PersonPojo(1)).name);
+        assertEquals("icdst_n_1", view.get(null, new PersonPojo(2)).name);
+        assertEquals("icdst_n_0", view.get(null, new PersonPojo(3)).name);
     }
 
     @ParameterizedTest
@@ -528,14 +530,14 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     @SuppressWarnings("resource")
-    private static class NodeNameReceiver implements DataStreamerReceiver<Long, Void> {
+    private static class NodeNameReceiver implements DataStreamerReceiver<Integer, Void> {
         @Override
-        public @Nullable CompletableFuture<List<Void>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object... args) {
+        public @Nullable CompletableFuture<List<Void>> receive(List<Integer> page, DataStreamerReceiverContext ctx, Object... args) {
             var nodeName = ctx.ignite().name();
             RecordView<Tuple> view = ctx.ignite().tables().table(TABLE_NAME).recordView();
 
-            for (Long id : page) {
-                view.upsert(null, tuple(id.intValue(), nodeName));
+            for (Integer id : page) {
+                view.upsert(null, tuple(id, nodeName));
             }
 
             return null;
