@@ -337,7 +337,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     @MethodSource("idempotentCommandProvider")
     public void testIdempotentCacheRestoreFromSnapshot(IdempotentCommand idempotentCommand, TestInfo testInfo) throws Exception {
         RaftGroupService raftClient = raftClient();
-        Node leader = leader(raftClient());
+        Node leader = leader(raftClient);
 
         // Initial idempotent command run.
         CompletableFuture<Object> commandProcessingResultFuture = raftClient.run(idempotentCommand);
