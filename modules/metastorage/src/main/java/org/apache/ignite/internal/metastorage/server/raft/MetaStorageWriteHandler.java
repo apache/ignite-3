@@ -343,7 +343,7 @@ public class MetaStorageWriteHandler {
                     if (entry.value().length == 1) {
                         result = byteToBoolean(entry.value()[0]);
                     } else {
-                       result = MSG_FACTORY.statementResult().result(entry.value()).build();
+                        result = MSG_FACTORY.statementResult().result(entry.value()).build();
                     }
 
                     idempotentCommandCache.put(commandId, new IdempotentCommandCachedResult(result, now));
