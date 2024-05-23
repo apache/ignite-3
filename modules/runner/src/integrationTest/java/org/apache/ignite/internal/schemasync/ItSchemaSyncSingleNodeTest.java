@@ -252,12 +252,14 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
             assertThat(
                     ex.getMessage(),
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-22309 use tableName instead
                     containsString(String.format("Table was dropped [tableId=%s]", tableId))
             );
         } else {
             ex = assertThrows(IncompatibleSchemaException.class, () -> operation.execute(table, tx, cluster));
             assertThat(
                     ex.getMessage(),
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-22309 use tableName instead
                     is(String.format("Table was dropped [tableId=%s]", tableId))
             );
         }

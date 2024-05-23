@@ -312,6 +312,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
             }
 
             @Override
+            // Not valid for compatible changes.
             public String expectedDetails() {
                 throw new UnsupportedOperationException();
             }
@@ -506,6 +507,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
 
         @Override
         public String expectedDetails() {
+            // Not valid for compatible changes.
             throw new UnsupportedOperationException();
         }
     }
@@ -603,7 +605,6 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         public List<FullTableSchema> schemaVersions() {
             return schemaVersions;
         }
-
 
         @Override
         public String expectedDetails() {

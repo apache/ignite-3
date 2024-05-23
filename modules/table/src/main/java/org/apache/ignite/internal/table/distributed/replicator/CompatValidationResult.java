@@ -148,8 +148,9 @@ public class CompatValidationResult {
      *
      * @return Details why the transition failed.
      */
-    public @Nullable String details() {
+    public String details() {
         assert !isSuccessful() : "Should not be called on a successful result";
+        assert details != null : "Should not be called when there are no details";
 
         return details;
     }

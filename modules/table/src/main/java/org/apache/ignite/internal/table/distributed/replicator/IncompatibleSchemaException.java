@@ -45,7 +45,7 @@ public class IncompatibleSchemaException extends TransactionException implements
     }
 
     /**
-     * Returns new IncompatibleSchemaException for a case when schema was updated after the beginning of the transaction
+     * Returns new IncompatibleSchemaException for a case when schema was updated after the beginning of the transaction.
      *
      * @param tableName Name of the table.
      * @param startSchemaVersion Schema version at the beginning of the transaction.
@@ -75,6 +75,8 @@ public class IncompatibleSchemaException extends TransactionException implements
      * @param tableId ID of the table.
      * @return Exception with formatted message.
      */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22309 use tableName instead
+    @Deprecated
     public static IncompatibleSchemaException tableDropped(int tableId) {
         return new IncompatibleSchemaException(String.format(TABLE_DROPPED_ID_MESSAGE, tableId));
     }
