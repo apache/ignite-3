@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.partition;
 
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.table.partition.Partition;
 
 /**
@@ -52,5 +53,10 @@ public class HashPartition implements Partition {
     @Override
     public int hashCode() {
         return partitionId;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

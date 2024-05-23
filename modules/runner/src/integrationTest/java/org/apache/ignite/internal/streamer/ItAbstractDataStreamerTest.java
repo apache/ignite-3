@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -48,6 +49,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.Partition;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
@@ -384,11 +386,17 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     @Test
-    public void testReceivedIsExecutedOnTargetNode() throws Exception {
+    public void testReceivedIsExecutedOnTargetNode() {
+        // Await primary replicas before streaming.
+        Table table = defaultTable();
+        RecordView<Tuple> view = table.recordView();
+        Map<Partition, ClusterNode> primaryReplicas = table.partitionManager().primaryReplicasAsync().join();
+
         CompletableFuture<Void> streamerFut;
+        int count = 10;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
-            streamerFut = defaultTable().recordView().streamData(
+            streamerFut = view.streamData(
                     publisher,
                     null,
                     t -> t,
@@ -397,19 +405,19 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                     List.of(),
                     NodeNameReceiver.class.getName());
 
-            publisher.submit(tupleKey(1));
-            publisher.submit(tupleKey(2));
-            publisher.submit(tupleKey(3));
+            for (int i = 0; i < count; i++) {
+                publisher.submit(tupleKey(i));
+            }
         }
 
         assertThat(streamerFut, willCompleteSuccessfully());
 
-        RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
-        Thread.sleep(2000); // TODO: Wait for assignment settled somehow.
+        for (int i = 0; i < count; i++) {
+            var expectedNode = table.partitionManager().partitionAsync(tupleKey(i)).thenApply(primaryReplicas::get).join();
+            var actualNode = view.get(null, tupleKey(i)).stringValue("name");
 
-        assertEquals("icdst_n_2", view.get(null, new PersonPojo(1)).name);
-        assertEquals("icdst_n_1", view.get(null, new PersonPojo(2)).name);
-        assertEquals("icdst_n_0", view.get(null, new PersonPojo(3)).name);
+            assertEquals(expectedNode.name(), actualNode);
+        }
     }
 
     @ParameterizedTest
