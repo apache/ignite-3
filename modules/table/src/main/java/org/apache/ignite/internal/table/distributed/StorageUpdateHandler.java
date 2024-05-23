@@ -37,7 +37,6 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
-import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PendingRows;
 import org.apache.ignite.internal.table.distributed.replicator.TimedBinaryRow;
 import org.apache.ignite.internal.util.Cursor;
@@ -450,7 +449,7 @@ public class StorageUpdateHandler {
      */
     private void performCommitWrite(UUID txId, Set<RowId> pendingRowIds, HybridTimestamp commitTimestamp) {
         assert commitTimestamp != null : "Commit timestamp is null";
-
+        LOG.info("performCommitWrite [txId={} pendingRowIds={}]", txId, pendingRowIds);
         // Please note: `pendingRowIds` might not contain the complete set of rows that were changed by this transaction:
         // Pending rows are stored in memory and will be lost in case a node restarts.
         // This method might be called by a write intent resolving transaction that will find only those rows that it needs itself.
@@ -489,7 +488,7 @@ public class StorageUpdateHandler {
      */
     private void performAbortWrite(UUID txId, Set<RowId> pendingRowIds, @Nullable List<Integer> indexIds) {
         List<RowId> rowIds = new ArrayList<>();
-
+        LOG.info("performAbortWrite [txId={} pendingRowIds={}]", txId, pendingRowIds);
         for (RowId rowId : pendingRowIds) {
             try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
                 if (!cursor.hasNext()) {
