@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.function.Function;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Data streamer receiver.
@@ -41,9 +42,9 @@ public interface DataStreamerReceiver<T, R> {
      * @param page Item batch.
      * @param ctx Receiver context.
      * @param args Additional arguments.
-     * @return Future with the result.
+     * @return Future with the result. Null future for synchronous completion.
      */
-    CompletableFuture<List<R>> receive(
+    @Nullable CompletableFuture<List<R>> receive(
             List<T> page,
             DataStreamerReceiverContext ctx,
             Object... args);

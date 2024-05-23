@@ -115,7 +115,7 @@ public class ClientStreamerWithReceiverBatchSendRequest {
 
             CompletableFuture<List<Object>> receiveFut = receiver.receive(receiverInfo.items(), receiverContext, receiverInfo.args());
 
-            List<Object> result = receiveFut.join();
+            List<Object> result = receiveFut == null ? null : receiveFut.join();
 
             if (result != null && result.size() != receiverInfo.items().size()) {
                 throw new IllegalStateException(
