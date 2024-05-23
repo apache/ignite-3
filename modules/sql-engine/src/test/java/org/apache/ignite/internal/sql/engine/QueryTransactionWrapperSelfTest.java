@@ -20,10 +20,13 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -32,8 +35,13 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransactionMode;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
@@ -61,13 +69,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testImplicitTransactionAttributes() {
-        when(transactions.begin(any())).thenAnswer(
-                inv -> {
-                    boolean readOnly = inv.getArgument(0, TransactionOptions.class).readOnly();
-
-                    return readOnly ? NoOpTransaction.readOnly("test-ro") : NoOpTransaction.readWrite("test-rw");
-                }
-        );
+        prepareTransactionsMocks();
 
         when(transactionInflights.addInflight(any(), anyBoolean())).thenAnswer(inv -> true);
 
@@ -162,5 +164,90 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
                 "Nested transactions are not supported.",
                 () -> txCtx.handleControlStatement(txStartStmt)
         );
+    }
+
+    @Test
+    public void testQueryTransactionWrapperTxInflightsInteraction() {
+        Set<UUID> inflights = new HashSet<>();
+
+        prepareTxInflightsMocks(inflights);
+
+        prepareTransactionsMocks();
+
+        QueryTransactionContext implicitDmlTxCtx = new QueryTransactionContext(transactions, null, transactionInflights);
+        implicitDmlTxCtx.getOrStartImplicit(SqlQueryType.DML);
+        // Check that DML queries do not create tx inflights.
+        assertTrue(inflights.isEmpty());
+
+        QueryTransactionContext implicitQueryTxCtx = new QueryTransactionContext(transactions, null, transactionInflights);
+        QueryTransactionWrapper implicitQueryTxWrapper = implicitQueryTxCtx.getOrStartImplicit(SqlQueryType.QUERY);
+        assertTrue(inflights.contains(implicitQueryTxWrapper.unwrap().id()));
+        implicitQueryTxWrapper.commitImplicit();
+        assertTrue(inflights.isEmpty());
+
+        NoOpTransaction rwTx = NoOpTransaction.readWrite("test-rw");
+        QueryTransactionContext explicitRwTxCtx = new QueryTransactionContext(transactions, rwTx, transactionInflights);
+        explicitRwTxCtx.getOrStartImplicit(SqlQueryType.QUERY);
+        // Check that RW txs do not create tx inflights.
+        assertTrue(inflights.isEmpty());
+
+        NoOpTransaction roTx = NoOpTransaction.readOnly("test-ro");
+        QueryTransactionContext explicitRoTxCtx = new QueryTransactionContext(transactions, roTx, transactionInflights);
+        QueryTransactionWrapper explicitRoTxWrapper = explicitRoTxCtx.getOrStartImplicit(SqlQueryType.QUERY);
+        assertTrue(inflights.contains(explicitRoTxWrapper.unwrap().id()));
+        explicitRoTxWrapper.commitImplicit();
+        assertTrue(inflights.isEmpty());
+    }
+
+    @Test
+    public void testScriptTransactionWrapperTxInflightsInteraction() {
+        Set<UUID> inflights = new HashSet<>();
+
+        prepareTxInflightsMocks(inflights);
+
+        prepareTransactionsMocks();
+
+        QueryTransactionContext txCtx = new QueryTransactionContext(transactions, null, transactionInflights);
+        ScriptTransactionContext scriptRwTxCtx = new ScriptTransactionContext(txCtx, transactionInflights);
+
+        IgniteSqlStartTransaction sqlStartRwTx = mock(IgniteSqlStartTransaction.class);
+        when(sqlStartRwTx.getMode()).thenAnswer(inv -> IgniteSqlStartTransactionMode.READ_WRITE);
+
+        scriptRwTxCtx.handleControlStatement(sqlStartRwTx);
+        assertTrue(inflights.isEmpty());
+
+        ScriptTransactionContext scriptRoTxCtx = new ScriptTransactionContext(txCtx, transactionInflights);
+        IgniteSqlStartTransaction sqlStartRoTx = mock(IgniteSqlStartTransaction.class);
+        when(sqlStartRoTx.getMode()).thenAnswer(inv -> IgniteSqlStartTransactionMode.READ_ONLY);
+
+        scriptRoTxCtx.handleControlStatement(sqlStartRoTx);
+        assertEquals(1, inflights.size());
+
+        QueryTransactionWrapper wrapper = scriptRoTxCtx.getOrStartImplicit(SqlQueryType.QUERY);
+        assertEquals(1, inflights.size());
+
+        // ScriptTransactionWrapperImpl.commitImplicit is noop.
+        wrapper.commitImplicit();
+        assertEquals(1, inflights.size());
+
+        IgniteSqlCommitTransaction sqlCommitTx = mock(IgniteSqlCommitTransaction.class);
+        scriptRoTxCtx.handleControlStatement(sqlCommitTx);
+        assertTrue(inflights.isEmpty());
+    }
+
+    private void prepareTransactionsMocks() {
+        when(transactions.begin(any())).thenAnswer(
+                inv -> {
+                    boolean readOnly = inv.getArgument(0, TransactionOptions.class).readOnly();
+
+                    return readOnly ? NoOpTransaction.readOnly("test-ro") : NoOpTransaction.readWrite("test-rw");
+                }
+        );
+    }
+
+    private void prepareTxInflightsMocks(Set<UUID> inflights) {
+        when(transactionInflights.addInflight(any(), anyBoolean())).thenAnswer(inv -> inflights.add(inv.getArgument(0)));
+
+        doAnswer(inv -> inflights.remove(inv.getArgument(0))).when(transactionInflights).removeInflight(any());
     }
 }

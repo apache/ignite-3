@@ -563,6 +563,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             QueryTransactionWrapper txWrapper = txCtx.getOrStartImplicit(result.queryType());
 
+            InternalTransaction tx = txWrapper.unwrap();
+
             SqlOperationContext operationContext = SqlOperationContext.builder()
                     .queryId(UUID.randomUUID())
                     .cancel(queryCancel)

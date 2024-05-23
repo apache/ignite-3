@@ -103,6 +103,7 @@ public class ScriptTransactionContext {
             boolean readOnly = ((IgniteSqlStartTransaction) node).getMode() == IgniteSqlStartTransactionMode.READ_ONLY;
             InternalTransaction tx = (InternalTransaction) queryTxCtx.transactions().begin(new TransactionOptions().readOnly(readOnly));
 
+            // Adding inflights only for read-only transactions. See TransactionInflights.ReadOnlyTxContext for details.
             if (readOnly && !transactionInflights.addInflight(tx.id(), readOnly)) {
                 throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", tx));
             }

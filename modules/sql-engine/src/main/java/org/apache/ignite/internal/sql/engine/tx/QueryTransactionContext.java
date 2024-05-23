@@ -71,7 +71,7 @@ public class QueryTransactionContext {
             validateStatement(queryType, transaction.isReadOnly());
         }
 
-        // Adding inflights only for read-only transactions.
+        // Adding inflights only for read-only transactions. See TransactionInflights.ReadOnlyTxContext for details.
         if (transaction.isReadOnly() && !transactionInflights.addInflight(transaction.id(), transaction.isReadOnly())) {
             throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", transaction));
         }
