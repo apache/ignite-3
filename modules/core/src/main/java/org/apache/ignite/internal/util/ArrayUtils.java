@@ -338,7 +338,7 @@ public final class ArrayUtils {
     }
 
     /**
-     * Concatenates an elements to an array.
+     * Concatenates elements to an array.
      *
      * @param arr Array.
      * @param bytes One or more elements.
