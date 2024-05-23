@@ -496,7 +496,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
             try (SimplePublisher<PersonPojo> publisher = new SimplePublisher<>()) {
                 fut = withReceiver
-                        ? pojoView.streamData(publisher, null, DataStreamerItem::get, x -> 0, null, List.of(), "recv")
+                        ? pojoView.streamData(publisher, null, DataStreamerItem::get, x -> 0, null, List.of(), TestReceiver.class.getName())
                         : pojoView.streamData(publisher, null);
 
                 publisher.submit(t);
@@ -505,52 +505,62 @@ public class PartitionAwarenessTest extends AbstractClientTest {
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "updateAll", tx -> stream.accept(new PersonPojo(0L)));
-        assertOpOnNode(nodeKey1, "updateAll", tx -> stream.accept(new PersonPojo(1L)));
-        assertOpOnNode(nodeKey2, "updateAll", tx -> stream.accept(new PersonPojo(2L)));
-        assertOpOnNode(nodeKey3, "updateAll", tx -> stream.accept(new PersonPojo(3L)));
+        String expectedOp = withReceiver ? "upsert" : "updateAll";
+        assertOpOnNode(nodeKey0, expectedOp, tx -> stream.accept(new PersonPojo(0L)));
+        assertOpOnNode(nodeKey1, expectedOp, tx -> stream.accept(new PersonPojo(1L)));
+        assertOpOnNode(nodeKey2, expectedOp, tx -> stream.accept(new PersonPojo(2L)));
+        assertOpOnNode(nodeKey3, expectedOp, tx -> stream.accept(new PersonPojo(3L)));
     }
 
-    @Test
-    public void testDataStreamerKeyValueBinaryView() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testDataStreamerKeyValueBinaryView(boolean withReceiver) {
         KeyValueView<Tuple, Tuple> recordView = defaultTable().keyValueView();
 
         Consumer<Tuple> stream = t -> {
             CompletableFuture<Void> fut;
 
             try (SimplePublisher<Entry<Tuple, Tuple>> publisher = new SimplePublisher<>()) {
-                fut = recordView.streamData(publisher, null);
+                fut = withReceiver
+                        ? recordView.streamData(
+                                publisher, null, DataStreamerItem::get, x -> 0, null, List.of(), TestReceiver.class.getName())
+                        : recordView.streamData(publisher, null);
                 publisher.submit(Map.entry(t, Tuple.create()));
             }
 
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 0L)));
-        assertOpOnNode(nodeKey1, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 1L)));
-        assertOpOnNode(nodeKey2, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 2L)));
-        assertOpOnNode(nodeKey3, "updateAll", tx -> stream.accept(Tuple.create().set("ID", 3L)));
+        String expectedOp = withReceiver ? "upsert" : "updateAll";
+        assertOpOnNode(nodeKey0, expectedOp, tx -> stream.accept(Tuple.create().set("ID", 0L)));
+        assertOpOnNode(nodeKey1, expectedOp, tx -> stream.accept(Tuple.create().set("ID", 1L)));
+        assertOpOnNode(nodeKey2, expectedOp, tx -> stream.accept(Tuple.create().set("ID", 2L)));
+        assertOpOnNode(nodeKey3, expectedOp, tx -> stream.accept(Tuple.create().set("ID", 3L)));
     }
 
-    @Test
-    public void testDataStreamerKeyValueView() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testDataStreamerKeyValueView(boolean withReceiver) {
         KeyValueView<Long, String> kvView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
 
         Consumer<Long> stream = t -> {
             CompletableFuture<Void> fut;
 
             try (SimplePublisher<Entry<Long, String>> publisher = new SimplePublisher<>()) {
-                fut = kvView.streamData(publisher, null);
+                fut = withReceiver
+                        ? kvView.streamData(publisher, null, DataStreamerItem::get, x -> 0, null, List.of(), TestReceiver.class.getName())
+                        : kvView.streamData(publisher, null);
                 publisher.submit(Map.entry(t, t.toString()));
             }
 
             fut.join();
         };
 
-        assertOpOnNode(nodeKey0, "updateAll", tx -> stream.accept(0L));
-        assertOpOnNode(nodeKey1, "updateAll", tx -> stream.accept(1L));
-        assertOpOnNode(nodeKey2, "updateAll", tx -> stream.accept(2L));
-        assertOpOnNode(nodeKey3, "updateAll", tx -> stream.accept(3L));
+        String expectedOp = withReceiver ? "upsert" : "updateAll";
+        assertOpOnNode(nodeKey0, expectedOp, tx -> stream.accept(0L));
+        assertOpOnNode(nodeKey1, expectedOp, tx -> stream.accept(1L));
+        assertOpOnNode(nodeKey2, expectedOp, tx -> stream.accept(2L));
+        assertOpOnNode(nodeKey3, expectedOp, tx -> stream.accept(3L));
     }
 
     @Test
@@ -674,7 +684,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         return List.of(testServer2.nodeName(), testServer.nodeName(), testServer2.nodeName(), testServer.nodeName());
     }
 
-    public static class TestReceiver<T, R> implements DataStreamerReceiver<T, R> {
+    private static class TestReceiver<T, R> implements DataStreamerReceiver<T, R> {
+        @SuppressWarnings("resource")
         @Override
         public CompletableFuture<List<R>> receive(List<T> page, DataStreamerReceiverContext ctx, Object... args) {
             ctx.ignite().tables().table(DEFAULT_TABLE).recordView().upsert(null, Tuple.create().set("ID", 0L));
