@@ -327,7 +327,7 @@ public class MetaStorageWriteHandler {
         byte[] keyTo = storage.nextKey(IDEMPOTENT_COMMAND_PREFIX_BYTES);
 
         Cursor<Entry> cursor = storage.range(keyFrom, keyTo);
-        // It's fine to loose original command start time - in that case we will store the entry a little bit longer that necessary.
+        // It's fine to lose original command start time - in that case we will store the entry a little bit longer that necessary.
         HybridTimestamp now = clusterTime.now();
 
         try (cursor) {
