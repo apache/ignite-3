@@ -58,6 +58,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Data streamer test.
  */
+@SuppressWarnings("DataFlowIssue")
 public class DataStreamerTest extends AbstractClientTableTest {
     private IgniteClient client2;
 
@@ -410,6 +411,35 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         for (long i = 0; i < count; i++) {
             assertEquals("recv_arg", view.get(null, tupleKey(i)).stringValue(0));
+        }
+    }
+
+    @Test
+    public void testBasicStreamingWithReceiverKvPojoView() {
+        KeyValueView<Long, PersonValPojo> view = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(PersonValPojo.class));
+        CompletableFuture<Void> streamerFut;
+        int count = 3;
+
+        try (var publisher = new SubmissionPublisher<Entry<Long, PersonValPojo>>()) {
+            streamerFut = view.streamData(
+                    publisher,
+                    null,
+                    t -> t,
+                    Entry::getKey,
+                    null,
+                    new ArrayList<>(),
+                    TestReceiver.class.getName(),
+                    "arg");
+
+            for (long i = 0; i < count; i++) {
+                publisher.submit(Map.entry(i, new PersonValPojo("foo")));
+            }
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        for (long i = 0; i < count; i++) {
+            assertEquals("recv_arg", view.get(null, i).name);
         }
     }
 
