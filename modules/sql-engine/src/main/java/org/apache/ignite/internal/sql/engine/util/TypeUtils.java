@@ -774,7 +774,7 @@ public class TypeUtils {
             return false;
         }
     }
-    
+
     private static boolean isCustomType(RelDataType type) {
         return type instanceof IgniteCustomType;
     }
