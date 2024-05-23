@@ -436,7 +436,11 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(200., accounts.recordView().get(null, makeKey(2)).doubleValue("balance"));
     }
 
-    @RepeatedTest(50)
+    /**
+     * Repeat to find errrs.
+     * @throws TransactionException
+     */
+    @RepeatedTest(100)
     public void testDeleteUpsertAllRollback() throws TransactionException {
         deleteUpsertAll().rollback();
 
