@@ -25,7 +25,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
  * The main responsibilities of this class:
- * - Start the appropriate replication nodes (RAFT nodes at the moment) and logic replicas on the zone creation.
+ * - Start the appropriate replication nodes on the zone creation.
  * - Stop the same entities on the zone removing.
  * - Support the rebalance mechanism and start the new replication entities when the rebalance triggers occurred.
  */
