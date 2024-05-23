@@ -246,6 +246,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
 
         assert stripeId != -1 : "The replication group has not subscribed yet [nodeId=" + nodeId + "].";
 
+        stripeMapper.remove(nodeId, stripeId);
+
         queues[stripeId].publishEvent((event, sequence) -> {
             event.type(SUBSCRIBE);
             event.nodeId(nodeId);

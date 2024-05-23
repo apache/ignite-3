@@ -384,21 +384,20 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                     0,
                     totalHandlers
             ).mapToObj(value -> {
-                        appliedMap.compute(nodesIds[value], (nodeId, count) -> {
-                            if (count == null) {
-                                return 1;
-                            }
-                            return count + 1;
-                        });
-
-                        return (EventTranslator<NodeIdAwareTestObj>) (event, sequence) -> {
-                            event.nodeId = nodesIds[value];
-                            event.handler = null;
-                            event.evtType = DisruptorEventType.REGULAR;
-                            event.num = value;
-                        };
+                appliedMap.compute(nodesIds[value], (nodeId, count) -> {
+                    if (count == null) {
+                        return 1;
                     }
-            ).collect(Collectors.toList());
+                    return count + 1;
+                });
+
+                return (EventTranslator<NodeIdAwareTestObj>) (event, sequence) -> {
+                    event.nodeId = nodesIds[value];
+                    event.handler = null;
+                    event.evtType = DisruptorEventType.REGULAR;
+                    event.num = value;
+                };
+            }).collect(Collectors.toList());
 
             queue.publishEvents(eventTranslators.toArray(new EventTranslator[0]));
         }
