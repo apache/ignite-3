@@ -431,8 +431,24 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
             Object... receiverArgs) {
-        // TODO
-        return null;
+        Objects.requireNonNull(publisher);
+        Objects.requireNonNull(keyFunc);
+        Objects.requireNonNull(payloadFunc);
+        Objects.requireNonNull(deploymentUnits);
+        Objects.requireNonNull(receiverClassName);
+
+        return ClientDataStreamer.streamData(
+                publisher,
+                keyFunc,
+                payloadFunc,
+                x -> false,
+                options == null ? DataStreamerOptions.DEFAULT : options,
+                new PojoStreamerPartitionAwarenessProvider<>(tbl, ser.mapper()),
+                tbl,
+                resultSubscriber,
+                deploymentUnits,
+                receiverClassName,
+                receiverArgs);
     }
 
     /** {@inheritDoc} */
