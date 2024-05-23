@@ -274,13 +274,11 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
                 // convertInsert() may return LogicalTableModify without projection in the input.
                 // As a workaround for this case, we additionally build required column expressions.
                 RelDataType rowType = input.getRowType();
-                RexNode sourceRef = rexBuilder.makeRangeReference(rowType, 0, false);
-                ArrayList<String> targetColumnNames = new ArrayList<>(rowType.getFieldCount());
-                ArrayList<RexNode> columnExprs = new ArrayList<>(rowType.getFieldCount());
-
-                collectInsertTargets(insertCall, sourceRef, targetColumnNames, columnExprs);
-
-                level1InsertExprs = columnExprs;
+                level1InsertExprs = new ArrayList<>(rowType.getFieldCount());
+                int pos = 0;
+                for (RelDataTypeField type : rowType.getFieldList()) {
+                    level1InsertExprs.add(rexBuilder.makeInputRef(type.getType(), pos++));
+                }
             }
 
             numLevel1Exprs = level1InsertExprs.size();
