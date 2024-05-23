@@ -46,8 +46,8 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response(null));
 
-        execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl +
-                " --table table_NAME --zone zone_NAME");
+        execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl
+                + " --table table_NAME --zone zone_NAME");
 
         assertSuccessfulOutputIs("Restarting partitions without cleanup.");
     }
@@ -66,8 +66,8 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response(null));
 
-        execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl +
-                " --table table_NAME --zone zone_NAME --partitions 1,2");
+        execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl
+                + " --table table_NAME --zone zone_NAME --partitions 1,2");
 
         assertSuccessfulOutputIs("Restarting partitions without cleanup.");
     }
@@ -86,8 +86,8 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response(null));
 
-        execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl +
-                " --table table_NAME --zone zone_NAME --nodes node_NAME,node_NAME_2");
+        execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl
+                + " --table table_NAME --zone zone_NAME --nodes node_NAME,node_NAME_2");
 
         assertSuccessfulOutputIs("Restarting partitions without cleanup.");
     }
@@ -106,8 +106,8 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response(null));
 
-        execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl +
-                " --table table_NAME --zone zone_NAME --purge");
+        execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl
+                + " --table table_NAME --zone zone_NAME --purge");
 
         assertSuccessfulOutputIs("Restarting partitions with cleanup.");
     }
