@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -42,6 +43,7 @@ import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.streamer.SimplePublisher;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.DataStreamerReceiver;
@@ -441,6 +443,32 @@ public class DataStreamerTest extends AbstractClientTableTest {
         for (long i = 0; i < count; i++) {
             assertEquals("recv_arg", view.get(null, i).name);
         }
+    }
+
+    @Test
+    public void testReceiverRequiresSameItemTypes() {
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<Long>()) {
+            streamerFut = view.streamData(
+                    publisher,
+                    null,
+                    id -> tuple(0L),
+                    id -> id == 1L ? 1 : "2",
+                    null,
+                    new ArrayList<>(),
+                    TestReceiver.class.getName(),
+                    "arg");
+
+            publisher.submit(1L);
+            publisher.submit(2L);
+        }
+
+        ExecutionException e = assertThrows(ExecutionException.class, () -> streamerFut.get(1, TimeUnit.SECONDS));
+        assertTrue(e.getMessage().contains("All items must have the same type. "
+                + "First item: class java.lang.Integer, "
+                + "current item: class java.lang.String"));
     }
 
     private static RecordView<Tuple> defaultTableView(FakeIgnite server, IgniteClient client) {
