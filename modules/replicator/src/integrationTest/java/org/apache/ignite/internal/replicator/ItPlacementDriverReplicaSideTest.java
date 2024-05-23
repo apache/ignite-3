@@ -508,7 +508,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             );
             serviceFutures.add(raftClientFut);
 
-            CompletableFuture<Void> replicaFuture = raftClientFut.thenCompose(raftClient -> {
+            CompletableFuture<Boolean> replicaFuture = raftClientFut.thenCompose(raftClient -> {
                 try {
                     ReplicaListener listener = new ReplicaListener() {
                         @Override

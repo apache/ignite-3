@@ -548,7 +548,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param raftGrpLsnr Raft group listener.
      * @throws NodeStoppingException in case of stopping node before completion
      */
-    public void startPartitionRaftGroupNode(
+    private void startPartitionRaftGroupNode(
             TablePartitionId replicaGrpId,
             int zoneId,
             RaftNodeId raftNodeId,
@@ -602,7 +602,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param newConfiguration TODO.
      * @return TODO.
      */
-    public CompletableFuture<Void> startReplica(
+    public CompletableFuture<Boolean> startReplica(
             MetaStorageManager metaStorageMgr,
             RaftGroupListener raftGroupListener,
             MvTableStorage mvStorage,
@@ -676,7 +676,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @throws NodeStoppingException If node is stopping.
      * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been started.
      */
-    public CompletableFuture<Void> startReplica(
+    public CompletableFuture<Boolean> startReplica(
             boolean shouldSkipReplicaStarting,
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
@@ -765,7 +765,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param createListener A clojure that returns done {@link ReplicaListener} by given raft-client {@link RaftGroupService}.
      * @param storageIndexTracker Storage index tracker.
      */
-    private CompletableFuture<Void> startRaftClientAndReplicaInternal(
+    private CompletableFuture<Boolean> startRaftClientAndReplicaInternal(
             boolean shouldSkipReplicaStarting,
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
@@ -776,16 +776,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     ) throws NodeStoppingException {
         LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
-        var raftClient = raftClientCache.get();
-        CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut;
-        if (raftClient == null) {
-            newRaftClientFut = createRaftClientAsync(replicaGrpId, newConfiguration);
-        } else {
-            newRaftClientFut = CompletableFuture.completedFuture((TopologyAwareRaftGroupService) raftClient);
-        }
+        CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut = startRaftClient(
+                replicaGrpId, newConfiguration, raftClientCache);
 
-        CompletableFuture<Void> resultFuture = newRaftClientFut.thenAccept(updateTableRaftService);
+        CompletableFuture<Boolean> resultFuture = newRaftClientFut.thenAccept(updateTableRaftService)
+                .thenApply((v) -> shouldSkipReplicaStarting);
 
+        // TODO: should be removed
         if (shouldSkipReplicaStarting) {
             return resultFuture;
         }
@@ -797,12 +794,29 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return resultFuture;
     }
 
-    private CompletableFuture<TopologyAwareRaftGroupService> createRaftClientAsync(
+    /**
+     * TODO.
+     *
+     * @param replicaGrpId TODO.
+     * @param newConfiguration TODO.
+     * @param raftClientCache TODO.
+     * @return TODO.
+     * @throws NodeStoppingException TODO.
+     */
+    public CompletableFuture<TopologyAwareRaftGroupService> startRaftClient(
             ReplicationGroupId replicaGrpId,
-            PeersAndLearners newConfiguration)
+            PeersAndLearners newConfiguration,
+            Supplier<RaftGroupService> raftClientCache)
             throws NodeStoppingException {
-        // TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
-        return raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
+        var raftClient = raftClientCache.get();
+        CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut;
+        if (raftClient == null) {
+            // TODO IGNITE-19614 This procedure takes 10 seconds if there's no majority online.
+            newRaftClientFut = raftManager.startRaftGroupService(replicaGrpId, newConfiguration, raftGroupServiceFactory, raftCommandsMarshaller);
+        } else {
+            newRaftClientFut = CompletableFuture.completedFuture((TopologyAwareRaftGroupService) raftClient);
+        }
+        return newRaftClientFut;
     }
 
     /**
