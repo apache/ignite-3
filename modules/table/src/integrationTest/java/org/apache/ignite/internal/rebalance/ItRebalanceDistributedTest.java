@@ -49,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -154,7 +155,6 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.Replica;
@@ -817,7 +817,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private void verifyThatRaftNodesAndReplicasWereStartedOnlyOnce() throws Exception {
         for (int i = 0; i < NODE_COUNT; i++) {
             verify(getNode(i).raftManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
-                    .startRaftGroupNodeWithoutService(any(), any(), any(), any(), any(RaftGroupOptions.class));
+                    .startRaftGroupNode(any(), any(), any(), any(), any(), notNull(TopologyAwareRaftGroupServiceFactory.class));
             verify(getNode(i).replicaManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
                     .startReplica(any(), any(), any());
         }

@@ -964,25 +964,28 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         .tableRaftService()
                         .partitionRaftGroupService(replicaGrpId.partitionId()));
 
-                MvTableStorage mvStorage = internalTable.storage();
+                MvTableStorage mvTableStorage = internalTable.storage();
 
-                return replicaMgr.startReplica(
-                        metaStorageMgr,
-                        raftGroupListener,
-                        mvStorage,
-                        snapshotStorageFactory,
-                        partitionMover,
-                        getCachedRaftClient,
-                        updateTableRaftService,
-                        createListener,
-                        zoneId,
-                        storageIndexTracker,
-                        replicaGrpId,
-                        newConfiguration);
+                try {
+                    return replicaMgr.startReplica(
+                            metaStorageMgr,
+                            raftGroupListener,
+                            mvTableStorage,
+                            snapshotStorageFactory,
+                            partitionMover,
+                            updateTableRaftService,
+                            createListener,
+                            zoneId,
+                            storageIndexTracker,
+                            replicaGrpId,
+                            newConfiguration);
+                } catch (NodeStoppingException e) {
+                    throw new AssertionError("Loza was stopped before Table manager", e);
+                }
             }), ioExecutor);
         } else {
-            // (4) in case if localMemberAssignment == null
-            // upd: now it excessive and not relevant
+            // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
+            // (4) in case if node not in the assignments
             startGroupFut = falseCompletedFuture();
         }
 

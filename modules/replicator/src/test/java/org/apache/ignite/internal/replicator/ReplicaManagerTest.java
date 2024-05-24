@@ -182,7 +182,6 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         replicaManager.listen(BEFORE_REPLICA_STOPPED, removeReplicaListener);
 
         var groupId = new TablePartitionId(0, 0);
-        when(raftManager.startRaftGroupService(any(), any(), any(), any())).thenReturn(completedFuture(raftGroupService));
         when(replicaListener.raftClient()).thenReturn(raftGroupService);
 
         String nodeName = testNodeName(testInfo, 0);
@@ -191,10 +190,10 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         CompletableFuture<Boolean> startReplicaFuture = replicaManager.startReplica(
                 groupId,
                 newConfiguration,
-                () -> null,
                 (unused) -> { },
                 (unused) -> replicaListener,
-                new PendingComparableValuesTracker<>(0L)
+                new PendingComparableValuesTracker<>(0L),
+                completedFuture(raftGroupService)
         );
 
         assertThat(startReplicaFuture, willCompleteSuccessfully());

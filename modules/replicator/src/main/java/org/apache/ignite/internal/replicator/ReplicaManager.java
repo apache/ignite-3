@@ -208,7 +208,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param failureProcessor TODO.
      * @param raftCommandsMarshaller  TODO.
      * @param raftGroupServiceFactory TODO.
-     * @param raftManager TODO.
+     * @param raftManager The manager made up of songs and words to spite all my troubles is not so bad at all.
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
      *      volatile tables.
      */
@@ -488,15 +488,61 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         });
     }
 
+    private CompletableFuture<Boolean> startReplicaInternal(
+            MetaStorageManager metaStorageMgr,
+            RaftGroupListener raftGroupListener,
+            MvTableStorage mvTableStorage,
+            SnapshotStorageFactory snapshotStorageFactory,
+            PartitionMover partitionMover,
+            Consumer<RaftGroupService> updateTableRaftService,
+            Function<RaftGroupService, ReplicaListener> createListener,
+            int zoneId,
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
+            TablePartitionId replicaGrpId,
+            PeersAndLearners newConfiguration
+    ) throws NodeStoppingException {
+        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+
+        RaftGroupOptions groupOptions = groupOptionsForPartition(
+                mvTableStorage,
+                snapshotStorageFactory);
+
+        RaftGroupEventsListener raftGroupEventsListener = new RebalanceRaftGroupEventsListener(
+                metaStorageMgr,
+                replicaGrpId,
+                busyLock,
+                partitionMover,
+                rebalanceScheduler,
+                zoneId
+        );
+
+        // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+        CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut = ((Loza) raftManager).startRaftGroupNode(
+                raftNodeId,
+                newConfiguration,
+                raftGroupListener,
+                raftGroupEventsListener,
+                groupOptions,
+                raftGroupServiceFactory
+        );
+
+        return startReplica(
+                replicaGrpId,
+                newConfiguration,
+                updateTableRaftService,
+                createListener, storageIndexTracker,
+                newRaftClientFut);
+
+    }
+
     /**
-     * Creates and start new replica.
+     * Creates and starts a new replica.
      *
      * @param metaStorageMgr Metastore manager.
      * @param raftGroupListener TODO.
-     * @param mvStorage Multi-version storage.
+     * @param mvTableStorage Multi-version table storage.
      * @param snapshotStorageFactory TODO.
      * @param partitionMover TODO.
-     * @param getCachedRaftClient TODO.
      * @param updateTableRaftService TODO.
      * @param createListener TODO.
      * @param zoneId Distribution zone ID.
@@ -508,41 +554,35 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     public CompletableFuture<Boolean> startReplica(
             MetaStorageManager metaStorageMgr,
             RaftGroupListener raftGroupListener,
-            MvTableStorage mvStorage,
+            MvTableStorage mvTableStorage,
             SnapshotStorageFactory snapshotStorageFactory,
             PartitionMover partitionMover,
-            Supplier<RaftGroupService> getCachedRaftClient,
             Consumer<RaftGroupService> updateTableRaftService,
             Function<RaftGroupService, ReplicaListener> createListener,
             int zoneId,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TablePartitionId replicaGrpId,
-            PeersAndLearners newConfiguration) {
-        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+            PeersAndLearners newConfiguration
+    ) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
 
         try {
-            // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-            startRaftNode(
-                    replicaGrpId,
-                    zoneId,
-                    raftNodeId,
-                    newConfiguration,
-                    raftGroupListener,
+            return startReplicaInternal(
                     metaStorageMgr,
-                    mvStorage,
+                    raftGroupListener,
+                    mvTableStorage,
                     snapshotStorageFactory,
-                    partitionMover
-            );
-
-            return startReplica(
-                    replicaGrpId,
-                    newConfiguration,
-                    getCachedRaftClient,
+                    partitionMover,
                     updateTableRaftService,
                     createListener,
-                    storageIndexTracker);
-        } catch (NodeStoppingException ex) {
-            throw new AssertionError("Loza was stopped before Table manager", ex);
+                    zoneId,
+                    storageIndexTracker,
+                    replicaGrpId,
+                    newConfiguration);
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 
@@ -560,33 +600,22 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     public CompletableFuture<Boolean> startReplica(
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
-            Supplier<RaftGroupService> getCachedRaftClient,
             Consumer<RaftGroupService> updateTableRaftService,
             Function<RaftGroupService, ReplicaListener> createListener,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
+            CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut
     ) throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
-        }
+        LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
 
-        try {
-            LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
+        CompletableFuture<Boolean> resultFuture = newRaftClientFut.thenAccept(updateTableRaftService)
+                .thenApply((v) -> true);
 
-            CompletableFuture<TopologyAwareRaftGroupService> newRaftClientFut = startRaftClient(
-                    replicaGrpId, newConfiguration, getCachedRaftClient);
+        // TODO: chain it all together
+        CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
 
-            CompletableFuture<Boolean> resultFuture = newRaftClientFut.thenAccept(updateTableRaftService)
-                    .thenApply((v) -> true);
+        startReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
 
-            // TODO: chain it all together
-            CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
-
-            startReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);
-
-            return resultFuture;
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return resultFuture;
     }
 
     /**
@@ -640,40 +669,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     return null;
                 })
                 .thenCompose(v -> replicaFuture);
-    }
-
-    private void startRaftNode(
-            TablePartitionId replicaGrpId,
-            int zoneId,
-            RaftNodeId raftNodeId,
-            PeersAndLearners stableConfiguration,
-            RaftGroupListener raftGrpListener,
-            MetaStorageManager metaStorageMgr,
-            MvTableStorage mvTableStorage,
-            SnapshotStorageFactory snapshotStorageFactory,
-            PartitionMover partitionMover
-    ) throws NodeStoppingException {
-        RaftGroupOptions groupOptions = groupOptionsForPartition(
-                mvTableStorage,
-                snapshotStorageFactory);
-
-        RaftGroupEventsListener raftGroupEventsListener = new RebalanceRaftGroupEventsListener(
-                metaStorageMgr,
-                replicaGrpId,
-                busyLock,
-                partitionMover,
-                rebalanceScheduler,
-                zoneId
-        );
-
-        // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-        ((Loza) raftManager).startRaftGroupNodeWithoutService(
-                raftNodeId,
-                stableConfiguration,
-                raftGrpListener,
-                raftGroupEventsListener,
-                groupOptions
-        );
     }
 
     /**

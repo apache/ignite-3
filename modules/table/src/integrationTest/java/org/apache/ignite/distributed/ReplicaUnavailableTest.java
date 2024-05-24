@@ -248,10 +248,10 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         replicaManager.startReplica(
                                 tablePartitionId,
                                 newConfiguration,
-                                () -> null,
                                 (unused) -> { },
                                 (unused) -> listener,
-                                new PendingComparableValuesTracker<>(0L)
+                                new PendingComparableValuesTracker<>(0L),
+                                completedFuture(mock(TopologyAwareRaftGroupService.class))
                         );
                     } catch (NodeStoppingException e) {
                         throw new RuntimeException(e);
@@ -360,18 +360,15 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 try {
                     log.info("Replica msg " + message.getClass().getSimpleName());
 
-                    // TODO remove?
-                    TopologyAwareRaftGroupService raftClient = mock(TopologyAwareRaftGroupService.class);
-
                     ReplicaListener listener = replicaListenerCreator.apply((r, id) -> new CompletableFuture<>());
 
                     replicaManager.startReplica(
                             tablePartitionId,
                             newConfiguration,
-                            () -> null,
                             (unused) -> { },
                             (unused) -> listener,
-                            new PendingComparableValuesTracker<>(0L)
+                            new PendingComparableValuesTracker<>(0L),
+                            completedFuture(mock(TopologyAwareRaftGroupService.class))
                     );
                 } catch (NodeStoppingException e) {
                     throw new RuntimeException(e);
