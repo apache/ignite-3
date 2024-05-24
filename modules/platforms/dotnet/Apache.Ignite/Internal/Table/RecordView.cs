@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal.Table
     using System.Threading.Tasks;
     using Buffers;
     using Common;
+    using Ignite.Compute;
     using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Transactions;
@@ -303,6 +304,19 @@ namespace Apache.Ignite.Internal.Table
                 writer: _ser,
                 options ?? DataStreamerOptions.Default,
                 cancellationToken).ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
+            IAsyncEnumerable<DataStreamerItem<T>> data,
+            DataStreamerOptions? options,
+            Func<TSource, T> keySelector,
+            Func<TSource, TPayload> payloadSelector,
+            IEnumerable<DeploymentUnit> units,
+            string receiverClassName,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
 
         /// <inheritdoc/>
         public override string ToString() =>

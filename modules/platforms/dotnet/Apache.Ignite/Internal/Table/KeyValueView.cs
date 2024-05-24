@@ -24,6 +24,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Apache.Ignite.Transactions;
 using Common;
+using Ignite.Compute;
 using Ignite.Sql;
 using Ignite.Table;
 using Linq;
@@ -162,6 +163,19 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         DataStreamerOptions? options = null,
         CancellationToken cancellationToken = default) =>
         await _recordView.StreamDataAsync(ToKv(data), options, cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc/>
+    public IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
+        IAsyncEnumerable<DataStreamerItem<KeyValuePair<TK, TV>>> data,
+        DataStreamerOptions? options,
+        Func<TSource, KeyValuePair<TK, TV>> keySelector,
+        Func<TSource, TPayload> payloadSelector,
+        IEnumerable<DeploymentUnit> units,
+        string receiverClassName,
+        CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
 
     /// <inheritdoc/>
     public override string ToString() =>
