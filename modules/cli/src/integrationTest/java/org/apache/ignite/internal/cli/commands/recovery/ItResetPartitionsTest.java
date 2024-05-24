@@ -50,7 +50,7 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
                 RECOVERY_ZONE_NAME_OPTION, ZONE);
 
         assertErrOutputIsEmpty();
-        assertOutputContains("Successfully started resetting partitions.");
+        assertOutputContains("Successfully reset partitions.");
     }
 
     @Test
@@ -61,7 +61,7 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
                 RECOVERY_PARTITION_IDS_OPTION, "1,2");
 
         assertErrOutputIsEmpty();
-        assertOutputContains("Successfully started resetting partitions.");
+        assertOutputContains("Successfully reset partitions.");
     }
 
     @Test

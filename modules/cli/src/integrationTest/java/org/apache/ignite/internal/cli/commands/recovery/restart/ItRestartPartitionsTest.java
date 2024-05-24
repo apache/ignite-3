@@ -55,7 +55,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         );
 
         assertErrOutputIsEmpty();
-        assertOutputContains("Restarting partitions without cleanup.");
+        assertOutputContains("Successfully restarted partitions without cleanup.");
     }
 
     @Test
@@ -67,7 +67,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         );
 
         assertErrOutputIsEmpty();
-        assertOutputContains("Restarting partitions with cleanup.");
+        assertOutputContains("Successfully restarted partitions with cleanup.");
     }
 
     @Test
@@ -79,7 +79,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         );
 
         assertErrOutputIsEmpty();
-        assertOutputContains("Restarting partitions without cleanup.");
+        assertOutputContains("Successfully restarted partitions without cleanup.");
     }
 
     @Test
@@ -97,7 +97,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         );
 
         assertErrOutputIsEmpty();
-        assertOutputContains("Restarting partitions without cleanup.");
+        assertOutputContains("Successfully restarted partitions without cleanup.");
     }
 
     @Test

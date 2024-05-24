@@ -49,7 +49,7 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
         execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl
                 + " --table table_NAME --zone zone_NAME");
 
-        assertSuccessfulOutputIs("Restarting partitions without cleanup.");
+        assertSuccessfulOutputIs("Successfully restarted partitions without cleanup.");
     }
 
     @Test
@@ -69,7 +69,7 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
         execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl
                 + " --table table_NAME --zone zone_NAME --partitions 1,2");
 
-        assertSuccessfulOutputIs("Restarting partitions without cleanup.");
+        assertSuccessfulOutputIs("Successfully restarted partitions without cleanup.");
     }
 
     @Test
@@ -89,7 +89,7 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
         execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl
                 + " --table table_NAME --zone zone_NAME --nodes node_NAME,node_NAME_2");
 
-        assertSuccessfulOutputIs("Restarting partitions without cleanup.");
+        assertSuccessfulOutputIs("Successfully restarted partitions without cleanup.");
     }
 
     @Test
@@ -109,6 +109,6 @@ public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
         execute("recovery restart-partitions --cluster-endpoint-url " + mockUrl
                 + " --table table_NAME --zone zone_NAME --purge");
 
-        assertSuccessfulOutputIs("Restarting partitions with cleanup.");
+        assertSuccessfulOutputIs("Successfully restarted partitions with cleanup.");
     }
 }
