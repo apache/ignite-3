@@ -45,6 +45,7 @@ import org.apache.ignite.internal.compute.message.JobStatusResponse;
 import org.apache.ignite.internal.compute.message.JobStatusesResponse;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.DataStreamerReceiver;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -138,6 +139,51 @@ public class ComputeUtils {
             return (Class<MapReduceTask<R>>) Class.forName(taskClassName, true, taskClassLoader);
         } catch (ClassNotFoundException e) {
             throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load task class by name '" + taskClassName + "'", e);
+        }
+    }
+
+    /**
+     * Instantiate data streamer receiver.
+     *
+     * @param recvClass Receiver class.
+     * @param <T> Receiver item type.
+     * @param <R> Receiver return type.
+     * @return Receiver instance.
+     */
+    public static <T, R> DataStreamerReceiver<T, R> instantiateReceiver(Class<? extends DataStreamerReceiver<T, R>> recvClass) {
+        if (!(DataStreamerReceiver.class.isAssignableFrom(recvClass))) {
+            throw new ComputeException(
+                    CLASS_INITIALIZATION_ERR,
+                    "'" + recvClass.getName() + "' does not implement DataStreamerReceiver interface"
+            );
+        }
+
+        try {
+            Constructor<? extends DataStreamerReceiver<T, R>> constructor = recvClass.getDeclaredConstructor();
+
+            if (!constructor.canAccess(null)) {
+                constructor.setAccessible(true);
+            }
+
+            return constructor.newInstance();
+        } catch (ReflectiveOperationException e) {
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot instantiate streamer receiver", e);
+        }
+    }
+
+    /**
+     * Resolve receiver class name.
+     *
+     * @param classLoader Class loader.
+     * @param className Class name.
+     * @param <R> Return type.
+     * @return Receiver class.
+     */
+    public static <T, R> Class<DataStreamerReceiver<T, R>> receiverClass(ClassLoader classLoader, String className) {
+        try {
+            return (Class<DataStreamerReceiver<T, R>>) Class.forName(className, true, classLoader);
+        } catch (ClassNotFoundException e) {
+            throw new ComputeException(CLASS_INITIALIZATION_ERR, "Cannot load receiver class by name '" + className + "'", e);
         }
     }
 

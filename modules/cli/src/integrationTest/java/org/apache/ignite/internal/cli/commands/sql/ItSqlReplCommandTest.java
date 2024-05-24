@@ -36,7 +36,7 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
     @Test
     @DisplayName("Should throw error if executed with non-existing file")
     void nonExistingFile() {
-        execute("-f", "nonexisting", "--jdbc-url", JDBC_URL);
+        execute("--file", "nonexisting", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertOutputIsEmpty,
@@ -53,8 +53,6 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
                 () -> assertOutputContains("Updated 0 rows."),
                 this::assertErrOutputIsEmpty
         );
-
-        resetOutput();
 
         execute("--jdbc-url", JDBC_URL);
 
@@ -74,8 +72,6 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
                 this::assertErrOutputIsEmpty
         );
 
-        resetOutput();
-
         execute("SELECT COUNT(*) FROM MULTILINE_TABLE;", "--jdbc-url", JDBC_URL);
 
         assertAll(
@@ -86,14 +82,12 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
 
     @Test
     void secondInvocationFile() {
-        execute("-f", "nonexisting", "--jdbc-url", JDBC_URL);
+        execute("--file", "nonexisting", "--jdbc-url", JDBC_URL);
 
         assertAll(
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains("nonexisting] not found")
         );
-
-        resetOutput();
 
         execute("--jdbc-url", JDBC_URL);
 

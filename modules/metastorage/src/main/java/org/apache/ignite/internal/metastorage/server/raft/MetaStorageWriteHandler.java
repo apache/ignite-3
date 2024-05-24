@@ -17,11 +17,21 @@
 
 package org.apache.ignite.internal.metastorage.server.raft;
 
+import static java.util.Arrays.copyOfRange;
+import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
+
+import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.CommandId;
+import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.command.IdempotentCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
@@ -33,6 +43,7 @@ import org.apache.ignite.internal.metastorage.command.SyncTimeCommand;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.ConditionType;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.dsl.MetaStorageMessagesFactory;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Statement.IfStatement;
 import org.apache.ignite.internal.metastorage.dsl.Statement.UpdateStatement;
@@ -50,6 +61,9 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.Cursor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Class containing some common logic for Meta Storage Raft group listeners.
@@ -58,8 +72,14 @@ public class MetaStorageWriteHandler {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageWriteHandler.class);
 
+    public static final byte[] IDEMPOTENT_COMMAND_PREFIX_BYTES = "icp.".getBytes(StandardCharsets.UTF_8);
+
+    private static final MetaStorageMessagesFactory MSG_FACTORY = new MetaStorageMessagesFactory();
+
     private final KeyValueStorage storage;
     private final ClusterTimeImpl clusterTime;
+
+    private final Map<CommandId, IdempotentCommandCachedResult> idempotentCommandCache = new ConcurrentHashMap<>();
 
     MetaStorageWriteHandler(KeyValueStorage storage, ClusterTimeImpl clusterTime) {
         this.storage = storage;
@@ -70,6 +90,29 @@ public class MetaStorageWriteHandler {
      * Processes a given {@link WriteCommand}.
      */
     void handleWriteCommand(CommandClosure<WriteCommand> clo) {
+        WriteCommand command = clo.command();
+
+        CommandClosure<WriteCommand> resultClosure;
+
+        if (command instanceof IdempotentCommand) {
+            CommandId commandId = ((IdempotentCommand) command).id();
+            IdempotentCommandCachedResult cachedResult = idempotentCommandCache.get(commandId);
+
+            if (cachedResult != null) {
+                clo.result(cachedResult.result);
+
+                return;
+            } else {
+                resultClosure = new ResultCachingClosure(clo);
+            }
+        } else {
+            resultClosure = clo;
+        }
+
+        handleNonCachedWriteCommand(resultClosure);
+    }
+
+    private void handleNonCachedWriteCommand(CommandClosure<WriteCommand> clo) {
         WriteCommand command = clo.command();
 
         try {
@@ -142,11 +185,11 @@ public class MetaStorageWriteHandler {
         } else if (command instanceof InvokeCommand) {
             InvokeCommand cmd = (InvokeCommand) command;
 
-            clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime));
+            clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime, cmd.id()));
         } else if (command instanceof MultiInvokeCommand) {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
-            clo.result(storage.invoke(toIf(cmd.iif()), opTime));
+            clo.result(storage.invoke(toIf(cmd.iif()), opTime, cmd.id()));
         } else if (command instanceof SyncTimeCommand) {
             storage.advanceSafeTime(command.safeTime());
 
@@ -277,5 +320,84 @@ public class MetaStorageWriteHandler {
         }
 
         return false;
+    }
+
+    /**
+     * The callback that is called right after storage is updated with a snapshot.
+     */
+    void onSnapshotLoad() {
+        byte[] keyFrom = IDEMPOTENT_COMMAND_PREFIX_BYTES;
+        byte[] keyTo = storage.nextKey(IDEMPOTENT_COMMAND_PREFIX_BYTES);
+
+        Cursor<Entry> cursor = storage.range(keyFrom, keyTo);
+        // It's fine to lose original command start time - in that case we will store the entry a little bit longer that necessary.
+        HybridTimestamp now = clusterTime.now();
+
+        try (cursor) {
+            for (Entry entry : cursor) {
+                if (!entry.tombstone()) {
+                    byte[] commandIdBytes = copyOfRange(entry.key(), IDEMPOTENT_COMMAND_PREFIX_BYTES.length, entry.key().length);
+                    CommandId commandId = ByteUtils.fromBytes(commandIdBytes);
+
+                    Serializable result;
+                    if (entry.value().length == 1) {
+                        result = byteToBoolean(entry.value()[0]);
+                    } else {
+                        result = MSG_FACTORY.statementResult().result(entry.value()).build();
+                    }
+
+                    idempotentCommandCache.put(commandId, new IdempotentCommandCachedResult(result, now));
+                }
+            }
+        }
+    }
+
+    private static class IdempotentCommandCachedResult {
+        @Nullable
+        final Serializable result;
+
+        final HybridTimestamp commandStartTime;
+
+        IdempotentCommandCachedResult(@Nullable Serializable result, HybridTimestamp commandStartTime) {
+            this.result = result;
+            this.commandStartTime = commandStartTime;
+        }
+    }
+
+    private class ResultCachingClosure implements CommandClosure<WriteCommand> {
+        CommandClosure<WriteCommand> closure;
+
+        ResultCachingClosure(CommandClosure<WriteCommand> closure) {
+            this.closure = closure;
+
+            assert closure.command() instanceof IdempotentCommand;
+        }
+
+        @Override
+        public long index() {
+            return closure.index();
+        }
+
+        @Override
+        public long term() {
+            return closure.term();
+        }
+
+        @Override
+        public WriteCommand command() {
+            return closure.command();
+        }
+
+        @Override
+        public void result(@Nullable Serializable res) {
+            IdempotentCommand command = (IdempotentCommand) closure.command();
+
+            // Exceptions are not cached.
+            if (!(res instanceof Throwable)) {
+                idempotentCommandCache.put(command.id(), new IdempotentCommandCachedResult(res, command.initiatorTime()));
+            }
+
+            closure.result(res);
+        }
     }
 }

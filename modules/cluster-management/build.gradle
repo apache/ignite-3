@@ -33,6 +33,7 @@ dependencies {
     implementation project(':ignite-configuration')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-configuration-presentation')
+    implementation project(':ignite-failure-handler')
     implementation project(':ignite-network')
     implementation project(':ignite-raft-api')
     implementation project(':ignite-vault')
@@ -53,6 +54,7 @@ dependencies {
     testImplementation libs.mockito.junit
 
     testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-failure-handler')
     testFixturesImplementation project(':ignite-raft')
     testFixturesImplementation project(':ignite-raft-api')
     testFixturesImplementation project(':ignite-storage-api')
@@ -62,6 +64,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-configuration'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation testFixtures(project(':ignite-metrics'))
+    testFixturesImplementation testFixtures(project(':ignite-raft'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
 
@@ -76,6 +79,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-network'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-metrics:'))
+    integrationTestImplementation testFixtures(project(':ignite-raft'))
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.jetbrains.annotations
 }

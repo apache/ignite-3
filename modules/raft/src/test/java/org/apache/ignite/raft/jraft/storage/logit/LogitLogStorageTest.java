@@ -17,7 +17,9 @@
 
 package org.apache.ignite.raft.jraft.storage.logit;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.entity.PeerId.emptyPeer;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
@@ -47,7 +49,7 @@ public class LogitLogStorageTest extends BaseLogStorageTest {
     @Override
     public void setup() throws Exception {
         logStorageFactory = new LogitLogStorageFactory("test", testStoreOptions(), () -> path);
-        logStorageFactory.start();
+        assertThat(logStorageFactory.startAsync(), willCompleteSuccessfully());
 
         super.setup();
     }
@@ -65,7 +67,7 @@ public class LogitLogStorageTest extends BaseLogStorageTest {
     @AfterEach
     @Override
     public void teardown() {
-        logStorageFactory.close();
+        assertThat(logStorageFactory.stopAsync(), willCompleteSuccessfully());
 
         super.teardown();
     }

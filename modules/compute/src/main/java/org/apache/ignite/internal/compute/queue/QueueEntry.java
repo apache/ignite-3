@@ -74,7 +74,7 @@ class QueueEntry<R> implements Runnable, Comparable<QueueEntry<R>> {
 
         try {
             future.complete(jobAction.call());
-        } catch (Exception e) {
+        } catch (Throwable e) {
             future.completeExceptionally(e);
         } finally {
             lock.lock();

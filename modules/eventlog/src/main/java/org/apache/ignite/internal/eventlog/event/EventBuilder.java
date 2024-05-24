@@ -18,25 +18,20 @@
 package org.apache.ignite.internal.eventlog.event;
 
 import java.util.Map;
-import java.util.regex.Pattern;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventFactory;
 import org.apache.ignite.internal.eventlog.event.exception.InvalidEventTypeException;
 import org.apache.ignite.internal.eventlog.event.exception.InvalidProductVersionException;
 import org.apache.ignite.internal.eventlog.event.exception.MissingEventTypeException;
 import org.apache.ignite.internal.eventlog.event.exception.MissingEventUserException;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 
 /**
  * The event builder that should be used only where the {@link EventFactory} is not enough to create an event. For example, in tests, where
  * you want to put some special event. In all other cases, use {@link EventFactory} to create events.
  */
 public class EventBuilder {
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-21812
-    private static final String DEFAULT_VERSION = "3.0.0";
-
-    private static final Pattern SEMVER_REGEX = Pattern.compile(
-            "(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)"
-                    + "((?<snapshot>-SNAPSHOT)|-(?<alpha>alpha\\d+)|--(?<beta>beta\\d+)|---(?<ea>ea\\d+))?");
+    private static final String DEFAULT_VERSION = IgniteProductVersion.CURRENT_VERSION.toString();
 
     private String type;
 
@@ -107,7 +102,7 @@ public class EventBuilder {
             productVersion = DEFAULT_VERSION;
         }
 
-        if (!SEMVER_REGEX.matcher(productVersion).matches()) {
+        if (!IgniteProductVersion.VERSION_PATTERN.matcher(productVersion).matches()) {
             throw new InvalidProductVersionException(productVersion);
         }
 

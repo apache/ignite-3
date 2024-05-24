@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
@@ -94,6 +93,7 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -418,7 +418,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private void createTable(String tableName) {
         TableTestUtils.createTable(
                 catalogManager,
-                DEFAULT_SCHEMA_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 tableName,
                 List.of(
@@ -434,15 +434,15 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     }
 
     private void dropTable(String tableName) {
-        TableTestUtils.dropTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName);
+        TableTestUtils.dropTable(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
     }
 
     private void createIndex(String tableName, String indexName) {
-        createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(INDEXED_COLUMN_NAME), false);
+        createHashIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(INDEXED_COLUMN_NAME), false);
     }
 
     private void dropIndex(String indexName) {
-        TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
+        TableTestUtils.dropIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, indexName);
     }
 
     private static PersistentPageMemoryDataStorageModule createDataStorageModule() {

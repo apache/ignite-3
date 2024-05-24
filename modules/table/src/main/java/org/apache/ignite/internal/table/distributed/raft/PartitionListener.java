@@ -658,9 +658,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return;
         }
 
-        for (UUID txId : cmd.txIds()) {
-            txStateStorage.remove(txId, commandIndex, commandTerm);
-        }
+        txStateStorage.removeAll(cmd.txIds(), commandIndex, commandTerm);
     }
 
     private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {

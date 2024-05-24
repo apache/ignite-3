@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.impl.BaseLogStorageTest;
@@ -33,8 +36,7 @@ public class RocksDbSharedLogStorageTest extends BaseLogStorageTest {
     @Override
     public void setup() throws Exception {
         logStorageProvider = new DefaultLogStorageFactory(this.path);
-
-        logStorageProvider.start();
+        assertThat(logStorageProvider.startAsync(), willCompleteSuccessfully());
 
         super.setup();
     }
@@ -45,7 +47,7 @@ public class RocksDbSharedLogStorageTest extends BaseLogStorageTest {
     public void teardown() {
         super.teardown();
 
-        logStorageProvider.close();
+        assertThat(logStorageProvider.stopAsync(), willCompleteSuccessfully());
     }
 
     /** {@inheritDoc} */

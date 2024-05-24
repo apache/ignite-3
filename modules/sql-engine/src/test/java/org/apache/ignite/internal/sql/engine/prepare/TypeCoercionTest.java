@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,7 +48,9 @@ import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.Statistic;
+import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperator;
@@ -56,6 +59,7 @@ import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
@@ -75,7 +79,6 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -131,8 +134,6 @@ public class TypeCoercionTest extends AbstractPlannerTest {
 
         for (RelDataType type : NUMERIC_TYPES) {
             if (type.getSqlTypeName() == SqlTypeName.DECIMAL) {
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-18559
-                // Coerce to the widest decimal possible?
                 numericRules.add(typeCoercionRule(type, VARCHAR, new ToSpecificType(expectedDecimalType)));
                 numericRules.add(typeCoercionRule(VARCHAR, type, new ToSpecificType(expectedDecimalType)));
             } else {
@@ -245,6 +246,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
             "COALESCE(2, COALESCE('b', 2))",
             "COALESCE(2, COALESCE(2, 'b'))",
             "COALESCE('b', COALESCE(2, 3))",
+            "CASE WHEN 1=1 THEN 12.2 ELSE 'b' END",
     })
     public void testCaseWhenExpressionWithMixedTypesIsRejected(String expr) {
         checkExprResultFails(expr, "Illegal mixing of types in CASE or COALESCE statement");
@@ -254,15 +256,6 @@ public class TypeCoercionTest extends AbstractPlannerTest {
     public void testNullIf() {
         RelDataType decimal = TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 3, 1);
         checkExprResult("NULLIF(12.2, 2)", nullable(decimal));
-    }
-
-    /**
-     * SQL 2016, clause 9.5: Mixing types in CASE/COALESCE expressions is illegal.
-     */
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18559")
-    public void testNullIfWithMixedTypesIsRejected() {
-        checkExprResultFails("NULLIF(12.2, 'b')", "Illegal mixing of types in CASE or COALESCE statement");
     }
 
     @ParameterizedTest
@@ -283,6 +276,44 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         return rules.stream();
     }
 
+    @ParameterizedTest
+    @MethodSource("dataForValuesCoercionCheck")
+    public void testCoercionForValues(String query, SqlTypeName rowType, boolean typeChanged) {
+        RelDataType tableType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
+                .add("C1", rowType, 1)
+                .build();
+
+        TestTable testTable = new TestTable("T", tableType, IgniteDistributions.single());
+
+        runTest(query, (planner, insertNode) -> {
+            SqlValidator validator = planner.validator();
+            validator.validate(insertNode);
+            insertNode.accept(new SqlShuttle() {
+                @Override
+                public SqlNode visit(SqlDataTypeSpec type) {
+                    if (typeChanged) {
+                        SqlBasicTypeNameSpec typeName = (SqlBasicTypeNameSpec) type.getTypeNameSpec();
+                        assertEquals(SqlTypeName.VARCHAR.getName(), typeName.getTypeName().toString());
+                        assertEquals(RelDataType.PRECISION_NOT_SPECIFIED, typeName.getPrecision());
+                    } else {
+                        fail("No type coercion need to be raised.");
+                    }
+                    return type;
+                }
+            });
+        }, createSchema(testTable));
+    }
+
+    private static Stream<Arguments> dataForValuesCoercionCheck() {
+        List<Arguments> arguments = new ArrayList<>();
+        arguments.add(Arguments.of("INSERT INTO t VALUES (123)", SqlTypeName.CHAR, true));
+        arguments.add(Arguments.of("INSERT INTO t VALUES (123 || '1')", SqlTypeName.CHAR, true));
+        arguments.add(Arguments.of("INSERT INTO t VALUES ('123')", SqlTypeName.CHAR, false));
+        arguments.add(Arguments.of("INSERT INTO t VALUES (123)", SqlTypeName.VARCHAR, true));
+        arguments.add(Arguments.of("INSERT INTO t VALUES (123 || '1')", SqlTypeName.VARCHAR, true));
+        arguments.add(Arguments.of("INSERT INTO t VALUES ('123')", SqlTypeName.VARCHAR, false));
+        return arguments.stream();
+    }
 
     @ParameterizedTest
     @MethodSource("commonTypeForBinaryComparison")
@@ -689,7 +720,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
 
         @Override
         public RelDataType rowTypeForInsert(IgniteTypeFactory factory) {
-            throw new AssertionError();
+            return protoType.apply(factory);
         }
 
         @Override

@@ -19,7 +19,7 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import java.time.ZoneId;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
@@ -38,7 +38,7 @@ class ClientSqlProperties {
 
     ClientSqlProperties(ClientMessageUnpacker in) {
         schema = in.tryUnpackNil() ? null : in.unpackString();
-        pageSize = in.tryUnpackNil() ? IgniteSqlImpl.DEFAULT_PAGE_SIZE : in.unpackInt();
+        pageSize = in.tryUnpackNil() ? SqlCommon.DEFAULT_PAGE_SIZE : in.unpackInt();
         queryTimeout = in.tryUnpackNil() ? 0 : in.unpackLong();
         idleTimeout = in.tryUnpackNil() ? 0 : in.unpackLong();
         timeZoneId = in.tryUnpackNil() ? null : in.unpackString();

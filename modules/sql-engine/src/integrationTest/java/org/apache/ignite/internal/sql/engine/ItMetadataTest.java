@@ -162,7 +162,7 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
                 + "REAL_C REAL, " + "DOUBLE_C DOUBLE, "
 
                 // Character string types
-                + "CHAR_C CHAR, " + "CHAR_C2 CHAR(65536), " + "VARCHAR_C VARCHAR, " + "VARCHAR_C2 VARCHAR(125), "
+                + "VARCHAR_C VARCHAR, " + "VARCHAR_C2 VARCHAR(125), "
 
                 // Binary string types
                 + "BINARY_C BINARY, " + "BINARY_C2 BINARY(65536), " + "VARBINARY_C VARBINARY, " + "VARBINARY_C2 VARBINARY(125), "
@@ -220,8 +220,6 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
                         new MetadataMatcher().name("DOUBLE_C").type(ColumnType.DOUBLE).precision(15).scale(UNDEFINED_SCALE),
 
                         // Character string types
-                        new MetadataMatcher().name("CHAR_C").type(ColumnType.STRING).precision(1).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("CHAR_C2").type(ColumnType.STRING).precision(65536).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("VARCHAR_C").type(ColumnType.STRING).precision(65536).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("VARCHAR_C2").type(ColumnType.STRING).precision(125).scale(UNDEFINED_SCALE),
 

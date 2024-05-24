@@ -36,16 +36,14 @@ import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.sql.engine.util.InjectQueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.AsyncCursor;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -134,7 +132,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
         @Override
         public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
                 SqlProperties properties,
-                IgniteTransactions transactions,
+                HybridTimestampTracker observableTimeTracker,
                 @Nullable InternalTransaction transaction,
                 String qry,
                 Object... params
@@ -143,7 +141,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
             assert !prepareOnly : "Expected that the query will only be prepared, but not executed";
 
             QueryPlan plan = node.prepare(qry);
-            AsyncCursor<InternalSqlRow> dataCursor = node.executePlan(plan, transaction);
+            AsyncDataCursor<InternalSqlRow> dataCursor = node.executePlan(plan, transaction);
 
             SqlQueryType type = plan.type();
 
@@ -152,9 +150,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
             AsyncSqlCursor<InternalSqlRow> sqlCursor = new AsyncSqlCursorImpl<>(
                     type,
                     plan.metadata(),
-                    new QueryTransactionWrapperImpl(transaction != null ? transaction : new NoOpTransaction("test"), false),
                     dataCursor,
-                    nullCompletedFuture(),
                     null
             );
 

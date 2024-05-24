@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cli.call.recovery;
 import java.util.List;
 import org.apache.ignite.internal.cli.commands.recovery.partitions.PartitionStatesMixin;
 import org.apache.ignite.internal.cli.core.call.CallInput;
+import org.jetbrains.annotations.Nullable;
 
 /** Input for the {@link PartitionStatesCall} call. */
 public class PartitionStatesCallInput implements CallInput {
@@ -61,9 +62,9 @@ public class PartitionStatesCallInput implements CallInput {
     private PartitionStatesCallInput(
             String clusterUrl,
             boolean local,
-            List<String> nodeNames,
-            List<String> zoneNames,
-            List<Integer> partitionIds
+            @Nullable List<String> nodeNames,
+            @Nullable List<String> zoneNames,
+            @Nullable List<Integer> partitionIds
     ) {
         this.clusterUrl = clusterUrl;
         this.local = local;
@@ -102,10 +103,13 @@ public class PartitionStatesCallInput implements CallInput {
 
         private boolean local;
 
+        @Nullable
         private List<String> nodeNames;
 
+        @Nullable
         private List<String> zoneNames;
 
+        @Nullable
         private List<Integer> partitionIds;
 
         /** Set cluster URL. */
@@ -120,25 +124,25 @@ public class PartitionStatesCallInput implements CallInput {
             return this;
         }
 
-        /** Set names of zones to get partition states of. */
-        PartitionStatesCallInputBuilder nodeNames(List<String> nodeNames) {
+        /** Set names of zones to get partition states of. All if empty or null. */
+        PartitionStatesCallInputBuilder nodeNames(@Nullable List<String> nodeNames) {
             this.nodeNames = nodeNames;
             return this;
         }
 
-        /** Set names of zones to get partition states of. */
-        PartitionStatesCallInputBuilder zoneNames(List<String> zoneNames) {
+        /** Set names of zones to get partition states of. All if empty or null. */
+        PartitionStatesCallInputBuilder zoneNames(@Nullable List<String> zoneNames) {
             this.zoneNames = zoneNames;
             return this;
         }
 
-        /** Names of zones to get partition states of. */
-        PartitionStatesCallInputBuilder partitionIds(List<Integer> partitionIds) {
+        /** Names of zones to get partition states of. All if empty or null. */
+        PartitionStatesCallInputBuilder partitionIds(@Nullable List<Integer> partitionIds) {
             this.partitionIds = partitionIds;
             return this;
         }
 
-        /** Set IDs of partitions to get states of. */
+        /** Build {@link PartitionStatesCallInput}. */
         PartitionStatesCallInput build() {
             return new PartitionStatesCallInput(clusterUrl, local, nodeNames, zoneNames, partitionIds);
         }

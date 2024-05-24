@@ -50,7 +50,7 @@ class ItEnabledNodeMetricCommandTest extends CliIntegrationTest {
     @DisplayName("Should display enabled jvm metric source when valid node-url is given")
     void nodeMetricSourcesList() {
         // When list node metric sources with valid url
-        execute("node", "metric", "source", "list", "--plain", "--node-url", NODE_URL);
+        execute("node", "metric", "source", "list", "--plain", "--url", NODE_URL);
 
         // Then
         assertAll(
@@ -68,7 +68,7 @@ class ItEnabledNodeMetricCommandTest extends CliIntegrationTest {
     @DisplayName("Should display node metrics list when valid node-url is given")
     void nodeMetricEnableNonexistent() {
         // When list node metric with valid url
-        execute("node", "metric", "list", "--plain", "--node-url", NODE_URL);
+        execute("node", "metric", "list", "--plain", "--url", NODE_URL);
 
         // Then
         assertAll(

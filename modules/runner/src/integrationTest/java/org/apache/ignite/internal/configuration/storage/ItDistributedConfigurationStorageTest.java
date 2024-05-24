@@ -43,6 +43,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -55,6 +56,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -109,6 +111,8 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
         /** The future have to be complete after the node start and all Meta storage watches are deployd. */
         private final CompletableFuture<Void> deployWatchesFut;
 
+        private final FailureProcessor failureProcessor;
+
         /**
          * Constructor that simply creates a subset of components of this node.
          */
@@ -127,9 +131,8 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-            raftManager = new Loza(
+            raftManager = TestLozaFactory.create(
                     clusterService,
-                    new NoOpMetricManager(),
                     raftConfiguration,
                     workDir,
                     clock,
@@ -145,6 +148,8 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     new TestConfigurationValidator()
             );
 
+            this.failureProcessor = new FailureProcessor(clusterService.nodeName());
+
             cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -153,7 +158,8 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     clusterStateStorage,
                     logicalTopology,
                     clusterManagementConfiguration,
-                    new NodeAttributesCollector(nodeAttributes, storageConfiguration)
+                    new NodeAttributesCollector(nodeAttributes, storageConfiguration),
+                    failureProcessor
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -173,6 +179,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                     new SimpleInMemoryKeyValueStorage(name()),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
+                    new NoOpMetricManager(),
                     metaStorageConfiguration
             );
 
@@ -186,7 +193,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
          */
         void start() {
             assertThat(
-                    startAsync(vaultManager, clusterService, raftManager, cmgManager, metaStorageManager),
+                    startAsync(vaultManager, clusterService, raftManager, failureProcessor, cmgManager, metaStorageManager),
                     willCompleteSuccessfully()
             );
 
@@ -206,7 +213,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
          */
         void stop() {
             var components =
-                    List.of(metaStorageManager, cmgManager, raftManager, clusterService, vaultManager);
+                    List.of(metaStorageManager, cmgManager, failureProcessor, raftManager, clusterService, vaultManager);
 
             for (IgniteComponent igniteComponent : components) {
                 igniteComponent.beforeNodeStop();

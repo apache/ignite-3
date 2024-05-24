@@ -67,7 +67,6 @@ public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
         setConfigProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD, NodeConfig.trustStorePassword);
         setConfigProperty(CliConfigKeys.REST_KEY_STORE_PATH, NodeConfig.resolvedKeystorePath);
         setConfigProperty(CliConfigKeys.REST_KEY_STORE_PASSWORD, "wrong-password");
-        resetOutput();
 
         // And connect via HTTPS
         connect("https://localhost:10401");
@@ -125,7 +124,6 @@ public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
         execute("cli", "config", "set", "ignite.rest.key-store.password=" + NodeConfig.keyStorePassword);
         execute("cli", "config", "set", "ignite.rest.trust-store.path=" + NodeConfig.resolvedTruststorePath + "-wrong-path");
         execute("cli", "config", "set", "ignite.rest.trust-store.password=" + NodeConfig.keyStorePassword);
-        resetOutput();
 
         // And connect via HTTPS
         connect("https://localhost:10401");

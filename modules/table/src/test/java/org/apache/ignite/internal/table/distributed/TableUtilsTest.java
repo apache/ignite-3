@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.table.TableTestUtils.COLUMN_NAME;
@@ -52,6 +51,7 @@ import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -106,7 +106,7 @@ public class TableUtilsTest extends IgniteAbstractTest {
         }
 
         for (String indexName : List.of(indexName3, indexName4)) {
-            dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
+            dropIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, indexName);
         }
 
         removeIndex(catalogManager, indexId4);

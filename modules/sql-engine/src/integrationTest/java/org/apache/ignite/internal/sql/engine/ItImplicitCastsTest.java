@@ -176,9 +176,8 @@ public class ItImplicitCastsTest extends BaseSqlIntegrationTest {
 
                 RelDataType sourceType;
                 if (sourceTypeName == SqlTypeName.CHAR) {
-                    // Generate sample value to use its length as precision for CHAR type is order to avoid data truncation.
-                    String sampleValue = ColumnPair.generateValue(customType, 0, false);
-                    sourceType = typeFactory.createSqlType(SqlTypeName.CHAR, sampleValue.length());
+                    // CHAR is not supported as type of the table column
+                    continue;
                 } else {
                     sourceType = typeFactory.createSqlType(sourceTypeName);
                 }

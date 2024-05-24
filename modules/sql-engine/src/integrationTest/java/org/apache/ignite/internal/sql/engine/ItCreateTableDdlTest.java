@@ -136,7 +136,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void pkWithFunctionalDefault() {
-        sql("create table t (id varchar default gen_random_uuid primary key, val int)");
+        sql("create table t (id uuid default rand_uuid primary key, val int)");
         sql("insert into t (val) values (1), (2)");
 
         var result = sql("select * from t");
@@ -150,6 +150,15 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 STMT_VALIDATION_ERR,
                 "Functional default contains unsupported function: [col=ID, functionName=INVALID_FUNC]",
                 () -> sql("create table t (id varchar default invalid_func primary key, val int)")
+        );
+    }
+
+    @Test
+    public void pkWithNotMatchingFunctionalDefault() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Functional default type mismatch: [col=ID, functionName=RAND_UUID, expectedType=UUID, actualType=STRING]",
+                () ->  sql("create table tdd(id varchar default rand_uuid, val int, primary key (id) )")
         );
     }
 
@@ -372,15 +381,15 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Functional defaults are not supported for non-primary key columns",
-                () -> sql("CREATE TABLE t (id VARCHAR PRIMARY KEY, val VARCHAR DEFAULT gen_random_uuid)")
+                () -> sql("CREATE TABLE t (id VARCHAR PRIMARY KEY, val UUID DEFAULT rand_uuid)")
         );
 
         sql("CREATE TABLE t (id VARCHAR PRIMARY KEY, val VARCHAR)");
 
         assertThrowsSqlException(
                 STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"gen_random_uuid\"",
-                () -> sql("ALTER TABLE t ADD COLUMN val2 VARCHAR DEFAULT gen_random_uuid")
+                "Failed to parse query: Encountered \"rand_uuid\"",
+                () -> sql("ALTER TABLE t ADD COLUMN val2 VARCHAR DEFAULT rand_uuid")
         );
     }
 
@@ -525,6 +534,33 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         sql("DROP TABLE TEST");
 
         sql("DROP ZONE ZONE1");
+    }
+
+    @Test
+    public void testStringZeroLength() {
+        assertThrowsSqlException(
+                STMT_PARSE_ERR,
+                "CHAR datatype is not supported in table",
+                () -> sql("CREATE TABLE TEST(ID CHAR(0) PRIMARY KEY, VAL0 INT)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for column 'ID' of type 'STRING' must be at least 1",
+                () -> sql("CREATE TABLE TEST(ID VARCHAR(0) PRIMARY KEY, VAL0 INT)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for column 'ID' of type 'BYTE_ARRAY' must be at least 1",
+                () -> sql("CREATE TABLE TEST(ID BINARY(0) PRIMARY KEY, VAL0 INT)")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for column 'ID' of type 'BYTE_ARRAY' must be at least 1",
+                () -> sql("CREATE TABLE TEST(ID VARBINARY(0) PRIMARY KEY, VAL0 INT)")
+        );
     }
 
     private static CatalogZoneDescriptor getDefaultZone(IgniteImpl node) {

@@ -34,6 +34,7 @@ dependencies {
     implementation project(':ignite-core')
     implementation project(':ignite-rocksdb-common')
     implementation project(':ignite-failure-handler')
+    implementation project(':ignite-metrics')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
 
@@ -44,6 +45,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-replicator'))
     testImplementation testFixtures(project(':ignite-failure-handler'))
+    testImplementation testFixtures(project(':ignite-metrics'))
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
 
@@ -78,6 +80,7 @@ dependencies {
     testFixturesImplementation project(':ignite-failure-handler')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-failure-handler'))
+    testFixturesImplementation testFixtures(project(':ignite-metrics'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.mockito.core
 }

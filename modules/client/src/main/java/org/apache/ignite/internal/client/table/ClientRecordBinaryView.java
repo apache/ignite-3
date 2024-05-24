@@ -26,8 +26,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
@@ -412,5 +415,36 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 null);
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <E, V, R> CompletableFuture<Void> streamData(
+            Publisher<E> publisher,
+            @Nullable DataStreamerOptions options,
+            Function<E, Tuple> keyFunc,
+            Function<E, V> payloadFunc,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
+            List<DeploymentUnit> deploymentUnits,
+            String receiverClassName,
+            Object... receiverArgs) {
+        Objects.requireNonNull(publisher);
+        Objects.requireNonNull(keyFunc);
+        Objects.requireNonNull(payloadFunc);
+        Objects.requireNonNull(deploymentUnits);
+        Objects.requireNonNull(receiverClassName);
+
+        return ClientDataStreamer.streamData(
+                publisher,
+                keyFunc,
+                payloadFunc,
+                x -> false,
+                options == null ? DataStreamerOptions.DEFAULT : options,
+                new TupleStreamerPartitionAwarenessProvider(tbl),
+                tbl,
+                resultSubscriber,
+                deploymentUnits,
+                receiverClassName,
+                receiverArgs);
     }
 }

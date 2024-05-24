@@ -26,6 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
@@ -42,10 +44,13 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiver;
+import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -54,6 +59,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Data streamer test.
  */
+@SuppressWarnings("DataFlowIssue")
 public class DataStreamerTest extends AbstractClientTableTest {
     private IgniteClient client2;
 
@@ -194,8 +200,9 @@ public class DataStreamerTest extends AbstractClientTableTest {
         }
     }
 
-    @Test
-    public void testManyItemsWithDisconnectAndRetry() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testManyItemsWithDisconnectAndRetry(boolean withReceiver) throws Exception {
         // Drop connection on every 5th request.
         Function<Integer, Boolean> shouldDropConnection = idx -> idx % 5 == 4;
         var ignite2 = startTestServer2(shouldDropConnection, idx -> 0);
@@ -217,7 +224,16 @@ public class DataStreamerTest extends AbstractClientTableTest {
                     .perPartitionParallelOperations(4)
                     .build();
 
-            streamFut = view.streamData(publisher, options);
+            streamFut = withReceiver
+                    ? view.streamData(
+                        publisher,
+                        options,
+                        DataStreamerItem::get,
+                        t -> t.get().longValue("id"),
+                        null,
+                        List.of(),
+                        TestUpsertReceiver.class.getName())
+                    : view.streamData(publisher, options);
 
             for (long i = 0; i < 1000; i++) {
                 publisher.submit(tuple(i, "foo_" + i));
@@ -320,6 +336,150 @@ public class DataStreamerTest extends AbstractClientTableTest {
         assertEquals("bar2", view.get(null, tupleKey(2L)).stringValue("name"));
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3})
+    public void testBasicStreamingWithReceiverRecordBinaryView(int batchSize) {
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+        int count = 3;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().pageSize(batchSize).build();
+            streamerFut = view.streamData(
+                    publisher,
+                    options,
+                    t -> t,
+                    t -> t.longValue("id"),
+                    null,
+                    new ArrayList<>(),
+                    TestReceiver.class.getName(),
+                    "arg");
+
+            for (long i = 0; i < count; i++) {
+                publisher.submit(tuple(i));
+            }
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        for (long i = 0; i < count; i++) {
+            assertEquals("recv_arg", view.get(null, tupleKey(i)).stringValue("name"));
+        }
+    }
+
+    @Test
+    public void testBasicStreamingWithReceiverRecordPojoView() {
+        RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
+        CompletableFuture<Void> streamerFut;
+        int count = 3;
+
+        try (var publisher = new SubmissionPublisher<PersonPojo>()) {
+            streamerFut = view.streamData(
+                    publisher,
+                    null,
+                    t -> t,
+                    t -> t.id,
+                    null,
+                    new ArrayList<>(),
+                    TestReceiver.class.getName(),
+                    "arg");
+
+            for (long i = 0; i < count; i++) {
+                publisher.submit(new PersonPojo(i));
+            }
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        for (long i = 0; i < count; i++) {
+            assertEquals("recv_arg", view.get(null, new PersonPojo(i)).name);
+        }
+    }
+
+    @Test
+    public void testBasicStreamingWithReceiverKvBinaryView() {
+        KeyValueView<Tuple, Tuple> view = defaultTable().keyValueView();
+        CompletableFuture<Void> streamerFut;
+        int count = 3;
+
+        try (var publisher = new SubmissionPublisher<Entry<Tuple, Tuple>>()) {
+            streamerFut = view.streamData(
+                    publisher,
+                    null,
+                    t -> t,
+                    t -> t.getKey().longValue(0),
+                    null,
+                    new ArrayList<>(),
+                    TestReceiver.class.getName(),
+                    "arg");
+
+            for (long i = 0; i < count; i++) {
+                publisher.submit(Map.entry(tupleKey(i), tupleVal("foo")));
+            }
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        for (long i = 0; i < count; i++) {
+            assertEquals("recv_arg", view.get(null, tupleKey(i)).stringValue(0));
+        }
+    }
+
+    @Test
+    public void testBasicStreamingWithReceiverKvPojoView() {
+        KeyValueView<Long, PersonValPojo> view = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(PersonValPojo.class));
+        CompletableFuture<Void> streamerFut;
+        int count = 3;
+
+        try (var publisher = new SubmissionPublisher<Entry<Long, PersonValPojo>>()) {
+            streamerFut = view.streamData(
+                    publisher,
+                    null,
+                    t -> t,
+                    Entry::getKey,
+                    null,
+                    new ArrayList<>(),
+                    TestReceiver.class.getName(),
+                    "arg");
+
+            for (long i = 0; i < count; i++) {
+                publisher.submit(Map.entry(i, new PersonValPojo("foo")));
+            }
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        for (long i = 0; i < count; i++) {
+            assertEquals("recv_arg", view.get(null, i).name);
+        }
+    }
+
+    @Test
+    public void testReceiverRequiresSameItemTypes() {
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<Long>()) {
+            streamerFut = view.streamData(
+                    publisher,
+                    null,
+                    id -> tuple(0L),
+                    id -> id == 1L ? 1 : "2",
+                    null,
+                    new ArrayList<>(),
+                    TestReceiver.class.getName(),
+                    "arg");
+
+            publisher.submit(1L);
+            publisher.submit(2L);
+        }
+
+        ExecutionException e = assertThrows(ExecutionException.class, () -> streamerFut.get(1, TimeUnit.SECONDS));
+        assertTrue(e.getMessage().contains("All items must have the same type. "
+                + "First item: class java.lang.Integer, "
+                + "current item: class java.lang.String"));
+    }
+
     private static RecordView<Tuple> defaultTableView(FakeIgnite server, IgniteClient client) {
         ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
 
@@ -331,5 +491,34 @@ public class DataStreamerTest extends AbstractClientTableTest {
         testServer2 = new TestServer(10_000, ignite2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null, null);
 
         return ignite2;
+    }
+
+    private static class TestReceiver implements DataStreamerReceiver<Long, String> {
+        @Override
+        public CompletableFuture<List<String>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object... args) {
+            // noinspection resource
+            RecordView<Tuple> view = ctx.ignite().tables().table(DEFAULT_TABLE).recordView();
+
+            for (Long id : page) {
+                view.upsert(null, tuple(id, "recv_" + args[0]));
+            }
+
+            return CompletableFuture.completedFuture(null);
+        }
+    }
+
+    private static class TestUpsertReceiver implements DataStreamerReceiver<Long, Void> {
+        @Override
+        @Nullable
+        public CompletableFuture<List<Void>> receive(List<Long> page, DataStreamerReceiverContext ctx, Object... args) {
+            // noinspection resource
+            RecordView<Tuple> view = ctx.ignite().tables().table(DEFAULT_TABLE).recordView();
+
+            for (Long id : page) {
+                view.upsert(null, tuple(id, "foo_" + id));
+            }
+
+            return null;
+        }
     }
 }

@@ -333,9 +333,7 @@ import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UPPER;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.USER;
 import static org.apache.calcite.util.ReflectUtil.isStatic;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SUBSTR;
-import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SYSTEM_RANGE;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.TYPEOF;
-import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.GEN_RANDOM_UUID;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.GREATEST2;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.LEAST2;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.LENGTH;
@@ -1008,7 +1006,7 @@ public class RexImpTable {
 
       defineMethod(IgniteSqlOperatorTable.RAND_UUID, RAND_UUID.method(), NullPolicy.NONE);
       defineMethod(IgniteSqlOperatorTable.GREATEST2, GREATEST2.method(), NullPolicy.NONE);
-      defineMethod(IgniteSqlOperatorTable.GEN_RANDOM_UUID, GEN_RANDOM_UUID.method(), NullPolicy.NONE);
+      defineMethod(IgniteSqlOperatorTable.RAND_UUID, RAND_UUID.method(), NullPolicy.NONE);
       defineMethod(IS_NOT_DISTINCT_FROM, IgniteMethod.IS_NOT_DISTINCT_FROM.method(), NullPolicy.NONE);
       defineMethod(IgniteSqlOperatorTable.LEAST2, LEAST2.method(), NullPolicy.NONE);
       defineMethod(IgniteSqlOperatorTable.LENGTH, LENGTH.method(), NullPolicy.STRICT);
@@ -1020,7 +1018,6 @@ public class RexImpTable {
       defineMethod(IgniteSqlOperatorTable.DECIMAL_DIVIDE, IgniteMethod.DECIMAL_DIVIDE.method(), NullPolicy.ARG0);
 
       map.put(TYPEOF, systemFunctionImplementor);
-      map.put(SYSTEM_RANGE, systemFunctionImplementor);
       return this;
     }
 
@@ -1034,17 +1031,7 @@ public class RexImpTable {
       Expression implementSafe(final RexToLixTranslator translator,
               final RexCall call, final List<Expression> argValueList) {
         final SqlOperator op = call.getOperator();
-        if (op == SYSTEM_RANGE) {
-          if (call.getOperands().size() == 2) {
-            return createTableFunctionImplementor(IgniteMethod.SYSTEM_RANGE2.method())
-                    .implement(translator, call, NullAs.NULL);
-          }
-
-          if (call.getOperands().size() == 3) {
-            return createTableFunctionImplementor(IgniteMethod.SYSTEM_RANGE3.method())
-                    .implement(translator, call, NullAs.NULL);
-          }
-        } else if (op == TYPEOF) {
+        if (op == TYPEOF) {
           if (call.getOperands().size() == 1) {
             CallImplementor implementor = createTypeOfImplementor();
 

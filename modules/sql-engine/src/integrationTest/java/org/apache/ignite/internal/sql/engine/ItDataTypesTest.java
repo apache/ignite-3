@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -496,6 +497,160 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         } else {
             sql(expr);
         }
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void testCharTypesWithTrailingSpacesAreTrimmed() {
+        sql("create table limitedChar (pk int primary key, f1 VARCHAR(3))");
+
+        try {
+            sql("insert into limitedChar values (1, 'a b     ')");
+
+            assertQuery("select length(f1) from limitedChar")
+                    .returns(3)
+                    .check();
+
+            sql("insert into limitedChar values (2, 'a ' || ?)", "b     ");
+
+            assertQuery("select length(f1) from limitedChar")
+                    .returns(3)
+                    .returns(3)
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS limitedChar");
+        }
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void insertCharLimitation() {
+        sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
+
+        try {
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("insert into limitedChar(pk, f1) values (1, 'aaaa')"));
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("insert into limitedChar(pk, f1) values (1, ' aa')"));
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("insert into limitedChar values (1, 'aaa ')"));
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("insert into limitedChar values (1, '12'), (2, '123')"));
+        } finally {
+            sql("DROP TABLE IF EXISTS limitedChar");
+        }
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void insertCharLimitationWithCoercion() {
+        try {
+            sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("insert into limitedChar(pk, f1) values (1, 123)"));
+        } finally {
+            sql("DROP TABLE IF EXISTS limitedChar");
+        }
+    }
+
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void charLimitationMisc() {
+        try {
+            sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("insert into limitedChar(pk, f1) values (1, '12' || OCTET_LENGTH('test'))"));
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("insert into limitedChar(pk, f1) values (1, '12' || ?)", "dynamic param string"));
+
+            assertQuery("select * from (values (1, 'aaa'::char(2)))")
+                    .returns(1, "aa")
+                    .check();
+
+            assertQuery("select * from (values (1, 123::char(2)))")
+                    .returns(1, "12")
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS limitedChar");
+        }
+    }
+
+    /** Test correctness of char types limitation against merge and update operations. */
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void charLimitationWithMergeUpdateOp() {
+        try {
+            sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
+
+            sql("insert into limitedChar values (1, '我叫')");
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql("UPDATE limitedChar SET f1='123' WHERE pk=1"));
+
+            sql("CREATE TABLE test1 (pk int primary key, f1 VARCHAR)");
+            sql("INSERT INTO test1 VALUES (1, '123'), (2, '234')");
+
+            String mergeSql1 = "MERGE INTO limitedChar dst USING test1 src ON dst.pk = src.pk "
+                    + "WHEN MATCHED THEN UPDATE SET f1 = src.f1 "
+                    + "WHEN NOT MATCHED THEN INSERT (pk, f1) VALUES (2, '23')";
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql(mergeSql1));
+
+            String mergeSql2 = "MERGE INTO limitedChar dst USING test1 src ON dst.pk = src.pk "
+                    + "WHEN MATCHED THEN UPDATE SET f1 = '12' "
+                    + "WHEN NOT MATCHED THEN INSERT (pk, f1) VALUES (src.pk, src.f1)";
+
+            assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Value too long for type", () ->
+                    sql(mergeSql2));
+
+            assertQuery("SELECT * FROM limitedChar ORDER BY pk")
+                    .returns(1, "我叫")
+                    .check();
+        } finally {
+            sql("DROP TABLE IF EXISTS limitedChar");
+        }
+    }
+
+    @Test
+    public void zeroStringsAreNotAllowed() {
+        // Char
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for type CHAR must be at least 1",
+                () -> sql("SELECT CAST(1 AS CHAR(0))")
+        );
+
+
+        // Varchar
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for type VARCHAR must be at least 1",
+                () -> sql("SELECT CAST(1 AS VARCHAR(0))")
+        );
+
+        // Binary
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for type BINARY must be at least 1",
+                () -> sql("SELECT CAST(x'0101' AS BINARY(0))")
+        );
+        // Varbinary
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for type VARBINARY must be at least 1",
+                () -> sql("SELECT CAST(x'0101' AS VARBINARY(0))")
+        );
     }
 
     private static Stream<Arguments> decimalOverflowsValidation() {

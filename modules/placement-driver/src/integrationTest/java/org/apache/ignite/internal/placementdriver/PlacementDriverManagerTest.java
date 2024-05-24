@@ -84,6 +84,7 @@ import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageRes
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -179,9 +180,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 eventsClientListener
         );
 
-        raftManager = new Loza(
+        raftManager = TestLozaFactory.create(
                 clusterService,
-                new NoOpMetricManager(),
                 raftConfiguration,
                 workDir.resolve("loza"),
                 nodeClock,
@@ -198,6 +198,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 storage,
                 nodeClock,
                 topologyAwareRaftGroupServiceFactory,
+                new NoOpMetricManager(),
                 metaStorageConfiguration
         );
 

@@ -63,7 +63,7 @@ import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -255,7 +255,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 liveServer.clusterService().nodeName(),
                 raftGroupServiceOfLiveServer,
                 new IgniteSpinBusyLock(),
-                mock(ClusterTime.class));
+                mock(ClusterTime.class),
+                () -> liveServer.clusterService().topologyService().localMember().id());
 
         var resultFuture = new CompletableFuture<Void>();
 
@@ -369,7 +370,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
         opt3.setCommandsMarshaller(commandsMarshaller);
 
-        metaStorageRaftSrv1 = new JraftServerImpl(
+        metaStorageRaftSrv1 = TestJraftServerFactory.create(
                 cluster.get(0),
                 workDir.resolve("node1"),
                 raftConfiguration,
@@ -377,7 +378,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 new RaftGroupEventsClientListener()
         );
 
-        metaStorageRaftSrv2 = new JraftServerImpl(
+        metaStorageRaftSrv2 = TestJraftServerFactory.create(
                 cluster.get(1),
                 workDir.resolve("node2"),
                 raftConfiguration,
@@ -385,7 +386,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 new RaftGroupEventsClientListener()
         );
 
-        metaStorageRaftSrv3 = new JraftServerImpl(
+        metaStorageRaftSrv3 = TestJraftServerFactory.create(
                 cluster.get(2),
                 workDir.resolve("node3"),
                 raftConfiguration,

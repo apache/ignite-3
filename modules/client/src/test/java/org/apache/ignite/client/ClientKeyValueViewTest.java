@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
@@ -523,31 +524,31 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testGetNullValueThrows() {
-        testNullValueThrows(view -> view.get(null, DEFAULT_ID));
+        testNullValueThrows(view -> view.get(null, DEFAULT_ID), "getNullable");
     }
 
     @Test
     public void testGetAndPutNullValueThrows() {
-        testNullValueThrows(view -> view.getAndPut(null, DEFAULT_ID, DEFAULT_NAME));
+        testNullValueThrows(view -> view.getAndPut(null, DEFAULT_ID, DEFAULT_NAME), "getNullableAndPut");
     }
 
     @Test
     public void testGetAndRemoveNullValueThrows() {
-        testNullValueThrows(view -> view.getAndRemove(null, DEFAULT_ID));
+        testNullValueThrows(view -> view.getAndRemove(null, DEFAULT_ID), "getNullableAndRemove");
     }
 
     @Test
     public void testGetAndReplaceNullValueThrows() {
-        testNullValueThrows(view -> view.getAndReplace(null, DEFAULT_ID, DEFAULT_NAME));
+        testNullValueThrows(view -> view.getAndReplace(null, DEFAULT_ID, DEFAULT_NAME), "getNullableAndReplace");
     }
 
-    private void testNullValueThrows(Consumer<KeyValueView<Long, String>> run) {
+    private void testNullValueThrows(Consumer<KeyValueView<Long, String>> run, String methodName) {
         KeyValueView<Long, String> primitiveView = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(String.class));
         primitiveView.put(null, DEFAULT_ID, null);
 
         var ex = assertThrowsWithCause(() -> run.accept(primitiveView), UnexpectedNullValueException.class);
         assertEquals(
-                "Failed to deserialize server response: Got unexpected null value: use `getNullable` sibling method instead.",
+                format("Failed to deserialize server response: Got unexpected null value: use `{}` sibling method instead.", methodName),
                 ex.getMessage());
     }
 

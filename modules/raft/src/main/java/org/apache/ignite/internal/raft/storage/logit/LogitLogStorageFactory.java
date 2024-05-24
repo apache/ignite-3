@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.raft.storage.logit;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
@@ -77,7 +80,14 @@ public class LogitLogStorageFactory implements LogStorageFactory {
     }
 
     @Override
-    public void start() {
+    public CompletableFuture<Void> startAsync() {
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<Void> stopAsync() {
+        ExecutorServiceHelper.shutdownAndAwaitTermination(checkpointExecutor);
+        return nullCompletedFuture();
     }
 
     @Override
@@ -87,11 +97,6 @@ public class LogitLogStorageFactory implements LogStorageFactory {
         Path storagePath = resolveLogStoragePath(groupId);
 
         return new LogitLogStorage(storagePath, storeOptions, raftOptions, checkpointExecutor);
-    }
-
-    @Override
-    public void close() {
-        ExecutorServiceHelper.shutdownAndAwaitTermination(checkpointExecutor);
     }
 
     @Override

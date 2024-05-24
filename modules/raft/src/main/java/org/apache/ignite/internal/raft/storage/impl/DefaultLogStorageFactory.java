@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
 import java.io.IOException;
@@ -25,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
@@ -38,6 +41,7 @@ import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Platform;
 import org.jetbrains.annotations.TestOnly;
+import org.rocksdb.AbstractNativeReference;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
@@ -73,6 +77,10 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** Data column family handle. */
     private ColumnFamilyHandle dataHandle;
 
+    private ColumnFamilyOptions cfOption;
+
+    protected List<AbstractNativeReference> additionalDbClosables = new ArrayList<>();
+
     /**
      * Thread-local batch instance, used by {@link RocksDbSharedLogStorage#appendEntriesToBatch(List)} and
      * {@link RocksDbSharedLogStorage#commitWriteBatch()}.
@@ -105,9 +113,18 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         );
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void start() {
+    public CompletableFuture<Void> startAsync() {
+        // This is effectively a sync implementation.
+        try {
+            start();
+            return nullCompletedFuture();
+        } catch (RuntimeException ex) {
+            return failedFuture(ex);
+        }
+    }
+
+    private void start() {
         Path logPath = logPathSupplier.get();
 
         try {
@@ -120,8 +137,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
         this.dbOptions = createDbOptions();
 
-        ColumnFamilyOptions cfOption = createColumnFamilyOptions();
-
+        this.cfOption = createColumnFamilyOptions();
 
         List<ColumnFamilyDescriptor> columnFamilyDescriptors = List.of(
                 // Column family to store configuration log entry.
@@ -145,16 +161,35 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
             this.confHandle = columnFamilyHandles.get(0);
             this.dataHandle = columnFamilyHandles.get(1);
         } catch (Exception e) {
+            closeRocksResources();
             throw new RuntimeException(e);
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void close() {
+    public CompletableFuture<Void> stopAsync() {
         ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
 
-        RocksUtils.closeAll(confHandle, dataHandle, db, dbOptions);
+        try {
+            closeRocksResources();
+        } catch (RuntimeException ex) {
+            return failedFuture(ex);
+        }
+
+        return nullCompletedFuture();
+    }
+
+    private void closeRocksResources() {
+        // RocksUtils will handle nulls so we are good.
+        List<AbstractNativeReference> closables = new ArrayList<>();
+        closables.add(confHandle);
+        closables.add(dataHandle);
+        closables.add(db);
+        closables.add(dbOptions);
+        closables.addAll(additionalDbClosables);
+        closables.add(cfOption);
+
+        RocksUtils.closeAll(closables);
     }
 
     /** {@inheritDoc} */
@@ -201,7 +236,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      *
      * @return Default database options.
      */
-    private static DBOptions createDbOptions() {
+    protected DBOptions createDbOptions() {
         return new DBOptions()
             .setMaxBackgroundJobs(Runtime.getRuntime().availableProcessors() * 2)
             .setCreateIfMissing(true)

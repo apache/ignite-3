@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
@@ -59,6 +58,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -332,7 +332,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     private void createIndex(String indexName) {
-        TableTestUtils.createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName, List.of(COLUMN_NAME), false);
+        TableTestUtils.createHashIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName, List.of(COLUMN_NAME), false);
     }
 
     private void startBuildIndex(int indexId) {
@@ -340,7 +340,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     private void dropIndex(String indexName) {
-        TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
+        TableTestUtils.dropIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, indexName);
     }
 
     private int indexId(String indexName) {
