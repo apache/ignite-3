@@ -68,6 +68,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-runner')))
     integrationTestImplementation(testFixtures(project(':ignite-replicator')))
     integrationTestImplementation(testFixtures(project(':ignite-metrics:')))
+    integrationTestImplementation(testFixtures(project(':ignite-raft')))
 
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-metastorage')))

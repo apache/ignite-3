@@ -158,7 +158,9 @@ import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
@@ -403,6 +405,9 @@ public class IgniteImpl implements Ignite {
 
     private final Executor asyncContinuationExecutor = ForkJoinPool.commonPool();
 
+    /** Default log storage factory for raft. */
+    private final LogStorageFactory logStorageFactory;
+
     /**
      * The Constructor.
      *
@@ -495,13 +500,16 @@ public class IgniteImpl implements Ignite {
         // TODO https://issues.apache.org/jira/browse/IGNITE-19051
         RaftGroupEventsClientListener raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
+        logStorageFactory = SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), workDir, raftConfiguration);
+
         raftMgr = new Loza(
                 clusterSvc,
                 metricManager,
                 raftConfiguration,
                 workDir,
                 clock,
-                raftGroupEventsClientListener
+                raftGroupEventsClientListener,
+                logStorageFactory
         );
 
         LockManager lockMgr = new HeapLockManager();
@@ -1050,6 +1058,7 @@ public class IgniteImpl implements Ignite {
                     nettyWorkersRegistrar,
                     clusterSvc,
                     restComponent,
+                    logStorageFactory,
                     raftMgr,
                     clusterStateStorage,
                     cmgMgr,

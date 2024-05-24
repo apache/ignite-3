@@ -79,6 +79,7 @@ import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -152,9 +153,8 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-            this.raftManager = new Loza(
+            this.raftManager = TestLozaFactory.create(
                     clusterService,
-                    new NoOpMetricManager(),
                     raftConfiguration,
                     basePath.resolve("raft"),
                     clock,

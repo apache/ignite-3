@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -57,8 +59,7 @@ public class RocksDbSharedLogStorageAdvancedTest extends BaseIgniteAbstractTest 
     @BeforeEach
     public void setUp() {
         logStorageProvider = new DefaultLogStorageFactory(this.path);
-
-        logStorageProvider.start();
+        assertThat(logStorageProvider.startAsync(), willCompleteSuccessfully());
 
         this.confManager = new ConfigurationManager();
         this.logEntryCodecFactory = LogEntryV1CodecFactory.getInstance();
@@ -67,7 +68,7 @@ public class RocksDbSharedLogStorageAdvancedTest extends BaseIgniteAbstractTest 
 
     @AfterEach
     public void tearDown() {
-        logStorageProvider.close();
+        assertThat(logStorageProvider.stopAsync(), willCompleteSuccessfully());
     }
 
     @Test

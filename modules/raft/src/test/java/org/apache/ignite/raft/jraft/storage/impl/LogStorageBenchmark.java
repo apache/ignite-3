@@ -16,6 +16,9 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -151,9 +154,9 @@ public class LogStorageBenchmark {
 
 //        LogStorageFactory logStorageFactory = new DefaultLogStorageFactory(testPath);
         LogStorageFactory logStorageFactory = new LogitLogStorageFactory("test", new StoreOptions(), () -> testPath);
-        logStorageFactory.start();
+        assertThat(logStorageFactory.startAsync(), willCompleteSuccessfully());
 
-        try (AutoCloseable factory = logStorageFactory::close) {
+        try {
             RaftOptions raftOptions = new RaftOptions();
             raftOptions.setSync(false);
 
@@ -167,6 +170,8 @@ public class LogStorageBenchmark {
             try (AutoCloseable log = logStorage::shutdown) {
                 new LogStorageBenchmark(logStorage, logSize, totalLogs, batchSize).doTest();
             }
+        } finally {
+            assertThat(logStorageFactory.stopAsync(), willCompleteSuccessfully());
         }
     }
 }

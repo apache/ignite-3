@@ -53,6 +53,7 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.TestRaftGroupListener;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
@@ -423,7 +424,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 NodeOptions nodeOptions = new NodeOptions();
                 nodeOptions.setCommandsMarshaller(commandsMarshaller);
 
-                var raftServer = new JraftServerImpl(
+                var raftServer = TestJraftServerFactory.create(
                         cluster,
                         dataPath,
                         raftConfiguration,
