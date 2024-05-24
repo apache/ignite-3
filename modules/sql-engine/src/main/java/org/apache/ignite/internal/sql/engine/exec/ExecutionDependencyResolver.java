@@ -29,5 +29,5 @@ public interface ExecutionDependencyResolver {
     /**
      * Resolves dependencies required to execute the given list of relations.
      */
-    CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, int schemaVersion);
+    CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, int catalogVersion);
 }

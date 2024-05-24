@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage;
 
+import java.io.Serializable;
 import java.util.UUID;
 import org.apache.ignite.internal.metastorage.dsl.MetaStorageMessageGroup;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -27,7 +28,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  * would be unique cluster-wide.
  */
 @Transferable(MetaStorageMessageGroup.COMMAND_ID)
-public interface CommandId extends NetworkMessage {
+public interface CommandId extends NetworkMessage, Serializable {
     UUID nodeId();
 
     long counter();

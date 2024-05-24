@@ -605,11 +605,11 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         var ifCaptor = ArgumentCaptor.forClass(If.class);
 
-        when(node.mockStorage.invoke(any(), any())).thenReturn(ops().yield(true).result());
+        when(node.mockStorage.invoke(any(), any(), any())).thenReturn(ops().yield(true).result(), null, null);
 
         assertTrue(node.metaStorageService.invoke(iif).get().getAsBoolean());
 
-        verify(node.mockStorage).invoke(ifCaptor.capture(), any());
+        verify(node.mockStorage).invoke(ifCaptor.capture(), any(), any());
 
         var resultIf = ifCaptor.getValue();
 
@@ -654,7 +654,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         byte[] expVal = {2};
 
-        when(node.mockStorage.invoke(any(), any(), any(), any())).thenReturn(true);
+        when(node.mockStorage.invoke(any(), any(), any(), any(), any())).thenReturn(true);
 
         Condition condition = Conditions.notExists(expKey);
 
@@ -670,7 +670,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         ArgumentCaptor<Collection<Operation>> failureCaptor = ArgumentCaptor.forClass(Collection.class);
 
-        verify(node.mockStorage).invoke(conditionCaptor.capture(), successCaptor.capture(), failureCaptor.capture(), any());
+        verify(node.mockStorage).invoke(conditionCaptor.capture(), successCaptor.capture(), failureCaptor.capture(), any(), any());
 
         assertArrayEquals(expKey.bytes(), conditionCaptor.getValue().key());
 

@@ -19,7 +19,9 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -27,6 +29,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -55,10 +58,13 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.command.IdempotentCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.SyncTimeCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
+import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
@@ -84,6 +90,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Integration tests for idempotency of {@link org.apache.ignite.internal.metastorage.command.IdempotentCommand}.
@@ -93,6 +101,22 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     private static final MetaStorageCommandsFactory CMD_FACTORY = new MetaStorageCommandsFactory();
 
     private static final int NODES_COUNT = 2;
+
+    private static final ByteArray TEST_KEY = new ByteArray("key".getBytes(StandardCharsets.UTF_8));
+    private static final byte[] TEST_VALUE = "value".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] ANOTHER_VALUE = "another".getBytes(StandardCharsets.UTF_8);
+
+    private static final ByteArray TEST_KEY_2 = new ByteArray("key2".getBytes(StandardCharsets.UTF_8));
+    private static final byte[] TEST_VALUE_2 = "value2".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] ANOTHER_VALUE_2 = "another2".getBytes(StandardCharsets.UTF_8);
+
+    private static final int YIELD_RESULT = 10;
+    private static final int ANOTHER_YIELD_RESULT = 20;
+
+    @InjectConfiguration("mock.responseTimeout = 100")
+    private RaftConfiguration raftConfiguration;
+    @InjectConfiguration("mock.idleSyncTimeInterval = 100")
+    private MetaStorageConfiguration metaStorageConfiguration;
 
     private List<Node> nodes;
 
@@ -164,7 +188,9 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         }
 
         void start(CompletableFuture<Set<String>> metaStorageNodesFut) {
-            when(cmgManager.metaStorageNodes()).thenReturn(metaStorageNodesFut);
+            if (metaStorageNodesFut != null) {
+                when(cmgManager.metaStorageNodes()).thenReturn(metaStorageNodesFut);
+            }
 
             assertThat(startAsync(clusterService, raftManager, metaStorageManager), willCompleteSuccessfully());
         }
@@ -203,26 +229,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     }
 
     @BeforeEach
-    void setUp(
-            TestInfo testInfo,
-            @InjectConfiguration("mock.responseTimeout = 100") RaftConfiguration raftConfiguration,
-            @InjectConfiguration("mock.idleSyncTimeInterval = 100") MetaStorageConfiguration metaStorageConfiguration
-    ) {
-        nodes = new ArrayList<>();
-
-        for (int i = 0; i < NODES_COUNT; i++) {
-            Node node = new Node(testInfo, raftConfiguration, metaStorageConfiguration, workDir, i);
-            nodes.add(node);
-        }
-
-        Set<String> nodeNames = nodes.stream().map(n -> n.clusterService.nodeName()).collect(toSet());
-        CompletableFuture<Set<String>> metaStorageNodesFut = new CompletableFuture<>();
-
-        nodes.forEach(n -> n.start(metaStorageNodesFut));
-
-        metaStorageNodesFut.complete(nodeNames);
-
-        nodes.forEach(Node::deployWatches);
+    void setUp(TestInfo testInfo) {
+        startCluster(testInfo);
     }
 
     @AfterEach
@@ -232,10 +240,6 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
     @Test
     public void testIdempotentInvoke() throws InterruptedException {
-        ByteArray testKey = new ByteArray("key".getBytes(StandardCharsets.UTF_8));
-        byte[] testValue = "value".getBytes(StandardCharsets.UTF_8);
-        byte[] anotherValue = "another".getBytes(StandardCharsets.UTF_8);
-
         AtomicInteger writeActionReqCount = new AtomicInteger();
         CompletableFuture<Void> retryBlockingFuture = new CompletableFuture<>();
 
@@ -274,9 +278,13 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
         MetaStorageManager metaStorageManager = leader.metaStorageManager;
 
-        CompletableFuture<Boolean> fut = metaStorageManager.invoke(notExists(testKey), put(testKey, testValue), put(testKey, anotherValue));
+        CompletableFuture<Boolean> fut = metaStorageManager.invoke(
+                notExists(TEST_KEY),
+                put(TEST_KEY, TEST_VALUE),
+                put(TEST_KEY, ANOTHER_VALUE)
+        );
 
-        assertTrue(waitForCondition(() -> leader.checkValueInStorage(testKey.bytes(), testValue), 10_000));
+        assertTrue(waitForCondition(() -> leader.checkValueInStorage(TEST_KEY.bytes(), TEST_VALUE), 10_000));
 
         log.info("Test: value appeared in storage.");
 
@@ -290,27 +298,14 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         log.info("Test: invoke complete.");
 
         assertTrue(fut.join());
-        assertTrue(leader.checkValueInStorage(testKey.bytes(), testValue));
+        assertTrue(leader.checkValueInStorage(TEST_KEY.bytes(), TEST_VALUE));
     }
 
     @Test
     public void testIdempotentInvokeAfterLeaderChange() {
-        ByteArray testKey = new ByteArray("key".getBytes(StandardCharsets.UTF_8));
-        byte[] testValue = "value".getBytes(StandardCharsets.UTF_8);
-        byte[] anotherValue = "another".getBytes(StandardCharsets.UTF_8);
+        InvokeCommand invokeCommand = (InvokeCommand) buildKeyNotExistsInvokeCommand(TEST_KEY, TEST_VALUE, ANOTHER_VALUE);
 
         RaftGroupService raftClient = raftClient();
-
-        HybridClock clock = new HybridClockImpl();
-        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> UUID.randomUUID().toString());
-
-        InvokeCommand invokeCommand = CMD_FACTORY.invokeCommand()
-                .condition(notExists(testKey))
-                .success(List.of(put(testKey, testValue)))
-                .failure(List.of(put(testKey, anotherValue)))
-                .initiatorTimeLong(clock.nowLong())
-                .id(commandIdGenerator.newId())
-                .build();
 
         CompletableFuture<Boolean> fut = raftClient.run(invokeCommand);
 
@@ -319,7 +314,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         assertThat(fut, willCompleteSuccessfully());
         assertTrue(fut.join());
 
-        assertTrue(currentLeader.checkValueInStorage(testKey.bytes(), testValue));
+        assertTrue(currentLeader.checkValueInStorage(TEST_KEY.bytes(), TEST_VALUE));
 
         Node newLeader = nodes.stream()
                 .filter(n -> !n.clusterService.nodeName().equals(currentLeader.clusterService.nodeName()))
@@ -334,8 +329,53 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         assertThat(futAfterLeaderChange, willCompleteSuccessfully());
         assertTrue(futAfterLeaderChange.join());
 
-        assertTrue(currentLeader.checkValueInStorage(testKey.bytes(), testValue));
-        assertTrue(newLeader.checkValueInStorage(testKey.bytes(), testValue));
+        assertTrue(currentLeader.checkValueInStorage(TEST_KEY.bytes(), TEST_VALUE));
+        assertTrue(newLeader.checkValueInStorage(TEST_KEY.bytes(), TEST_VALUE));
+    }
+
+    @ParameterizedTest
+    @MethodSource("idempotentCommandProvider")
+    public void testIdempotentCacheRestoreFromSnapshot(IdempotentCommand idempotentCommand, TestInfo testInfo) throws Exception {
+        RaftGroupService raftClient = raftClient();
+        Node leader = leader(raftClient);
+
+        // Initial idempotent command run.
+        CompletableFuture<Object> commandProcessingResultFuture = raftClient.run(idempotentCommand);
+        assertThat(commandProcessingResultFuture, willCompleteSuccessfully());
+        Object commandProcessingResult = commandProcessingResultFuture.get();
+        if (idempotentCommand instanceof InvokeCommand) {
+            assertTrue((Boolean) commandProcessingResult);
+            assertTrue(leader.checkValueInStorage(TEST_KEY.bytes(), TEST_VALUE));
+        } else {
+            assertEquals(YIELD_RESULT, ((StatementResult) commandProcessingResult).getAsInt());
+            assertTrue(leader.checkValueInStorage(TEST_KEY_2.bytes(), TEST_VALUE_2));
+
+        }
+
+        // Do the snapshot.
+        nodes.forEach(n -> raftClient().snapshot(new Peer(n.clusterService.nodeName())));
+
+        // Restart nodes in order to trigger idempotent volatile cache initialization from snapshot.
+        for (Node node : nodes) {
+            node.stop();
+        }
+
+        // Restart cluster.
+        startCluster(testInfo);
+
+        leader = leader(raftClient());
+
+        // Run same idempotent command one more time and check that condition wasn't re-evaluated, but was retrieved from the cache instead.
+        CompletableFuture<Object> commandProcessingResultFuture2 = raftClient().run(idempotentCommand);
+        assertThat(commandProcessingResultFuture2, willCompleteSuccessfully());
+        Object commandProcessingResult2 = commandProcessingResultFuture2.get();
+        if (idempotentCommand instanceof InvokeCommand) {
+            assertTrue((Boolean) commandProcessingResult2);
+            assertTrue(leader.checkValueInStorage(TEST_KEY.bytes(), TEST_VALUE));
+        } else {
+            assertEquals(YIELD_RESULT, ((StatementResult) commandProcessingResult).getAsInt());
+            assertTrue(leader.checkValueInStorage(TEST_KEY_2.bytes(), TEST_VALUE_2));
+        }
     }
 
     private Node leader(RaftGroupService raftClient) {
@@ -364,5 +404,71 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         } catch (NodeStoppingException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    static List<IdempotentCommand> idempotentCommandProvider() {
+        return List.of(
+                buildKeyNotExistsInvokeCommand(TEST_KEY, TEST_VALUE, ANOTHER_VALUE),
+                buildKeyNotExistsMultiInvokeCommand(TEST_KEY_2, TEST_VALUE_2, ANOTHER_VALUE_2, YIELD_RESULT, ANOTHER_YIELD_RESULT)
+        );
+    }
+
+    private static IdempotentCommand buildKeyNotExistsInvokeCommand(
+            ByteArray testKey,
+            byte[] testValue,
+            byte[] anotherValue
+    ) {
+        HybridClock clock = new HybridClockImpl();
+        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> UUID.randomUUID().toString());
+
+        return CMD_FACTORY.invokeCommand()
+                .condition(notExists(testKey))
+                .success(List.of(put(testKey, testValue)))
+                .failure(List.of(put(testKey, anotherValue)))
+                .initiatorTimeLong(clock.nowLong())
+                .id(commandIdGenerator.newId())
+                .build();
+    }
+
+    private static IdempotentCommand buildKeyNotExistsMultiInvokeCommand(
+            ByteArray testKey,
+            byte[] testValue,
+            byte[] anotherValue,
+            int testYieldResult,
+            int anotherYieldResult
+    ) {
+        HybridClock clock = new HybridClockImpl();
+        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> UUID.randomUUID().toString());
+
+        Iif iif = iif(
+                notExists(testKey),
+                ops(put(testKey, testValue)).yield(testYieldResult),
+                ops(put(testKey, anotherValue)).yield(anotherYieldResult)
+        );
+
+        return CMD_FACTORY.multiInvokeCommand()
+                .id(commandIdGenerator.newId())
+                .iif(iif)
+                .safeTimeLong(clock.now().longValue())
+                .initiatorTimeLong(clock.now().longValue())
+                .build();
+    }
+
+    private void startCluster(TestInfo testInfo) {
+        nodes = new ArrayList<>();
+
+        for (int i = 0; i < NODES_COUNT; i++) {
+            Node node = new Node(testInfo, raftConfiguration, metaStorageConfiguration, workDir, i);
+            nodes.add(node);
+        }
+
+        Set<String> nodeNames = nodes.stream().map(n -> n.clusterService.nodeName()).collect(toSet());
+        CompletableFuture<Set<String>> metaStorageNodesFut = new CompletableFuture<>();
+
+        nodes.forEach(n -> n.start(metaStorageNodesFut));
+
+        metaStorageNodesFut.complete(nodeNames);
+
+        nodes.forEach(Node::deployWatches);
     }
 }

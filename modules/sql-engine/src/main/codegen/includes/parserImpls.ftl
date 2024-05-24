@@ -58,7 +58,7 @@ void CreateTableOption(List<SqlNode> list) :
     }
 }
 
-SqlDataTypeSpec DataTypeEx() :
+SqlDataTypeSpec DataTypeEx(Span s, boolean allowCharType) :
 {
     final SqlDataTypeSpec dt;
 }
@@ -69,6 +69,13 @@ SqlDataTypeSpec DataTypeEx() :
         dt = IntervalType()
     )
     {
+        if (!allowCharType
+                && dt.getTypeName().isSimple()
+                && ("CHAR".equals(dt.getTypeName().getSimple()) || "CHARACTER".equals(dt.getTypeName().getSimple()))) {
+
+            throw SqlUtil.newContextException(s.pos(), IgniteResource.INSTANCE.charDataTypeIsNotSupportedInTable());
+        }
+
         return dt;
     }
 }
@@ -108,7 +115,7 @@ void TableElement(List<SqlNode> list) :
     IgniteSqlPrimaryKeyIndexType primaryIndexType = IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH;
 }
 {
-    id = SimpleIdentifier() type = DataTypeEx() nullable = NullableOptDefaultNull()
+    id = SimpleIdentifier() type = DataTypeEx(s, false) nullable = NullableOptDefaultNull()
     (
         <DEFAULT_> { s.add(this); }
         (
@@ -348,7 +355,7 @@ void InfixCast(List<Object> list, ExprContext exprContext, Span s) :
     <INFIX_CAST> {
         checkNonQueryExpression(exprContext);
     }
-    dt = DataTypeEx() {
+    dt = DataTypeEx(s, true) {
         list.add(
             new SqlParserUtil.ToTreeListItem(SqlLibraryOperators.INFIX_CAST,
                 s.pos()));
@@ -383,8 +390,8 @@ SqlNode ColumnWithType() :
     final Span s = Span.of();
 }
 {
-    id = SimpleIdentifier()
-    type = DataTypeEx()
+    id = SimpleIdentifier() { s.add(this); }
+    type = DataTypeEx(s, false)
     [
         <NOT> <NULL> {
             nullable = false;
@@ -459,7 +466,7 @@ SqlNode SqlAlterColumn(Span s, SqlIdentifier tableId, boolean ifExists) :
     id = SimpleIdentifier()
     (
         LOOKAHEAD(2)
-        <SET> <DATA> <TYPE> { s.add(this); } type = DataTypeEx() nullable = NullableOptDefaultNull() dflt = DefaultLiteralOrNull() {
+        <SET> <DATA> <TYPE> { s.add(this); } type = DataTypeEx(s, false) nullable = NullableOptDefaultNull() dflt = DefaultLiteralOrNull() {
             return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, type, false, dflt, nullable == null ? null : !nullable);
         }
     |

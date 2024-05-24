@@ -105,7 +105,7 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
     @Test
     public void convertColumnDescriptorFunctionalDefault() {
         String columnName = "UUID";
-        String functionName = DefaultValueGenerator.GEN_RANDOM_UUID.name();
+        String functionName = DefaultValueGenerator.RAND_UUID.name();
         DefaultValue defaultValue = DefaultValue.functionCall(functionName);
 
         CatalogTableColumnDescriptor columnDescriptor = new CatalogTableColumnDescriptor(

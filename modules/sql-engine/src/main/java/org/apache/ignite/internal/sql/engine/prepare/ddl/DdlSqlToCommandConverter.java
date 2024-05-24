@@ -61,7 +61,6 @@ import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.schema.ColumnStrategy;
-import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDdl;
@@ -128,7 +127,9 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyConstraint;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyIndexType;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlTypeNameSpec;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.SchemaNotFoundException;
@@ -294,7 +295,8 @@ public class DdlSqlToCommandConverter {
             pkConstraints.add(new IgniteSqlPrimaryKeyConstraint(SqlParserPos.ZERO, null, SqlNodeList.of(colName),
                     IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH));
 
-            SqlDataTypeSpec type = new SqlDataTypeSpec(new SqlBasicTypeNameSpec(SqlTypeName.VARCHAR, SqlParserPos.ZERO), SqlParserPos.ZERO);
+            SqlIdentifier uuidTypeName = new SqlIdentifier(UuidType.NAME, SqlParserPos.ZERO);
+            SqlDataTypeSpec type = new SqlDataTypeSpec(new IgniteSqlTypeNameSpec(uuidTypeName, SqlParserPos.ZERO), SqlParserPos.ZERO);
             SqlNode col = SqlDdlNodes.column(SqlParserPos.ZERO, colName, type, null, ColumnStrategy.DEFAULT);
 
             createTblNode.columnList().add(0, col);

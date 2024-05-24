@@ -47,13 +47,13 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.runtime.SqlFunctions;
+import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
@@ -80,8 +80,8 @@ public class RelJsonReader {
      * FromJson.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static <T extends RelNode> T fromJson(BaseQueryContext ctx, String json) {
-        RelJsonReader reader = new RelJsonReader(ctx.catalogReader());
+    public static <T extends RelNode> T fromJson(SchemaPlus rootSchema, String json) {
+        RelJsonReader reader = new RelJsonReader(rootSchema);
 
         return (T) reader.read(json);
     }
@@ -105,8 +105,8 @@ public class RelJsonReader {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public RelJsonReader(RelOptSchema relOptSchema) {
-        this.relOptSchema = relOptSchema;
+    public RelJsonReader(SchemaPlus rootSchema) {
+        this.relOptSchema = new RelOptSchemaImpl(rootSchema);
 
         relJson = new RelJson();
     }

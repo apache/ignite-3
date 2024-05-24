@@ -59,7 +59,7 @@ public class ItNodeNameTest extends CliIntegrationTest {
     @DisplayName("Should display node version with provided node name")
     void nodeVersion() {
         // When
-        execute("node", "version", "--node-name", nodeName());
+        execute("node", "version", "--node", nodeName());
 
         // Then
         assertAll(
@@ -73,7 +73,7 @@ public class ItNodeNameTest extends CliIntegrationTest {
     @DisplayName("Should display node config with provided node name")
     void nodeConfig() {
         // When
-        execute("node", "config", "show", "--node-name", nodeName());
+        execute("node", "config", "show", "--node", nodeName());
 
         // Then
         assertAll(
@@ -88,7 +88,7 @@ public class ItNodeNameTest extends CliIntegrationTest {
     void nodeStatus() {
         // When
         String nodeName = nodeName();
-        execute("node", "status", "--node-name", nodeName);
+        execute("node", "status", "--node", nodeName);
 
         // Then
         assertAll(

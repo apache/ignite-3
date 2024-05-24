@@ -41,6 +41,7 @@ import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Platform;
 import org.jetbrains.annotations.TestOnly;
+import org.rocksdb.AbstractNativeReference;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
@@ -75,6 +76,10 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     /** Data column family handle. */
     private ColumnFamilyHandle dataHandle;
+
+    private ColumnFamilyOptions cfOption;
+
+    protected List<AbstractNativeReference> additionalDbClosables = new ArrayList<>();
 
     /**
      * Thread-local batch instance, used by {@link RocksDbSharedLogStorage#appendEntriesToBatch(List)} and
@@ -132,8 +137,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
         this.dbOptions = createDbOptions();
 
-        ColumnFamilyOptions cfOption = createColumnFamilyOptions();
-
+        this.cfOption = createColumnFamilyOptions();
 
         List<ColumnFamilyDescriptor> columnFamilyDescriptors = List.of(
                 // Column family to store configuration log entry.
@@ -157,6 +161,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
             this.confHandle = columnFamilyHandles.get(0);
             this.dataHandle = columnFamilyHandles.get(1);
         } catch (Exception e) {
+            closeRocksResources();
             throw new RuntimeException(e);
         }
     }
@@ -166,12 +171,25 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
 
         try {
-            RocksUtils.closeAll(confHandle, dataHandle, db, dbOptions);
+            closeRocksResources();
         } catch (RuntimeException ex) {
             return failedFuture(ex);
         }
 
         return nullCompletedFuture();
+    }
+
+    private void closeRocksResources() {
+        // RocksUtils will handle nulls so we are good.
+        List<AbstractNativeReference> closables = new ArrayList<>();
+        closables.add(confHandle);
+        closables.add(dataHandle);
+        closables.add(db);
+        closables.add(dbOptions);
+        closables.addAll(additionalDbClosables);
+        closables.add(cfOption);
+
+        RocksUtils.closeAll(closables);
     }
 
     /** {@inheritDoc} */
@@ -218,7 +236,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      *
      * @return Default database options.
      */
-    private static DBOptions createDbOptions() {
+    protected DBOptions createDbOptions() {
         return new DBOptions()
             .setMaxBackgroundJobs(Runtime.getRuntime().availableProcessors() * 2)
             .setCreateIfMissing(true)

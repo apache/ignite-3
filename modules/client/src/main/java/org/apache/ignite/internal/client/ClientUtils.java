@@ -215,6 +215,9 @@ public class ClientUtils {
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
                 return ClientOperationType.COMPUTE_EXECUTE;
 
+            case ClientOp.COMPUTE_EXECUTE_MAPREDUCE:
+                return ClientOperationType.COMPUTE_EXECUTE_MAPREDUCE;
+
             case ClientOp.COMPUTE_GET_STATUS:
                 return ClientOperationType.COMPUTE_GET_STATUS;
 
@@ -253,6 +256,9 @@ public class ClientUtils {
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientOperationType.SQL_EXECUTE_BATCH;
+
+            case ClientOp.PRIMARY_REPLICAS_GET:
+                return ClientOperationType.PRIMARY_REPLICAS_GET;
 
             // Do not return null from default arm intentionally, so we don't forget to update this when new ClientOp values are added.
             default:
