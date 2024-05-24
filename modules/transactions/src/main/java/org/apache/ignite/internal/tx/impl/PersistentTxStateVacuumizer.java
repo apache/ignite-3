@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -82,7 +85,7 @@ public class PersistentTxStateVacuumizer {
      * @param txIds Transaction ids to vacuum; map of commit partition ids to sets of tx ids.
      * @return A future, result is the set of successfully vacuumized txn states.
      */
-    public CompletableFuture<Set<UUID>> vacuumPersistentTxStates(Map<TablePartitionId, Set<UUID>> txIds) {
+    public CompletableFuture<Set<UUID>> vacuumPersistentTxStates(Map<TablePartitionId, Set<IgniteBiTuple<UUID, Long>>> txIds) {
         Set<UUID> successful = ConcurrentHashMap.newKeySet();
         List<CompletableFuture<?>> futures = new ArrayList<>();
         HybridTimestamp now = clockService.now();
@@ -95,15 +98,25 @@ public class PersistentTxStateVacuumizer {
                         // timestamp) would be updated there, and then this operation would be called from there.
                         // Also, we are going to send the vacuum request only to the local node.
                         if (replicaMeta != null && localNode.id().equals(replicaMeta.getLeaseholderId())) {
+                            Set<UUID> filteredTxIds = new HashSet<>();
+
+                            for (IgniteBiTuple<UUID, Long> pair : txs) {
+                                if (pair.get2() == null) {
+                                    successful.add(pair.get1());
+                                } else {
+                                    filteredTxIds.add(pair.get1());
+                                }
+                            }
+
                             VacuumTxStateReplicaRequest request = TX_MESSAGES_FACTORY.vacuumTxStateReplicaRequest()
                                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                                     .groupId(commitPartitionId)
-                                    .transactionIds(txs)
+                                    .transactionIds(filteredTxIds)
                                     .build();
 
                             return replicaService.invoke(localNode, request).whenComplete((v, e) -> {
                                 if (e == null) {
-                                    successful.addAll(txs);
+                                    successful.addAll(filteredTxIds);
                                     // We can log the exceptions without further handling because failed requests' txns are not added
                                     // to the set of successful and will be retried. PrimaryReplicaMissException can be considered as
                                     // a part of regular flow and doesn't need to be logged.
@@ -114,7 +127,7 @@ public class PersistentTxStateVacuumizer {
                                 }
                             });
                         } else {
-                            successful.addAll(txs);
+                            successful.addAll(txs.stream().map(IgniteBiTuple::get1).collect(toSet()));
 
                             return nullCompletedFuture();
                         }

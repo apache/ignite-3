@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -133,7 +134,7 @@ public class VolatileTxStateMetaStorage {
     public CompletableFuture<Void> vacuum(
             long vacuumObservationTimestamp,
             long txnResourceTtl,
-            Function<Map<TablePartitionId, Set<UUID>>, CompletableFuture<Set<UUID>>> persistentVacuumOp
+            Function<Map<TablePartitionId, Set<IgniteBiTuple<UUID, Long>>>, CompletableFuture<Set<UUID>>> persistentVacuumOp
     ) {
         LOG.info("Vacuum started [vacuumObservationTimestamp={}, txnResourceTtl={}].", vacuumObservationTimestamp, txnResourceTtl);
 
@@ -142,7 +143,7 @@ public class VolatileTxStateMetaStorage {
         AtomicInteger alreadyMarkedTxnsCount = new AtomicInteger(0);
         AtomicInteger skippedForFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
 
-        Map<TablePartitionId, Set<UUID>> txIds = new HashMap<>();
+        Map<TablePartitionId, Set<IgniteBiTuple<UUID, Long>>> txIds = new HashMap<>();
         Map<UUID, Long> cleanupCompletionTimestamps = new HashMap<>();
 
         txStateMap.forEach((txId, meta) -> {
@@ -161,14 +162,13 @@ public class VolatileTxStateMetaStorage {
                                 cleanupCompletionTimestamp, txnResourceTtl, vacuumObservationTimestamp);
 
                         if (shouldBeVacuumized) {
-                            LOG.info("qqq shouldBeVacuumized txId={}, meta={}", txId, meta0);
                             if (meta0.commitPartitionId() == null) {
                                 vacuumizedTxnsCount.incrementAndGet();
 
                                 return null;
                             } else {
-                                Set<UUID> ids = txIds.computeIfAbsent(meta0.commitPartitionId(), k -> new HashSet<>());
-                                ids.add(txId);
+                                Set<IgniteBiTuple<UUID, Long>> ids = txIds.computeIfAbsent(meta0.commitPartitionId(), k -> new HashSet<>());
+                                ids.add(new IgniteBiTuple<>(txId, cleanupCompletionTimestamp));
 
                                 if (cleanupCompletionTimestamp != null) {
                                     cleanupCompletionTimestamps.put(txId, cleanupCompletionTimestamp);
