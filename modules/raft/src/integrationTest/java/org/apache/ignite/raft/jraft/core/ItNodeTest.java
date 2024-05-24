@@ -2828,9 +2828,11 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         for (char ch = 'a'; ch <= 'z'; ch++)
             fsm.getLogs().add(ByteBuffer.wrap(new byte[] {(byte) ch}));
 
+        ComponentContext startComponentContext = new ComponentContext();
+
         BootstrapOptions opts = new BootstrapOptions();
         DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path);
-        logStorageProvider.start();
+        assertThat(logStorageProvider.startAsync(startComponentContext), willCompleteSuccessfully());
         opts.setServiceFactory(new IgniteJraftServiceFactory(logStorageProvider));
         opts.setLastLogIndex(fsm.getLogs().size());
         opts.setRaftMetaUri(dataPath + File.separator + "meta");
@@ -2840,14 +2842,14 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         opts.setFsm(fsm);
 
         assertTrue(JRaftUtils.bootstrap(opts));
-        logStorageProvider.close();
+        assertThat(logStorageProvider.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         NodeOptions nodeOpts = new NodeOptions();
         nodeOpts.setRaftMetaUri(dataPath + File.separator + "meta");
         nodeOpts.setSnapshotUri(dataPath + File.separator + "snapshot");
         nodeOpts.setLogUri("test");
         DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path);
-        log2.start();
+        assertThat(log2.startAsync(startComponentContext), willCompleteSuccessfully());
         nodeOpts.setServiceFactory(new IgniteJraftServiceFactory(log2));
         nodeOpts.setFsm(fsm);
 
@@ -2873,10 +2875,11 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         Path path = Path.of(dataPath, "node0", "log");
         Files.createDirectories(path);
+        ComponentContext startComponentContext = new ComponentContext();
 
         BootstrapOptions opts = new BootstrapOptions();
         DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path);
-        logStorageProvider.start();
+        assertThat(logStorageProvider.startAsync(startComponentContext), willCompleteSuccessfully());
         opts.setServiceFactory(new IgniteJraftServiceFactory(logStorageProvider));
         opts.setLastLogIndex(0);
         opts.setRaftMetaUri(dataPath + File.separator + "meta");
@@ -2886,7 +2889,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         opts.setFsm(fsm);
 
         assertTrue(JRaftUtils.bootstrap(opts));
-        logStorageProvider.close();
+        assertThat(logStorageProvider.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         NodeOptions nodeOpts = new NodeOptions();
         nodeOpts.setRaftMetaUri(dataPath + File.separator + "meta");
@@ -2894,7 +2897,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         nodeOpts.setLogUri("test");
         nodeOpts.setFsm(fsm);
         DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path);
-        log2.start();
+        assertThat(log2.startAsync(startComponentContext), willCompleteSuccessfully());
         nodeOpts.setServiceFactory(new IgniteJraftServiceFactory(log2));
 
         RaftGroupService service = createService("test", peer, nodeOpts, List.of());
@@ -3753,7 +3756,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         NodeOptions options = new NodeOptions();
 
         DefaultLogStorageFactory log = new DefaultLogStorageFactory(Path.of(dataPath, "node" + nodeIdx, "log"));
-        log.start();
+        assertThat(log.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         options.setServiceFactory(new IgniteJraftServiceFactory(log));
         options.setLogUri("test");

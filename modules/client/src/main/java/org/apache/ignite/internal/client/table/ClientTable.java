@@ -87,6 +87,8 @@ public class ClientTable implements Table {
 
     private volatile PartitionAssignment partitionAssignment = null;
 
+    private final ClientPartitionManager clientPartitionManager;
+
     /**
      * Constructor.
      *
@@ -95,7 +97,12 @@ public class ClientTable implements Table {
      * @param id Table id.
      * @param name Table name.
      */
-    public ClientTable(ReliableChannel ch, MarshallersProvider marshallers, int id, String name) {
+    public ClientTable(
+            ReliableChannel ch,
+            MarshallersProvider marshallers,
+            int id,
+            String name
+    ) {
         assert ch != null;
         assert marshallers != null;
         assert name != null && !name.isEmpty();
@@ -106,6 +113,7 @@ public class ClientTable implements Table {
         this.name = name;
         this.log = ClientUtils.logger(ch.configuration(), ClientTable.class);
         this.sql = new ClientSql(ch, marshallers);
+        clientPartitionManager = new ClientPartitionManager(this);
     }
 
     /**
@@ -133,9 +141,8 @@ public class ClientTable implements Table {
     }
 
     @Override
-    // TODO: IGNITE-22149
     public PartitionManager partitionManager() {
-        throw new UnsupportedOperationException("This operation doesn't implemented yet.");
+        return clientPartitionManager;
     }
 
     /** {@inheritDoc} */

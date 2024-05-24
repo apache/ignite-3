@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute.executor;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.internal.compute.ExecutionOptions;
+import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
 
@@ -27,7 +28,11 @@ import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
  * Executor of Compute jobs.
  */
 public interface ComputeExecutor {
-    <R> JobExecutionInternal<R> executeJob(ExecutionOptions options, Class<? extends ComputeJob<R>> jobClass, Object... args);
+    <R> JobExecutionInternal<R> executeJob(
+            ExecutionOptions options,
+            Class<? extends ComputeJob<R>> jobClass,
+            JobClassLoader classLoader,
+            Object... args);
 
     <R> TaskExecutionInternal<R> executeTask(JobSubmitter jobSubmitter, Class<? extends MapReduceTask<R>> taskClass, Object... args);
 

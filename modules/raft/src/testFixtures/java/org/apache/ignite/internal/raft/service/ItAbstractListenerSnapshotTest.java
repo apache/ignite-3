@@ -58,6 +58,7 @@ import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftServer;
+import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -256,7 +257,10 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         // Shutdown that node
         toStop.stopRaftNode(nodeId);
         toStop.beforeNodeStop();
-        assertThat(toStop.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        ComponentContext componentContext = new ComponentContext();
+        assertThat(toStop.stopAsync(componentContext), willCompleteSuccessfully());
+        assertThat(cluster.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
 
         // Create a snapshot of the raft group
         service.snapshot(service.leader()).get();
@@ -424,15 +428,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         Path jraft = workDir.resolve("jraft" + idx);
 
-        JraftServerImpl server = new JraftServerImpl(service, jraft, raftConfiguration) {
-            @Override
-            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-                return IgniteUtils.stopAsync(
-                        () -> super.stopAsync(componentContext),
-                        () -> service.stopAsync(componentContext)
-                );
-            }
-        };
+        JraftServerImpl server = TestJraftServerFactory.create(service, jraft, raftConfiguration);
 
         assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 

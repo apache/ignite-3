@@ -38,7 +38,7 @@ class NodeMetricTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response(null));
 
-        execute("node metric source enable --node-url " + mockUrl + " srcName");
+        execute("node metric source enable --url " + mockUrl + " srcName");
 
         assertSuccessfulOutputIs("Metric source was enabled successfully");
     }
@@ -54,7 +54,7 @@ class NodeMetricTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response(null));
 
-        execute("node metric source disable --node-url " + mockUrl + " srcName");
+        execute("node metric source disable --url " + mockUrl + " srcName");
 
         assertSuccessfulOutputIs("Metric source was disabled successfully");
     }
@@ -70,7 +70,7 @@ class NodeMetricTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response(responseBody));
 
-        execute("node metric source list --plain --node-url " + mockUrl);
+        execute("node metric source list --plain --url " + mockUrl);
 
         assertSuccessfulOutputIs("Set name\tEnabled\nenabledMetric\tenabled\ndisabledMetric\tdisabled\n");
     }
@@ -86,7 +86,7 @@ class NodeMetricTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response(responseBody));
 
-        execute("node metric list --plain --node-url " + mockUrl);
+        execute("node metric list --plain --url " + mockUrl);
 
         assertSuccessfulOutputIs("Set name\tMetric name\tDescription\nmetricSet\t\t\n\tmetric\tdescription");
     }

@@ -123,7 +123,7 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
             case DEFAULT_COMPUTED: {
                 assert descriptor.key() : "DEFAULT_COMPUTED is only supported for primary key columns. Column: " + descriptor.name();
 
-                return rexBuilder.makeCall(IgniteSqlOperatorTable.GEN_RANDOM_UUID);
+                return rexBuilder.makeCall(IgniteSqlOperatorTable.RAND_UUID);
             }
             default:
                 throw new IllegalStateException("Unknown default strategy: " + descriptor.defaultStrategy());

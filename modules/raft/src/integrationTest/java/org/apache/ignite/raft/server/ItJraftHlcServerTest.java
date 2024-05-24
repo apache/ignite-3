@@ -134,7 +134,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
         cons.accept(opts);
 
-        JraftServerImpl server = jraftServer(servers, idx, service, opts);
+        JraftServerImpl server = jraftServer(idx, service, opts);
 
         assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 

@@ -70,6 +70,7 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteScriptReque
 import org.apache.ignite.client.handler.requests.sql.ClientSqlQueryMetadataRequest;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientStreamerBatchSendRequest;
+import org.apache.ignite.client.handler.requests.table.ClientStreamerWithReceiverBatchSendRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablePartitionPrimaryReplicasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
@@ -89,6 +90,7 @@ import org.apache.ignite.client.handler.requests.table.ClientTupleReplaceExactRe
 import org.apache.ignite.client.handler.requests.table.ClientTupleReplaceRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertAllRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertRequest;
+import org.apache.ignite.client.handler.requests.table.partition.ClientTablePartitionPrimaryReplicasNodesGetRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
@@ -777,6 +779,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.STREAMER_BATCH_SEND:
                 return ClientStreamerBatchSendRequest.process(in, out, igniteTables);
+
+            case ClientOp.PRIMARY_REPLICAS_GET:
+                return ClientTablePartitionPrimaryReplicasNodesGetRequest.process(in, out, igniteTables);
+
+            case ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND:
+                return ClientStreamerWithReceiverBatchSendRequest.process(in, out, igniteTables, compute);
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);

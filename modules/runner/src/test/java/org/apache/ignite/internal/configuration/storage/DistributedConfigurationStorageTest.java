@@ -27,6 +27,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Collection;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
+import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -85,7 +87,13 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
             Collection<Operation> success = invocation.getArgument(1);
             Collection<Operation> failure = invocation.getArgument(2);
 
-            boolean invokeResult = metaStorage.invoke(toServerCondition(condition), success, failure, HybridTimestamp.MIN_VALUE);
+            boolean invokeResult = metaStorage.invoke(
+                    toServerCondition(condition),
+                    success,
+                    failure,
+                    HybridTimestamp.MIN_VALUE,
+                    new CommandIdGenerator(() -> UUID.randomUUID().toString()).newId()
+            );
 
             return CompletableFuture.completedFuture(invokeResult);
         });

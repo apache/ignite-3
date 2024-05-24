@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -45,7 +44,7 @@ import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
-import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
@@ -91,6 +90,9 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     /** Executor for raft group services. */
     private ScheduledExecutorService executor;
 
+    /** Cluster service. */
+    private ClusterService service;
+
     /**
      * Before each.
      */
@@ -98,17 +100,9 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     void before() throws Exception {
         var addr = new NetworkAddress("localhost", PORT);
 
-        ClusterService service = clusterService(PORT, List.of(addr), true);
+        service = clusterService(PORT, List.of(addr), true);
 
-        server = new JraftServerImpl(service, workDir, raftConfiguration) {
-            @Override
-            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-                return IgniteUtils.stopAsync(
-                        () -> super.stopAsync(componentContext),
-                        () -> service.stopAsync(componentContext)
-                );
-            }
-        };
+        server = TestJraftServerFactory.create(service, workDir, raftConfiguration);
 
         assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
@@ -155,10 +149,12 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     @AfterEach
     @Override
     public void after() throws Exception {
+        ComponentContext componentContext = new ComponentContext();
         closeAll(
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_0),
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_1),
-                () -> assertThat(server.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
+                () -> assertThat(server.stopAsync(componentContext), willCompleteSuccessfully()),
+                () -> assertThat(service.stopAsync(componentContext), willCompleteSuccessfully()),
                 client1::shutdown,
                 client2::shutdown,
                 () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)

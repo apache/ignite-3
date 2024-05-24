@@ -149,30 +149,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                 }
             };
 
-    /**
-     * This function is used to generate a value for implicit primary key.
-     */
-    // TODO This function should removed when https://issues.apache.org/jira/browse/IGNITE-19103 is complete.
-    public static final SqlFunction GEN_RANDOM_UUID =
-            new SqlFunction(
-                    "GEN_RANDOM_UUID",
-                    SqlKind.OTHER_FUNCTION,
-                    ReturnTypes.explicit(SqlTypeName.VARCHAR),
-                    null,
-                    OperandTypes.NILADIC,
-                    SqlFunctionCategory.SYSTEM
-            ) {
-                @Override
-                public boolean isDynamicFunction() {
-                    return true;
-                }
-
-                @Override
-                public boolean isDeterministic() {
-                    return false;
-                }
-            };
-
     /** The {@code ROUND(numeric [, numeric])} function. */
     public static final SqlFunction ROUND = SqlBasicFunction.create("ROUND",
             new SetScaleToZeroIfSingleArgument(),
@@ -488,7 +464,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(LEAST2);
         register(GREATEST2);
         register(RAND_UUID);
-        register(GEN_RANDOM_UUID);
     }
 
     /** Sets scale to {@code 0} for single argument variants of ROUND/TRUNCATE operators. */

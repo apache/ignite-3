@@ -58,6 +58,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -79,6 +80,7 @@ import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -139,6 +141,8 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         /** The future have to be complete after the node start and all Meta storage watches are deployd. */
         private final CompletableFuture<Void> deployWatchesFut;
 
+        private final FailureProcessor failureProcessor;
+
         Node(ClusterService clusterService, Path dataPath) {
             this.clusterService = clusterService;
 
@@ -150,9 +154,8 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-            this.raftManager = new Loza(
+            this.raftManager = TestLozaFactory.create(
                     clusterService,
-                    new NoOpMetricManager(),
                     raftConfiguration,
                     basePath.resolve("raft"),
                     clock,
@@ -167,6 +170,8 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     new TestConfigurationValidator()
             );
 
+            this.failureProcessor = new FailureProcessor(name());
+
             this.cmgManager = new ClusterManagementGroupManager(
                     vaultManager,
                     clusterService,
@@ -175,7 +180,8 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     clusterStateStorage,
                     logicalTopology,
                     cmgConfiguration,
-                    new NodeAttributesCollector(nodeAttributes, storageConfiguration)
+                    new NodeAttributesCollector(nodeAttributes, storageConfiguration),
+                    failureProcessor
             );
 
             var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
@@ -208,6 +214,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     clusterService,
                     raftManager,
                     clusterStateStorage,
+                    failureProcessor,
                     cmgManager,
                     metaStorageManager
             );
@@ -230,6 +237,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
             List<IgniteComponent> components = List.of(
                     metaStorageManager,
                     cmgManager,
+                    failureProcessor,
                     raftManager,
                     clusterStateStorage,
                     clusterService,
@@ -326,7 +334,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
         var expectedEntryEvent = new EntryEvent(
                 new EntryImpl(key.bytes(), value, 1, 1),
-                new EntryImpl(key.bytes(), newValue, 2, 2)
+                new EntryImpl(key.bytes(), newValue, 2, 3)
         );
 
         assertThat(awaitFuture, willBe(expectedEntryEvent));

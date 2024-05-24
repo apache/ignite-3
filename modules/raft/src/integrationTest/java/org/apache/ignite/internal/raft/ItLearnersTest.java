@@ -53,7 +53,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -111,7 +110,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
             Path raftDir = workDir.resolve(clusterService.nodeName());
 
-            loza = new Loza(clusterService, new NoOpMetricManager(), raftConfiguration, raftDir, new HybridClockImpl());
+            loza = TestLozaFactory.create(clusterService, raftConfiguration, raftDir, new HybridClockImpl());
         }
 
         String consistentId() {

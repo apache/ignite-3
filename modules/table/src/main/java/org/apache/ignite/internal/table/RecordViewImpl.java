@@ -26,8 +26,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerSchema;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
@@ -586,6 +588,20 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
                 publisher, options, batchSender, partitioner, tbl.streamerFlushExecutor());
 
         return convertToPublicFuture(future);
+    }
+
+    @Override
+    public <E, V, R1> CompletableFuture<Void> streamData(
+            Publisher<E> publisher,
+            @Nullable DataStreamerOptions options,
+            Function<E, R> keyFunc,
+            Function<E, V> payloadFunc,
+            @Nullable Flow.Subscriber<R1> resultSubscriber,
+            List<DeploymentUnit> deploymentUnits,
+            String receiverClassName,
+            Object... receiverArgs) {
+        // TODO: IGNITE-22285 Embedded Data Streamer with Receiver
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */

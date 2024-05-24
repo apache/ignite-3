@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.message;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
@@ -52,12 +55,25 @@ public interface QueryStartRequest extends TimestampAware, ExecutionContextAware
     TxAttributes txAttributes();
 
     /**
-     * Return last schema version, just a stub, need to be removed after IGNITE-20633.
+     * Returns the version of the catalog the enclosed fragment was prepared on. Must be used to resolve schema objects
+     * (like tables or system views) during deserialization.
      */
-    int schemaVersion();
+    int catalogVersion();
 
     /**
      * Session time-zone ID.
      */
     String timeZoneId();
+
+    /**
+     * Time of the operation.
+     */
+    long operationTimeLong();
+
+    /**
+     * Time of the operation as {@link HybridTimestamp}.
+     */
+    default HybridTimestamp operationTime() {
+        return hybridTimestamp(operationTimeLong());
+    }
 }

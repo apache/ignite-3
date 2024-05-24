@@ -29,9 +29,19 @@ public class JobExecutionContextImpl implements JobExecutionContext {
 
     private final AtomicBoolean isInterrupted;
 
-    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted) {
+    private final ClassLoader classLoader;
+
+    /**
+     * Constructor.
+     *
+     * @param ignite Ignite instance.
+     * @param isInterrupted Interrupted flag.
+     * @param classLoader Job class loader.
+     */
+    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted, ClassLoader classLoader) {
         this.ignite = ignite;
         this.isInterrupted = isInterrupted;
+        this.classLoader = classLoader;
     }
 
     /** {@inheritDoc} */
@@ -43,5 +53,14 @@ public class JobExecutionContextImpl implements JobExecutionContext {
     @Override
     public boolean isInterrupted() {
         return isInterrupted.get();
+    }
+
+    /**
+     * Gets the job class loader.
+     *
+     * @return Job class loader.
+     */
+    public ClassLoader classLoader() {
+        return classLoader;
     }
 }

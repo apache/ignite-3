@@ -218,6 +218,21 @@
     </Or>
   </Match>
   <Match>
+    <!-- Public byte array constants, not expected to be modified. -->
+    <Bug pattern="MS_MUTABLE_ARRAY"/>
+    <Class name="org.apache.ignite.internal.metastorage.server.KeyValueStorage"/>
+    <Or>
+      <Field name="INVOKE_RESULT_FALSE_BYTES"/>
+      <Field name="INVOKE_RESULT_TRUE_BYTES"/>
+    </Or>
+  </Match>
+  <Match>
+    <!-- Public byte array constants, not expected to be modified. -->
+    <Bug pattern="MS_MUTABLE_ARRAY"/>
+    <Class name="org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler"/>
+    <Field name="IDEMPOTENT_COMMAND_PREFIX_BYTES"/>
+  </Match>
+  <Match>
     <Bug pattern="IT_NO_SUCH_ELEMENT"/>
     <Class name="org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage$ReadOnlyScanCursor"/>
     <Method name="next"/>

@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 @DisplayName("cluster config")
 class ClusterConfigTest extends IgniteCliInterfaceTestBase {
     @Test
-    @DisplayName("show --cluster-endpoint-url http://localhost:10300")
+    @DisplayName("show --url http://localhost:10300")
     void show() {
         clientAndServer
                 .when(request()
@@ -37,7 +37,7 @@ class ClusterConfigTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
 
-        execute("cluster config show --cluster-endpoint-url " + mockUrl);
+        execute("cluster config show --url " + mockUrl);
 
         assertSuccessfulOutputIs("{\n"
                 + "  \"autoAdjust\" : {\n"
@@ -47,7 +47,7 @@ class ClusterConfigTest extends IgniteCliInterfaceTestBase {
     }
 
     @Test
-    @DisplayName("show --cluster-endpoint-url http://localhost:10300 local.baseline")
+    @DisplayName("show --url http://localhost:10300 local.baseline")
     void showSubtree() {
         clientAndServer
                 .when(request()
@@ -56,7 +56,7 @@ class ClusterConfigTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response("{\"autoAdjust\":{\"enabled\":true}}"));
 
-        execute("cluster config show --cluster-endpoint-url " + mockUrl + " local.baseline");
+        execute("cluster config show --url " + mockUrl + " local.baseline");
 
         assertSuccessfulOutputIs("{\n"
                 + "  \"autoAdjust\" : {\n"
@@ -66,7 +66,7 @@ class ClusterConfigTest extends IgniteCliInterfaceTestBase {
     }
 
     @Test
-    @DisplayName("update --cluster-endpoint-url http://localhost:10300 local.baseline.autoAdjust.enabled=true")
+    @DisplayName("update --url http://localhost:10300 local.baseline.autoAdjust.enabled=true")
     void updateHocon() {
         clientAndServer
                 .when(request()
@@ -76,7 +76,7 @@ class ClusterConfigTest extends IgniteCliInterfaceTestBase {
                 )
                 .respond(response(null));
 
-        execute("cluster config update --cluster-endpoint-url "
+        execute("cluster config update --url "
                 + mockUrl + " local.baseline.autoAdjust.enabled=true");
 
         assertSuccessfulOutputIs("Cluster configuration was updated successfully");

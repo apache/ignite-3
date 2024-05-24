@@ -624,9 +624,10 @@ public class TestBuilders {
             CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, clock);
 
             var parserService = new ParserServiceImpl();
+            var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
                     new DdlSqlToCommandConverter(), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
-                    mock(MetricManagerImpl.class));
+                    mock(MetricManagerImpl.class), schemaManager);
 
             Map<String, List<String>> owningNodesByTableName = new HashMap<>();
             for (Entry<String, Map<String, ScannableTable>> entry : nodeName2tableName2table.entrySet()) {
@@ -646,7 +647,6 @@ public class TestBuilders {
 
             ClockWaiter clockWaiter = new ClockWaiter("test", clock);
             var ddlHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);
-            var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
 
             Runnable initClosure = () -> {
                 assertThat(clockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -1357,8 +1357,8 @@ public class TestBuilders {
         }
 
         @Override
-        public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId) {
-            IgniteTable table = schemaManager.table(schemaVersion, tableId);
+        public CompletableFuture<ExecutableTable> getTable(int catalogVersion, int tableId) {
+            IgniteTable table = schemaManager.table(catalogVersion, tableId);
 
             assert table != null;
 

@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -267,7 +268,11 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        try {
+            return executeBatchAsync(transaction, dmlStatement, batch).join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+        }
     }
 
     /** {@inheritDoc} */
@@ -289,7 +294,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             String query,
             @Nullable Object... arguments
     ) {
-        return executeAsyncInternal(transaction, new StatementImpl(query), arguments);
+        return executeAsyncInternal(transaction, createStatement(query), arguments);
     }
 
     /** {@inheritDoc} */
@@ -337,11 +342,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                    .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                    .set(QueryProperty.TIME_ZONE_ID, statement.timeZoneId())
-                    .set(QueryProperty.DEFAULT_SCHEMA, statement.defaultSchema())
-                    .build();
+            SqlProperties properties = createPropertiesFromStatement(SqlQueryType.SINGLE_STMT_TYPES, statement);
 
             result = queryProcessor.queryAsync(properties, transactions, (InternalTransaction) transaction, statement.query(), arguments)
                     .thenCompose(cur -> {
@@ -386,20 +387,24 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
+        return executeBatchAsync(transaction, createStatement(query), batch);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(nodeIsStoppingException());
         }
 
         try {
-            SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                    .set(QueryProperty.ALLOWED_QUERY_TYPES, EnumSet.of(SqlQueryType.DML))
-                    .build();
+            SqlProperties properties = createPropertiesFromStatement(EnumSet.of(SqlQueryType.DML), statement);
 
             return executeBatchCore(
                     queryProcessor,
                     transactions,
                     (InternalTransaction) transaction,
-                    query,
+                    statement.query(),
                     batch,
                     properties,
                     busyLock::enterBusy,
@@ -411,13 +416,6 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
-        // TODO: IGNITE-21872 - implement.
-        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /**
@@ -598,6 +596,14 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 || page.hasMore()) {
             throw new IgniteInternalException(INTERNAL_ERR, "Invalid DML results: " + page);
         }
+    }
+
+    private static SqlProperties createPropertiesFromStatement(Set<SqlQueryType> queryType, Statement statement) {
+        return SqlPropertiesHelper.newBuilder()
+                .set(QueryProperty.ALLOWED_QUERY_TYPES, queryType)
+                .set(QueryProperty.TIME_ZONE_ID, statement.timeZoneId())
+                .set(QueryProperty.DEFAULT_SCHEMA, statement.defaultSchema())
+                .build();
     }
 
     private int registerCursor(AsyncSqlCursor<?> cursor) {

@@ -67,7 +67,7 @@ cd ../ignite3-cli-3.0.0-beta1
 In CLI you need to initialize simple cluster via the following command:
 
 ```
-cluster init --cluster-name myCluster --cmg-node defaultNode --meta-storage-node defaultNode
+cluster init --name myCluster --cmg-node defaultNode --meta-storage-node defaultNode
 ```
 
 Now CLI can be switched into SQL interactive mode with command:
@@ -113,7 +113,7 @@ docker run -it --rm --net ignite3_default apacheignite/ignite3 cli
 
 ```
 > connect http://node1:10300
-> cluster init --cluster-name cluster --meta-storage-node node1 --meta-storage-node node2 --meta-storage-node node3
+> cluster init --name cluster --meta-storage-node node1 --meta-storage-node node2 --meta-storage-node node3
 ```
 
 For more information, you can check the [Developer notes](./DEVNOTES.md)

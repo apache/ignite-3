@@ -52,6 +52,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-placement-driver-api'))
     integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation testFixtures(project(':ignite-metrics'))
+    integrationTestImplementation testFixtures(project(':ignite-raft'))
 
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-placement-driver-api'))
@@ -69,6 +70,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation testFixtures(project(':ignite-configuration:'))
+    testFixturesImplementation testFixtures(project(':ignite-raft'))
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.jetbrains.annotations
 }

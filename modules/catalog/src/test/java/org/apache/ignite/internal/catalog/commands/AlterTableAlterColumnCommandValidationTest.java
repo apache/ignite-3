@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -546,14 +547,12 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .build(),
                         ColumnParams.builder()
                                 .name(columnName)
-                                .type(ColumnType.STRING)
-                                .length(10)
+                                .type(ColumnType.UUID)
                                 .build(),
                         ColumnParams.builder()
                                 .name(columnName2)
-                                .type(ColumnType.STRING)
-                                .length(10)
-                                .defaultValue(DefaultValue.constant("some string"))
+                                .type(ColumnType.UUID)
+                                .defaultValue(DefaultValue.constant(UUID.randomUUID()))
                                 .build())
                 )
                 .primaryKey(primaryKey("ID"))
@@ -567,7 +566,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                     .schemaName(SCHEMA_NAME)
                     .tableName(tableName)
                     .columnName(columnName)
-                    .deferredDefaultValue(type -> DefaultValue.functionCall("gen_random_uuid"))
+                    .deferredDefaultValue(type -> DefaultValue.functionCall("rand_uuid"))
                     .build();
 
             assertThrowsWithCause(
@@ -583,7 +582,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                     .schemaName(SCHEMA_NAME)
                     .tableName(tableName)
                     .columnName(columnName2)
-                    .deferredDefaultValue(type -> DefaultValue.functionCall("gen_random_uuid"))
+                    .deferredDefaultValue(type -> DefaultValue.functionCall("rand_uuid"))
                     .build();
 
             assertThrowsWithCause(
