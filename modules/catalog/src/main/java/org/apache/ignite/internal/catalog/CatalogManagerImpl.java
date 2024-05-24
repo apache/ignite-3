@@ -176,8 +176,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         int initializedCatalogVersion = emptyCatalog.version() + 1;
 
                         this.catalogReadyFuture(initializedCatalogVersion)
-                                .thenCompose(ignored -> awaitVersionActivation(initializedCatalogVersion))
-                                .handle((r, e) -> catalogInitializationFuture.complete(null));
+                                .thenComposeAsync(ignored -> awaitVersionActivation(initializedCatalogVersion), startupExecutor)
+                                .handleAsync((r, e) -> catalogInitializationFuture.complete(null), startupExecutor);
 
                         return initCatalog(emptyCatalog);
                     } else {
