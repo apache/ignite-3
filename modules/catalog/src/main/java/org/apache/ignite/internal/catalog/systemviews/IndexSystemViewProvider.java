@@ -47,16 +47,16 @@ public class IndexSystemViewProvider implements CatalogSystemViewProvider {
     /** {@inheritDoc} */
     @Override
     public List<SystemView<?>> getView(Supplier<Catalog> catalogSupplier) {
-        Iterable<CatalogAwareDescriptor<CatalogIndexDescriptor>> viewData = () -> {
+        Iterable<IndexWithCatalog> viewData = () -> {
             Catalog catalog = catalogSupplier.get();
 
             return catalog.indexes().stream()
                     .filter(index -> index.status().isAlive())
-                    .map(index -> new CatalogAwareDescriptor<>(index, catalog))
+                    .map(index -> new IndexWithCatalog(index, catalog))
                     .iterator();
         };
 
-        SystemView<?> indexView = SystemViews.<CatalogAwareDescriptor<CatalogIndexDescriptor>>clusterViewBuilder()
+        SystemView<?> indexView = SystemViews.<IndexWithCatalog>clusterViewBuilder()
                 .name("INDEXES")
                 .addColumn("INDEX_ID", INT32, entry -> entry.descriptor.id())
                 .addColumn("INDEX_NAME", STRING, entry -> entry.descriptor.name())
@@ -74,11 +74,11 @@ public class IndexSystemViewProvider implements CatalogSystemViewProvider {
         return List.of(indexView);
     }
 
-    private static CatalogTableDescriptor getTableDescriptor(CatalogAwareDescriptor<CatalogIndexDescriptor> entry) {
+    private static CatalogTableDescriptor getTableDescriptor(IndexWithCatalog entry) {
         return entry.catalog.table(entry.descriptor.tableId());
     }
 
-    private static String getColumnsString(CatalogAwareDescriptor<CatalogIndexDescriptor> entry) {
+    private static String getColumnsString(IndexWithCatalog entry) {
         return entry.descriptor.indexType() == HASH
                 ? String.join(", ", ((CatalogHashIndexDescriptor) entry.descriptor).columns())
                 : ((CatalogSortedIndexDescriptor) entry.descriptor)
@@ -88,7 +88,17 @@ public class IndexSystemViewProvider implements CatalogSystemViewProvider {
                         .collect(joining(", "));
     }
 
-    private static int getSchemaId(CatalogAwareDescriptor<CatalogIndexDescriptor> entry) {
+    private static int getSchemaId(IndexWithCatalog entry) {
         return getTableDescriptor(entry).schemaId();
+    }
+
+    private static class IndexWithCatalog {
+        final CatalogIndexDescriptor descriptor;
+        final Catalog catalog;
+
+        IndexWithCatalog(CatalogIndexDescriptor descriptor, Catalog catalog) {
+            this.descriptor = descriptor;
+            this.catalog = catalog;
+        }
     }
 }

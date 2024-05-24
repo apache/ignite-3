@@ -55,19 +55,19 @@ public class SystemViewViewProvider implements CatalogSystemViewProvider {
     }
 
     private static SystemView<?> getSystemViewView(Supplier<Catalog> catalogSupplier) {
-        Iterable<SchemaAwareDescriptor<CatalogSystemViewDescriptor>> viewData = () -> {
+        Iterable<ViewWithSchema> viewData = () -> {
             Catalog catalog = catalogSupplier.get();
 
             return catalog.schemas().stream()
                     .flatMap(schema -> Arrays.stream(schema.systemViews())
-                            .map(viewDescriptor -> new SchemaAwareDescriptor<>(viewDescriptor, schema.name()))
+                            .map(viewDescriptor -> new ViewWithSchema(viewDescriptor, schema.name()))
                     )
                     .iterator();
         };
 
-        Publisher<SchemaAwareDescriptor<CatalogSystemViewDescriptor>> viewDataPublisher = SubscriptionUtils.fromIterable(viewData);
+        Publisher<ViewWithSchema> viewDataPublisher = SubscriptionUtils.fromIterable(viewData);
 
-        return SystemViews.<SchemaAwareDescriptor<CatalogSystemViewDescriptor>>clusterViewBuilder()
+        return SystemViews.<ViewWithSchema>clusterViewBuilder()
                 .name("SYSTEM_VIEWS")
                 .addColumn("ID", INT32, entry -> entry.descriptor.id())
                 .addColumn("SCHEMA", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.schema)
@@ -78,20 +78,20 @@ public class SystemViewViewProvider implements CatalogSystemViewProvider {
     }
 
     private static SystemView<?> getSystemViewColumnsView(Supplier<Catalog> catalogSupplier) {
-        Iterable<ParentIdAwareDescriptor<CatalogTableColumnDescriptor>> viewData = () -> {
+        Iterable<ColumnWithTableId> viewData = () -> {
             Catalog catalog = catalogSupplier.get();
 
             return catalog.schemas().stream()
                     .flatMap(schema -> Arrays.stream(schema.systemViews()))
                     .flatMap(viewDescriptor -> viewDescriptor.columns().stream()
-                            .map(columnDescriptor -> new ParentIdAwareDescriptor<>(columnDescriptor, viewDescriptor.id()))
+                            .map(columnDescriptor -> new ColumnWithTableId(columnDescriptor, viewDescriptor.id()))
                     )
                     .iterator();
         };
 
-        Publisher<ParentIdAwareDescriptor<CatalogTableColumnDescriptor>> viewDataPublisher = SubscriptionUtils.fromIterable(viewData);
+        Publisher<ColumnWithTableId> viewDataPublisher = SubscriptionUtils.fromIterable(viewData);
 
-        return SystemViews.<ParentIdAwareDescriptor<CatalogTableColumnDescriptor>>clusterViewBuilder()
+        return SystemViews.<ColumnWithTableId>clusterViewBuilder()
                 .name("SYSTEM_VIEW_COLUMNS")
                 .addColumn("VIEW_ID", INT32, entry -> entry.id)
                 .addColumn("NAME", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.name())
@@ -102,5 +102,25 @@ public class SystemViewViewProvider implements CatalogSystemViewProvider {
                 .addColumn("LENGTH", INT32, entry -> entry.descriptor.length())
                 .dataProvider(viewDataPublisher)
                 .build();
+    }
+
+    private static final class ColumnWithTableId {
+        final CatalogTableColumnDescriptor descriptor;
+        final int id;
+
+        ColumnWithTableId(CatalogTableColumnDescriptor descriptor, int id) {
+            this.descriptor = descriptor;
+            this.id = id;
+        }
+    }
+
+    private static class ViewWithSchema {
+        final CatalogSystemViewDescriptor descriptor;
+        final String schema;
+
+        ViewWithSchema(CatalogSystemViewDescriptor descriptor, String schema) {
+            this.descriptor = descriptor;
+            this.schema = schema;
+        }
     }
 }
