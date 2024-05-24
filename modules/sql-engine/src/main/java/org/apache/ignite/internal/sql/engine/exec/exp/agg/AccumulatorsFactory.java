@@ -276,7 +276,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             this.outAdapter = outAdapter;
             distinct = call.isDistinct();
 
-            // need to be refactored after https://issues.apache.org/jira/browse/CALCITE-5969
+            // need to be refactored after https://issues.apache.org/jira/browse/IGNITE-22320
             literalAgg = call.getAggregation() == LITERAL_AGG;
             argList = call.getArgList();
             ignoreNulls = call.ignoreNulls();
