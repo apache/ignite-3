@@ -35,6 +35,10 @@ import org.jetbrains.annotations.Nullable;
 public class TxAttributes implements Serializable {
     private static final long serialVersionUID = 3933878724800694086L;
 
+    private static final TxAttributes DUMMY = new TxAttributes(
+            new UUID(0L, 0L), (TablePartitionId) null, "dummy_tx_coordinator"
+    );
+
     private final UUID id;
     private final String coordinatorId;
     private final boolean readOnly;
@@ -60,6 +64,18 @@ public class TxAttributes implements Serializable {
         }
 
         return new TxAttributes(tx.id(), tx.commitPartition(), tx.coordinatorId());
+    }
+
+    /**
+     * Returns attributes of a fake transaction.
+     *
+     * <p>This attributes used like a stub to create execution context for fragment that doesn't have sql engine managed
+     * transaction. It's up to the caller to make sure this fake attributes won't be used for actual query execution.
+     *
+     * @return Attributes of fake transaction.
+     */
+    public static TxAttributes dummy() {
+        return DUMMY;
     }
 
     private TxAttributes(

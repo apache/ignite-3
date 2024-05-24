@@ -23,6 +23,7 @@ import java.time.ZoneId;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,6 +38,7 @@ public final class SqlOperationContext {
     private final ZoneId timeZoneId;
     private final Object[] parameters;
     private final HybridTimestamp operationTime;
+    private final QueryTransactionContext txContext;
 
     private final @Nullable QueryCancel cancel;
     private final @Nullable String defaultSchemaName;
@@ -50,17 +52,19 @@ public final class SqlOperationContext {
             ZoneId timeZoneId,
             Object[] parameters,
             HybridTimestamp operationTime,
+            QueryTransactionContext txContext,
             @Nullable QueryCancel cancel,
             @Nullable String defaultSchemaName,
             @Nullable PrefetchCallback prefetchCallback
     ) {
         this.queryId = queryId;
-        this.cancel = cancel;
-        this.parameters = parameters;
-        this.prefetchCallback = prefetchCallback;
         this.timeZoneId = timeZoneId;
+        this.parameters = parameters;
         this.operationTime = operationTime;
+        this.txContext = txContext;
+        this.cancel = cancel;
         this.defaultSchemaName = defaultSchemaName;
+        this.prefetchCallback = prefetchCallback;
     }
 
     public static Builder builder() {
@@ -110,6 +114,15 @@ public final class SqlOperationContext {
     }
 
     /**
+     * Returns context to work with transaction.
+     *
+     * <p>May be null on remote side, but never null on node initiator.
+     */
+    public @Nullable QueryTransactionContext txContext() {
+        return txContext;
+    }
+
+    /**
      * Returns the operation time.
      *
      * <p>The time the operation started is the logical time it runs, and all the time readings during the execution time as well as all
@@ -124,21 +137,17 @@ public final class SqlOperationContext {
      */
     @SuppressWarnings("PublicInnerClass")
     public static class Builder {
-        private QueryCancel cancel = new QueryCancel();
-
         private UUID queryId;
-
-        private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
-
         private ZoneId timeZoneId;
+        private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
+        private HybridTimestamp operationTime;
+        private QueryTransactionContext txContext;
 
+        private @Nullable QueryCancel cancel;
+        private @Nullable String defaultSchemaName;
         private @Nullable PrefetchCallback prefetchCallback;
 
-        private HybridTimestamp operationTime;
-
-        private String defaultSchemaName;
-
-        public Builder cancel(QueryCancel cancel) {
+        public Builder cancel(@Nullable QueryCancel cancel) {
             this.cancel = requireNonNull(cancel);
             return this;
         }
@@ -148,7 +157,7 @@ public final class SqlOperationContext {
             return this;
         }
 
-        public Builder prefetchCallback(PrefetchCallback prefetchCallback) {
+        public Builder prefetchCallback(@Nullable PrefetchCallback prefetchCallback) {
             this.prefetchCallback = prefetchCallback;
             return this;
         }
@@ -163,13 +172,18 @@ public final class SqlOperationContext {
             return this;
         }
 
-        public Builder defaultSchemaName(String defaultSchemaName) {
+        public Builder defaultSchemaName(@Nullable String defaultSchemaName) {
             this.defaultSchemaName = defaultSchemaName;
             return this;
         }
 
         public Builder operationTime(HybridTimestamp operationTime) {
             this.operationTime = operationTime;
+            return this;
+        }
+
+        public Builder txContext(@Nullable QueryTransactionContext txContext) {
+            this.txContext = txContext;
             return this;
         }
 
@@ -180,6 +194,7 @@ public final class SqlOperationContext {
                     requireNonNull(timeZoneId, "timeZoneId"),
                     requireNonNull(parameters, "parameters"),
                     requireNonNull(operationTime, "operationTime"),
+                    txContext,
                     cancel,
                     defaultSchemaName,
                     prefetchCallback

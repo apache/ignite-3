@@ -182,7 +182,6 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -642,7 +641,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
-                registry,
                 clusterSvc,
                 logicalTopologyService,
                 tableManager,
@@ -659,10 +657,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 placementDriverManager.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY),
-                transactionInflights
+                transactionInflights,
+                txManager
         );
 
-        sqlRef.set(new IgniteSqlImpl(qryEngine, new IgniteTransactionsImpl(txManager, new HybridTimestampTracker())));
+        sqlRef.set(new IgniteSqlImpl(qryEngine, new HybridTimestampTracker()));
 
         // Preparing the result map.
 
