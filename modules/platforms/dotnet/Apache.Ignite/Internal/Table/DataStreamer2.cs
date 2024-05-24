@@ -125,7 +125,7 @@ internal static class DataStreamer2
         {
             try
             {
-                return provider.Add(item, schema);
+                return provider.Add(item, schema, partitionCount);
             }
             catch (Exception e) when (e.CausedByUnmappedColumns())
             {

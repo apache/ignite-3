@@ -32,8 +32,9 @@ internal interface IDataStreamerProvider<in T, TBatch>
     /// </summary>
     /// <param name="item">Item.</param>
     /// <param name="schema">Schema.</param>
+    /// <param name="partitionCount">Partition count.</param>
     /// <returns>Resulting batch.</returns>
-    TBatch Add(T item, Schema schema);
+    TBatch Add(T item, Schema schema, int partitionCount);
 
     /// <summary>
     /// Sends the batch to the cluster.
