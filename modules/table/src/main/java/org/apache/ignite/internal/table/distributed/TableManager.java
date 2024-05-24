@@ -1724,10 +1724,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         Assignments pendingAssignments = Assignments.fromBytes(pendingAssignmentsEntry.value());
 
-        Set<Assignment> stableAssignments = stableAssignmentsEntry.value() == null
-                ? emptySet()
-                : Assignments.fromBytes(stableAssignmentsEntry.value()).nodes();
-
         // boolean isLocalNodeAssigned = union(stableAssignments, pendingAssignments.nodes()).stream()
         //        .anyMatch(assignment -> localNode().name().equals(assignment.consistentId()));
 
