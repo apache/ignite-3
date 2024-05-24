@@ -73,6 +73,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
                 InterruptingJob.class,
+                null,
                 new Object[]{}
         );
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
@@ -102,6 +103,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
                 CancellingJob.class,
+                null,
                 new Object[]{}
         );
         JobStatus executingStatus = await().until(execution::status, jobStatusWithState(EXECUTING));
@@ -137,6 +139,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobFail.class,
+                null,
                 new Object[]{runTimes}
         );
 
@@ -164,6 +167,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobSuccess.class,
+                null,
                 new Object[]{runTimes, maxRetries}
         );
 
@@ -195,6 +199,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 JobSuccess.class,
+                null,
                 new Object[]{runTimes}
         );
 
@@ -219,6 +224,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<Integer> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
                 SimpleJob.class,
+                null,
                 new Object[]{}
         );
 

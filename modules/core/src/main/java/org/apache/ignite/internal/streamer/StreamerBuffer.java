@@ -21,8 +21,6 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.function.BiConsumer;
-import org.apache.ignite.table.DataStreamerItem;
-import org.apache.ignite.table.DataStreamerOperationType;
 
 class StreamerBuffer<T> {
     private final int capacity;
@@ -48,14 +46,14 @@ class StreamerBuffer<T> {
      *
      * @param item Item.
      */
-    synchronized void add(DataStreamerItem<T> item) {
+    synchronized void add(T item, boolean delete) {
         if (closed) {
             throw new IllegalStateException("Streamer is closed, can't add items.");
         }
 
-        buf.add(item.get());
+        buf.add(item);
 
-        if (item.operationType() == DataStreamerOperationType.REMOVE) {
+        if (delete) {
             deleted.set(buf.size() - 1);
         }
 

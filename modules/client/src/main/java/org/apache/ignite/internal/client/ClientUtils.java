@@ -254,6 +254,9 @@ public class ClientUtils {
             case ClientOp.STREAMER_BATCH_SEND:
                 return ClientOperationType.STREAMER_BATCH_SEND;
 
+            case ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND:
+                return ClientOperationType.STREAMER_WITH_RECEIVER_BATCH_SEND;
+
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientOperationType.SQL_EXECUTE_BATCH;
 

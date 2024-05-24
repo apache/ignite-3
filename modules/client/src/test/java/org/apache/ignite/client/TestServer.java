@@ -177,7 +177,10 @@ public class TestServer implements AutoCloseable {
         assertThat(cfg.startAsync(), willCompleteSuccessfully());
 
         cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
-                local -> local.changePort(port != null ? port : getFreePort()).changeIdleTimeout(idleTimeout)
+                local -> local
+                        .changePort(port != null ? port : getFreePort())
+                        .changeIdleTimeout(idleTimeout)
+                        .changeSendServerExceptionStackTraceToClient(true)
         ).join();
 
         bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkConfiguration.KEY), "TestServer-");
@@ -198,7 +201,7 @@ public class TestServer implements AutoCloseable {
         Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
                 i -> getClusterNode(i.getArgument(0, String.class)));
 
-        IgniteComputeInternal compute = new FakeCompute(nodeName);
+        IgniteComputeInternal compute = new FakeCompute(nodeName, ignite);
 
         metrics = new ClientHandlerMetricSource();
         metrics.enable();
