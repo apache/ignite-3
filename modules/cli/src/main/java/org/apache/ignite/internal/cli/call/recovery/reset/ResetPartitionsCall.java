@@ -48,7 +48,7 @@ public class ResetPartitionsCall implements Call<ResetPartitionsCallInput, Strin
         try {
             client.resetPartitions(command);
 
-            return DefaultCallOutput.success("Successfully started resetting partitions.");
+            return DefaultCallOutput.success("Successfully reset partitions.");
         } catch (ApiException e) {
             return DefaultCallOutput.failure(new IgniteCliApiException(e, input.clusterUrl()));
         }
