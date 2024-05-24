@@ -72,7 +72,7 @@ class LogSinkTest extends BaseIgniteAbstractTest {
         Sink logSink = new LogSinkFactory(new EventSerializerFactory().createEventSerializer())
                 .createSink(cfg.sinks().get("logSink").value());
         // And event.
-        Event event = IgniteEvents.USER_AUTHENTICATED.create(
+        Event event = IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(
                 EventUser.of("user1", "basicProvider")
         );
 
@@ -83,7 +83,7 @@ class LogSinkTest extends BaseIgniteAbstractTest {
         await().untilAsserted(() -> assertThat(Files.readAllLines(eventlogPath), hasSize(1)));
         // And event is written in JSON format.
         var expectedEventJson = "{"
-                + "\"type\":\"USER_AUTHENTICATED\","
+                + "\"type\":\"USER_AUTHENTICATION_SUCCESS\","
                 + "\"timestamp\":" + event.getTimestamp() + ","
                 + "\"productVersion\":\"" + event.getProductVersion() + "\","
                 + "\"user\":{\"username\":\"user1\",\"authenticationProvider\":\"basicProvider\"},"
@@ -92,7 +92,7 @@ class LogSinkTest extends BaseIgniteAbstractTest {
         assertThat(Files.readAllLines(eventlogPath), hasItem(expectedEventJson));
 
         // When write one more event.
-        Event event2 = IgniteEvents.CONNECTION_CLOSED.create(
+        Event event2 = IgniteEvents.CLIENT_CONNECTION_CLOSED.create(
                 EventUser.of("user2", "basicProvider")
         );
 

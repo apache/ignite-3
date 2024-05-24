@@ -21,9 +21,11 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.matchesRegex;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -32,6 +34,7 @@ import java.util.List;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.junit.jupiter.api.BeforeAll;
@@ -67,7 +70,7 @@ class ItEventLogTest extends ClusterPerClassIntegrationTest {
 
         String eventLog = "eventlog {\n"
                 + " sinks.logSink.channel: testChannel,\n"
-                + " channels.testChannel.events: [USER_AUTHENTICATED],\n"
+                + " channels.testChannel.events: [USER_AUTHENTICATION_SUCCESS, USER_AUTHENTICATION_FAILURE],\n"
                 + "}\n";
 
         builder.clusterConfiguration(securityConfiguration + eventLog);
@@ -89,7 +92,7 @@ class ItEventLogTest extends ClusterPerClassIntegrationTest {
 
         // And event is written in JSON format.
         String expectedEventJsonPattern = "\\{"
-                + "\"type\":\"USER_AUTHENTICATED\","
+                + "\"type\":\"USER_AUTHENTICATION_SUCCESS\","
                 + "\"timestamp\":\\d*,"
                 + "\"productVersion\":\"" + IgniteProductVersion.VERSION_PATTERN.pattern() + "\","
                 + "\"user\":\\{\"username\":\"" + USERNAME + "\",\"authenticationProvider\":\"" + PROVIDER_NAME + "\"},"
@@ -97,6 +100,27 @@ class ItEventLogTest extends ClusterPerClassIntegrationTest {
                 + "}";
 
         assertThat(readEventLog(), contains(matchesRegex(expectedEventJsonPattern)));
+
+        // When try to authenticate with invalid credentials.
+        BasicAuthenticator invalidAuthenticator = BasicAuthenticator.builder().username("UNKNOWN").password("SECRET").build();
+        assertThrows(
+                IgniteClientConnectionException.class,
+                () -> IgniteClient.builder().addresses("127.0.0.1:10800").authenticator(invalidAuthenticator).build()
+        );
+
+        // Then at least one more event is written to file (Can have more than one attempt to connect).
+        await().until(() -> readEventLog().size() > 1);
+
+        // And event is written in JSON format.
+        String expectedEventJsonPatternAfterInvalidAuth = "\\{"
+                + "\"type\":\"USER_AUTHENTICATION_FAILURE\","
+                + "\"timestamp\":\\d*,"
+                + "\"productVersion\":\"" + IgniteProductVersion.VERSION_PATTERN.pattern() + "\","
+                + "\"user\":\\{\"username\":\"SYSTEM\",\"authenticationProvider\":\"SYSTEM\"},"
+                + "\"fields\":\\{\"identity\":\"UNKNOWN\"}"
+                + "}";
+
+        assertThat(readEventLog(), hasItem(matchesRegex(expectedEventJsonPatternAfterInvalidAuth)));
     }
 
     private static List<String> readEventLog() throws IOException {
