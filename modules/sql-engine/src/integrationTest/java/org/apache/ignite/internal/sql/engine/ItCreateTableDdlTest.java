@@ -154,6 +154,15 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    public void pkWithNotMatchingFunctionalDefault() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Functional default type mismatch: [col=ID, functionName=RAND_UUID, expectedType=UUID, actualType=STRING]",
+                () ->  sql("create table tdd(id varchar default rand_uuid, val int, primary key (id) )")
+        );
+    }
+
+    @Test
     public void undefinedColumnsInPrimaryKey() {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,

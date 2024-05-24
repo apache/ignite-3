@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexNa
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -75,6 +76,7 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
+import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.RenameTableCommand;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
@@ -1104,6 +1106,24 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertEquals(versionBefore, versionAfter);
     }
 
+    @Test
+    public void testFunctionalDefaultTypeMismatch() {
+        ColumnParams key1 = ColumnParams.builder()
+                .name("key1")
+                .type(STRING)
+                .length(100)
+                .defaultValue(DefaultValue.functionCall("RAND_UUID"))
+                .build();
+
+        CreateTableCommandBuilder commandBuilder = CreateTableCommand.builder()
+                .tableName(TABLE_NAME)
+                .schemaName(SCHEMA_NAME)
+                .columns(List.of(key1, columnParams("key2", INT32)))
+                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1")).build());
+
+        String error = "[col=key1, functionName=RAND_UUID, expectedType=UUID, actualType=STRING]";
+        assertThrows(CatalogValidationException.class, commandBuilder::build, error);
+    }
 
     private CompletableFuture<?> changeColumn(
             String tab,
