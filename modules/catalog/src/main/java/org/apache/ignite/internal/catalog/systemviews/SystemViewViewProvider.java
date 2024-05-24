@@ -104,7 +104,7 @@ public class SystemViewViewProvider implements CatalogSystemViewProvider {
                 .build();
     }
 
-    private static final class ColumnWithTableId {
+    private static class ColumnWithTableId {
         final CatalogTableColumnDescriptor descriptor;
         final int id;
 
