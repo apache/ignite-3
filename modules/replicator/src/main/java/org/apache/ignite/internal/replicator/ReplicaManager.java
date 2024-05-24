@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REP
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -622,11 +623,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             if (forcedAssignments != null) {
                 resetPeers(raftNodeId, forcedAssignments);
             }
+            return falseCompletedFuture();
         } else {
             // (3) Otherwise let's start raft node manually
             try {
-
-
                 // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
                 startPartitionRaftGroupNode(
                         replicaGrpId,
@@ -643,25 +643,24 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 // Q: why not returning false there?
                 throw new CompletionException(ex);
             }
-        }
+            // creating replica branch
+            // - localMemberAssignment == null looks like excessive condition because  in this case startGroupFut returns false (4)
+            // and then !isStartedRaftNode is true.
+            // - in this case isStartedRaftNode should be only true, then it's excessive too.
+            boolean shouldSkipReplicaStarting = isReplicaStarted(replicaGrpId);
 
-        // creating replica branch
-        // - localMemberAssignment == null looks like excessive condition because  in this case startGroupFut returns false (4)
-        // and then !isStartedRaftNode is true.
-        // - in this case isStartedRaftNode should be only true, then it's excessive too.
-        boolean shouldSkipReplicaStarting = isReplicaStarted(replicaGrpId);
-
-        try {
-            return startReplica(
-                    shouldSkipReplicaStarting,
-                    replicaGrpId,
-                    newConfiguration,
-                    getCachedRaftClient,
-                    updateTableRaftService,
-                    createListener,
-                    storageIndexTracker);
-        } catch (NodeStoppingException ex) {
-            throw new AssertionError("Loza was stopped before Table manager", ex);
+            try {
+                return startReplica(
+                        false,
+                        replicaGrpId,
+                        newConfiguration,
+                        getCachedRaftClient,
+                        updateTableRaftService,
+                        createListener,
+                        storageIndexTracker);
+            } catch (NodeStoppingException ex) {
+                throw new AssertionError("Loza was stopped before Table manager", ex);
+            }
         }
     }
 
