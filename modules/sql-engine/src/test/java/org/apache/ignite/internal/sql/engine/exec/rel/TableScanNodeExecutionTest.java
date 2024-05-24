@@ -36,7 +36,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -49,6 +48,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -175,9 +175,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new TestLowWatermark()
             );
 
-            assertThat(txManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-            closeables.add(() -> assertThat(txManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()));
+            closeables.add(() -> assertThat(txManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
 
             TestInternalTableImpl internalTable = new TestInternalTableImpl(replicaSvc, size, timestampTracker, txManager);
 

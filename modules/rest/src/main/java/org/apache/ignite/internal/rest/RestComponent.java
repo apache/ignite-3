@@ -33,11 +33,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.configuration.KeyStoreView;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
@@ -102,7 +102,7 @@ public class RestComponent implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         RestView restConfigurationView = restConfiguration.value();
         RestSslView sslConfigurationView = restConfigurationView.ssl();
 
@@ -265,7 +265,7 @@ public class RestComponent implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public synchronized CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         // TODO: IGNITE-16636 Use busy-lock approach to guard stopping RestComponent
         if (context != null) {
             context.stop();

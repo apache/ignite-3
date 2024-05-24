@@ -36,7 +36,6 @@ import static org.mockito.Mockito.when;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -46,6 +45,7 @@ import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -113,7 +113,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 new NoOpFailureProcessor()
         );
 
-        assertThat(replicaManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
@@ -130,7 +130,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(allOf(replicaStopFutures), willCompleteSuccessfully());
 
-        assertThat(replicaManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(replicaManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
     }

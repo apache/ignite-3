@@ -30,13 +30,13 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -149,7 +149,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
             server.beforeNodeStop();
 
-            assertThat(server.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(server.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         servers.clear();
@@ -174,7 +174,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         JraftServerImpl server = jraftServer(servers, idx, service, opts);
 
-        assertThat(server.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         clo.accept(server);
 

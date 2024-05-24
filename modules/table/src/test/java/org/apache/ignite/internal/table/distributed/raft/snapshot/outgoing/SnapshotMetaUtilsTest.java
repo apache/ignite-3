@@ -41,10 +41,10 @@ import static org.mockito.quality.Strictness.LENIENT;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
@@ -94,7 +94,7 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
         CatalogManager catalogManager = createCatalogManagerWithTestUpdateLog("test", clock);
 
         try {
-            assertThat(catalogManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             String indexName0 = INDEX_NAME + 0;
             String indexName1 = INDEX_NAME + 1;
@@ -129,7 +129,7 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
         } finally {
             closeAll(
                     catalogManager::beforeNodeStop,
-                    () -> assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
+                    () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully())
             );
         }
     }

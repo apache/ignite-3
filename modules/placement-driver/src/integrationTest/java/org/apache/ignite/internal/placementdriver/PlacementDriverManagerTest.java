@@ -48,7 +48,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -68,6 +67,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -215,10 +215,12 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 new TestClockService(nodeClock)
         );
 
+        ComponentContext componentContext = new ComponentContext();
+
         assertThat(
-                startAsync(ForkJoinPool.commonPool(), clusterService, anotherClusterService, raftManager, metaStorageManager)
+                startAsync(componentContext, clusterService, anotherClusterService, raftManager, metaStorageManager)
                         .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
-                        .thenCompose(unused -> placementDriverManager.startAsync(ForkJoinPool.commonPool()))
+                        .thenCompose(unused -> placementDriverManager.startAsync(componentContext))
                         .thenCompose(unused -> metaStorageManager.notifyRevisionUpdateListenerOnStart())
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
@@ -270,7 +272,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         closeAll(Stream.concat(
                 igniteComponents.stream().filter(Objects::nonNull).map(component -> component::beforeNodeStop),
-                Stream.of(() -> assertThat(stopAsync(ForkJoinPool.commonPool(), igniteComponents), willCompleteSuccessfully())))
+                Stream.of(() -> assertThat(stopAsync(new ComponentContext(), igniteComponents), willCompleteSuccessfully())))
         );
     }
 
@@ -414,7 +416,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
      */
     private void stopAnotherNode(ClusterService nodeClusterService) throws Exception {
         nodeClusterService.beforeNodeStop();
-        assertThat(nodeClusterService.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(nodeClusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertTrue(waitForCondition(
                 () -> !clusterService.topologyService().allMembers().contains(nodeClusterService.topologyService().localMember()),
@@ -444,7 +446,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 leaseGrantMessageHandler(nodeName)
         );
 
-        assertThat(nodeClusterService.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(nodeClusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertTrue(waitForCondition(
                 () -> clusterService.topologyService().allMembers().contains(nodeClusterService.topologyService().localMember()),

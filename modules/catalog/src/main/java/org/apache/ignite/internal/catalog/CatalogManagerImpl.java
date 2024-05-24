@@ -44,7 +44,6 @@ import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
@@ -76,6 +75,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
@@ -161,7 +161,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         int objectIdGen = 0;
 
         Catalog emptyCatalog = new Catalog(0, 0L, objectIdGen, List.of(), List.of(), null);
@@ -170,28 +170,29 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 
-        return updateLog.startAsync(startupExecutor)
+        return updateLog.startAsync(componentContext)
                 .thenComposeAsync(none -> {
                     if (latestCatalogVersion() == emptyCatalog.version()) {
                         int initializedCatalogVersion = emptyCatalog.version() + 1;
 
                         this.catalogReadyFuture(initializedCatalogVersion)
-                                .thenComposeAsync(ignored -> awaitVersionActivation(initializedCatalogVersion), startupExecutor)
-                                .handleAsync((r, e) -> catalogInitializationFuture.complete(null), startupExecutor);
+                                .thenComposeAsync(ignored -> awaitVersionActivation(initializedCatalogVersion),
+                                        componentContext.executor())
+                                .handleAsync((r, e) -> catalogInitializationFuture.complete(null), componentContext.executor());
 
                         return initCatalog(emptyCatalog);
                     } else {
                         catalogInitializationFuture.complete(null);
                         return nullCompletedFuture();
                     }
-                }, startupExecutor);
+                }, componentContext.executor());
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         busyLock.block();
         versionTracker.close();
-        return updateLog.stopAsync(stopExecutor);
+        return updateLog.stopAsync(componentContext);
     }
 
     @Override

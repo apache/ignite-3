@@ -55,7 +55,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -67,6 +66,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -206,7 +206,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             }
         };
 
-        assertThat(txManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
@@ -319,7 +319,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     @AfterAll
     static void afterAllTests() {
         if (txManager != null) {
-            assertThat(txManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(txManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 

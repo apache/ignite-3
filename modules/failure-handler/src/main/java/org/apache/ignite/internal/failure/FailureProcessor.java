@@ -20,13 +20,13 @@ package org.apache.ignite.internal.failure;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
 import org.apache.ignite.internal.failure.handlers.FailureHandler;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -82,13 +82,13 @@ public class FailureProcessor implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-20450
         return nullCompletedFuture();
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
     }
 

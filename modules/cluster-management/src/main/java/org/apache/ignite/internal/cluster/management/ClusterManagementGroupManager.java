@@ -34,7 +34,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -61,6 +60,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -207,7 +207,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         synchronized (raftServiceLock) {
             raftService = recoverLocalState();
         }
@@ -676,7 +676,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

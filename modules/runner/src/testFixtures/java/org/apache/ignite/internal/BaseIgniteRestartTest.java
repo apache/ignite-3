@@ -35,7 +35,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
@@ -54,6 +53,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -434,7 +434,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
                 }
             }
 
-            assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully());
 
             closeables.forEach(c -> {
                 try {

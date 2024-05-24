@@ -73,6 +73,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.jetbrains.annotations.Nullable;
@@ -1175,39 +1176,41 @@ public class IgniteUtils {
         }
     }
 
-    private static CompletableFuture<Void> startAsync(ExecutorService startupExecutor, Stream<? extends IgniteComponent> components) {
+    private static CompletableFuture<Void> startAsync(ComponentContext componentContext, Stream<? extends IgniteComponent> components) {
         return allOf(components
                 .filter(Objects::nonNull)
-                .map(component -> component.startAsync(startupExecutor))
+                .map(component -> component.startAsync(componentContext))
                 .toArray(CompletableFuture[]::new));
     }
 
     /**
      * Asynchronously starts all ignite components.
      *
+     * @param componentContext Ignite component context.
      * @param components Array of ignite components to start.
      * @return CompletableFuture that will be completed when all components are started.
      */
-    public static CompletableFuture<Void> startAsync(ExecutorService startupExecutor, IgniteComponent... components) {
-        return startAsync(startupExecutor, Stream.of(components));
+    public static CompletableFuture<Void> startAsync(ComponentContext componentContext, IgniteComponent... components) {
+        return startAsync(componentContext, Stream.of(components));
     }
 
     /**
      * Asynchronously starts all ignite components.
      *
+     * @param componentContext Ignite component context.
      * @param components Collection of ignite components to start.
      * @return CompletableFuture that will be completed when all components are started.
      */
-    public static CompletableFuture<Void> startAsync(ExecutorService startupExecutor, Collection<? extends IgniteComponent> components) {
-        return startAsync(startupExecutor, components.stream());
+    public static CompletableFuture<Void> startAsync(ComponentContext componentContext, Collection<? extends IgniteComponent> components) {
+        return startAsync(componentContext, components.stream());
     }
 
-    private static CompletableFuture<Void> stopAsync(ExecutorService stopExecutor, Stream<? extends IgniteComponent> components) {
+    private static CompletableFuture<Void> stopAsync(ComponentContext componentContext, Stream<? extends IgniteComponent> components) {
         return allOf(components
                 .filter(Objects::nonNull)
                 .map(igniteComponent -> {
                     try {
-                        return igniteComponent.stopAsync(stopExecutor);
+                        return igniteComponent.stopAsync(componentContext);
                     } catch (Throwable e) {
                         // Make sure a failure in the synchronous part will not interrupt the stopping process of other components.
                         return failedFuture(e);
@@ -1239,22 +1242,22 @@ public class IgniteUtils {
     /**
      * Asynchronously stops all ignite components.
      *
-     * @param stopExecutor The executor that will execute the async part of stop.
+     * @param componentContext Ignite component context.
      * @param components Array of ignite components to stop.
      * @return CompletableFuture that will be completed when all components are stopped.
      */
-    public static CompletableFuture<Void> stopAsync(ExecutorService stopExecutor, IgniteComponent... components) {
-        return stopAsync(stopExecutor, Stream.of(components));
+    public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, IgniteComponent... components) {
+        return stopAsync(componentContext, Stream.of(components));
     }
 
     /**
      * Asynchronously stops all ignite components.
      *
-     * @param stopExecutor The executor that will execute the async part of stop.
+     * @param componentContext Ignite component context.
      * @param components Collection of ignite components to stop.
      * @return CompletableFuture that will be completed when all components are stopped.
      */
-    public static CompletableFuture<Void> stopAsync(ExecutorService stopExecutor, Collection<? extends IgniteComponent> components) {
-        return stopAsync(stopExecutor, components.stream());
+    public static CompletableFuture<Void> stopAsync(ComponentContext componentContext, Collection<? extends IgniteComponent> components) {
+        return stopAsync(componentContext, components.stream());
     }
 }

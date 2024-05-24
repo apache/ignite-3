@@ -46,7 +46,6 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -55,6 +54,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -98,7 +98,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         assertThat(
-                startAsync(ForkJoinPool.commonPool(), metaStorageManager, catalogManager)
+                startAsync(new ComponentContext(), metaStorageManager, catalogManager)
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );
@@ -122,11 +122,12 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
+        ComponentContext componentContext = new ComponentContext();
         closeAll(
                 indexAvailabilityController::close,
                 indexBuilder::close,
-                () -> assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
-                () -> assertThat(metaStorageManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                () -> assertThat(catalogManager.stopAsync(componentContext), willCompleteSuccessfully()),
+                () -> assertThat(metaStorageManager.stopAsync(componentContext), willCompleteSuccessfully()),
                 () -> shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS)
         );
     }

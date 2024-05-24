@@ -52,7 +52,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Flow;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -62,6 +61,7 @@ import java.util.function.Consumer;
 import org.apache.ignite.distributed.ItTxTestCluster;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -264,7 +264,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             NodeFinder nodeFinder) {
         var network = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
-        assertThat(network.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(network.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return network;
     }

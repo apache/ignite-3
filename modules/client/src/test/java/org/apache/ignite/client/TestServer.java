@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeCompute;
@@ -59,6 +58,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -175,7 +175,9 @@ public class TestServer implements AutoCloseable {
                 new TestConfigurationValidator()
         );
 
-        assertThat(cfg.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        ComponentContext componentContext = new ComponentContext();
+
+        assertThat(cfg.startAsync(componentContext), willCompleteSuccessfully());
 
         cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
                 local -> local.changePort(port != null ? port : getFreePort()).changeIdleTimeout(idleTimeout)
@@ -183,7 +185,7 @@ public class TestServer implements AutoCloseable {
 
         bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkConfiguration.KEY), "TestServer-");
 
-        assertThat(bootstrapFactory.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.startAsync(componentContext), willCompleteSuccessfully());
 
         if (nodeName == null) {
             nodeName = "server-1";
@@ -212,7 +214,7 @@ public class TestServer implements AutoCloseable {
             authenticationManager = new DummyAuthenticationManager();
         } else {
             authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
-            assertThat(authenticationManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(authenticationManager.startAsync(componentContext), willCompleteSuccessfully());
         }
 
         ClusterTag tag = msgFactory.clusterTag()
@@ -255,7 +257,7 @@ public class TestServer implements AutoCloseable {
                         new TestLowWatermark()
                 );
 
-        module.startAsync(ForkJoinPool.commonPool()).join();
+        module.startAsync(componentContext).join();
     }
 
     /**
@@ -319,7 +321,7 @@ public class TestServer implements AutoCloseable {
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
-        assertThat(stopAsync(ForkJoinPool.commonPool(), module, authenticationManager, bootstrapFactory, cfg), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), module, authenticationManager, bootstrapFactory, cfg), willCompleteSuccessfully());
 
         generator.close();
     }

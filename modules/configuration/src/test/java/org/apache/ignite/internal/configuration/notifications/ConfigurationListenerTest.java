@@ -50,7 +50,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -75,6 +74,7 @@ import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -192,7 +192,7 @@ public class ConfigurationListenerTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(registry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
         assertThat(registry.onDefaultsPersisted(), willCompleteSuccessfully());
 
         config = registry.getConfiguration(ParentConfiguration.KEY);
@@ -200,7 +200,7 @@ public class ConfigurationListenerTest {
 
     @AfterEach
     public void after() {
-        assertThat(registry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(registry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         generator.close();
     }
 

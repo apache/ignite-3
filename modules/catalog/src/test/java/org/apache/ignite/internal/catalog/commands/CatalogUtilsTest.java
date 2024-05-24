@@ -43,7 +43,6 @@ import static org.mockito.Mockito.when;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -55,6 +54,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
@@ -79,12 +79,12 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
     void setUp() {
         catalogManager = createCatalogManagerWithTestUpdateLog("test", clock);
 
-        assertThat(catalogManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() {
-        assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test

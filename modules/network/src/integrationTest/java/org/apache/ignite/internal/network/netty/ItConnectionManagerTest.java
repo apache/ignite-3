@@ -52,13 +52,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
@@ -522,7 +522,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, consistentId);
 
-        assertThat(bootstrapFactory.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {
             var manager = new ConnectionManager(
@@ -547,7 +547,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
 
             return wrapper;
         } catch (Exception e) {
-            assertThat(bootstrapFactory.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(bootstrapFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
             throw e;
         }
@@ -568,7 +568,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             closeAll(
                     connectionManager::initiateStopping,
                     connectionManager::stop,
-                    () -> assertThat(nettyFactory.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
+                    () -> assertThat(nettyFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully())
             );
         }
 

@@ -28,7 +28,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.DeploymentUnit;
@@ -36,6 +35,7 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitNotFoundException;
+import org.apache.ignite.internal.manager.ComponentContext;
 
 /**
  * Implementation of {@link IgniteDeployment} for tests.
@@ -119,12 +119,12 @@ public class DummyIgniteDeployment implements IgniteDeployment {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
     }
 

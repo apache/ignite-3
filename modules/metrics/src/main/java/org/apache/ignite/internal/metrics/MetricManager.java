@@ -20,8 +20,8 @@ package org.apache.ignite.internal.metrics;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
@@ -41,7 +41,7 @@ public interface MetricManager extends IgniteComponent {
     void configure(MetricConfiguration metricConfiguration);
 
     @Override
-    CompletableFuture<Void> startAsync(ExecutorService startupExecutor);
+    CompletableFuture<Void> startAsync(ComponentContext componentContext);
 
     /**
      * Start component.
@@ -59,7 +59,7 @@ public interface MetricManager extends IgniteComponent {
     void start(Iterable<MetricExporter<?>> exporters);
 
     @Override
-    CompletableFuture<Void> stopAsync(ExecutorService stopExecutor);
+    CompletableFuture<Void> stopAsync(ComponentContext componentContext);
 
     /**
      * Register metric source. See {@link MetricRegistry#registerSource(MetricSource)}.

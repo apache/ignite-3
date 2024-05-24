@@ -48,6 +48,7 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Marshaller;
@@ -271,7 +272,7 @@ public class JraftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         assert opts.isSharedPools() : "RAFT server is supposed to run in shared pools mode";
 
         // Pre-create all pools in shared mode.
@@ -388,7 +389,7 @@ public class JraftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         assert nodes.isEmpty() : IgniteStringFormatter.format("Raft nodes {} are still running on the Ignite node {}", nodes.keySet(),
                 service.topologyService().localMember().name());
 

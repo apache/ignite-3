@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
@@ -64,6 +63,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -212,7 +212,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     metaStorageManager
             );
 
-            assertThat(startAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), components), willCompleteSuccessfully());
         }
 
         /**
@@ -238,7 +238,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
             closeAll(Stream.concat(
                     components.stream().map(c -> c::beforeNodeStop),
-                    Stream.of(() -> assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully()))
+                    Stream.of(() -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully()))
             ));
         }
 

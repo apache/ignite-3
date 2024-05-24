@@ -46,13 +46,13 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -95,7 +95,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        assertThat(storage.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         topology = new LogicalTopologyImpl(storage);
 
@@ -104,7 +104,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(storage.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(storage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**

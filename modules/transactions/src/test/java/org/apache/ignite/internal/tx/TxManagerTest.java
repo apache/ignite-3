@@ -53,7 +53,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 import java.util.stream.Stream;
@@ -68,6 +67,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -169,14 +169,14 @@ public class TxManagerTest extends IgniteAbstractTest {
                 lowWatermark
         );
 
-        assertThat(txManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     public void tearDown() {
         txManager.beforeNodeStop();
 
-        assertThat(txManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(txManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test

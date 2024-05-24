@@ -45,7 +45,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
@@ -66,6 +65,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -195,7 +195,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), components), willCompleteSuccessfully());
         }
 
         String name() {
@@ -208,7 +208,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             Stream<AutoCloseable> beforeNodeStop = components.stream().map(c -> c::beforeNodeStop);
 
             Stream<AutoCloseable> nodeStop = Stream.of(() ->
-                    assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully())
+                    assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully())
             );
 
             IgniteUtils.closeAll(Stream.concat(beforeNodeStop, nodeStop));

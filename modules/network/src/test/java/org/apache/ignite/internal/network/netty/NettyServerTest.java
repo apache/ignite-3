@@ -46,11 +46,11 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import java.net.ConnectException;
 import java.net.Socket;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -93,7 +93,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
         closeAll(
                 server == null ? null : () -> server.stop().join(),
                 bootstrapFactory == null ? null :
-                        () -> assertThat(bootstrapFactory.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
+                        () -> assertThat(bootstrapFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully())
         );
     }
 
@@ -222,7 +222,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
                 });
 
         bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
-        assertThat(bootstrapFactory.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         server = new NettyServer(
                 serverCfg.value(),
@@ -295,7 +295,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      */
     private NettyServer getServer(boolean shouldStart) {
         bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
-        assertThat(bootstrapFactory.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(bootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         MessageSerializationRegistry registry = mock(MessageSerializationRegistry.class);
 

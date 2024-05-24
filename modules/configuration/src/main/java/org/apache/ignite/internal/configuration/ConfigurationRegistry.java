@@ -28,7 +28,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
@@ -45,6 +44,7 @@ import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.jetbrains.annotations.Nullable;
 
@@ -95,7 +95,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         changer.start();
 
         return nullCompletedFuture();
@@ -103,7 +103,7 @@ public class ConfigurationRegistry implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         changer.stop();
 
         return nullCompletedFuture();

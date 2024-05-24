@@ -26,7 +26,6 @@ import io.netty.util.concurrent.SingleThreadEventExecutor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -35,6 +34,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
@@ -93,7 +93,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         List<NettyWorker> nettyWorkers = new ArrayList<>();
         for (EventLoopGroup group : bootstrapFactory.eventLoopGroups()) {
             registerWorkersFor(group, nettyWorkers);
@@ -141,7 +141,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         Future<?> heartBeatsTaskFuture = sendHearbeatsTaskFuture;
         if (heartBeatsTaskFuture != null) {
             heartBeatsTaskFuture.cancel(false);

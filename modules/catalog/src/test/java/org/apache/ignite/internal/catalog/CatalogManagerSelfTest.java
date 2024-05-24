@@ -55,7 +55,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -67,6 +66,7 @@ import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -152,9 +152,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CompletableFuture<Void> readyFuture = manager.catalogReadyFuture(futureVersion);
         assertFalse(readyFuture.isDone());
 
-        assertThat(manager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        ComponentContext componentContext = new ComponentContext();
 
-        verify(updateLog).stopAsync(ForkJoinPool.commonPool());
+        assertThat(manager.stopAsync(componentContext), willCompleteSuccessfully());
+
+        verify(updateLog).stopAsync(componentContext);
 
         assertTrue(readyFuture.isDone());
 
@@ -171,11 +173,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         ArgumentCaptor<OnUpdateHandler> updateHandlerCapture = ArgumentCaptor.forClass(OnUpdateHandler.class);
 
         doNothing().when(updateLogMock).registerUpdateHandler(updateHandlerCapture.capture());
-        when(updateLogMock.startAsync(ForkJoinPool.commonPool())).thenReturn(nullCompletedFuture());
+
+        ComponentContext componentContext = new ComponentContext();
+
+        when(updateLogMock.startAsync(componentContext)).thenReturn(nullCompletedFuture());
         when(updateLogMock.append(any())).thenReturn(CompletableFuture.completedFuture(true));
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
-        assertThat(manager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
 
         reset(updateLogMock);
 
@@ -282,19 +287,22 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     public void catalogServiceManagesUpdateLogLifecycle() {
         UpdateLog updateLogMock = mock(UpdateLog.class);
-        when(updateLogMock.startAsync(ForkJoinPool.commonPool())).thenReturn(nullCompletedFuture());
-        when(updateLogMock.stopAsync(ForkJoinPool.commonPool())).thenReturn(nullCompletedFuture());
+        ComponentContext startComponentContext = new ComponentContext();
+        ComponentContext stopComponentContext = new ComponentContext();
+
+        when(updateLogMock.startAsync(startComponentContext)).thenReturn(nullCompletedFuture());
+        when(updateLogMock.stopAsync(stopComponentContext)).thenReturn(nullCompletedFuture());
         when(updateLogMock.append(any())).thenReturn(CompletableFuture.completedFuture(true));
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
 
-        assertThat(manager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(manager.startAsync(startComponentContext), willCompleteSuccessfully());
 
-        verify(updateLogMock).startAsync(ForkJoinPool.commonPool());
+        verify(updateLogMock).startAsync(startComponentContext);
 
-        assertThat(manager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(manager.stopAsync(stopComponentContext), willCompleteSuccessfully());
 
-        verify(updateLogMock).stopAsync(ForkJoinPool.commonPool());
+        verify(updateLogMock).stopAsync(stopComponentContext);
     }
 
     @Test

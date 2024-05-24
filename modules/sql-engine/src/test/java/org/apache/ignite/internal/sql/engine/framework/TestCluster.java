@@ -23,11 +23,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.ClockWaiter;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -109,12 +109,12 @@ public class TestCluster implements LifecycleAware {
 
         @Override
         public void start() {
-            assertThat(component.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(component.startAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         @Override
         public void stop() {
-            assertThat(component.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(component.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 }

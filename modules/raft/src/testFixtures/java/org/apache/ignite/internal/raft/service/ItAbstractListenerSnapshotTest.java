@@ -35,8 +35,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -48,6 +46,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -139,7 +138,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         List<IgniteComponent> components = Stream.concat(servers.stream(), cluster.stream()).collect(toList());
 
         Stream<AutoCloseable> nodeStop = Stream.of(() ->
-                assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully())
+                assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully())
         );
 
         IgniteUtils.closeAll(
@@ -257,7 +256,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         // Shutdown that node
         toStop.stopRaftNode(nodeId);
         toStop.beforeNodeStop();
-        assertThat(toStop.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(toStop.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         // Create a snapshot of the raft group
         service.snapshot(service.leader()).get();
@@ -404,7 +403,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
                 new StaticNodeFinder(List.of(otherPeer))
         );
 
-        assertThat(network.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(network.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         cluster.add(network);
 
@@ -427,15 +426,15 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         JraftServerImpl server = new JraftServerImpl(service, jraft, raftConfiguration) {
             @Override
-            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
                 return IgniteUtils.stopAsync(
-                        () -> super.stopAsync(stopExecutor),
-                        () -> service.stopAsync(stopExecutor)
+                        () -> super.stopAsync(componentContext),
+                        () -> service.stopAsync(componentContext)
                 );
             }
         };
 
-        assertThat(server.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         Path listenerPersistencePath = workDir.resolve("db" + idx);
 

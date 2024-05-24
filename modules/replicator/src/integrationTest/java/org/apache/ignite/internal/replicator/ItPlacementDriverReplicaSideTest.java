@@ -48,7 +48,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -65,6 +64,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteTriConsumer;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
@@ -203,7 +203,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             replicaManagers.put(nodeName, replicaManager);
 
-            assertThat(startAsync(ForkJoinPool.commonPool(), clusterService, raftManager, replicaManager), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), clusterService, raftManager, replicaManager), willCompleteSuccessfully());
 
             servicesToClose.add(() -> {
                 try {
@@ -212,7 +212,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                             raftManager::beforeNodeStop,
                             clusterService::beforeNodeStop,
                             () -> assertThat(
-                                    stopAsync(ForkJoinPool.commonPool(), replicaManager, raftManager, clusterService),
+                                    stopAsync(new ComponentContext(), replicaManager, raftManager, clusterService),
                                     willCompleteSuccessfully()
                             )
                     );
@@ -363,7 +363,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             var srvc = clusterServices.get(nodeToStop);
 
             srvc.beforeNodeStop();
-            assertThat(srvc.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(srvc.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         var anyNode = randomNode(grpNodesToStop);

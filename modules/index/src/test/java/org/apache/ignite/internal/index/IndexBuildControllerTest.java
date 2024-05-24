@@ -50,7 +50,6 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
@@ -60,6 +59,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
@@ -111,7 +111,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         ClusterService clusterService = mock(ClusterService.class, invocation -> mock(TopologyService.class, invocation1 -> LOCAL_NODE));
 
         catalogManager = createCatalogManagerWithTestUpdateLog(NODE_NAME, clock);
-        assertThat(catalogManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         indexBuildController = new IndexBuildController(
                 indexBuilder,
@@ -129,7 +129,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     void tearDown() throws Exception {
         closeAll(
                 catalogManager == null ? null :
-                        () -> assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                        () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
                 indexBuildController == null ? null : indexBuildController::close
         );
     }

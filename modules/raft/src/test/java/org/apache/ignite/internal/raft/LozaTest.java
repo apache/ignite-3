@@ -23,11 +23,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -68,10 +68,10 @@ public class LozaTest extends IgniteAbstractTest {
 
         Loza loza = new Loza(clusterNetSvc, new NoOpMetricManager(), raftConfiguration, workDir, new HybridClockImpl());
 
-        assertThat(loza.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(loza.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         loza.beforeNodeStop();
-        assertThat(loza.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(loza.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         TestReplicationGroupId raftGroupId = new TestReplicationGroupId("test_raft_group");
 

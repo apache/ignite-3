@@ -42,7 +42,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -53,6 +52,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -123,18 +123,20 @@ public class ItLearnersTest extends IgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(ForkJoinPool.commonPool(), clusterService, loza), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), clusterService, loza), willCompleteSuccessfully());
         }
 
         @Override
         public void close() throws Exception {
+            ComponentContext componentContext = new ComponentContext();
+
             closeAll(
                     loza == null ? null : () -> loza.stopRaftNodes(RAFT_GROUP_ID),
                     loza == null ? null : loza::beforeNodeStop,
                     clusterService == null ? null : clusterService::beforeNodeStop,
-                    loza == null ? null : () -> assertThat(loza.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                    loza == null ? null : () -> assertThat(loza.stopAsync(componentContext), willCompleteSuccessfully()),
                     clusterService == null ? null :
-                            () -> assertThat(clusterService.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
+                            () -> assertThat(clusterService.stopAsync(componentContext), willCompleteSuccessfully())
             );
         }
     }

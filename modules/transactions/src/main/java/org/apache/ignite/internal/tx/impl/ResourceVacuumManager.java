@@ -23,13 +23,13 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -106,7 +106,7 @@ public class ResourceVacuumManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         if (resourceVacuumIntervalMilliseconds > 0) {
             resourceVacuumExecutor.scheduleAtFixedRate(
                     this::runVacuumOperations,
@@ -129,7 +129,7 @@ public class ResourceVacuumManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         busyLock.block();
 
         shutdownAndAwaitTermination(resourceVacuumExecutor, 10, TimeUnit.SECONDS);

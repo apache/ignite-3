@@ -33,11 +33,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -110,7 +110,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
             server.beforeNodeStop();
 
-            assertThat(server.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(server.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         TestUtils.assertAllJraftThreadsStopped();
@@ -136,7 +136,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
         JraftServerImpl server = jraftServer(servers, idx, service, opts);
 
-        assertThat(server.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         clo.accept(server);
 

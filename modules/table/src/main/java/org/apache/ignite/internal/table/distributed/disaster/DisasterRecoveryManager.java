@@ -62,6 +62,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -185,7 +186,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
 
         metaStorageManager.registerExactWatch(RECOVERY_TRIGGER_KEY, watchListener);
@@ -194,7 +195,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         metaStorageManager.unregisterWatch(watchListener);
 
         for (CompletableFuture<Void> future : ongoingOperationsById.values()) {

@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.manager;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Common interface for ignite components that provides entry points for component lifecycle flow.
@@ -33,10 +33,10 @@ public interface IgniteComponent {
      * that can be executed synchronously in order for the component to be usable by other components during their startup, and async
      * actions, that are wrapped in a CompletableFuture and returned from the start method.
      *
-     * @param startupExecutor The executor that will execute the async part of start.
+     * @param componentContext The component lifecycle context.
      * @return Future that will be completed when the asynchronous part of the start is processed.
      */
-    CompletableFuture<Void> startAsync(ExecutorService startupExecutor);
+    CompletableFuture<Void> startAsync(ComponentContext componentContext);
 
     /**
      * Triggers running before node stop logic. It's guaranteed that during beforeNodeStop all components beneath given one are still
@@ -50,18 +50,19 @@ public interface IgniteComponent {
      * Stops the component. It's guaranteed that during {@code IgniteComponent#stopAsync(ExecutorService))} all components beneath given one
      * are still running, however the node is no longer part of the topology and, accordingly, network interaction is impossible.
      *
-     * @param stopExecutor The executor that will execute the async part of stop.
+     * @param componentContext The component lifecycle context.
      * @return Future that will be completed when the asynchronous part of the stop is processed.
      */
-    CompletableFuture<Void> stopAsync(ExecutorService stopExecutor);
+    CompletableFuture<Void> stopAsync(ComponentContext componentContext);
 
 
     /**
-     * Stops the component. Calls {@link IgniteComponent#stopAsync(ExecutorService)} with {@link ForkJoinPool#commonPool()}.
+     * Stops the component. Calls {@link IgniteComponent#stopAsync(ComponentContext)} with {@link ForkJoinPool#commonPool()}.
      *
      * @return Future that will be completed when the asynchronous part of the stop is processed.
      */
+    @TestOnly
     default CompletableFuture<Void> stopAsync() {
-        return stopAsync(ForkJoinPool.commonPool());
+        return stopAsync(new ComponentContext());
     }
 }

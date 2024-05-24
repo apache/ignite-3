@@ -63,7 +63,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -125,6 +124,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -665,10 +665,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         // Start.
 
-        assertThat(vault.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(vault.startAsync(new ComponentContext()), willCompleteSuccessfully());
         vault.putName(name);
 
-        assertThat(nodeCfgMgr.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(nodeCfgMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         // Start the remaining components.
         List<IgniteComponent> otherComponents = List.of(
@@ -700,7 +700,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         for (IgniteComponent component : otherComponents) {
             // TODO: IGNITE-22119 required to be able to wait on this future.
-            component.startAsync(ForkJoinPool.commonPool());
+            component.startAsync(new ComponentContext());
 
             components.add(component);
         }

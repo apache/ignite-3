@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
@@ -52,6 +51,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.AbstractMessagingService;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -488,7 +488,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestLowWatermark()
         );
 
-        assertThat(txManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return txManager;
     }

@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -46,6 +45,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
@@ -231,7 +231,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(ForkJoinPool.commonPool(), clusterService, loza), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), clusterService, loza), willCompleteSuccessfully());
         }
 
         CompletableFuture<RaftGroupService> startRaftGroup(PeersAndLearners configuration) {
@@ -267,7 +267,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void stop() {
-            assertThat(stopAsync(ForkJoinPool.commonPool(), loza, clusterService), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), loza, clusterService), willCompleteSuccessfully());
         }
     }
 }

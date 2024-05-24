@@ -41,7 +41,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -50,6 +49,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
@@ -171,8 +171,8 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
 
             var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, nodeName);
 
-            assertThat(nettyBootstrapFactory.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
-            cleanup.add(() -> assertThat(nettyBootstrapFactory.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()));
+            assertThat(nettyBootstrapFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
+            cleanup.add(() -> assertThat(nettyBootstrapFactory.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
 
             clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
                     nodeName,
@@ -183,13 +183,13 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     new NoOpCriticalWorkerRegistry(),
                     mock(FailureProcessor.class));
 
-            assertThat(clusterSvc.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
-            cleanup.add(() -> assertThat(clusterSvc.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()));
+            assertThat(clusterSvc.startAsync(new ComponentContext()), willCompleteSuccessfully());
+            cleanup.add(() -> assertThat(clusterSvc.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
 
             raftMgr = new Loza(clusterSvc, new NoOpMetricManager(), raftConfiguration, nodeDir, hybridClock);
 
-            assertThat(raftMgr.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
-            cleanup.add(() -> assertThat(raftMgr.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()));
+            assertThat(raftMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
+            cleanup.add(() -> assertThat(raftMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully()));
 
             cleanup.add(this::stopService);
         }

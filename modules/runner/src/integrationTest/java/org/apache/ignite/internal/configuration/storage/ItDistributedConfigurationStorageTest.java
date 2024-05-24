@@ -32,7 +32,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
@@ -46,6 +45,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
@@ -188,7 +188,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
          */
         void start() {
             assertThat(
-                    startAsync(ForkJoinPool.commonPool(), vaultManager, clusterService, raftManager, cmgManager, metaStorageManager),
+                    startAsync(new ComponentContext(), vaultManager, clusterService, raftManager, cmgManager, metaStorageManager),
                     willCompleteSuccessfully()
             );
 
@@ -214,7 +214,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                 igniteComponent.beforeNodeStop();
             }
 
-            assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully());
         }
 
         String name() {

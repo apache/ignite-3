@@ -33,7 +33,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -46,6 +45,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -91,7 +91,7 @@ public class HoconPresentationTest {
                 ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
-        assertThat(cfgRegistry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(cfgRegistry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         cfgPresentation = new HoconPresentation(cfgRegistry);
 
@@ -103,7 +103,7 @@ public class HoconPresentationTest {
      */
     @AfterAll
     static void afterAll() {
-        assertThat(cfgRegistry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(cfgRegistry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         cfgRegistry = null;
 
         generator.close();

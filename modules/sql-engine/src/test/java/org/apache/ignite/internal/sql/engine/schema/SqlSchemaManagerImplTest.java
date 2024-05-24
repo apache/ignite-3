@@ -37,7 +37,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -75,6 +74,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -107,12 +107,12 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
         sqlSchemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 200);
 
-        assertThat(catalogManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     void cleanup() {
-        assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test

@@ -53,6 +53,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -266,7 +267,7 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         executor.start();
         messaging.start(this::executeLocally);
         executionManager.start();
@@ -276,7 +277,7 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

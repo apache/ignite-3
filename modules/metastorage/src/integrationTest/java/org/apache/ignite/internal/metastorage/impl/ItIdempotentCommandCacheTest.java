@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
@@ -53,6 +52,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -167,7 +167,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         void start(CompletableFuture<Set<String>> metaStorageNodesFut) {
             when(cmgManager.metaStorageNodes()).thenReturn(metaStorageNodesFut);
 
-            assertThat(startAsync(ForkJoinPool.commonPool(), clusterService, raftManager, metaStorageManager), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), clusterService, raftManager, metaStorageManager), willCompleteSuccessfully());
         }
 
         void deployWatches() {
@@ -179,7 +179,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
             closeAll(Stream.concat(
                     components.stream().map(c -> c::beforeNodeStop),
-                    Stream.of(() -> assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully()))
+                    Stream.of(() -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully()))
             ));
         }
 

@@ -26,7 +26,6 @@ import java.util.NavigableMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
@@ -36,6 +35,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.message.IndexMessageGroup;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeRequest;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -80,7 +80,7 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
             messagingService.addMessageHandler(IndexMessageGroup.class, this::onReceiveIndexNetworkMessage);
 
@@ -89,7 +89,7 @@ public class IndexNodeFinishedRwTransactionsChecker implements LocalRwTxCounter,
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

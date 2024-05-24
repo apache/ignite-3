@@ -46,7 +46,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -54,6 +53,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.ReadCommand;
@@ -785,7 +785,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         toStop.beforeNodeStop();
 
-        assertThat(toStop.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(toStop.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         applyIncrements(client1, 11, 20);
         applyIncrements(client2, 21, 30);
@@ -817,7 +817,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         svc2.beforeNodeStop();
 
-        assertThat(svc2.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(svc2.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         var svc3 = startServer(stopIdx, r -> {
             String localNodeName = r.clusterService().topologyService().localMember().name();

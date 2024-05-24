@@ -59,7 +59,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
@@ -77,6 +76,7 @@ import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -188,7 +188,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         addCatalogZoneEventListeners();
 
-        assertThat(distributionZoneManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(distributionZoneManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }

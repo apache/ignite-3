@@ -33,7 +33,6 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.function.Consumer;
@@ -51,6 +50,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -126,7 +126,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
-        assertThat(startAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), components), willCompleteSuccessfully());
     }
 
     @AfterEach
@@ -139,13 +139,13 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         closeAll(Stream.concat(
                 components.stream().map(c -> c::beforeNodeStop),
-                Stream.of(() -> assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully()))
+                Stream.of(() -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully()))
         ));
     }
 
     void startDistributionZoneManager() {
         assertThat(
-                distributionZoneManager.startAsync(ForkJoinPool.commonPool())
+                distributionZoneManager.startAsync(new ComponentContext())
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );

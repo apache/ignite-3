@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
@@ -40,6 +39,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -126,7 +126,7 @@ public class MockNode {
      * Start fake node.
      */
     public CompletableFuture<Void> startAsync() {
-        return IgniteUtils.startAsync(ForkJoinPool.commonPool(), components);
+        return IgniteUtils.startAsync(new ComponentContext(), components);
     }
 
     /**
@@ -155,7 +155,7 @@ public class MockNode {
 
         reverse(componentsToStop);
 
-        assertThat(stopAsync(ForkJoinPool.commonPool(), componentsToStop), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), componentsToStop), willCompleteSuccessfully());
     }
 
     public ClusterNode localMember() {

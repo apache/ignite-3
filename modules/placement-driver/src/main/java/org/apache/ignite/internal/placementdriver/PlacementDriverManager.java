@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -33,6 +32,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -135,7 +135,7 @@ public class PlacementDriverManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         inBusyLock(busyLock, () -> {
             placementDriverNodesNamesProvider.get()
                     .thenCompose(placementDriverNodes -> {
@@ -188,7 +188,7 @@ public class PlacementDriverManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

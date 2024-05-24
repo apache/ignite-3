@@ -36,7 +36,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
@@ -53,6 +52,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -224,7 +224,7 @@ public class HoconConverterTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(registry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         configuration = registry.getConfiguration(HoconRootConfiguration.KEY);
         injectedNameRootConfig = registry.getConfiguration(HoconInjectedNameRootConfiguration.KEY);
@@ -235,7 +235,7 @@ public class HoconConverterTest {
      */
     @AfterAll
     public static void after() {
-        assertThat(registry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(registry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         registry = null;
 

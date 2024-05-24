@@ -65,7 +65,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.ScheduledExecutorService;
@@ -95,6 +94,7 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -262,7 +262,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         catalogMetastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, catalogMetastore);
 
-        assertThat(startAsync(ForkJoinPool.commonPool(), catalogMetastore, catalogManager), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), catalogMetastore, catalogManager), willCompleteSuccessfully());
 
         revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> catalogMetastore.registerRevisionUpdateListener(function::apply);
 
@@ -297,19 +297,20 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     @AfterEach
     void after() throws Exception {
+        ComponentContext componentContext = new ComponentContext();
         closeAll(
                 () -> {
                     assertTrue(tblManagerFut.isDone());
 
                     tblManagerFut.join().beforeNodeStop();
-                    assertThat(tblManagerFut.join().stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+                    assertThat(tblManagerFut.join().stopAsync(componentContext), willCompleteSuccessfully());
                 },
-                dsm == null ? null : () -> assertThat(dsm.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
-                sm == null ? null : () -> assertThat(sm.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                dsm == null ? null : () -> assertThat(dsm.stopAsync(componentContext), willCompleteSuccessfully()),
+                sm == null ? null : () -> assertThat(sm.stopAsync(componentContext), willCompleteSuccessfully()),
                 catalogManager == null ? null :
-                        () -> assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                        () -> assertThat(catalogManager.stopAsync(componentContext), willCompleteSuccessfully()),
                 catalogMetastore == null ? null :
-                        () -> assertThat(catalogMetastore.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                        () -> assertThat(catalogMetastore.stopAsync(componentContext), willCompleteSuccessfully()),
                 partitionOperationsExecutor == null ? null
                         : () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
         );
@@ -451,7 +452,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableManager tableManager = tblManagerFut.join();
 
         tableManager.beforeNodeStop();
-        assertThat(tableManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(tableManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThrowsWithCause(tableManager::tables, NodeStoppingException.class);
         assertThrowsWithCause(() -> tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME), NodeStoppingException.class);
@@ -471,7 +472,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableManager tableManager = tblManagerFut.join();
 
         tableManager.beforeNodeStop();
-        assertThat(tableManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(tableManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         int fakeTblId = 1;
 
         assertThrowsWithCause(() -> tableManager.table(fakeTblId), NodeStoppingException.class);
@@ -566,7 +567,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         mockDoThrow.run();
 
         tableManager.beforeNodeStop();
-        assertThat(tableManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(tableManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         verify(rm, times(PARTITIONS)).stopRaftNodes(any());
         verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
@@ -850,7 +851,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             }
         };
 
-        assertThat(startAsync(ForkJoinPool.commonPool(), sm, tableManager), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), sm, tableManager), willCompleteSuccessfully());
 
         tblManagerFut.complete(tableManager);
 
@@ -879,7 +880,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 storageConfiguration
         );
 
-        assertThat(manager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(manager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return manager;
     }

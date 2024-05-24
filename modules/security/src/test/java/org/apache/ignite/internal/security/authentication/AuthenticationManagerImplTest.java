@@ -35,11 +35,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEvent;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEventParameters;
@@ -83,14 +83,14 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
         Arrays.stream(AuthenticationEvent.values()).forEach(event -> manager.listen(event, listener));
 
-        assertThat(manager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(manager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() {
         Arrays.stream(AuthenticationEvent.values()).forEach(event -> manager.removeListener(event, listener));
 
-        assertThat(manager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(manager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test

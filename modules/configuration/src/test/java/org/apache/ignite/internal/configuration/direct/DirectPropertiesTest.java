@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationListenOnlyException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
@@ -48,6 +47,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -113,12 +113,12 @@ public class DirectPropertiesTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(registry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() {
-        assertThat(registry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(registry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**

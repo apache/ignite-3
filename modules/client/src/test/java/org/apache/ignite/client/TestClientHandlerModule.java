@@ -31,7 +31,6 @@ import io.netty.util.ReferenceCounted;
 import java.net.BindException;
 import java.net.SocketAddress;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -50,6 +49,7 @@ import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
@@ -153,7 +153,7 @@ public class TestClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         if (channel != null) {
             throw new IgniteException("ClientHandlerModule is already started.");
         }
@@ -169,7 +169,7 @@ public class TestClientHandlerModule implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (channel != null) {
             try {
                 channel.close().await();

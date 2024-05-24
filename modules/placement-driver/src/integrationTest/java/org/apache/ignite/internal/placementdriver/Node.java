@@ -24,8 +24,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -58,9 +58,11 @@ class Node implements AutoCloseable {
     }
 
     CompletableFuture<Void> startAsync() {
-        return IgniteUtils.startAsync(ForkJoinPool.commonPool(), clusterService, loza, metastore)
+        ComponentContext componentContext = new ComponentContext();
+
+        return IgniteUtils.startAsync(componentContext, clusterService, loza, metastore)
                 .thenCompose(unused -> metastore.recoveryFinishedFuture())
-                .thenCompose(unused -> placementDriverManager.startAsync(ForkJoinPool.commonPool()))
+                .thenCompose(unused -> placementDriverManager.startAsync(componentContext))
                 .thenCompose(unused -> metastore.notifyRevisionUpdateListenerOnStart())
                 .thenCompose(unused -> metastore.deployWatches());
     }
@@ -71,7 +73,7 @@ class Node implements AutoCloseable {
 
         closeAll(Stream.concat(
                 igniteComponents.stream().map(component -> component::beforeNodeStop),
-                Stream.of(() -> assertThat(stopAsync(ForkJoinPool.commonPool(), igniteComponents), willCompleteSuccessfully()))
+                Stream.of(() -> assertThat(stopAsync(new ComponentContext(), igniteComponents), willCompleteSuccessfully()))
         ));
     }
 }

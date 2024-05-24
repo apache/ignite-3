@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -54,6 +53,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -162,14 +162,14 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 new NoOpFailureProcessor()
         );
 
-        assertThat(replicaManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     public void teardown() {
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
 
-        assertThat(clusterService.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     public ReplicaUnavailableTest(TestInfo testInfo) {

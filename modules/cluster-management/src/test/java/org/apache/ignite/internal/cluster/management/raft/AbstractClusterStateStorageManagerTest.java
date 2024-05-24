@@ -31,10 +31,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
@@ -59,14 +59,14 @@ public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstr
     void setUp(TestInfo testInfo) {
         storage = clusterStateStorage(testNodeName(testInfo, 0));
 
-        assertThat(storage.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         storageManager = new RaftStorageManager(storage);
     }
 
     @AfterEach
     void tearDown() {
-        assertThat(storage.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(storage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**

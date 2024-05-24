@@ -36,6 +36,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -103,7 +104,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         executor = new ThreadPoolExecutor(
                 0, 4, 0L, MILLISECONDS,
                 new LinkedBlockingQueue<>(),
@@ -116,7 +117,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         // At this moment, all RAFT groups should already be stopped, so all snapshots are already closed and finished.
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);

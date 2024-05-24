@@ -39,7 +39,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationListenOnlyException;
@@ -59,6 +58,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -171,7 +171,7 @@ public class ConfigurationAnyListenerTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(registry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         rootConfig = registry.getConfiguration(RootConfiguration.KEY);
 
@@ -240,7 +240,7 @@ public class ConfigurationAnyListenerTest {
 
     @AfterEach
     public void after() {
-        assertThat(registry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(registry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         generator.close();
     }
 

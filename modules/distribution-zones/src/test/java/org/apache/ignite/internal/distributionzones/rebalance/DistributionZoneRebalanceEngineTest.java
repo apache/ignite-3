@@ -61,7 +61,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -81,6 +80,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -146,7 +146,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         String nodeName = "test";
 
         catalogManager = createTestCatalogManager(nodeName, clock);
-        assertThat(catalogManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         createZone(ZONE_NAME_0, 1, 128);
         createZone(ZONE_NAME_1, 2, 128);
@@ -269,7 +269,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     public void tearDown() throws Exception {
         closeAll(
                 catalogManager == null ? null :
-                        () -> assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                        () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
                 keyValueStorage == null ? null : keyValueStorage::close,
                 rebalanceEngine == null ? null : rebalanceEngine::stop,
                 () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS)
@@ -424,7 +424,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
-        assertThat(realMetaStorageManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(realMetaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {
             createRebalanceEngine(realMetaStorageManager);
@@ -435,7 +435,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
         } finally {
-            assertThat(realMetaStorageManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(realMetaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 
@@ -456,7 +456,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
-        assertThat(realMetaStorageManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(realMetaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {
             createRebalanceEngine(realMetaStorageManager);
@@ -467,7 +467,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
         } finally {
-            assertThat(realMetaStorageManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(realMetaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 

@@ -34,8 +34,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -43,6 +41,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.AbstractClusterService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -134,7 +133,7 @@ public class ScaleCubeClusterServiceFactory {
             private volatile CompletableFuture<Void> shutdownFuture;
 
             @Override
-            public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 var serializationService = new SerializationService(serializationRegistry, userObjectSerialization);
 
                 UUID launchId = UUID.randomUUID();
@@ -216,7 +215,7 @@ public class ScaleCubeClusterServiceFactory {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
                 ConnectionManager localConnectionMgr = connectionMgr;
 
                 if (localConnectionMgr != null) {
@@ -255,7 +254,7 @@ public class ScaleCubeClusterServiceFactory {
 
             @Override
             public void beforeNodeStop() {
-                this.stopAsync(ForkJoinPool.commonPool()).join();
+                this.stopAsync(new ComponentContext()).join();
             }
 
             @Override

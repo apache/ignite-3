@@ -40,7 +40,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
@@ -57,6 +56,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
@@ -111,14 +111,14 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         }
 
         void start() {
-            assertThat(startAsync(ForkJoinPool.commonPool(), clusterService, raftManager), willCompleteSuccessfully());
+            assertThat(startAsync(new ComponentContext(), clusterService, raftManager), willCompleteSuccessfully());
         }
 
         void afterNodeStart() {
             try {
                 assertTrue(waitForCondition(() -> clusterService.topologyService().allMembers().size() == cluster.size(), 1000));
 
-                assertThat(raftStorage.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+                assertThat(raftStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
                 PeersAndLearners configuration = clusterService.topologyService().allMembers().stream()
                         .map(ClusterNode::name)
@@ -159,7 +159,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
         }
 
         void stop() {
-            assertThat(stopAsync(ForkJoinPool.commonPool(), raftManager, raftStorage, clusterService), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), raftManager, raftStorage, clusterService), willCompleteSuccessfully());
         }
 
         ClusterNode localMember() {

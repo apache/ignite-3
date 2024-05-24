@@ -20,8 +20,8 @@ package org.apache.ignite.client.handler;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
 import org.apache.ignite.internal.security.authentication.UserDetails;
@@ -43,12 +43,12 @@ public class DummyAuthenticationManager implements AuthenticationManager {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
     }
 

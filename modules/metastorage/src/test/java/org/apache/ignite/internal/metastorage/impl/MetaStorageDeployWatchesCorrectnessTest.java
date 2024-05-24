@@ -26,7 +26,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -34,6 +33,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
@@ -105,12 +105,12 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
 
         assertFalse(deployWatchesFut.isDone());
 
-        assertThat(metastore.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(metastore.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(deployWatchesFut, willCompleteSuccessfully());
 
         metastore.beforeNodeStop();
 
-        assertThat(metastore.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(metastore.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 }

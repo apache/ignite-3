@@ -35,7 +35,6 @@ import static org.mockito.Mockito.spy;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -58,6 +57,7 @@ import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -115,7 +115,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 partitionIdleSafeTimePropagationPeriod::get
         );
 
-        assertThat(startAsync(ForkJoinPool.commonPool(), metastore, clockWaiter, manager), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), metastore, clockWaiter, manager), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
@@ -124,7 +124,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     public void tearDown() {
-        assertThat(stopAsync(ForkJoinPool.commonPool(), manager, clockWaiter, metastore), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), manager, clockWaiter, metastore), willCompleteSuccessfully());
     }
 
     protected void createSomeTable(String tableName) {

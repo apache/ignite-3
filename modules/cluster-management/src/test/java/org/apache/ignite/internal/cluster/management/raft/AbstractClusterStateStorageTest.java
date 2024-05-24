@@ -35,8 +35,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
@@ -56,12 +56,12 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
     void setUp(TestInfo testInfo) {
         storage = createStorage(testNodeName(testInfo, 0));
 
-        assertThat(storage.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() {
-        assertThat(storage.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(storage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**
@@ -278,11 +278,11 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
 
         assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
-        assertThat(storage.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(storage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         storage = createStorage(testNodeName(testInfo, 1));
 
-        assertThat(storage.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(storage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(storage.get(key1), is(nullValue()));
         assertThat(storage.get(key2), is(nullValue()));
@@ -333,7 +333,7 @@ public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest
 
     @Test
     void throwsNodeStoppingException() {
-        assertThat(storage.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(storage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThrowsWithCause(() -> storage.get(BYTE_EMPTY_ARRAY), NodeStoppingException.class);
         assertThrowsWithCause(() -> storage.put(BYTE_EMPTY_ARRAY, BYTE_EMPTY_ARRAY), NodeStoppingException.class);

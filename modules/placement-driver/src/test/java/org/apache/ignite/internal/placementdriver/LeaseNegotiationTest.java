@@ -39,7 +39,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -48,6 +47,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -99,7 +99,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     @BeforeEach
     public void setUp() {
         metaStorageManager = StandaloneMetaStorageManager.create();
-        assertThat(metaStorageManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
         metaStorageManager.deployWatches();
 
         pdLogicalTopologyService = mock(LogicalTopologyService.class);

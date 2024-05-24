@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.network.configuration.FileTransferConfiguration;
@@ -218,7 +219,7 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         topologyService.addEventHandler(new TopologyEventHandler() {
             @Override
             public void onDisappeared(ClusterNode member) {
@@ -247,7 +248,7 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
 
         return nullCompletedFuture();

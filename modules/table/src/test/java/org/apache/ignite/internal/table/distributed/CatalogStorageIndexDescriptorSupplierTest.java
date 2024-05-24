@@ -28,7 +28,6 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.util.List;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -45,6 +44,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
@@ -95,12 +95,12 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
 
         indexDescriptorSupplier = new CatalogStorageIndexDescriptorSupplier(catalogManager, lowWatermark);
 
-        assertThat(catalogManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() {
-        assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test

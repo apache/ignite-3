@@ -25,10 +25,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -73,7 +72,7 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
 
     @AfterEach
     protected void after() throws Exception {
-        assertThat(stopAsync(ForkJoinPool.commonPool(), clusterServices), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), clusterServices), willCompleteSuccessfully());
     }
 
     /**
@@ -91,7 +90,7 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
         );
 
         if (start) {
-            assertThat(network.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(network.startAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         clusterServices.add(network);
@@ -110,12 +109,12 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
                 new RaftGroupEventsClientListener()
         ) {
             @Override
-            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
                 servers.remove(this);
 
                 return IgniteUtils.stopAsync(
-                        () -> super.stopAsync(stopExecutor),
-                        () -> service.stopAsync(stopExecutor)
+                        () -> super.stopAsync(componentContext),
+                        () -> service.stopAsync(componentContext)
                 );
             }
         };

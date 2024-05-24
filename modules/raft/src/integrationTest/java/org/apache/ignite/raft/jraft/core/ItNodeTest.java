@@ -62,7 +62,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -76,6 +75,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -3858,7 +3858,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         nodeOptions.setCommandsMarshaller(TestCluster.commandsMarshaller(clusterService));
 
-        assertThat(clusterService.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         var service = new RaftGroupService(groupId, peer.getPeerId(), nodeOptions, rpcServer, nodeManager) {
             @Override public synchronized void shutdown() {
@@ -3866,7 +3866,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
                 super.shutdown();
 
-                assertThat(clusterService.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+                assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         };
 

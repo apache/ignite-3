@@ -35,7 +35,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -56,6 +55,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
@@ -237,12 +237,12 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
          */
         CompletableFuture<Void> start() {
             assertThat(
-                    startAsync(ForkJoinPool.commonPool(), vaultManager, clusterService, raftManager, cmgManager, metaStorageManager),
+                    startAsync(new ComponentContext(), vaultManager, clusterService, raftManager, cmgManager, metaStorageManager),
                     willCompleteSuccessfully()
             );
 
             return CompletableFuture.runAsync(() ->
-                    assertThat(distributedCfgManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
+                    assertThat(distributedCfgManager.startAsync(new ComponentContext()), willCompleteSuccessfully())
             );
         }
 
@@ -270,7 +270,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                 igniteComponent.beforeNodeStop();
             }
 
-            assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully());
 
             generator.close();
         }

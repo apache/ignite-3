@@ -23,8 +23,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 
@@ -38,7 +38,7 @@ public class NoOpMetricManager implements MetricManager {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
     }
 
@@ -51,7 +51,7 @@ public class NoOpMetricManager implements MetricManager {
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         return nullCompletedFuture();
     }
 

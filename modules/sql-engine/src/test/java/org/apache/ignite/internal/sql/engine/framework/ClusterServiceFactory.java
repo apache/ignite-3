@@ -26,10 +26,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.AbstractMessagingService;
 import org.apache.ignite.internal.network.AbstractTopologyService;
 import org.apache.ignite.internal.network.ChannelType;
@@ -116,7 +116,7 @@ public class ClusterServiceFactory {
 
             /** {@inheritDoc} */
             @Override
-            public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return nullCompletedFuture();
             }
         };

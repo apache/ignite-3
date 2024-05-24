@@ -79,7 +79,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -105,6 +104,7 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -252,7 +252,7 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
             registerCatalogEventListenersOnStartManagerBusy();
 
@@ -272,12 +272,12 @@ public class DistributionZoneManager implements IgniteComponent {
             return allOf(
                     createOrRestoreZonesStates(recoveryRevision),
                     restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision)
-            ).thenComposeAsync((notUsed) -> rebalanceEngine.start(), startupExecutor);
+            ).thenComposeAsync((notUsed) -> rebalanceEngine.start(), componentContext.executor());
         });
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

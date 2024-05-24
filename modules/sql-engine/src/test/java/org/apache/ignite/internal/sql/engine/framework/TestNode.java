@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -34,6 +33,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -309,12 +309,12 @@ public class TestNode implements LifecycleAware {
 
         @Override
         public void start() {
-            assertThat(component.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(component.startAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         @Override
         public void stop() {
-            assertThat(component.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(component.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 }

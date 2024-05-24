@@ -29,7 +29,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -45,6 +44,7 @@ import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.systemview.api.NodeSystemView;
@@ -100,7 +100,7 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         inBusyLock(busyLock, () -> {
             if (!startGuard.compareAndSet(false, true)) {
                 throw new IllegalStateException("System view manager cannot be started twice");
@@ -134,7 +134,7 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

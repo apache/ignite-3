@@ -27,7 +27,6 @@ import jakarta.inject.Singleton;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
@@ -36,6 +35,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 
 /**
  * Factory that creates beans needed for unit tests.
@@ -67,7 +67,7 @@ public class TestFactory {
                 ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
-        assertThat(configurationRegistry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(configurationRegistry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return configurationRegistry;
     }

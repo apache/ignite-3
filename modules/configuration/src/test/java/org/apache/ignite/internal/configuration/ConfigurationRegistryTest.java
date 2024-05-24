@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -47,6 +46,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -81,7 +81,7 @@ public class ConfigurationRegistryTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(configRegistry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(configRegistry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
@@ -134,7 +134,7 @@ public class ConfigurationRegistryTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(configRegistry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(configRegistry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
@@ -175,7 +175,7 @@ public class ConfigurationRegistryTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(registry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {
             registry.getConfiguration(SixthRootConfiguration.KEY).change(c -> c
@@ -188,7 +188,7 @@ public class ConfigurationRegistryTest {
                                     .changePolyNamed(c2 -> c2.create("5", toFirst0Polymorphic(5)))))
             ).get(1, SECONDS);
         } finally {
-            assertThat(registry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(registry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 
@@ -206,7 +206,7 @@ public class ConfigurationRegistryTest {
                 ),
                 new TestConfigurationValidator()
         );
-        assertThat(registry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         var configuration = registry.getConfiguration(SixthRootConfiguration.KEY).polyNamed();
         CompletableFuture<Void> future = configuration.change(c -> {
@@ -221,7 +221,7 @@ public class ConfigurationRegistryTest {
         UUID internalId = configuration.internalIds().get(0);
         assertThat(configuration.get(internalId), instanceOf(Fourth0PolymorphicConfiguration.class));
 
-        assertThat(registry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(registry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
@@ -235,7 +235,7 @@ public class ConfigurationRegistryTest {
                 new TestConfigurationValidator()
         );
 
-        assertThat(registry.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {
             FirstRootConfiguration firstConfiguration = registry.getConfiguration(FirstRootConfiguration.KEY);
@@ -262,7 +262,7 @@ public class ConfigurationRegistryTest {
             assertEquals("foo", firstConfiguration.str().value());
             assertEquals("bar", secondConfiguration.str().value());
         } finally {
-            assertThat(registry.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(registry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 

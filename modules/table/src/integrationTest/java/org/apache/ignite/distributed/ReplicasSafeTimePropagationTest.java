@@ -34,7 +34,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -260,7 +260,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         CompletableFuture<Void> start() throws Exception {
             clusterService = ClusterServiceTestUtils.clusterService(nodeName, port.getAndIncrement(), NODE_FINDER);
 
-            assertThat(clusterService.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             raftManager = new Loza(
                     clusterService,
@@ -271,7 +271,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     new RaftGroupEventsClientListener()
             );
 
-            assertThat(raftManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(raftManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             TxManager txManagerMock = mock(TxManager.class);
 
@@ -304,9 +304,9 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     raftManager == null ? null : raftManager::beforeNodeStop,
                     clusterService == null ? null : clusterService::beforeNodeStop,
                     raftManager == null ? null :
-                            () -> assertThat(raftManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                            () -> assertThat(raftManager.stopAsync(new ComponentContext()), willCompleteSuccessfully()),
                     clusterService == null ? null :
-                            () -> assertThat(clusterService.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
+                            () -> assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully())
             );
         }
     }

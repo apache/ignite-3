@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.concurrent.ForkJoinPool;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -51,7 +51,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(server.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(server.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
@@ -107,7 +107,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
                 new RaftGroupEventsClientListener()
         );
 
-        assertThat(server.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return server;
     }

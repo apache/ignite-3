@@ -34,11 +34,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -82,7 +82,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
     public void tearDown() throws Exception {
         for (PlacementDriverManager pdMgr : placementDriverManagers.values()) {
             pdMgr.beforeNodeStop();
-            assertThat(pdMgr.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(pdMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         placementDriverManagers.clear();
@@ -136,7 +136,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
                 new TestClockService(new HybridClockImpl())
         );
 
-        assertThat(placementDriverManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(placementDriverManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         placementDriverManagers.put(nodeName, placementDriverManager);
     }
@@ -146,7 +146,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
         PlacementDriverManager placementDriverManager = placementDriverManagers.remove(nodeName);
 
         placementDriverManager.beforeNodeStop();
-        assertThat(placementDriverManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(placementDriverManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     private boolean checkSingleActiveActor(String leaderName) {

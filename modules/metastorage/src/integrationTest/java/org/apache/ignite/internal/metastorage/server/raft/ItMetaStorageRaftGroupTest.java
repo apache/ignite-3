@@ -38,7 +38,6 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -49,6 +48,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageService;
@@ -166,7 +166,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         localAddresses.stream()
                 .map(addr -> ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder))
                 .forEach(clusterService -> {
-                    assertThat(clusterService.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+                    assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
                     cluster.add(clusterService);
                 });
 
@@ -185,28 +185,30 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
      */
     @AfterEach
     public void afterTest() {
+        ComponentContext componentContext = new ComponentContext();
+
         if (metaStorageRaftSrv3 != null) {
             metaStorageRaftSrv3.stopRaftNodes(MetastorageGroupId.INSTANCE);
-            assertThat(metaStorageRaftSrv3.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(metaStorageRaftSrv3.stopAsync(componentContext), willCompleteSuccessfully());
             metaStorageRaftGrpSvc3.shutdown();
         }
 
         if (metaStorageRaftSrv2 != null) {
             metaStorageRaftSrv2.stopRaftNodes(MetastorageGroupId.INSTANCE);
-            assertThat(metaStorageRaftSrv2.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(metaStorageRaftSrv2.stopAsync(componentContext), willCompleteSuccessfully());
             metaStorageRaftGrpSvc2.shutdown();
         }
 
         if (metaStorageRaftSrv1 != null) {
             metaStorageRaftSrv1.stopRaftNodes(MetastorageGroupId.INSTANCE);
-            assertThat(metaStorageRaftSrv1.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(metaStorageRaftSrv1.stopAsync(componentContext), willCompleteSuccessfully());
             metaStorageRaftGrpSvc1.shutdown();
         }
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         for (ClusterService node : cluster) {
-            assertThat(node.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(node.stopAsync(componentContext), willCompleteSuccessfully());
         }
     }
 
@@ -298,12 +300,14 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
                                 // stop leader
                                 oldLeaderServer.stopRaftNodes(MetastorageGroupId.INSTANCE);
-                                assertThat(oldLeaderServer.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+                                ComponentContext componentContext = new ComponentContext();
+
+                                assertThat(oldLeaderServer.stopAsync(componentContext), willCompleteSuccessfully());
                                 CompletableFuture<Void> stopFuture = cluster.stream()
                                         .filter(c -> localMemberName(c).equals(oldLeaderId))
                                         .findFirst()
                                         .orElseThrow()
-                                        .stopAsync(ForkJoinPool.commonPool());
+                                        .stopAsync(componentContext);
                                 assertThat(stopFuture, willCompleteSuccessfully());
 
                                 raftGroupServiceOfLiveServer.refreshLeader().get();
@@ -396,7 +400,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         );
 
         assertThat(
-                startAsync(ForkJoinPool.commonPool(), metaStorageRaftSrv1, metaStorageRaftSrv2, metaStorageRaftSrv3),
+                startAsync(new ComponentContext(), metaStorageRaftSrv1, metaStorageRaftSrv2, metaStorageRaftSrv3),
                 willCompleteSuccessfully()
         );
 

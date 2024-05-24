@@ -34,7 +34,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -45,6 +44,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
@@ -216,7 +216,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         int clientPort = PORT_BASE + nodes + 1;
         ClusterService clientClusterService =
                 clusterService(testInfo, clientPort, new StaticNodeFinder(findLocalAddresses(PORT_BASE, PORT_BASE + nodes)));
-        assertThat(clientClusterService.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(clientClusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         // Start the second topology aware client, that should not get the initial leader notification.
         TopologyAwareRaftGroupService raftClientNoInitialNotify = startTopologyAwareClient(
@@ -286,13 +286,14 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         // Forcing the leader change by stopping the actual leader.
         var raftServiceToStop = raftServers.remove(new NetworkAddress("localhost", leader.address().port()));
         raftServiceToStop.stopRaftNodes(GROUP_ID);
-        assertThat(raftServiceToStop.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        ComponentContext componentContext = new ComponentContext();
+        assertThat(raftServiceToStop.stopAsync(componentContext), willCompleteSuccessfully());
 
         afterNodeStop(leader.name());
 
         CompletableFuture<Void> stopFuture =
                 clusterServices.remove(new NetworkAddress("localhost", leader.address().port()))
-                        .stopAsync(ForkJoinPool.commonPool());
+                        .stopAsync(componentContext);
         assertThat(stopFuture, willCompleteSuccessfully());
 
         // Waiting for the notifications to check.
@@ -363,14 +364,16 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
             raftClients.clear();
         }
 
+        ComponentContext componentContext = new ComponentContext();
+
         for (NetworkAddress addr : clusterServices.keySet()) {
             if (raftServers.containsKey(addr)) {
                 raftServers.get(addr).stopRaftNodes(GROUP_ID);
 
-                assertThat(raftServers.get(addr).stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+                assertThat(raftServers.get(addr).stopAsync(componentContext), willCompleteSuccessfully());
             }
 
-            assertThat(clusterServices.get(addr).stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(clusterServices.get(addr).stopAsync(componentContext), willCompleteSuccessfully());
         }
 
         raftServers.clear();
@@ -401,7 +404,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         for (NetworkAddress addr : addresses) {
             var cluster = clusterService(testInfo, addr.port(), nodeFinder);
 
-            assertThat(cluster.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(cluster.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             clusterServices.put(addr, cluster);
         }
@@ -433,7 +436,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                         nodeOptions,
                         eventsClientListener
                 );
-                assertThat(raftServer.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+                assertThat(raftServer.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
                 raftServer.startRaftNode(
                         new RaftNodeId(GROUP_ID, localPeer),

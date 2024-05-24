@@ -47,7 +47,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.nio.file.Path;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestUpdateHandlerInterceptor;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
@@ -55,6 +54,7 @@ import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -85,7 +85,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(stopAsync(ForkJoinPool.commonPool(), catalogManager, metaStorageManager), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), catalogManager, metaStorageManager), willCompleteSuccessfully());
     }
 
     @Test
@@ -231,13 +231,13 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
 
     private void startComponentsAndDeployWatches() {
         assertThat(
-                startAsync(ForkJoinPool.commonPool(), metaStorageManager, catalogManager)
+                startAsync(new ComponentContext(), metaStorageManager, catalogManager)
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );
     }
 
     private void stopComponents() {
-        assertThat(stopAsync(ForkJoinPool.commonPool(), catalogManager, metaStorageManager), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), catalogManager, metaStorageManager), willCompleteSuccessfully());
     }
 }

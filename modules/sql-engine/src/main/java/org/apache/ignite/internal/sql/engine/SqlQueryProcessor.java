@@ -49,7 +49,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -67,6 +66,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -281,7 +281,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public synchronized CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         var nodeName = clusterSrvc.topologyService().localMember().name();
 
         taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value(), failureProcessor));
@@ -444,7 +444,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public synchronized CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         if (!stopGuard.compareAndSet(false, true)) {
             return nullCompletedFuture();
         }

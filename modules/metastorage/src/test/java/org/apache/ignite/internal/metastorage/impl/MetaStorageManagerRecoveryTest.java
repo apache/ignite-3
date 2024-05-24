@@ -31,14 +31,13 @@ import static org.mockito.Mockito.when;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -140,7 +139,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
             }
 
             @Override
-            public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return nullCompletedFuture();
             }
         };
@@ -161,7 +160,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
 
         createMetaStorage(targetRevision);
 
-        assertThat(metaStorageManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         CompletableFuture<Void> msDeployFut = metaStorageManager.deployWatches();
 
@@ -179,7 +178,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
     void testRecoverClean() throws Exception {
         createMetaStorage(0);
 
-        assertThat(metaStorageManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         CompletableFuture<Void> msDeployFut = metaStorageManager.deployWatches();
 

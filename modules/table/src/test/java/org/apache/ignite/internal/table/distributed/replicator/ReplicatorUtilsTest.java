@@ -41,7 +41,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.UUID;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -49,6 +48,7 @@ import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.Test;
@@ -139,14 +139,14 @@ public class ReplicatorUtilsTest extends IgniteAbstractTest {
     private void withCatalogManager(Consumer<CatalogManager> consumer) throws Exception {
         CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test-node", clock);
 
-        assertThat(catalogManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {
             consumer.accept(catalogManager);
         } finally {
             closeAll(
                     catalogManager::beforeNodeStop,
-                    () -> assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
+                    () -> assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully())
             );
         }
     }

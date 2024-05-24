@@ -37,10 +37,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -71,13 +71,13 @@ public abstract class MetaStorageRangeTest extends BaseIgniteAbstractTest {
 
         metaStorageManager = StandaloneMetaStorageManager.create(storage);
 
-        assertThat(metaStorageManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() {
         metaStorageManager.beforeNodeStop();
-        assertThat(metaStorageManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test

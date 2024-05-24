@@ -36,7 +36,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -48,6 +47,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -130,12 +130,12 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             if (!placementDriverNodeNames.contains(nodeName)) {
                 var service = clusterServices.get(nodeName);
 
-                assertThat(service.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+                assertThat(service.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
                 servicesToClose.add(() -> {
                     service.beforeNodeStop();
 
-                    assertThat(service.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+                    assertThat(service.stopAsync(new ComponentContext()), willCompleteSuccessfully());
                 });
             }
         }

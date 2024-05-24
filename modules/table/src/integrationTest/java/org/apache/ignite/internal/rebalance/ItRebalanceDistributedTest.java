@@ -74,7 +74,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -130,6 +129,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -1325,9 +1325,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     cmgManager
             );
 
+            ComponentContext componentContext = new ComponentContext();
             List<CompletableFuture<?>> componentFuts =
                     firstComponents.stream()
-                            .map(component -> component.startAsync(ForkJoinPool.commonPool()))
+                            .map(component -> component.startAsync(componentContext))
                             .collect(Collectors.toList());
 
             nodeComponents.addAll(firstComponents);
@@ -1349,7 +1350,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 );
 
                 componentFuts.addAll(secondComponents.stream()
-                        .map(component -> component.startAsync(ForkJoinPool.commonPool()))
+                        .map(component -> component.startAsync(componentContext))
                         .collect(Collectors.toList()));
 
                 nodeComponents.addAll(secondComponents);
@@ -1392,7 +1393,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 }
             }
 
-            assertThat(stopAsync(ForkJoinPool.commonPool(), components), willCompleteSuccessfully());
+            assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully());
 
             nodeCfgGenerator.close();
             clusterCfgGenerator.close();

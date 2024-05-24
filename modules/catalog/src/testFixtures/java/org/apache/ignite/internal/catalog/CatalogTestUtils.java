@@ -30,7 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
@@ -55,6 +54,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -83,12 +83,12 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService) {
             @Override
-            public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return allOf(
-                        metastore.startAsync(startupExecutor),
-                        clockWaiter.startAsync(startupExecutor),
-                        super.startAsync(startupExecutor)
-                ).thenComposeAsync(unused -> metastore.deployWatches(), startupExecutor);
+                        metastore.startAsync(componentContext),
+                        clockWaiter.startAsync(componentContext),
+                        super.startAsync(componentContext)
+                ).thenComposeAsync(unused -> metastore.deployWatches(), componentContext.executor());
             }
 
             @Override
@@ -100,11 +100,11 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
                 return IgniteUtils.stopAsync(
-                        () -> super.stopAsync(stopExecutor),
-                        () -> clockWaiter.stopAsync(stopExecutor),
-                        () -> metastore.stopAsync(stopExecutor)
+                        () -> super.stopAsync(componentContext),
+                        () -> clockWaiter.stopAsync(componentContext),
+                        () -> metastore.stopAsync(componentContext)
                 );
             }
         };
@@ -124,9 +124,9 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
-                return allOf(metastore.startAsync(startupExecutor), super.startAsync(startupExecutor))
-                        .thenComposeAsync(unused -> metastore.deployWatches(), startupExecutor);
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return allOf(metastore.startAsync(componentContext), super.startAsync(componentContext))
+                        .thenComposeAsync(unused -> metastore.deployWatches(), componentContext.executor());
             }
 
             @Override
@@ -137,10 +137,10 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
                 return IgniteUtils.stopAsync(
-                        () -> super.stopAsync(stopExecutor),
-                        () -> metastore.stopAsync(stopExecutor)
+                        () -> super.stopAsync(componentContext),
+                        () -> metastore.stopAsync(componentContext)
                 );
             }
         };
@@ -160,8 +160,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
-                return allOf(clockWaiter.startAsync(startupExecutor), super.startAsync(startupExecutor));
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return allOf(clockWaiter.startAsync(componentContext), super.startAsync(componentContext));
             }
 
             @Override
@@ -172,10 +172,10 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
                 return IgniteUtils.stopAsync(
-                        () -> super.stopAsync(stopExecutor),
-                        () -> clockWaiter.stopAsync(stopExecutor)
+                        () -> super.stopAsync(componentContext),
+                        () -> clockWaiter.stopAsync(componentContext)
                 );
             }
         };
@@ -209,8 +209,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(updateLog, new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
-                return allOf(clockWaiter.startAsync(startupExecutor), super.startAsync(startupExecutor));
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return allOf(clockWaiter.startAsync(componentContext), super.startAsync(componentContext));
             }
 
             @Override
@@ -221,10 +221,10 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
                 return IgniteUtils.stopAsync(
-                        () -> super.stopAsync(stopExecutor),
-                        () -> clockWaiter.stopAsync(stopExecutor)
+                        () -> super.stopAsync(componentContext),
+                        () -> clockWaiter.stopAsync(componentContext)
                 );
             }
         };
@@ -248,8 +248,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new TestUpdateLog(clock), new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
-                return allOf(clockWaiter.startAsync(startupExecutor), super.startAsync(startupExecutor));
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return allOf(clockWaiter.startAsync(componentContext), super.startAsync(componentContext));
             }
 
             @Override
@@ -260,10 +260,10 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
                 return IgniteUtils.stopAsync(
-                        () -> super.stopAsync(stopExecutor),
-                        () -> clockWaiter.stopAsync(stopExecutor)
+                        () -> super.stopAsync(componentContext),
+                        () -> clockWaiter.stopAsync(componentContext)
                 );
             }
         };
@@ -414,7 +414,7 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) throws IgniteInternalException {
+        public CompletableFuture<Void> startAsync(ComponentContext componentContext) throws IgniteInternalException {
             if (onUpdateHandler == null) {
                 throw new IgniteInternalException(
                         Common.INTERNAL_ERR,
@@ -428,7 +428,7 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+        public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
             return nullCompletedFuture();
         }
     }

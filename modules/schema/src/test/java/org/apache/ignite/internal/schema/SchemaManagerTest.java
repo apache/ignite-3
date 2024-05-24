@@ -38,7 +38,6 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -50,6 +49,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -97,7 +97,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         metaStorageManager = spy(StandaloneMetaStorageManager.create(metaStorageKvStorage));
-        assertThat(metaStorageManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(metaStorageManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         tableCreatedListener = ArgumentCaptor.forClass(EventListener.class);
         tableAlteredListener = ArgumentCaptor.forClass(EventListener.class);
@@ -107,14 +107,14 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_ALTER), tableAlteredListener.capture());
 
         schemaManager = new SchemaManager(registry, catalogService);
-        assertThat(schemaManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(schemaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() {
-        assertThat(stopAsync(ForkJoinPool.commonPool(), schemaManager, metaStorageManager), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), schemaManager, metaStorageManager), willCompleteSuccessfully());
     }
 
     private void createSomeTable() {
@@ -270,14 +270,14 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     void loadingPreExistingSchemasWorks() {
         create2TableVersions();
 
-        assertThat(schemaManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(schemaManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         when(catalogService.latestCatalogVersion()).thenReturn(2);
         when(catalogService.tables(anyInt())).thenReturn(List.of(tableDescriptorAfterColumnAddition()));
         doReturn(CompletableFuture.completedFuture(CAUSALITY_TOKEN_2)).when(metaStorageManager).recoveryFinishedFuture();
 
         schemaManager = new SchemaManager(registry, catalogService);
-        assertThat(schemaManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(schemaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         completeCausalityToken(CAUSALITY_TOKEN_2);
 

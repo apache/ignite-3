@@ -24,7 +24,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.concurrent.ForkJoinPool;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,7 +38,7 @@ public class VaultManagerTest {
 
     @BeforeEach
     void setUp() {
-        assertThat(vaultManager.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(vaultManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**
@@ -48,7 +48,7 @@ public class VaultManagerTest {
     void tearDown() {
         vaultManager.beforeNodeStop();
 
-        assertThat(vaultManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(vaultManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     /**

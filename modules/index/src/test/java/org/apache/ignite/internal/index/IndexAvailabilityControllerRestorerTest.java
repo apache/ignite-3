@@ -49,10 +49,10 @@ import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -94,7 +94,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
-        assertThat(startAsync(ForkJoinPool.commonPool(), metaStorageManager, catalogManager), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), metaStorageManager, catalogManager), willCompleteSuccessfully());
 
         deployWatches();
 
@@ -103,12 +103,14 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
     @AfterEach
     void tearDown() throws Exception {
+        ComponentContext componentContext = new ComponentContext();
+
         closeAll(
                 controller == null ? null : controller::close,
                 catalogManager == null ? null :
-                        () -> assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                        () -> assertThat(catalogManager.stopAsync(componentContext), willCompleteSuccessfully()),
                 metaStorageManager == null ? null :
-                        () -> assertThat(metaStorageManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
+                        () -> assertThat(metaStorageManager.stopAsync(componentContext), willCompleteSuccessfully())
         );
     }
 
@@ -194,11 +196,12 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
     private void stopAndRestartComponentsNoDeployWatches() throws Exception {
         awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
 
+        ComponentContext componentContext = new ComponentContext();
         closeAll(
                 catalogManager == null ? null :
-                        () -> assertThat(catalogManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully()),
+                        () -> assertThat(catalogManager.stopAsync(componentContext), willCompleteSuccessfully()),
                 metaStorageManager == null ? null :
-                        () -> assertThat(metaStorageManager.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
+                        () -> assertThat(metaStorageManager.stopAsync(componentContext), willCompleteSuccessfully())
         );
 
         keyValueStorage = new TestRocksDbKeyValueStorage(NODE_NAME, workDir);
@@ -207,7 +210,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         catalogManager = spy(createTestCatalogManager(NODE_NAME, clock, metaStorageManager));
 
-        assertThat(startAsync(ForkJoinPool.commonPool(), metaStorageManager, catalogManager), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), metaStorageManager, catalogManager), willCompleteSuccessfully());
     }
 
     private void deployWatches() throws Exception {

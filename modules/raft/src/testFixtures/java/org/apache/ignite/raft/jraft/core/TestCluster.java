@@ -38,7 +38,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -48,6 +47,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
@@ -274,7 +274,7 @@ public class TestCluster {
 
             var rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
 
-            assertThat(clusterService.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+            assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             if (optsClo != null)
                 optsClo.accept(nodeOptions);
@@ -291,7 +291,7 @@ public class TestCluster {
 
                     // Network service must be stopped after a node because raft initiates timeoutnowrequest on stop for faster
                     // leader election.
-                    assertThat(clusterService.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+                    assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
                 }
             };
 

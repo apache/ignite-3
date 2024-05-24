@@ -46,7 +46,6 @@ import static org.mockito.Mockito.mock;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -54,6 +53,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -152,7 +152,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             return nullCompletedFuture();
         });
 
-        assertThat(metastore.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+        assertThat(metastore.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
 
@@ -169,7 +169,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     void tearDown() throws Exception {
         closeAll(
                 placementDriver == null ? null : placementDriver::stopTrack,
-                metastore == null ? null : () -> assertThat(metastore.stopAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully())
+                metastore == null ? null : () -> assertThat(metastore.stopAsync(new ComponentContext()), willCompleteSuccessfully())
         );
     }
 

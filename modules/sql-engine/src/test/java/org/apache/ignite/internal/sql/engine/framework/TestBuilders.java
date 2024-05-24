@@ -41,7 +41,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Flow.Publisher;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -77,6 +76,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -649,7 +649,7 @@ public class TestBuilders {
             var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
 
             Runnable initClosure = () -> {
-                assertThat(clockWaiter.startAsync(ForkJoinPool.commonPool()), willCompleteSuccessfully());
+                assertThat(clockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
                 initAction(catalogManager);
             };

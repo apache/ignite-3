@@ -32,7 +32,6 @@ import java.lang.management.ThreadMXBean;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +39,7 @@ import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
 import org.apache.ignite.lang.IgniteException;
@@ -100,7 +100,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     }
 
     @Override
-    public CompletableFuture<Void> startAsync(ExecutorService startupExecutor) {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         long livenessCheckIntervalMs = configuration.livenessCheckInterval().value();
 
         livenessProbeTaskFuture = scheduler.scheduleAtFixedRate(
@@ -253,7 +253,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync(ExecutorService stopExecutor) {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         ScheduledFuture<?> taskFuture = livenessProbeTaskFuture;
         if (taskFuture != null) {
             taskFuture.cancel(false);
