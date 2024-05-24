@@ -497,16 +497,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
-     * Checks that RAFT-server endpoint with given identifier is started.
-     *
-     * @param raftNodeId RAFT-node's identifier.
-     * @return true if it is started and false otherwise.
-     */
-    public boolean isRaftStarted(RaftNodeId raftNodeId) {
-        return ((Loza) raftManager).isStarted(raftNodeId);
-    }
-
-    /**
      * Performs a {@code resetPeers} operation on raft node.
      *
      * @param raftNodeId Raft node ID.
@@ -619,7 +609,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             TablePartitionId replicaGrpId,
             PeersAndLearners newConfiguration) {
         // (2) if raft node already started => check force reset and jump to replica starting
-        if (isRaftStarted(raftNodeId)) {
+        if (isReplicaStarted(replicaGrpId)) {
             if (forcedAssignments != null) {
                 resetPeers(raftNodeId, forcedAssignments);
             }

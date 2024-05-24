@@ -1789,7 +1789,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         ClusterNode localMember = localNode();
         RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNode().name()));
 
-        boolean pendingAssignmentsAreForced = pendingAssignments.force();
+        boolean pendingAssignmentsAreForced = pendingAssignments != null && pendingAssignments.force();
         Set<Assignment> pendingAssignmentsNodes = pendingAssignments.nodes();
 
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
@@ -1853,7 +1853,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }), ioExecutor);
         } else {
             localServicesStartFuture = runAsync(() -> {
-                if (pendingAssignmentsAreForced && replicaMgr.isRaftStarted(raftNodeId)) {
+                if (pendingAssignmentsAreForced && replicaMgr.isReplicaStarted(replicaGrpId)) {
                     replicaMgr.resetPeers(raftNodeId, configurationFromAssignments(nonStableNodeAssignmentsFinal.nodes()));
                 }
             }, ioExecutor);
