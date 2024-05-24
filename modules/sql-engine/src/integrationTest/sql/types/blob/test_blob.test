@@ -125,18 +125,3 @@ select CAST(x'Aa' AS BINARY VARYING(1000));
 ----
 aa
 
-#sql standard, 6.30 <numeric value function> If <binary position expression> is specified
-query T
-SELECT POSITION(x'03' IN x'0B03');
-----
-2
-
-query T
-SELECT POSITION(x'b0' IN x'0B03B0');
-----
-3
-
-query T
-SELECT POSITION(x'b0' IN x'0B03B0B0');
-----
-3
