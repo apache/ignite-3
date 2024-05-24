@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -30,7 +29,7 @@ import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 /** Implementation of {@link SystemViewProvider} for the catalog. */
 public class CatalogSystemViewRegistry implements SystemViewProvider {
 
-    private final List<CatalogSystemViewProvider> providers = new ArrayList<>();
+    private final List<CatalogSystemViewProvider> providers;
 
     private final Supplier<Catalog> catalogSupplier;
 
@@ -38,9 +37,11 @@ public class CatalogSystemViewRegistry implements SystemViewProvider {
     public CatalogSystemViewRegistry(Supplier<Catalog> catalogSupplier) {
         this.catalogSupplier = catalogSupplier;
 
-        providers.add(new SystemViewViewProvider());
-        providers.add(new IndexSystemViewProvider());
-        providers.add(new ZonesSystemViewProvider());
+        providers = List.of(
+                new SystemViewViewProvider(),
+                new IndexSystemViewProvider(),
+                new ZonesSystemViewProvider()
+        );
     }
 
     /** {@inheritDoc} */
