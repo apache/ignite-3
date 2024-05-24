@@ -301,7 +301,7 @@ namespace Apache.Ignite.Internal.Table
             await DataStreamer.StreamDataAsync(
                 data,
                 _table,
-                writer: _ser,
+                writer: _ser.Handler,
                 options ?? DataStreamerOptions.Default,
                 cancellationToken).ConfigureAwait(false);
 

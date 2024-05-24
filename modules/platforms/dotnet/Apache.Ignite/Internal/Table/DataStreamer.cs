@@ -60,7 +60,7 @@ internal static class DataStreamer
     internal static async Task StreamDataAsync<T>(
         IAsyncEnumerable<DataStreamerItem<T>> data,
         Table table,
-        RecordSerializer<T> writer,
+        IRecordSerializerHandler<T> writer,
         DataStreamerOptions options,
         CancellationToken cancellationToken)
     {
@@ -179,7 +179,7 @@ internal static class DataStreamer
             Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
 
             var keyOnly = item.OperationType == DataStreamerOperationType.Remove;
-            writer.Handler.Write(ref tupleBuilder, item.Data, schema0, keyOnly: keyOnly, noValueSetRef);
+            writer.Write(ref tupleBuilder, item.Data, schema0, keyOnly: keyOnly, noValueSetRef);
 
             var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionCount);
             var batch = GetOrCreateBatch(partitionId);
@@ -427,7 +427,7 @@ internal static class DataStreamer
         int partitionId,
         Schema schema,
         ReadOnlySpan<DataStreamerItem<T>> items,
-        RecordSerializer<T> writer)
+        IRecordSerializerHandler<T> writer)
     {
         buf.Reset();
 
@@ -458,7 +458,7 @@ internal static class DataStreamer
         foreach (var item in items)
         {
             var remove = item.OperationType == DataStreamerOperationType.Remove;
-            writer.Handler.Write(ref w, schema, item.Data, keyOnly: remove, computeHash: false);
+            writer.Write(ref w, schema, item.Data, keyOnly: remove, computeHash: false);
         }
     }
 
