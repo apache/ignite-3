@@ -142,7 +142,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -883,10 +882,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 storageUpdateConfig
         );
 
-        Peer serverPeer = realConfiguration.peer(localNode().name());
-
-        var raftNodeId = localMemberAssignment == null ? null : new RaftNodeId(replicaGrpId, serverPeer);
-
         boolean shouldStartRaftListeners = shouldStartRaftListeners(assignments, nonStableNodeAssignments);
 
         if (shouldStartRaftListeners) {
@@ -929,6 +924,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     return falseCompletedFuture();
                 }
 
+                // (2) if replica already started => check force reset and finish the process
+                if (replicaMgr.isReplicaStarted(replicaGrpId)) {
+                    if (nonStableNodeAssignments != null && nonStableNodeAssignments.force()) {
+                        replicaMgr.resetPeers(replicaGrpId, configurationFromAssignments(nonStableNodeAssignments.nodes()));
+                    }
+                    return trueCompletedFuture();
+                }
+
+                // (3) Otherwise let's start replica manually
                 InternalTable internalTable = table.internalTable();
 
                 RaftGroupListener raftGroupListener = new PartitionListener(
@@ -971,11 +975,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         getCachedRaftClient,
                         updateTableRaftService,
                         createListener,
-                        nonStableNodeAssignments != null && nonStableNodeAssignments.force()
-                                ? configurationFromAssignments(nonStableNodeAssignments.nodes())
-                                : null,
                         zoneId,
-                        raftNodeId,
                         storageIndexTracker,
                         replicaGrpId,
                         newConfiguration);
@@ -1787,7 +1787,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             boolean isRecovery
     ) {
         ClusterNode localMember = localNode();
-        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNode().name()));
 
         boolean pendingAssignmentsAreForced = pendingAssignments != null && pendingAssignments.force();
         Set<Assignment> pendingAssignmentsNodes = pendingAssignments.nodes();
@@ -1854,7 +1853,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         } else {
             localServicesStartFuture = runAsync(() -> {
                 if (pendingAssignmentsAreForced && replicaMgr.isReplicaStarted(replicaGrpId)) {
-                    replicaMgr.resetPeers(raftNodeId, configurationFromAssignments(nonStableNodeAssignmentsFinal.nodes()));
+                    replicaMgr.resetPeers(replicaGrpId, configurationFromAssignments(nonStableNodeAssignmentsFinal.nodes()));
                 }
             }, ioExecutor);
         }
