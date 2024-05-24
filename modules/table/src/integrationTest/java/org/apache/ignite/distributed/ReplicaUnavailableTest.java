@@ -246,7 +246,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         });
 
                         replicaManager.startReplica(
-                                false,
                                 tablePartitionId,
                                 newConfiguration,
                                 () -> null,
@@ -367,7 +366,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                     ReplicaListener listener = replicaListenerCreator.apply((r, id) -> new CompletableFuture<>());
 
                     replicaManager.startReplica(
-                            false,
                             tablePartitionId,
                             newConfiguration,
                             () -> null,

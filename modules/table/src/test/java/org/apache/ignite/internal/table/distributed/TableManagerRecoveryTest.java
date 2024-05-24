@@ -276,7 +276,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
         when(replicaMgr.getLogSyncer()).thenReturn(mock(LogSyncer.class));
-        when(replicaMgr.startReplica(anyBoolean(), any(), any(), any(), any(), any(), any()))
+        when(replicaMgr.startReplica(any(), any(), any(), any(), any(), any()))
                 .thenReturn(nullCompletedFuture());
         // TODO: will be removed after https://issues.apache.org/jira/browse/IGNITE-22315
         when(replicaMgr.startRaftClient(any(), any(), any()))

@@ -618,49 +618,42 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TablePartitionId replicaGrpId,
             PeersAndLearners newConfiguration) {
+        // (2) if raft node already started => check force reset and jump to replica starting
         if (isRaftStarted(raftNodeId)) {
-            // (2) if raft node already started => check force reset and jump to replica starting
             if (forcedAssignments != null) {
                 resetPeers(raftNodeId, forcedAssignments);
             }
             return falseCompletedFuture();
-        } else {
-            // (3) Otherwise let's start raft node manually
-            try {
-                // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-                startPartitionRaftGroupNode(
-                        replicaGrpId,
-                        zoneId,
-                        raftNodeId,
-                        newConfiguration,
-                        raftGroupListener,
-                        metaStorageMgr,
-                        mvStorage,
-                        snapshotStorageFactory,
-                        partitionMover
-                );
-            } catch (NodeStoppingException ex) {
-                // Q: why not returning false there?
-                throw new CompletionException(ex);
-            }
-            // creating replica branch
-            // - localMemberAssignment == null looks like excessive condition because  in this case startGroupFut returns false (4)
-            // and then !isStartedRaftNode is true.
-            // - in this case isStartedRaftNode should be only true, then it's excessive too.
-            boolean shouldSkipReplicaStarting = isReplicaStarted(replicaGrpId);
+        }
+        // (3) Otherwise let's start raft node manually
+        try {
+            // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
+            startPartitionRaftGroupNode(
+                    replicaGrpId,
+                    zoneId,
+                    raftNodeId,
+                    newConfiguration,
+                    raftGroupListener,
+                    metaStorageMgr,
+                    mvStorage,
+                    snapshotStorageFactory,
+                    partitionMover
+            );
+        } catch (NodeStoppingException ex) {
+            // Q: why not returning false there?
+            throw new CompletionException(ex);
+        }
 
-            try {
-                return startReplica(
-                        false,
-                        replicaGrpId,
-                        newConfiguration,
-                        getCachedRaftClient,
-                        updateTableRaftService,
-                        createListener,
-                        storageIndexTracker);
-            } catch (NodeStoppingException ex) {
-                throw new AssertionError("Loza was stopped before Table manager", ex);
-            }
+        try {
+            return startReplica(
+                    replicaGrpId,
+                    newConfiguration,
+                    getCachedRaftClient,
+                    updateTableRaftService,
+                    createListener,
+                    storageIndexTracker);
+        } catch (NodeStoppingException ex) {
+            throw new AssertionError("Loza was stopped before Table manager", ex);
         }
     }
 
@@ -676,7 +669,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @throws ReplicaIsAlreadyStartedException Is thrown when a replica with the same replication group id has already been started.
      */
     public CompletableFuture<Boolean> startReplica(
-            boolean shouldSkipReplicaStarting,
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
             Supplier<RaftGroupService> getCachedRaftClient,
@@ -690,7 +682,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         try {
             return startRaftClientAndReplicaInternal(
-                    shouldSkipReplicaStarting,
                     replicaGrpId,
                     newConfiguration,
                     getCachedRaftClient,
@@ -765,7 +756,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param storageIndexTracker Storage index tracker.
      */
     private CompletableFuture<Boolean> startRaftClientAndReplicaInternal(
-            boolean shouldSkipReplicaStarting,
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration,
             Supplier<RaftGroupService> raftClientCache,
@@ -779,13 +769,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 replicaGrpId, newConfiguration, raftClientCache);
 
         CompletableFuture<Boolean> resultFuture = newRaftClientFut.thenAccept(updateTableRaftService)
-                .thenApply((v) -> shouldSkipReplicaStarting);
+                .thenApply((v) -> false);
 
-        // TODO: should be removed
-        if (shouldSkipReplicaStarting) {
-            return resultFuture;
-        }
-
+        // TODO: chain it all together
         CompletableFuture<ReplicaListener> newReplicaListenerFut = newRaftClientFut.thenApply(createListener);
 
         startReplica(replicaGrpId, storageIndexTracker, newReplicaListenerFut);

@@ -529,7 +529,6 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     };
 
                     return replicaManager.startReplica(
-                            false,
                             groupId,
                             newConfiguration,
                             () -> null, // TODO
