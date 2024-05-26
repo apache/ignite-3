@@ -58,6 +58,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -507,9 +508,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 snapshotStorageFactory);
 
 
-        PartitionMover partitionMover = new PartitionMover(busyLock, () -> replica(replicaGrpId)
-                .join()
-                .raftClient());
+        PartitionMover partitionMover = new PartitionMover(busyLock, () -> {
+            CompletableFuture<Replica> relicaFut = replica(replicaGrpId);
+            if (relicaFut != null) {
+                return relicaFut.join()
+                        .raftClient();
+            }
+            throw new IgniteInternalException("No such replica for partition " + replicaGrpId.partitionId()
+                    + " in table " + replicaGrpId.tableId());
+        });
 
         RaftGroupEventsListener raftGroupEventsListener = new RebalanceRaftGroupEventsListener(
                 metaStorageMgr,
