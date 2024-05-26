@@ -59,7 +59,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
 
     private final FilePageStoreManager filePageStoreManager;
 
-    private final PartitionMetaManager partitionMetaManager;
+    private final PartitionMetaManager<StoragePartitionMeta> partitionMetaManager;
 
     private final CheckpointManager checkpointManager;
 
@@ -146,7 +146,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     /**
      * Returns partition meta information manager.
      */
-    public PartitionMetaManager partitionMetaManager() {
+    public PartitionMetaManager<StoragePartitionMeta> partitionMetaManager() {
         return partitionMetaManager;
     }
 

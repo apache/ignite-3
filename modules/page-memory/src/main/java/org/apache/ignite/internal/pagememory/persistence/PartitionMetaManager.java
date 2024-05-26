@@ -36,14 +36,16 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Partition meta information manager.
  */
-public class PartitionMetaManager {
+public class PartitionMetaManager<T extends PartitionMeta<?>> {
     private static final IgniteLogger LOG = Loggers.forClass(PartitionMetaManager.class);
 
-    private final Map<GroupPartitionId, PartitionMeta> metas = new ConcurrentHashMap<>();
+    private final Map<GroupPartitionId, T> metas = new ConcurrentHashMap<>();
 
     private final PageIoRegistry ioRegistry;
 
     private final int pageSize;
+
+    private final PartitionMetaFactory<T> partitionMetaFactory;
 
     /**
      * Constructor.
@@ -51,9 +53,10 @@ public class PartitionMetaManager {
      * @param ioRegistry Page IO Registry.
      * @param pageSize Page size in bytes.
      */
-    public PartitionMetaManager(PageIoRegistry ioRegistry, int pageSize) {
+    public PartitionMetaManager(PageIoRegistry ioRegistry, int pageSize, PartitionMetaFactory<T> partitionMetaFactory) {
         this.ioRegistry = ioRegistry;
         this.pageSize = pageSize;
+        this.partitionMetaFactory = partitionMetaFactory;
     }
 
     /**
@@ -61,7 +64,7 @@ public class PartitionMetaManager {
      *
      * @param groupPartitionId Partition of the group.
      */
-    public @Nullable PartitionMeta getMeta(GroupPartitionId groupPartitionId) {
+    public @Nullable T getMeta(GroupPartitionId groupPartitionId) {
         return metas.get(groupPartitionId);
     }
 
@@ -71,12 +74,12 @@ public class PartitionMetaManager {
      * @param groupPartitionId Partition of the group.
      * @param partitionMeta Partition meta information.
      */
-    public void addMeta(GroupPartitionId groupPartitionId, PartitionMeta partitionMeta) {
+    public void addMeta(GroupPartitionId groupPartitionId, T partitionMeta) {
         metas.put(groupPartitionId, partitionMeta);
     }
 
     /**
-     * Reads the partition {@link PartitionMeta meta} from the partition file or creates a new one.
+     * Reads the partition {@link T meta} from the partition file or creates a new one.
      *
      * <p>If it creates a new one, it writes the meta to the file.</p>
      *
@@ -85,7 +88,7 @@ public class PartitionMetaManager {
      * @param filePageStore Partition file page store.
      * @param buffer Buffer for reading and writing pages.
      */
-    public PartitionMeta readOrCreateMeta(
+    public T readOrCreateMeta(
             @Nullable UUID checkpointId,
             GroupPartitionId groupPartitionId,
             FilePageStore filePageStore,
@@ -100,7 +103,7 @@ public class PartitionMetaManager {
             try {
                 filePageStore.readWithoutPageIdCheck(partitionMetaPageId, buffer, false);
 
-                return new PartitionMeta(checkpointId, ioRegistry.resolve(bufferAddr), bufferAddr);
+                return partitionMetaFactory.createPartitionMeta(checkpointId, ioRegistry.resolve(bufferAddr), bufferAddr);
             } catch (IgniteInternalDataIntegrityViolationException e) {
                 LOG.info(() -> "Error reading partition meta page, will be recreated: " + groupPartitionId, e);
             }
@@ -122,7 +125,7 @@ public class PartitionMetaManager {
 
         filePageStore.sync();
 
-        return new PartitionMeta(checkpointId, io, bufferAddr);
+        return partitionMetaFactory.createPartitionMeta(checkpointId, io, bufferAddr);
     }
 
     /**

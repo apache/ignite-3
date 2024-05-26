@@ -70,9 +70,9 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
-import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
@@ -355,11 +355,11 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 fullPageId(0, 0, 1), fullPageId(0, 0, 2), fullPageId(0, 0, 3)
         ));
 
-        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
+        PartitionMetaManager partitionMetaManager = new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, TestPartitionMeta.FACTORY);
 
         partitionMetaManager.addMeta(
                 new GroupPartitionId(0, 0),
-                new PartitionMeta(null, 0, 0, 0, 0, 0, 0, 0, 3, 0)
+                new TestPartitionMeta(null)
         );
 
         FilePageStore filePageStore = mock(FilePageStore.class);
@@ -407,7 +407,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 null,
                 mock(FailureProcessor.class),
                 createCheckpointWorkflow(dirtyPages),
-                createCheckpointPagesWriterFactory(new PartitionMetaManager(ioRegistry, PAGE_SIZE)),
+                createCheckpointPagesWriterFactory(new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, TestPartitionMeta.FACTORY)),
                 createFilePageStoreManager(Map.of()),
                 compactor,
                 checkpointConfig,

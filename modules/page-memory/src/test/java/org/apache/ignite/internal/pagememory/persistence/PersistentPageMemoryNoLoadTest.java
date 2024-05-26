@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgenc
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.NOT_REQUIRED;
 import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency.SHOULD_TRIGGER;
 import static org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory.PAGE_OVERHEAD;
+import static org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta.FACTORY;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SORTED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
@@ -137,7 +138,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
-        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
+        PartitionMetaManager<TestPartitionMeta> partitionMetaManager = new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, FACTORY);
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
@@ -199,7 +200,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
-        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
+        PartitionMetaManager<TestPartitionMeta> partitionMetaManager = new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, FACTORY);
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
@@ -289,7 +290,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = spy(createFilePageStoreManager(workDir));
 
-        PartitionMetaManager partitionMetaManager = new PartitionMetaManager(ioRegistry, PAGE_SIZE);
+        PartitionMetaManager<TestPartitionMeta> partitionMetaManager = new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, FACTORY);
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
@@ -353,7 +354,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     ) throws Exception {
         FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
-        PartitionMetaManager partitionMetaManager = spy(new PartitionMetaManager(ioRegistry, PAGE_SIZE));
+        PartitionMetaManager<TestPartitionMeta> partitionMetaManager = spy(new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, FACTORY));
 
         Collection<DataRegion<PersistentPageMemory>> dataRegions = new ArrayList<>();
 
@@ -521,7 +522,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
     private static void initGroupFilePageStores(
             FilePageStoreManager filePageStoreManager,
-            PartitionMetaManager partitionMetaManager,
+            PartitionMetaManager<TestPartitionMeta> partitionMetaManager,
             CheckpointManager checkpointManager
     ) throws Exception {
         int partitions = PARTITION_ID + 1;
@@ -542,7 +543,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
                 CheckpointProgress lastCheckpointProgress = checkpointManager.lastCheckpointProgress();
 
-                PartitionMeta partitionMeta = partitionMetaManager.readOrCreateMeta(
+                TestPartitionMeta partitionMeta = partitionMetaManager.readOrCreateMeta(
                         lastCheckpointProgress == null ? null : lastCheckpointProgress.id(),
                         groupPartitionId,
                         filePageStore,
