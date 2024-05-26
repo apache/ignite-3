@@ -493,7 +493,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupListener raftGroupListener,
             MvTableStorage mvTableStorage,
             SnapshotStorageFactory snapshotStorageFactory,
-            PartitionMover partitionMover,
             Consumer<RaftGroupService> updateTableRaftService,
             Function<RaftGroupService, ReplicaListener> createListener,
             int zoneId,
@@ -506,6 +505,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         RaftGroupOptions groupOptions = groupOptionsForPartition(
                 mvTableStorage,
                 snapshotStorageFactory);
+
+
+        PartitionMover partitionMover = new PartitionMover(busyLock, () -> replica(replicaGrpId)
+                .join()
+                .raftClient());
 
         RaftGroupEventsListener raftGroupEventsListener = new RebalanceRaftGroupEventsListener(
                 metaStorageMgr,
@@ -542,7 +546,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param raftGroupListener TODO.
      * @param mvTableStorage Multi-version table storage.
      * @param snapshotStorageFactory TODO.
-     * @param partitionMover TODO.
      * @param updateTableRaftService TODO.
      * @param createListener TODO.
      * @param zoneId Distribution zone ID.
@@ -556,7 +559,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupListener raftGroupListener,
             MvTableStorage mvTableStorage,
             SnapshotStorageFactory snapshotStorageFactory,
-            PartitionMover partitionMover,
             Consumer<RaftGroupService> updateTableRaftService,
             Function<RaftGroupService, ReplicaListener> createListener,
             int zoneId,
@@ -574,7 +576,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     raftGroupListener,
                     mvTableStorage,
                     snapshotStorageFactory,
-                    partitionMover,
                     updateTableRaftService,
                     createListener,
                     zoneId,

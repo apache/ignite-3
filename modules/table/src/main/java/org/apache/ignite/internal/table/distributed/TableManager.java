@@ -113,7 +113,6 @@ import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -962,11 +961,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         partitionUpdateHandlers,
                         raftClient);
 
-                PartitionMover partitionMover = new PartitionMover(busyLock, () -> table
-                        .internalTable()
-                        .tableRaftService()
-                        .partitionRaftGroupService(replicaGrpId.partitionId()));
-
                 MvTableStorage mvTableStorage = internalTable.storage();
 
                 try {
@@ -975,7 +969,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             raftGroupListener,
                             mvTableStorage,
                             snapshotStorageFactory,
-                            partitionMover,
                             updateTableRaftService,
                             createListener,
                             zoneId,
