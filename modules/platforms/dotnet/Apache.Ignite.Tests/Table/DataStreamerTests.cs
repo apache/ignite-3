@@ -258,7 +258,7 @@ public class DataStreamerTests : IgniteTestsBase
     {
         var data = Enumerable.Range(0, Count).ToList();
 
-        await Table.RecordBinaryView.StreamDataAsync<int, string>(
+        await TupleView.StreamDataAsync<int, string>(
             data.ToAsyncEnumerable(),
             DataStreamerOptions.Default,
             keySelector: x => GetTuple(x),
@@ -266,6 +266,8 @@ public class DataStreamerTests : IgniteTestsBase
             units: Array.Empty<DeploymentUnit>(),
             receiverClassName: TestReceiverClassName,
             receiverArgs: new object[] { Table.Name, "arg1", 22 });
+
+
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)

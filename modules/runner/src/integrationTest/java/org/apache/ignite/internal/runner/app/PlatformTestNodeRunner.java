@@ -794,8 +794,8 @@ public class PlatformTestNodeRunner {
                 String[] parts = s.split("-", 2);
 
                 Tuple rec = Tuple.create()
-                        .set("id", Integer.parseInt(parts[0]))
-                        .set("name", parts[1] + "_" + arg1 + "_" + arg2);
+                        .set("key", Long.parseLong(parts[0]))
+                        .set("val", parts[1] + "_" + arg1 + "_" + arg2);
 
                 recordView.upsert(null, rec);
             }
