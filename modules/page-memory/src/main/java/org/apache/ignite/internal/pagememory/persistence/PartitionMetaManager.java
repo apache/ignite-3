@@ -37,16 +37,16 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Partition meta information manager.
  */
-public class PartitionMetaManager<T extends PartitionMeta<?, I>, I extends PartitionMetaIo> {
+public class PartitionMetaManager<M extends PartitionMeta<?, I>, I extends PartitionMetaIo> {
     private static final IgniteLogger LOG = Loggers.forClass(PartitionMetaManager.class);
 
-    private final Map<GroupPartitionId, T> metas = new ConcurrentHashMap<>();
+    private final Map<GroupPartitionId, M> metas = new ConcurrentHashMap<>();
 
     private final PageIoRegistry ioRegistry;
 
     private final int pageSize;
 
-    private final PartitionMetaFactory<T, I> partitionMetaFactory;
+    private final PartitionMetaFactory<M, I> partitionMetaFactory;
 
     private final IoVersions<I> versions;
 
@@ -61,7 +61,7 @@ public class PartitionMetaManager<T extends PartitionMeta<?, I>, I extends Parti
     public PartitionMetaManager(
             PageIoRegistry ioRegistry,
             int pageSize,
-            PartitionMetaFactory<T, I> partitionMetaFactory,
+            PartitionMetaFactory<M, I> partitionMetaFactory,
             IoVersions<I> versions
     ) {
         this.ioRegistry = ioRegistry;
@@ -75,7 +75,7 @@ public class PartitionMetaManager<T extends PartitionMeta<?, I>, I extends Parti
      *
      * @param groupPartitionId Partition of the group.
      */
-    public @Nullable T getMeta(GroupPartitionId groupPartitionId) {
+    public @Nullable M getMeta(GroupPartitionId groupPartitionId) {
         return metas.get(groupPartitionId);
     }
 
@@ -85,12 +85,12 @@ public class PartitionMetaManager<T extends PartitionMeta<?, I>, I extends Parti
      * @param groupPartitionId Partition of the group.
      * @param partitionMeta Partition meta information.
      */
-    public void addMeta(GroupPartitionId groupPartitionId, T partitionMeta) {
+    public void addMeta(GroupPartitionId groupPartitionId, M partitionMeta) {
         metas.put(groupPartitionId, partitionMeta);
     }
 
     /**
-     * Reads the partition {@link T meta} from the partition file or creates a new one.
+     * Reads the partition {@link M meta} from the partition file or creates a new one.
      *
      * <p>If it creates a new one, it writes the meta to the file.</p>
      *
@@ -99,7 +99,7 @@ public class PartitionMetaManager<T extends PartitionMeta<?, I>, I extends Parti
      * @param filePageStore Partition file page store.
      * @param buffer Buffer for reading and writing pages.
      */
-    public T readOrCreateMeta(
+    public M readOrCreateMeta(
             @Nullable UUID checkpointId,
             GroupPartitionId groupPartitionId,
             FilePageStore filePageStore,

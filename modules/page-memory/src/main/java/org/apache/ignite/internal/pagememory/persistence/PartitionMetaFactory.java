@@ -25,6 +25,6 @@ import org.jetbrains.annotations.Nullable;
  * Factory for creating {@link PartitionMeta} instances.
  */
 @FunctionalInterface
-public interface PartitionMetaFactory<T extends PartitionMeta<?, I>, I extends PartitionMetaIo> {
-    T createPartitionMeta(@Nullable UUID checkpointId, I metaIo, long pageAddr);
+public interface PartitionMetaFactory<M extends PartitionMeta<?, I>, I extends PartitionMetaIo> {
+    M createPartitionMeta(@Nullable UUID checkpointId, I metaIo, long pageAddr);
 }

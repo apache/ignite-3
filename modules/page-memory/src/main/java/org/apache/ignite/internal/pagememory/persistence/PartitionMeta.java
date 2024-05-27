@@ -88,14 +88,14 @@ public abstract class PartitionMeta<S extends PartitionMetaSnapshot<I>, I extend
     /**
      * An immutable snapshot of the partition's meta information.
      */
-    public interface PartitionMetaSnapshot<T extends PartitionMetaIo> {
+    public interface PartitionMetaSnapshot<I extends PartitionMetaIo> {
         /**
          * Writes the contents of the snapshot to a page of type {@link PartitionMetaIo}.
          *
          * @param metaIo Partition meta IO.
          * @param pageAddr Address of the page with the partition meta.
          */
-        void writeTo(T metaIo, long pageAddr);
+        void writeTo(I metaIo, long pageAddr);
 
         /**
          * Returns the checkpoint ID.
