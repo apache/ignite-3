@@ -37,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Partition meta information manager.
  */
-public class PartitionMetaManager<M extends PartitionMeta<?, I>, I extends PartitionMetaIo> {
+public class PartitionMetaManager<M extends PartitionMeta<? extends PartitionMetaSnapshot<I>>, I extends PartitionMetaIo> {
     private static final IgniteLogger LOG = Loggers.forClass(PartitionMetaManager.class);
 
     private final Map<GroupPartitionId, M> metas = new ConcurrentHashMap<>();

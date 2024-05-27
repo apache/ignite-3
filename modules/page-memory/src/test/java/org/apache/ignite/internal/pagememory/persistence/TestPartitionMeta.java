@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.persistence;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta.TestPartitionMetaIo;
 import org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta.TestPartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.jetbrains.annotations.Nullable;
@@ -28,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Simple implementation of {@link PartitionMeta} for testing purposes.
  */
-public class TestPartitionMeta extends PartitionMeta<TestPartitionMetaSnapshot, TestPartitionMetaIo> {
+public class TestPartitionMeta extends PartitionMeta<TestPartitionMetaSnapshot> {
 
     public static final PartitionMetaFactory<TestPartitionMeta, TestPartitionMetaIo> FACTORY =
             (checkpointId, metaIo, pageAddr) -> new TestPartitionMeta(checkpointId);

@@ -30,7 +30,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Storage partition meta information.
  */
-public class StoragePartitionMeta extends PartitionMeta<StoragePartitionMetaSnapshot, StoragePartitionMetaIo> {
+public class StoragePartitionMeta extends PartitionMeta<StoragePartitionMetaSnapshot> {
     public static final PartitionMetaFactory<StoragePartitionMeta, StoragePartitionMetaIo> FACTORY =
             StoragePartitionMeta::new;
 

@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Partition meta information.
  */
-public abstract class PartitionMeta<S extends PartitionMetaSnapshot<I>, I extends PartitionMetaIo> {
+public abstract class PartitionMeta<S extends PartitionMetaSnapshot<?>> {
 
     private static final VarHandle META_SNAPSHOT;
 
