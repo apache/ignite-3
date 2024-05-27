@@ -267,7 +267,13 @@ public class DataStreamerTests : IgniteTestsBase
             receiverClassName: TestReceiverClassName,
             receiverArgs: new object[] { Table.Name, "arg1", 22 });
 
+        for (int i = 0; i < Count; i++)
+        {
+            var res = await TupleView.GetAsync(null, GetTuple(i));
 
+            Assert.IsTrue(res.HasValue);
+            Assert.AreEqual($"value{i * 10}_arg1_22", res.Value[ValCol]);
+        }
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
