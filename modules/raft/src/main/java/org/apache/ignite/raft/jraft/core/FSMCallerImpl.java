@@ -232,9 +232,9 @@ public class FSMCallerImpl implements FSMCaller {
     @Override
     public boolean onCommitted(final long committedIndex) {
         return enqueueTask((task, sequence) -> {
-            task.reset();
-
             task.nodeId = this.nodeId;
+            task.handler = null;
+            task.evtType = DisruptorEventType.REGULAR;
             task.type = TaskType.COMMITTED;
             task.committedIndex = committedIndex;
         });
