@@ -307,16 +307,21 @@ namespace Apache.Ignite.Internal.Table
 
         /// <inheritdoc/>
         public IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
-            IAsyncEnumerable<DataStreamerItem<T>> data,
+            IAsyncEnumerable<TSource> data,
             DataStreamerOptions? options,
             Func<TSource, T> keySelector,
             Func<TSource, TPayload> payloadSelector,
             IEnumerable<DeploymentUnit> units,
             string receiverClassName,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotImplementedException();
-        }
+            CancellationToken cancellationToken = default) =>
+            DataStreamerWithReceiver.StreamDataAsync<TSource, T, TPayload, TResult>(
+                data,
+                _table,
+                keySelector,
+                payloadSelector,
+                keyWriter: _ser.Handler,
+                options ?? DataStreamerOptions.Default,
+                cancellationToken);
 
         /// <inheritdoc/>
         public override string ToString() =>

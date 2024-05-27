@@ -83,7 +83,7 @@ public interface IDataStreamerTarget<T>
     /// <typeparam name="TPayload">Payload type.</typeparam>
     /// <typeparam name="TResult">Result type.</typeparam>
     IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TResult>(
-        IAsyncEnumerable<DataStreamerItem<T>> data,
+        IAsyncEnumerable<TSource> data,
         DataStreamerOptions? options,
         Func<TSource, T> keySelector,
         Func<TSource, TPayload> payloadSelector,
