@@ -17,8 +17,25 @@
 
 package org.apache.ignite.internal.rest;
 
+import io.micronaut.context.event.BeanDestroyedEvent;
+import io.micronaut.context.event.BeanDestroyedEventListener;
+import jakarta.inject.Singleton;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+
 /**
- * Factory that produces all beans that is necessary for the controller class.
+ * Cleans up resources of destroyed beans.
  */
-public interface RestFactory extends ResourceHolder {
+@Singleton
+public class ResourceCleaner implements BeanDestroyedEventListener<ResourceHolder> {
+    private static final IgniteLogger LOG = Loggers.forClass(ResourceCleaner.class);
+
+    @Override
+    public void onDestroyed(BeanDestroyedEvent<ResourceHolder> event) {
+        ResourceHolder bean = event.getBean();
+        if (bean != null) {
+            LOG.debug("Cleaning bean {}", bean);
+            bean.cleanResources();
+        }
+    }
 }
