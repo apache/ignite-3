@@ -65,7 +65,8 @@ import org.apache.ignite.raft.jraft.closure.SynchronizedClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
-import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
+import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType
+;import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.Ballot;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -259,22 +260,16 @@ public class NodeImpl implements Node, RaftServerService {
     /**
      * Node service event.
      */
-    public static class LogEntryAndClosure implements NodeIdAware {
-        /** Raft node id. */
-        NodeId nodeId;
-
+    public static class LogEntryAndClosure extends NodeIdAware {
         LogEntry entry;
         Closure done;
         long expectedTerm;
         CountDownLatch shutdownLatch;
 
         @Override
-        public NodeId nodeId() {
-            return nodeId;
-        }
-
         public void reset() {
-            this.nodeId = null;
+            super.reset();
+
             this.entry = null;
             this.done = null;
             this.expectedTerm = 0;
@@ -1849,6 +1844,7 @@ public class NodeImpl implements Node, RaftServerService {
 
         final EventTranslator<LogEntryAndClosure> translator = (event, sequence) -> {
             event.reset();
+
             event.nodeId = getNodeId();
             event.done = task.getDone();
             event.entry = entry;
@@ -3128,6 +3124,8 @@ public class NodeImpl implements Node, RaftServerService {
                     Utils.runInThread(this.getOptions().getCommonExecutor(),
                         () -> this.applyQueue.publishEvent((event, sequence) -> {
                             event.nodeId = getNodeId();
+                            event.handler = null;
+                            event.evtType = DisruptorEventType.REGULAR;
                             event.shutdownLatch = latch;
                         }));
                 }
