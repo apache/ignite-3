@@ -116,6 +116,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -752,10 +753,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         node.metaStorageManager.put(partAssignmentsPendingKey, bytesPendingAssignments).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
 
+        var union = Set.of(new Peer(newNodeNameForAssignment), new Peer(assignmentsBeforeRebalance));
+
         // Check that raft clients on all nodes were updated with the new list of peers.
         assertTrue(waitForCondition(
-                () -> nodes.stream().allMatch(n ->
-                        n.tableManager
+                () -> nodes.stream().filter(n -> union
+                                .stream()
+                                .map(Peer::consistentId)
+                                .anyMatch(id -> id.equals(n.clusterService.nodeName())))
+                        .allMatch(n -> n.tableManager
                                 .startedTables()
                                 .get(getTableId(node, TABLE_NAME))
                                 .internalTable()
@@ -764,7 +770,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                                 .peers()
                                 .stream()
                                 .collect(toSet())
-                                .equals(Set.of(new Peer(newNodeNameForAssignment), new Peer(assignmentsBeforeRebalance)))),
+                                .equals(union)),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
