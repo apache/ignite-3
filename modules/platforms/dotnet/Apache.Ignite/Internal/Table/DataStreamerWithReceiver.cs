@@ -35,6 +35,7 @@ using Ignite.Sql;
 using Ignite.Table;
 using Proto;
 using Proto.BinaryTuple;
+using Proto.MsgPack;
 using Serialization;
 
 /// <summary>
@@ -244,7 +245,7 @@ internal static class DataStreamerWithReceiver
             // Release the thread that holds the batch lock.
             await Task.Yield();
 
-            var buf = new PooledArrayBuffer();
+            var buf = ProtoCommon.GetMessageWriter();
 
             try
             {
@@ -312,11 +313,11 @@ internal static class DataStreamerWithReceiver
             Compute.WriteUnits(units0, buf);
 
             w.Write(expectResults);
-            WriteReceiverPayload(buf, receiverClassName, receiverArgs ?? Array.Empty<object>(), items, count);
+            WriteReceiverPayload(ref w, receiverClassName, receiverArgs ?? Array.Empty<object>(), items, count);
         }
     }
 
-    private static void WriteReceiverPayload<T>(PooledArrayBuffer buf, string className, object[] args, T[] items, int count)
+    private static void WriteReceiverPayload<T>(ref MsgPackWriter w, string className, object[] args, T[] items, int count)
     {
         Debug.Assert(items.Length > 0, "items.Length > 0");
         Debug.Assert(count > 0, "count > 0");
@@ -346,7 +347,6 @@ internal static class DataStreamerWithReceiver
             builder.AppendString((string)(object)item);
         }
 
-        var w = buf.MessageWriter;
         w.Write(binaryTupleSize);
         w.Write(builder.Build().Span);
     }
