@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Partition meta information.
  */
-public abstract class PartitionMeta<S extends PartitionMetaSnapshot> {
+public abstract class PartitionMeta<S extends PartitionMetaSnapshot<I>, I extends PartitionMetaIo> {
 
     private static final VarHandle META_SNAPSHOT;
 
@@ -88,14 +88,14 @@ public abstract class PartitionMeta<S extends PartitionMetaSnapshot> {
     /**
      * An immutable snapshot of the partition's meta information.
      */
-    public interface PartitionMetaSnapshot {
+    public interface PartitionMetaSnapshot<T extends PartitionMetaIo> {
         /**
          * Writes the contents of the snapshot to a page of type {@link PartitionMetaIo}.
          *
          * @param metaIo Partition meta IO.
          * @param pageAddr Address of the page with the partition meta.
          */
-        void writeTo(PartitionMetaIo metaIo, long pageAddr);
+        void writeTo(T metaIo, long pageAddr);
 
         /**
          * Returns the checkpoint ID.

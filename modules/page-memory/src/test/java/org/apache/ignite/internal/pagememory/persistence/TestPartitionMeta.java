@@ -19,6 +19,8 @@ package org.apache.ignite.internal.pagememory.persistence;
 
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.pagememory.io.IoVersions;
+import org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta.TestPartitionMetaIo;
 import org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta.TestPartitionMetaSnapshot;
 import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.jetbrains.annotations.Nullable;
@@ -26,9 +28,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Simple implementation of {@link PartitionMeta} for testing purposes.
  */
-public class TestPartitionMeta extends PartitionMeta<TestPartitionMetaSnapshot> {
+public class TestPartitionMeta extends PartitionMeta<TestPartitionMetaSnapshot, TestPartitionMetaIo> {
 
-    public static final PartitionMetaFactory<TestPartitionMeta> FACTORY =
+    public static final PartitionMetaFactory<TestPartitionMeta, TestPartitionMetaIo> FACTORY =
             (checkpointId, metaIo, pageAddr) -> new TestPartitionMeta(checkpointId);
 
     private final AtomicInteger pageCount = new AtomicInteger(0);
@@ -58,7 +60,7 @@ public class TestPartitionMeta extends PartitionMeta<TestPartitionMetaSnapshot> 
     /**
      * Simple implementation of {@link PartitionMetaSnapshot} for testing purposes.
      */
-    public static class TestPartitionMetaSnapshot implements PartitionMetaSnapshot {
+    public static class TestPartitionMetaSnapshot implements PartitionMetaSnapshot<TestPartitionMetaIo> {
         private final UUID checkpointId;
 
         public TestPartitionMetaSnapshot(UUID checkpointId) {
@@ -66,12 +68,26 @@ public class TestPartitionMeta extends PartitionMeta<TestPartitionMetaSnapshot> 
         }
 
         @Override
-        public void writeTo(PartitionMetaIo metaIo, long pageAddr) {
+        public void writeTo(TestPartitionMetaIo metaIo, long pageAddr) {
         }
 
         @Override
         public @Nullable UUID checkpointId() {
             return checkpointId;
+        }
+    }
+
+    public static class TestPartitionMetaIo extends PartitionMetaIo {
+        /** I/O versions. */
+        public static final IoVersions<TestPartitionMetaIo> VERSIONS = new IoVersions<>(new TestPartitionMetaIo(1));
+
+        /**
+         * Constructor.
+         *
+         * @param ver Page format version.
+         */
+        protected TestPartitionMetaIo(int ver) {
+            super(ver, 0);
         }
     }
 }

@@ -19,50 +19,28 @@ package org.apache.ignite.internal.pagememory.persistence.io;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
-import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 
 /**
- * Io for partition metadata pages.
+ * base Io for partition metadata pages.
  */
-public class PartitionMetaIo extends PageIo {
-    private static final int LAST_APPLIED_INDEX_OFF = COMMON_HEADER_END;
-
-    private static final int LAST_APPLIED_TERM_OFF = LAST_APPLIED_INDEX_OFF + Long.BYTES;
-
-    private static final int LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF = LAST_APPLIED_TERM_OFF + Long.BYTES;
-
-    private static final int FREE_LIST_ROOT_PAGE_ID_OFF = LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF + Long.BYTES;
-
-    private static final int VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF = FREE_LIST_ROOT_PAGE_ID_OFF + Long.BYTES;
-
-    public static final int INDEX_TREE_META_PAGE_ID_OFF = VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF + Long.BYTES;
-
-    private static final int GC_QUEUE_META_PAGE_ID_OFF = INDEX_TREE_META_PAGE_ID_OFF + Long.BYTES;
-
-    private static final int PAGE_COUNT_OFF = GC_QUEUE_META_PAGE_ID_OFF + Long.BYTES;
-
-    private static final int LEASE_START_TIME_OFF = PAGE_COUNT_OFF + Integer.BYTES;
-
+public abstract class PartitionMetaIo extends PageIo {
     /** Page IO type. */
     public static final short T_TABLE_PARTITION_META_IO = 7;
 
-    /** I/O versions. */
-    public static final IoVersions<PartitionMetaIo> VERSIONS = new IoVersions<>(new PartitionMetaIo(1));
+    private final int getPageCountOff;
 
     /**
      * Constructor.
      *
      * @param ver Page format version.
      */
-    protected PartitionMetaIo(int ver) {
+    protected PartitionMetaIo(int ver, int getPageCountOff) {
         super(T_TABLE_PARTITION_META_IO, ver, FLAG_AUX);
+        this.getPageCountOff = getPageCountOff;
     }
 
     /** {@inheritDoc} */
@@ -70,162 +48,7 @@ public class PartitionMetaIo extends PageIo {
     public void initNewPage(long pageAddr, long pageId, int pageSize) {
         super.initNewPage(pageAddr, pageId, pageSize);
 
-        setLastAppliedIndex(pageAddr, 0);
-        setLastAppliedTerm(pageAddr, 0);
-        setLastReplicationProtocolGroupConfigFirstPageId(pageAddr, 0);
-        setFreeListRootPageId(pageAddr, 0);
-        setVersionChainTreeRootPageId(pageAddr, 0);
-        setIndexTreeMetaPageId(pageAddr, 0);
-        setGcQueueMetaPageId(pageAddr, 0);
         setPageCount(pageAddr, 0);
-        setLeaseStartTime(pageAddr, HybridTimestamp.MIN_VALUE.longValue());
-    }
-
-    /**
-     * Sets a last applied index value.
-     *
-     * @param pageAddr Page address.
-     * @param lastAppliedIndex Last applied index value.
-     */
-    public void setLastAppliedIndex(long pageAddr, long lastAppliedIndex) {
-        assertPageType(pageAddr);
-
-        putLong(pageAddr, LAST_APPLIED_INDEX_OFF, lastAppliedIndex);
-    }
-
-    /**
-     * Sets a last applied term value.
-     *
-     * @param pageAddr Page address.
-     * @param lastAppliedTerm Last applied term value.
-     */
-    public void setLastAppliedTerm(long pageAddr, long lastAppliedTerm) {
-        assertPageType(pageAddr);
-
-        putLong(pageAddr, LAST_APPLIED_TERM_OFF, lastAppliedTerm);
-    }
-
-    /**
-     * Sets ID of the first page in a chain storing a blob representing last replication protocol group config.
-     *
-     * @param pageAddr Page address.
-     * @param pageId Page ID.
-     */
-    public void setLastReplicationProtocolGroupConfigFirstPageId(long pageAddr, long pageId) {
-        assertPageType(pageAddr);
-
-        putLong(pageAddr, LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF, pageId);
-    }
-
-    /**
-     * Returns a last applied index value.
-     *
-     * @param pageAddr Page address.
-     */
-    public long getLastAppliedIndex(long pageAddr) {
-        return getLong(pageAddr, LAST_APPLIED_INDEX_OFF);
-    }
-
-    /**
-     * Returns a last applied term value.
-     *
-     * @param pageAddr Page address.
-     */
-    public long getLastAppliedTerm(long pageAddr) {
-        return getLong(pageAddr, LAST_APPLIED_TERM_OFF);
-    }
-
-    /**
-     * Returns ID of the first page in a chain storing a blob representing last replication protocol group config.
-     *
-     * @param pageAddr Page address.
-     */
-    public long getLastReplicationProtocolGroupConfigFirstPageId(long pageAddr) {
-        return getLong(pageAddr, LAST_REPLICATION_PROTOCOL_GROUP_CONFIG_FIRST_PAGE_ID_OFF);
-    }
-
-    /**
-     * Sets free list root page ID.
-     *
-     * @param pageAddr Page address.
-     * @param pageId Free list root page ID.
-     */
-    public void setFreeListRootPageId(long pageAddr, long pageId) {
-        assertPageType(pageAddr);
-
-        putLong(pageAddr, FREE_LIST_ROOT_PAGE_ID_OFF, pageId);
-    }
-
-    /**
-     * Returns free list root page ID.
-     *
-     * @param pageAddr Page address.
-     */
-    public static long getFreeListRootPageId(long pageAddr) {
-        return getLong(pageAddr, FREE_LIST_ROOT_PAGE_ID_OFF);
-    }
-
-    /**
-     * Sets version chain tree root page ID.
-     *
-     * @param pageAddr Page address.
-     * @param pageId Version chain tree root page ID.
-     */
-    public void setVersionChainTreeRootPageId(long pageAddr, long pageId) {
-        assertPageType(pageAddr);
-
-        putLong(pageAddr, VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF, pageId);
-    }
-
-    /**
-     * Returns version chain tree root page ID.
-     *
-     * @param pageAddr Page address.
-     */
-    public long getVersionChainTreeRootPageId(long pageAddr) {
-        return getLong(pageAddr, VERSION_CHAIN_TREE_ROOT_PAGE_ID_OFF);
-    }
-
-    /**
-     * Sets an index meta tree meta page id.
-     *
-     * @param pageAddr Page address.
-     * @param pageId Meta page id.
-     */
-    public void setIndexTreeMetaPageId(long pageAddr, long pageId) {
-        assertPageType(pageAddr);
-
-        putLong(pageAddr, INDEX_TREE_META_PAGE_ID_OFF, pageId);
-    }
-
-    /**
-     * Returns an index meta tree meta page id.
-     *
-     * @param pageAddr Page address.
-     */
-    public long getIndexTreeMetaPageId(long pageAddr) {
-        return getLong(pageAddr, INDEX_TREE_META_PAGE_ID_OFF);
-    }
-
-    /**
-     * Sets a garbage collection queue meta page id.
-     *
-     * @param pageAddr Page address.
-     * @param pageId Meta page id.
-     */
-    public void setGcQueueMetaPageId(long pageAddr, long pageId) {
-        assertPageType(pageAddr);
-
-        putLong(pageAddr, GC_QUEUE_META_PAGE_ID_OFF, pageId);
-    }
-
-    /**
-     * Returns an garbage collection queue meta page id.
-     *
-     * @param pageAddr Page address.
-     */
-    public long getGcQueueMetaPageId(long pageAddr) {
-        return getLong(pageAddr, GC_QUEUE_META_PAGE_ID_OFF);
     }
 
     /**
@@ -237,7 +60,7 @@ public class PartitionMetaIo extends PageIo {
     public void setPageCount(long pageAddr, int pageCount) {
         assertPageType(pageAddr);
 
-        putInt(pageAddr, PAGE_COUNT_OFF, pageCount);
+        putInt(pageAddr, getPageCountOff, pageCount);
     }
 
     /**
@@ -246,44 +69,14 @@ public class PartitionMetaIo extends PageIo {
      * @param pageAddr Page address.
      */
     public int getPageCount(long pageAddr) {
-        return getInt(pageAddr, PAGE_COUNT_OFF);
-    }
-
-    /**
-     * Sets the lease start time.
-     *
-     * @param pageAddr Page address.
-     * @param leaseStartTime Lease start time.
-     */
-    public void setLeaseStartTime(long pageAddr, long leaseStartTime) {
-        assertPageType(pageAddr);
-
-        putLong(pageAddr, LEASE_START_TIME_OFF, leaseStartTime);
-    }
-
-    /**
-     * Returns the lease start time.
-     *
-     * @param pageAddr Page address.
-     * @return Lease start time.
-     */
-    public long getLeaseStartTime(long pageAddr) {
-        return getLong(pageAddr, LEASE_START_TIME_OFF);
+        return getInt(pageAddr, getPageCountOff);
     }
 
     /** {@inheritDoc} */
     @Override
     protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
         sb.app("TablePartitionMeta [").nl()
-                .app("lastAppliedIndex=").app(getLastAppliedIndex(addr)).nl()
-                .app("lastAppliedTerm=").app(getLastAppliedTerm(addr)).nl()
-                .app("lastReplicationProtocolGroupConfigFirstPageId=").app(getLastReplicationProtocolGroupConfigFirstPageId(addr)).nl()
-                .app("freeListRootPageId=").appendHex(getFreeListRootPageId(addr)).nl()
-                .app("versionChainTreeRootPageId=").appendHex(getVersionChainTreeRootPageId(addr)).nl()
-                .app("indexTreeMetaPageId=").appendHex(getIndexTreeMetaPageId(addr)).nl()
-                .app("gcQueueMetaPageId=").appendHex(getGcQueueMetaPageId(addr)).nl()
                 .app("pageCount=").app(getPageCount(addr)).nl()
-                .app("leaseStartTime=").app(getLeaseStartTime(addr)).nl()
                 .app(']');
     }
 }

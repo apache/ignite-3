@@ -15,16 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.storage.pagememory;
 
-import java.util.UUID;
-import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
-import org.jetbrains.annotations.Nullable;
+import com.google.auto.service.AutoService;
+import java.util.Collection;
+import java.util.List;
+import org.apache.ignite.internal.pagememory.io.IoVersions;
+import org.apache.ignite.internal.pagememory.io.PageIoModule;
 
 /**
- * Factory for creating {@link PartitionMeta} instances.
+ * {@link PageIoModule} implementation in storage-page-memory module.
  */
-@FunctionalInterface
-public interface PartitionMetaFactory<T extends PartitionMeta<?, I>, I extends PartitionMetaIo> {
-    T createPartitionMeta(@Nullable UUID checkpointId, I metaIo, long pageAddr);
+@AutoService(PageIoModule.class)
+public class StorageMemoryIoModule implements PageIoModule {
+    /** {@inheritDoc} */
+    @Override
+    public Collection<IoVersions<?>> ioVersions() {
+        return List.of(StoragePartitionMetaIo.VERSIONS);
+    }
 }

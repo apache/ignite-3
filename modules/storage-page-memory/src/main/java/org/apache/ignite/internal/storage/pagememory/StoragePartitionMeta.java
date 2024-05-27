@@ -22,17 +22,17 @@ import java.lang.invoke.VarHandle;
 import java.util.UUID;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMeta;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaFactory;
-import org.apache.ignite.internal.pagememory.persistence.io.PartitionMetaIo;
 import org.apache.ignite.internal.storage.pagememory.StoragePartitionMeta.StoragePartitionMetaSnapshot;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Partition meta information.
+ * Storage partition meta information.
  */
-public class StoragePartitionMeta extends PartitionMeta<StoragePartitionMetaSnapshot> {
-    public static final PartitionMetaFactory<StoragePartitionMeta> FACTORY = StoragePartitionMeta::new;
+public class StoragePartitionMeta extends PartitionMeta<StoragePartitionMetaSnapshot, StoragePartitionMetaIo> {
+    public static final PartitionMetaFactory<StoragePartitionMeta, StoragePartitionMetaIo> FACTORY =
+            StoragePartitionMeta::new;
 
     private static final VarHandle PAGE_COUNT;
 
@@ -111,13 +111,13 @@ public class StoragePartitionMeta extends PartitionMeta<StoragePartitionMetaSnap
      * @param metaIo Partition meta IO.
      * @param pageAddr Address of the page with the partition meta.
      */
-    StoragePartitionMeta(@Nullable UUID checkpointId, PartitionMetaIo metaIo, long pageAddr) {
+    StoragePartitionMeta(@Nullable UUID checkpointId, StoragePartitionMetaIo metaIo, long pageAddr) {
         this(
                 checkpointId,
                 metaIo.getLastAppliedIndex(pageAddr),
                 metaIo.getLastAppliedTerm(pageAddr),
                 metaIo.getLastReplicationProtocolGroupConfigFirstPageId(pageAddr),
-                PartitionMetaIo.getFreeListRootPageId(pageAddr),
+                StoragePartitionMetaIo.getFreeListRootPageId(pageAddr),
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
                 metaIo.getIndexTreeMetaPageId(pageAddr),
                 metaIo.getGcQueueMetaPageId(pageAddr),
@@ -303,7 +303,7 @@ public class StoragePartitionMeta extends PartitionMeta<StoragePartitionMetaSnap
     /**
      * An immutable snapshot of the partition's meta information.
      */
-    public static class StoragePartitionMetaSnapshot implements PartitionMetaSnapshot {
+    public static class StoragePartitionMetaSnapshot implements PartitionMetaSnapshot<StoragePartitionMetaIo> {
         private final @Nullable UUID checkpointId;
 
         private final long lastAppliedIndex;
@@ -409,13 +409,13 @@ public class StoragePartitionMeta extends PartitionMeta<StoragePartitionMetaSnap
         }
 
         /**
-         * Writes the contents of the snapshot to a page of type {@link PartitionMetaIo}.
+         * Writes the contents of the snapshot to a page of type {@link StoragePartitionMetaIo}.
          *
          * @param metaIo Partition meta IO.
          * @param pageAddr Address of the page with the partition meta.
          */
         @Override
-        public void writeTo(PartitionMetaIo metaIo, long pageAddr) {
+        public void writeTo(StoragePartitionMetaIo metaIo, long pageAddr) {
             metaIo.setLastAppliedIndex(pageAddr, lastAppliedIndex);
             metaIo.setLastAppliedTerm(pageAddr, lastAppliedTerm);
             metaIo.setLastReplicationProtocolGroupConfigFirstPageId(pageAddr, lastReplicationProtocolGroupConfigFirstPageId);
