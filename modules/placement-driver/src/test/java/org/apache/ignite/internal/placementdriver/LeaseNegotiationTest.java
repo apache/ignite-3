@@ -165,7 +165,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
     private static LeaseGrantedMessageResponse createLeaseGrantedMessageResponse(boolean accept) {
         return MSG_FACTORY.leaseGrantedMessageResponse()
-                .appliedGroups(Set.of(new ZonePartitionId(42, 1, 0)))
+                .appliedGroups(Set.of(1))
                 .accepted(accept)
                 .build();
     }

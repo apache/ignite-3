@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.placementdriver.message;
 
 import java.util.Set;
-import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,6 +33,5 @@ public interface LeaseGrantedMessageResponse extends PlacementDriverMessage {
 
     /** List of applied groups. */
     @Nullable
-    @Marshallable
-    Set<ReplicationGroupId> appliedGroups();
+    Set<Integer> appliedGroups();
 }

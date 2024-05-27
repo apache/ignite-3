@@ -140,5 +140,5 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
      * @param subGrps Table ids.
      * @return Future to complete.
      */
-    CompletableFuture<Void> addSubgroups(ZonePartitionId zoneId, Long enlistmentConsistencyToken, Set<ReplicationGroupId> subGrps);
+    CompletableFuture<Void> addSubgroups(ZonePartitionId zoneId, Long enlistmentConsistencyToken, Set<Integer> subGrps);
 }

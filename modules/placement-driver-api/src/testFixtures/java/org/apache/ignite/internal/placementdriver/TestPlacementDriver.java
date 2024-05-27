@@ -120,7 +120,7 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     public CompletableFuture<Void> addSubgroups(
             ZonePartitionId zoneId,
             Long enlistmentConsistencyToken,
-            Set<ReplicationGroupId> subGrps
+            Set<Integer> subGrps
     ) {
         return nullCompletedFuture();
     }

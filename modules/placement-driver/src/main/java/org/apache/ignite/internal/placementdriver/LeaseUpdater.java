@@ -527,7 +527,7 @@ public class LeaseUpdater {
                 ReplicationGroupId grpId,
                 Lease lease,
                 Map<ReplicationGroupId, Lease> renewedLeases,
-                Set<ReplicationGroupId> subGrps
+                Set<Integer> subGrps
         ) {
             var newTs = new HybridTimestamp(clockService.now().getPhysical() + LEASE_INTERVAL, 0);
 

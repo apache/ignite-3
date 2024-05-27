@@ -96,7 +96,7 @@ public class LeaseSerializationTest {
                 accepted,
                 proposedCandidate,
                 replicationGroupId,
-                Set.of(replicationGroupId)
+                Set.of(1)
         );
     }
 

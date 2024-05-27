@@ -68,10 +68,7 @@ public class Replica {
     public static final ReplicaResult EMPTY_REPLICA_RESULT = new ReplicaResult(null, null);
 
     /** Replica group identity, this id is the same as the considered partition's id. */
-    private final ZonePartitionId replicaGrpId;
-
-    /** Zone partition id. */
-    private final ZonePartitionId zonePartitionId;
+    private final ZonePartitionId zoneTablePartitionId;
 
     /** Replica listener. */
     private final ReplicaListener listener;
@@ -109,8 +106,7 @@ public class Replica {
     /**
      * The constructor of a replica server.
      *
-     * @param replicaGrpId Replication group id.
-     * @param zonePartitionId Zone partition id.
+     * @param zoneTablePartitionId Replication group id.
      * @param listener Replica listener.
      * @param storageIndexTracker Storage index tracker.
      * @param raftClient Topology aware Raft client.
@@ -120,8 +116,7 @@ public class Replica {
      * @param clockService Clock service.
      */
     public Replica(
-            ZonePartitionId replicaGrpId,
-            ZonePartitionId zonePartitionId,
+            ZonePartitionId zoneTablePartitionId,
             ReplicaListener listener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TopologyAwareRaftGroupService raftClient,
@@ -130,8 +125,7 @@ public class Replica {
             PlacementDriver placementDriver,
             ClockService clockService
     ) {
-        this.replicaGrpId = replicaGrpId;
-        this.zonePartitionId = zonePartitionId;
+        this.zoneTablePartitionId = zoneTablePartitionId;
         this.listener = listener;
         this.storageIndexTracker = storageIndexTracker;
         this.raftClient = raftClient;
@@ -151,10 +145,10 @@ public class Replica {
      * @return Response.
      */
     public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, String senderId) {
-        assert replicaGrpId.equals(request.groupId()) : IgniteStringFormatter.format(
+        assert zoneTablePartitionId.equals(request.groupId()) : IgniteStringFormatter.format(
                 "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]",
                 request.groupId(),
-                replicaGrpId);
+                zoneTablePartitionId);
 
         if (request instanceof PrimaryReplicaRequest) {
             var targetPrimaryReq = (PrimaryReplicaRequest) request;
@@ -179,9 +173,9 @@ public class Replica {
             if (waitForActualStateFuture0 == null) {
                 if (waitForActualStateFuture.compareAndSet(null, new CompletableFuture<>())) {
                     return placementDriver.addSubgroups(
-                                    zonePartitionId,
+                                    ZonePartitionId.resetTableId(zoneTablePartitionId),
                                     targetPrimaryReq.enlistmentConsistencyToken(),
-                                    Set.of(new ZonePartitionId(replicaGrpId.zoneId(), replicaGrpId.tableId(), replicaGrpId.partitionId()))
+                                    Set.of(zoneTablePartitionId.tableId())
                             )
                             // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
                             .thenComposeAsync(unused -> waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + 10_000), executor)
@@ -205,7 +199,7 @@ public class Replica {
      * @return Group id.
      */
     public ReplicationGroupId groupId() {
-        return replicaGrpId;
+        return zoneTablePartitionId;
     }
 
     private void onLeaderElected(ClusterNode clusterNode, long term) {
@@ -333,7 +327,7 @@ public class Replica {
         this.leaseExpirationTime = leaseExpirationTime;
 
         LeaseGrantedMessageResponse resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                .appliedGroups(Set.of(new TablePartitionId(replicaGrpId.tableId(), replicaGrpId.partitionId())))
+                .appliedGroups(Set.of(zoneTablePartitionId.tableId()))
                 .accepted(true)
                 .build();
 

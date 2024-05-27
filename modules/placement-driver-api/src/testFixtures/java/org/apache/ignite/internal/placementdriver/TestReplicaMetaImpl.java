@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -133,7 +132,7 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
     }
 
     @Override
-    public Set<ReplicationGroupId> subgroups() {
+    public Set<Integer> subgroups() {
         return Set.of();
     }
 }

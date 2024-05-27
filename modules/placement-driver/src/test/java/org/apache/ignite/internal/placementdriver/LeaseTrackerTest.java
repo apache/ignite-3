@@ -99,7 +99,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
 
         Lease lease0 = new Lease(leaseholder0, leaseholder0 + "_id", startTime, expirationTime, partId0);
         Lease lease1 = new Lease(leaseholder1, leaseholder1 + "_id", startTime, expirationTime, partId1)
-                .acceptLease(new HybridTimestamp(2000, 0), Set.of(partId1FromEvent));
+                .acceptLease(new HybridTimestamp(2000, 0), Set.of(1));
 
         // In entry0, there are leases for partition ids partId0 and partId1. In entry1, there is only partId0, so partId1 is expired.
         Entry entry0 = new EntryImpl(PLACEMENTDRIVER_LEASES_KEY.bytes(), new LeaseBatch(List.of(lease0, lease1)).bytes(), 0, 0);

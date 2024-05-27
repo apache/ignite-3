@@ -145,7 +145,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             }
 
             @Override
-            public Set<ReplicationGroupId> subgroups() {
+            public Set<Integer> subgroups() {
                 return Set.of();
             }
         };
@@ -155,7 +155,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     public CompletableFuture<Void> addSubgroups(
             ZonePartitionId zoneId,
             Long enlistmentConsistencyToken,
-            Set<ReplicationGroupId> subGrps
+            Set<Integer> subGrps
     ) {
         return nullCompletedFuture();
     }

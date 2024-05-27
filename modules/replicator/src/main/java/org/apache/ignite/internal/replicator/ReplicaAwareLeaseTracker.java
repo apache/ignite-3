@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Map;
 import java.util.Set;
@@ -94,25 +95,25 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
             long timeout,
             TimeUnit unit
     ) {
-        ZonePartitionId zonePartitionId = (ZonePartitionId) groupId;
+        ZonePartitionId zoneTablePartitionId = (ZonePartitionId) groupId;
 
-        assert zonePartitionId.tableId() != 0 : "Table id should be defined.";
+        assert zoneTablePartitionId.tableId() != 0 : "Table id should be defined.";
 
-        ZonePartitionId pureZonePartId = ZonePartitionId.resetTableId(zonePartitionId);
+        ZonePartitionId pureZonePartId = ZonePartitionId.resetTableId(zoneTablePartitionId);
 
         return delegate.awaitPrimaryReplicaForTable(pureZonePartId, timestamp, timeout, unit)
                 .thenComposeAsync(replicaMeta -> {
                     ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
 
-                    if (replicaMeta.subgroups().contains(zonePartitionId)) {
-                        waitPrimaryState.remove(zonePartitionId);
+                    if (replicaMeta.subgroups().contains(zoneTablePartitionId.tableId())) {
+                        waitPrimaryState.remove(zoneTablePartitionId);
 
                         return completedFuture(replicaMeta);
                     }
 
-                    CompletableFuture<Void> waitReplicaStateFut = waitPrimaryState.computeIfAbsent(zonePartitionId, grpId -> {
+                    CompletableFuture<Void> waitReplicaStateFut = waitPrimaryState.computeIfAbsent(zoneTablePartitionId, grpId -> {
                         WaitReplicaStateMessage awaitReplicaReq = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
-                                .groupId(zonePartitionId)
+                                .groupId(zoneTablePartitionId)
                                 .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                                 .timeout(unit.toMillis(timeout))
                                 .build();
@@ -126,25 +127,25 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
 
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplicaForTable(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
-        ZonePartitionId zonePartitionId = (ZonePartitionId) replicationGroupId;
+        ZonePartitionId zoneTablePartitionId = (ZonePartitionId) replicationGroupId;
 
-        assert zonePartitionId.tableId() != 0 : "Table id should be defined.";
+        assert zoneTablePartitionId.tableId() != 0 : "Table id should be defined.";
 
-        ZonePartitionId pureZonePartId = ZonePartitionId.resetTableId(zonePartitionId);
+        ZonePartitionId pureZonePartId = ZonePartitionId.resetTableId(zoneTablePartitionId);
 
         return delegate.getPrimaryReplicaForTable(pureZonePartId, timestamp).thenCompose(replicaMeta -> {
             if (replicaMeta == null) {
-                return completedFuture(null);
+                return nullCompletedFuture();
             }
 
             ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
 
-            if (replicaMeta.subgroups().contains(zonePartitionId)) {
+            if (replicaMeta.subgroups().contains(zoneTablePartitionId.tableId())) {
                 return completedFuture(replicaMeta);
             }
 
             WaitReplicaStateMessage awaitReplicaReq = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
-                    .groupId(zonePartitionId)
+                    .groupId(zoneTablePartitionId)
                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                     .timeout(10_000)
                     .build();
@@ -169,7 +170,7 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
     }
 
     @Override
-    public CompletableFuture<Void> addSubgroups(ZonePartitionId zoneId, Long enlistmentConsistencyToken, Set<ReplicationGroupId> subGrps) {
+    public CompletableFuture<Void> addSubgroups(ZonePartitionId zoneId, Long enlistmentConsistencyToken, Set<Integer> subGrps) {
         return delegate.addSubgroups(zoneId, enlistmentConsistencyToken, subGrps);
     }
 }

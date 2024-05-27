@@ -103,7 +103,7 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     public CompletableFuture<Void> addSubgroups(
             ZonePartitionId zoneId,
             Long enlistmentConsistencyToken,
-            Set<ReplicationGroupId> subGrps
+            Set<Integer> subGrps
     ) {
         return CompletableFutures.nullCompletedFuture();
     }

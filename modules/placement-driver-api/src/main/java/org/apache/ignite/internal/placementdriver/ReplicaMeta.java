@@ -20,7 +20,6 @@ package org.apache.ignite.internal.placementdriver;
 import java.io.Serializable;
 import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.jetbrains.annotations.Nullable;
 
 /** Replica lease meta. */
@@ -42,5 +41,5 @@ public interface ReplicaMeta extends Serializable {
      *
      * @return Set of replication sub groups.
      */
-    Set<ReplicationGroupId> subgroups();
+    Set<Integer> subgroups();
 }

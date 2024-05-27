@@ -60,7 +60,6 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -399,7 +398,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 leaseholderId,
                 startTime,
                 startTime.addPhysicalTime(1_000),
-                new TablePartitionId(tableId(), PARTITION_ID)
+                new ZonePartitionId(zoneId(), PARTITION_ID)
         );
     }
 

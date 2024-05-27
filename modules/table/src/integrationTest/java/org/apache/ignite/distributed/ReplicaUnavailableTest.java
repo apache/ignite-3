@@ -195,9 +195,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         when(mockRaftClient.run(any())).thenReturn(nullCompletedFuture());
 
                         replicaManager.startReplica(
-                                // must be changed to zoneTablePartitionId
                                 zoneTablePartitionId,
-                                ZonePartitionId.resetTableId(zoneTablePartitionId),
                                 (request0, senderId) -> completedFuture(new ReplicaResult(replicaMessageFactory.replicaResponse()
                                         .result(5)
                                         .build(), null)),
@@ -315,7 +313,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
                     replicaManager.startReplica(
                             zoneTablePartitionId,
-                            ZonePartitionId.resetTableId(zoneTablePartitionId),
                             (request, senderId) -> new CompletableFuture<>(),
                             mockRaftClient,
                             new PendingComparableValuesTracker<>(0L)

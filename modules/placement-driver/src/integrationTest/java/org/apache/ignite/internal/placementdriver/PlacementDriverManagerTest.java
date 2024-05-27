@@ -104,7 +104,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     public static final int PORT = 1234;
 
-    protected static final ZonePartitionId ZONE_TABLE_GROUP_ID = new ZonePartitionId(11, 1, 0);
+    protected static final Integer TABLE_ID = 1;
 
     protected static final ZonePartitionId ZONE_GROUP_ID = new ZonePartitionId(11, 0);
 
@@ -250,7 +250,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
             if (resp == null) {
                 resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                        .appliedGroups(Set.of(ZONE_TABLE_GROUP_ID))
+                        .appliedGroups(Set.of(TABLE_ID))
                         .accepted(true)
                         .build();
             }
@@ -514,7 +514,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         leaseGrantHandler = (req, handler) ->
                 PLACEMENT_DRIVER_MESSAGES_FACTORY
                         .leaseGrantedMessageResponse()
-                        .appliedGroups(Set.of(ZONE_TABLE_GROUP_ID))
+                        .appliedGroups(Set.of(TABLE_ID))
                         .accepted(req.force())
                         .build();
 
@@ -554,14 +554,14 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
                 return PLACEMENT_DRIVER_MESSAGES_FACTORY
                         .leaseGrantedMessageResponse()
-                        .appliedGroups(Set.of(ZONE_TABLE_GROUP_ID))
+                        .appliedGroups(Set.of(TABLE_ID))
                         .accepted(false)
                         .redirectProposal(redirect.get())
                         .build();
             } else {
                 return PLACEMENT_DRIVER_MESSAGES_FACTORY
                         .leaseGrantedMessageResponse()
-                        .appliedGroups(Set.of(ZONE_TABLE_GROUP_ID))
+                        .appliedGroups(Set.of(TABLE_ID))
                         .accepted(redirect.get().equals(handler))
                         .build();
             }

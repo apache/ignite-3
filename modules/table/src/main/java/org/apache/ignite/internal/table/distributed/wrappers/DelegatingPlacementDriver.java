@@ -89,7 +89,7 @@ abstract class DelegatingPlacementDriver implements PlacementDriver {
     public CompletableFuture<Void> addSubgroups(
             ZonePartitionId zoneId,
             Long enlistmentConsistencyToken,
-            Set<ReplicationGroupId> subGrps
+            Set<Integer> subGrps
     ) {
         return delegate.addSubgroups(zoneId, enlistmentConsistencyToken, subGrps);
     }

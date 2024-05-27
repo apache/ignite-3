@@ -104,7 +104,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             true,
             null,
             ZONE_GROUP_1,
-            Set.of(GROUP_1)
+            Set.of(GROUP_1.tableId())
     );
 
     private static final Lease LEASE_FROM_1_TO_15_000 = new Lease(
@@ -116,7 +116,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             true,
             null,
             ZONE_GROUP_1,
-            Set.of(GROUP_1)
+            Set.of(GROUP_1.tableId())
     );
 
     private static final Lease LEASE_FROM_15_000_TO_30_000 = new Lease(
@@ -128,7 +128,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             true,
             null,
             ZONE_GROUP_1,
-            Set.of(GROUP_1)
+            Set.of(GROUP_1.tableId())
     );
 
     private static final int AWAIT_PERIOD_FOR_LOCAL_NODE_TO_BE_NOTIFIED_ABOUT_LEASE_UPDATES = 1_000;
@@ -329,7 +329,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 true,
                 null,
                 ZONE_GROUP_1,
-                Set.of(GROUP_1)
+                Set.of(GROUP_1.tableId())
         );
 
         publishLease(firstLease);
@@ -356,7 +356,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 true,
                 null,
                 ZONE_GROUP_1,
-                Set.of(GROUP_1)
+                Set.of(GROUP_1.tableId())
         );
 
         if (newLeaseholderIsOnline) {
@@ -654,7 +654,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 true,
                 null,
                 new ZonePartitionId(groupId.zoneId() + 1, groupId.partitionId() + 1),
-                Set.of(new ZonePartitionId(groupId.zoneId() + 1, 1000, groupId.partitionId() + 1))
+                Set.of(1000)
         );
 
         publishLeases(lease, neighborGroupLease);

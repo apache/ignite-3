@@ -1020,7 +1020,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     try {
                         startReplicaWithNewListener(
                                 new ZonePartitionId(zoneId, tableId, partId),
-                                zonePartitionId,
                                 table,
                                 safeTimeTracker,
                                 storageIndexTracker,
@@ -1048,7 +1047,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private void startReplicaWithNewListener(
             ZonePartitionId replicaGrpId,
-            ZonePartitionId zonePartitionId,
             TableImpl table,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
@@ -1069,7 +1067,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         replicaMgr.startReplica(
                 replicaGrpId,
-                zonePartitionId,
                 listener,
                 raftGroupService,
                 storageIndexTracker

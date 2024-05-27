@@ -491,7 +491,6 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                 try {
                     return replicaManager.startReplica(
                             zoneTablePartitionId,
-                            ZonePartitionId.resetTableId(zoneTablePartitionId),
                             (request, senderId) -> {
                                 log.info("Handle request [type={}]", request.getClass().getSimpleName());
 

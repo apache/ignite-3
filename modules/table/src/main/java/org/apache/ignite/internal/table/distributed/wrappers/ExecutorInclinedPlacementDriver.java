@@ -88,7 +88,7 @@ public class ExecutorInclinedPlacementDriver extends DelegatingPlacementDriver {
     public CompletableFuture<Void> addSubgroups(
             ZonePartitionId zoneId,
             Long enlistmentConsistencyToken,
-            Set<ReplicationGroupId> subGrps
+            Set<Integer> subGrps
     ) {
         return decorateFuture(super.addSubgroups(zoneId, enlistmentConsistencyToken, subGrps));
     }

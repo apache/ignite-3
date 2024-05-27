@@ -694,7 +694,6 @@ public class ItTxTestCluster {
 
                                 replicaManagers.get(assignment).startReplica(
                                         zoneTablePartId,
-                                        ZonePartitionId.resetTableId(zoneTablePartId),
                                         listener,
                                         raftSvc,
                                         storageIndexTracker
