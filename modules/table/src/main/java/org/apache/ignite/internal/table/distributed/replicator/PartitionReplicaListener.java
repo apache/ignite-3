@@ -541,8 +541,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         // If the transaction state is pending, then the transaction should be rolled back,
         // meaning that the state is changed to aborted and a corresponding cleanup request
         // is sent in a common durable manner to a partition that have initiated recovery.
-        LOG.info("qqq triggered tx recovery for txId=" + txId);
-
         return txManager.finish(
                         new HybridTimestampTracker(),
                         // Tx recovery is executed on the commit partition.
@@ -553,8 +551,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                         txId
                 )
                 .whenComplete((v, ex) -> {
-                    LOG.info("qqq tx recovery completed for txId=" + txId);
-
                     runCleanupOnNode(replicationGroupId, txId, senderId);
                 });
     }

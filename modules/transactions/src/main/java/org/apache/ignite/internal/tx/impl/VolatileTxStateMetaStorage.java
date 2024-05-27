@@ -93,8 +93,6 @@ public class VolatileTxStateMetaStorage {
 
             TxState oldState = oldMeta == null ? null : oldMeta.txState();
 
-            LOG.info("qqq updateMeta old=" + oldMeta + ", new=" + newMeta);
-
             return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
         });
     }
