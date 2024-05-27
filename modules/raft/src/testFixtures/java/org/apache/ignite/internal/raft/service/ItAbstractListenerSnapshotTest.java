@@ -46,6 +46,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -137,7 +138,9 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         List<IgniteComponent> components = Stream.concat(servers.stream(), cluster.stream()).collect(toList());
 
-        Stream<AutoCloseable> nodeStop = Stream.of(() -> assertThat(stopAsync(components), willCompleteSuccessfully()));
+        Stream<AutoCloseable> nodeStop = Stream.of(() ->
+                assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully())
+        );
 
         IgniteUtils.closeAll(
                 Stream.of(stopRaftGroups, shutdownClients, stopExecutor, beforeNodeStop, nodeStop).flatMap(Function.identity())
@@ -254,8 +257,10 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         // Shutdown that node
         toStop.stopRaftNode(nodeId);
         toStop.beforeNodeStop();
-        assertThat(toStop.stopAsync(), willCompleteSuccessfully());
-        assertThat(cluster.get(stopIdx).stopAsync(), willCompleteSuccessfully());
+
+        ComponentContext componentContext = new ComponentContext();
+        assertThat(toStop.stopAsync(componentContext), willCompleteSuccessfully());
+        assertThat(cluster.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
 
         // Create a snapshot of the raft group
         service.snapshot(service.leader()).get();
@@ -402,7 +407,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
                 new StaticNodeFinder(List.of(otherPeer))
         );
 
-        assertThat(network.startAsync(), willCompleteSuccessfully());
+        assertThat(network.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         cluster.add(network);
 
@@ -425,7 +430,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         JraftServerImpl server = TestJraftServerFactory.create(service, jraft, raftConfiguration);
 
-        assertThat(server.startAsync(), willCompleteSuccessfully());
+        assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         Path listenerPersistencePath = workDir.resolve("db" + idx);
 

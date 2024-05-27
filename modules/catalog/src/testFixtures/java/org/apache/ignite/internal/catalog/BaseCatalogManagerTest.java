@@ -57,6 +57,7 @@ import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -114,7 +115,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 partitionIdleSafeTimePropagationPeriod::get
         );
 
-        assertThat(startAsync(metastore, clockWaiter, manager), willCompleteSuccessfully());
+        assertThat(startAsync(new ComponentContext(), metastore, clockWaiter, manager), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 
@@ -123,7 +124,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     public void tearDown() {
-        assertThat(stopAsync(manager, clockWaiter, metastore), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), manager, clockWaiter, metastore), willCompleteSuccessfully());
     }
 
     protected void createSomeTable(String tableName) {

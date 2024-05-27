@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -100,7 +101,7 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
     private static ClusterService clusterService(TestInfo testInfo, int port, List<NetworkAddress> srvs) {
         var network = ClusterServiceTestUtils.clusterService(testInfo, port, new StaticNodeFinder(srvs));
 
-        assertThat(network.startAsync(), willCompleteSuccessfully());
+        assertThat(network.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return network;
     }
@@ -127,7 +128,7 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
 
             loza = TestLozaFactory.create(service, raftConfiguration, dataPath, new HybridClockImpl());
 
-            assertThat(loza.startAsync(), willCompleteSuccessfully());
+            assertThat(loza.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             for (int i = 0; i < grpSrvcs.length; i++) {
                 // return an error on first invocation
@@ -155,11 +156,11 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
             }
 
             if (loza != null) {
-                assertThat(loza.stopAsync(), willCompleteSuccessfully());
+                assertThat(loza.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
 
             if (service != null) {
-                assertThat(service.stopAsync(), willCompleteSuccessfully());
+                assertThat(service.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         }
     }

@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -69,7 +70,7 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
 
     @AfterEach
     protected void after() throws Exception {
-        assertThat(stopAsync(clusterServices), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), clusterServices), willCompleteSuccessfully());
     }
 
     /**
@@ -87,7 +88,7 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
         );
 
         if (start) {
-            assertThat(network.startAsync(), willCompleteSuccessfully());
+            assertThat(network.startAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         clusterServices.add(network);

@@ -35,6 +35,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -103,7 +104,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         server = TestJraftServerFactory.create(service, workDir, raftConfiguration);
 
-        assertThat(server.startAsync(), willCompleteSuccessfully());
+        assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         String serverNodeName = server.clusterService().topologyService().localMember().name();
 
@@ -148,11 +149,12 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     @AfterEach
     @Override
     public void after() throws Exception {
+        ComponentContext componentContext = new ComponentContext();
         closeAll(
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_0),
                 () -> server.stopRaftNodes(COUNTER_GROUP_ID_1),
-                () -> assertThat(server.stopAsync(), willCompleteSuccessfully()),
-                service::stopAsync,
+                () -> assertThat(server.stopAsync(componentContext), willCompleteSuccessfully()),
+                () -> assertThat(service.stopAsync(componentContext), willCompleteSuccessfully()),
                 client1::shutdown,
                 client2::shutdown,
                 () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)

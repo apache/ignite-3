@@ -26,6 +26,7 @@ import static org.hamcrest.Matchers.is;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,13 +40,13 @@ class ClockWaiterTest {
     void createWaiter() {
         waiter = new ClockWaiter("test", clock);
 
-        assertThat(waiter.startAsync(), willCompleteSuccessfully());
+        assertThat(waiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     void cleanup() {
         if (waiter != null) {
-            assertThat(waiter.stopAsync(), willCompleteSuccessfully());
+            assertThat(waiter.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
     }
 
@@ -88,7 +89,7 @@ class ClockWaiterTest {
 
         CompletableFuture<Void> future = waiter.waitFor(oneYearAhead);
 
-        assertThat(waiter.stopAsync(), willCompleteSuccessfully());
+        assertThat(waiter.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(future, willThrow(CancellationException.class));
     }

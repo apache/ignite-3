@@ -41,6 +41,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.rest.authentication.AuthenticationProviderFactory;
 import org.apache.ignite.internal.rest.cluster.ClusterManagementRestFactory;
@@ -77,7 +78,7 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 generator,
                 new TestConfigurationValidator()
         );
-        assertThat(configurationManager.startAsync(), willCompleteSuccessfully());
+        assertThat(configurationManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         ConfigurationRegistry configurationRegistry = configurationManager.configurationRegistry();
         RestConfiguration restConfiguration = configurationRegistry.getConfiguration(RestConfiguration.KEY);
@@ -105,14 +106,14 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 restConfiguration
         );
 
-        assertThat(restComponent.startAsync(), willCompleteSuccessfully());
+        assertThat(restComponent.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         client = new DefaultHttpClient(URI.create("http://localhost:" + restConfiguration.port().value() + "/management/v1/"));
     }
 
     @AfterEach
     public void cleanup() {
-        assertThat(restComponent.stopAsync(), willCompleteSuccessfully());
+        assertThat(restComponent.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test

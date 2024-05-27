@@ -63,6 +63,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
@@ -146,7 +147,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public CompletableFuture<Void> startAsync() {
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         int objectIdGen = 0;
 
         Catalog emptyCatalog = new Catalog(0, 0L, objectIdGen, List.of(), List.of(), null);
@@ -155,28 +156,29 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 
-        return updateLog.startAsync()
-                .thenCompose(none -> {
+        return updateLog.startAsync(componentContext)
+                .thenComposeAsync(none -> {
                     if (latestCatalogVersion() == emptyCatalog.version()) {
                         int initializedCatalogVersion = emptyCatalog.version() + 1;
 
                         this.catalogReadyFuture(initializedCatalogVersion)
-                                .thenCompose(ignored -> awaitVersionActivation(initializedCatalogVersion))
-                                .handle((r, e) -> catalogInitializationFuture.complete(null));
+                                .thenComposeAsync(ignored -> awaitVersionActivation(initializedCatalogVersion),
+                                        componentContext.executor())
+                                .handleAsync((r, e) -> catalogInitializationFuture.complete(null), componentContext.executor());
 
                         return initCatalog(emptyCatalog);
                     } else {
                         catalogInitializationFuture.complete(null);
                         return nullCompletedFuture();
                     }
-                });
+                }, componentContext.executor());
     }
 
     @Override
-    public CompletableFuture<Void> stopAsync() {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         busyLock.block();
         versionTracker.close();
-        return updateLog.stopAsync();
+        return updateLog.stopAsync(componentContext);
     }
 
     @Override

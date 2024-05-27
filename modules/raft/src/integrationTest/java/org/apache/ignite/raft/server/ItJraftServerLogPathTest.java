@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
@@ -52,7 +53,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(server.stopAsync(), willCompleteSuccessfully());
+        assertThat(server.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
@@ -108,7 +109,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
                 new RaftGroupEventsClientListener()
         );
 
-        assertThat(server.startAsync(), willCompleteSuccessfully());
+        assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return server;
     }

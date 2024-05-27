@@ -30,6 +30,7 @@ import static org.mockito.Mockito.verify;
 
 import org.apache.ignite.internal.failure.handlers.FailureHandler;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
@@ -44,13 +45,13 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
         FailureProcessor failureProcessor = new FailureProcessor("node_name", handler);
 
         try {
-            assertThat(failureProcessor.startAsync(), willSucceedFast());
+            assertThat(failureProcessor.startAsync(new ComponentContext()), willSucceedFast());
 
             failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, null));
 
             verify(handler, times(1)).onFailure(anyString(), any());
         } finally {
-            assertThat(failureProcessor.stopAsync(), willSucceedFast());
+            assertThat(failureProcessor.stopAsync(new ComponentContext()), willSucceedFast());
         }
     }
 
@@ -61,13 +62,13 @@ class FailureProcessorTest extends BaseIgniteAbstractTest {
         FailureProcessor failureProcessor = new FailureProcessor("node_name", handler);
 
         try {
-            assertThat(failureProcessor.startAsync(), willSucceedFast());
+            assertThat(failureProcessor.startAsync(new ComponentContext()), willSucceedFast());
 
             assertThat(failureProcessor.process(new FailureContext(SYSTEM_WORKER_BLOCKED, null)), is(false));
 
             assertThat(failureProcessor.process(new FailureContext(SYSTEM_CRITICAL_OPERATION_TIMEOUT, null)), is(false));
         } finally {
-            assertThat(failureProcessor.stopAsync(), willSucceedFast());
+            assertThat(failureProcessor.stopAsync(new ComponentContext()), willSucceedFast());
         }
     }
 }
