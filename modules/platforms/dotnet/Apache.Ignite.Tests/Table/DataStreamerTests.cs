@@ -262,7 +262,7 @@ public class DataStreamerTests : IgniteTestsBase
             data.ToAsyncEnumerable(),
             DataStreamerOptions.Default,
             keySelector: x => GetTuple(x),
-            payloadSelector: x => "t-" + x,
+            payloadSelector: x => $"{x}-value{x * 10}",
             units: Array.Empty<DeploymentUnit>(),
             receiverClassName: TestReceiverClassName,
             receiverArgs: new object[] { Table.Name, "arg1", 22 });
