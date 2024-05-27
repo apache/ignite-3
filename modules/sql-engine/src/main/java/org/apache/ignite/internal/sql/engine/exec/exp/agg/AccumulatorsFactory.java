@@ -263,6 +263,8 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
         private final RowHandler<RowT> handler;
 
+        private final boolean distinct;
+
         AccumulatorWrapperImpl(
                 Accumulator accumulator,
                 AggregateCall call,
@@ -272,7 +274,9 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             this.accumulator = accumulator;
             this.inAdapter = inAdapter;
             this.outAdapter = outAdapter;
+            distinct = call.isDistinct();
 
+            // need to be refactored after https://issues.apache.org/jira/browse/IGNITE-22320
             literalAgg = call.getAggregation() == LITERAL_AGG;
             argList = call.getArgList();
             ignoreNulls = call.ignoreNulls();
@@ -288,12 +292,20 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
                 return;
             }
 
-            // need to be refactored after https://issues.apache.org/jira/browse/CALCITE-5969
-            int params = literalAgg ? 1 : argList.size();
+            int params = argList.size();
+
+            List<Integer> argList0 = argList;
+
+            if ((distinct && argList.isEmpty()) || literalAgg) {
+                int cnt = handler.columnCount(row);
+                assert cnt <= 1;
+                argList0 = List.of(0);
+                params = 1;
+            }
 
             Object[] args = new Object[params];
             for (int i = 0; i < params; i++) {
-                int argPos = literalAgg ? 0 : argList.get(i);
+                int argPos = argList0.get(i);
                 args[i] = handler.get(argPos, row);
 
                 if (ignoreNulls && args[i] == null) {
