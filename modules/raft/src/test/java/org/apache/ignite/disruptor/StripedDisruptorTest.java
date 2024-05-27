@@ -39,7 +39,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType;
 import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.NodeId;
@@ -86,8 +85,6 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                 event.reset();
 
                 event.nodeId = nodeId1;
-                event.handler = null;
-                event.evtType = DisruptorEventType.REGULAR;
                 event.num = finalInt;
             });
 
@@ -95,8 +92,6 @@ public class StripedDisruptorTest extends IgniteAbstractTest {
                 event.reset();
 
                 event.nodeId = nodeId2;
-                event.handler = null;
-                event.evtType = DisruptorEventType.REGULAR;
                 event.num = finalInt;
             });
 
