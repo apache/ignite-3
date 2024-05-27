@@ -276,6 +276,27 @@ public class DataStreamerTests : IgniteTestsBase
         }
     }
 
+    [Test]
+    public async Task TestUnknownReceiverClass()
+    {
+        // TODO
+        await Task.Yield();
+    }
+
+    [Test]
+    public async Task TestReceiverException()
+    {
+        // TODO
+        await Task.Yield();
+    }
+
+    [Test]
+    public async Task TestWithReceiverAllDataTypes()
+    {
+        // TODO
+        await Task.Yield();
+    }
+
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
     {
         for (var i = 0; i < count; i++)
