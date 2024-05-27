@@ -254,8 +254,14 @@ public class ClientUtils {
             case ClientOp.STREAMER_BATCH_SEND:
                 return ClientOperationType.STREAMER_BATCH_SEND;
 
+            case ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND:
+                return ClientOperationType.STREAMER_WITH_RECEIVER_BATCH_SEND;
+
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientOperationType.SQL_EXECUTE_BATCH;
+
+            case ClientOp.PRIMARY_REPLICAS_GET:
+                return ClientOperationType.PRIMARY_REPLICAS_GET;
 
             // Do not return null from default arm intentionally, so we don't forget to update this when new ClientOp values are added.
             default:

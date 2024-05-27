@@ -74,6 +74,7 @@ import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
@@ -105,11 +106,14 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.sql.engine.tx.NoopTransactionWrapper;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
-import org.apache.ignite.internal.util.AsyncWrapper;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyEventHandler;
@@ -274,8 +278,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         messageService.register((n, m) -> onMessage(n, (ErrorMessage) m), SqlQueryMessageGroup.ERROR_MESSAGE);
     }
 
-    private AsyncCursor<InternalSqlRow> executeQuery(
-            InternalTransaction tx,
+    private AsyncDataCursor<InternalSqlRow> executeQuery(
             SqlOperationContext operationContext,
             MultiStepPlan plan
     ) {
@@ -291,7 +294,32 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         cancelHandler.add(() -> queryManager.close(true));
 
-        return queryManager.execute(tx, plan);
+        QueryTransactionContext txContext = operationContext.txContext();
+
+        assert txContext != null;
+
+        QueryTransactionWrapper txWrapper = txContext.getOrStartImplicit(plan.type() != SqlQueryType.DML);
+
+        AsyncCursor<InternalSqlRow> dataCursor = queryManager.execute(txWrapper.unwrap(), plan);
+
+        PrefetchCallback prefetchCallback = operationContext.prefetchCallback();
+
+        assert prefetchCallback != null;
+
+        CompletableFuture<Void> firstPageReady = prefetchCallback.prefetchFuture();
+
+        if (plan.type() == SqlQueryType.DML) {
+            // DML is supposed to have a single row response, so if the first page is ready, then all
+            // inputs have been processed, all tables have been updated, and now it should be safe to
+            // commit implicit transaction
+            firstPageReady = firstPageReady.thenCompose(none -> txWrapper.commitImplicit());
+        }
+
+        return new TxAwareAsyncCursor<>(
+                txWrapper,
+                dataCursor,
+                firstPageReady
+        );
     }
 
     private static SqlOperationContext createOperationContext(
@@ -317,8 +345,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /** {@inheritDoc} */
     @Override
     @SuppressWarnings("CastConflictsWithInstanceof") // IDEA incorrectly highlights casts in EXPLAIN and DDL branches
-    public AsyncCursor<InternalSqlRow> executePlan(
-            InternalTransaction tx, QueryPlan plan, SqlOperationContext operationContext
+    public AsyncDataCursor<InternalSqlRow> executePlan(
+            QueryPlan plan, SqlOperationContext operationContext
     ) {
         SqlQueryType queryType = plan.type();
 
@@ -326,12 +354,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             case DML:
             case QUERY:
                 if (plan instanceof ExecutablePlan) {
-                    return executeExecutablePlan(tx, operationContext, (ExecutablePlan) plan, operationContext.prefetchCallback());
+                    return executeExecutablePlan(operationContext, (ExecutablePlan) plan);
                 }
 
                 assert plan instanceof MultiStepPlan : plan.getClass();
 
-                return executeQuery(tx, operationContext, (MultiStepPlan) plan);
+                return executeQuery(operationContext, (MultiStepPlan) plan);
             case EXPLAIN:
                 return executeExplain((ExplainPlan) plan, operationContext.prefetchCallback());
             case DDL:
@@ -353,11 +381,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return mgr.close(true);
     }
 
-    private AsyncCursor<InternalSqlRow> executeExecutablePlan(
-            InternalTransaction tx,
+    private AsyncDataCursor<InternalSqlRow> executeExecutablePlan(
             SqlOperationContext operationContext,
-            ExecutablePlan plan,
-            @Nullable QueryPrefetchCallback callback
+            ExecutablePlan plan
     ) {
         ExecutionContext<RowT> ectx = new ExecutionContext<>(
                 taskExecutor,
@@ -367,14 +393,36 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 DUMMY_DESCRIPTION,
                 handler,
                 Commons.parametersMap(operationContext.parameters()),
-                TxAttributes.fromTx(tx),
+                TxAttributes.dummy(),
                 operationContext.timeZoneId()
         );
 
-        return plan.execute(ectx, tx, tableRegistry, callback);
+        QueryTransactionContext txContext = operationContext.txContext();
+
+        assert txContext != null;
+
+        QueryTransactionWrapper txWrapper = txContext.explicitTx();
+
+        if (txWrapper == null) {
+            // underlying table will initiate transaction by itself, but we need stub to reuse
+            // TxAwareAsyncCursor
+            txWrapper = NoopTransactionWrapper.INSTANCE;
+        }
+
+        PrefetchCallback prefetchCallback = operationContext.prefetchCallback();
+
+        assert prefetchCallback != null;
+
+        AsyncCursor<InternalSqlRow> dataCursor = plan.execute(ectx, txWrapper.unwrap(), tableRegistry, prefetchCallback);
+
+        return new TxAwareAsyncCursor<>(
+                txWrapper,
+                dataCursor,
+                prefetchCallback.prefetchFuture()
+        );
     }
 
-    private AsyncCursor<InternalSqlRow> executeDdl(DdlPlan plan, @Nullable QueryPrefetchCallback callback) {
+    private AsyncDataCursor<InternalSqlRow> executeDdl(DdlPlan plan, @Nullable QueryPrefetchCallback callback) {
         CompletableFuture<Iterator<InternalSqlRow>> ret = ddlCmdHnd.handle(plan.command())
                 .thenApply(applied -> (applied ? APPLIED_ANSWER : NOT_APPLIED_ANSWER).iterator())
                 .exceptionally(th -> {
@@ -385,7 +433,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ret.whenCompleteAsync((res, err) -> callback.onPrefetchComplete(err), taskExecutor);
         }
 
-        return new AsyncWrapper<>(ret, Runnable::run);
+        return new IteratorToDataCursorAdapter<>(ret, Runnable::run);
     }
 
     private static RuntimeException convertDdlException(Throwable e) {
@@ -405,7 +453,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteInternalException(INTERNAL_ERR, e);
     }
 
-    private AsyncCursor<InternalSqlRow> executeExplain(ExplainPlan plan, @Nullable QueryPrefetchCallback callback) {
+    private AsyncDataCursor<InternalSqlRow> executeExplain(ExplainPlan plan, @Nullable QueryPrefetchCallback callback) {
         String planString = plan.plan().explain();
 
         InternalSqlRow res = new InternalSqlRowSingleString(planString);
@@ -414,7 +462,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             taskExecutor.execute(() -> callback.onPrefetchComplete(null));
         }
 
-        return new AsyncWrapper<>(List.of(res).iterator());
+        return new IteratorToDataCursorAdapter<>(List.of(res).iterator());
     }
 
     private void onMessage(String nodeName, QueryStartRequest msg) {

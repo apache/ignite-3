@@ -26,10 +26,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.TestJraftServerFactory;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
+import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -50,11 +53,11 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
 
     @AfterEach
     void tearDown() {
-        assertThat(server.stopAsync(), willCompleteSuccessfully());
+        assertThat(server.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
-    @WithSystemProperty(key = JraftServerImpl.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
+    @WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
     void testDefaultFactory() {
         Path logPath = workDir.resolve("db/log");
         assertThat(raftConfiguration.logPath().update(logPath.toString()), willCompleteSuccessfully());
@@ -65,7 +68,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
     }
 
     @Test
-    @WithSystemProperty(key = JraftServerImpl.LOGIT_STORAGE_ENABLED_PROPERTY, value = "true")
+    @WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "true")
     void testLogitFactory() {
         Path logPath = workDir.resolve("db/log");
         assertThat(raftConfiguration.logPath().update(logPath.toString()), willCompleteSuccessfully());
@@ -77,7 +80,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
     }
 
     @Test
-    @WithSystemProperty(key = JraftServerImpl.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
+    @WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
     void testDefaultLogPathDefaultFactory() {
         server = startServer(raftConfiguration);
 
@@ -85,7 +88,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
     }
 
     @Test
-    @WithSystemProperty(key = JraftServerImpl.LOGIT_STORAGE_ENABLED_PROPERTY, value = "true")
+    @WithSystemProperty(key = SharedLogStorageFactoryUtils.LOGIT_STORAGE_ENABLED_PROPERTY, value = "true")
     void testDefaultLogPathLogitFactory() {
         server = startServer(raftConfiguration);
 
@@ -98,7 +101,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
 
         ClusterService service = clusterService(PORT, List.of(addr), true);
 
-        JraftServerImpl server = new JraftServerImpl(
+        JraftServerImpl server = TestJraftServerFactory.create(
                 service,
                 dataPath,
                 raftConfiguration,
@@ -106,7 +109,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
                 new RaftGroupEventsClientListener()
         );
 
-        assertThat(server.startAsync(), willCompleteSuccessfully());
+        assertThat(server.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         return server;
     }

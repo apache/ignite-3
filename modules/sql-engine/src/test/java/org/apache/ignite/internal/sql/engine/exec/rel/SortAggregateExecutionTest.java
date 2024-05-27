@@ -52,7 +52,8 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             AggregateCall call,
             RelDataType inRowType,
             RowHandler.RowFactory<Object[]> rowFactory,
-            ScanNode<Object[]> scan
+            ScanNode<Object[]> scan,
+            boolean group
     ) {
         assert grpSets.size() == 1;
 
@@ -61,10 +62,6 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(grpSet.asList()));
 
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
-
-        SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
-
-        sort.register(scan);
 
         if (grpSet.isEmpty() && cmp == null) {
             cmp = (k1, k2) -> 0;
@@ -79,7 +76,15 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
                 cmp
         );
 
-        agg.register(sort);
+        if (group) {
+            SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
+
+            sort.register(scan);
+
+            agg.register(sort);
+        } else {
+            agg.register(scan);
+        }
 
         return agg;
     }
@@ -93,7 +98,8 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             RelDataType inRowType,
             RelDataType aggRowType,
             RowHandler.RowFactory<Object[]> rowFactory,
-            ScanNode<Object[]> scan
+            ScanNode<Object[]> scan,
+            boolean group
     ) {
         assert grpSets.size() == 1;
 
@@ -102,10 +108,6 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(grpSet.asList()));
 
         Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
-
-        SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
-
-        sort.register(scan);
 
         if (grpSet.isEmpty() && cmp == null) {
             cmp = (k1, k2) -> 0;
@@ -120,7 +122,15 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
                 cmp
         );
 
-        aggMap.register(sort);
+        if (group) {
+            SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
+
+            sort.register(scan);
+
+            aggMap.register(sort);
+        } else {
+            aggMap.register(scan);
+        }
 
         // The group's fields placed on the begin of the output row (planner
         // does this by Projection node for aggregate input).

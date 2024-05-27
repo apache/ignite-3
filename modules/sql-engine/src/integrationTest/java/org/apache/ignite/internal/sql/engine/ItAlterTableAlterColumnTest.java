@@ -222,20 +222,20 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void functionalDefaultIsNotSupportedForNonPkColumns() {
-        sql("CREATE TABLE t (id VARCHAR PRIMARY KEY, val VARCHAR)");
+        sql("CREATE TABLE t (id UUID PRIMARY KEY, val VARCHAR)");
 
         // PK column
         assertThrowsSqlException(
                 STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"gen_random_uuid\"",
-                () -> sql("ALTER TABLE t ALTER COLUMN id SET DEFAULT gen_random_uuid")
+                "Failed to parse query: Encountered \"rand_uuid\"",
+                () -> sql("ALTER TABLE t ALTER COLUMN id SET DEFAULT rand_uuid")
         );
 
         // Non-pk column
         assertThrowsSqlException(
                 STMT_PARSE_ERR,
-                "Failed to parse query: Encountered \"gen_random_uuid\"",
-                () -> sql("ALTER TABLE t ALTER COLUMN val SET DEFAULT gen_random_uuid")
+                "Failed to parse query: Encountered \"rand_uuid\"",
+                () -> sql("ALTER TABLE t ALTER COLUMN val SET DEFAULT rand_uuid")
         );
     }
 

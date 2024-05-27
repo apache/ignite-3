@@ -1,0 +1,50 @@
+# name: test/join/natural/test_natural_join_different_types.test
+# description: Test natural joins. Common column types differ
+# group: [natural]
+
+statement ok
+CREATE TABLE t1_ij (i INTEGER, j INTEGER);
+
+statement ok
+INSERT INTO t1_ij VALUES (1, 1), (2, 2);
+
+# Check against a NOT NULL type
+
+statement ok
+CREATE TABLE t1_ij_not_null (i INTEGER NOT NULL, j INTEGER);
+
+statement ok
+INSERT INTO t1_ij_not_null VALUES (1, 1), (2, 2);
+
+statement ok
+INSERT INTO t1_ij VALUES (NULL, NULL);
+
+query II rowsort
+SELECT * FROM t1_ij JOIN t1_ij_not_null USING (i, j)
+----
+1	1
+2	2
+
+statement ok
+CREATE TABLE t1_ij_i_bigint (i BIGINT, j INTEGER);
+
+# Ignite validation
+
+# Test should not produce an error after https://issues.apache.org/jira/browse/IGNITE-22295 is fixed
+statement error: Column N#0 matched using NATURAL keyword or USING clause has incompatible types in this context: 'INTEGER' to 'BIGINT'
+SELECT * FROM t1_ij NATURAL JOIN t1_ij_i_bigint
+
+# Test should not produce an error after https://issues.apache.org/jira/browse/IGNITE-22295 is fixed
+statement error: Column N#0 matched using NATURAL keyword or USING clause has incompatible types in this context: 'INTEGER' to 'BIGINT'
+SELECT * FROM t1_ij JOIN t1_ij_i_bigint USING (i, j)
+
+# Calcite's validation
+
+statement ok
+CREATE TABLE t1_ij_i_date (i DATE, j INTEGER);
+
+statement error: Column 'I' matched using NATURAL keyword or USING clause has incompatible types in this context: 'INTEGER' to 'DATE'
+SELECT * FROM t1_ij NATURAL JOIN t1_ij_i_date
+
+statement error: Column 'I' matched using NATURAL keyword or USING clause has incompatible types in this context: 'INTEGER' to 'DATE'
+SELECT* FROM t1_ij NATURAL JOIN t1_ij_i_date USING (i)

@@ -79,7 +79,6 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -135,8 +134,6 @@ public class TypeCoercionTest extends AbstractPlannerTest {
 
         for (RelDataType type : NUMERIC_TYPES) {
             if (type.getSqlTypeName() == SqlTypeName.DECIMAL) {
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-18559
-                // Coerce to the widest decimal possible?
                 numericRules.add(typeCoercionRule(type, VARCHAR, new ToSpecificType(expectedDecimalType)));
                 numericRules.add(typeCoercionRule(VARCHAR, type, new ToSpecificType(expectedDecimalType)));
             } else {
@@ -249,6 +246,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
             "COALESCE(2, COALESCE('b', 2))",
             "COALESCE(2, COALESCE(2, 'b'))",
             "COALESCE('b', COALESCE(2, 3))",
+            "CASE WHEN 1=1 THEN 12.2 ELSE 'b' END",
     })
     public void testCaseWhenExpressionWithMixedTypesIsRejected(String expr) {
         checkExprResultFails(expr, "Illegal mixing of types in CASE or COALESCE statement");
@@ -258,15 +256,6 @@ public class TypeCoercionTest extends AbstractPlannerTest {
     public void testNullIf() {
         RelDataType decimal = TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 3, 1);
         checkExprResult("NULLIF(12.2, 2)", nullable(decimal));
-    }
-
-    /**
-     * SQL 2016, clause 9.5: Mixing types in CASE/COALESCE expressions is illegal.
-     */
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18559")
-    public void testNullIfWithMixedTypesIsRejected() {
-        checkExprResultFails("NULLIF(12.2, 'b')", "Illegal mixing of types in CASE or COALESCE statement");
     }
 
     @ParameterizedTest
@@ -319,11 +308,9 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         List<Arguments> arguments = new ArrayList<>();
         arguments.add(Arguments.of("INSERT INTO t VALUES (123)", SqlTypeName.CHAR, true));
         arguments.add(Arguments.of("INSERT INTO t VALUES (123 || '1')", SqlTypeName.CHAR, true));
-        arguments.add(Arguments.of("INSERT INTO t VALUES (gen_random_uuid())", SqlTypeName.CHAR, true));
         arguments.add(Arguments.of("INSERT INTO t VALUES ('123')", SqlTypeName.CHAR, false));
         arguments.add(Arguments.of("INSERT INTO t VALUES (123)", SqlTypeName.VARCHAR, true));
         arguments.add(Arguments.of("INSERT INTO t VALUES (123 || '1')", SqlTypeName.VARCHAR, true));
-        arguments.add(Arguments.of("INSERT INTO t VALUES (gen_random_uuid())", SqlTypeName.VARCHAR, true));
         arguments.add(Arguments.of("INSERT INTO t VALUES ('123')", SqlTypeName.VARCHAR, false));
         return arguments.stream();
     }

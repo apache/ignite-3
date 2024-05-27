@@ -436,7 +436,7 @@ public class ClientCompute implements IgniteCompute {
             String jobClassName,
             JobExecutionOptions options,
             Object[] args) {
-        packDeploymentUnits(w, units);
+        w.packDeploymentUnits(units);
 
         w.packString(jobClassName);
         w.packInt(options.priority());
@@ -448,17 +448,9 @@ public class ClientCompute implements IgniteCompute {
             List<DeploymentUnit> units,
             String taskClassName,
             Object[] args) {
-        packDeploymentUnits(w, units);
+        w.packDeploymentUnits(units);
         w.packString(taskClassName);
         w.packObjectArrayAsBinaryTuple(args);
-    }
-
-    private static void packDeploymentUnits(ClientMessagePacker w, List<DeploymentUnit> units) {
-        w.packInt(units.size());
-        for (DeploymentUnit unit : units) {
-            w.packString(unit.name());
-            w.packString(unit.version().render());
-        }
     }
 
     /**

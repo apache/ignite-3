@@ -38,13 +38,14 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImp
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
-import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -97,9 +98,11 @@ public class MockNode {
 
         this.clusterService = ClusterServiceTestUtils.clusterService(nodeName, addr.port(), nodeFinder);
 
-        var raftManager = new Loza(clusterService, new NoOpMetricManager(), raftConfiguration, this.workDir, new HybridClockImpl());
+        var raftManager = TestLozaFactory.create(clusterService, raftConfiguration, this.workDir, new HybridClockImpl());
 
         var clusterStateStorage = new RocksDbClusterStateStorage(this.workDir.resolve("cmg"), clusterService.nodeName());
+
+        FailureProcessor failureProcessor = new FailureProcessor(nodeName);
 
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
@@ -109,7 +112,8 @@ public class MockNode {
                 clusterStateStorage,
                 new LogicalTopologyImpl(clusterStateStorage),
                 cmgConfiguration,
-                new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration)
+                new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
+                failureProcessor
         );
 
         components = List.of(
@@ -117,6 +121,7 @@ public class MockNode {
                 clusterService,
                 raftManager,
                 clusterStateStorage,
+                failureProcessor,
                 clusterManager
         );
     }
@@ -125,7 +130,7 @@ public class MockNode {
      * Start fake node.
      */
     public CompletableFuture<Void> startAsync() {
-        return IgniteUtils.startAsync(components);
+        return IgniteUtils.startAsync(new ComponentContext(), components);
     }
 
     /**
@@ -154,7 +159,7 @@ public class MockNode {
 
         reverse(componentsToStop);
 
-        assertThat(stopAsync(componentsToStop), willCompleteSuccessfully());
+        assertThat(stopAsync(new ComponentContext(), componentsToStop), willCompleteSuccessfully());
     }
 
     public ClusterNode localMember() {

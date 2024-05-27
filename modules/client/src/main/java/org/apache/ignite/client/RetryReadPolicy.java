@@ -60,6 +60,8 @@ public class RetryReadPolicy extends RetryLimitPolicy {
             case SQL_CURSOR_NEXT_PAGE:
             case SQL_EXECUTE_SCRIPT:
             case STREAMER_BATCH_SEND:
+            case PRIMARY_REPLICAS_GET:
+            case STREAMER_WITH_RECEIVER_BATCH_SEND:
                 return false;
 
             default:

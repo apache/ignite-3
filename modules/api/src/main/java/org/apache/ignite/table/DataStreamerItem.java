@@ -48,6 +48,19 @@ public interface DataStreamerItem<T> {
     }
 
     /**
+     * Creates a new data streamer item with the given data and operation type.
+     *
+     * @param item Data.
+     * @param op Operation type.
+     * @param <T> Data type.
+     *
+     * @return PUT data streamer item.
+     */
+    static <T> DataStreamerItem<T> of(T item, DataStreamerOperationType op) {
+        return instance(item, op);
+    }
+
+    /**
      * Creates a new data streamer item with the given data and {@link DataStreamerOperationType#REMOVE} operation type.
      *
      * @param item Data.

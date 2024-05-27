@@ -51,7 +51,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -71,7 +71,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
     private JdbcMetadataCatalog catalog;
 
     @Mock
-    private IgniteTransactions igniteTransactions;
+    private IgniteTransactionsImpl igniteTransactions;
 
     private ClientResourceRegistry resourceRegistry;
 
@@ -194,6 +194,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         await(eventHandler.finishTxAsync(connectionId, true));
         verify(tx).commitAsync();
 
+        verify(igniteTransactions, times(5)).observableTimestampTracker();
         verifyNoMoreInteractions(igniteTransactions);
         verify(queryProcessor, times(5)).queryAsync(any(), any(), any(), any(), any(Object[].class));
     }

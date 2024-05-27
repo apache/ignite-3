@@ -179,7 +179,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
                 allOf(
                         hasItem(columnThat("column with name \"VAL\"", cd -> "VAL".equals(cd.name()))),
                         hasItem(columnThat("implicit PK col", cd -> Commons.IMPLICIT_PK_COL_NAME.equals(cd.name())
-                                && !cd.nullable() && ColumnType.STRING == cd.type()))
+                                && !cd.nullable() && ColumnType.UUID == cd.type()))
                 )
         );
 
@@ -613,7 +613,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
     @Test
     public void tableWithAutogenPkColumn() throws SqlParseException {
-        var node = parse("CREATE TABLE t (id varchar default gen_random_uuid primary key, val int) WITH STORAGE_PROFILE='"
+        var node = parse("CREATE TABLE t (id uuid default rand_uuid primary key, val int) WITH STORAGE_PROFILE='"
                 + DEFAULT_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));
@@ -633,9 +633,9 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
                         hasItem(columnThat("PK with functional default",
                                 col -> "ID".equals(col.name())
                                         && !col.nullable()
-                                        && ColumnType.STRING == col.type()
+                                        && ColumnType.UUID == col.type()
                                         && col.defaultValue().type() == DefaultValue.Type.FUNCTION_CALL
-                                        && "GEN_RANDOM_UUID".equals(((DefaultValue.FunctionCall) col.defaultValue()).functionName())
+                                        && "RAND_UUID".equals(((DefaultValue.FunctionCall) col.defaultValue()).functionName())
                                 )
                         )
                 )

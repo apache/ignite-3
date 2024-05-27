@@ -24,7 +24,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Regular query or DML.
@@ -74,7 +73,6 @@ public class MultiStepPlan implements ExplainablePlan {
 
     /** {@inheritDoc} */
     @Override
-    @Nullable
     public SqlQueryType type() {
         return type;
     }

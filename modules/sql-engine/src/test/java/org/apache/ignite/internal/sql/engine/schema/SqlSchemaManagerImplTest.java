@@ -74,6 +74,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -106,12 +107,12 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
         sqlSchemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 200);
 
-        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @AfterEach
     void cleanup() {
-        assertThat(catalogManager.stopAsync(), willCompleteSuccessfully());
+        assertThat(catalogManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test
@@ -320,8 +321,8 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                         .defaultValue(DefaultValue.constant(null)).build(),
                                 ColumnParams.builder().name("C3").type(ColumnType.INT32)
                                         .defaultValue(DefaultValue.constant(1)).build(),
-                                ColumnParams.builder().name("C4").type(ColumnType.STRING).length(256)
-                                        .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.GEN_RANDOM_UUID.name())).build()
+                                ColumnParams.builder().name("C4").type(ColumnType.UUID)
+                                        .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.RAND_UUID.name())).build()
                         ))
                         .primaryKey(primaryKey("C1", "C4"))
                         .zone("Default")
@@ -371,8 +372,8 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                 ColumnParams.builder().name("C1").type(ColumnType.INT32).nullable(false).build(),
                                 ColumnParams.builder().name("C2").type(ColumnType.INT32)
                                         .defaultValue(DefaultValue.constant(null)).build(),
-                                ColumnParams.builder().name("C3").type(ColumnType.STRING).length(256)
-                                        .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.GEN_RANDOM_UUID.name())).build(),
+                                ColumnParams.builder().name("C3").type(ColumnType.UUID)
+                                        .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.RAND_UUID.name())).build(),
                                 ColumnParams.builder().name("C4").type(ColumnType.INT8).nullable(true).build()
                         ))
                         .primaryKey(primaryKey)

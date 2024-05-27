@@ -38,7 +38,7 @@ class ItClusterStatusCommandInitializedTest extends CliIntegrationTest {
                 .map(IgniteImpl::name)
                 .collect(joining(", ", "[", "]"));
 
-        execute("cluster", "status", "--cluster-endpoint-url", NODE_URL);
+        execute("cluster", "status", "--url", NODE_URL);
 
         assertAll(
                 this::assertExitCodeIsZero,

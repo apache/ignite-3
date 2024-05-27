@@ -129,7 +129,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
     @Override
     public <RowT> AsyncCursor<InternalSqlRow> execute(
             ExecutionContext<RowT> ctx,
-            InternalTransaction tx,
+            @Nullable InternalTransaction tx,
             ExecutableTableRegistry tableRegistry,
             @Nullable QueryPrefetchCallback firstPageReadyCallback
     ) {
@@ -206,5 +206,9 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         }
 
         return new AsyncWrapper<>(result, Runnable::run);
+    }
+
+    public int catalogVersion() {
+        return catalogVersion;
     }
 }

@@ -453,7 +453,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
             }
 
             return invocation.callRealMethod();
-        }).when(keyValueStorage).invoke(any(), any());
+        }).when(keyValueStorage).invoke(any(), any(), any());
 
         topology.putNode(NODE_1);
 
@@ -503,7 +503,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
             }
 
             return invocation.callRealMethod();
-        }).when(keyValueStorage).invoke(any(), any());
+        }).when(keyValueStorage).invoke(any(), any(), any());
 
         topology.removeNodes(Set.of(NODE_1));
 

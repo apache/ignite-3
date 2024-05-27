@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -615,6 +616,41 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         } finally {
             sql("DROP TABLE IF EXISTS limitedChar");
         }
+    }
+
+    @Test
+    public void zeroStringsAreNotAllowed() {
+        // Char
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for type CHAR must be at least 1",
+                () -> sql("SELECT CAST(1 AS CHAR(0))")
+        );
+
+
+        // Varchar
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for type VARCHAR must be at least 1",
+                () -> sql("SELECT CAST(1 AS VARCHAR(0))")
+        );
+
+        // Binary
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for type BINARY must be at least 1",
+                () -> sql("SELECT CAST(x'0101' AS BINARY(0))")
+        );
+        // Varbinary
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Length for type VARBINARY must be at least 1",
+                () -> sql("SELECT CAST(x'0101' AS VARBINARY(0))")
+        );
     }
 
     private static Stream<Arguments> decimalOverflowsValidation() {

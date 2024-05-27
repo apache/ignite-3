@@ -40,7 +40,7 @@ import org.junit.jupiter.api.Test;
 
 class EventLogTest {
     private static final EventUser TEST_USER = EventUser.of("testuser", "basicAuthenticator");
-    private static final Event TEST_EVENT = IgniteEvents.USER_AUTHENTICATED.create(TEST_USER);
+    private static final Event TEST_EVENT = IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(TEST_USER);
     private static final String TEST_CHANNEL_NAME = "testChannel";
 
     private EventLog eventLog;
@@ -83,7 +83,7 @@ class EventLogTest {
         assertThat(container, hasItem(TEST_EVENT));
 
         // When log event with a type that is not supported by the channel.
-        Event event = IgniteEvents.CONNECTION_CLOSED.create(TEST_USER);
+        Event event = IgniteEvents.CLIENT_CONNECTION_CLOSED.create(TEST_USER);
 
         // Then nothing thrown.
         assertDoesNotThrow(() -> eventLog.log(() -> event));
