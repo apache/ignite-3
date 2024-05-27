@@ -17,25 +17,20 @@
 
 package org.apache.ignite.internal.rest;
 
-import io.micronaut.context.event.BeanDestroyedEvent;
-import io.micronaut.context.event.BeanDestroyedEventListener;
-import jakarta.inject.Singleton;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import io.micronaut.runtime.Micronaut;
 
 /**
- * Destroyer of any rest factory {@link RestFactory}.
+ * A resource holder. Implement this interface in the bean class if it has a chain of references to the {@link org.apache.ignite.Ignite}
+ * instance.
  */
-@Singleton
-public class RestFactoriesDestroyer implements BeanDestroyedEventListener<RestFactory> {
-    private static final IgniteLogger LOG = Loggers.forClass(RestFactoriesDestroyer.class);
+public interface ResourceHolder {
+    /**
+     * This method will be called when the bean is destroyed. All resources of the resource holder must be cleaned and all fields must be
+     * set to {@code null}. The reason of these requirements is Micronaut design. {@link Micronaut#start()} stores shutdown hook and
+     * captures a pointer to the embedded application {@code io.micronaut.http.server.netty.NettyEmbeddedServer} and as a result
+     * {@link io.micronaut.context.ApplicationContext} will never be collected by the GC. All beans stored in the application context should
+     * be cleaned to prevent memory leak.
+     */
 
-    @Override
-    public void onDestroyed(BeanDestroyedEvent<RestFactory> event) {
-        RestFactory bean = event.getBean();
-        if (bean != null) {
-            LOG.debug("Destroy rest factory " + bean);
-            bean.cleanResources();
-        }
-    }
+    void cleanResources();
 }
