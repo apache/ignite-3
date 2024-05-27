@@ -50,6 +50,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -225,9 +226,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         var cmgManager = mock(ClusterManagementGroupManager.class);
 
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(logicalTopology.getLogicalTopology()));
-        ComponentContext componentContext = new ComponentContext();
-        when(cmgManager.startAsync(componentContext)).thenReturn(nullCompletedFuture());
-        when(cmgManager.stopAsync(componentContext)).thenReturn(nullCompletedFuture());
+
+        when(cmgManager.startAsync(any())).thenReturn(nullCompletedFuture());
+        when(cmgManager.stopAsync(any())).thenReturn(nullCompletedFuture());
 
         metastore = spy(StandaloneMetaStorageManager.create(
                 new TestRocksDbKeyValueStorage(name, workDir.resolve("metastorage"))
@@ -284,7 +285,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         components.add(nodeCfgMgr);
 
         // Start.
-
+        ComponentContext componentContext = new ComponentContext();
         assertThat(vault.startAsync(componentContext), willCompleteSuccessfully());
         vault.putName(name);
 

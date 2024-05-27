@@ -104,8 +104,8 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
             return fromCursor(metaStorage.range(prefix.bytes(), metaStorage.nextKey(prefix.bytes())));
         });
 
-        when(mock.startAsync(new ComponentContext())).thenReturn(nullCompletedFuture());
-        when(mock.stopAsync(new ComponentContext())).thenReturn(nullCompletedFuture());
+        when(mock.startAsync(any())).thenReturn(nullCompletedFuture());
+        when(mock.stopAsync(any())).thenReturn(nullCompletedFuture());
 
         return mock;
     }
