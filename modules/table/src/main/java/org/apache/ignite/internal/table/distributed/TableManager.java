@@ -982,8 +982,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             startGroupFut = falseCompletedFuture();
         }
 
+        // boolean inStablePendingUnion = union(
+        //        assignments.nodes().stream().map(Assignment::consistentId).collect(toSet()),
+        //        newConfiguration.peers().stream().map(Peer::consistentId).collect(toSet()))
+        //        .contains(localNode().name());
+        // boolean shouldStartGr = startGroupFut.join();
         startGroupFut
-                .thenComposeAsync(v -> inBusyLock(busyLock, () -> {
+                .thenComposeAsync(shouldStartGroup -> inBusyLock(busyLock, () -> {
+                    if (!shouldStartGroup) {
+                        return nullCompletedFuture();
+                    }
+
                     TableRaftService tableRaftService = table.internalTable().tableRaftService();
 
                     try {
@@ -1003,6 +1012,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }
                 }), ioExecutor)
                 .thenAcceptAsync(updatedRaftGroupService -> inBusyLock(busyLock, () -> {
+                    if (updatedRaftGroupService == null) {
+                        return;
+                    }
+
                     ((InternalTableImpl) internalTbl).tableRaftService()
                             .updateInternalTableRaftGroupService(partId, updatedRaftGroupService);
 
