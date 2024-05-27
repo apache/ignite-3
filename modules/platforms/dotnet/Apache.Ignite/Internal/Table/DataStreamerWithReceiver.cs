@@ -28,6 +28,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
 using Common;
+using Ignite.Compute;
 using Ignite.Table;
 using Proto;
 using Proto.BinaryTuple;
@@ -58,6 +59,8 @@ internal static class DataStreamerWithReceiver
     /// <param name="keyWriter">Key writer.</param>
     /// <param name="options">Options.</param>
     /// <param name="expectResults">Whether to expect results from the receiver.</param>
+    /// <param name="units">Deployment units. Can be empty.</param>
+    /// <param name="receiverClassName">Java class name of the streamer receiver to execute on the server.</param>
     /// <param name="receiverArgs">Receiver args.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <typeparam name="TSource">Source type.</typeparam>
@@ -73,6 +76,8 @@ internal static class DataStreamerWithReceiver
         IRecordSerializerHandler<TKey> keyWriter,
         DataStreamerOptions options,
         bool expectResults,
+        IEnumerable<DeploymentUnit> units,
+        string receiverClassName,
         object[]? receiverArgs,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {

@@ -324,6 +324,8 @@ namespace Apache.Ignite.Internal.Table
                 keyWriter: _ser.Handler,
                 options ?? DataStreamerOptions.Default,
                 expectResults: true,
+                units,
+                receiverClassName,
                 receiverArgs,
                 cancellationToken);
 
@@ -346,6 +348,8 @@ namespace Apache.Ignite.Internal.Table
                 keyWriter: _ser.Handler,
                 options ?? DataStreamerOptions.Default,
                 expectResults: false,
+                units,
+                receiverClassName,
                 receiverArgs,
                 cancellationToken);
 
