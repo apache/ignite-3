@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metrics;
 import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater;
 
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Base class for all metric sources.
@@ -47,21 +48,13 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
         this.name = name;
     }
 
-    /**
-     * Returns metric source name.
-     *
-     * @return Metric source name.
-     */
-    @Override public final String name() {
+    @Override
+    public final String name() {
         return name;
     }
 
-    /**
-     * Checks whether metrics is enabled (switched on) or not (switched off) for metric source.
-     *
-     * @return {@code True} if metrics are enabled, otherwise - {@code false}.
-     */
-    @Override public final boolean enabled() {
+    @Override
+    public final boolean enabled() {
         return holder != null;
     }
 
@@ -71,32 +64,34 @@ public abstract class AbstractMetricSource<T extends AbstractMetricSource.Holder
      *
      * @return Metrics holder instance if metrics are enabled, otherwise - {@code null}.
      */
-    public final T holder() {
+    public final @Nullable T holder() {
         return holder;
     }
 
     /**
-     * Method is responsible for creation of appropriate holder instance in underlying implementations.
+     * Method is responsible for creation of appropriate <b>immutable</b> holder instance in underlying implementations.
      *
-     * @return New instance of metrics holder that must implements {@link Holder} interface.
+     * @return New <b>immutable</b> instance of metrics holder that must implements {@link Holder} interface.
      */
     protected abstract T createHolder();
 
-    /** {@inheritDoc} */
-    @Override public final MetricSet enable() {
-        MetricSetBuilder bldr = new MetricSetBuilder(name);
+    @Override
+    public final @Nullable MetricSet enable() {
+        T newHolder = createHolder();
 
-        T hldr = createHolder();
+        if (HOLDER_FIELD_UPD.compareAndSet(this, null, newHolder)) {
+            var metricSetBuilder = new MetricSetBuilder(name);
 
-        init(bldr, hldr);
+            init(metricSetBuilder, newHolder);
 
-        MetricSet metricSet = bldr.build();
+            return metricSetBuilder.build();
+        }
 
-        return HOLDER_FIELD_UPD.compareAndSet(this, null, hldr) ? metricSet : null;
+        return null;
     }
 
-    /** {@inheritDoc} */
-    @Override public final void disable() {
+    @Override
+    public final void disable() {
         T holder0 = holder;
 
         if (HOLDER_FIELD_UPD.compareAndSet(this, holder0, null)) {
