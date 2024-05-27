@@ -86,11 +86,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
 
     private final DisruptorMetrics metrics;
 
-    /**
-     * If {@code false}, this stripe will always pass {@code true} into {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the
-     * data will be provided with batches.
-     */
-    private final boolean supportsBatches;
+    /** If it is true, the disruptor batch shares across all subscribers. Otherwise, the batch sends for each one. */
+    private final boolean sharedStripe;
 
     /**
      * @param nodeName Name of the Ignite node.
@@ -98,8 +95,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param bufferSize Buffer size for each Disruptor.
      * @param eventFactory Event factory for the Striped disruptor.
      * @param stripes Amount of stripes.
-     * @param supportsBatches If {@code false}, this stripe will always pass {@code true} into
-     *         {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
+     * @param sharedStripe If it is true, the disruptor batch shares across all subscribers. Otherwise, the batch sends for each one.
      * @param useYieldStrategy If {@code true}, the yield strategy is to be used, otherwise the blocking strategy.
      * @param metrics Metrics.
      */
@@ -109,7 +105,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
             int bufferSize,
             EventFactory<T> eventFactory,
             int stripes,
-            boolean supportsBatches,
+            boolean sharedStripe,
             boolean useYieldStrategy,
             @Nullable DisruptorMetrics metrics
     ) {
@@ -120,7 +116,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
                 bufferSize,
                 eventFactory,
                 stripes,
-                supportsBatches,
+                sharedStripe,
                 useYieldStrategy,
                 metrics
         );
@@ -133,8 +129,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param bufferSize Buffer size for each Disruptor.
      * @param eventFactory Event factory for the Striped disruptor.
      * @param stripes Amount of stripes.
-     * @param supportsBatches If {@code false}, this stripe will always pass {@code true} into
-     *         {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
+     * @param sharedStripe If it is true, the disruptor batch shares across all subscribers. Otherwise, the batch sends for each one.
      * @param useYieldStrategy If {@code true}, the yield strategy is to be used, otherwise the blocking strategy.
      * @param raftMetrics Metrics.
      */
@@ -145,7 +140,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
             int bufferSize,
             EventFactory<T> eventFactory,
             int stripes,
-            boolean supportsBatches,
+            boolean sharedStripe,
             boolean useYieldStrategy,
             @Nullable DisruptorMetrics raftMetrics
     ) {
@@ -155,7 +150,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
         exceptionHandlers = new ArrayList<>(stripes);
         this.stripes = stripes;
         this.name = NamedThreadFactory.threadPrefix(nodeName, poolName);
-        this.supportsBatches = supportsBatches;
+        this.sharedStripe = sharedStripe;
         this.metrics = raftMetrics;
 
         for (int i = 0; i < stripes; i++) {
@@ -345,7 +340,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
          * @throws Exception Throw when some handler fails.
          */
         private void internalBatching(T event, long sequence) throws Exception {
-            NodeId pushNodeId = supportsBatches ? FAKE_NODE_ID : event.nodeId();
+            NodeId pushNodeId = sharedStripe ? FAKE_NODE_ID : event.nodeId();
 
             T prevEvent = eventCache.put(pushNodeId, event);
 
