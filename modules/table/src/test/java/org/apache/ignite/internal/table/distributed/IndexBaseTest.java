@@ -26,7 +26,7 @@ import java.util.UUID;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -98,6 +98,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     @BeforeEach
     void setUp() {
+        int zoneId = 11;
         int tableId = 1;
         int pkIndexId = 2;
         int sortedIndexId = 3;
@@ -165,7 +166,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 hashIndexId, hashIndexStorage
         );
 
-        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PARTITION_ID, storage);
+        TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(zoneId, tableId, PARTITION_ID, storage);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(DummyInternalTableImpl.createTableIndexStoragesSupplier(indexes));
 
@@ -196,7 +197,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     }
 
     static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row, @Nullable HybridTimestamp lastCommitTime) {
-        TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
+        ZonePartitionId partitionId = new ZonePartitionId(2222, 333, PARTITION_ID);
 
         handler.handleUpdate(TX_ID, rowUuid, partitionId, row, false, null, null, lastCommitTime, null);
     }
@@ -257,7 +258,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         /** Uses update api. */
         USE_UPDATE {
             @Override
-            void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
+            void addWrite(StorageUpdateHandler handler, ZonePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
                 // TODO: perhaps need to pass last commit time as a param
                 handler.handleUpdate(TX_ID, rowUuid, partitionId, row, true, null, null, null, null);
             }
@@ -265,7 +266,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         /** Uses updateAll api. */
         USE_UPDATE_ALL {
             @Override
-            void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
+            void addWrite(StorageUpdateHandler handler, ZonePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
                 BinaryRowMessage rowMessage = row == null
                         ? null
                         : MSG_FACTORY.binaryRowMessage()
@@ -286,11 +287,11 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         };
 
         void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row) {
-            TablePartitionId tablePartitionId = new TablePartitionId(444, PARTITION_ID);
+            ZonePartitionId zonePartitionId = new ZonePartitionId(4444, 444, PARTITION_ID);
 
-            addWrite(handler, tablePartitionId, rowUuid, row);
+            addWrite(handler, zonePartitionId, rowUuid, row);
         }
 
-        abstract void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row);
+        abstract void addWrite(StorageUpdateHandler handler, ZonePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row);
     }
 }

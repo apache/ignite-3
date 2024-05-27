@@ -155,7 +155,15 @@ public class PartitionAccessImpl implements PartitionAccess {
     }
 
     @Override
-    public void addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId, int catalogVersion) {
+    public void addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitZoneId,
+            int commitTableId,
+            int commitPartitionId,
+            int catalogVersion
+    ) {
         MvPartitionStorage mvPartitionStorage = getMvPartitionStorage(partitionId());
 
         List<IndexIdAndTableVersion> indexIdAndTableVersionList = fullStateTransferIndexChooser.chooseForAddWrite(
@@ -169,7 +177,7 @@ public class PartitionAccessImpl implements PartitionAccess {
         mvPartitionStorage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            mvPartitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+            mvPartitionStorage.addWrite(rowId, row, txId, commitZoneId, commitTableId, commitPartitionId);
 
             for (IndexIdAndBinaryRow indexIdAndBinaryRow : indexIdAndBinaryRowList) {
                 indexUpdateHandler.addToIndex(indexIdAndBinaryRow.binaryRow(), rowId, indexIdAndBinaryRow.indexId());

@@ -62,7 +62,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
@@ -95,11 +95,12 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
 
     private final UUID txId = TransactionIds.transactionId(beginTimestamp, 0);
 
+    private static final int ZONE_ID = 11;
     private static final int TABLE_ID = 1;
     private static final String TABLE_NAME = "test";
     private static final String ANOTHER_NAME = "another";
 
-    private final TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, 0);
+    private final ZonePartitionId zonePartitionId = new ZonePartitionId(ZONE_ID, TABLE_ID, 0);
 
     @BeforeEach
     void createValidatorAndInitMocks() {
@@ -118,7 +119,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         when(schemasSource.tableSchemaVersionsBetween(TABLE_ID, beginTimestamp, commitTimestamp))
                 .thenReturn(changeSource.schemaVersions());
 
-        CompletableFuture<CompatValidationResult> resultFuture = validator.validateCommit(txId, List.of(tablePartitionId), commitTimestamp);
+        CompletableFuture<CompatValidationResult> resultFuture = validator.validateCommit(txId, List.of(zonePartitionId), commitTimestamp);
 
         assertThat(resultFuture, willCompleteSuccessfully());
 
@@ -138,7 +139,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         when(schemasSource.tableSchemaVersionsBetween(TABLE_ID, beginTimestamp, commitTimestamp))
                 .thenReturn(changeSource.schemaVersions());
 
-        CompletableFuture<CompatValidationResult> resultFuture = validator.validateCommit(txId, List.of(tablePartitionId), commitTimestamp);
+        CompletableFuture<CompatValidationResult> resultFuture = validator.validateCommit(txId, List.of(zonePartitionId), commitTimestamp);
 
         assertThat(resultFuture, willCompleteSuccessfully());
 

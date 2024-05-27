@@ -30,7 +30,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.schema.ColumnDefinitionDiff;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -79,13 +79,14 @@ class SchemaCompatibilityValidator {
      */
     CompletableFuture<CompatValidationResult> validateCommit(
             UUID txId,
-            Collection<TablePartitionId> enlistedGroupIds,
+            Collection<ZonePartitionId> enlistedGroupIds,
             HybridTimestamp commitTimestamp
     ) {
         HybridTimestamp beginTimestamp = TransactionIds.beginTimestamp(txId);
 
         Set<Integer> tableIds = enlistedGroupIds.stream()
-                .map(TablePartitionId::tableId)
+                // TODO: how it is supposed to work after we remove table from ZonePartitionId?
+                .map(ZonePartitionId::tableId)
                 .collect(toSet());
 
         // Using compareTo() instead of after()/begin() because the latter methods take clock skew into account

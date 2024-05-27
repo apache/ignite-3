@@ -56,7 +56,6 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -376,7 +375,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         int commitPartId = partitionIdForTuple(node, TABLE_NAME, tuple0, tx);
 
-        TablePartitionId commitPartGrpId = new TablePartitionId(tableId(node, TABLE_NAME), commitPartId);
+        ZonePartitionId commitPartGrpId = new ZonePartitionId(zoneIdForTable(node, TABLE_NAME), tableId(node, TABLE_NAME), commitPartId);
 
         ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(node, commitPartGrpId);
         IgniteImpl commitPartitionLeaseholder = findNode(n -> n.id().equals(replicaMeta.getLeaseholderId()));
@@ -481,7 +480,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         int commitPartId = partitionIdForTuple(node, TABLE_NAME, tuple, tx);
 
-        TablePartitionId commitPartGrpId = new TablePartitionId(tableId(node, TABLE_NAME), commitPartId);
+        ZonePartitionId commitPartGrpId = new ZonePartitionId(zoneIdForTable(node, TABLE_NAME), tableId(node, TABLE_NAME), commitPartId);
 
         ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(node, commitPartGrpId);
         IgniteImpl commitPartitionLeaseholder = findNode(n -> n.id().equals(replicaMeta.getLeaseholderId()));
@@ -565,7 +564,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
 
         int commitPartId = partitionIdForTuple(node, TABLE_NAME, tuple, tx);
 
-        TablePartitionId commitPartGrpId = new TablePartitionId(tableId(node, TABLE_NAME), commitPartId);
+        ZonePartitionId commitPartGrpId = new ZonePartitionId(zoneIdForTable(node, TABLE_NAME), tableId(node, TABLE_NAME), commitPartId);
 
         ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(node, commitPartGrpId);
         IgniteImpl commitPartitionLeaseholder = findNode(n -> n.id().equals(replicaMeta.getLeaseholderId()));
@@ -992,9 +991,10 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         if (checkCpPrimaryOnly) {
             IgniteImpl node = anyNode();
 
-            TablePartitionId tablePartitionId = new TablePartitionId(tableId(node, tableName), partId);
+            ZonePartitionId zoneTablePartId = new ZonePartitionId(zoneIdForTable(node, tableName), tableId(node, tableName), partId);
 
-            CompletableFuture<ReplicaMeta> replicaFut = node.placementDriver().getPrimaryReplica(tablePartitionId, node.clock().now());
+            CompletableFuture<ReplicaMeta> replicaFut =
+                    node.placementDriver().getPrimaryReplicaForTable(zoneTablePartId, node.clock().now());
             assertThat(replicaFut, willCompleteSuccessfully());
 
             ReplicaMeta replicaMeta = replicaFut.join();

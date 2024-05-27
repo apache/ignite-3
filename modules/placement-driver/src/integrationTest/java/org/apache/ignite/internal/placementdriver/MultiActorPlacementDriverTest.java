@@ -71,7 +71,6 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
@@ -89,9 +88,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
     private static final int BASE_PORT = 1234;
 
-    private static final TablePartitionId GROUP_ID = new TablePartitionId(1, 0);
+    private static final Integer TABLE_ID = 1;
 
-    private static final ZonePartitionId ZONE_GROUP_ID = new ZonePartitionId(1, 0);
+    private static final ZonePartitionId ZONE_GROUP_ID = new ZonePartitionId(11, 0);
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
@@ -178,7 +177,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
             if (resp == null) {
                 resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                        .appliedGroups(Set.of(GROUP_ID))
+                        .appliedGroups(Set.of(TABLE_ID))
                         .accepted(true)
                         .build();
             }
@@ -312,7 +311,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             acceptedNodeRef.compareAndSet(null, to);
 
             return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                    .appliedGroups(Set.of(GROUP_ID))
+                    .appliedGroups(Set.of(TABLE_ID))
                     .accepted(true)
                     .build();
         };
@@ -333,7 +332,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             acceptedNodeRef.compareAndSet(null, to);
 
             return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                    .appliedGroups(Set.of(GROUP_ID))
+                    .appliedGroups(Set.of(TABLE_ID))
                     .accepted(true)
                     .build();
         };
@@ -386,7 +385,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                 log.info("Lease is accepted [leaseholder={}]", to);
 
                 return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                        .appliedGroups(Set.of(GROUP_ID))
+                        .appliedGroups(Set.of(TABLE_ID))
                         .accepted(true)
                         .build();
             }
@@ -411,7 +410,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             activeActorRef.set(from);
 
             return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                    .appliedGroups(Set.of(GROUP_ID))
+                    .appliedGroups(Set.of(TABLE_ID))
                     .accepted(true)
                     .build();
         };
@@ -437,7 +436,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                         .build();
             } else {
                 return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                        .appliedGroups(Set.of(GROUP_ID))
+                        .appliedGroups(Set.of(TABLE_ID))
                         .accepted(true)
                         .build();
             }
@@ -449,7 +448,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
         service.messagingService().send(
                 clusterServices.get(activeActorRef.get()).topologyService().localMember(),
                 PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
-                        .groupId(GROUP_ID)
+                        .groupId(grpPart)
                         .redirectProposal(proposedLeaseholder)
                         .build()
         );

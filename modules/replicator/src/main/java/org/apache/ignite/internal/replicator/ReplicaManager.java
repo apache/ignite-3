@@ -34,7 +34,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -139,11 +138,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private final LongSupplier idleSafeTimePropagationPeriodMsSupplier;
 
     /** Replicas. */
-    private final ConcurrentHashMap<ReplicationGroupId, CompletableFuture<Replica>> replicas = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<ZonePartitionId, CompletableFuture<Replica>> replicas = new ConcurrentHashMap<>();
 
     private final ClockService clockService;
 
-    private final ConcurrentHashMap<ZonePartitionId, Set<ReplicationGroupId>> zonePartIdToTablePartId = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<ZonePartitionId, Set<Integer>> zonePartIdToTableIds = new ConcurrentHashMap<>();
 
     /** Scheduled executor for idle safe time sync. */
     private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor;
@@ -291,7 +290,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         try {
             // Notify the sender that the Replica is created and ready to process requests.
             if (request instanceof AwaitReplicaRequest) {
-                replicas.compute(request.groupId(), (replicationGroupId, replicaFut) -> {
+                replicas.compute((ZonePartitionId) request.groupId(), (replicationGroupId, replicaFut) -> {
                     if (replicaFut == null) {
                         replicaFut = new CompletableFuture<>();
                     }
@@ -318,6 +317,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 return;
             }
+
+            assert request.groupId() instanceof ZonePartitionId : "Request = " + request;
 
             CompletableFuture<Replica> replicaFut = replicas.get(request.groupId());
 
@@ -425,24 +426,29 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            Set<ReplicationGroupId> replicationGroupIds = new HashSet<>();
+            Set<Integer> tableIds = new HashSet<>();
 
-            zonePartIdToTablePartId.compute((ZonePartitionId) msg.groupId(), (key, tablePartIds) -> {
+            ZonePartitionId zonePartId = (ZonePartitionId) msg.groupId();
+
+            zonePartIdToTableIds.compute(zonePartId, (key, tablePartIds) -> {
                 if (tablePartIds == null) {
                     tablePartIds = new HashSet<>();
                 }
 
-                replicationGroupIds.addAll(tablePartIds);
+                tableIds.addAll(tablePartIds);
 
                 return tablePartIds;
             });
 
-            CompletableFuture<LeaseGrantedMessageResponse>[] futures = new CompletableFuture[replicationGroupIds.size()];
+            CompletableFuture<LeaseGrantedMessageResponse>[] futures = new CompletableFuture[tableIds.size()];
 
             int i = 0;
 
-            for (ReplicationGroupId grpId : replicationGroupIds) {
-                CompletableFuture<Replica> replicaFut = replicas.computeIfAbsent(grpId, k -> new CompletableFuture<>());
+            for (Integer tblId : tableIds) {
+                CompletableFuture<Replica> replicaFut = replicas.computeIfAbsent(
+                        new ZonePartitionId(zonePartId.zoneId(), tblId, zonePartId.partitionId()),
+                        k -> new CompletableFuture<>()
+                );
                 futures[i++] = replicaFut.thenCompose(replica -> replica.processPlacementDriverMessage(msg));
             }
 
@@ -456,7 +462,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             responses.stream().filter(leaseGranResp -> !leaseGranResp.accepted()).findAny().get().redirectProposal();
 
                     LeaseGrantedMessageResponse response = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                            .appliedGroups(replicationGroupIds == null ? Collections.emptySet() : replicationGroupIds)
+                            .appliedGroups(tableIds)
                             .redirectProposal(redirect)
                             .accepted(accepted)
                             .build();
@@ -508,7 +514,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
-            ZonePartitionId zonePartitionId,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
@@ -518,7 +523,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            return startReplicaInternal(replicaGrpId, zonePartitionId, listener, raftClient, storageIndexTracker);
+            return startReplicaInternal(replicaGrpId, listener, raftClient, storageIndexTracker);
         } finally {
             busyLock.leaveBusy();
         }
@@ -534,7 +539,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     private CompletableFuture<Replica> startReplicaInternal(
             ReplicationGroupId replicaGrpId,
-            ZonePartitionId zonePartitionId,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
@@ -543,9 +547,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
+        assert replicaGrpId instanceof ZonePartitionId;
+        ZonePartitionId zoneTablePartId = (ZonePartitionId) replicaGrpId;
+        assert (zoneTablePartId).tableId() != 0;
+
         Replica newReplica = new Replica(
-                replicaGrpId,
-                zonePartitionId,
+                zoneTablePartId,
                 listener,
                 storageIndexTracker,
                 raftClient,
@@ -555,13 +562,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 clockService
         );
 
-        CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
-            zonePartIdToTablePartId.compute(zonePartitionId, (key, tablePartIds) -> {
+        CompletableFuture<Replica> replicaFuture = replicas.compute(zoneTablePartId, (k, existingReplicaFuture) -> {
+            zonePartIdToTableIds.compute(ZonePartitionId.resetTableId(zoneTablePartId), (key, tablePartIds) -> {
                 if (tablePartIds == null) {
                     tablePartIds = new HashSet<>();
                 }
 
-                tablePartIds.add(replicaGrpId);
+                tablePartIds.add(zoneTablePartId.tableId());
 
                 return tablePartIds;
             });
@@ -620,6 +627,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         var eventParams = new LocalReplicaEventParameters(replicaGrpId);
 
+        assert replicaGrpId instanceof ZonePartitionId;
+
         fireEvent(BEFORE_REPLICA_STOPPED, eventParams).whenComplete((v, e) -> {
             if (e != null) {
                 LOG.error("Error when notifying about BEFORE_REPLICA_STOPPED event.", e);
@@ -632,7 +641,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             }
 
             try {
-                replicas.compute(replicaGrpId, (grpId, replicaFuture) -> {
+                replicas.compute((ZonePartitionId) replicaGrpId, (grpId, replicaFuture) -> {
                     if (replicaFuture == null) {
                         isRemovedFuture.complete(false);
                     } else if (!replicaFuture.isDone()) {
@@ -655,8 +664,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 });
                     }
 
-                    zonePartIdToTablePartId.forEach((zonePartId, tblPartIds) -> {
-                        tblPartIds.remove(replicaGrpId);
+                    zonePartIdToTableIds.forEach((zonePartId, tblPartIds) -> {
+                        tblPartIds.remove(((ZonePartitionId) replicaGrpId).tableId());
                     });
 
                     return null;
@@ -715,13 +724,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Updates list of replication groups for each distributed zone.
      */
     private void updateTableGroupsInternal() {
-        for (Entry<ZonePartitionId, Set<ReplicationGroupId>> entry : zonePartIdToTablePartId.entrySet()) {
+        for (Entry<ZonePartitionId, Set<Integer>> entry : zonePartIdToTableIds.entrySet()) {
             ZonePartitionId repGrp = entry.getKey();
 
             ReplicaMeta meta = placementDriver.getLeaseMeta(repGrp);
 
             if (meta != null) {
-                HashSet<ReplicationGroupId> diff = new HashSet<>(entry.getValue());
+                HashSet<Integer> diff = new HashSet<>(entry.getValue());
                 diff.removeAll(meta.subgroups());
 
                 if (meta.getLeaseholderId().equals(localNodeId) && !diff.isEmpty()) {
@@ -732,15 +741,17 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 .thenComposeAsync(unused -> {
                                     ArrayList<CompletableFuture<?>> requestToReplicas = new ArrayList<>();
 
-                                    for (ReplicationGroupId partId : diff) {
+                                    for (Integer tableId : diff) {
+                                        ZonePartitionId zoneTablePartId =
+                                                new ZonePartitionId(repGrp.zoneId(), tableId, repGrp.partitionId());
                                         WaitReplicaStateMessage req = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
                                                 .enlistmentConsistencyToken(meta.getStartTime().longValue())
-                                                .groupId(partId)
+                                                .groupId(zoneTablePartId)
                                                 // TODO: https://issues.apache.org/jira/browse/IGNITE-22122
                                                 .timeout(10_000)
                                                 .build();
 
-                                        CompletableFuture<Replica> replicaFut = replicas.get(partId);
+                                        CompletableFuture<Replica> replicaFut = replicas.get(zoneTablePartId);
 
                                         if (replicaFut != null) {
                                             requestToReplicas.add(replicaFut.thenCompose(
@@ -888,7 +899,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Idle safe time sync for replicas.
      */
     private void idleSafeTimeSync() {
-        for (Entry<ReplicationGroupId, CompletableFuture<Replica>> entry : replicas.entrySet()) {
+        for (Entry<ZonePartitionId, CompletableFuture<Replica>> entry : replicas.entrySet()) {
             try {
                 sendSafeTimeSyncIfReplicaReady(entry.getValue());
             } catch (Exception | AssertionError e) {
@@ -905,6 +916,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         if (isCompletedSuccessfully(replicaFuture)) {
             Replica replica = replicaFuture.join();
 
+            assert replica.groupId() instanceof ZonePartitionId;
+
             ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
                     .groupId(replica.groupId())
                     .build();
@@ -920,6 +933,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @return True if the replica is started.
      */
     public boolean isReplicaStarted(ReplicationGroupId replicaGrpId) {
+        assert replicaGrpId instanceof ZonePartitionId;
         CompletableFuture<Replica> replicaFuture = replicas.get(replicaGrpId);
         return replicaFuture != null && isCompletedSuccessfully(replicaFuture);
     }

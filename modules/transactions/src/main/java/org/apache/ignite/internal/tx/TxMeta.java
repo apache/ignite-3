@@ -22,7 +22,7 @@ import static java.util.Collections.unmodifiableCollection;
 import java.util.Collection;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,7 +35,7 @@ public class TxMeta implements TransactionMeta {
     private final TxState txState;
 
     /** Collection of enlisted partition groups. */
-    private final Collection<TablePartitionId> enlistedPartitions;
+    private final Collection<ZonePartitionId> enlistedPartitions;
 
     /** Commit timestamp. */
     @Nullable
@@ -48,7 +48,7 @@ public class TxMeta implements TransactionMeta {
      * @param enlistedPartitions Collection of enlisted partition groups.
      * @param commitTimestamp Commit timestamp.
      */
-    public TxMeta(TxState txState, Collection<TablePartitionId> enlistedPartitions, @Nullable HybridTimestamp commitTimestamp) {
+    public TxMeta(TxState txState, Collection<ZonePartitionId> enlistedPartitions, @Nullable HybridTimestamp commitTimestamp) {
         this.txState = txState;
         this.enlistedPartitions = enlistedPartitions;
         this.commitTimestamp = commitTimestamp;
@@ -59,7 +59,7 @@ public class TxMeta implements TransactionMeta {
         return txState;
     }
 
-    public Collection<TablePartitionId> enlistedPartitions() {
+    public Collection<ZonePartitionId> enlistedPartitions() {
         return unmodifiableCollection(enlistedPartitions);
     }
 

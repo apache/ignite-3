@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.PARTITION_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.TABLE_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ZONE_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.getRowIdUuid;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.putRowIdUuid;
 
@@ -63,7 +64,7 @@ public final class PartitionDataHelper implements ManuallyCloseable {
     private static final int TX_ID_SIZE = 2 * Long.BYTES;
 
     /** Size of the value header (transaction state). */
-    static final int VALUE_HEADER_SIZE = TX_ID_SIZE + TABLE_ID_SIZE + PARTITION_ID_SIZE;
+    static final int VALUE_HEADER_SIZE = TX_ID_SIZE + ZONE_ID_SIZE + TABLE_ID_SIZE + PARTITION_ID_SIZE;
 
     /** Transaction id offset. */
     static final int TX_ID_OFFSET = 0;

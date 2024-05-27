@@ -37,7 +37,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -49,7 +49,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
-import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
+import org.apache.ignite.internal.table.distributed.command.ZonePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.storage.RowBatch;
@@ -109,9 +109,9 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ColocationGroup colocationGroup
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
-        TablePartitionId commitPartitionId = txAttributes.commitPartition();
+        ZonePartitionId zoneCommitPartitionId = txAttributes.zoneCommitPartition();
 
-        assert commitPartitionId != null;
+        assert zoneCommitPartitionId != null;
 
         validateNotNullConstraint(ectx.rowHandler(), rows);
 
@@ -134,13 +134,13 @@ public final class UpdatableTableImpl implements UpdatableTable {
         int batchNum = 0;
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
+            ZonePartitionId partGroupId = new ZonePartitionId(table.zoneId(), tableId, partToRows.getIntKey());
 
             NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
-                    .commitPartitionId(serializeTablePartitionId(commitPartitionId))
+                    .zoneCommitPartitionId(serializeZonePartitionId(zoneCommitPartitionId))
                     .schemaVersion(partToRows.getValue().get(0).schemaVersion())
                     .binaryTuples(binaryRowsToBuffers(partToRows.getValue()))
                     .transactionId(txAttributes.id())
@@ -177,10 +177,11 @@ public final class UpdatableTableImpl implements UpdatableTable {
         return result;
     }
 
-    private static TablePartitionIdMessage serializeTablePartitionId(TablePartitionId id) {
-        return MESSAGES_FACTORY.tablePartitionIdMessage()
-                .partitionId(id.partitionId())
+    private ZonePartitionIdMessage serializeZonePartitionId(ZonePartitionId id) {
+        return MESSAGES_FACTORY.zonePartitionIdMessage()
+                .zoneId(id.zoneId())
                 .tableId(id.tableId())
+                .partitionId(id.partitionId())
                 .build();
     }
 
@@ -221,7 +222,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ColocationGroup colocationGroup
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
-        TablePartitionId commitPartitionId = txAttributes.commitPartition();
+        ZonePartitionId zoneCommitPartitionId = txAttributes.zoneCommitPartition();
 
         validateNotNullConstraint(ectx.rowHandler(), rows);
 
@@ -230,7 +231,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         rows = validateCharactersOverflowAndTrimIfPossible(rowType, ectx.rowHandler(), rows, schemaSupplier);
 
-        assert commitPartitionId != null;
+        assert zoneCommitPartitionId != null;
 
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(ectx, rows);
 
@@ -238,13 +239,13 @@ public final class UpdatableTableImpl implements UpdatableTable {
             int partitionId = partitionRowBatch.getIntKey();
             RowBatch rowBatch = partitionRowBatch.getValue();
 
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
+            ZonePartitionId partGroupId = new ZonePartitionId(table.zoneId(), tableId, partitionId);
 
             NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partitionId);
 
             ReadWriteMultiRowReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
-                    .commitPartitionId(serializeTablePartitionId(commitPartitionId))
+                    .zoneCommitPartitionId(serializeZonePartitionId(zoneCommitPartitionId))
                     .schemaVersion(rowBatch.requestedRows.get(0).schemaVersion())
                     .binaryTuples(binaryRowsToBuffers(rowBatch.requestedRows))
                     .transactionId(txAttributes.id())
@@ -289,9 +290,9 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ColocationGroup colocationGroup
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
-        TablePartitionId commitPartitionId = txAttributes.commitPartition();
+        ZonePartitionId zoneCommitPartitionId = txAttributes.zoneCommitPartition();
 
-        assert commitPartitionId != null;
+        assert zoneCommitPartitionId != null;
 
         Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = new Int2ObjectOpenHashMap<>();
 
@@ -307,13 +308,13 @@ public final class UpdatableTableImpl implements UpdatableTable {
         int batchNum = 0;
 
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : keyRowsByPartition.int2ObjectEntrySet()) {
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
+            ZonePartitionId partGroupId = new ZonePartitionId(table.zoneId(), tableId, partToRows.getIntKey());
 
             NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(partToRows.getIntKey());
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                     .groupId(partGroupId)
-                    .commitPartitionId(serializeTablePartitionId(commitPartitionId))
+                    .zoneCommitPartitionId(serializeZonePartitionId(zoneCommitPartitionId))
                     .schemaVersion(partToRows.getValue().get(0).schemaVersion())
                     .primaryKeys(serializePrimaryKeys(partToRows.getValue()))
                     .transactionId(txAttributes.id())

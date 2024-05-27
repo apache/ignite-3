@@ -27,7 +27,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
@@ -84,7 +84,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
+            public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ZonePartitionId zonePartitionId) {
                 return null;
             }
 
@@ -94,18 +94,18 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
+            public boolean assignCommitPartition(ZonePartitionId zonePartitionId) {
                 return false;
             }
 
             @Override
-            public TablePartitionId commitPartition() {
+            public ZonePartitionId zoneCommitPartition() {
                 return null;
             }
 
             @Override
             public IgniteBiTuple<ClusterNode, Long> enlist(
-                    TablePartitionId tablePartitionId,
+                    ZonePartitionId zonePartitionId,
                     IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
                 return null;
             }
@@ -179,9 +179,9 @@ public class FakeTxManager implements TxManager {
     @Override
     public CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             boolean commit,
-            Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Map<ZonePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
             UUID txId
     ) {
         return nullCompletedFuture();
@@ -189,7 +189,7 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public CompletableFuture<Void> cleanup(
-            Map<TablePartitionId, String> enlistedPartitions,
+            Map<ZonePartitionId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -199,7 +199,7 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public CompletableFuture<Void> cleanup(
-            Collection<TablePartitionId> enlistedPartitions,
+            Collection<ZonePartitionId> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId

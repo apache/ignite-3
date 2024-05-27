@@ -60,7 +60,6 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -139,6 +138,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         createIndex(INDEX_NAME);
 
         verify(indexBuilder, never()).scheduleBuildIndex(
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -150,6 +150,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -172,6 +173,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         startBuildingIndex(indexId(INDEX_NAME));
 
         verify(indexBuilder).scheduleBuildIndex(
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -183,6 +185,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -217,6 +220,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
         verify(indexBuilder).scheduleBuildIndex(
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(INDEX_NAME)),
@@ -228,6 +232,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder).scheduleBuildIndexAfterDisasterRecovery(
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId(PK_INDEX_NAME)),
@@ -260,6 +265,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         createTable(catalogManager, tableName, COLUMN_NAME);
 
         verify(indexBuilder, never()).scheduleBuildIndex(
+                eq(zoneId()),
                 eq(tableId(tableName)),
                 eq(PARTITION_ID),
                 eq(indexId(pkIndexName(tableName))),
@@ -271,6 +277,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
+                eq(zoneId()),
                 eq(tableId(tableName)),
                 eq(PARTITION_ID),
                 eq(indexId(pkIndexName(tableName))),
@@ -314,6 +321,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         setPrimaryReplicaWhichExpiresInOneSecond(PARTITION_ID, NODE_NAME, NODE_ID, clock.now());
 
         verify(indexBuilder, never()).scheduleBuildIndex(
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 anyInt(),
@@ -325,6 +333,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         );
 
         verify(indexBuilder).scheduleBuildIndexAfterDisasterRecovery(
+                eq(zoneId()),
                 eq(tableId()),
                 eq(PARTITION_ID),
                 eq(indexId0),
@@ -389,7 +398,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 leaseholderId,
                 startTime,
                 startTime.addPhysicalTime(1_000),
-                new TablePartitionId(tableId(), PARTITION_ID)
+                new ZonePartitionId(zoneId(), PARTITION_ID)
         );
     }
 

@@ -59,6 +59,9 @@ public interface SnapshotMvDataResponse extends NetworkMessage {
         /** Transaction id for write-intent if it's present. */
         @Nullable UUID txId();
 
+        /** Commit zone id for write-intent if it's present. */
+        @Nullable Integer commitZoneId();
+
         /** Commit table id for write-intent if it's present. */
         @Nullable Integer commitTableId();
 

@@ -166,7 +166,7 @@ class IndexBuildController implements ManuallyCloseable {
 
                                         return awaitPrimaryReplica(zonePartitionId, clockService.now())
                                                 .thenAccept(replicaMeta -> tryScheduleBuildIndex(
-                                                        tablePartId,
+                                                        zonePartitionId,
                                                         indexDescriptor,
                                                         mvTableStorage,
                                                         replicaMeta
@@ -215,14 +215,14 @@ class IndexBuildController implements ManuallyCloseable {
                     return inBusyLock(busyLock, () -> awaitPrimaryReplica(zonePartitionId, parameters.startTime()))
                             .thenAccept(replicaMeta -> inBusyLock(busyLock, () -> tryScheduleBuildIndexesForNewPrimaryReplica(
                                             catalogVersion,
-                                            tablePartitionId,
+                                            zonePartitionId,
                                             mvTableStorage,
                                             replicaMeta
                                     ))
                             );
                 });
             } else {
-                stopBuildingIndexesIfPrimaryExpired(tablePartitionId);
+                stopBuildingIndexesIfPrimaryExpired(zonePartitionId);
 
                 return nullCompletedFuture();
             }
@@ -231,7 +231,7 @@ class IndexBuildController implements ManuallyCloseable {
 
     private void tryScheduleBuildIndexesForNewPrimaryReplica(
             int catalogVersion,
-            TablePartitionId primaryReplicaId,
+            ZonePartitionId primaryReplicaId,
             MvTableStorage mvTableStorage,
             ReplicaMeta replicaMeta
     ) {
@@ -258,7 +258,7 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private void tryScheduleBuildIndex(
-            TablePartitionId primaryReplicaId,
+            ZonePartitionId primaryReplicaId,
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
             ReplicaMeta replicaMeta
@@ -282,8 +282,8 @@ class IndexBuildController implements ManuallyCloseable {
      *
      * @param replicaId Replica ID.
      */
-    private void stopBuildingIndexesIfPrimaryExpired(TablePartitionId replicaId) {
-        if (primaryReplicaIds.removeIf(z -> z.tableId() == replicaId.tableId() && z.partitionId() == replicaId.partitionId())) {
+    private void stopBuildingIndexesIfPrimaryExpired(ZonePartitionId replicaId) {
+        if (primaryReplicaIds.remove(replicaId)) {
             // Primary replica is no longer current, we need to stop building indexes for it.
             indexBuilder.stopBuildingIndexes(replicaId.tableId(), replicaId.partitionId());
         }
@@ -313,21 +313,24 @@ class IndexBuildController implements ManuallyCloseable {
 
     /** Shortcut to schedule index building. */
     private void scheduleBuildIndex(
-            TablePartitionId replicaId,
+            ZonePartitionId replicaId,
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
             long enlistmentConsistencyToken
     ) {
-        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, replicaId);
+        TablePartitionId tablePartitionId = new TablePartitionId(replicaId.tableId(), replicaId.partitionId());
+
+        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, tablePartitionId);
 
         // TODO: IGNITE-22202 Deal with this situation
         if (mvPartition == null) {
             return;
         }
 
-        IndexStorage indexStorage = indexStorage(mvTableStorage, replicaId, indexDescriptor);
+        IndexStorage indexStorage = indexStorage(mvTableStorage, tablePartitionId, indexDescriptor);
 
         indexBuilder.scheduleBuildIndex(
+                replicaId.zoneId(),
                 replicaId.tableId(),
                 replicaId.partitionId(),
                 indexDescriptor.id(),
@@ -341,21 +344,23 @@ class IndexBuildController implements ManuallyCloseable {
 
     /** Shortcut to schedule {@link CatalogIndexStatus#AVAILABLE available} index building after disaster recovery. */
     private void scheduleBuildIndexAfterDisasterRecovery(
-            TablePartitionId replicaId,
+            ZonePartitionId replicaId,
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
             long enlistmentConsistencyToken
     ) {
-        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, replicaId);
+        TablePartitionId tablePartitionId = new TablePartitionId(replicaId.tableId(), replicaId.partitionId());
+        MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, tablePartitionId);
 
         // TODO: IGNITE-22202 Deal with this situation
         if (mvPartition == null) {
             return;
         }
 
-        IndexStorage indexStorage = indexStorage(mvTableStorage, replicaId, indexDescriptor);
+        IndexStorage indexStorage = indexStorage(mvTableStorage, tablePartitionId, indexDescriptor);
 
         indexBuilder.scheduleBuildIndexAfterDisasterRecovery(
+                replicaId.zoneId(),
                 replicaId.tableId(),
                 replicaId.partitionId(),
                 indexDescriptor.id(),

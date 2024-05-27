@@ -35,7 +35,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -58,7 +57,6 @@ import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationM
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -112,8 +110,6 @@ public class LeaseUpdater {
     /** Cluster clock. */
     private final ClockService clockService;
 
-    private final Function<TablePartitionId, ZonePartitionId> groupIdProvider;
-
     /** Closure to update leases. */
     private final Updater updater;
 
@@ -141,15 +137,13 @@ public class LeaseUpdater {
             MetaStorageManager msManager,
             LogicalTopologyService topologyService,
             LeaseTracker leaseTracker,
-            ClockService clockService,
-            Function<TablePartitionId, ZonePartitionId> groupIdProvider
+            ClockService clockService
     ) {
         this.nodeName = nodeName;
         this.clusterService = clusterService;
         this.msManager = msManager;
         this.leaseTracker = leaseTracker;
         this.clockService = clockService;
-        this.groupIdProvider = groupIdProvider;
 
         this.longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000);
         this.assignmentsTracker = new AssignmentsTracker(msManager);
@@ -533,7 +527,7 @@ public class LeaseUpdater {
                 ReplicationGroupId grpId,
                 Lease lease,
                 Map<ReplicationGroupId, Lease> renewedLeases,
-                Set<ReplicationGroupId> subGrps
+                Set<Integer> subGrps
         ) {
             var newTs = new HybridTimestamp(clockService.now().getPhysical() + LEASE_INTERVAL, 0);
 
@@ -637,11 +631,11 @@ public class LeaseUpdater {
         private void processMessageInternal(String sender, PlacementDriverActorMessage msg) {
             ReplicationGroupId grpId = msg.groupId();
 
-            assert grpId instanceof TablePartitionId : "Unexpected replication group type [grp=" + grpId + "].";
+            assert grpId instanceof ZonePartitionId : "Unexpected replication group type [grp=" + grpId + "].";
 
-            var tblPartId = (TablePartitionId) grpId;
+            var zonePartId = (ZonePartitionId) grpId;
 
-            ReplicationGroupId grpId0 = groupIdProvider.apply(tblPartId);
+            ReplicationGroupId grpId0 = ZonePartitionId.resetTableId(zonePartId);
 
             Lease lease = leaseTracker.getLease(grpId0);
 

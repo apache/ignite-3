@@ -62,6 +62,11 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
+    public int zoneId() {
+        return partitionKey.zoneId();
+    }
+
+    @Override
     public int tableId() {
         return partitionKey.tableId();
     }
@@ -120,11 +125,11 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId,
+    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitZoneId, int commitTableId,
             int commitPartitionId) throws TxIdMismatchException, StorageException {
         handleSnapshotInterference(rowId);
 
-        return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+        return partitionStorage.addWrite(rowId, row, txId, commitZoneId, commitTableId, commitPartitionId);
     }
 
     @Override

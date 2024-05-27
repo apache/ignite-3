@@ -38,6 +38,9 @@ public class ReadResult {
     /** Transaction id. Not {@code null} iff this is a write-intent. */
     private final @Nullable UUID transactionId;
 
+    /** Commit zone id. Not {@code null} iff this is a write-intent. */
+    private final @Nullable Integer commitZoneId;
+
     /** Commit table id. Not {@code null} iff this is a write-intent. */
     private final @Nullable Integer commitTableId;
 
@@ -61,6 +64,7 @@ public class ReadResult {
             RowId rowId,
             @Nullable BinaryRow binaryRow,
             @Nullable UUID transactionId,
+            @Nullable Integer commitZoneId,
             @Nullable Integer commitTableId,
             @Nullable HybridTimestamp commitTs,
             @Nullable HybridTimestamp newestCommitTs,
@@ -76,6 +80,7 @@ public class ReadResult {
         assert (transactionId != null) || (commitTableId == null && commitPartitionId == -1);
 
         this.transactionId = transactionId;
+        this.commitZoneId = commitZoneId;
         this.commitTableId = commitTableId;
         this.commitTs = commitTs;
         this.newestCommitTs = newestCommitTs;
@@ -89,16 +94,17 @@ public class ReadResult {
      * @return An empty read result.
      */
     public static ReadResult empty(RowId rowId) {
-        return new ReadResult(rowId, null, null, null, null, null, UNDEFINED_COMMIT_PARTITION_ID);
+        return new ReadResult(rowId, null, null, null, null, null, null, UNDEFINED_COMMIT_PARTITION_ID);
     }
 
-    public static ReadResult createFromWriteIntent(RowId rowId, @Nullable BinaryRow binaryRow, UUID transactionId, int commitTableId,
-            int commitPartitionId, @Nullable HybridTimestamp lastCommittedTimestamp) {
-        return new ReadResult(rowId, binaryRow, transactionId, commitTableId, null, lastCommittedTimestamp, commitPartitionId);
+    public static ReadResult createFromWriteIntent(RowId rowId, @Nullable BinaryRow binaryRow, UUID transactionId, int commitZoneId,
+            int commitTableId, int commitPartitionId, @Nullable HybridTimestamp lastCommittedTimestamp) {
+        return new ReadResult(rowId, binaryRow, transactionId,
+                commitZoneId, commitTableId, null, lastCommittedTimestamp, commitPartitionId);
     }
 
     public static ReadResult createFromCommitted(RowId rowId, @Nullable BinaryRow binaryRow, HybridTimestamp commitTs) {
-        return new ReadResult(rowId, binaryRow, null, null, commitTs, null, UNDEFINED_COMMIT_PARTITION_ID);
+        return new ReadResult(rowId, binaryRow, null, null, null, commitTs, null, UNDEFINED_COMMIT_PARTITION_ID);
     }
 
     /**
@@ -128,6 +134,17 @@ public class ReadResult {
      */
     public @Nullable UUID transactionId() {
         return transactionId;
+    }
+
+    /**
+     * Returns commit zone id part of the transaction state if this is a write-intent,
+     * {@code null} otherwise.
+     *
+     * @return Commit zone id part of the transaction state if this is a write-intent,
+     *         {@code null} otherwise.
+     */
+    public @Nullable Integer commitZoneId() {
+        return commitZoneId;
     }
 
     /**

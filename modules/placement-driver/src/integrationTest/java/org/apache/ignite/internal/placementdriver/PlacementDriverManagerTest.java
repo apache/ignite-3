@@ -86,7 +86,6 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.network.ClusterNode;
@@ -105,9 +104,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     public static final int PORT = 1234;
 
-    protected static final TablePartitionId GROUP_ID = new TablePartitionId(1, 0);
+    protected static final Integer TABLE_ID = 1;
 
-    protected static final ZonePartitionId ZONE_GROUP_ID = new ZonePartitionId(1, 0);
+    protected static final ZonePartitionId ZONE_GROUP_ID = new ZonePartitionId(11, 0);
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
@@ -251,7 +250,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
             if (resp == null) {
                 resp = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                        .appliedGroups(Set.of(GROUP_ID))
+                        .appliedGroups(Set.of(TABLE_ID))
                         .accepted(true)
                         .build();
             }
@@ -345,7 +344,10 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
     @Test
     public void testPrimaryReplicaEvents() throws Exception {
-        ZonePartitionId grpPart0 = createZoneAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName));
+        int zoneId = nextTableId.incrementAndGet();
+
+        ZonePartitionId grpPart0 = createZoneAssignment(metaStorageManager, zoneId, List.of(nodeName));
+        ZonePartitionId replicationGroupId = new ZonePartitionId(zoneId, 1, 0);
 
         Lease lease1 = checkLeaseCreated(grpPart0, true);
 
@@ -374,7 +376,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         assertTrue(waitForCondition(() -> {
             CompletableFuture<ReplicaMeta> fut = placementDriverManager.placementDriver()
-                    .getPrimaryReplica(GROUP_ID, lease1.getExpirationTime());
+                    .getPrimaryReplicaForTable(replicationGroupId, lease1.getExpirationTime());
 
             ReplicaMeta meta = fut.join();
 
@@ -396,7 +398,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         assertTrue(waitForCondition(() -> {
             CompletableFuture<ReplicaMeta> fut = placementDriverManager.placementDriver()
-                    .getPrimaryReplica(GROUP_ID, lease2.getExpirationTime());
+                    .getPrimaryReplicaForTable(replicationGroupId, lease2.getExpirationTime());
 
             ReplicaMeta meta = fut.join();
 
@@ -512,7 +514,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         leaseGrantHandler = (req, handler) ->
                 PLACEMENT_DRIVER_MESSAGES_FACTORY
                         .leaseGrantedMessageResponse()
-                        .appliedGroups(Set.of(GROUP_ID))
+                        .appliedGroups(Set.of(TABLE_ID))
                         .accepted(req.force())
                         .build();
 
@@ -552,14 +554,14 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
                 return PLACEMENT_DRIVER_MESSAGES_FACTORY
                         .leaseGrantedMessageResponse()
-                        .appliedGroups(Set.of(GROUP_ID))
+                        .appliedGroups(Set.of(TABLE_ID))
                         .accepted(false)
                         .redirectProposal(redirect.get())
                         .build();
             } else {
                 return PLACEMENT_DRIVER_MESSAGES_FACTORY
                         .leaseGrantedMessageResponse()
-                        .appliedGroups(Set.of(GROUP_ID))
+                        .appliedGroups(Set.of(TABLE_ID))
                         .accepted(redirect.get().equals(handler))
                         .build();
             }

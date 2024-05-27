@@ -44,6 +44,7 @@ import org.junit.jupiter.api.Test;
 
 /** For {@link BuildIndexRowVersionChooser} testing. */
 public class BuildIndexRowVersionChooserTest extends IgniteAbstractTest {
+    private static final int ZONE_ID = 11;
     private static final int TABLE_ID = 1;
 
     private static final int PARTITION_ID = 0;
@@ -60,7 +61,9 @@ public class BuildIndexRowVersionChooserTest extends IgniteAbstractTest {
 
     private final MvPartitionStorage mvPartitionStorage = spy(new TestMvPartitionStorage(PARTITION_ID));
 
-    private final PartitionDataStorage partitionDataStorage = spy(new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvPartitionStorage));
+    private final PartitionDataStorage partitionDataStorage = spy(
+            new TestPartitionDataStorage(ZONE_ID, TABLE_ID, PARTITION_ID, mvPartitionStorage)
+    );
 
     private final BuildIndexRowVersionChooser chooser = new BuildIndexRowVersionChooser(
             partitionDataStorage,
@@ -200,7 +203,7 @@ public class BuildIndexRowVersionChooserTest extends IgniteAbstractTest {
         partitionDataStorage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            partitionDataStorage.addWrite(rowId, row, txId, TABLE_ID, PARTITION_ID);
+            partitionDataStorage.addWrite(rowId, row, txId, ZONE_ID, TABLE_ID, PARTITION_ID);
 
             return null;
         });

@@ -64,7 +64,14 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     }
 
     @Override
-    public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+    public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp) {
+        assert groupId instanceof ZonePartitionId : "Unexpected replication group type [type=" + groupId.getClass().getSimpleName() + ']';
+
+        return getPrimaryReplicaForTable(groupId, timestamp);
+    }
+
+    @Override
+    public CompletableFuture<ReplicaMeta> getPrimaryReplicaForTable(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
         return primaryReplicaMetaFutureById.get(replicationGroupId);
     }
 
@@ -96,7 +103,7 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     public CompletableFuture<Void> addSubgroups(
             ZonePartitionId zoneId,
             Long enlistmentConsistencyToken,
-            Set<ReplicationGroupId> subGrps
+            Set<Integer> subGrps
     ) {
         return CompletableFutures.nullCompletedFuture();
     }

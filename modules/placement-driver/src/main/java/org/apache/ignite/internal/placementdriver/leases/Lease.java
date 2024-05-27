@@ -68,8 +68,8 @@ public class Lease implements ReplicaMeta {
     /** ID of replication group. */
     private final ReplicationGroupId replicationGroupId;
 
-    /** Table partition replication groups. */
-    private final Set<ReplicationGroupId> subgroups;
+    /** Table partition ids. */
+    private final Set<Integer> subgroups;
 
     /**
      * Creates a new lease.
@@ -102,7 +102,7 @@ public class Lease implements ReplicaMeta {
      * @param proposedCandidate The name of a node that is proposed to be a next leaseholder. This is not null in case when the
      *         lease is not prolongable.
      * @param replicationGroupId ID of replication group.
-     * @param subgroups Table partition replication groups.
+     * @param subgroups Table partition ids.
      */
     public Lease(
             @Nullable String leaseholder,
@@ -113,7 +113,7 @@ public class Lease implements ReplicaMeta {
             boolean accepted,
             @Nullable String proposedCandidate,
             ReplicationGroupId replicationGroupId,
-            Set<ReplicationGroupId> subgroups
+            Set<Integer> subgroups
     ) {
         assert (leaseholder == null) == (leaseholderId == null) : "leaseholder=" + leaseholder + ", leaseholderId=" + leaseholderId;
 
@@ -159,10 +159,10 @@ public class Lease implements ReplicaMeta {
      * @param to The new lease expiration timestamp.
      * @return A accepted lease.
      */
-    public Lease acceptLease(HybridTimestamp to, Set<ReplicationGroupId> parts) {
+    public Lease acceptLease(HybridTimestamp to, Set<Integer> tableIds) {
         assert !accepted : "The lease is already accepted: " + this;
 
-        return new Lease(leaseholder, leaseholderId, startTime, to, true, true, null, replicationGroupId, parts);
+        return new Lease(leaseholder, leaseholderId, startTime, to, true, true, null, replicationGroupId, tableIds);
     }
 
     /**
@@ -207,7 +207,7 @@ public class Lease implements ReplicaMeta {
     }
 
     @Override
-    public Set<ReplicationGroupId> subgroups() {
+    public Set<Integer> subgroups() {
         return subgroups;
     }
 
@@ -289,9 +289,10 @@ public class Lease implements ReplicaMeta {
         String proposedCandidate = stringFromBytes(getBytes(buf));
 
         ReplicationGroupId groupId = ByteUtils.fromBytes(getBytes(buf));
-        Set<ReplicationGroupId> parts = ByteUtils.fromBytes(getBytes(buf));
+        Set<Integer> tableIds = ByteUtils.fromBytes(getBytes(buf));
 
-        return new Lease(leaseholder, leaseholderId, startTime, expirationTime, prolongable, accepted, proposedCandidate, groupId, parts);
+        return new Lease(leaseholder, leaseholderId, startTime, expirationTime,
+                prolongable, accepted, proposedCandidate, groupId, tableIds);
     }
 
     /**

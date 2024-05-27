@@ -73,7 +73,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -204,13 +204,13 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin(hybridTimestampTracker);
 
-        TablePartitionId tablePartitionId = new TablePartitionId(1, 0);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(11, 1, 0);
 
         ClusterNode node = mock(ClusterNode.class);
 
-        tx.enlist(tablePartitionId, new IgniteBiTuple<>(node, 1L));
+        tx.enlist(zonePartitionId, new IgniteBiTuple<>(node, 1L));
 
-        assertEquals(new IgniteBiTuple<>(node, 1L), tx.enlistedNodeAndConsistencyToken(tablePartitionId));
+        assertEquals(new IgniteBiTuple<>(node, 1L), tx.enlistedNodeAndConsistencyToken(zonePartitionId));
     }
 
     @Test
@@ -275,9 +275,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testRepeatedCommitRollbackAfterCommit() throws Exception {
-        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(
+        when(placementDriver.getPrimaryReplicaForTable(any(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
+        when(placementDriver.awaitPrimaryReplicaForTable(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
         HybridTimestamp commitTimestamp = clockService.now();
@@ -286,10 +286,10 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin(hybridTimestampTracker);
 
-        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
+        ZonePartitionId zonePartitionId1 = new ZonePartitionId(11, 1, 0);
 
-        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(REMOTE_NODE, 1L));
-        tx.assignCommitPartition(tablePartitionId1);
+        tx.enlist(zonePartitionId1, new IgniteBiTuple<>(REMOTE_NODE, 1L));
+        tx.assignCommitPartition(zonePartitionId1);
 
         tx.commit();
 
@@ -299,7 +299,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testRepeatedCommitRollbackAfterRollback() throws Exception {
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
+        when(placementDriver.awaitPrimaryReplicaForTable(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
@@ -307,10 +307,10 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin(hybridTimestampTracker);
 
-        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
+        ZonePartitionId zonePartitionId1 = new ZonePartitionId(11, 1, 0);
 
-        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(REMOTE_NODE, 1L));
-        tx.assignCommitPartition(tablePartitionId1);
+        tx.enlist(zonePartitionId1, new IgniteBiTuple<>(REMOTE_NODE, 1L));
+        tx.assignCommitPartition(zonePartitionId1);
 
         tx.rollback();
 
@@ -320,9 +320,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     void testRepeatedCommitRollbackAfterCommitWithException() throws Exception {
-        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(
+        when(placementDriver.getPrimaryReplicaForTable(any(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
+        when(placementDriver.awaitPrimaryReplicaForTable(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
@@ -335,10 +335,10 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin(hybridTimestampTracker);
 
-        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
+        ZonePartitionId zonePartitionId1 = new ZonePartitionId(11, 1, 0);
 
-        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(REMOTE_NODE, 1L));
-        tx.assignCommitPartition(tablePartitionId1);
+        tx.enlist(zonePartitionId1, new IgniteBiTuple<>(REMOTE_NODE, 1L));
+        tx.assignCommitPartition(zonePartitionId1);
 
         TransactionException transactionException = assertThrows(TransactionException.class, tx::commit);
 
@@ -350,7 +350,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testRepeatedCommitRollbackAfterRollbackWithException() throws Exception {
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
+        when(placementDriver.awaitPrimaryReplicaForTable(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
@@ -363,10 +363,10 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin(hybridTimestampTracker);
 
-        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
+        ZonePartitionId zonePartitionId1 = new ZonePartitionId(11, 1, 0);
 
-        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(REMOTE_NODE, 1L));
-        tx.assignCommitPartition(tablePartitionId1);
+        tx.enlist(zonePartitionId1, new IgniteBiTuple<>(REMOTE_NODE, 1L));
+        tx.assignCommitPartition(zonePartitionId1);
 
         TransactionException transactionException = assertThrows(TransactionException.class, tx::rollback);
 
@@ -499,9 +499,9 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Test
     public void testFinishSamePrimary() {
         // Same primary that was enlisted is returned during finish phase and commitTimestamp is less that primary.expirationTimestamp.
-        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(
+        when(placementDriver.getPrimaryReplicaForTable(any(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
+        when(placementDriver.awaitPrimaryReplicaForTable(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
         HybridTimestamp commitTimestamp = clockService.now();
@@ -520,11 +520,11 @@ public class TxManagerTest extends IgniteAbstractTest {
     public void testPrimaryMissOnFirstCall() {
         // First call to the commit partition primary fails with PrimaryReplicaMissException,
         // then we retry and the second call succeeds.
-        when(placementDriver.getPrimaryReplica(any(), any()))
+        when(placementDriver.getPrimaryReplicaForTable(any(), any()))
                 .thenReturn(
                         completedFuture(new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10)))
                 );
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any()))
+        when(placementDriver.awaitPrimaryReplicaForTable(any(), any(), anyLong(), any()))
                 .thenReturn(
                         completedFuture(new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))),
                         completedFuture(new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(12), HybridTimestamp.MAX_VALUE))
@@ -563,8 +563,8 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Test
     public void testFinishExpiredWithNullPrimary() {
         // Null is returned as primaryReplica during finish phase.
-        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(nullCompletedFuture());
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
+        when(placementDriver.getPrimaryReplicaForTable(any(), any())).thenReturn(nullCompletedFuture());
+        when(placementDriver.awaitPrimaryReplicaForTable(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
                 .thenReturn(completedFuture(new TransactionResult(TxState.ABORTED, null)));
@@ -577,9 +577,9 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Test
     public void testExpiredExceptionDoesNotShadeResponseExceptions() {
         // Null is returned as primaryReplica during finish phase.
-        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(
+        when(placementDriver.getPrimaryReplicaForTable(any(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(2), HybridTimestamp.MAX_VALUE)));
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
+        when(placementDriver.awaitPrimaryReplicaForTable(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
                 .thenReturn(failedFuture(new MismatchingTransactionOutcomeException(
@@ -603,23 +603,23 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         ClusterNode node = mock(ClusterNode.class);
 
-        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
-        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(node, 1L));
-        tx.assignCommitPartition(tablePartitionId1);
+        ZonePartitionId zonePartitionId1 = new ZonePartitionId(11, 1, 0);
+        tx.enlist(zonePartitionId1, new IgniteBiTuple<>(node, 1L));
+        tx.assignCommitPartition(zonePartitionId1);
 
-        TablePartitionId tablePartitionId2 = new TablePartitionId(2, 0);
-        tx.enlist(tablePartitionId2, new IgniteBiTuple<>(node, 1L));
+        ZonePartitionId zonePartitionId2 = new ZonePartitionId(22, 2, 0);
+        tx.enlist(zonePartitionId2, new IgniteBiTuple<>(node, 1L));
 
-        when(placementDriver.getPrimaryReplica(eq(tablePartitionId1), any()))
+        when(placementDriver.getPrimaryReplicaForTable(eq(zonePartitionId1), any()))
                 .thenReturn(completedFuture(
                         new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
-        when(placementDriver.awaitPrimaryReplica(eq(tablePartitionId1), any(), anyLong(), any()))
+        when(placementDriver.awaitPrimaryReplicaForTable(eq(zonePartitionId1), any(), anyLong(), any()))
                 .thenReturn(completedFuture(
                         new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
-        lenient().when(placementDriver.getPrimaryReplica(eq(tablePartitionId2), any()))
+        lenient().when(placementDriver.getPrimaryReplicaForTable(eq(zonePartitionId2), any()))
                 .thenReturn(nullCompletedFuture());
-        lenient().when(placementDriver.awaitPrimaryReplica(eq(tablePartitionId2), any(), anyLong(), any()))
+        lenient().when(placementDriver.awaitPrimaryReplicaForTable(eq(zonePartitionId2), any(), anyLong(), any()))
                 .thenReturn(completedFuture(
                         new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
 
@@ -641,9 +641,9 @@ public class TxManagerTest extends IgniteAbstractTest {
         // Primary with expirationTimestamp less than commitTimestamp is returned.
         // It's impossible from the point of view of getPrimaryReplica to return expired lease,
         // given test checks that an assertion exception will be thrown and wrapped with proper transaction public one.
-        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(
+        when(placementDriver.getPrimaryReplicaForTable(any(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
+        when(placementDriver.awaitPrimaryReplicaForTable(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
                 .thenReturn(completedFuture(new TransactionResult(TxState.ABORTED, null)));
@@ -664,9 +664,9 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Test
     public void testFinishExpiredWithDifferentEnlistmentConsistencyToken() {
         // Primary with another enlistment consistency token is returned.
-        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(completedFuture(
+        when(placementDriver.getPrimaryReplicaForTable(any(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(2), HybridTimestamp.MAX_VALUE)));
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
+        when(placementDriver.awaitPrimaryReplicaForTable(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(2), HybridTimestamp.MAX_VALUE)));
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
                 .thenReturn(completedFuture(new TransactionResult(TxState.ABORTED, null)));
@@ -712,8 +712,8 @@ public class TxManagerTest extends IgniteAbstractTest {
         ReplicaMeta replicaMeta = new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE);
         CompletableFuture<ReplicaMeta> primaryReplicaMetaFuture = completedFuture(replicaMeta);
 
-        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(primaryReplicaMetaFuture);
-        when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(primaryReplicaMetaFuture);
+        when(placementDriver.getPrimaryReplicaForTable(any(), any())).thenReturn(primaryReplicaMetaFuture);
+        when(placementDriver.awaitPrimaryReplicaForTable(any(), any(), anyLong(), any())).thenReturn(primaryReplicaMetaFuture);
 
         var txResult = new TransactionResult(commit ? TxState.COMMITTED : TxState.ABORTED, clockService.now());
 
@@ -743,10 +743,10 @@ public class TxManagerTest extends IgniteAbstractTest {
     private InternalTransaction prepareTransaction() {
         InternalTransaction tx = txManager.begin(hybridTimestampTracker);
 
-        TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
+        ZonePartitionId zonePartitionId1 = new ZonePartitionId(11, 1, 0);
 
-        tx.enlist(tablePartitionId1, new IgniteBiTuple<>(REMOTE_NODE, 1L));
-        tx.assignCommitPartition(tablePartitionId1);
+        tx.enlist(zonePartitionId1, new IgniteBiTuple<>(REMOTE_NODE, 1L));
+        tx.assignCommitPartition(zonePartitionId1);
 
         return tx;
     }

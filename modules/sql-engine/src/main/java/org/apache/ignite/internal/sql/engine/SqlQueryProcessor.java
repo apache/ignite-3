@@ -72,8 +72,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
@@ -411,8 +409,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         // no need to wait all partitions after pruning was implemented.
         for (int partId = 0; partId < partitions; ++partId) {
             int partitionId = partId;
-            ReplicationGroupId partGroupId = new TablePartitionId(table.id(), partitionId);
-
             ZonePartitionId zonePartitionId = new ZonePartitionId(table.zoneId(), table.id(), partId);
 
             CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplicaForTable(
@@ -427,7 +423,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     LOG.debug("Failed to retrieve primary replica for partition {}", e, partitionId);
 
                     throw withCause(IgniteInternalException::new, REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica"
-                            + " [tablePartitionId=" + partGroupId + ']', e);
+                            + " [zonePartitionId=" + zonePartitionId + ']', e);
                 } else {
                     String holder = primaryReplica.getLeaseholder();
 

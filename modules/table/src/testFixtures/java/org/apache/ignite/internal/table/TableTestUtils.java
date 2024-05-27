@@ -240,6 +240,18 @@ public class TableTestUtils {
     }
 
     /**
+     * Returns table's zone ID from catalog.
+     *
+     * @param catalogService Catalog service.
+     * @param tableName Table name.
+     * @param timestamp Timestamp.
+     * @throws AssertionError If table is absent.
+     */
+    public static int getTableZoneIdStrict(CatalogService catalogService, String tableName, long timestamp) {
+        return getTableStrict(catalogService, tableName, timestamp).zoneId();
+    }
+
+    /**
      * Returns index ID form catalog, {@code null} if table is absent.
      *
      * @param catalogService Catalog service.

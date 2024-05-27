@@ -38,7 +38,6 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
@@ -123,13 +122,14 @@ public class ItTransactionTestUtils {
     ) {
         Tuple t = initialTuple;
         int tableId = tableId(node, tableName);
+        int zoneId = zoneIdForTable(node, tableName);
 
         int maxAttempts = 100;
 
         while (maxAttempts >= 0) {
             int partId = partitionIdForTuple(node, tableName, t, tx);
 
-            TablePartitionId grpId = new TablePartitionId(tableId, partId);
+            ZonePartitionId grpId = new ZonePartitionId(zoneId, tableId, partId);
 
             if (primary) {
                 ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(node, grpId);
@@ -204,7 +204,7 @@ public class ItTransactionTestUtils {
      * @return Primary replica meta.
      */
     public static ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ReplicationGroupId replicationGrpId) {
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplicaForTable(
                 replicationGrpId,
                 node.clock().now(),
                 10,
