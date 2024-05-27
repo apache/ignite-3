@@ -263,7 +263,7 @@ public class DataStreamerTests : IgniteTestsBase
             payloadSelector: x => "t-" + x,
             units: Array.Empty<DeploymentUnit>(),
             receiverClassName: "receiver",
-            receiverArgs: new object[] { "arg1", 2 });
+            receiverArgs: new object[] { Table.Name, "arg1", 22 });
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
