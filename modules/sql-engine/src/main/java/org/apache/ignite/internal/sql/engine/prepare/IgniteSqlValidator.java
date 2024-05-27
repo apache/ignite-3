@@ -182,7 +182,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         validateInferredDynamicParameters();
 
-
         return result;
     }
 
