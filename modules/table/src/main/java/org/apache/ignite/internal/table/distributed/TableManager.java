@@ -1930,6 +1930,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return localServicesStartFuture.thenRunAsync(() -> {
+            if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
+                return;
+            }
+
             // For forced assignments, we exclude dead stable nodes, and all alive stable nodes are already in pending assignments.
             // Union is not required in such a case.
             Set<Assignment> cfg = pendingAssignmentsAreForced
