@@ -156,6 +156,16 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
     }
 
     @Test
+    public void testRestartAllPartitionsWithPurge() {
+        MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST("/restart-partitions",
+                new RestartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(), true));
+
+        HttpResponse<Void> response = client.toBlocking().exchange(post);
+
+        assertThat(response.getStatus().getCode(), is(OK.code()));
+    }
+
+    @Test
     public void testRestartSpecifiedPartitions() {
         MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST("/restart-partitions",
                 new RestartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 1), false));

@@ -38,6 +38,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** For {@link DisasterRecoveryManager} integration testing. */
+// TODO https://issues.apache.org/jira/browse/IGNITE-22332 Add test cases.
 public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest {
     private static final String ZONE_NAME = "ZONE_" + TABLE_NAME;
 
