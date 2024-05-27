@@ -17,19 +17,38 @@
 
 package org.apache.ignite.internal.sql.engine.tx;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.jetbrains.annotations.Nullable;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
- * Context that allows to get explicit transaction provided by user or start implicit one.
+ * No operation wrapper.
+ * 
+ * <p>Use on your own risk.
  */
-public interface QueryTransactionContext {
-    /** Returns explicit transaction or start implicit one. */
-    QueryTransactionWrapper getOrStartImplicit(boolean readOnly);
+public class NoopTransactionWrapper implements QueryTransactionWrapper {
+    public static final QueryTransactionWrapper INSTANCE = new NoopTransactionWrapper();
 
-    /** Updates tracker of latest time observed by client. */
-    void updateObservableTime(HybridTimestamp time);
+    private NoopTransactionWrapper() { }
 
-    /** Returns explicit transaction if one was provided by user. */
-    @Nullable QueryTransactionWrapper explicitTx();
+    @Override
+    public InternalTransaction unwrap() {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Void> commitImplicit() {
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<Void> rollback(Throwable cause) {
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public boolean implicit() {
+        return true;
+    }
 }

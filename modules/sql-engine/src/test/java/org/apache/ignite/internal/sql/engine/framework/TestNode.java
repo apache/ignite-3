@@ -39,7 +39,9 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
@@ -63,6 +65,7 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
@@ -205,8 +208,8 @@ public class TestNode implements LifecycleAware {
      * @param transaction External transaction.
      * @return A cursor representing the result.
      */
-    public AsyncCursor<InternalSqlRow> executePlan(QueryPlan plan, @Nullable InternalTransaction transaction) {
-        return executionService.executePlan(transaction == null ? new NoOpTransaction(nodeName) : transaction, plan, createContext());
+    public AsyncDataCursor<InternalSqlRow> executePlan(QueryPlan plan, @Nullable InternalTransaction transaction) {
+        return executionService.executePlan(plan, createContext(transaction));
     }
 
     /**
@@ -216,7 +219,7 @@ public class TestNode implements LifecycleAware {
      * @param plan A plan to execute.
      * @return A cursor representing the result.
      */
-    public AsyncCursor<InternalSqlRow> executePlan(QueryPlan plan) {
+    public AsyncDataCursor<InternalSqlRow> executePlan(QueryPlan plan) {
         return executePlan(plan, null);
     }
 
@@ -269,19 +272,29 @@ public class TestNode implements LifecycleAware {
                 continue;
             }
 
-            AsyncCursor<?> cursor = executionService.executePlan(new NoOpTransaction("tx"), plan, ctx);
+            AsyncCursor<?> cursor = executionService.executePlan(plan, ctx);
 
             await(cursor.requestNextAsync(1));
         }
     }
 
     private SqlOperationContext createContext() {
+        return createContext(ImplicitTxContext.INSTANCE);
+    }
+
+    private SqlOperationContext createContext(@Nullable InternalTransaction tx) {
+        return createContext(tx == null ? ImplicitTxContext.INSTANCE : ExplicitTxContext.fromTx(tx));
+    }
+
+    private SqlOperationContext createContext(QueryTransactionContext txContext) {
         return SqlOperationContext.builder()
                 .queryId(UUID.randomUUID())
                 .cancel(new QueryCancel())
                 .operationTime(clock.now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
+                .txContext(txContext)
+                .prefetchCallback(new PrefetchCallback())
                 .build();
     }
 

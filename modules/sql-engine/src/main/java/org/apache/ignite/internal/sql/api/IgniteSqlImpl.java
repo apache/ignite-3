@@ -55,6 +55,7 @@ import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.AsyncCursor;
@@ -71,7 +72,6 @@ import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -95,20 +95,20 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     private final QueryProcessor queryProcessor;
 
-    private final IgniteTransactions transactions;
+    private final HybridTimestampTracker observableTimestampTracker;
 
     /**
      * Constructor.
      *
      * @param queryProcessor Query processor.
-     * @param transactions Transactions facade.
+     * @param observableTimestampTracker Tracker of the latest time observed by client.
      */
     public IgniteSqlImpl(
             QueryProcessor queryProcessor,
-            IgniteTransactions transactions
+            HybridTimestampTracker observableTimestampTracker
     ) {
         this.queryProcessor = queryProcessor;
-        this.transactions = transactions;
+        this.observableTimestampTracker = observableTimestampTracker;
     }
 
     /** {@inheritDoc} */
@@ -343,32 +343,26 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         try {
             SqlProperties properties = createPropertiesFromStatement(SqlQueryType.SINGLE_STMT_TYPES, statement);
 
-            result = queryProcessor.queryAsync(properties, transactions, (InternalTransaction) transaction, statement.query(), arguments)
-                    .thenCompose(cur -> {
-                                if (!busyLock.enterBusy()) {
-                                    cur.closeAsync();
+            result = queryProcessor.queryAsync(
+                    properties, observableTimestampTracker, (InternalTransaction) transaction, statement.query(), arguments
+            ).thenCompose(cur -> {
+                if (!busyLock.enterBusy()) {
+                    cur.closeAsync();
 
-                                    return CompletableFuture.failedFuture(nodeIsStoppingException());
-                                }
+                    return CompletableFuture.failedFuture(nodeIsStoppingException());
+                }
 
-                                try {
-                                    int cursorId = registerCursor(cur);
+                try {
+                    int cursorId = registerCursor(cur);
 
-                                    cur.onClose().whenComplete((r, e) -> openedCursors.remove(cursorId));
+                    cur.onClose().whenComplete((r, e) -> openedCursors.remove(cursorId));
 
-                                    return cur.requestNextAsync(pageSize)
-                                            .thenApply(
-                                                    batchRes -> new AsyncResultSetImpl<>(
-                                                            cur,
-                                                            batchRes,
-                                                            pageSize
-                                                    )
-                                            );
-                                } finally {
-                                    busyLock.leaveBusy();
-                                }
-                            }
-                    );
+                    return cur.requestNextAsync(pageSize)
+                            .thenApply(batchRes -> new AsyncResultSetImpl<>(cur, batchRes, pageSize));
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            });
         } catch (Exception e) {
             return CompletableFuture.failedFuture(mapToPublicSqlException(e));
         } finally {
@@ -401,7 +395,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
             return executeBatchCore(
                     queryProcessor,
-                    transactions,
+                    observableTimestampTracker,
                     (InternalTransaction) transaction,
                     statement.query(),
                     batch,
@@ -421,7 +415,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
      * Execute batch of DML statements.
      *
      * @param queryProcessor Query processor.
-     * @param transactions Transactions facade.
+     * @param observableTimestampTracker Tracker of the latest time observed by client.
      * @param transaction Transaction.
      * @param query Query.
      * @param batch Batch of arguments.
@@ -435,7 +429,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
      */
     public static CompletableFuture<long[]> executeBatchCore(
             QueryProcessor queryProcessor,
-            IgniteTransactions transactions,
+            HybridTimestampTracker observableTimestampTracker,
             @Nullable InternalTransaction transaction,
             String query,
             BatchedArguments batch,
@@ -457,7 +451,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 }
 
                 try {
-                    return queryProcessor.queryAsync(properties, transactions, transaction, query, args)
+                    return queryProcessor.queryAsync(properties, observableTimestampTracker, transaction, query, args)
                             .thenCompose(cursor -> {
                                 if (!enterBusy.get()) {
                                     cursor.closeAsync();
@@ -537,7 +531,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         try {
             return executeScriptCore(
                     queryProcessor,
-                    transactions,
+                    observableTimestampTracker,
                     busyLock::enterBusy,
                     busyLock::leaveBusy,
                     query,
@@ -552,7 +546,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
      * Execute SQL script.
      *
      * @param queryProcessor Query processor.
-     * @param transactions Transactions facade.
+     * @param observableTimestampTracker Tracker of the latest time observed by client.
      * @param enterBusy Enter busy lock action.
      * @param leaveBusy Leave busy lock action.
      * @param query SQL script.
@@ -562,7 +556,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
      */
     public static CompletableFuture<Void> executeScriptCore(
             QueryProcessor queryProcessor,
-            IgniteTransactions transactions,
+            HybridTimestampTracker observableTimestampTracker,
             Supplier<Boolean> enterBusy,
             Runnable leaveBusy,
             String query,
@@ -574,7 +568,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 .build());
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f =
-                queryProcessor.queryAsync(properties0, transactions, null, query, arguments);
+                queryProcessor.queryAsync(properties0, observableTimestampTracker, null, query, arguments);
 
         CompletableFuture<Void> resFut = new CompletableFuture<>();
         ScriptHandler handler = new ScriptHandler(resFut, enterBusy, leaveBusy);

@@ -37,9 +37,9 @@ import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -159,7 +159,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
             parameters = new Parameters(statementsCount, n -> createInsertStatement("T" + n));
             queryRunner = new QueryRunner(
                     clusterNode.queryEngine(),
-                    clusterNode.transactions(),
+                    clusterNode.observableTimeTracker(),
                     PAGE_SIZE
             );
         }
@@ -219,7 +219,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
             parameters = new Parameters(statementsCount, n -> format("select count(*) from T{}", n));
             queryRunner = new QueryRunner(
                     clusterNode.queryEngine(),
-                    clusterNode.transactions(),
+                    clusterNode.observableTimeTracker(),
                     PAGE_SIZE
             );
         }
@@ -261,7 +261,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
             parameters = new Parameters(statementsCount, n -> format("select * from T{} where ycsb_key=?", n));
             queryRunner = new QueryRunner(
                     clusterNode.queryEngine(),
-                    clusterNode.transactions(),
+                    clusterNode.observableTimeTracker(),
                     PAGE_SIZE
             );
         }
@@ -311,7 +311,7 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
             parameters = new Parameters(statementsCount, ignore -> "select * from T0 where ycsb_key=?");
             queryRunner = new QueryRunner(
                     clusterNode.queryEngine(),
-                    clusterNode.transactions(),
+                    clusterNode.observableTimeTracker(),
                     PAGE_SIZE
             );
         }
@@ -369,25 +369,25 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
                 .build();
 
         private final QueryProcessor queryProcessor;
-        private final IgniteTransactions transactions;
+        private final HybridTimestampTracker observableTimeTracker;
         private final int pageSize;
 
-        QueryRunner(QueryProcessor queryProcessor, IgniteTransactions transactions, int pageSize) {
+        QueryRunner(QueryProcessor queryProcessor, HybridTimestampTracker observableTimeTracker, int pageSize) {
             this.queryProcessor = queryProcessor;
-            this.transactions = transactions;
+            this.observableTimeTracker = observableTimeTracker;
             this.pageSize = pageSize;
         }
 
         Iterator<InternalSqlRow> execQuery(String sql, Object ... args) {
             AsyncSqlCursor<InternalSqlRow> cursor =
-                    queryProcessor.queryAsync(props, transactions, null, sql, args).join();
+                    queryProcessor.queryAsync(props, observableTimeTracker, null, sql, args).join();
 
             return new InternalResultsIterator(cursor, pageSize);
         }
 
         Iterator<InternalSqlRow> execScript(String sql, Object ... args) {
             AsyncSqlCursor<InternalSqlRow> cursor =
-                    queryProcessor.queryAsync(scriptProps, transactions, null, sql, args).join();
+                    queryProcessor.queryAsync(scriptProps, observableTimeTracker, null, sql, args).join();
 
             return new InternalResultsIterator(cursor, pageSize);
         }

@@ -261,7 +261,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         }
 
         @Override
-        public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction tx,
+        public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
                 RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
             throw new UnsupportedOperationException();
         }

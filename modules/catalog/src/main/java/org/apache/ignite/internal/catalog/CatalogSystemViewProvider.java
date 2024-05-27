@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.tx;
+package org.apache.ignite.internal.catalog;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.jetbrains.annotations.Nullable;
+import java.util.List;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.systemview.api.SystemView;
 
-/**
- * Context that allows to get explicit transaction provided by user or start implicit one.
- */
-public interface QueryTransactionContext {
-    /** Returns explicit transaction or start implicit one. */
-    QueryTransactionWrapper getOrStartImplicit(boolean readOnly);
+/** Returns a list of available {@link SystemView} that expose catalog information. */
+public interface CatalogSystemViewProvider {
 
-    /** Updates tracker of latest time observed by client. */
-    void updateObservableTime(HybridTimestamp time);
-
-    /** Returns explicit transaction if one was provided by user. */
-    @Nullable QueryTransactionWrapper explicitTx();
+    /**
+     * Returns a list of available systems views.
+     *
+     * @param catalogSupplier Supplier that returns the current catalog.
+     * @return List of system views.
+     */
+    List<SystemView<?>> getView(Supplier<Catalog> catalogSupplier);
 }

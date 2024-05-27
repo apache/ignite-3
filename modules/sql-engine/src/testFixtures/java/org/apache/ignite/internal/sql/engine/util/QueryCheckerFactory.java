@@ -20,9 +20,9 @@ package org.apache.ignite.internal.sql.engine.util;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker.QueryTemplate;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /** Interface for {@link QueryChecker} factory. */
@@ -31,7 +31,7 @@ public interface QueryCheckerFactory {
     QueryChecker create(
             String nodeName,
             QueryProcessor queryProcessor,
-            IgniteTransactions transactions,
+            HybridTimestampTracker observableTimeTracker,
             @Nullable InternalTransaction tx,
             String query
     );
@@ -40,7 +40,7 @@ public interface QueryCheckerFactory {
     QueryChecker create(
             String nodeName,
             QueryProcessor queryProcessor,
-            IgniteTransactions transactions,
+            HybridTimestampTracker observableTimeTracker,
             Consumer<ResultSetMetadata> metadataValidator,
             QueryTemplate queryTemplate
     );
