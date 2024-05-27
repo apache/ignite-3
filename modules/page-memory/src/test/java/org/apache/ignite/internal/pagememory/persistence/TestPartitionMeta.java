@@ -63,7 +63,7 @@ public class TestPartitionMeta extends PartitionMeta<TestPartitionMetaSnapshot, 
     public static class TestPartitionMetaSnapshot implements PartitionMetaSnapshot<TestPartitionMetaIo> {
         private final UUID checkpointId;
 
-        public TestPartitionMetaSnapshot(UUID checkpointId) {
+        public TestPartitionMetaSnapshot(@Nullable UUID checkpointId) {
             this.checkpointId = checkpointId;
         }
 
@@ -77,6 +77,9 @@ public class TestPartitionMeta extends PartitionMeta<TestPartitionMetaSnapshot, 
         }
     }
 
+    /**
+     * Simple implementation of {@link PartitionMetaIo} for testing purposes.
+     */
     public static class TestPartitionMetaIo extends PartitionMetaIo {
         /** I/O versions. */
         public static final IoVersions<TestPartitionMetaIo> VERSIONS = new IoVersions<>(new TestPartitionMetaIo(1));

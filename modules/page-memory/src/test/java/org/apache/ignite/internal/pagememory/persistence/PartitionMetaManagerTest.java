@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta.TestPartitionMetaIo;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterAll;
@@ -53,7 +54,8 @@ public class PartitionMetaManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testAddGetMeta() {
-        PartitionMetaManager<TestPartitionMeta> manager = new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, FACTORY);
+        PartitionMetaManager<TestPartitionMeta, TestPartitionMetaIo> manager =
+                new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, FACTORY, TestPartitionMetaIo.VERSIONS);
 
         GroupPartitionId id = new GroupPartitionId(0, 0);
 
@@ -70,7 +72,8 @@ public class PartitionMetaManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testRemoveMeta() {
-        PartitionMetaManager<TestPartitionMeta> manager = new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, FACTORY);
+        PartitionMetaManager<TestPartitionMeta, TestPartitionMetaIo> manager =
+                new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, FACTORY, TestPartitionMetaIo.VERSIONS);
 
         GroupPartitionId id = new GroupPartitionId(0, 0);
 

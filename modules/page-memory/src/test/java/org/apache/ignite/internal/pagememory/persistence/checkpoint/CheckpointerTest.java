@@ -73,6 +73,7 @@ import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta;
+import org.apache.ignite.internal.pagememory.persistence.TestPartitionMeta.TestPartitionMetaIo;
 import org.apache.ignite.internal.pagememory.persistence.WriteDirtyPage;
 import org.apache.ignite.internal.pagememory.persistence.compaction.Compactor;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
@@ -355,7 +356,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 fullPageId(0, 0, 1), fullPageId(0, 0, 2), fullPageId(0, 0, 3)
         ));
 
-        PartitionMetaManager partitionMetaManager = new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, TestPartitionMeta.FACTORY);
+        PartitionMetaManager<TestPartitionMeta, TestPartitionMetaIo> partitionMetaManager =
+                new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, TestPartitionMeta.FACTORY, TestPartitionMetaIo.VERSIONS);
 
         partitionMetaManager.addMeta(
                 new GroupPartitionId(0, 0),
@@ -407,7 +409,8 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 null,
                 mock(FailureProcessor.class),
                 createCheckpointWorkflow(dirtyPages),
-                createCheckpointPagesWriterFactory(new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, TestPartitionMeta.FACTORY)),
+                createCheckpointPagesWriterFactory(
+                        new PartitionMetaManager<>(ioRegistry, PAGE_SIZE, TestPartitionMeta.FACTORY, TestPartitionMetaIo.VERSIONS)),
                 createFilePageStoreManager(Map.of()),
                 compactor,
                 checkpointConfig,
