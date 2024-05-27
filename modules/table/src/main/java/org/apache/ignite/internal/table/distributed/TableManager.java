@@ -2004,6 +2004,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Set<Assignment> pendingAssignments,
             long revision
     ) {
+        if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
+            return nullCompletedFuture();
+        }
+
         int partId = replicaGrpId.partitionId();
 
         RaftGroupService partGrpSvc = table.internalTable().tableRaftService().partitionRaftGroupService(partId);
