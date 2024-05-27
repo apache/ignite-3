@@ -139,8 +139,7 @@ public class PlacementDriverManager implements IgniteComponent {
                 metastore,
                 logicalTopologyService,
                 leaseTracker,
-                clockService,
-                tablePartIdToZoneIdProvider
+                clockService
         );
     }
 

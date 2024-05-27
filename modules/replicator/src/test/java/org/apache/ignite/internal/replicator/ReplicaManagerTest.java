@@ -152,12 +152,10 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         replicaManager.listen(AFTER_REPLICA_STARTED, createReplicaListener);
         replicaManager.listen(BEFORE_REPLICA_STOPPED, removeReplicaListener);
 
-        var groupId = new TablePartitionId(0, 0);
-        var zonePartId = new ZonePartitionId(0, 0);
+        var zoneTablePartId = new ZonePartitionId(11, 1,  0);
 
         CompletableFuture<Replica> startReplicaFuture = replicaManager.startReplica(
-                groupId,
-                zonePartId,
+                zoneTablePartId,
                 replicaListener,
                 raftGroupService,
                 new PendingComparableValuesTracker<>(0L)
@@ -165,12 +163,12 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(startReplicaFuture, willCompleteSuccessfully());
 
-        var expectedCreateParams = new LocalReplicaEventParameters(groupId);
+        var expectedCreateParams = new LocalReplicaEventParameters(zoneTablePartId);
 
         verify(createReplicaListener).notify(eq(expectedCreateParams));
         verify(removeReplicaListener, never()).notify(any());
 
-        CompletableFuture<Boolean> stopReplicaFuture = replicaManager.stopReplica(groupId);
+        CompletableFuture<Boolean> stopReplicaFuture = replicaManager.stopReplica(zoneTablePartId);
 
         assertThat(stopReplicaFuture, willBe(true));
 

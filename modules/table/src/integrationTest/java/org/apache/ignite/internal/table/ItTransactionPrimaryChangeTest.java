@@ -34,6 +34,7 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
@@ -112,9 +113,11 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
 
         int partId = 0;
 
+        var zoneReplicationGrp = new ZonePartitionId(tbl.internalTable().zoneId(), tbl.tableId(), partId);
+
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), partId);
 
-        String leaseholder = waitAndGetPrimaryReplica(node(0), tblReplicationGrp).getLeaseholder();
+        String leaseholder = waitAndGetPrimaryReplica(node(0), zoneReplicationGrp).getLeaseholder();
 
         IgniteImpl firstLeaseholderNode = findNodeByName(leaseholder);
 
@@ -165,7 +168,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             assertThat(fullTxReplicationAttemptFuture, willCompleteSuccessfully());
 
             // Changing the primary.
-            NodeUtils.transferPrimary(cluster.runningNodes().collect(toList()), tblReplicationGrp, txCrdNode.name());
+            NodeUtils.transferPrimary(cluster.runningNodes().collect(toList()), zoneReplicationGrp, txCrdNode.name());
 
             // Start a regular transaction that increments the value. It should see the initially inserted value and its commit should
             // succeed.

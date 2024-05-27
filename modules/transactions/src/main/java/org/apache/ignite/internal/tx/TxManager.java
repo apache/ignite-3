@@ -26,7 +26,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -134,9 +134,9 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             boolean commit,
-            Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Map<ZonePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
             UUID txId
     );
 
@@ -152,7 +152,7 @@ public interface TxManager extends IgniteComponent {
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            Map<TablePartitionId, String> enlistedPartitions,
+            Map<ZonePartitionId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -170,7 +170,7 @@ public interface TxManager extends IgniteComponent {
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(
-            Collection<TablePartitionId> enlistedPartitions,
+            Collection<ZonePartitionId> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId

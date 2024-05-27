@@ -43,7 +43,7 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
     void testForChoosingMaximumAppliedIndexForMeta() {
         PartitionAccess partitionAccess = mock(PartitionAccess.class);
 
-        when(partitionAccess.partitionKey()).thenReturn(new PartitionKey(1, 0));
+        when(partitionAccess.partitionKey()).thenReturn(new PartitionKey(11, 1, 0));
         when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
         OutgoingSnapshotsManager outgoingSnapshotsManager = mock(OutgoingSnapshotsManager.class);

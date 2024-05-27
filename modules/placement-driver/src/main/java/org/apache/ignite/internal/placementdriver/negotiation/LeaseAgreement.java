@@ -122,7 +122,7 @@ public class LeaseAgreement {
      *
      * @return A set of applied groups.
      */
-    public Set<ReplicationGroupId> applicableFor() {
+    public Set<Integer> applicableFor() {
         assert ready() : "The method should be invoked only after the agreement is ready";
 
         LeaseGrantedMessageResponse resp = responseFut.join();

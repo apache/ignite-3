@@ -31,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
  */
 @Transferable(TableMessageGroup.Commands.UPDATE)
 public interface UpdateCommand extends PartitionCommand {
-    TablePartitionIdMessage tablePartitionId();
+    ZonePartitionIdMessage zonePartitionId();
 
     UUID rowUuid();
 

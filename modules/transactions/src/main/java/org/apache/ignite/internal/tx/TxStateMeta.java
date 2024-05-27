@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,7 +37,7 @@ public class TxStateMeta implements TransactionMeta {
     private final String txCoordinatorId;
 
     /** Identifier of the replication group that manages a transaction state. */
-    private final TablePartitionId commitPartitionId;
+    private final ZonePartitionId commitPartitionId;
 
     private final HybridTimestamp commitTimestamp;
 
@@ -57,7 +57,7 @@ public class TxStateMeta implements TransactionMeta {
     public TxStateMeta(
             TxState txState,
             @Nullable String txCoordinatorId,
-            @Nullable TablePartitionId commitPartitionId,
+            @Nullable ZonePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp
     ) {
         this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, null, null);
@@ -75,7 +75,7 @@ public class TxStateMeta implements TransactionMeta {
     public TxStateMeta(
             TxState txState,
             @Nullable String txCoordinatorId,
-            @Nullable TablePartitionId commitPartitionId,
+            @Nullable ZonePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
             @Nullable Long initialVacuumObservationTimestamp
     ) {
@@ -95,7 +95,7 @@ public class TxStateMeta implements TransactionMeta {
     public TxStateMeta(
             TxState txState,
             @Nullable String txCoordinatorId,
-            @Nullable TablePartitionId commitPartitionId,
+            @Nullable ZonePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
             @Nullable Long initialVacuumObservationTimestamp,
             @Nullable Long cleanupCompletionTimestamp
@@ -137,7 +137,7 @@ public class TxStateMeta implements TransactionMeta {
         return txCoordinatorId;
     }
 
-    public @Nullable TablePartitionId commitPartitionId() {
+    public @Nullable ZonePartitionId commitPartitionId() {
         return commitPartitionId;
     }
 

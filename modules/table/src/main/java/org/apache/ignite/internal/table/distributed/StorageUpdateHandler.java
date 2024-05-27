@@ -27,7 +27,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
@@ -98,7 +98,7 @@ public class StorageUpdateHandler {
     public void handleUpdate(
             UUID txId,
             UUID rowUuid,
-            TablePartitionId commitPartitionId,
+            ZonePartitionId commitPartitionId,
             @Nullable BinaryRow row,
             boolean trackWriteIntent,
             @Nullable Runnable onApplication,
@@ -107,12 +107,14 @@ public class StorageUpdateHandler {
             @Nullable List<Integer> indexIds
     ) {
         storage.runConsistently(locker -> {
+            int commitZoneId = commitPartitionId.zoneId();
             int commitTblId = commitPartitionId.tableId();
             int commitPartId = commitPartitionId.partitionId();
             RowId rowId = new RowId(partitionId, rowUuid);
 
             tryProcessRow(
                     locker,
+                    commitZoneId,
                     commitTblId,
                     commitPartId,
                     rowId,
@@ -138,6 +140,7 @@ public class StorageUpdateHandler {
 
     private boolean tryProcessRow(
             Locker locker,
+            int commitZoneId,
             int commitTblId,
             int commitPartId,
             RowId rowId,
@@ -161,7 +164,7 @@ public class StorageUpdateHandler {
         if (commitTs != null) {
             storage.addWriteCommitted(rowId, row, commitTs);
         } else {
-            BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
+            BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitZoneId, commitTblId, commitPartId);
 
             if (oldRow != null) {
                 assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
@@ -189,7 +192,7 @@ public class StorageUpdateHandler {
     public void handleUpdateAll(
             UUID txId,
             Map<UUID, TimedBinaryRow> rowsToUpdate,
-            TablePartitionId commitPartitionId,
+            ZonePartitionId commitPartitionId,
             boolean trackWriteIntent,
             @Nullable Runnable onApplication,
             @Nullable HybridTimestamp commitTs,
@@ -199,6 +202,7 @@ public class StorageUpdateHandler {
             return;
         }
 
+        int commitZoneId = commitPartitionId.zoneId();
         int commitTblId = commitPartitionId.tableId();
         int commitPartId = commitPartitionId.partitionId();
 
@@ -211,6 +215,7 @@ public class StorageUpdateHandler {
                     txId,
                     trackWriteIntent,
                     commitTs,
+                    commitZoneId,
                     commitTblId,
                     commitPartId,
                     it,
@@ -226,6 +231,7 @@ public class StorageUpdateHandler {
             UUID txId,
             boolean trackWriteIntent,
             @Nullable HybridTimestamp commitTs,
+            int commitZoneId,
             int commitTblId,
             int commitPartId,
             Iterator<Entry<UUID, TimedBinaryRow>> it,
@@ -251,6 +257,7 @@ public class StorageUpdateHandler {
 
                 boolean rowProcessed = tryProcessRow(
                         locker,
+                        commitZoneId,
                         commitTblId,
                         commitPartId,
                         rowId,

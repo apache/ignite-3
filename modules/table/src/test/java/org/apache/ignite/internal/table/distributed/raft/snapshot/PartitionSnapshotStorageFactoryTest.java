@@ -57,7 +57,7 @@ public class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest 
         CatalogService catalogService = mock(CatalogService.class);
         when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of());
 
-        when(partitionAccess.partitionKey()).thenReturn(new PartitionKey(1, 1));
+        when(partitionAccess.partitionKey()).thenReturn(new PartitionKey(11, 1, 1));
 
         PartitionSnapshotStorageFactory partitionSnapshotStorageFactory = new PartitionSnapshotStorageFactory(
                 mock(TopologyService.class),

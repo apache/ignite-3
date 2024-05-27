@@ -37,7 +37,7 @@ import java.util.function.BiConsumer;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -388,7 +388,7 @@ public class FakeInternalTable implements InternalTable {
     public Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             String txCoordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
@@ -430,7 +430,7 @@ public class FakeInternalTable implements InternalTable {
     public Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             String txCoordinatorId,
             PrimaryReplica recipient,
             int indexId,
@@ -505,7 +505,7 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocation(TablePartitionId partition) {
+    public CompletableFuture<ClusterNode> partitionLocation(ZonePartitionId zonePartitionId) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 }

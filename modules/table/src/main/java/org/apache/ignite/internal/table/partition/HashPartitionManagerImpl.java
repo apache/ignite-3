@@ -26,7 +26,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
@@ -75,7 +75,7 @@ public class HashPartitionManagerImpl implements PartitionManager {
                     + " doesn't support any other type of partition except hash partition.");
         }
         HashPartition hashPartition = (HashPartition) partition;
-        return table.partitionLocation(new TablePartitionId(table.tableId(), hashPartition.partitionId()));
+        return table.partitionLocation(new ZonePartitionId(table.zoneId(), table.tableId(), hashPartition.partitionId()));
     }
 
     @Override
@@ -84,7 +84,7 @@ public class HashPartitionManagerImpl implements PartitionManager {
         CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
 
         for (int i = 0; i < partitions; i++) {
-            futures[i] = table.partitionLocation(new TablePartitionId(table.tableId(), i));
+            futures[i] = table.partitionLocation(new ZonePartitionId(table.zoneId(), table.tableId(), i));
         }
 
         return allOf(futures)

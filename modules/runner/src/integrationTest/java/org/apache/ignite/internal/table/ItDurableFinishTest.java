@@ -47,7 +47,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -93,10 +93,10 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     private Context prepareTransactionData() throws ExecutionException, InterruptedException {
         createTestTableWith3Replicas();
 
-        var tblReplicationGrp = defaultTablePartitionId(node(0));
+        var zoneTableReplicationGrp = defaultTablePartitionId(node(0));
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplicaForTable(
+                zoneTableReplicationGrp,
                 node(0).clock().now(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -123,10 +123,10 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         return new Context(primaryNode, coordinatorNode, publicTable, rwTx, keyTpl);
     }
 
-    private TablePartitionId defaultTablePartitionId(IgniteImpl node) {
+    private ZonePartitionId defaultTablePartitionId(IgniteImpl node) {
         TableViewInternal table = unwrapTableViewInternal(node.tables().table(TABLE_NAME));
 
-        return new TablePartitionId(table.tableId(), 0);
+        return new ZonePartitionId(table.internalTable().zoneId(), table.tableId(), 0);
     }
 
     private void commitAndValidate(InternalTransaction rwTx, Table publicTable, Tuple keyTpl) {
@@ -324,7 +324,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
         TxMeta txMetaToSet = new TxMeta(
                 ABORTED,
-                asList(new TablePartitionId(tableImpl.tableId(), 0)),
+                asList(new ZonePartitionId(tableImpl.internalTable().zoneId(), tableImpl.tableId(), 0)),
                 null
         );
         bypassingThreadAssertions(() -> storage.put(tx.id(), txMetaToSet));

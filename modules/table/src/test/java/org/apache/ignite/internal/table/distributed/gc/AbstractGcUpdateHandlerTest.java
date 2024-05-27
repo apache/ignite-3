@@ -58,6 +58,8 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
     /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate due to recreating the storage every time. */
     private static final int REPEATS = 1000;
 
+    protected static final int ZONE_ID = 11;
+
     protected static final int TABLE_ID = 1;
 
     private static final int PARTITION_ID = 0;
@@ -199,7 +201,7 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
     }
 
     private TestPartitionDataStorage createPartitionDataStorage() {
-        return new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, getOrCreateMvPartition(tableStorage, PARTITION_ID));
+        return new TestPartitionDataStorage(ZONE_ID, TABLE_ID, PARTITION_ID, getOrCreateMvPartition(tableStorage, PARTITION_ID));
     }
 
     private static IndexUpdateHandler createIndexUpdateHandler() {
@@ -232,7 +234,7 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         storage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            storage.addWrite(rowId, row, UUID.randomUUID(), 999, PARTITION_ID);
+            storage.addWrite(rowId, row, UUID.randomUUID(), 9999, 999, PARTITION_ID);
 
             storage.commitWrite(rowId, timestamp);
 

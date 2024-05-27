@@ -52,7 +52,7 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
 
     private final TableMessagesFactory messagesFactory = new TableMessagesFactory();
 
-    private final PartitionKey partitionKey = new PartitionKey(1, 1);
+    private final PartitionKey partitionKey = new PartitionKey(11, 1, 1);
 
     private static final int REQUIRED_CATALOG_VERSION = 42;
 

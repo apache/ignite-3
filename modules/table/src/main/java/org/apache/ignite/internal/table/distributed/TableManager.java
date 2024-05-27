@@ -1012,14 +1012,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             .updateInternalTableRaftGroupService(partId, updatedRaftGroupService);
 
                     boolean startedRaftNode = startGroupFut.join();
-                    if (localMemberAssignment == null || !startedRaftNode || replicaMgr.isReplicaStarted(replicaGrpId)) {
+                    ZonePartitionId zoneTablePartId = new ZonePartitionId(zoneId, tableId, partId);
+                    if (localMemberAssignment == null || !startedRaftNode || replicaMgr.isReplicaStarted(zoneTablePartId)) {
                         return;
                     }
 
                     try {
                         startReplicaWithNewListener(
-                                replicaGrpId,
-                                zonePartitionId,
+                                new ZonePartitionId(zoneId, tableId, partId),
                                 table,
                                 safeTimeTracker,
                                 storageIndexTracker,
@@ -1046,8 +1046,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private void startReplicaWithNewListener(
-            TablePartitionId replicaGrpId,
-            ZonePartitionId zonePartitionId,
+            ZonePartitionId replicaGrpId,
             TableImpl table,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
@@ -1068,7 +1067,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         replicaMgr.startReplica(
                 replicaGrpId,
-                zonePartitionId,
                 listener,
                 raftGroupService,
                 storageIndexTracker
@@ -1084,6 +1082,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             PartitionUpdateHandlers partitionUpdateHandlers,
             RaftGroupService raftClient
     ) {
+        int zoneId = table.internalTable().zoneId();
         int tableId = table.tableId();
 
         return new PartitionReplicaListener(
@@ -1093,6 +1092,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 lockMgr,
                 scanRequestExecutor,
                 partId,
+                zoneId,
                 tableId,
                 table.indexesLockers(partId),
                 new Lazy<>(() -> table.indexStorageAdapters(partId).get().get(table.pkId())),
@@ -1126,7 +1126,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private static PartitionKey partitionKey(InternalTable internalTbl, int partId) {
-        return new PartitionKey(internalTbl.tableId(), partId);
+        return new PartitionKey(internalTbl.zoneId(), internalTbl.tableId(), partId);
     }
 
     private RaftGroupOptions groupOptionsForPartition(
@@ -2406,7 +2406,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Boolean> stopReplicaFuture;
 
         try {
-            stopReplicaFuture = replicaMgr.stopReplica(tablePartitionId);
+            stopReplicaFuture = replicaMgr.stopReplica(
+                    new ZonePartitionId(table.internalTable().zoneId(), tablePartitionId.tableId(), tablePartitionId.partitionId())
+            );
         } catch (NodeStoppingException e) {
             // No-op.
             stopReplicaFuture = falseCompletedFuture();

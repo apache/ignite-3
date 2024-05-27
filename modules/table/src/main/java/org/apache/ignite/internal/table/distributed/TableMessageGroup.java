@@ -210,6 +210,9 @@ public interface TableMessageGroup {
 
         /** Message type for {@link TablePartitionIdMessage}. */
         short TABLE_PARTITION_ID = 61;
+
+        /** Message type for {@link ZonePartitionIdMessage}. */
+        short ZONE_PARTITION_ID = 62;
     }
 
     /**

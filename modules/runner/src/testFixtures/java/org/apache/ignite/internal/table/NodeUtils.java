@@ -156,7 +156,7 @@ public class NodeUtils {
     }
 
     private static ReplicaMeta leaseholder(IgniteImpl node, ReplicationGroupId groupId) {
-        CompletableFuture<ReplicaMeta> leaseholderFuture = node.placementDriver().awaitPrimaryReplica(
+        CompletableFuture<ReplicaMeta> leaseholderFuture = node.placementDriver().awaitPrimaryReplicaForTable(
                 groupId,
                 node.clock().now(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,

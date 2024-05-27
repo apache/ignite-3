@@ -23,7 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.network.ClusterNode;
@@ -41,7 +41,7 @@ public final class NoOpTransaction implements InternalTransaction {
 
     private final IgniteBiTuple<ClusterNode, Long> tuple;
 
-    private final TablePartitionId groupId = new TablePartitionId(1, 0);
+    private final ZonePartitionId zoneGroupId = new ZonePartitionId(11, 1, 0);
 
     private final boolean readOnly;
 
@@ -136,7 +136,7 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(TablePartitionId tablePartitionId) {
+    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndConsistencyToken(ZonePartitionId zonePartitionId) {
         return tuple;
     }
 
@@ -146,17 +146,17 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
+    public boolean assignCommitPartition(ZonePartitionId zonePartitionId) {
         return true;
     }
 
     @Override
-    public TablePartitionId commitPartition() {
-        return groupId;
+    public ZonePartitionId zoneCommitPartition() {
+        return zoneGroupId;
     }
 
     @Override
-    public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId,
+    public IgniteBiTuple<ClusterNode, Long> enlist(ZonePartitionId zonePartitionId,
             IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
         return nodeAndConsistencyToken;
     }

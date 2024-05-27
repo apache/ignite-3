@@ -112,6 +112,11 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     }
 
     @Override
+    public CompletableFuture<ReplicaMeta> getPrimaryReplicaForTable(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+        throw new IgniteInternalException("Not implemented yet.");
+    }
+
+    @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
         return nullCompletedFuture();
     }
@@ -140,7 +145,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             }
 
             @Override
-            public Set<ReplicationGroupId> subgroups() {
+            public Set<Integer> subgroups() {
                 return Set.of();
             }
         };
@@ -150,7 +155,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     public CompletableFuture<Void> addSubgroups(
             ZonePartitionId zoneId,
             Long enlistmentConsistencyToken,
-            Set<ReplicationGroupId> subGrps
+            Set<Integer> subGrps
     ) {
         return nullCompletedFuture();
     }

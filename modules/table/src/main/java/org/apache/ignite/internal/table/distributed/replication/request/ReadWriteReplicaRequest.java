@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table.distributed.replication.request;
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
+import org.apache.ignite.internal.table.distributed.command.ZonePartitionIdMessage;
 
 /** Read-write replica request. */
 public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, TimestampAware {
@@ -39,9 +39,9 @@ public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, Timestam
     boolean full();
 
     /**
-     * Gets a commit partition id.
+     * Gets a zone commit partition id.
      *
-     * @return Table partition id.
+     * @return Zone partition id.
      */
-    TablePartitionIdMessage commitPartitionId();
+    ZonePartitionIdMessage zoneCommitPartitionId();
 }

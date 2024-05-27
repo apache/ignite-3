@@ -45,7 +45,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.Lock;
@@ -141,7 +141,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     void testNoTriggerCommittedState() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
 
-        TablePartitionId tpId = new TablePartitionId(1, 0);
+        ZonePartitionId tpId = new ZonePartitionId(11, 1, 0);
 
         RowId rowId = new RowId(tpId.partitionId());
 
@@ -171,7 +171,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     void testNoTriggerAbortedState() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
 
-        TablePartitionId tpId = new TablePartitionId(1, 0);
+        ZonePartitionId tpId = new ZonePartitionId(11, 1, 0);
 
         RowId rowId = new RowId(tpId.partitionId());
 
@@ -201,7 +201,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     void testNoTriggerFinishingState() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
 
-        TablePartitionId tpId = new TablePartitionId(1, 0);
+        ZonePartitionId tpId = new ZonePartitionId(11, 1, 0);
 
         RowId rowId = new RowId(tpId.partitionId());
 
@@ -231,7 +231,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     void testNoTriggerCoordinatorAlive() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
 
-        TablePartitionId tpId = new TablePartitionId(1, 0);
+        ZonePartitionId tpId = new ZonePartitionId(11, 1, 0);
 
         RowId rowId = new RowId(tpId.partitionId());
 
@@ -260,11 +260,11 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     void testTriggerOnLockConflictCoordinatorDead() {
         UUID orphanTxId = idGenerator.transactionIdFor(clock.now());
 
-        TablePartitionId tpId = new TablePartitionId(1, 0);
+        ZonePartitionId tpId = new ZonePartitionId(11, 1, 0);
 
         RowId rowId = new RowId(tpId.partitionId());
 
-        when(placementDriver.awaitPrimaryReplica(eq(tpId), any(), anyLong(), any()))
+        when(placementDriver.awaitPrimaryReplicaForTable(eq(tpId), any(), anyLong(), any()))
                 .thenReturn(completedFuture(new TestReplicaMetaImpl(REMOTE_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
         lockManager.acquire(orphanTxId, new LockKey(tpId.tableId(), rowId), LockMode.X);

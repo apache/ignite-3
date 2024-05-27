@@ -35,7 +35,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl.TransactionFailureHandler;
@@ -150,7 +150,7 @@ public class TxCleanupRequestSender {
      * @return Completable future of Void.
      */
     public CompletableFuture<Void> cleanup(
-            Map<TablePartitionId, String> enlistedPartitions,
+            Map<ZonePartitionId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -158,7 +158,7 @@ public class TxCleanupRequestSender {
         // Start tracking the partitions we want to learn the replication confirmation from.
         writeIntentsReplicated.put(txId, new CleanupContext(enlistedPartitions.keySet(), commit ? TxState.COMMITTED : TxState.ABORTED));
 
-        Map<String, Set<TablePartitionId>> partitions = new HashMap<>();
+        Map<String, Set<ZonePartitionId>> partitions = new HashMap<>();
         enlistedPartitions.forEach((partitionId, nodeId) ->
                 partitions.computeIfAbsent(nodeId, node -> new HashSet<>()).add(partitionId));
 
@@ -175,7 +175,7 @@ public class TxCleanupRequestSender {
      * @return Completable future of Void.
      */
     public CompletableFuture<Void> cleanup(
-            Collection<TablePartitionId> partitionIds,
+            Collection<ZonePartitionId> partitionIds,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -195,7 +195,7 @@ public class TxCleanupRequestSender {
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
-            Set<TablePartitionId> noPrimaryFound
+            Set<ZonePartitionId> noPrimaryFound
     ) {
         // For the partitions without primary, we need to wait until a new primary is found.
         // Then we can proceed with the common cleanup flow.
@@ -204,16 +204,16 @@ public class TxCleanupRequestSender {
     }
 
     private CompletableFuture<Void> cleanupPartitions(
-            Map<String, Set<TablePartitionId>> partitionsByNode,
+            Map<String, Set<ZonePartitionId>> partitionsByNode,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
         List<CompletableFuture<Void>> cleanupFutures = new ArrayList<>();
 
-        for (Entry<String, Set<TablePartitionId>> entry : partitionsByNode.entrySet()) {
+        for (Entry<String, Set<ZonePartitionId>> entry : partitionsByNode.entrySet()) {
             String node = entry.getKey();
-            Set<TablePartitionId> nodePartitions = entry.getValue();
+            Set<ZonePartitionId> nodePartitions = entry.getValue();
 
             cleanupFutures.add(sendCleanupMessageWithRetries(commit, commitTimestamp, txId, node, nodePartitions));
         }
@@ -226,7 +226,7 @@ public class TxCleanupRequestSender {
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
             String node,
-            @Nullable Collection<TablePartitionId> partitions
+            @Nullable Collection<ZonePartitionId> partitions
     ) {
         Collection<ReplicationGroupId> enlistedPartitions = (Collection<ReplicationGroupId>) (Collection<?>) partitions;
 
@@ -265,14 +265,14 @@ public class TxCleanupRequestSender {
         /**
          * The partitions the we have not received write intent replication confirmation for.
          */
-        private final Set<TablePartitionId> partitions;
+        private final Set<ZonePartitionId> partitions;
 
         /**
          * The state of the transaction.
          */
         private final TxState txState;
 
-        private CleanupContext(Set<TablePartitionId> partitions, TxState txState) {
+        private CleanupContext(Set<ZonePartitionId> partitions, TxState txState) {
             this.partitions = partitions;
 
             this.txState = txState;

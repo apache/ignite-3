@@ -33,7 +33,7 @@ import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaAbandoned;
@@ -184,7 +184,7 @@ public class OrphanDetector {
      * @param cmpPartGrp Replication group of commit partition.
      * @param txId Transaction id.
      */
-    private void sendTxRecoveryMessage(TablePartitionId cmpPartGrp, UUID txId) {
+    private void sendTxRecoveryMessage(ZonePartitionId cmpPartGrp, UUID txId) {
         placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(cmpPartGrp)
                 .thenCompose(replicaMeta -> {
                     ClusterNode commitPartPrimaryNode = topologyService.getByConsistentId(replicaMeta.getLeaseholder());

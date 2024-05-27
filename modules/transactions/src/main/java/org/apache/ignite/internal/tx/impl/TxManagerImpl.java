@@ -81,7 +81,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -350,7 +349,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private CompletableFuture<Boolean> primaryReplicaEventListener(
             PrimaryReplicaEventParameters eventParameters,
-            Consumer<TablePartitionId> action
+            Consumer<ZonePartitionId> action
     ) {
         return inBusyLock(busyLock, () -> {
             if (!(eventParameters.groupId() instanceof ZonePartitionId)) {
@@ -359,9 +358,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             ZonePartitionId zonePartitionId = (ZonePartitionId) eventParameters.groupId();
 
-            TablePartitionId groupId = new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId());
-
-            action.accept(groupId);
+            action.accept(zonePartitionId);
 
             return falseCompletedFuture();
         });
@@ -492,9 +489,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public CompletableFuture<Void> finish(
             HybridTimestampTracker observableTimestampTracker,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             boolean commitIntent,
-            Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Map<ZonePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
             UUID txId
     ) {
         LOG.debug("Finish [commit={}, txId={}, groups={}].", commitIntent, txId, enlistedGroups);
@@ -575,9 +572,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private CompletableFuture<Void> prepareFinish(
             HybridTimestampTracker observableTimestampTracker,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             boolean commit,
-            Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Map<ZonePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
             UUID txId,
             CompletableFuture<TransactionMeta> txFinishFuture
     ) {
@@ -617,7 +614,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      */
     private CompletableFuture<Void> durableFinish(
             HybridTimestampTracker observableTimestampTracker,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             boolean commit,
             Map<ReplicationGroupId, String> replicationGroupIds,
             UUID txId,
@@ -688,7 +685,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private CompletableFuture<Void> makeFinishRequest(
             HybridTimestampTracker observableTimestampTracker,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             String primaryConsistentId,
             Long enlistmentConsistencyToken,
             boolean commit,
@@ -824,7 +821,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public CompletableFuture<Void> cleanup(
-            Map<TablePartitionId, String> enlistedPartitions,
+            Map<ZonePartitionId, String> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -834,7 +831,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public CompletableFuture<Void> cleanup(
-            Collection<TablePartitionId> enlistedPartitions,
+            Collection<ZonePartitionId> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
@@ -928,17 +925,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @return Verification future.
      */
     private CompletableFuture<Void> verifyCommitTimestamp(
-            Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
+            Map<ZonePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
             HybridTimestamp commitTimestamp
     ) {
         var verificationFutures = new CompletableFuture[enlistedGroups.size()];
         int cnt = -1;
 
-        for (Map.Entry<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroup : enlistedGroups.entrySet()) {
-            TablePartitionId groupId = enlistedGroup.getKey();
+        for (Map.Entry<ZonePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroup : enlistedGroups.entrySet()) {
+            ZonePartitionId groupId = enlistedGroup.getKey();
             Long expectedEnlistmentConsistencyToken = enlistedGroup.getValue().get2();
 
-            verificationFutures[++cnt] = placementDriver.getPrimaryReplica(groupId, commitTimestamp)
+            verificationFutures[++cnt] = placementDriver.getPrimaryReplicaForTable(groupId, commitTimestamp)
                     .thenAccept(currentPrimaryReplica -> {
                         if (currentPrimaryReplica == null
                                 || !expectedEnlistmentConsistencyToken.equals(currentPrimaryReplica.getStartTime().longValue())

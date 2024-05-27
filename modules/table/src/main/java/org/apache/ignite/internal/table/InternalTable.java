@@ -26,7 +26,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -364,7 +364,7 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> scan(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             String txCoordinatorId,
             PrimaryReplica recipient,
             @Nullable Integer indexId,
@@ -436,7 +436,7 @@ public interface InternalTable extends ManuallyCloseable {
     Publisher<BinaryRow> lookup(
             int partId,
             UUID txId,
-            TablePartitionId commitPartition,
+            ZonePartitionId commitPartition,
             String txCoordinatorId,
             PrimaryReplica recipient,
             int indexId,
@@ -497,8 +497,8 @@ public interface InternalTable extends ManuallyCloseable {
     /**
      * Returns {@link ClusterNode} where primary replica of replication group is located.
      *
-     * @param partition Replication group identifier.
+     * @param zonePartitionId Replication group identifier.
      * @return Cluster node with primary replica.
      */
-    CompletableFuture<ClusterNode> partitionLocation(TablePartitionId partition);
+    CompletableFuture<ClusterNode> partitionLocation(ZonePartitionId zonePartitionId);
 }

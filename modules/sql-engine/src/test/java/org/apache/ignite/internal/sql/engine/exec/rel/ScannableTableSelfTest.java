@@ -55,7 +55,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -134,7 +134,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             verify(internalTable).scan(
                     partitionId,
                     tx.id(),
-                    tx.commitPartition(),
+                    tx.zoneCommitPartition(),
                     tx.coordinatorId(),
                     new PrimaryReplica(clusterNode, consistencyToken),
                     null,
@@ -223,7 +223,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             verify(internalTable).scan(
                     eq(partitionId),
                     eq(tx.id()),
-                    eq(tx.commitPartition()),
+                    eq(tx.zoneCommitPartition()),
                     anyString(),
                     eq(primaryReplica),
                     eq(indexId),
@@ -299,7 +299,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             verify(internalTable).scan(
                     eq(partitionId),
                     eq(tx.id()),
-                    eq(tx.commitPartition()),
+                    eq(tx.zoneCommitPartition()),
                     anyString(),
                     eq(primaryReplica),
                     eq(indexId),
@@ -421,7 +421,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             verify(internalTable).scan(
                     eq(partitionId),
                     eq(tx.id()),
-                    eq(tx.commitPartition()),
+                    eq(tx.zoneCommitPartition()),
                     anyString(),
                     eq(primaryReplica),
                     eq(indexId),
@@ -606,7 +606,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                 doAnswer(invocation -> input.publisher).when(internalTable).scan(
                         anyInt(),
                         any(UUID.class),
-                        any(TablePartitionId.class),
+                        any(ZonePartitionId.class),
                         any(String.class),
                         any(PrimaryReplica.class),
                         isNull(),
@@ -655,7 +655,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                 doAnswer(i -> input.publisher).when(internalTable).scan(
                         anyInt(),
                         any(UUID.class),
-                        any(TablePartitionId.class),
+                        any(ZonePartitionId.class),
                         any(String.class),
                         any(PrimaryReplica.class),
                         any(Integer.class),
@@ -703,7 +703,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
                 doAnswer(i -> input.publisher).when(internalTable).lookup(
                         anyInt(),
                         any(UUID.class),
-                        any(TablePartitionId.class),
+                        any(ZonePartitionId.class),
                         any(String.class),
                         any(PrimaryReplica.class),
                         any(Integer.class),

@@ -74,7 +74,7 @@ public class ScannableTableImpl implements ScannableTable {
             pub = internalTable.scan(
                     partWithConsistencyToken.partId(),
                     txAttributes.id(),
-                    txAttributes.commitPartition(),
+                    txAttributes.zoneCommitPartition(),
                     txAttributes.coordinatorId(),
                     recipient,
                     null,
@@ -143,7 +143,7 @@ public class ScannableTableImpl implements ScannableTable {
             pub = internalTable.scan(
                     partWithConsistencyToken.partId(),
                     txAttributes.id(),
-                    txAttributes.commitPartition(),
+                    txAttributes.zoneCommitPartition(),
                     txAttributes.coordinatorId(),
                     new PrimaryReplica(ctx.localNode(), partWithConsistencyToken.enlistmentConsistencyToken()),
                     indexId,
@@ -198,7 +198,7 @@ public class ScannableTableImpl implements ScannableTable {
             pub = internalTable.lookup(
                     partWithConsistencyToken.partId(),
                     txAttributes.id(),
-                    txAttributes.commitPartition(),
+                    txAttributes.zoneCommitPartition(),
                     txAttributes.coordinatorId(),
                     new PrimaryReplica(ctx.localNode(), partWithConsistencyToken.enlistmentConsistencyToken()),
                     indexId,
