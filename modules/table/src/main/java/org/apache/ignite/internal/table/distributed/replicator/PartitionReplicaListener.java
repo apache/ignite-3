@@ -550,9 +550,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         Map.of(replicationGroupId, new IgniteBiTuple<>(clusterNodeResolver.getById(senderId), 0L)),
                         txId
                 )
-                .whenComplete((v, ex) -> {
-                    runCleanupOnNode(replicationGroupId, txId, senderId);
-                });
+                .whenComplete((v, ex) -> runCleanupOnNode(replicationGroupId, txId, senderId));
     }
 
     /**

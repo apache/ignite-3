@@ -219,7 +219,6 @@ public class VolatileTxStateMetaStorage {
                     }
 
                     LOG.info("Vacuum finished [vacuumObservationTimestamp={}, "
-                                    + "txIds={}, "
                                     + "txnResourceTtl={}, "
                                     + "vacuumizedTxnsCount={}, "
                                     + "vacuumizedPersistentTxnStatesCount={}, "
@@ -227,7 +226,6 @@ public class VolatileTxStateMetaStorage {
                                     + "alreadyMarkedTxnsCount={}, "
                                     + "skippedForFurtherProcessingUnfinishedTxnsCount={}].",
                             vacuumObservationTimestamp,
-                            txIds,
                             txnResourceTtl,
                             vacuumizedTxnsCount,
                             vacuumResult.vacuumizedPersistentTxnStatesCount,
